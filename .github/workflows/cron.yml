@@ -1,0 +1,31 @@
+# Vercel Hobby 的排程一天最多一次，更頻繁的改由這裡呼叫；需要 GitHub Secrets 的 HUB_URL 與 CRON_SECRET（設定方式見 docs/secrets.md）
+name: cron
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "排程名稱，例如 starrail:stamina"
+        required: true
+        default: "starrail:stamina"
+
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 呼叫 /api/cron
+        env:
+          HUB_URL: ${{ secrets.HUB_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          TASK: ${{ inputs.task || 'starrail:stamina' }}
+        run: |
+          if [ -z "$HUB_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "尚未設定 HUB_URL／CRON_SECRET，略過"
+            exit 0
+          fi
+          curl --fail-with-body -sS -m 60 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$HUB_URL/api/cron/$TASK"

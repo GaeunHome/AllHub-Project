@@ -1,0 +1,1 @@
+ALTER TABLE "youtube_translations" ADD COLUMN "lock_id" uuid;

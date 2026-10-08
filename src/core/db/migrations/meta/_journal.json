@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791364319051,
+      "tag": "0000_aspiring_venom",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791365944729,
+      "tag": "0001_youtube",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791385018419,
+      "tag": "0002_youtube_translation_lock",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791388269440,
+      "tag": "0003_savings",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791393857161,
+      "tag": "0004_accounts_notifications",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+name: db-migrate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/core/db/migrations/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 不取消執行中的工作，避免 migration 跑到一半被中斷
+concurrency:
+  group: db-migrate
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      configured: ${{ steps.secret.outputs.configured }}
+    steps:
+      - id: secret
+        name: 檢查 MIGRATION_DATABASE_URL
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: |
+          if [ -z "$MIGRATION_DATABASE_URL" ]; then
+            echo "::notice::尚未設定 MIGRATION_DATABASE_URL，略過 migration"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  migrate:
+    needs: check
+    # 只從 main 套用，避免手動執行時選到未合併分支的 migration
+    if: needs.check.outputs.configured == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          # 這個工作拿得到正式資料庫的連線字串，不用相依套件快取以免快取被污染
+          package-manager-cache: false
+      - name: 安裝套件
+        run: npm ci
+      - name: 套用 migration
+        env:
+          # GitHub 的機器只有 IPv4，Supabase 的 Direct connection 是 IPv6，所以這裡要用 Session pooler（5432）的連線字串
+          DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+        run: npx drizzle-kit migrate

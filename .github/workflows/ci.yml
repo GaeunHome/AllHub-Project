@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: 安裝套件
+        run: npm ci
+      - name: 測試
+        run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: 建置
+        run: npm run build
+      # typecheck 需要 build 產生的 .next/types，所以放最後
+      - name: 型別檢查
+        run: npm run typecheck
