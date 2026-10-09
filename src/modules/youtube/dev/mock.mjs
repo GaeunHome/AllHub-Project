@@ -1,7 +1,35 @@
-// 假的 YouTube／WebSub hub／AI；特殊輸入（@nobody、影片 id 開頭 nocaptions／zhsubs／zhauto、金鑰含 bad、MOCK_AI_MS_PER_LINE）見 docs/development.md「假伺服器的特殊輸入」
+// 假的 YouTube／WebSub hub／AI 與圖片 CDN；特殊輸入（@nobody、@noavatar…、影片 id 開頭 nocaptions／zhsubs／zhauto／nothumb、金鑰含 bad、MOCK_AI_MS_PER_LINE）見 docs/development.md「假伺服器的特殊輸入」
+import { createHash } from "node:crypto";
 
 /** 依 handle 產生固定的假頻道 id（UC + 22 碼） */
 const channelIdOf = (handle) => "UC" + Buffer.from(handle).toString("base64url").padEnd(22, "x").slice(0, 22);
+/** 從假頻道 id 還原 handle 的開頭（只用來決定頭像的字與要不要有頭像） */
+const handleOf = (channelId) => Buffer.from(channelId.slice(2).replace(/x+$/, ""), "base64url").toString("utf8");
+/** 每個頻道的 RSS feed 有三支影片（追蹤時會補進影片清單）；影片 id 依頻道 id 雜湊，不同頻道不會撞在一起 */
+const feedEntries = (channelId) => {
+  const tag = createHash("sha1").update(channelId).digest("base64url").replace(/[-_]/g, "a");
+  const hour = 3600_000;
+  return [
+    { videoId: `zhsubs${tag.slice(0, 5)}`, title: "新歌 MV（有中文字幕）", ago: 3 * hour },
+    { videoId: `feed${tag.slice(0, 6)}1`, title: "直播精華", ago: 30 * hour },
+    { videoId: `feed${tag.slice(0, 6)}2`, title: "幕後花絮", ago: 5 * 24 * hour },
+  ];
+};
+/** 從 @帳號 產生的頻道用帳號當名字，截圖分得出是哪個頻道；直接用 UC id 加的頻道解不出帳號，用 id 末四碼 */
+const feedName = (channelId) => {
+  const handle = handleOf(channelId);
+  return /^[\w.-]{1,40}$/.test(handle) ? handle : channelId.slice(-4);
+};
+const feedXml = (channelId) =>
+  feedEntries(channelId)
+    .map(({ videoId, title, ago }) => `<entry><yt:videoId>${videoId}</yt:videoId><yt:channelId>${channelId}</yt:channelId><title>${title}</title><published>${new Date(Date.now() - ago).toISOString()}</published></entry>`)
+    .join("");
+
+/** 頻道頁：@noavatar 開頭的頻道沒有 og:image，畫面會退回文字頭像 */
+const channelPage = (channelId) => {
+  const avatar = handleOf(channelId).startsWith("noavatar") ? "" : `<meta property="og:image" content="https://yt3.googleusercontent.com/ytc/${channelId}=s900-c-k-c0x00ffffff-no-rj">`;
+  return `<html><head><link rel="canonical" href="https://www.youtube.com/channel/${channelId}">${avatar}</head></html>`;
+};
 
 // 內建的假字幕給固定譯文，畫面上看得出中文字幕疊在影片上；其他句子（例如上傳的字幕檔）回「〔中〕原文」
 const KOREAN_LINES = {
@@ -15,16 +43,28 @@ const KOREAN_LINES = {
   안녕: "掰掰",
 };
 
-export function handle({ req, url, body, json, text }) {
+export function handle({ req, url, body, json, text, image }) {
   // ---------- YouTube ----------
   if (url.pathname.startsWith("/@")) {
     const name = decodeURIComponent(url.pathname.slice(2));
     if (name === "nobody") return text(404, "not found");
-    return text(200, `<html><head><link rel="canonical" href="https://www.youtube.com/channel/${channelIdOf(name)}"><meta property="og:image" content=""></head></html>`, "text/html");
+    return text(200, channelPage(channelIdOf(name)), "text/html");
+  }
+  if (url.pathname.startsWith("/channel/")) return text(200, channelPage(url.pathname.split("/")[2] ?? ""), "text/html");
+
+  // ---------- 圖片 CDN（i.ytimg.com 的縮圖、yt3 的頻道頭像） ----------
+  if (url.pathname.startsWith("/vi/")) {
+    const videoId = url.pathname.split("/")[2] ?? "";
+    if (videoId.startsWith("nothumb")) return text(404, "not found");
+    return image(videoId, { width: 320, height: 180 });
+  }
+  if (url.pathname.startsWith("/ytc/")) {
+    const channelId = url.pathname.slice("/ytc/".length).split("=")[0];
+    return image(handleOf(channelId).slice(0, 2).toUpperCase() || "YT", { width: 176, height: 176, round: true });
   }
   if (url.pathname === "/feeds/videos.xml") {
     const id = url.searchParams.get("channel_id") ?? "";
-    return text(200, `<?xml version="1.0"?><feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom"><title>模擬頻道 ${id.slice(-4)}</title></feed>`, "application/atom+xml");
+    return text(200, `<?xml version="1.0"?><feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom"><title>模擬頻道 ${feedName(id)}</title>${feedXml(id)}</feed>`, "application/atom+xml");
   }
   if (url.pathname === "/watch") {
     const v = url.searchParams.get("v") ?? "";
@@ -37,7 +77,7 @@ export function handle({ req, url, body, json, text }) {
   if (url.pathname === "/api/timedtext") {
     return json(200, { events: Object.keys(KOREAN_LINES).map((utf8, i) => ({ tStartMs: i * 2000, dDurationMs: 1900, segs: [{ utf8 }] })) });
   }
-  if (url.pathname === "/oembed") return json(200, { title: "模擬影片標題" });
+  if (url.pathname === "/oembed") return json(200, { title: "模擬影片標題", author_name: "模擬頻道", author_url: "https://www.youtube.com/@mockchannel" });
 
   // ---------- WebSub hub ----------
   if (url.pathname === "/subscribe" && req.method === "POST") {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubCoreEnv } from "@/dev/test-env";
-import { captureErrorLog, form } from "@/dev/test-helpers";
+import { captureErrorLog, form, mocksOf } from "@/dev/test-helpers";
 
 const SECRET = "s".repeat(32);
 const USER_ID = "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f";
@@ -28,10 +28,13 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const users = vi.hoisted(() => ({ authenticate: vi.fn(), changePassword: vi.fn(), findSessionUser: vi.fn(), hasAnyUser: vi.fn() }));
+const users = vi.hoisted(() => ({ authenticate: vi.fn(), changePassword: vi.fn(), findSessionUser: vi.fn(), hasAnyUser: vi.fn(), deleteOwnAccount: vi.fn() }));
 vi.mock("./users", () => users);
+// 驗證碼本身另外測；這裡預設答對，專心測登入流程
+vi.mock("./captcha", { spy: true });
 
-const { changePasswordAction, login, logout } = await import("./actions");
+const captcha = mocksOf(await import("./captcha"), "takeCaptchaToken", "verifyCaptcha");
+const { changePasswordAction, deleteAccountAction, login, logout } = await import("./actions");
 const { SESSION_COOKIE, signSession, verifySessionToken } = await import("./session");
 
 let ipSeq = 0;
@@ -40,6 +43,8 @@ beforeEach(() => {
   request.ip = `203.0.113.${++ipSeq}`;
   request.jar.clear();
   Object.values(users).forEach((fn) => fn.mockReset());
+  captcha.takeCaptchaToken.mockReset().mockResolvedValue("captcha-token");
+  captcha.verifyCaptcha.mockReset().mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -104,6 +109,54 @@ describe("login", () => {
     expect(state.error).toMatch(/^錯誤次數太多，請 \d+ 分鐘後再試$/);
     expect(request.jar.has(SESSION_COOKIE)).toBe(false);
     expect(users.authenticate).toHaveBeenCalledTimes(5);
+  });
+
+  it("驗證碼用這次表單的答案與 cookie 驗證（cookie 每次都取出並清掉）", async () => {
+    users.authenticate.mockResolvedValue({ id: USER_ID, sessionVersion: 1 });
+
+    await login({}, form({ username: "alice", password: PASSWORD, captcha: "k7mrx" })).catch(() => {});
+
+    expect(captcha.takeCaptchaToken).toHaveBeenCalledWith("login");
+    expect(captcha.verifyCaptcha).toHaveBeenCalledWith("login", "k7mrx", "captcha-token");
+  });
+
+  it("驗證碼錯誤_回「驗證碼錯誤，請重新輸入」；還沒檢查密碼，不算帳號的失敗次數", async () => {
+    captcha.verifyCaptcha.mockResolvedValue(false);
+
+    expect(await login({}, form({ username: "alice", password: PASSWORD, captcha: "AAAAA" }))).toEqual({ error: "驗證碼錯誤，請重新輸入", username: "alice" });
+    expect(users.authenticate).not.toHaveBeenCalled();
+    expect(request.jar.has(SESSION_COOKIE)).toBe(false);
+  });
+
+  it("驗證碼錯誤也算這個 IP 的一次失敗：錯 5 次後就先擋下", async () => {
+    captcha.verifyCaptcha.mockResolvedValue(false);
+    for (let i = 0; i < 5; i++) await login({}, form({ username: "alice", password: PASSWORD, captcha: "AAAAA" }));
+    captcha.verifyCaptcha.mockResolvedValue(true);
+    users.authenticate.mockResolvedValue({ id: USER_ID, sessionVersion: 1 });
+
+    const state = await login({}, form({ username: "alice", password: PASSWORD, captcha: "K7MRX" }));
+
+    expect(state.error).toMatch(/^錯誤次數太多，請 \d+ 分鐘後再試$/);
+    expect(users.authenticate).not.toHaveBeenCalled();
+  });
+
+  it("被 IP 擋下時也清掉驗證碼 cookie（每次送出後都換一張）", async () => {
+    users.authenticate.mockResolvedValue(null);
+    for (let i = 0; i < 5; i++) await settle(login({}, form({ username: "alice", password: "wrong", captcha: "K7MRX" })));
+    captcha.takeCaptchaToken.mockClear();
+
+    await login({}, form({ username: "alice", password: PASSWORD, captcha: "K7MRX" }));
+
+    expect(captcha.takeCaptchaToken).toHaveBeenCalledWith("login");
+  });
+
+  it("帳號已停用（密碼正確才會知道）_說明已停用、不設 cookie", async () => {
+    users.authenticate.mockResolvedValue({ id: USER_ID, sessionVersion: 1, disabled: true });
+
+    const state = await login({}, form({ username: "alice", password: PASSWORD }));
+
+    expect(state).toEqual({ error: "這個帳號已停用，請聯絡站長", username: "alice" });
+    expect(request.jar.has(SESSION_COOKIE)).toBe(false);
   });
 
   it("資料庫出錯_回摘要不丟例外_log 只記錯誤種類", async () => {
@@ -185,6 +238,63 @@ describe("changePasswordAction", () => {
     users.changePassword.mockRejectedValue(new Error("db down"));
 
     expect(await changePasswordAction({}, passwords(PASSWORD, NEW_PASSWORD))).toEqual({ error: "變更密碼失敗（詳見伺服器 log）" });
+  });
+});
+
+describe("deleteAccountAction", () => {
+  const OTHER_USER = "1d2c3b4a-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
+
+  async function loggedIn(userId = USER_ID) {
+    request.jar.set(SESSION_COOKIE, { value: await signSession({ userId, version: 1 }, SECRET) });
+    users.findSessionUser.mockImplementation(async (claims: { userId: string }) => (claims.userId === userId ? { id: userId, username: "alice", role: "member" } : null));
+  }
+
+  it("沒登入_導向登入頁_不刪除", async () => {
+    users.findSessionUser.mockResolvedValue(null);
+
+    await expect(deleteAccountAction({}, form({ password: PASSWORD }))).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(users.deleteOwnAccount).not.toHaveBeenCalled();
+  });
+
+  it("密碼正確_刪除帳號、刪掉這台裝置的 cookie，導向登入頁並說明已刪除", async () => {
+    await loggedIn();
+    users.deleteOwnAccount.mockResolvedValue({ ok: true });
+
+    await expect(deleteAccountAction({}, form({ password: PASSWORD }))).rejects.toThrow("NEXT_REDIRECT:/login?deleted=1");
+
+    expect(users.deleteOwnAccount).toHaveBeenCalledWith(USER_ID, PASSWORD);
+    expect(request.jar.has(SESSION_COOKIE)).toBe(false);
+  });
+
+  it("密碼錯誤或唯一的站長_顯示原因、cookie 不變", async () => {
+    await loggedIn();
+    const before = request.jar.get(SESSION_COOKIE)!.value;
+    users.deleteOwnAccount.mockResolvedValueOnce({ ok: false, reason: "wrong_password", error: "密碼不正確" });
+    users.deleteOwnAccount.mockResolvedValueOnce({ ok: false, reason: "last_owner", error: "你是唯一的站長，不能刪除自己的帳號" });
+
+    expect(await deleteAccountAction({}, form({ password: "wrong password!!" }))).toEqual({ error: "密碼不正確" });
+    expect(await deleteAccountAction({}, form({ password: PASSWORD }))).toEqual({ error: "你是唯一的站長，不能刪除自己的帳號" });
+    expect(request.jar.get(SESSION_COOKIE)!.value).toBe(before);
+  });
+
+  it("密碼連續錯 5 次_先鎖住，不再驗證（跟改密碼共用、依帳號計算）", async () => {
+    await loggedIn(OTHER_USER);
+    users.deleteOwnAccount.mockResolvedValue({ ok: false, reason: "wrong_password", error: "密碼不正確" });
+    for (let i = 0; i < 5; i++) await deleteAccountAction({}, form({ password: "wrong password!!" }));
+
+    const state = await deleteAccountAction({}, form({ password: PASSWORD }));
+
+    expect(state.error).toMatch(/^錯誤次數太多，請 \d+ 分鐘後再試$/);
+    expect(users.deleteOwnAccount).toHaveBeenCalledTimes(5);
+  });
+
+  it("資料庫出錯_回摘要不丟例外、不刪 cookie", async () => {
+    captureErrorLog();
+    await loggedIn();
+    users.deleteOwnAccount.mockRejectedValue(new Error("db down"));
+
+    expect(await deleteAccountAction({}, form({ password: PASSWORD }))).toEqual({ error: "刪除帳號失敗（詳見伺服器 log）" });
+    expect(request.jar.has(SESSION_COOKIE)).toBe(true);
   });
 });
 

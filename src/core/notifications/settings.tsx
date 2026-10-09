@@ -33,11 +33,12 @@ async function requestPermission(): Promise<void> {
   permissionListeners.forEach((listener) => listener());
 }
 
-const PERMISSION_TEXT: Record<PermissionState, string> = {
-  default: "還沒允許。按下面的按鈕後，瀏覽器會詢問要不要允許通知。",
-  granted: "已允許。網站在背景分頁時，開著瀏覽器通知的模組有新通知會跳出系統通知，點一下會回到這個分頁。",
-  denied: "已被封鎖。要用的話請到瀏覽器的網站設定，把這個網站的通知改成允許。",
-  unsupported: "這個瀏覽器不支援系統通知（iPhone 要先把網站加到主畫面）。",
+/** 權限狀態用標籤顯示；被封鎖或不支援時要告訴使用者怎麼處理，其他狀態的說明收在「說明」裡 */
+const PERMISSION_CHIP: Record<PermissionState, { label: string; chip: string; action?: string }> = {
+  default: { label: "還沒允許", chip: "chip chip-warning" },
+  granted: { label: "已允許", chip: "chip chip-success" },
+  denied: { label: "已封鎖", chip: "chip chip-danger", action: "要用的話請到瀏覽器的網站設定，把這個網站的通知改成允許。" },
+  unsupported: { label: "這個瀏覽器不支援", chip: "chip", action: "iPhone 要先把網站加到主畫面才能收到系統通知。" },
 };
 
 const NOTICE_TEXT: Record<PermissionNotice, string> = {
@@ -51,7 +52,7 @@ export function AlertSwitchTable({ modules }: { modules: NotificationModule[] })
   return (
     <table className="w-full border-collapse text-sm">
       <thead>
-        <tr className="text-xs text-muted">
+        <tr className="text-[0.8125rem] text-ink-soft">
           <th scope="col" className="pb-1.5 text-left font-medium">
             模組
           </th>
@@ -80,39 +81,44 @@ function AlertSwitchRow({ module }: { module: NotificationModule }) {
 
   return (
     <tr>
-      <th scope="row" className="py-2 pr-2 text-left font-medium text-ink">
-        <span className="flex min-w-0 items-center gap-2.5">
-          <ModuleBadge module={module} className="size-8" />
+      <th scope="row" className="py-1 pr-2 text-left font-medium text-ink">
+        <span className="flex min-w-0 items-center gap-3">
+          <ModuleBadge module={module} />
           <span className="truncate">{module.name}</span>
         </span>
       </th>
-      <td className="py-2 text-center">
-        <input
-          type="checkbox"
-          role="switch"
-          aria-label={`${module.name}：提示音`}
-          checked={sound}
-          onChange={(event) => {
-            setAlertPref(module.id, "sound", event.target.checked);
-            // 這次點擊本身就算互動，順便把音效準備好
-            chime.unlock();
-          }}
-          className="switch align-middle"
-        />
+      {/* 開關本身只有 24px 高，外面包一層 44×44 的 label，手指也點得到 */}
+      <td className="py-1 text-center">
+        <label className="inline-grid min-h-11 min-w-11 cursor-pointer place-items-center align-middle">
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label={`${module.name}：提示音`}
+            checked={sound}
+            onChange={(event) => {
+              setAlertPref(module.id, "sound", event.target.checked);
+              // 這次點擊本身就算互動，順便把音效準備好
+              chime.unlock();
+            }}
+            className="switch"
+          />
+        </label>
       </td>
-      <td className="py-2 text-center">
-        <input
-          type="checkbox"
-          role="switch"
-          aria-label={`${module.name}：瀏覽器通知`}
-          checked={browser}
-          onChange={(event) => {
-            const enabled = event.target.checked;
-            setAlertPref(module.id, "browser", enabled);
-            if (shouldRequestPermission(readPermission(), enabled)) void requestPermission();
-          }}
-          className="switch align-middle"
-        />
+      <td className="py-1 text-center">
+        <label className="inline-grid min-h-11 min-w-11 cursor-pointer place-items-center align-middle">
+          <input
+            type="checkbox"
+            role="switch"
+            aria-label={`${module.name}：瀏覽器通知`}
+            checked={browser}
+            onChange={(event) => {
+              const enabled = event.target.checked;
+              setAlertPref(module.id, "browser", enabled);
+              if (shouldRequestPermission(readPermission(), enabled)) void requestPermission();
+            }}
+            className="switch"
+          />
+        </label>
       </td>
     </tr>
   );
@@ -124,7 +130,7 @@ export function BrowserPermissionNotice({ moduleIds }: { moduleIds: string[] }) 
   if (!notice) return null;
 
   return (
-    <div role="status" className="notice flex-wrap items-center px-3 text-xs">
+    <div role="status" className="notice flex-wrap items-center px-3">
       <Icon name="circle-alert" />
       <span className="min-w-40 flex-1">{NOTICE_TEXT[notice]}</span>
       {notice === "request" && (
@@ -134,6 +140,21 @@ export function BrowserPermissionNotice({ moduleIds }: { moduleIds: string[] }) 
         </button>
       )}
     </div>
+  );
+}
+
+/** 開關的運作方式：不常需要看，收起來，需要時再展開 */
+export function AlertSettingsHelp() {
+  return (
+    <details className="disclosure text-sm">
+      <summary>這些開關怎麼運作？</summary>
+      <ul className="flex list-disc flex-col gap-1 pl-5 leading-relaxed text-ink-soft">
+        <li>每個模組分開設定，存在這台裝置的瀏覽器，每台裝置可以不同。</li>
+        <li>兩個都關的模組不跳提示卡片也不響，只算進未讀數字；未讀數字一律照常顯示。</li>
+        <li>提示音要先在頁面上點過任何地方才能播放（瀏覽器的規定）。</li>
+        <li>瀏覽器通知只在網站位於背景分頁時跳出，點一下會回到這個分頁。</li>
+      </ul>
+    </details>
   );
 }
 
@@ -159,48 +180,46 @@ export function NotificationSettings({ modules }: { modules: NotificationModule[
     }
   }
 
+  // 外面的卡片與標題列在通知頁；這裡是撐滿卡片左右的三個區塊，文字跟標題對齊同一條線
   return (
-    <div className="card flex flex-col divide-y divide-line p-0">
-      <div className="flex flex-col gap-3 px-5 py-5 sm:px-6">
-        <p className="text-sm leading-relaxed text-muted">
-          每個模組分開設定，存在這台裝置的瀏覽器，每台裝置可以不同。兩個都關的模組不跳提示卡片，只算進未讀數字；未讀數字一律照常顯示。
-        </p>
+    <div className="card-list">
+      <div className="card-row stack">
         <AlertSwitchTable modules={modules} />
+        <AlertSettingsHelp />
       </div>
 
-      <div className="flex flex-col gap-3 px-5 py-5 sm:px-6">
-        <div className="flex items-start gap-3">
-          <span className="icon-tile size-10 rounded-xl">
+      <div className="card-row stack">
+        <div className="flex items-center gap-3">
+          <span className="icon-tile size-9 rounded-xl">
             <Icon name={anySound ? "volume-2" : "volume-x"} />
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-ink">提示音</p>
-            <p className="mt-0.5 text-sm leading-relaxed text-muted">開著提示音的模組有新通知時，播一聲輕柔的提示音。瀏覽器規定要先在頁面上點過任何地方，才能播放聲音。</p>
-          </div>
+          <p className="min-w-0 flex-1 font-semibold text-ink">提示音</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:pl-13">
+        {/* 寬螢幕上按鈕對齊標題文字（圖示 36px＋間距 12px） */}
+        <div className="button-row sm:pl-12">
           <button type="button" onClick={preview} className="btn-secondary btn-sm">
             <Icon name="play" className="size-3.5" />
             試聽
           </button>
-          {soundHint && <span className="text-xs text-danger">{soundHint}</span>}
+          {soundHint && <span className="text-sm text-danger">{soundHint}</span>}
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 px-5 py-5 sm:px-6">
+      <div className="card-row stack">
         <div className="flex items-start gap-3">
-          <span className="icon-tile size-10 rounded-xl">
+          <span className="icon-tile size-9 rounded-xl">
             <Icon name="bell-ring" />
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-ink">
-              瀏覽器通知 <span className="chip ml-1 align-middle">選用</span>
+          <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center gap-1.5">
+            <p className="flex flex-wrap items-center gap-2 font-semibold text-ink">
+              瀏覽器通知
+              {permission && <span className={PERMISSION_CHIP[permission].chip}>{PERMISSION_CHIP[permission].label}</span>}
             </p>
-            <p className="mt-0.5 text-sm leading-relaxed text-muted">{permission ? PERMISSION_TEXT[permission] : "讀取中…"}</p>
+            {permission && PERMISSION_CHIP[permission].action && <p className="text-sm leading-relaxed text-ink-soft">{PERMISSION_CHIP[permission].action}</p>}
           </div>
         </div>
         {(permission === "default" || permission === "granted") && (
-          <div className="flex flex-wrap items-center gap-2 sm:pl-13">
+          <div className="button-row sm:pl-12">
             {permission === "default" ? (
               <button type="button" onClick={requestPermission} className="btn-primary btn-sm">
                 <Icon name="bell-ring" className="size-3.5" />
@@ -212,7 +231,7 @@ export function NotificationSettings({ modules }: { modules: NotificationModule[
                 傳送測試通知
               </button>
             )}
-            {browserHint && <span className="text-xs text-danger">{browserHint}</span>}
+            {browserHint && <span className="text-sm text-danger">{browserHint}</span>}
           </div>
         )}
       </div>

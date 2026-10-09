@@ -104,9 +104,11 @@ describe("快取規則", () => {
       if (!fs.existsSync(path.join(SRC, file))) return [`${file}：缺少 tag 定義`];
       return [...read(file).matchAll(/["'`]([a-z][a-z0-9-]*):/g)].filter((m) => m[1] !== id).map((m) => `${file}：${m[0]} 要以 ${id}: 開頭`);
     });
-    const coreTags = [...read("core/notifications/cache-tags.ts").matchAll(/["'`]([a-z][a-z0-9-]*):/g)];
+    const coreTagFiles = sources.filter((file) => file.startsWith("core/") && file.endsWith("/cache-tags.ts"));
+    const coreTags = coreTagFiles.flatMap((file) => [...read(file).matchAll(/["'`]([a-z][a-z0-9-]*):/g)].map((m) => ({ file, tag: m[0], owner: m[1] })));
+    expect(coreTagFiles).toEqual(expect.arrayContaining(["core/notifications/cache-tags.ts", "core/auth/cache-tags.ts"]));
     expect(coreTags.length).toBeGreaterThan(0);
-    expect(coreTags.filter((m) => m[1] !== "core").map((m) => m[0])).toEqual([]);
+    expect(coreTags.filter((t) => t.owner !== "core").map((t) => `${t.file}：${t.tag}`)).toEqual([]);
     expect(problems).toEqual([]);
   });
 
@@ -128,9 +130,24 @@ describe("快取規則", () => {
   });
 
   it("寫入流程與排程不讀快取（cached.ts）：要依最新資料判斷，只有頁面與輪詢 API 讀快取", () => {
+    // core 沒有 service 資料夾，寫資料庫的檔案在這裡列出來（註冊、登入鎖定、邀請次數都要讀最新的資料）
+    const CORE_WRITERS = [
+      "core/notify.ts",
+      "core/notifications/service.ts",
+      "core/auth/users.ts",
+      "core/auth/invites.ts",
+      "core/auth/registration.ts",
+      "core/auth/attempts.ts",
+      "core/auth/captcha.ts",
+      "core/cooldown.ts",
+      "core/auth/actions.ts",
+      "core/admin/service.ts",
+      "core/admin/actions.ts",
+    ];
+    expect(CORE_WRITERS.filter((file) => !sources.includes(file))).toEqual([]);
     const offenders = sources.filter((file) => {
       const writesOrSchedules =
-        /\/service\/(?!cached\.ts$)[^/]+$/.test(file) || /(^|\/)cron\.ts$/.test(file) || file === "core/notify.ts" || file === "core/notifications/service.ts";
+        /\/service\/(?!cached\.ts$)[^/]+$/.test(file) || /(^|\/)cron\.ts$/.test(file) || CORE_WRITERS.includes(file);
       return writesOrSchedules && /from\s+["'][^"']*\/cached["']/.test(read(file));
     });
     expect(offenders).toEqual([]);

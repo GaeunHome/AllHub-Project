@@ -36,6 +36,20 @@
       "when": 1791393857161,
       "tag": "0004_accounts_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791443644758,
+      "tag": "0005_multiuser",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791455237904,
+      "tag": "0006_per_user_data",
+      "breakpoints": true
     }
   ]
 }

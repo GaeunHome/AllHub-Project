@@ -11,7 +11,7 @@ const { checkinAction, linkAccountAction, removeAccountAction, setThresholdActio
 beforeEach(() => {
   service.linkAccount.mockReset().mockResolvedValue({ ok: true, message: "已連結" });
   service.checkinAccount.mockReset().mockResolvedValue({ ok: true, message: "簽到成功" });
-  service.setStaminaThreshold.mockReset().mockResolvedValue(undefined);
+  service.setStaminaThreshold.mockReset().mockResolvedValue(true);
   service.removeAccount.mockReset().mockResolvedValue(undefined);
 });
 

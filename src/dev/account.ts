@@ -1,12 +1,13 @@
-// 帳號只能從這裡建立（網站公開，網頁註冊可能被搶）；用純 node 執行，所以不能用 @/、相對路徑要寫 .ts、型別一律 import type
+// 站長帳號從這裡建立（網站公開，沒有邀請就不能註冊）；用純 node 執行，所以不能用 @/、相對路徑要寫 .ts、型別一律 import type
 import { createInterface } from "node:readline";
 import { Writable } from "node:stream";
 import { asc, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH, hashPassword, normalizeUsername, passwordProblem, usernameProblem } from "../core/auth/credentials.ts";
+import { PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH, hashPassword, newPasswordProblem, normalizeUsername, usernameProblem } from "../core/auth/credentials.ts";
 import { coreUsers } from "../core/db/schema.ts";
+import type { UserRole } from "../core/db/schema.ts";
 import { errorKind } from "../core/errors.ts";
 
 export type AccountDb = PgDatabase<PgQueryResultHKT>;
@@ -55,11 +56,20 @@ const SESSION_POOLER_HINT = "正式資料庫用 Supabase 的 Session pooler（54
 const ENV_EXAMPLES = `  Mac／Linux：DATABASE_URL=… npm run account create
   Windows PowerShell：$env:DATABASE_URL="…"; npm run account create`;
 const URL_PROMPT = "資料庫連線字串（正式資料庫用 Supabase 的 Session pooler，5432 port；貼上後按 Enter，不會顯示）：";
+// 使用者遇過：貼上時在主機名稱中間斷行，前半段被當成連線字串，後半段跑進帳號欄位
+const INCOMPLETE_URL =
+  "連線字串不完整，可能複製時中間斷行了（缺少 port 或資料庫名稱）。請重新複製 Supabase 的 Session pooler 連線字串（結尾是 :5432/postgres），貼上時確認是同一行。";
+const ROLE_LABELS: Record<UserRole, string> = { owner: "站長", member: "成員" };
+// 在 insert 裡判斷，不必先查：問密碼的期間可能有人先建了帳號
+const OWNER_IF_FIRST = sql`(case when exists (select 1 from ${coreUsers}) then 'member' else 'owner' end)`;
 
 const USAGE = `用法：
   npm run account -- create          建立帳號：依提示輸入帳號與密碼（密碼不顯示、要輸入兩次）
-  npm run account -- passwd <帳號>   重設密碼，這個帳號在所有裝置上的登入都會失效
-  npm run account -- list            列出所有帳號
+  npm run account -- passwd <帳號>   重設密碼並解除登入鎖定，這個帳號在所有裝置上的登入都會失效
+  npm run account -- unlock <帳號>   只解除登入鎖定（失敗次數歸零），不改密碼；站長自己被鎖住時用這個
+  npm run account -- list            列出所有帳號與角色
+
+第一個建立的帳號是站長（可以在網站的管理頁邀請別人註冊），之後建立的是一般成員。
 
 資料庫連線：有環境變數 DATABASE_URL 就用它（不讀 .env.local）；沒有的話會提示貼上連線字串，輸入時不顯示，也不會留在 shell 的歷史紀錄。
 ${SESSION_POOLER_HINT}不是互動終端機時，要先設定環境變數：
@@ -76,8 +86,12 @@ export async function cli(argv: readonly string[], deps: AccountDeps): Promise<n
         noArgs(args, command);
         return await withDatabase(deps, (db) => create(db, deps));
       case "passwd": {
-        const username = usernameArg(args);
+        const username = usernameArg(args, command);
         return await withDatabase(deps, (db) => passwd(db, username, deps));
+      }
+      case "unlock": {
+        const username = usernameArg(args, command);
+        return await withDatabase(deps, (db) => unlock(db, username, deps));
       }
       case "list":
         noArgs(args, command);
@@ -105,9 +119,16 @@ function noArgs(args: readonly string[], command: string) {
   if (args.length > 0) throw usageError(`${command} 不接受參數；帳號與密碼請在提示出現後輸入，剛才打的內容記得從 shell history 刪掉`);
 }
 
-function usernameArg(args: readonly string[]): string {
-  if (args.length === 0) throw usageError("請指定帳號，例如 npm run account -- passwd <帳號>");
-  if (args.length > 1) throw usageError("密碼不能放在命令列（會留在 shell history），請在提示出現後輸入；剛才打的內容記得從 history 刪掉");
+function usernameArg(args: readonly string[], command: "passwd" | "unlock"): string {
+  if (args.length === 0) throw usageError(`請指定帳號，例如 npm run account -- ${command} <帳號>`);
+  // 多出來的參數可能就是密碼，不回顯
+  if (args.length > 1) {
+    throw usageError(
+      command === "passwd"
+        ? "密碼不能放在命令列（會留在 shell history），請在提示出現後輸入；剛才打的內容記得從 history 刪掉"
+        : `${command} 只接受一個帳號；多打的內容不會顯示，記得從 shell history 刪掉`,
+    );
+  }
   return normalizeUsername(args[0]);
 }
 
@@ -122,13 +143,17 @@ async function withDatabase(deps: AccountDeps, work: (db: AccountDb) => Promise<
 }
 
 async function findUser(db: AccountDb, username: string) {
-  const [user] = await db.select({ id: coreUsers.id, username: coreUsers.username }).from(coreUsers).where(eq(coreUsers.username, username));
+  const [user] = await db
+    .select({ id: coreUsers.id, username: coreUsers.username, role: coreUsers.role, lockedUntil: coreUsers.lockedUntil })
+    .from(coreUsers)
+    .where(eq(coreUsers.username, username));
   return user;
 }
 
-async function askNewPassword(prompter: Prompter, label: string): Promise<string> {
+/** 跟網站註冊、改密碼同一套規則：長度、常見密碼、不能包含帳號名稱 */
+async function askNewPassword(prompter: Prompter, label: string, username: string): Promise<string> {
   const password = await prompter.askSecret(`${label}（至少 ${PASSWORD_MIN_LENGTH} 個字元，輸入時不會顯示）：`);
-  const problem = passwordProblem(password);
+  const problem = newPasswordProblem(password, username);
   if (problem) throw new CliError(problem);
   if ((await prompter.askSecret(`再輸入一次${label}：`)) !== password) throw new CliError("兩次輸入的密碼不一樣，沒有變更");
   return password;
@@ -141,15 +166,16 @@ async function create(db: AccountDb, deps: AccountDeps): Promise<number> {
   const exists = `帳號 ${username} 已經存在；要改密碼請用 npm run account -- passwd ${username}`;
   if (await findUser(db, username)) throw new CliError(exists);
 
-  const password = await askNewPassword(deps.prompter, "密碼");
+  const password = await askNewPassword(deps.prompter, "密碼", username);
   try {
-    await db.insert(coreUsers).values({ username, passwordHash: await hashPassword(password) });
+    await db.insert(coreUsers).values({ username, passwordHash: await hashPassword(password), role: OWNER_IF_FIRST });
   } catch (error) {
     // 問密碼的期間別人建立了同名帳號
     if (errorCode(error) === UNIQUE_VIOLATION) throw new CliError(exists);
     throw error;
   }
-  deps.stdout(`已建立帳號 ${username}，可以到網站登入了。`);
+  const created = await findUser(db, username);
+  deps.stdout(`已建立帳號 ${username}（${ROLE_LABELS[created?.role ?? "member"]}），可以到網站登入了。`);
   return 0;
 }
 
@@ -158,24 +184,38 @@ async function passwd(db: AccountDb, username: string, deps: AccountDeps): Promi
   // 名稱可能是誤貼的密碼，找不到時不回顯
   if (!user) throw new CliError(`找不到這個帳號（${LIST_HINT}）`);
 
-  const password = await askNewPassword(deps.prompter, "新密碼");
+  const password = await askNewPassword(deps.prompter, "新密碼", user.username);
   await db
     .update(coreUsers)
-    // 版本在資料庫裡加一：同時執行也不會少加，舊 cookie 一定失效
-    .set({ passwordHash: await hashPassword(password), sessionVersion: sql`${coreUsers.sessionVersion} + 1`, updatedAt: new Date() })
+    // 版本在資料庫裡加一：同時執行也不會少加，舊 cookie 一定失效；被鎖住的帳號也一起解鎖（停用要由站長在管理頁恢復）
+    .set({ passwordHash: await hashPassword(password), sessionVersion: sql`${coreUsers.sessionVersion} + 1`, failedLogins: 0, lockedUntil: null, updatedAt: new Date() })
     .where(eq(coreUsers.id, user.id));
   deps.stdout(`已重設 ${user.username} 的密碼；這個帳號在所有裝置上的登入都已失效，請用新密碼重新登入。`);
   return 0;
 }
 
+/** 站長自己被鎖住時進不了管理頁，用這個解鎖；不改密碼、session 版本與停用狀態 */
+async function unlock(db: AccountDb, username: string, deps: AccountDeps): Promise<number> {
+  const user = await findUser(db, username);
+  // 名稱可能是誤貼的密碼，找不到時不回顯
+  if (!user) throw new CliError(`找不到這個帳號（${LIST_HINT}）`);
+  const wasLocked = user.lockedUntil !== null && user.lockedUntil.getTime() > Date.now();
+  await db.update(coreUsers).set({ failedLogins: 0, lockedUntil: null }).where(eq(coreUsers.id, user.id));
+  deps.stdout(wasLocked ? `已解除 ${user.username} 的登入鎖定，可以用原本的密碼登入了。` : `${user.username} 目前沒有被鎖定；登入失敗次數已歸零。`);
+  return 0;
+}
+
 async function list(db: AccountDb, deps: AccountDeps): Promise<number> {
-  const rows = await db.select({ username: coreUsers.username }).from(coreUsers).orderBy(asc(coreUsers.username));
+  const rows = await db
+    .select({ username: coreUsers.username, role: coreUsers.role, disabledAt: coreUsers.disabledAt })
+    .from(coreUsers)
+    .orderBy(asc(coreUsers.username));
   if (rows.length === 0) {
     deps.stderr("還沒有任何帳號，用 npm run account create 建立");
     return 0;
   }
-  // stdout 只有帳號名稱，方便接管線；其他說明走 stderr
-  for (const row of rows) deps.stdout(row.username);
+  // stdout 每行是「帳號 tab 角色（tab 已停用）」，方便接管線；其他說明走 stderr
+  for (const row of rows) deps.stdout([row.username, ROLE_LABELS[row.role], ...(row.disabledAt ? ["已停用"] : [])].join("\t"));
   deps.stderr(`（共 ${rows.length} 個帳號）`);
   return 0;
 }
@@ -227,6 +267,8 @@ export function describeDatabase(url: string): string {
     throw new CliError("資料庫連線字串格式不對（內容不顯示）");
   }
   if (!POSTGRES_PROTOCOLS.includes(parsed.protocol)) throw new CliError("資料庫連線字串要用 postgresql:// 開頭");
+  // 中間斷行時前半段照樣是合法的網址，要靠缺 port 或資料庫名稱認出來，不然剩下的那段會被當成帳號
+  if (!parsed.port || parsed.pathname.replace(/^\//, "") === "") throw new CliError(INCOMPLETE_URL);
   return `${parsed.host}${parsed.pathname}`;
 }
 

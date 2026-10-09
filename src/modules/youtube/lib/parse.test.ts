@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseChannelInput, parseGlossary, parseVideoId } from "./parse";
+import { GLOSSARY_LIMITS, classifyYoutubeInput, glossaryProblem, parseChannelInput, parseGlossary, parseVideoId, relevantGlossary } from "./parse";
 
 describe("parseVideoId", () => {
   it.each([
@@ -100,5 +100,85 @@ describe("parseGlossary", () => {
       { source: "a", target: "b=c" },
       { source: "d", target: "e＝f" },
     ]);
+  });
+});
+
+describe("glossaryProblem：專有名詞表的上限（每批都會送給 AI，太大會讓每個接著翻的人多花錢）", () => {
+  const entry = (i: number, source = `이름${i}`, target = `名字${i}`) => ({ source, target });
+  const many = (n: number) => Array.from({ length: n }, (_, i) => entry(i));
+
+  it("上限是 200 筆、每個詞 50 字、合計 5,000 字", () => {
+    expect(GLOSSARY_LIMITS).toEqual({ entries: 200, termLength: 50, totalLength: 5000 });
+  });
+
+  it("在上限內_沒有問題（剛好 200 筆、剛好 50 字也可以）", () => {
+    expect(glossaryProblem([])).toBeNull();
+    expect(glossaryProblem(many(200))).toBeNull();
+    expect(glossaryProblem([entry(0, "가".repeat(50), "中".repeat(50))])).toBeNull();
+  });
+
+  it("超過 200 筆_回中文錯誤並說目前幾筆", () => {
+    expect(glossaryProblem(many(201))).toBe("專有名詞表最多 200 筆（目前 201 筆），請刪掉用不到的");
+  });
+
+  it("韓文或中文超過 50 字_回中文錯誤並指出是哪一筆", () => {
+    expect(glossaryProblem([entry(0, "가".repeat(51))])).toBe(`專有名詞表每個詞最多 50 字：「${"가".repeat(10)}…」太長`);
+    expect(glossaryProblem([entry(0, "민지", "中".repeat(51))])).toBe("專有名詞表每個詞最多 50 字：「민지」的譯名太長");
+  });
+
+  it("字數用看到的字算：emoji 這類兩個 UTF-16 的字也只算一個", () => {
+    expect(glossaryProblem([entry(0, "😀".repeat(50))])).toBeNull();
+  });
+
+  it("所有詞條的韓文加中文合計超過 5,000 字_回中文錯誤並說目前幾字", () => {
+    const long = Array.from({ length: 101 }, (_, i) => entry(i, `${"가".repeat(22)}${String(i).padStart(3, "0")}`, "中".repeat(25)));
+    expect(glossaryProblem(long)).toBe("專有名詞表合計最多 5,000 字（目前 5,050 字），請刪掉用不到的");
+  });
+});
+
+describe("relevantGlossary：送給 AI 時只帶這一批與前後文裡實際出現的詞條", () => {
+  const glossary = [
+    { source: "지수", target: "Jisoo" },
+    { source: "제니", target: "Jennie" },
+    { source: "IVE", target: "IVE" },
+  ];
+
+  it("只留出現在句子裡的詞條，順序照原本的表", () => {
+    expect(relevantGlossary(glossary, ["지수입니다", "제니도 왔어요"])).toEqual(glossary.slice(0, 2));
+    expect(relevantGlossary(glossary, ["안녕하세요"])).toEqual([]);
+  });
+
+  it("英文不分大小寫", () => {
+    expect(relevantGlossary(glossary, ["ive 화이팅"])).toEqual([{ source: "IVE", target: "IVE" }]);
+  });
+
+  it("字幕檔是分解形式的韓文（NFD）也比對得到", () => {
+    expect(relevantGlossary(glossary, ["지수입니다".normalize("NFD")])).toEqual([{ source: "지수", target: "Jisoo" }]);
+  });
+});
+
+describe("classifyYoutubeInput：列表頁上方同一個輸入框，影片就開觀看頁、頻道就追蹤", () => {
+  const CHANNEL_ID = "UC" + "a".repeat(22);
+
+  it.each([
+    ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"],
+    ["https://youtu.be/dQw4w9WgXcQ?si=abc"],
+    ["https://www.youtube.com/shorts/dQw4w9WgXcQ"],
+    ["  dQw4w9WgXcQ  "],
+  ])("影片網址或 11 碼 id_%s", (input) => {
+    expect(classifyYoutubeInput(input)).toEqual({ kind: "video", videoId: "dQw4w9WgXcQ" });
+  });
+
+  it.each([
+    ["@NewJeans_official", { kind: "handle", handle: "NewJeans_official" }],
+    ["https://www.youtube.com/@NewJeans_official/videos", { kind: "handle", handle: "NewJeans_official" }],
+    [CHANNEL_ID, { kind: "id", channelId: CHANNEL_ID }],
+    [`https://www.youtube.com/channel/${CHANNEL_ID}`, { kind: "id", channelId: CHANNEL_ID }],
+  ])("頻道_%s", (input, channel) => {
+    expect(classifyYoutubeInput(input)).toEqual({ kind: "channel", channel });
+  });
+
+  it.each([[""], ["   "], ["뉴진스"], ["https://www.twitch.tv/alice"], ["https://www.youtube.com/feed/subscriptions"]])("看不懂_%j", (input) => {
+    expect(classifyYoutubeInput(input)).toEqual({ kind: "invalid" });
   });
 });

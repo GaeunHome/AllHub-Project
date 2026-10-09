@@ -24,11 +24,12 @@ export function AccountActionForm({
   const [state, formAction, pending] = useActionState<FormState, FormData>(action, {});
 
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
+    <form action={formAction} className="button-row">
       <input type="hidden" name="accountId" value={accountId} />
       {children}
-      <button disabled={pending} className="btn-secondary btn-sm">
-        <Icon name={icon} className="size-3.5" />
+      {/* 跟旁邊的輸入框一樣高（44px） */}
+      <button disabled={pending} className="btn-secondary">
+        <Icon name={icon} className="size-4" />
         {pending ? pendingLabel : label}
       </button>
       <InlineFeedback {...state} />

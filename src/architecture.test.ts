@@ -173,6 +173,15 @@ describe("架構規則", () => {
     expect(problems).toEqual([]);
   });
 
+  // core 的 HomePage 只排版、不能 import 模組，卡片由 src/app 的首頁組合：漏了就不會出現在首頁
+  it("每個模組的首頁卡片（web/pages/home-card.tsx）都組合到首頁（src/app/(main)/page.tsx）", () => {
+    const homePage = "app/(main)/page.tsx";
+    const composed = new Set(allImports.filter((i) => i.from === homePage).map((i) => i.target));
+    const cards = [...fileSet].filter((file) => /^modules\/[^/]+\/web\/pages\/home-card\.tsx$/.test(file));
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.filter((card) => !composed.has(card)).map((card) => `${card}：還沒組合到 ${homePage}`)).toEqual([]);
+  });
+
   // 「提醒方式」依 notifies 決定列哪些模組：沒呼叫 notify() 卻列出來會多一排沒用的開關，反過來則是通知關不掉
   it("沒有呼叫 notify() 的模組在 info.ts 設 notifies: false，有呼叫的不設", async () => {
     const { modules } = await import("./modules");

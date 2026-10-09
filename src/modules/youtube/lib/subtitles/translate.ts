@@ -1,6 +1,6 @@
 import { errorKind } from "@/core/errors";
 import { externalFetch } from "@/core/external-url";
-import type { GlossaryEntry } from "../parse";
+import { relevantGlossary, type GlossaryEntry } from "../parse";
 import type { Batch } from "./batches";
 import type { Cue } from "./format";
 import { AI_PROVIDER_NAMES, type AiProvider } from "./providers";
@@ -12,15 +12,16 @@ export type AiConfig = { provider: AiProvider; apiKey: string; model: string };
 export const DEFAULT_MODELS: Record<AiProvider, string> = {
   anthropic: "claude-haiku-4-5",
   openai: "gpt-4.1-mini",
-  gemini: "gemini-2.5-flash",
+  gemini: "gemini-3.8-flash",
 };
 
 /** 單次呼叫 AI（含讀完回應）的上限；翻譯鎖的期限要比這個長 */
 export const AI_TIMEOUT_MS = 120_000;
 
+/** refused：模型拒絕翻譯這段內容；它跟 bad_output 是字幕內容的問題，換誰的 API Key 都一樣，其他是觀看者自己的金鑰、額度或連線問題 */
 export class AiError extends Error {
   constructor(
-    readonly kind: "auth" | "rate_limit" | "quota" | "bad_output" | "network" | "other",
+    readonly kind: "auth" | "rate_limit" | "quota" | "bad_output" | "refused" | "network" | "other",
     message: string,
   ) {
     super(message);
@@ -60,10 +61,12 @@ export async function translateBatch(args: TranslateArgs): Promise<string[]> {
   const source = args.cues.slice(args.batch.start, args.batch.end).map((cue) => cue.text);
   if (source.length === 0) return [];
 
+  const before = args.context?.before ?? [];
+  const after = args.context?.after ?? [];
   const input = JSON.stringify({
-    glossary: args.glossary,
-    context_before: args.context?.before ?? [],
-    context_after: args.context?.after ?? [],
+    glossary: relevantGlossary(args.glossary, [...before, ...source, ...after]),
+    context_before: before,
+    context_after: after,
     lines: source,
   });
 
@@ -113,7 +116,7 @@ function buildRequest(ai: AiConfig, user: string): ProviderRequest {
         body: { model: ai.model, max_tokens: 16000, system: SYSTEM_PROMPT, messages: [{ role: "user", content: user }] },
         read: (json) => {
           const message = json as { content?: Array<{ type: string; text?: string }>; stop_reason?: string };
-          if (message.stop_reason === "refusal") throw new AiError("other", "Claude 拒絕翻譯這段內容");
+          if (message.stop_reason === "refusal") throw new AiError("refused", "Claude 拒絕翻譯這段內容");
           return (message.content ?? []).filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
         },
       };
@@ -133,7 +136,7 @@ function buildRequest(ai: AiConfig, user: string): ProviderRequest {
         read: (json) => {
           const message = (json as { choices?: Array<{ message?: { content?: string | null; refusal?: string | null } }> })
             .choices?.[0]?.message;
-          if (message?.refusal) throw new AiError("other", "OpenAI 拒絕翻譯這段內容");
+          if (message?.refusal) throw new AiError("refused", "OpenAI 拒絕翻譯這段內容");
           return message?.content ?? "";
         },
       };
@@ -151,7 +154,7 @@ function buildRequest(ai: AiConfig, user: string): ProviderRequest {
             promptFeedback?: { blockReason?: string };
             candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
           };
-          if (result.promptFeedback?.blockReason) throw new AiError("other", "Gemini 拒絕翻譯這段內容");
+          if (result.promptFeedback?.blockReason) throw new AiError("refused", "Gemini 拒絕翻譯這段內容");
           return (result.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
         },
       };

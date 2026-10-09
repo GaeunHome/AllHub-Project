@@ -11,6 +11,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // 排除的路徑要整段比對（後面接 / 或結尾），否則 /loginx、/api/cronfoo 之類的新路由會意外變成公開；icons 是登入頁也要用的開源圖示，robots.txt 要讓沒登入的爬蟲讀得到
-  matcher: ["/((?!(?:login|icons|robots\\.txt|api/cron|api/twitch/eventsub|api/youtube/websub)(?:/|$)|_next/static|_next/image|favicon.ico).*)"],
+  // 排除的路徑要整段比對（後面接 / 或結尾），否則 /loginx、/api/cronfoo 之類的新路由會意外變成公開；register 要讓拿到邀請連結的人打得開、terms 是登入與註冊前就要能讀的聲明、api/auth/captcha 是登入與註冊頁的驗證碼圖片；icons 是登入頁也要用的開源圖示，robots.txt 要讓沒登入的爬蟲讀得到
+  matcher: ["/((?!(?:login|register|terms|icons|robots\\.txt|api/auth/captcha|api/cron|api/twitch/eventsub|api/youtube/websub)(?:/|$)|_next/static|_next/image|favicon.ico).*)"],
 };

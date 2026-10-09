@@ -10,7 +10,7 @@ type SegmentedControlProps<T extends string> = {
 export function SegmentedControl<T extends string>({ label, options, value, onChange }: SegmentedControlProps<T>) {
   return (
     <div role="group" aria-label={label} className="flex items-center gap-2">
-      <span aria-hidden className="text-sm text-muted">
+      <span aria-hidden className="text-sm text-ink-soft">
         {label}：
       </span>
       <div className="segmented">

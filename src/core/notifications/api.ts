@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { currentSession } from "@/core/auth";
+import { currentSession, type SessionUser } from "@/core/auth";
 import { expireTags } from "../cache";
 import { logError } from "../errors";
 import { notificationsTag } from "./cache-tags";
@@ -21,7 +21,7 @@ const json = (body: unknown, status = 200) => Response.json(body, { status, head
 
 /** session 失效（例如在別的裝置改了密碼）回 401，前端就停止輪詢 */
 export async function GET(): Promise<Response> {
-  return withSession(async () => json(await cachedFeed()));
+  return withSession(async (user) => json(await cachedFeed(user.id)));
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -29,21 +29,23 @@ export async function POST(request: Request): Promise<Response> {
   if (!isSameOrigin(request)) return json({ error: "forbidden" }, 403);
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return json({ error: "請用 JSON" }, 415);
 
-  return withSession(async () => {
+  return withSession(async (user) => {
     const parsed = markRequest.safeParse(await request.json().catch(() => undefined));
     if (!parsed.success) return json({ error: "內容格式不正確" }, 400);
-    if (parsed.data.action === "read") await markNotificationsRead(parsed.data.ids);
-    else await markAllNotificationsRead(parsed.data.module);
+    // 只改登入者自己的通知：送來別人的通知 id 不會有效果
+    if (parsed.data.action === "read") await markNotificationsRead(user.id, parsed.data.ids);
+    else await markAllNotificationsRead(user.id, parsed.data.module);
     // 同一個請求裡失效過的 tag 會讓下面直接讀新資料，回傳的未讀數就是標完之後的
     expireTags(notificationsTag);
-    return json(await cachedFeed());
+    return json(await cachedFeed(user.id));
   });
 }
 
-async function withSession(handle: () => Promise<Response>): Promise<Response> {
+async function withSession(handle: (user: SessionUser) => Promise<Response>): Promise<Response> {
   try {
-    if (!(await currentSession())) return json({ error: "unauthorized" }, 401);
-    return await handle();
+    const user = await currentSession();
+    if (!user) return json({ error: "unauthorized" }, 401);
+    return await handle(user);
   } catch (error) {
     // 資料庫錯誤的 message 可能夾帶 SQL 或連線資訊，回應只給摘要、log 只記錯誤種類
     logError("notifications", "API 失敗", error);

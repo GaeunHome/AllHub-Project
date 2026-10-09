@@ -18,6 +18,7 @@ const EXPECTED: Record<string, string[]> = {
   "twitch:sync": ["twitch:streamers"],
   "twitch:cleanup": ["twitch:events"],
   "youtube:renew": ["youtube:channels"],
+  // 只刪影片，翻譯永久保留
   "youtube:cleanup": ["youtube:videos"],
   "youtube:reencrypt": ["youtube:settings"],
   "starrail:checkin": ["starrail:accounts", "starrail:checkins"],

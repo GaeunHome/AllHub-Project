@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TEST_CORE_ENV as CORE, TEST_TWITCH_ENV as TWITCH, TEST_YOUTUBE_ENV as YOUTUBE } from "@/dev/test-env";
 
-const OPTIONAL = ["DATABASE_POOL_MAX", "ENCRYPTION_KEY_PREVIOUS", "DEV_EXTERNAL_ORIGIN"];
+const OPTIONAL = ["DATABASE_POOL_MAX", "ENCRYPTION_KEY_PREVIOUS", "DEV_EXTERNAL_ORIGIN", "DEV_CAPTCHA_CODE"];
 // 帳號改存資料庫、通知改成網站內通知後就不再使用
 const REMOVED = ["APP_PASSWORD", "DISCORD_WEBHOOK_URL"];
 const ALL_NAMES = [...new Set([...Object.keys(CORE), ...Object.keys(TWITCH), ...Object.keys(YOUTUBE), ...OPTIONAL, ...REMOVED])];
@@ -13,7 +13,15 @@ async function loadEnv(vars: Record<string, string>) {
   for (const name of ALL_NAMES) vi.stubEnv(name, undefined);
   for (const [name, value] of Object.entries(vars)) vi.stubEnv(name, value);
   vi.resetModules();
-  return import("./env");
+  devEnvModule = await import("./env");
+  return devEnvModule;
+}
+
+// DEV_CAPTCHA_CODE 的格式檢查：devEnv 每次都重新讀取，不必重新載入模組
+let devEnvModule: typeof import("./env") | undefined;
+function loadEnvSync(code: string) {
+  vi.stubEnv("DEV_CAPTCHA_CODE", code);
+  return devEnvModule!.devEnv();
 }
 
 function errorOf(fn: () => unknown): string {
@@ -170,6 +178,17 @@ describe("本機測試設定：devEnv", () => {
     expect(env.devEnv()).toEqual({ DEV_EXTERNAL_ORIGIN: "http://127.0.0.1:4010" });
   });
 
+  it("DEV_CAPTCHA_CODE 選填_要剛好 5 個驗證碼用的字元；不對時報出名稱但不顯示值", async () => {
+    expect((await loadEnv({ DEV_CAPTCHA_CODE: "K7MRX" })).devEnv().DEV_CAPTCHA_CODE).toBe("K7MRX");
+    expect((await loadEnv({})).devEnv().DEV_CAPTCHA_CODE).toBeUndefined();
+
+    for (const bad of ["K0MRX", "K7MR", "K7MRXX", "k7mrx"]) {
+      const message = errorOf(() => loadEnvSync(bad));
+      expect(message).toContain("DEV_CAPTCHA_CODE：");
+      expect(message).not.toContain(bad);
+    }
+  });
+
   it("不是網址_報出變數名稱但不顯示值", async () => {
     const env = await loadEnv({ DEV_EXTERNAL_ORIGIN: "mock-server-4010" });
 
@@ -186,5 +205,48 @@ describe("本機測試設定：devEnv", () => {
     vi.stubEnv("DEV_EXTERNAL_ORIGIN", "http://127.0.0.1:4010");
 
     expect(env.devEnv().DEV_EXTERNAL_ORIGIN).toBe("http://127.0.0.1:4010");
+  });
+});
+
+describe("missingTwitchEnv：列出 Twitch 缺少或格式不對的變數名稱（不含值），加主播時給明確的提示", () => {
+  it("都設定了_空陣列", async () => {
+    expect((await loadEnv({ ...CORE, ...TWITCH })).missingTwitchEnv()).toEqual([]);
+  });
+
+  it("都還沒設定_照 .env.example 的順序列出全部", async () => {
+    expect((await loadEnv(CORE)).missingTwitchEnv()).toEqual(["TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET", "TWITCH_EVENTSUB_SECRET", "PUBLIC_BASE_URL"]);
+  });
+
+  it("留空當成沒設定、格式不對也列出；訊息只有名稱，不含值", async () => {
+    const missing = (await loadEnv({ ...TWITCH, TWITCH_CLIENT_SECRET: "", PUBLIC_BASE_URL: "not-a-url" })).missingTwitchEnv();
+
+    expect(missing).toEqual(["TWITCH_CLIENT_SECRET", "PUBLIC_BASE_URL"]);
+    expect(missing.join()).not.toContain("not-a-url");
+  });
+});
+
+describe("hasTwitchEnv：只回報 Twitch 設定齊不齊、不丟錯", () => {
+  it("都設定了_true", async () => {
+    const env = await loadEnv({ ...CORE, ...TWITCH });
+
+    expect(env.hasTwitchEnv()).toBe(true);
+  });
+
+  it("還沒設定 Twitch 憑證_false_不丟錯_畫面可以退回文字頭像", async () => {
+    const env = await loadEnv(CORE);
+
+    expect(env.hasTwitchEnv()).toBe(false);
+  });
+
+  it("只缺一個或留空_false", async () => {
+    expect((await loadEnv({ ...TWITCH, TWITCH_CLIENT_SECRET: "" })).hasTwitchEnv()).toBe(false);
+    expect((await loadEnv({ ...TWITCH, PUBLIC_BASE_URL: "not-a-url" })).hasTwitchEnv()).toBe(false);
+  });
+
+  it("true 時 twitchEnv() 一定讀得到_判斷條件跟 twitchEnv() 的驗證一致", async () => {
+    const env = await loadEnv({ ...TWITCH });
+
+    expect(env.hasTwitchEnv()).toBe(true);
+    expect(env.twitchEnv()).toEqual(TWITCH);
   });
 });

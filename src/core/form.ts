@@ -16,6 +16,14 @@ export function formId(formData: FormData, name: string): number | null {
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** 帳號 id（UUID）：格式不對就回 null，不讓奇怪的字串進到查詢裡 */
+export function formUuid(formData: FormData, name: string): string | null {
+  const id = String(formData.get(name) ?? "").toLowerCase();
+  return UUID.test(id) ? id : null;
+}
+
 /** "true"／"false" 以外都回 null：Server Action 可以被直接 POST，不能把奇怪的值當成 false */
 export function formFlag(formData: FormData, name: string): boolean | null {
   const value = formData.get(name);

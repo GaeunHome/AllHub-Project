@@ -10,7 +10,7 @@ export function AddStreamerForm() {
   const [syncState, sync, syncing] = useActionState<FormState>(syncAction, {});
 
   return (
-    <div className="card flex flex-col gap-3">
+    <div className="stack">
       <div className="flex flex-wrap gap-2">
         <form action={action} className="flex min-w-64 flex-1 gap-2">
           <input name="login" placeholder="Twitch 帳號或頻道網址" required className="input flex-1" />

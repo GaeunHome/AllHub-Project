@@ -1,8 +1,8 @@
 import { cacheLife, revalidateTag } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { expiredTags, mocksOf, tagged } from "@/dev/test-helpers";
-import { twitchStreamEvents, twitchStreamers } from "../data/schema";
+import { twitchFollows, twitchStreamEvents, twitchStreamers } from "../data/schema";
 
 vi.mock("../lib/api", { spy: true });
 
@@ -16,24 +16,30 @@ const event = { broadcaster_user_id: "42", broadcaster_user_login: "alice", broa
 
 let testDb: TestDb;
 setupTestDb((d) => (testDb = d));
+let me: string;
 
 beforeEach(async () => {
   getStreams.mockReset().mockResolvedValue([{ user_id: "42", title: "今天玩鐵道", game_name: "Honkai: Star Rail", started_at: "" }]);
-  await testDb.insert(twitchStreamers).values({ broadcasterId: "42", login: "alice", displayName: "Alice", onlineSubscriptionId: "sub-on", offlineSubscriptionId: "sub-off" });
+  me = await insertTestUser(testDb, "alice", { role: "owner" });
+  const [streamer] = await testDb
+    .insert(twitchStreamers)
+    .values({ broadcasterId: "42", login: "alice", displayName: "Alice", onlineSubscriptionId: "sub-on", offlineSubscriptionId: "sub-off" })
+    .returning();
+  await testDb.insert(twitchFollows).values({ userId: me, streamerId: streamer.id });
 });
 
 describe("Twitch 的快取讀取", () => {
-  it("cachedStreamers_標上 twitch:streamers、用 db 效期", async () => {
-    expect((await cachedStreamers()).map((s) => s.login)).toEqual(["alice"]);
-    expect(tagged()).toEqual(["twitch:streamers"]);
+  it("cachedStreamers_讀了主播與追蹤兩張表：標上 twitch:follows、twitch:streamers，用 db 效期", async () => {
+    expect((await cachedStreamers(me)).map((s) => s.login)).toEqual(["alice"]);
+    expect(tagged()).toEqual(["twitch:follows", "twitch:streamers"]);
     expect(cacheLife).toHaveBeenCalledWith("db");
   });
 
-  it("cachedRecentEvents_讀了紀錄與主播名稱兩張表_兩個 tag 都標", async () => {
+  it("cachedRecentEvents_讀了紀錄、主播名稱與追蹤三張表_三個 tag 都標", async () => {
     await testDb.insert(twitchStreamEvents).values({ messageId: "m0", broadcasterId: "42", type: "online" });
 
-    expect((await cachedRecentEvents()).map((e) => e.displayName)).toEqual(["Alice"]);
-    expect(tagged()).toEqual(["twitch:events", "twitch:streamers"]);
+    expect((await cachedRecentEvents(me)).map((e) => e.displayName)).toEqual(["Alice"]);
+    expect(tagged()).toEqual(["twitch:events", "twitch:follows", "twitch:streamers"]);
     expect(cacheLife).toHaveBeenCalledWith("db");
   });
 });

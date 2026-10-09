@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { currentSession, requireSession } from "@/dev/session-stub";
+import { OTHER_SESSION, TEST_SESSION, currentSession, requireSession } from "@/dev/session-stub";
 import { mocksOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
@@ -35,5 +35,23 @@ describe("下載翻譯後的字幕檔（Route Handler）", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-disposition")).toContain(`${VIDEO}.zh.srt`);
     expect(await response.text()).toContain("你好");
+  });
+});
+
+describe("字幕下載的擁有權規則：翻譯是共用的", () => {
+  it("別人發起的翻譯、不在自己清單裡的影片也可以下載（跟觀看頁一樣，登入就看得到同一份翻譯）", async () => {
+    currentSession.mockResolvedValue(OTHER_SESSION);
+    getTranslation.mockResolvedValue({ videoId: VIDEO, requestedBy: TEST_SESSION.id, sourceCues: [{ start: 0, end: 900, text: "안녕" }], translated: ["你好"] });
+
+    const response = await download();
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("你好");
+  });
+
+  it("還沒有翻譯的影片_404", async () => {
+    getTranslation.mockResolvedValue(undefined);
+
+    expect((await download()).status).toBe(404);
   });
 });

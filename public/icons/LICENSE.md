@@ -2,6 +2,7 @@
 
 - `brands/`：[Simple Icons](https://simpleicons.org) v16.34.0，[CC0 1.0](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md)（公眾領域）。YouTube 與 Twitch 的標誌是各自公司的商標，這裡只用來標示系統串接的服務，本專案與這些公司無關。
 - `ui/`：[Lucide](https://lucide.dev) v1.52.0，ISC License，授權全文如下。
+- `../images/starrail-logo.png`：《崩壞：星穹鐵道》的官方中文標誌，著作權與商標屬於 HoYoverse（COGNOSPHERE）。這裡只用來標示系統串接的服務，不在本專案的授權範圍內，本專案與 HoYoverse 無關；星穹鐵道頁的背景是本專案自己用 CSS／SVG 畫的，沒有使用官方美術圖。
 
 ---
 

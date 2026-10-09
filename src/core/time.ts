@@ -41,3 +41,19 @@ export function taipeiDateKey(date: Date): string {
   const { year, month, day } = taipeiFields(date);
   return `${year}-${pad2(month)}-${pad2(day)}`;
 }
+
+const MINUTE_MS = 60_000;
+
+/** 例如「3 小時前」（YouTube 卡片的寫法）；時間在未來（時鐘誤差）時當成剛剛 */
+export function formatRelativeTime(date: Date, now: Date): string {
+  const minutes = Math.floor((now.getTime() - date.getTime()) / MINUTE_MS);
+  if (minutes < 1) return "剛剛";
+  if (minutes < 60) return `${minutes} 分鐘前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小時前`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} 天前`;
+  if (days < 30) return `${Math.floor(days / 7)} 週前`;
+  if (days < 365) return `${Math.min(11, Math.floor(days / 30))} 個月前`;
+  return `${Math.floor(days / 365)} 年前`;
+}

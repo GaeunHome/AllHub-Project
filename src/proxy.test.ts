@@ -46,6 +46,22 @@ describe("proxy", () => {
     expect(needsLogin("/")).toBe(true);
   });
 
+  it("註冊頁與使用聲明不用登入（沒有帳號的人要能打開邀請連結）_名稱相近的路徑與管理頁照樣要登入", () => {
+    expect(needsLogin("/register")).toBe(false);
+    expect(needsLogin("/terms")).toBe(false);
+    expect(needsLogin("/registerx")).toBe(true);
+    expect(needsLogin("/terms-old")).toBe(true);
+    expect(needsLogin("/admin")).toBe(true);
+    expect(needsLogin("/account")).toBe(true);
+  });
+
+  it("驗證碼圖片不用登入（登入與註冊頁要載得到）_名稱相近的路徑照樣要登入", () => {
+    expect(needsLogin("/api/auth/captcha")).toBe(false);
+    expect(needsLogin("/api/auth/captchax")).toBe(true);
+    expect(needsLogin("/api/auth")).toBe(true);
+    expect(needsLogin("/api/authx/captcha")).toBe(true);
+  });
+
   it("proxy 不 import 資料庫（維持 edge 可用）", async () => {
     const { readFileSync } = await import("node:fs");
     const source = readFileSync(new URL("./proxy.ts", import.meta.url), "utf8") + readFileSync(new URL("./core/auth/session.ts", import.meta.url), "utf8");

@@ -1,46 +1,47 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { ModuleInfo } from "../module";
+import { HomeNotifications } from "../notifications/home-notifications";
+import { HomeCard } from "./home-card";
 import { Icon } from "./icon";
-import { SectionTitle } from "./page-header";
 
-export function HomePage({ modules }: { modules: ModuleInfo[] }) {
+const NOTIFICATIONS = { id: "notifications", name: "通知", href: "/notifications", icon: "/icons/ui/bell.svg" } as const;
+
+type HomePageProps = {
+  modules: ModuleInfo[];
+  /** 一張一列的卡片（有縮圖、預覽圖，需要寬度） */
+  wide: ReactNode;
+  /** 兩張並排、等寬等高的卡片；最後一張固定是未讀通知 */
+  compact: ReactNode;
+};
+
+/** 卡片由 src/app 從各模組的 web/pages 組合進來（core 不 import 模組），這裡只負責排版 */
+export function HomePage({ modules, wide, compact }: HomePageProps) {
   return (
-    <div className="flex flex-col gap-10">
-      <section className="card relative overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
-        <span className="chip chip-accent">
-          <Icon name="sparkles" className="size-3.5" />
-          AllHub Project
-        </span>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-          嗨，<span className="text-gradient">歡迎回來</span>
-        </h1>
-        <p className="mt-2 max-w-md text-muted">今天也辛苦了！想先去哪裡逛逛呢？</p>
-        <div aria-hidden className="pointer-events-none absolute top-1/2 right-6 hidden -translate-y-1/2 sm:right-12 sm:block">
-          <Icon name="flower-2" className="size-24 text-brand opacity-25" />
-          <Icon name="heart" className="absolute -top-4 -left-8 size-7 text-brand opacity-50" />
-          <span data-accent="violet" className="absolute -right-4 -bottom-3 text-accent opacity-70">
-            <Icon name="sparkles" className="size-8" />
-          </span>
-        </div>
-      </section>
-
-      <section>
-        <SectionTitle icon="house">模組</SectionTitle>
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {modules.map((m) => (
-            <li key={m.id}>
-              <Link href={m.href} data-accent={m.accent} className="card card-interactive group flex h-full flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="icon-tile">{m.icon ? <Icon src={m.icon} /> : <Icon name="sparkles" />}</span>
-                  <h2 className="text-lg font-semibold text-ink">{m.name}</h2>
-                  <Icon name="chevron-right" className="ml-auto size-5 text-accent transition-transform motion-safe:group-hover:translate-x-1" />
-                </div>
-                <p className="text-sm leading-relaxed text-muted">{m.description}</p>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+    <div className="page-stack">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">嗨，歡迎回來</h1>
+        {/* 原本首頁的模組入口縮成一排；沒有首頁卡片的模組也從這裡進去 */}
+        <nav aria-label="所有功能">
+          <ul className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            {modules.map((m) => (
+              <li key={m.id} className="min-w-0">
+                <Link href={m.href} data-accent={m.accent} className="home-module-link">
+                  {m.icon ? <Icon src={m.icon} /> : <Icon name="sparkles" />}
+                  <span className="max-w-full truncate">{m.name}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </header>
+      {wide}
+      <div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
+        {compact}
+        <HomeCard info={NOTIFICATIONS} title="未讀通知" skeleton={null}>
+          <HomeNotifications />
+        </HomeCard>
+      </div>
     </div>
   );
 }

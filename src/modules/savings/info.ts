@@ -4,8 +4,8 @@ export const savingsInfo: ModuleInfo = {
   id: "savings",
   name: "存錢記帳",
   href: "/savings",
-  description: "記下每個月固定要存的錢：這個月存了沒、今年和全部累計多少；紀錄永久保留",
+  description: "記下每個月固定要存的錢，看這個月存了沒、今年與全部累計多少",
   icon: "/icons/ui/piggy-bank.svg",
-  accent: "mint",
+  accent: "green",
   notifies: false,
 };

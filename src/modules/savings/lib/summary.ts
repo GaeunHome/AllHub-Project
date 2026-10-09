@@ -50,6 +50,35 @@ export function goalProgress<G extends GoalLike>(goals: G[], entries: { goalId: 
     });
 }
 
+export type MonthProgress<G extends GoalLike> = {
+  /** 應存：啟用中項目的每月金額合計 */
+  planned: number;
+  /** 已存：這個月的所有紀錄，含臨時存款與已刪除的項目 */
+  saved: number;
+  /** 可能超過 100；沒有應存金額時是 null */
+  percent: number | null;
+  /** 還差：每個啟用中項目還沒存滿的部分合計 */
+  remaining: number;
+  doneGoals: number;
+  goals: GoalProgress<G>[];
+};
+
+/** 首頁卡片與記帳頁的總覽共用；臨時存款算進已存，但不抵任何項目的還差（跟清單上每個項目的狀態一致） */
+export function monthProgress<G extends GoalLike>(goals: G[], totals: MonthGoalTotal[], month: MonthKey): MonthProgress<G> {
+  const ofMonth = totals.filter((t) => t.month === month);
+  const progress = goalProgress(goals, ofMonth);
+  const planned = sum(progress.map((p) => p.goal.monthlyAmount));
+  const saved = sum(ofMonth.map((t) => t.amount));
+  return {
+    planned,
+    saved,
+    percent: percentOf(saved, planned),
+    remaining: sum(progress.map((p) => p.remaining)),
+    doneGoals: progress.filter((p) => p.status === "done").length,
+    goals: progress,
+  };
+}
+
 export function monthlySeries(totals: MonthGoalTotal[], months: MonthKey[]): { month: MonthKey; amount: number; percent: number }[] {
   const byMonth = new Map<MonthKey, number>();
   for (const total of totals) addTo(byMonth, total.month, total.amount);

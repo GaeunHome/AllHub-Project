@@ -11,8 +11,8 @@ vi.mock("../service/channels", { spy: true });
 vi.mock("../service/caption-status", { spy: true });
 vi.mock("../service/translation", { spy: true });
 
-const channels = mocksOf(await import("../service/channels"), "addChannel", "removeChannel", "renewSubscriptions", "setChannelNotify");
-const captions = mocksOf(await import("../service/caption-status"), "checkChineseCaptions");
+const channels = mocksOf(await import("../service/channels"), "addChannel", "removeChannel", "renewSubscriptionsFor", "setChannelNotify");
+const captions = mocksOf(await import("../service/caption-status"), "checkFollowedVideoCaptions");
 const translation = mocksOf(
   await import("../service/translation"),
   "saveSettings",
@@ -33,9 +33,9 @@ beforeEach(() => {
   deferred.tasks = [];
   channels.addChannel.mockReset().mockResolvedValue({ title: "뉴진스" });
   channels.removeChannel.mockReset().mockResolvedValue({});
-  channels.renewSubscriptions.mockReset().mockResolvedValue("1 個頻道，續訂 1 個");
+  channels.renewSubscriptionsFor.mockReset().mockResolvedValue("已檢查你追蹤的 1 個頻道的訂閱");
   channels.setChannelNotify.mockReset().mockResolvedValue(true);
-  captions.checkChineseCaptions.mockReset().mockResolvedValue("no");
+  captions.checkFollowedVideoCaptions.mockReset().mockResolvedValue("no");
   for (const fn of Object.values(translation)) fn.mockReset().mockResolvedValue(undefined);
   translation.startTranslation.mockResolvedValue({ ok: true });
   translation.continueTranslation.mockResolvedValue(QUEUED);
@@ -43,10 +43,13 @@ beforeEach(() => {
 
 describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag 失效", () => {
   it.each([
-    ["addChannelAction", ["youtube:channels"], () => actions.addChannelAction({}, form({ channel: "@newjeans" }))],
-    ["removeChannelAction", ["youtube:channels"], () => actions.removeChannelAction({}, form({ id: "2" }))],
+    // 追蹤改的是追蹤表；第一次有人追蹤時新增頻道，追蹤時也從 RSS feed 補進影片
+    ["addChannelAction", ["youtube:channels", "youtube:follows", "youtube:videos"], () => actions.addChannelAction({}, form({ channel: "@newjeans" }))],
+    // 最後一位追蹤者取消時也會刪除頻道
+    ["removeChannelAction", ["youtube:channels", "youtube:follows"], () => actions.removeChannelAction({}, form({ id: "2" }))],
     ["renewAction", ["youtube:channels"], () => actions.renewAction()],
-    ["setChannelNotifyAction", ["youtube:channels"], () => actions.setChannelNotifyAction({}, form({ id: "2", enabled: "false" }))],
+    // 通知開關記在自己的追蹤上
+    ["setChannelNotifyAction", ["youtube:follows"], () => actions.setChannelNotifyAction({}, form({ id: "2", enabled: "false" }))],
     ["recheckCaptionsAction", ["youtube:videos"], () => actions.recheckCaptionsAction({}, form({ videoId: VIDEO }))],
     ["saveSettingsAction", ["youtube:settings"], () => actions.saveSettingsAction({}, form({ provider: "anthropic" }))],
     ["startTranslationAction", ["youtube:translation:dQw4w9WgXcQ", "youtube:translations"], () => actions.startTranslationAction(VIDEO)],
@@ -77,7 +80,7 @@ describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag �
     captureErrorLog();
 
     expect((await actions.addChannelAction({}, form({ channel: "@newjeans" }))).error).toBeTruthy();
-    expect(updated()).toEqual(["youtube:channels"]);
+    expect(updated()).toEqual(["youtube:channels", "youtube:follows", "youtube:videos"]);
   });
 
   it.each([

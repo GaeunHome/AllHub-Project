@@ -1,157 +1,174 @@
 @import "tailwindcss";
 
-/* 配色全部走 CSS 變數：深色模式只換變數，元件裡不必到處寫 dark: */
-:root {
-  color-scheme: light;
-
-  --bg-base: #fff6fa;
-  --bg-gradient: linear-gradient(160deg, #fff2f8 0%, #fcf1ff 48%, #f0edff 100%);
-  --glow-pink: rgb(255 176 212 / 0.5);
-  --glow-violet: rgb(196 181 253 / 0.42);
-  --glow-sky: rgb(186 230 253 / 0.4);
-
-  --surface: rgb(255 255 255 / 0.82);
-  --surface-solid: #ffffff;
-  --surface-muted: #fff4f9;
-  --surface-sunken: #fce6f0;
-  --line: #f6d4e3;
-  --line-strong: #eeb3cd;
-  --header-bg: rgb(255 248 252 / 0.76);
-
-  --ink: #3a2c47;
-  --ink-soft: #57476a;
-  --muted: #6f5f83;
-  --placeholder: #7d6c91;
-
-  --brand: #ec4899;
-  --brand-ink: #be185d;
-  --brand-soft: #fde4ef;
-  --brand-line: #f8bfd8;
-  /* 白字壓在漸層上，兩端都要維持 4.5:1 以上的對比 */
-  --gradient-brand: linear-gradient(135deg, #db2777 0%, #8b46f0 100%);
-  --gradient-text: linear-gradient(135deg, #db2777 0%, #7c3aed 100%);
-  --gradient-meter: linear-gradient(90deg, #ec4899 0%, #8b5cf6 100%);
-  --focus: #db2777;
-  --ring: rgb(236 72 153 / 0.26);
-
-  --success: #047857;
-  --success-soft: #e3f6ec;
-  --success-line: #b3e5cd;
-  --success-dot: #10b981;
-  --warning: #93540a;
-  --warning-soft: #fdf4d8;
-  --warning-line: #f3d78f;
-  --warning-dot: #f59e0b;
-  --danger: #be123c;
-  --danger-soft: #fff0f3;
-  --danger-line: #fecdd6;
-  --danger-hover: #ffe3e8;
-  --danger-dot: #f43f5e;
-  --live: #db2777;
-
-  --elevation-card: 0 1px 2px rgb(190 24 93 / 0.04), 0 10px 30px -14px rgb(219 39 119 / 0.2);
-  --elevation-lift: 0 2px 6px rgb(190 24 93 / 0.06), 0 22px 44px -18px rgb(190 24 93 / 0.32);
-  --elevation-button: 0 6px 16px -6px rgb(219 39 119 / 0.55);
-  --skeleton-base: #fbe2ed;
-  --skeleton-shine: rgb(255 255 255 / 0.7);
-
-  /* 模組點綴色；圖示會單獨出現在手機導覽列，主色要對淺底有 3:1 */
-  --accent-pink: #ec4899;
-  --accent-pink-ink: #be185d;
-  --accent-pink-soft: #fde4ef;
-  --accent-pink-line: #f8c4db;
-  --accent-violet: #8b5cf6;
-  --accent-violet-ink: #6d28d9;
-  --accent-violet-soft: #efe9ff;
-  --accent-violet-line: #d8cbfd;
-  --accent-sky: #0284c7;
-  --accent-sky-ink: #0369a1;
-  --accent-sky-soft: #e2f2fd;
-  --accent-sky-line: #b6dff7;
-  --accent-mint: #059669;
-  --accent-mint-ink: #047857;
-  --accent-mint-soft: #e1f6ec;
-  --accent-mint-line: #b1e6cd;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-
-    --bg-base: #1b1426;
-    --bg-gradient: linear-gradient(160deg, #21162c 0%, #1b1631 50%, #131a33 100%);
-    --glow-pink: rgb(236 72 153 / 0.16);
-    --glow-violet: rgb(139 92 246 / 0.2);
-    --glow-sky: rgb(56 189 248 / 0.08);
-
-    --surface: rgb(45 32 61 / 0.74);
-    --surface-solid: #2a1f3a;
-    --surface-muted: rgb(255 255 255 / 0.045);
-    --surface-sunken: rgb(255 255 255 / 0.09);
-    --line: rgb(249 168 212 / 0.14);
-    --line-strong: rgb(249 168 212 / 0.3);
-    --header-bg: rgb(29 20 41 / 0.76);
-
-    --ink: #f6edf8;
-    --ink-soft: #e4d6ec;
-    --muted: #c2b0d1;
-    --placeholder: #a996ba;
-
-    --brand: #f472b6;
-    --brand-ink: #f9a8d4;
-    --brand-soft: rgb(244 114 182 / 0.16);
-    --brand-line: rgb(244 114 182 / 0.4);
-    --gradient-text: linear-gradient(135deg, #f9a8d4 0%, #c4b5fd 100%);
-    --gradient-meter: linear-gradient(90deg, #f472b6 0%, #a78bfa 100%);
-    --focus: #f9a8d4;
-    --ring: rgb(244 114 182 / 0.32);
-
-    --success: #6ee7b7;
-    --success-soft: rgb(52 211 153 / 0.13);
-    --success-line: rgb(52 211 153 / 0.32);
-    --success-dot: #34d399;
-    --warning: #fcd34d;
-    --warning-soft: rgb(251 191 36 / 0.12);
-    --warning-line: rgb(251 191 36 / 0.3);
-    --warning-dot: #fbbf24;
-    --danger: #fda4af;
-    --danger-soft: rgb(244 63 94 / 0.13);
-    --danger-line: rgb(251 113 133 / 0.36);
-    --danger-hover: rgb(244 63 94 / 0.22);
-    --danger-dot: #fb7185;
-
-    --elevation-card: 0 1px 2px rgb(0 0 0 / 0.25), 0 14px 34px -18px rgb(0 0 0 / 0.7);
-    --elevation-lift: 0 2px 6px rgb(0 0 0 / 0.3), 0 24px 48px -20px rgb(236 72 153 / 0.35);
-    --elevation-button: 0 6px 18px -6px rgb(236 72 153 / 0.5);
-    --skeleton-base: rgb(244 114 182 / 0.1);
-    --skeleton-shine: rgb(255 255 255 / 0.08);
-
-    --accent-pink: #f472b6;
-    --accent-pink-ink: #f9a8d4;
-    --accent-pink-soft: rgb(244 114 182 / 0.15);
-    --accent-pink-line: rgb(244 114 182 / 0.36);
-    --accent-violet: #a78bfa;
-    --accent-violet-ink: #c4b5fd;
-    --accent-violet-soft: rgb(167 139 250 / 0.16);
-    --accent-violet-line: rgb(167 139 250 / 0.38);
-    --accent-sky: #38bdf8;
-    --accent-sky-ink: #7dd3fc;
-    --accent-sky-soft: rgb(56 189 248 / 0.14);
-    --accent-sky-line: rgb(56 189 248 / 0.36);
-    --accent-mint: #34d399;
-    --accent-mint-ink: #6ee7b7;
-    --accent-mint-soft: rgb(52 211 153 / 0.14);
-    --accent-mint-line: rgb(52 211 153 / 0.36);
+/* 深色模式：<html data-theme> 有值時以它為準（人像選單裡的「外觀」），沒有值時跟隨系統；Tailwind 的 dark: 與下面的 @variant dark 都走這個規則 */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:not([data-theme="light"], [data-theme="light"] *)) {
+      @slot;
+    }
   }
 }
 
-/* data-accent 只換對應關係，淺色／深色的實際色值由上面的變數決定 */
+/* 配色全部走 CSS 變數：深色模式與 Twitch、星穹鐵道頁的主題只換變數，元件裡不必到處寫 dark: */
+/* 全站是簡潔中性的風格：白／淡灰底、灰色細框；主色只有一個深藍，只用在主要按鈕、連結與焦點框；模組的品牌色只出現在圖示與小標籤 */
+:root {
+  color-scheme: light;
+
+  --bg-base: #f6f7f9;
+
+  --surface: #ffffff;
+  --surface-solid: #ffffff;
+  --surface-muted: #f3f4f6;
+  --surface-sunken: #e9ebef;
+  --line: #e3e5ea;
+  --line-strong: #cdd1d8;
+  --header-bg: rgb(255 255 255 / 0.88);
+
+  --ink: #15171c;
+  --ink-soft: #343842;
+  /* 說明文字也要在白底上維持 6:1 以上，不要太淡 */
+  --muted: #545a66;
+  --placeholder: #6b7280;
+
+  --brand: #1d4ed8;
+  --brand-hover: #1e40af;
+  --brand-ink: #1d4ed8;
+  --brand-soft: #eef3ff;
+  --brand-line: #c3d3fb;
+  --on-brand: #ffffff;
+  --focus: #1d4ed8;
+  --ring: rgb(29 78 216 / 0.22);
+
+  --success: #047857;
+  --success-soft: #ecfdf5;
+  --success-line: #a7f3d0;
+  --success-dot: #10b981;
+  --warning: #92400e;
+  --warning-soft: #fffbeb;
+  --warning-line: #fcd34d;
+  --warning-dot: #f59e0b;
+  --danger: #b91c1c;
+  --danger-soft: #fef2f2;
+  --danger-line: #fecaca;
+  --danger-hover: #fee2e2;
+  --danger-dot: #ef4444;
+  --live: #dc2626;
+
+  --elevation-card: 0 1px 2px rgb(16 24 40 / 0.04);
+  --elevation-lift: 0 10px 28px -12px rgb(16 24 40 / 0.18);
+  --skeleton-base: #eceef1;
+  --skeleton-shine: rgb(255 255 255 / 0.65);
+
+  /* 模組的品牌色：只給圖示與小標籤用；圖示會單獨出現在手機導覽列，主色要對淺底有 3:1 */
+  --accent-blue: #1d4ed8;
+  --accent-blue-ink: #1e40af;
+  --accent-blue-soft: #eef3ff;
+  --accent-blue-line: #c3d3fb;
+  --accent-red: #dc2626;
+  --accent-red-ink: #b91c1c;
+  --accent-red-soft: #fef2f2;
+  --accent-red-line: #fecaca;
+  --accent-violet: #8b46f0;
+  --accent-violet-ink: #6d28d9;
+  --accent-violet-soft: #f5f0ff;
+  --accent-violet-line: #ddd0fe;
+  --accent-gold: #b45309;
+  --accent-gold-ink: #92400e;
+  --accent-gold-soft: #fffbeb;
+  --accent-gold-line: #fde68a;
+  --accent-green: #059669;
+  --accent-green-ink: #047857;
+  --accent-green-soft: #ecfdf5;
+  --accent-green-line: #a7f3d0;
+}
+
+:root {
+  @variant dark {
+    color-scheme: dark;
+
+    --bg-base: #0f1012;
+
+    --surface: #17181b;
+    --surface-solid: #1a1b1f;
+    --surface-muted: #202226;
+    --surface-sunken: #272a2f;
+    --line: #2a2d33;
+    --line-strong: #3a3e46;
+    --header-bg: rgb(15 16 18 / 0.86);
+
+    --ink: #f1f2f4;
+    --ink-soft: #d0d3d9;
+    --muted: #a6acb7;
+    --placeholder: #8b919c;
+
+    --brand: #2f6ae8;
+    --brand-hover: #3d77ef;
+    --brand-ink: #8fb3ff;
+    --brand-soft: rgb(59 118 240 / 0.14);
+    --brand-line: rgb(110 155 255 / 0.4);
+    --on-brand: #ffffff;
+    --focus: #8fb3ff;
+    --ring: rgb(110 155 255 / 0.32);
+
+    --success: #6ee7b7;
+    --success-soft: rgb(52 211 153 / 0.12);
+    --success-line: rgb(52 211 153 / 0.32);
+    --success-dot: #34d399;
+    --warning: #fcd34d;
+    --warning-soft: rgb(251 191 36 / 0.11);
+    --warning-line: rgb(251 191 36 / 0.3);
+    --warning-dot: #fbbf24;
+    --danger: #fca5a5;
+    --danger-soft: rgb(239 68 68 / 0.12);
+    --danger-line: rgb(248 113 113 / 0.36);
+    --danger-hover: rgb(239 68 68 / 0.2);
+    --danger-dot: #f87171;
+    --live: #ef4444;
+
+    --elevation-card: none;
+    --elevation-lift: 0 14px 36px -14px rgb(0 0 0 / 0.7);
+    --skeleton-base: #24262b;
+    --skeleton-shine: rgb(255 255 255 / 0.05);
+
+    --accent-blue: #8fb3ff;
+    --accent-blue-ink: #a9c4ff;
+    --accent-blue-soft: rgb(110 155 255 / 0.13);
+    --accent-blue-line: rgb(110 155 255 / 0.35);
+    --accent-red: #f87171;
+    --accent-red-ink: #fca5a5;
+    --accent-red-soft: rgb(248 113 113 / 0.12);
+    --accent-red-line: rgb(248 113 113 / 0.35);
+    --accent-violet: #a970ff;
+    --accent-violet-ink: #c9a8ff;
+    --accent-violet-soft: rgb(169 112 255 / 0.14);
+    --accent-violet-line: rgb(169 112 255 / 0.38);
+    --accent-gold: #fbbf24;
+    --accent-gold-ink: #fcd34d;
+    --accent-gold-soft: rgb(251 191 36 / 0.11);
+    --accent-gold-line: rgb(251 191 36 / 0.32);
+    --accent-green: #34d399;
+    --accent-green-ink: #6ee7b7;
+    --accent-green-soft: rgb(52 211 153 / 0.12);
+    --accent-green-line: rgb(52 211 153 / 0.34);
+  }
+}
+
+/* data-accent 只換對應關係，淺色／深色的實際色值由上面的變數決定；沒指定的（core 的頁面）用主色的藍 */
 :root,
-[data-accent="pink"] {
-  --accent: var(--accent-pink);
-  --accent-ink: var(--accent-pink-ink);
-  --accent-soft: var(--accent-pink-soft);
-  --accent-line: var(--accent-pink-line);
+[data-accent="blue"] {
+  --accent: var(--accent-blue);
+  --accent-ink: var(--accent-blue-ink);
+  --accent-soft: var(--accent-blue-soft);
+  --accent-line: var(--accent-blue-line);
+}
+[data-accent="red"] {
+  --accent: var(--accent-red);
+  --accent-ink: var(--accent-red-ink);
+  --accent-soft: var(--accent-red-soft);
+  --accent-line: var(--accent-red-line);
 }
 [data-accent="violet"] {
   --accent: var(--accent-violet);
@@ -159,23 +176,214 @@
   --accent-soft: var(--accent-violet-soft);
   --accent-line: var(--accent-violet-line);
 }
-[data-accent="sky"] {
-  --accent: var(--accent-sky);
-  --accent-ink: var(--accent-sky-ink);
-  --accent-soft: var(--accent-sky-soft);
-  --accent-line: var(--accent-sky-line);
+[data-accent="gold"] {
+  --accent: var(--accent-gold);
+  --accent-ink: var(--accent-gold-ink);
+  --accent-soft: var(--accent-gold-soft);
+  --accent-line: var(--accent-gold-line);
 }
-[data-accent="mint"] {
-  --accent: var(--accent-mint);
-  --accent-ink: var(--accent-mint-ink);
-  --accent-soft: var(--accent-mint-soft);
-  --accent-line: var(--accent-mint-line);
+[data-accent="green"] {
+  --accent: var(--accent-green);
+  --accent-ink: var(--accent-green-ink);
+  --accent-soft: var(--accent-green-soft);
+  --accent-line: var(--accent-green-line);
+}
+
+/* Twitch 頁：不論全站淺色或深色，都是 Twitch 網站的深色風格（近黑底、深灰面板、Twitch 紫）；共用的 card、chip、按鈕、input 跟著換色 */
+.theme-twitch {
+  color-scheme: dark;
+  --surface: #18181b;
+  --surface-solid: #1f1f23;
+  --surface-muted: #26262c;
+  --surface-sunken: #2f2f35;
+  --line: #2f2f35;
+  --line-strong: #45454d;
+  --ink: #efeff1;
+  --ink-soft: #dedee3;
+  --muted: #b3b3bd;
+  --placeholder: #8e8e98;
+  --brand: #9146ff;
+  --brand-hover: #772ce8;
+  --brand-ink: #bf94ff;
+  --brand-soft: rgb(145 70 255 / 0.18);
+  --brand-line: rgb(145 70 255 / 0.5);
+  --on-brand: #ffffff;
+  --focus: #bf94ff;
+  --ring: rgb(145 70 255 / 0.4);
+  --accent: #bf94ff;
+  --accent-ink: #bf94ff;
+  --accent-soft: rgb(145 70 255 / 0.16);
+  --accent-line: rgb(145 70 255 / 0.45);
+  --success: #6ee7b7;
+  --success-soft: rgb(52 211 153 / 0.12);
+  --success-line: rgb(52 211 153 / 0.32);
+  --warning: #fcd34d;
+  --warning-soft: rgb(251 191 36 / 0.11);
+  --warning-line: rgb(251 191 36 / 0.3);
+  --danger: #ff9b9b;
+  --danger-soft: rgb(235 4 0 / 0.14);
+  --danger-line: rgb(255 120 120 / 0.38);
+  --danger-hover: rgb(235 4 0 / 0.24);
+  --live: #eb0400;
+  --elevation-card: none;
+  --elevation-lift: 0 12px 30px -12px rgb(0 0 0 / 0.8);
+  --skeleton-base: #26262c;
+  --skeleton-shine: rgb(255 255 255 / 0.05);
+  color: var(--ink);
+  background-color: #0e0e10;
+  accent-color: var(--brand);
+}
+
+/* 星穹鐵道頁：不論全站淺色或深色，都是遊戲裡的深藍星空；文字白與金色，面板半透明、切角 */
+.theme-starrail {
+  color-scheme: dark;
+  --sr-gold: #e6c27a;
+  --sr-gold-soft: rgb(230 194 122 / 0.14);
+  --sr-gold-line: rgb(230 194 122 / 0.45);
+  --sr-five: linear-gradient(160deg, #6b4520 0%, #b07f3d 45%, #ecc985 100%);
+  --sr-four: linear-gradient(160deg, #3b2a6e 0%, #6a4bb0 50%, #b59bea 100%);
+  --surface: rgb(18 24 58 / 0.78);
+  --surface-solid: #141a3d;
+  --surface-muted: rgb(255 255 255 / 0.055);
+  --surface-sunken: rgb(255 255 255 / 0.1);
+  --line: rgb(205 214 255 / 0.16);
+  --line-strong: rgb(205 214 255 / 0.32);
+  --ink: #f7f4ea;
+  --ink-soft: #dfe2f1;
+  --muted: #b9bfdb;
+  --placeholder: #8f96b8;
+  --brand: #e2b862;
+  --brand-hover: #f0c879;
+  --brand-ink: #f1cf87;
+  --brand-soft: rgb(230 194 122 / 0.14);
+  --brand-line: rgb(230 194 122 / 0.45);
+  --on-brand: #121735;
+  --focus: #f4d79b;
+  --ring: rgb(244 215 155 / 0.35);
+  --accent: #e6c27a;
+  --accent-ink: #f1cf87;
+  --accent-soft: rgb(230 194 122 / 0.12);
+  --accent-line: rgb(230 194 122 / 0.4);
+  --success: #7ee2b8;
+  --success-soft: rgb(52 211 153 / 0.13);
+  --success-line: rgb(52 211 153 / 0.34);
+  --warning: #fcd78a;
+  --warning-soft: rgb(251 191 36 / 0.12);
+  --warning-line: rgb(251 191 36 / 0.32);
+  --danger: #ffaaa8;
+  --danger-soft: rgb(239 68 68 / 0.15);
+  --danger-line: rgb(248 113 113 / 0.4);
+  --danger-hover: rgb(239 68 68 / 0.24);
+  --elevation-card: none;
+  --elevation-lift: 0 16px 40px -16px rgb(0 0 0 / 0.8);
+  --skeleton-base: rgb(255 255 255 / 0.08);
+  --skeleton-shine: rgb(255 255 255 / 0.06);
+  color: var(--ink);
+  accent-color: var(--brand);
+  /* 上方的軌道環與列車軌道由 StarrailBackdrop 的 inline SVG 畫；這裡是底色漸層與整頁重複的細小星點 */
+  background-color: #090d26;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgb(255 255 255 / 0.7), transparent),
+    radial-gradient(1px 1px at 37% 62%, rgb(255 255 255 / 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 64% 34%, rgb(199 210 254 / 0.55), transparent),
+    radial-gradient(1px 1px at 86% 78%, rgb(230 194 122 / 0.5), transparent),
+    radial-gradient(40rem 30rem at 100% 0%, rgb(76 56 160 / 0.32), transparent 70%),
+    radial-gradient(36rem 28rem at 0% 100%, rgb(37 70 160 / 0.26), transparent 70%),
+    linear-gradient(180deg, #0b1030 0%, #0a0f2b 45%, #120c33 100%);
+  background-size:
+    360px 420px,
+    360px 420px,
+    360px 420px,
+    360px 420px,
+    auto,
+    auto,
+    auto;
+}
+
+/* YouTube 頁：照 YouTube 網站的淺色與深色（白底／#0f0f0f、#f2f2f2／#272727 的膠囊按鈕），跟著全站的外觀切換；紅色只留給標誌與進度條 */
+/* 灰色的面用半透明黑白疊出來（跟 YouTube 一樣），放在白底、灰底或深色底上都對得上 */
+.theme-youtube {
+  --surface: #ffffff;
+  --surface-solid: #ffffff;
+  --surface-muted: rgb(0 0 0 / 0.05);
+  --surface-sunken: rgb(0 0 0 / 0.1);
+  --line: rgb(0 0 0 / 0.1);
+  --line-strong: #d3d3d3;
+  --ink: #0f0f0f;
+  --ink-soft: #272727;
+  /* YouTube 的次要文字色；在白底上 6:1，不會太淡 */
+  --muted: #606060;
+  --placeholder: #717171;
+  --brand: #0f0f0f;
+  --brand-hover: #272727;
+  --brand-ink: #065fd4;
+  --brand-soft: #def1ff;
+  --brand-line: rgb(6 95 212 / 0.35);
+  --on-brand: #ffffff;
+  --focus: #065fd4;
+  --ring: rgb(6 95 212 / 0.25);
+  --accent: #ff0000;
+  --accent-ink: #0f0f0f;
+  --accent-soft: rgb(0 0 0 / 0.05);
+  --accent-line: rgb(0 0 0 / 0.1);
+  --yt-input: #ffffff;
+  --yt-search-button: #f8f8f8;
+  --yt-search-button-hover: #efefef;
+  --yt-search-focus: #1c62b9;
+  --elevation-card: none;
+  --elevation-lift: 0 4px 32px rgb(0 0 0 / 0.12);
+  --skeleton-base: rgb(0 0 0 / 0.07);
+  --skeleton-shine: rgb(255 255 255 / 0.6);
+  color: var(--ink);
+  accent-color: var(--brand-ink);
+
+  @variant dark {
+    --surface: #0f0f0f;
+    --surface-solid: #212121;
+    --surface-muted: rgb(255 255 255 / 0.1);
+    --surface-sunken: rgb(255 255 255 / 0.2);
+    --line: rgb(255 255 255 / 0.16);
+    --line-strong: #303030;
+    --ink: #f1f1f1;
+    --ink-soft: #e2e2e2;
+    --muted: #aaaaaa;
+    --placeholder: #8c8c8c;
+    --brand: #f1f1f1;
+    --brand-hover: #d9d9d9;
+    --brand-ink: #3ea6ff;
+    --brand-soft: rgb(62 166 255 / 0.15);
+    --brand-line: rgb(62 166 255 / 0.4);
+    --on-brand: #0f0f0f;
+    --focus: #3ea6ff;
+    --ring: rgb(62 166 255 / 0.3);
+    --accent-ink: #f1f1f1;
+    --accent-soft: rgb(255 255 255 / 0.1);
+    --accent-line: rgb(255 255 255 / 0.2);
+    --yt-input: #121212;
+    --yt-search-button: #222222;
+    --yt-search-button-hover: #303030;
+    --elevation-lift: 0 4px 32px rgb(0 0 0 / 0.6);
+    --skeleton-base: rgb(255 255 255 / 0.1);
+    --skeleton-shine: rgb(255 255 255 / 0.05);
+  }
+}
+
+/* YouTube 頁連頁面底色與導覽列也換成 YouTube 的白／#0f0f0f，整頁看起來才像 YouTube */
+:root:has(.theme-youtube) {
+  --bg-base: #ffffff;
+  --header-bg: rgb(255 255 255 / 0.95);
+
+  @variant dark {
+    --bg-base: #0f0f0f;
+    --header-bg: rgb(15 15 15 / 0.95);
+  }
 }
 
 @theme inline {
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-muted: var(--muted);
+  --color-surface: var(--surface);
   --color-surface-solid: var(--surface-solid);
   --color-surface-muted: var(--surface-muted);
   --color-surface-sunken: var(--surface-sunken);
@@ -188,7 +396,10 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-line: var(--accent-line);
   --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-live: var(--live);
+  --color-sr-gold: var(--sr-gold);
   --font-sans: var(--font-geist-sans), "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
@@ -206,20 +417,6 @@
     accent-color: var(--brand);
   }
 
-  /* 漸層與光斑放在固定的偽元素，捲動時不會重繪，也避開 iOS 不支援 background-attachment: fixed */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background:
-      radial-gradient(38rem 28rem at 6% -8%, var(--glow-pink), transparent 70%),
-      radial-gradient(30rem 24rem at 98% 2%, var(--glow-sky), transparent 70%),
-      radial-gradient(40rem 32rem at 88% 108%, var(--glow-violet), transparent 70%),
-      var(--bg-gradient);
-  }
-
   ::selection {
     background-color: var(--brand-soft);
     color: var(--ink);
@@ -231,11 +428,11 @@
   }
 
   code {
-    border-radius: 0.4em;
+    border-radius: 0.375em;
     padding: 0.1em 0.4em;
     font-family: var(--font-mono);
     font-size: 0.86em;
-    color: var(--brand-ink);
+    color: var(--ink);
     background-color: var(--surface-sunken);
     overflow-wrap: anywhere;
   }
@@ -256,16 +453,17 @@
     mask: var(--icon-url) center / contain no-repeat;
   }
 
+  /* 底色維持中性，只有圖示本身用模組的品牌色 */
   .icon-tile {
     display: inline-grid;
     flex-shrink: 0;
     place-items: center;
     width: 3rem;
     height: 3rem;
-    border: 1px solid var(--accent-line);
-    border-radius: 1rem;
-    color: var(--accent-ink);
-    background-color: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 0.875rem;
+    color: var(--accent);
+    background-color: var(--surface-muted);
   }
   .icon-tile > .icon {
     width: 52%;
@@ -276,10 +474,9 @@
     display: inline-grid;
     flex-shrink: 0;
     place-items: center;
-    border-radius: 9999px;
-    color: #fff;
-    background-image: var(--gradient-brand);
-    box-shadow: var(--elevation-button);
+    border-radius: 0.625rem;
+    color: var(--on-brand);
+    background-color: var(--brand);
   }
 
   .no-scrollbar {
@@ -289,39 +486,77 @@
     display: none;
   }
 
+  /* 名稱沿用（以前是漸層字），現在是一般的深色字 */
   .text-gradient {
-    background-image: var(--gradient-text);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--ink);
   }
 
   .card {
-    @apply rounded-3xl p-5 sm:p-6;
+    @apply rounded-2xl p-5 sm:p-6;
     border: 1px solid var(--line);
     background-color: var(--surface);
     box-shadow: var(--elevation-card);
   }
   .card-interactive {
     transition:
-      transform 200ms ease,
       box-shadow 200ms ease,
       border-color 200ms ease;
   }
   .card-interactive:hover {
-    border-color: var(--accent-line);
+    border-color: var(--line-strong);
     box-shadow: var(--elevation-lift);
+  }
+
+  /* ---------- 版面的間距：尺度固定（規則寫在 CLAUDE.md〈程式碼慣例〉的「間距與對齊」），距離交給父層的 gap，子元素不另外加 margin ---------- */
+  /* 頁面上的區塊（卡片、區段）之間 */
+  .page-stack {
+    @apply flex flex-col gap-8;
+  }
+  /* 卡片與區段裡的元素之間、表單的欄位之間 */
+  .stack {
+    @apply flex flex-col gap-4;
+  }
+  /* 一個欄位：標籤在上、輸入框在下 */
+  .field {
+    @apply flex flex-col gap-1.5;
+  }
+  .field-label {
+    @apply text-sm font-medium text-ink-soft;
+  }
+  /* 一排按鈕：同一排一樣高，放不下時換行 */
+  .button-row {
+    @apply flex flex-wrap items-center gap-2;
+  }
+  /* 卡片裡撐滿左右的清單：抵掉卡片的內距，每一列再補回同樣的左右內距，列裡的文字跟卡片其他內容對齊同一條線 */
+  .card-list {
+    @apply -mx-5 flex flex-col divide-y divide-line border-t border-line sm:-mx-6;
+  }
+  .card-list:first-child {
+    @apply -mt-5 border-t-0 sm:-mt-6;
+  }
+  .card-list:last-child {
+    @apply -mb-5 sm:-mb-6;
+  }
+  .card-row {
+    @apply px-5 py-3 sm:px-6;
+  }
+  /* 卡片裡再小一級的區塊（展開的輸入區、統計面板、數字方塊） */
+  .panel {
+    @apply rounded-xl p-4;
+    background-color: var(--surface-muted);
+  }
+  .panel-outline {
+    @apply rounded-xl p-4;
+    border: 1px solid var(--line);
   }
 
   .btn-primary,
   .btn-secondary,
   .btn-danger,
   .btn-ghost {
-    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-full px-5 text-sm font-semibold whitespace-nowrap select-none;
+    @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-semibold whitespace-nowrap select-none;
     border: 1px solid transparent;
     transition:
-      transform 150ms ease,
-      box-shadow 150ms ease,
       background-color 150ms ease,
       border-color 150ms ease,
       color 150ms ease;
@@ -332,29 +567,21 @@
   .btn-ghost:disabled {
     cursor: not-allowed;
     opacity: 0.55;
-    box-shadow: none;
-    transform: none;
   }
   .btn-primary {
-    color: #fff;
-    background-image: var(--gradient-brand);
-    box-shadow:
-      var(--elevation-button),
-      inset 0 1px 0 rgb(255 255 255 / 0.22);
+    color: var(--on-brand);
+    background-color: var(--brand);
   }
   .btn-primary:hover:not(:disabled) {
-    box-shadow:
-      0 12px 24px -10px rgb(219 39 119 / 0.65),
-      inset 0 1px 0 rgb(255 255 255 / 0.22);
+    background-color: var(--brand-hover);
   }
   .btn-secondary {
     border-color: var(--line-strong);
-    color: var(--brand-ink);
+    color: var(--ink);
     background-color: var(--surface-solid);
   }
   .btn-secondary:hover:not(:disabled) {
-    border-color: var(--brand-line);
-    background-color: var(--brand-soft);
+    background-color: var(--surface-muted);
   }
   .btn-danger {
     border-color: var(--danger-line);
@@ -368,16 +595,24 @@
     color: var(--ink-soft);
   }
   .btn-ghost:hover:not(:disabled) {
-    border-color: var(--line);
     color: var(--ink);
-    background-color: var(--surface-solid);
+    background-color: var(--surface-muted);
   }
+  /* 清單列、工具列裡的次要按鈕：寬螢幕 36px，觸控裝置跟主要按鈕一樣 44px（見檔案最後的 pointer: coarse） */
   .btn-sm {
-    @apply min-h-9 gap-1 px-3.5 text-[0.8125rem];
+    @apply min-h-9 gap-1 px-3 text-[0.8125rem];
+  }
+  /* 只有圖示的按鈕：寬度等於高度（正方形），一排放不下時也不會被擠扁 */
+  .btn-icon {
+    @apply w-11 shrink-0 px-0;
+  }
+  .btn-sm.btn-icon {
+    @apply w-9;
   }
 
+  /* 高度固定 44px，跟按鈕一樣：行高寫死成 24px，字級不同的輸入框也不會多出 1px */
   .input {
-    @apply min-h-11 w-full min-w-0 rounded-2xl px-4 py-2.5 text-[0.9375rem];
+    @apply min-h-11 w-full min-w-0 rounded-lg px-3.5 py-2 text-[0.9375rem] leading-6;
     border: 1px solid var(--line-strong);
     color: var(--ink);
     background-color: var(--surface-solid);
@@ -385,33 +620,30 @@
       border-color 150ms ease,
       box-shadow 150ms ease;
   }
-  input.input {
-    @apply rounded-full;
-  }
   textarea.input {
-    @apply leading-relaxed;
+    @apply py-2.5 leading-relaxed;
     resize: vertical;
   }
   .input::placeholder {
     color: var(--placeholder);
   }
   .input:hover {
-    border-color: var(--brand-line);
+    border-color: var(--muted);
   }
   .input:focus {
     outline: none;
-    border-color: var(--brand);
-    box-shadow: 0 0 0 4px var(--ring);
+    border-color: var(--focus);
+    box-shadow: 0 0 0 3px var(--ring);
   }
   .input[type="file"] {
     @apply py-1.5 pl-1.5;
     cursor: pointer;
   }
   .input::file-selector-button {
-    @apply mr-3 rounded-full px-3.5 py-1.5 text-[0.8125rem] font-semibold;
-    border: 0;
-    color: var(--brand-ink);
-    background-color: var(--brand-soft);
+    @apply mr-3 rounded-md px-3 py-1.5 text-[0.8125rem] font-semibold;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    background-color: var(--surface-muted);
     cursor: pointer;
   }
 
@@ -425,20 +657,26 @@
   .link:hover {
     text-decoration-color: currentColor;
   }
+  /* 自己一行的文字連結（「還有 3 支影片」這類）：觸控裝置上點擊範圍放大到 44px */
+  .link-block {
+    @apply inline-flex items-center self-start;
+  }
 
+  /* 左邊用負邊距抵掉內距：箭頭對齊頁面的左邊線，滑過時的底色往外多出一點 */
   .back-link {
-    @apply inline-flex min-h-9 items-center gap-1 self-start rounded-full px-3 text-sm font-medium;
-    color: var(--muted);
+    @apply -ml-2.5 inline-flex min-h-9 items-center gap-1 self-start rounded-lg px-2.5 text-sm font-medium;
+    color: var(--ink-soft);
   }
   .back-link:hover {
-    color: var(--brand-ink);
-    background-color: var(--surface);
+    color: var(--ink);
+    background-color: var(--surface-muted);
   }
 
+  /* 行高寫死成 16px：裡面放了字級較大的數字也一樣高（22px） */
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap;
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap;
     border: 1px solid var(--line);
-    color: var(--muted);
+    color: var(--ink-soft);
     background-color: var(--surface-muted);
   }
   .chip-accent {
@@ -471,7 +709,6 @@
     border-color: transparent;
     color: #fff;
     background-color: var(--live);
-    box-shadow: 0 0 0 3px rgb(236 72 153 / 0.18);
   }
   .chip-live::before {
     content: "";
@@ -500,7 +737,7 @@
   }
 
   .form-message {
-    @apply inline-flex items-start gap-1.5 self-start rounded-2xl px-3 py-1.5 text-sm;
+    @apply inline-flex items-start gap-1.5 self-start rounded-lg px-3 py-1.5 text-sm;
   }
   .form-message > .icon {
     @apply mt-0.5 size-4;
@@ -515,7 +752,7 @@
   }
 
   .choice-card {
-    @apply flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium;
+    @apply flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium;
     border: 1px solid var(--line-strong);
     color: var(--ink-soft);
     background-color: var(--surface-solid);
@@ -525,26 +762,26 @@
       box-shadow 150ms ease;
   }
   .choice-card:hover {
-    border-color: var(--brand-line);
+    border-color: var(--muted);
   }
   .choice-card:has(:checked) {
     @apply font-semibold;
     border-color: var(--brand);
     color: var(--brand-ink);
     background-color: var(--brand-soft);
-    box-shadow: 0 0 0 3px var(--ring);
+    box-shadow: 0 0 0 1px var(--brand);
   }
 
   .notice {
-    @apply flex items-start gap-2 rounded-2xl px-4 py-2.5 text-sm leading-relaxed;
-    border: 1px solid var(--accent-line);
-    color: var(--accent-ink);
-    background-color: var(--accent-soft);
+    @apply flex items-start gap-2 rounded-xl px-4 py-2.5 text-sm leading-relaxed;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    background-color: var(--surface-muted);
   }
   .notice > .icon {
     @apply mt-0.5 size-4;
+    color: var(--brand-ink);
   }
-  /* 淺色模式下提示框與 code 的底色幾乎一樣，換成卡片底色才看得出是指令 */
   .notice code {
     background-color: var(--surface-solid);
   }
@@ -567,17 +804,60 @@
     place-items: center;
     width: 1.5rem;
     height: 1.5rem;
-    border: 1px solid var(--accent-line);
+    border: 1px solid var(--line-strong);
     border-radius: 9999px;
     font-size: 0.75rem;
     font-weight: 700;
-    color: var(--accent-ink);
-    background-color: var(--accent-soft);
+    color: var(--ink);
+    background-color: var(--surface-solid);
   }
 
   .empty-state {
-    @apply flex flex-col items-center gap-2 rounded-3xl px-6 py-10 text-center;
-    border: 1.5px dashed var(--accent-line);
+    @apply flex flex-col items-center gap-4 rounded-2xl px-6 py-10 text-center;
+    border: 1px dashed var(--line-strong);
+    background-color: var(--surface-muted);
+  }
+  /* 卡片裡的空狀態：圖示、文字、按鈕排成一列，按鈕放不下時換到下一行 */
+  .empty-state-compact {
+    @apply flex flex-wrap items-center gap-4 rounded-xl p-4;
+    border: 1px dashed var(--line-strong);
+    background-color: var(--surface-muted);
+  }
+
+  /* 卡片標題列右邊「前往模組頁」的連結；右邊用負邊距抵掉內距，箭頭對齊卡片內容的右邊線 */
+  .card-header-link {
+    @apply -mr-1.5 inline-flex min-h-9 shrink-0 items-center gap-0.5 rounded-lg pr-1.5 pl-2.5 text-sm font-medium;
+    color: var(--brand-ink);
+    transition: background-color 150ms ease;
+  }
+  .card-header-link:hover {
+    background-color: var(--surface-muted);
+  }
+
+  /* 首頁上方的模組入口：手機上四格並排、圖示在上；寬螢幕是一排膠囊 */
+  .home-module-link {
+    @apply flex min-h-11 w-full flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[0.8125rem] font-medium sm:flex-row sm:gap-2 sm:px-3.5 sm:py-0 sm:text-sm;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    background-color: var(--surface);
+    transition:
+      border-color 150ms ease,
+      background-color 150ms ease;
+  }
+  .home-module-link > .icon {
+    color: var(--accent);
+  }
+  .home-module-link:hover {
+    border-color: var(--line-strong);
+    background-color: var(--surface-muted);
+  }
+
+  /* 卡片裡可以點的一列（未讀通知、帳號）：滑過時整列淡灰底，左右內距由外層的負邊距抵掉，文字跟卡片內容對齊 */
+  .home-row {
+    @apply flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2 text-left;
+    transition: background-color 150ms ease;
+  }
+  .home-row:hover {
     background-color: var(--surface-muted);
   }
 
@@ -606,46 +886,56 @@
     text-decoration: underline;
     text-underline-offset: 3px;
   }
+  /* details 不吃父層的 gap：展開的內容跟 summary 的距離統一寫在這裡 */
+  .disclosure > summary + * {
+    margin-top: 0.75rem;
+  }
 
+  /* 跟輸入框、按鈕一樣高（44px）；選項本身矮一點，用透明的偽元素把點擊範圍撐到整個外框的高度 */
   .segmented {
-    @apply inline-flex items-center gap-1 rounded-full p-1;
+    @apply inline-flex min-h-11 items-stretch gap-0.5 rounded-lg p-1;
     border: 1px solid var(--line);
-    background-color: var(--surface-muted);
+    background-color: var(--surface-sunken);
   }
   .segmented-option {
-    @apply inline-flex min-h-8 cursor-pointer items-center rounded-full px-3.5 text-sm font-medium;
-    color: var(--muted);
+    @apply relative inline-flex min-w-11 cursor-pointer items-center justify-center rounded-md px-3 text-sm font-medium;
+    color: var(--ink-soft);
     transition:
       color 150ms ease,
       background-color 150ms ease;
+  }
+  .segmented-option::after {
+    content: "";
+    position: absolute;
+    inset: -0.3125rem 0;
   }
   .segmented-option:hover {
     color: var(--ink);
   }
   .segmented-option[aria-pressed="true"] {
-    color: #fff;
-    background-image: var(--gradient-brand);
-    box-shadow: var(--elevation-button);
+    @apply font-semibold;
+    color: var(--ink);
+    background-color: var(--surface-solid);
+    box-shadow: 0 1px 2px rgb(16 24 40 / 0.12);
   }
 
   .progress-track {
-    @apply h-2.5 w-full overflow-hidden rounded-full;
+    @apply h-2 w-full overflow-hidden rounded-full;
     background-color: var(--surface-sunken);
   }
   .progress-fill {
     @apply h-full rounded-full;
-    background-image: var(--gradient-meter);
+    background-color: var(--accent);
     transition: width 400ms ease;
   }
   .progress-fill-danger {
-    background-image: none;
     background-color: var(--danger-dot);
   }
 
   .skeleton {
     position: relative;
     overflow: hidden;
-    border-radius: 0.75rem;
+    border-radius: 0.5rem;
     background-color: var(--skeleton-base);
   }
 
@@ -655,12 +945,13 @@
     z-index: 40;
     border-bottom: 1px solid var(--line);
     background-color: var(--header-bg);
-    -webkit-backdrop-filter: blur(16px) saturate(1.4);
-    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    backdrop-filter: blur(16px) saturate(1.2);
   }
 
+  /* 導覽列與通知頁的篩選膠囊：跟次要按鈕同一個高度（寬螢幕 36px、觸控 44px） */
   .nav-pill {
-    @apply inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-medium whitespace-nowrap;
+    @apply inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-medium whitespace-nowrap;
     border: 1px solid transparent;
     color: var(--ink-soft);
     transition:
@@ -672,23 +963,21 @@
     color: var(--accent);
   }
   .nav-pill:hover {
-    border-color: var(--line);
     color: var(--ink);
-    background-color: var(--surface-solid);
+    background-color: var(--surface-muted);
   }
   .nav-pill[aria-current] {
     @apply font-semibold;
-    border-color: var(--accent-line);
-    color: var(--accent-ink);
-    background-color: var(--accent-soft);
-    box-shadow: 0 6px 16px -10px var(--accent);
+    border-color: var(--line);
+    color: var(--ink);
+    background-color: var(--surface-muted);
   }
 
-  /* 未讀數：鈴鐺右上角與導覽膠囊裡的小圓角數字 */
+  /* 未讀數：鈴鐺右上角與導覽裡的小圓角數字 */
   .count-badge {
     @apply inline-flex h-[1.125rem] min-w-[1.125rem] shrink-0 items-center justify-center rounded-full px-1 text-[0.6875rem] leading-none font-bold tabular-nums;
-    color: #fff;
-    background-image: var(--gradient-brand);
+    color: var(--on-brand);
+    background-color: var(--brand);
     box-shadow: 0 0 0 2px var(--surface-solid);
   }
 
@@ -698,9 +987,9 @@
     box-shadow: 0 0 0 3px var(--brand-soft);
   }
 
-  /* 放在 header 裡要用 absolute：header 有 backdrop-filter，fixed 的子元素會被它框住；手機上撐滿整列，大螢幕對齊鈴鐺 */
+  /* 放在 header 裡要用 absolute：header 有 backdrop-filter，fixed 的子元素會被它框住；手機上撐滿整列（左右留跟頁面一樣的 16px），大螢幕對齊鈴鐺 */
   .notification-panel {
-    @apply absolute inset-x-3 top-full mt-2 flex max-h-[min(34rem,calc(100dvh-5rem))] flex-col overflow-hidden rounded-3xl sm:inset-x-auto sm:right-0 sm:w-96;
+    @apply absolute inset-x-4 top-full mt-2 flex max-h-[min(34rem,calc(100dvh-5rem))] flex-col overflow-hidden rounded-2xl sm:inset-x-auto sm:right-0 sm:w-96;
     z-index: 50;
     border: 1px solid var(--line);
     background-color: var(--surface-solid);
@@ -718,9 +1007,9 @@
     background-color: var(--surface-muted);
   }
 
-  /* 跟鈴鐺面板一樣放在 header 裡用 absolute：手機上靠整列右緣，大螢幕對齊人像按鈕；max-w 讓很窄的螢幕也不超出 */
+  /* 跟鈴鐺面板一樣放在 header 裡用 absolute：手機上靠整列右緣（留跟頁面一樣的 16px），大螢幕對齊人像按鈕；max-w 讓很窄的螢幕也不超出 */
   .menu-panel {
-    @apply absolute top-full right-3 mt-2 w-56 max-w-[calc(100vw-1.5rem)] rounded-3xl p-1.5 sm:right-0;
+    @apply absolute top-full right-4 mt-2 flex w-60 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-2xl p-1.5 sm:right-0;
     z-index: 50;
     border: 1px solid var(--line);
     background-color: var(--surface-solid);
@@ -728,7 +1017,7 @@
   }
 
   .menu-item {
-    @apply flex min-h-10 w-full cursor-pointer items-center gap-2.5 rounded-2xl px-3 text-left text-sm font-medium;
+    @apply flex min-h-10 w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-sm font-medium;
     color: var(--ink-soft);
     transition:
       color 150ms ease,
@@ -736,14 +1025,14 @@
   }
   .menu-item:hover,
   .menu-item:focus-visible {
-    color: var(--brand-ink);
-    background-color: var(--brand-soft);
+    color: var(--ink);
+    background-color: var(--surface-muted);
   }
   /* 項目之間只隔一點點，外框往內畫才不會壓到隔壁項目 */
   .menu-item:focus-visible {
     outline-offset: -2px;
   }
-  /* 登出是離開的動作，平常就用柔和的玫瑰紅跟一般項目區分 */
+  /* 登出是離開的動作，平常就用紅色跟一般項目區分 */
   .menu-item-danger,
   .menu-item-danger:hover,
   .menu-item-danger:focus-visible {
@@ -754,22 +1043,47 @@
     background-color: var(--danger-soft);
   }
 
+  /* 人像選單裡的外觀：三個並排的選項，選中的用主色框起來 */
+  .theme-option {
+    @apply flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg px-1 text-[0.8125rem] font-medium whitespace-nowrap;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    background-color: var(--surface-solid);
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease;
+  }
+  .theme-option:hover {
+    color: var(--ink);
+    background-color: var(--surface-muted);
+  }
+  .theme-option:focus-visible {
+    outline-offset: -2px;
+  }
+  .theme-option[aria-checked="true"] {
+    @apply font-semibold;
+    border-color: var(--brand);
+    color: var(--brand-ink);
+    background-color: var(--brand-soft);
+  }
+
   .toast-region {
-    @apply pointer-events-none fixed right-3 bottom-3 flex w-[min(23rem,calc(100vw-1.5rem))] flex-col gap-3 sm:right-5 sm:bottom-5;
+    @apply pointer-events-none fixed right-4 bottom-4 flex w-[min(23rem,calc(100vw-2rem))] flex-col gap-3 sm:right-5 sm:bottom-5;
     z-index: 60;
   }
   .toast {
-    @apply pointer-events-auto relative flex items-start gap-1 overflow-hidden rounded-3xl p-1.5;
-    border: 1px solid var(--accent-line);
+    @apply pointer-events-auto relative flex items-start gap-1 overflow-hidden rounded-2xl p-1.5;
+    border: 1px solid var(--line);
     background-color: var(--surface-solid);
     box-shadow: var(--elevation-lift);
   }
   .toast-main {
-    @apply flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-[1.25rem] p-2.5 text-left;
+    @apply flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-xl p-2.5 text-left;
     transition: background-color 150ms ease;
   }
   .toast-main:hover {
-    background-color: var(--accent-soft);
+    background-color: var(--surface-muted);
   }
 
   .switch {
@@ -788,14 +1102,14 @@
     width: 1.125rem;
     height: 1.125rem;
     border-radius: 9999px;
-    background-color: var(--surface-solid);
-    box-shadow: 0 1px 3px rgb(58 44 71 / 0.25);
+    background-color: #ffffff;
+    box-shadow: 0 1px 3px rgb(16 24 40 / 0.3);
     transform: translateY(-50%);
     transition: transform 150ms ease;
   }
   .switch:checked {
     border-color: transparent;
-    background-image: var(--gradient-brand);
+    background-color: var(--brand);
   }
   .switch:checked::before {
     transform: translate(1.125rem, -50%);
@@ -805,6 +1119,447 @@
     opacity: 0.55;
   }
 
+  /* ---------- 共用的 ⋮ 選單（core/ui/more-menu.tsx） ---------- */
+  /* 手機是從底部升起的面板；寬螢幕改成貼著按鈕的小選單，位置由元件算好放在 --menu-top／--menu-left */
+  .more-menu {
+    @apply fixed inset-x-0 bottom-0 flex max-h-[80dvh] flex-col gap-0.5 overflow-y-auto rounded-t-2xl p-2 pb-[max(0.75rem,env(safe-area-inset-bottom))];
+    z-index: 70;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    background-color: var(--surface-solid);
+    box-shadow: var(--elevation-lift);
+  }
+  .more-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 69;
+    background-color: rgb(0 0 0 / 0.45);
+  }
+  @media (min-width: 40rem) {
+    .more-menu {
+      inset: auto;
+      top: var(--menu-top, 0);
+      left: var(--menu-left, 0);
+      width: 16rem;
+      max-height: min(28rem, calc(100dvh - 1rem));
+      border-radius: 0.75rem;
+      padding: 0.375rem;
+    }
+    .more-menu-backdrop {
+      display: none;
+    }
+  }
+
+  /* 只有圖示的圓形按鈕（⋮、關閉這類）：一律正方形，寬螢幕 36px、觸控 44px */
+  .icon-button {
+    @apply inline-grid size-9 shrink-0 cursor-pointer place-items-center rounded-full;
+    color: var(--ink);
+    transition:
+      background-color 150ms ease,
+      opacity 150ms ease;
+  }
+  .icon-button:hover,
+  .icon-button[aria-expanded="true"] {
+    background-color: var(--surface-muted);
+  }
+
+  /* 選單項目裡的開關圖示，跟著外層按鈕的 aria-checked 切換 */
+  .switch-visual {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    background-color: var(--surface-sunken);
+    transition: background-color 150ms ease;
+  }
+  .switch-visual::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0.125rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 9999px;
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    transform: translateY(-50%);
+    transition: transform 150ms ease;
+  }
+  [aria-checked="true"] > .switch-visual {
+    background-color: var(--brand-ink);
+  }
+  [aria-checked="true"] > .switch-visual::before {
+    transform: translate(1rem, -50%);
+  }
+
+  /* ---------- YouTube 頁 ---------- */
+  .yt-logo {
+    @apply flex min-h-11 shrink-0 items-center gap-1 text-[1.375rem] font-bold tracking-tighter;
+    color: var(--ink);
+  }
+  /* 標誌是單色遮罩，中間的三角形是挖空的；墊一塊白色，深色模式下三角形才會是白的 */
+  .yt-logo-mark {
+    position: relative;
+    display: inline-grid;
+    color: var(--accent);
+  }
+  .yt-logo-mark::before {
+    content: "";
+    position: absolute;
+    inset: 32% 30% 32% 36%;
+    background-color: #ffffff;
+  }
+  .yt-logo-mark > .icon {
+    position: relative;
+  }
+
+  /* 像 YouTube 的搜尋列：圓角輸入框接一個灰色按鈕 */
+  .yt-search {
+    @apply flex min-w-0 items-stretch;
+  }
+  .yt-search-input {
+    @apply min-h-11 w-full min-w-0 flex-1 rounded-l-full py-2 pr-2 pl-4 text-base;
+    border: 1px solid var(--line-strong);
+    border-right-width: 0;
+    color: var(--ink);
+    background-color: var(--yt-input);
+  }
+  .yt-search-input::placeholder {
+    color: var(--placeholder);
+  }
+  .yt-search-input:focus {
+    outline: none;
+    border-color: var(--yt-search-focus);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.2);
+  }
+  .yt-search-button {
+    @apply inline-grid min-h-11 w-16 shrink-0 cursor-pointer place-items-center rounded-r-full;
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    background-color: var(--yt-search-button);
+  }
+  .yt-search-button:hover:not(:disabled) {
+    background-color: var(--yt-search-button-hover);
+  }
+  .yt-search-button:disabled {
+    cursor: wait;
+  }
+
+  /* 膠囊按鈕（翻譯設定、觀看頁的翻譯按鈕，像 YouTube 的按讚、分享）：跟站內的按鈕一樣高（44px） */
+  .yt-pill {
+    @apply inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium whitespace-nowrap select-none;
+    color: var(--ink);
+    background-color: var(--surface-muted);
+    transition: background-color 150ms ease;
+  }
+  .yt-pill:hover:not(:disabled),
+  .yt-pill[aria-expanded="true"] {
+    background-color: var(--surface-sunken);
+  }
+  .yt-pill:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+  /* 標題旁的小動作（續訂）：跟次要按鈕一樣，寬螢幕 36px、觸控 44px */
+  .yt-pill-sm {
+    @apply min-h-9 px-3;
+  }
+  /* 主要動作：跟 YouTube 的「訂閱」一樣，淺色時黑底白字、深色時白底黑字 */
+  .yt-pill-primary {
+    color: var(--on-brand);
+    background-color: var(--brand);
+  }
+  .yt-pill-primary:hover:not(:disabled) {
+    background-color: var(--brand-hover);
+  }
+
+  /* 一組互斥的選項（字幕語言、字幕大小）收在同一顆膠囊裡；外框 44px，選項用透明的偽元素把點擊範圍撐到外框的高度 */
+  .yt-segmented {
+    @apply inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-full p-1 pl-3 text-sm font-medium whitespace-nowrap;
+    color: var(--ink);
+    background-color: var(--surface-muted);
+  }
+  .yt-segmented > button {
+    @apply relative inline-flex min-w-11 cursor-pointer items-center justify-center self-stretch rounded-full px-3;
+    transition:
+      color 150ms ease,
+      background-color 150ms ease;
+  }
+  .yt-segmented > button::after {
+    content: "";
+    position: absolute;
+    inset: -0.25rem 0;
+  }
+  .yt-segmented > button:hover {
+    background-color: var(--surface-muted);
+  }
+  .yt-segmented > button[aria-pressed="true"] {
+    @apply font-semibold;
+    color: var(--on-brand);
+    background-color: var(--brand);
+  }
+
+  /* 篩選膠囊：選中的跟 YouTube 一樣反白；跟次要按鈕同一個高度（寬螢幕 36px、觸控 44px） */
+  .yt-chip {
+    @apply inline-flex min-h-9 shrink-0 cursor-pointer items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap;
+    color: var(--ink);
+    background-color: var(--surface-muted);
+    transition:
+      color 150ms ease,
+      background-color 150ms ease;
+  }
+  .yt-chip:hover {
+    background-color: var(--surface-sunken);
+  }
+  .yt-chip[aria-pressed="true"] {
+    color: var(--on-brand);
+    background-color: var(--brand);
+  }
+
+  .yt-thumb {
+    @apply relative block aspect-video overflow-hidden rounded-xl;
+    background-color: var(--surface-muted);
+  }
+  /* 像縮圖右下角的時間長度：白字黑底，字小但對比很高 */
+  .yt-badge {
+    @apply absolute right-1.5 bottom-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold;
+    color: #ffffff;
+    background-color: rgb(0 0 0 / 0.78);
+  }
+  .yt-badge-danger {
+    background-color: #cc0000;
+  }
+
+  /* 滑鼠移過卡片才出現 ⋮，卡片平常保持乾淨；觸控裝置沒有滑過，一直顯示 */
+  @media (hover: hover) {
+    .yt-card-more {
+      opacity: 0;
+    }
+    .yt-card:hover .yt-card-more,
+    .yt-card:focus-within .yt-card-more,
+    .yt-card-more[aria-expanded="true"] {
+      opacity: 1;
+    }
+  }
+
+  /* 訂閱內容：手機是可以橫向捲動的頭像列，寬螢幕是側欄的一列列頻道 */
+  .yt-channel {
+    @apply flex w-16 cursor-pointer flex-col items-center gap-1.5 rounded-xl text-center;
+    color: var(--ink);
+  }
+  .yt-channel-name {
+    @apply w-full truncate text-[0.8125rem] font-medium;
+  }
+  .yt-channel-more {
+    display: none;
+  }
+  @media (min-width: 64rem) {
+    .yt-channel {
+      @apply min-h-10 w-full flex-row gap-3 rounded-lg px-2 text-left;
+      transition: background-color 150ms ease;
+    }
+    .yt-channel:hover,
+    .yt-channel[aria-expanded="true"] {
+      background-color: var(--surface-muted);
+    }
+    .yt-channel-name {
+      @apply flex-1 text-sm;
+    }
+    .yt-channel-more {
+      display: inline-block;
+      opacity: 0;
+    }
+    .yt-channel:hover .yt-channel-more,
+    .yt-channel:focus-visible .yt-channel-more,
+    .yt-channel[aria-expanded="true"] .yt-channel-more {
+      opacity: 1;
+    }
+  }
+
+  /* 觀看頁標題下方像 YouTube 說明欄的灰色區塊：放翻譯進度與訊息 */
+  .yt-box {
+    @apply rounded-xl p-4 text-[0.9375rem];
+    color: var(--ink);
+    background-color: var(--surface-muted);
+  }
+  .theme-youtube .switch:checked {
+    background-color: var(--brand-ink);
+  }
+  /* 手機上播放器撐滿螢幕寬度、不留圓角，跟 YouTube App 一樣 */
+  @media (max-width: 39.99rem) {
+    .theme-youtube .player-frame {
+      width: calc(100% + 2rem);
+      margin-inline: -1rem;
+      border-radius: 0;
+      box-shadow: none;
+    }
+  }
+
+  /* ---------- Twitch 頁 ---------- */
+  /* 預覽圖與卡片照 Twitch 的「追蹤中」頁：方角小圓角、懸停時往右上浮起並露出紫色陰影 */
+  .tw-preview {
+    position: relative;
+    display: block;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 0.375rem;
+    background-color: var(--surface-muted);
+    transition:
+      transform 150ms ease,
+      box-shadow 150ms ease;
+  }
+  .tw-live-badge {
+    @apply absolute top-2 left-2 rounded px-1.5 py-px text-[0.8125rem] font-semibold tracking-wide uppercase;
+    color: #fff;
+    background-color: var(--live);
+  }
+  .tw-overlay-chip {
+    @apply absolute rounded px-1.5 py-px text-[0.8125rem] font-medium tabular-nums;
+    color: #fff;
+    background-color: rgb(0 0 0 / 0.68);
+  }
+
+  /* ---------- 星穹鐵道頁 ---------- */
+  /* 半透明的切角面板：右上與左下切掉一角，上緣一條淡金色的細線 */
+  .sr-panel {
+    position: relative;
+    border: 1px solid var(--line);
+    /* 幾乎不透明：背景的軌道線只在面板之間露出來，不會穿過文字 */
+    background: linear-gradient(180deg, rgb(27 35 80 / 0.94), rgb(15 20 54 / 0.94));
+    clip-path: polygon(0 0, calc(100% - var(--sr-cut, 16px)) 0, 100% var(--sr-cut, 16px), 100% 100%, var(--sr-cut, 16px) 100%, 0 calc(100% - var(--sr-cut, 16px)));
+  }
+  .sr-panel::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 40%;
+    height: 1px;
+    background: linear-gradient(90deg, var(--sr-gold), transparent);
+    pointer-events: none;
+  }
+  /* 區塊標題：左邊一條金色短線，字距拉開 */
+  .sr-title {
+    @apply flex items-center gap-2.5 text-base font-semibold tracking-[0.12em];
+    color: var(--ink);
+  }
+  .sr-title::before {
+    content: "";
+    width: 0.25rem;
+    height: 1.1em;
+    background: var(--sr-gold);
+    transform: skewX(-18deg);
+  }
+  .sr-num {
+    /* @theme inline 的變數不會輸出到 :root，這裡直接寫字型變數（next/font 掛在星穹鐵道頁的外框上） */
+    font-family: var(--font-rajdhani), var(--font-geist-sans), sans-serif;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+  .sr-five {
+    background-image: var(--sr-five);
+  }
+  .sr-four {
+    background-image: var(--sr-four);
+  }
+  .sr-tab {
+    @apply inline-flex min-h-9 cursor-pointer items-center px-3.5 text-sm font-medium;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition:
+      color 150ms ease,
+      border-color 150ms ease;
+  }
+  .sr-tab:hover {
+    color: var(--ink);
+  }
+  .sr-tab[aria-pressed="true"],
+  .sr-tab[aria-selected="true"] {
+    color: var(--sr-gold);
+    border-bottom-color: var(--sr-gold);
+  }
+  /* 帳號（伺服器）分頁：切角的小面板，選到的是金框 */
+  .sr-account-tab {
+    @apply inline-flex min-h-11 shrink-0 items-center gap-1.5 px-4 text-sm font-medium whitespace-nowrap;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    background-color: rgb(255 255 255 / 0.04);
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    transition:
+      color 150ms ease,
+      border-color 150ms ease,
+      background-color 150ms ease;
+  }
+  .sr-account-tab:hover {
+    color: var(--ink);
+    background-color: rgb(255 255 255 / 0.08);
+  }
+  .sr-account-tab[aria-current="page"] {
+    border-color: var(--sr-gold-line);
+    color: var(--ink);
+    background-color: var(--sr-gold-soft);
+  }
+
+  /* 遊戲標誌的橫幅：官方標誌是白字，淺色、深色模式都用深色星空底；範圍內的文字顏色變數換成淺色，PageHeader 不必改 */
+  .banner-starry {
+    --ink: #f7f5ff;
+    --ink-soft: #e4e2ff;
+    --muted: rgb(224 228 255 / 0.82);
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid rgb(165 180 252 / 0.28);
+    color: var(--ink);
+    background-color: #0b1033;
+    background-image:
+      radial-gradient(2px 2px at 6% 22%, rgb(255 255 255 / 0.9), transparent),
+      radial-gradient(1.5px 1.5px at 14% 78%, rgb(255 255 255 / 0.7), transparent),
+      radial-gradient(1.5px 1.5px at 27% 12%, rgb(255 255 255 / 0.75), transparent),
+      radial-gradient(2px 2px at 38% 64%, rgb(199 210 254 / 0.8), transparent),
+      radial-gradient(1px 1px at 47% 30%, rgb(255 255 255 / 0.8), transparent),
+      radial-gradient(2.5px 2.5px at 58% 16%, rgb(255 255 255 / 0.85), transparent),
+      radial-gradient(1.5px 1.5px at 64% 82%, rgb(216 180 254 / 0.8), transparent),
+      radial-gradient(1px 1px at 72% 44%, rgb(255 255 255 / 0.7), transparent),
+      radial-gradient(2px 2px at 81% 24%, rgb(255 255 255 / 0.9), transparent),
+      radial-gradient(1.5px 1.5px at 88% 70%, rgb(255 255 255 / 0.65), transparent),
+      radial-gradient(1px 1px at 94% 12%, rgb(199 210 254 / 0.8), transparent),
+      radial-gradient(30rem 18rem at 96% 115%, rgb(168 85 247 / 0.42), transparent 70%),
+      radial-gradient(26rem 14rem at 78% -25%, rgb(56 189 248 / 0.26), transparent 70%),
+      radial-gradient(22rem 16rem at -5% 110%, rgb(79 70 229 / 0.32), transparent 70%),
+      linear-gradient(135deg, #0a1033 0%, #161a58 50%, #2c1a63 100%);
+  }
+  /* 寬螢幕右邊留白多，放一顆帶光環的行星平衡畫面；手機上標誌置中，不需要 */
+  @media (min-width: 40rem) {
+    .banner-starry::before,
+    .banner-starry::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      top: 50%;
+      pointer-events: none;
+    }
+    .banner-starry::before {
+      right: 9%;
+      width: 8.5rem;
+      height: 8.5rem;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 32% 28%, rgb(238 242 255 / 0.85), rgb(165 180 252 / 0.5) 24%, rgb(99 102 241 / 0.3) 50%, rgb(49 46 129 / 0.12) 68%, transparent 71%);
+      box-shadow: 0 0 70px 6px rgb(129 140 248 / 0.22);
+      transform: translateY(-50%);
+    }
+    .banner-starry::after {
+      right: calc(9% - 3.75rem);
+      width: 16rem;
+      height: 3.5rem;
+      border: 1.5px solid rgb(230 194 122 / 0.4);
+      border-radius: 50%;
+      box-shadow: 0 0 18px rgb(230 194 122 / 0.18);
+      transform: translateY(-50%) rotate(-12deg);
+    }
+  }
+
   /* 字幕依播放器寬度（cqi）縮放，全螢幕時容器變大字幕就跟著放大 */
   .player-frame {
     --subtitle-scale: 1;
@@ -812,11 +1567,9 @@
     width: 100%;
     aspect-ratio: 16 / 9;
     overflow: hidden;
-    border-radius: 1.5rem;
-    background-color: #0d0a12;
-    box-shadow:
-      var(--elevation-card),
-      0 0 0 1px var(--line);
+    border-radius: 1rem;
+    background-color: #0b0b0d;
+    box-shadow: 0 0 0 1px var(--line);
     container-type: inline-size;
   }
   .player-frame[data-subtitle-size="small"] {
@@ -830,10 +1583,10 @@
     box-shadow: none;
   }
   .player-exit-fullscreen {
-    @apply absolute top-4 right-4 inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full px-4 text-sm font-semibold;
+    @apply absolute top-4 right-4 inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-lg px-4 text-sm font-semibold;
     color: #fff;
-    background-color: rgb(20 10 26 / 0.62);
-    box-shadow: inset 0 0 0 1px rgb(255 214 232 / 0.18);
+    background-color: rgb(17 17 20 / 0.66);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
     opacity: 0.8;
     transition: opacity 150ms ease;
   }
@@ -857,12 +1610,12 @@
   }
   .subtitle-line {
     max-width: 100%;
-    border-radius: 0.45em;
+    border-radius: 0.4em;
     padding: 0.1em 0.55em;
     font-weight: 600;
     color: #fff;
-    background-color: rgb(20 10 26 / 0.72);
-    box-shadow: inset 0 0 0 1px rgb(255 214 232 / 0.12);
+    background-color: rgb(10 10 12 / 0.74);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
     text-shadow:
       0 1px 2px rgb(0 0 0 / 0.75),
       0 0 1px rgb(0 0 0 / 0.6);
@@ -872,20 +1625,11 @@
   .subtitle-line-secondary {
     font-size: 0.72em;
     font-weight: 500;
-    color: #ffdcec;
+    color: #e4e6ea;
   }
 
   /* 只有使用者沒要求減少動態時才加上浮起、閃動與脈動 */
   @media (prefers-reduced-motion: no-preference) {
-    .btn-primary:hover:not(:disabled) {
-      transform: translateY(-1px);
-    }
-    .btn-primary:active:not(:disabled) {
-      transform: translateY(0);
-    }
-    .card-interactive:hover {
-      transform: translateY(-4px);
-    }
     .skeleton::after {
       content: "";
       position: absolute;
@@ -898,21 +1642,45 @@
       animation: live-pulse 1.6s ease-in-out infinite;
     }
     .toast {
-      animation: toast-in 280ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
+      animation: toast-in 240ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
     }
     .bell-ringing {
       transform-origin: 50% 8%;
       animation: bell-ring 900ms ease-in-out;
     }
+    .tw-card:hover .tw-preview {
+      transform: translate(4px, -4px);
+      box-shadow: -4px 4px 0 0 var(--brand);
+    }
+    .sr-twinkle {
+      animation: sr-twinkle 3.6s ease-in-out infinite;
+    }
+    .sr-twinkle:nth-child(3n) {
+      animation-delay: 1.2s;
+    }
+    .sr-twinkle:nth-child(3n + 1) {
+      animation-delay: 2.4s;
+    }
   }
 
-  /* 觸控裝置的手指比滑鼠粗，小按鈕放大一點比較好點 */
+  /* 觸控裝置的手指比滑鼠粗：次要的小按鈕、膠囊、選單項目的點擊範圍一律放大到 44px */
   @media (pointer: coarse) {
-    .btn-sm {
-      min-height: 2.5rem;
+    .btn-sm,
+    .nav-pill,
+    .menu-item,
+    .back-link,
+    .card-header-link,
+    .link-block,
+    .disclosure > summary,
+    .yt-pill-sm,
+    .yt-chip,
+    .sr-tab {
+      min-height: 2.75rem;
     }
-    .segmented-option {
-      min-height: 2.5rem;
+    .btn-sm.btn-icon,
+    .icon-button {
+      width: 2.75rem;
+      height: 2.75rem;
     }
   }
 }
@@ -933,6 +1701,12 @@
   from {
     opacity: 0;
     transform: translateY(0.75rem) scale(0.97);
+  }
+}
+
+@keyframes sr-twinkle {
+  50% {
+    opacity: 0.25;
   }
 }
 

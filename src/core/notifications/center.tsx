@@ -19,6 +19,8 @@ const UNLOCK_EVENTS = ["pointerdown", "pointerup", "keydown"] as const;
 
 type CenterValue = {
   feed: NotificationFeed;
+  /** 第一次輪詢回來之前 feed 是空的；首頁的未讀摘要靠它分辨「還在載入」與「沒有未讀」 */
+  loaded: boolean;
   /** 目前看過最新的通知 id；通知頁靠它知道有新通知要重新整理 */
   latestId: number | null;
   /** 每來一批新通知加一，鈴鐺用它重播搖晃動畫 */
@@ -29,7 +31,7 @@ type CenterValue = {
   markAllRead(module?: string): void;
 };
 
-const NO_CENTER: CenterValue = { feed: EMPTY_FEED, latestId: null, ringCount: 0, modules: new Map(), open: () => {}, markRead: () => {}, markAllRead: () => {} };
+const NO_CENTER: CenterValue = { feed: EMPTY_FEED, loaded: false, latestId: null, ringCount: 0, modules: new Map(), open: () => {}, markRead: () => {}, markAllRead: () => {} };
 const CenterContext = createContext<CenterValue>(NO_CENTER);
 
 export function useNotificationCenter(): CenterValue {
@@ -61,6 +63,7 @@ function localStorageOrNull(): Storage | null {
 export function NotificationCenter({ modules, children }: { modules: NotificationModule[]; children: ReactNode }) {
   const router = useRouter();
   const [feed, setFeed] = useState<NotificationFeed>(EMPTY_FEED);
+  const [loaded, setLoaded] = useState(false);
   const [toasts, setToasts] = useState<NotificationItem[]>([]);
   const [latestId, setLatestId] = useState<number | null>(null);
   const [ringCount, setRingCount] = useState(0);
@@ -144,6 +147,7 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
       // 標已讀的請求還沒回來時不要用舊資料蓋掉畫面，下一輪再同步
       if (pendingMarks.current > 0) return;
       setFeed(next);
+      setLoaded(true);
       const { fresh, lastSeenId: newest } = freshNotifications(next.recent, lastSeenId.current);
       lastSeenId.current = newest;
       setLatestId(newest);
@@ -186,8 +190,8 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
   const dismissToast = useCallback((id: number) => setToasts((current) => current.filter((toast) => toast.id !== id)), []);
 
   const value = useMemo<CenterValue>(
-    () => ({ feed, latestId, ringCount, modules: moduleMap, open, markRead, markAllRead }),
-    [feed, latestId, ringCount, moduleMap, open, markRead, markAllRead],
+    () => ({ feed, loaded, latestId, ringCount, modules: moduleMap, open, markRead, markAllRead }),
+    [feed, loaded, latestId, ringCount, moduleMap, open, markRead, markAllRead],
   );
 
   return (

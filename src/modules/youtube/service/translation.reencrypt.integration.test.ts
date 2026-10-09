@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setupTestDb } from "@/dev/test-db";
+import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, mocksOf } from "@/dev/test-helpers";
 import { youtubeSettings } from "../data/schema";
@@ -18,12 +18,18 @@ const { translateBatch } = mocksOf(await import("../lib/subtitles"), "translateB
 const { fetchVideoTitle } = mocksOf(await import("../lib/api"), "fetchVideoTitle");
 
 const { createKeyring, decryptSecret, encrypt, encryptSecret, needsReencrypt } = await import("@/core/crypto");
-const { continueTranslation, getSettingsView, reencryptApiKeys, saveSettings, uploadSubtitles } = await import("./translation");
+const translation = await import("./translation");
+const { reencryptApiKeys } = translation;
 
 const getDb = setupTestDb();
 const VIDEO = "dQw4w9WgXcQ";
+let me: string;
+
+const saveSettings = (input: Parameters<typeof translation.saveSettings>[1]) => translation.saveSettings(me, input);
+const getSettingsView = () => translation.getSettingsView(me);
 
 beforeEach(async () => {
+  me = await insertTestUser(getDb(), "alice", { role: "owner" });
   fetchVideoTitle.mockResolvedValue("影片標題");
   translateBatch.mockReset().mockImplementation(async ({ cues, batch }: { cues: { text: string }[]; batch: { start: number; end: number } }) =>
     cues.slice(batch.start, batch.end).map((c) => `中 ${c.text}`),
@@ -34,9 +40,9 @@ beforeEach(async () => {
 describe("換金鑰後、重新加密前（PGlite 整合）", () => {
   it("舊金鑰加密的 API Key_照常用來翻譯", async () => {
     await getDb().update(youtubeSettings).set({ anthropicKey: encryptSecret("sk-ant-old-9999", createKeyring(OLD)) });
-    await uploadSubtitles(VIDEO, "1\n00:00:01,000 --> 00:00:02,000\n안녕\n");
+    await translation.uploadSubtitles({ id: me, role: "owner" }, VIDEO, "1\n00:00:01,000 --> 00:00:02,000\n안녕\n");
 
-    expect(await continueTranslation(VIDEO)).toMatchObject({ status: "done" });
+    expect(await translation.continueTranslation(me, VIDEO)).toMatchObject({ status: "done" });
     expect(translateBatch.mock.calls[0][0].ai).toMatchObject({ provider: "anthropic", apiKey: "sk-ant-old-9999" });
   });
 });
@@ -79,6 +85,15 @@ describe("reencryptApiKeys（PGlite 整合）", () => {
     const logged = JSON.stringify(log.mock.calls);
     expect(logged).not.toContain("sk-");
     expect(logged).not.toContain(lost.split(".")[2]);
+  });
+
+  it("每個人的 API Key 都會重新加密，包括沒有擁有者的列（部署空窗期舊程式寫的）", async () => {
+    const other = await insertTestUser(getDb(), "bob");
+    await translation.saveSettings(other, { provider: "openai", keys: {}, clear: [], models: {}, glossaryText: "" });
+    await getDb().update(youtubeSettings).set({ openaiKey: encryptSecret("sk-openai-old-2222", createKeyring(OLD)) });
+    await getDb().insert(youtubeSettings).values({ id: 1, geminiKey: encrypt("gemini-legacy-3333", OLDER) });
+
+    expect(await reencryptApiKeys()).toBe("4 把 API Key，重新加密 3 把");
   });
 
   it("沒有設定 API Key", async () => {

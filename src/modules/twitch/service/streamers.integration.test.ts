@@ -1,26 +1,36 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setupTestDb, type TestDb } from "@/dev/test-db";
+import { eq } from "drizzle-orm";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { coreUsers } from "@/core/db/schema";
+import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
+import { TEST_TWITCH_ENV, stubTwitchEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
-import { twitchStreamEvents, twitchStreamers } from "../data/schema";
+import { twitchFollows, twitchStreamEvents, twitchStreamers } from "../data/schema";
 
 vi.mock("../lib/api", { spy: true });
 vi.mock("@/core/notify", { spy: true });
 
-const { getStreams } = mocksOf(await import("../lib/api"), "getStreams");
+const { getStreams, getUsersByLogin, listSubscriptions, createSubscription } = mocksOf(await import("../lib/api"), "getStreams", "getUsersByLogin", "listSubscriptions", "createSubscription");
 const { TwitchApiError } = await import("../lib/api");
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
-const { cleanupStreamEvents, handleNotification, listStreamers, setStreamerNotify } = await import("./streamers");
+const { TwitchUserError, addStreamer, cleanupStreamEvents, handleNotification, listFollowedStreamers, recentEvents, setStreamerNotify, syncSubscriptionsFor } = await import("./streamers");
 
 const onlineSub = { id: "sub-on", type: "stream.online", version: "1", status: "enabled", condition: { broadcaster_user_id: "42" } };
 const onlineEvent = { broadcaster_user_id: "42", broadcaster_user_login: "alice", broadcaster_user_name: "Alice", started_at: "2026-10-07T09:00:00Z" };
 
 let testDb: TestDb;
 const getDb = setupTestDb((d) => (testDb = d));
+let me: string;
+let other: string;
+let streamerId: number;
 
+/** 預設只有 me 追蹤 alice（通知開著） */
 beforeEach(async () => {
   getStreams.mockReset().mockResolvedValue([{ user_id: "42", title: "今天玩鐵道", game_name: "Honkai: Star Rail", started_at: "" }]);
   notify.mockReset().mockResolvedValue(undefined);
-  await getDb().insert(twitchStreamers).values({ broadcasterId: "42", login: "alice", displayName: "Alice" });
+  me = await insertTestUser(getDb(), "alice", { role: "owner" });
+  other = await insertTestUser(getDb(), "bob");
+  [{ id: streamerId }] = await getDb().insert(twitchStreamers).values({ broadcasterId: "42", login: "alice", displayName: "Alice" }).returning();
+  await getDb().insert(twitchFollows).values({ userId: me, streamerId });
 });
 
 describe("handleNotification（PGlite 整合）", () => {
@@ -38,6 +48,7 @@ describe("handleNotification（PGlite 整合）", () => {
     await handleNotification("m1", onlineSub as never, onlineEvent as never);
 
     expect(notify).toHaveBeenCalledWith({
+      recipients: [me],
       module: "twitch",
       kind: "stream_online",
       title: "Alice 開台了",
@@ -47,7 +58,7 @@ describe("handleNotification（PGlite 整合）", () => {
   });
 
   it("關掉通知的主播_照樣記錄開台、直播中狀態與直播資訊_但不建立通知", async () => {
-    await testDb.update(twitchStreamers).set({ notifyEnabled: false });
+    await testDb.update(twitchFollows).set({ notifyEnabled: false });
 
     await handleNotification("m1", onlineSub as never, onlineEvent as never);
 
@@ -202,27 +213,127 @@ describe("cleanupStreamEvents（PGlite 整合）", () => {
 
 describe("通知開關（PGlite 整合）", () => {
   it("新追蹤的主播預設開啟通知", async () => {
-    expect((await listStreamers()).map((s) => s.notifyEnabled)).toEqual([true]);
+    expect((await listFollowedStreamers(me)).map((s) => s.notifyEnabled)).toEqual([true]);
   });
 
-  it("setStreamerNotify_開關各自記在主播上_找不到主播回 false", async () => {
-    const [streamer] = await listStreamers();
+  it("setStreamerNotify_開關記在自己的追蹤上_找不到主播回 false", async () => {
+    const [streamer] = await listFollowedStreamers(me);
 
-    expect(await setStreamerNotify(streamer.id, false)).toBe(true);
-    expect((await listStreamers())[0].notifyEnabled).toBe(false);
-    expect(await setStreamerNotify(streamer.id, true)).toBe(true);
-    expect((await listStreamers())[0].notifyEnabled).toBe(true);
-    expect(await setStreamerNotify(9999, false)).toBe(false);
+    expect(await setStreamerNotify(me, streamer.id, false)).toBe(true);
+    expect((await listFollowedStreamers(me))[0].notifyEnabled).toBe(false);
+    expect(await setStreamerNotify(me, streamer.id, true)).toBe(true);
+    expect((await listFollowedStreamers(me))[0].notifyEnabled).toBe(true);
+    expect(await setStreamerNotify(me, 9999, false)).toBe(false);
   });
 
   it("關掉後再開台_不建立通知；重新打開後_下一次開台又會通知", async () => {
-    const [streamer] = await listStreamers();
-    await setStreamerNotify(streamer.id, false);
+    const [streamer] = await listFollowedStreamers(me);
+    await setStreamerNotify(me, streamer.id, false);
     await handleNotification("m1", onlineSub as never, onlineEvent as never);
     expect(notify).not.toHaveBeenCalled();
 
-    await setStreamerNotify(streamer.id, true);
+    await setStreamerNotify(me, streamer.id, true);
     await handleNotification("m2", onlineSub as never, onlineEvent as never);
     expect(notify).toHaveBeenCalledOnce();
+  });
+});
+
+describe("每個人的追蹤各自一份（PGlite 整合）", () => {
+  it("開台通知只送給追蹤、而且通知開著的人", async () => {
+    const muted = await insertTestUser(getDb(), "carol");
+    await getDb().insert(twitchFollows).values([
+      { userId: other, streamerId },
+      { userId: muted, streamerId, notifyEnabled: false },
+    ]);
+
+    await handleNotification("m1", onlineSub as never, onlineEvent as never);
+
+    expect(notify).toHaveBeenCalledOnce();
+    expect([...notify.mock.calls[0][0].recipients].sort()).toEqual([me, other].sort());
+  });
+
+  it("沒有人追蹤的主播（例如最後一位追蹤者刪除了帳號）_照樣記錄開台，但不通知任何人", async () => {
+    await getDb().delete(twitchFollows);
+
+    await handleNotification("m1", onlineSub as never, onlineEvent as never);
+
+    expect(await testDb.select().from(twitchStreamEvents)).toHaveLength(1);
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  it("追蹤清單只列自己追蹤的主播，通知開關也是自己的", async () => {
+    const [{ id: otherStreamer }] = await getDb().insert(twitchStreamers).values({ broadcasterId: "77", login: "bobby", displayName: "Bobby" }).returning();
+    await getDb().insert(twitchFollows).values([
+      { userId: other, streamerId, notifyEnabled: false },
+      { userId: other, streamerId: otherStreamer },
+    ]);
+
+    expect((await listFollowedStreamers(me)).map((s) => [s.login, s.notifyEnabled])).toEqual([["alice", true]]);
+    expect((await listFollowedStreamers(other)).map((s) => [s.login, s.notifyEnabled])).toEqual([
+      ["alice", false],
+      ["bobby", true],
+    ]);
+  });
+
+  it("用別人追蹤、自己沒追蹤的主播 id 改通知開關_回 false，不影響別人", async () => {
+    const [{ id: theirs }] = await getDb().insert(twitchStreamers).values({ broadcasterId: "77", login: "bobby", displayName: "Bobby" }).returning();
+    await getDb().insert(twitchFollows).values({ userId: other, streamerId: theirs });
+
+    expect(await setStreamerNotify(me, theirs, false)).toBe(false);
+    expect((await listFollowedStreamers(other))[0].notifyEnabled).toBe(true);
+  });
+
+  it("開關台紀錄只列自己追蹤的主播", async () => {
+    await getDb().insert(twitchStreamers).values({ broadcasterId: "77", login: "bobby", displayName: "Bobby" });
+    await testDb.insert(twitchStreamEvents).values([
+      { messageId: "a", broadcasterId: "42", type: "online" },
+      { messageId: "b", broadcasterId: "77", type: "online" },
+    ]);
+
+    expect((await recentEvents(me)).map((e) => e.login)).toEqual(["alice"]);
+    expect(await recentEvents(other)).toEqual([]);
+  });
+
+  it("刪除帳號時，他的追蹤一起刪除；主播是共用的，留著", async () => {
+    await getDb().delete(coreUsers).where(eq(coreUsers.id, me));
+
+    expect(await getDb().select().from(twitchFollows)).toHaveLength(0);
+    expect(await getDb().select().from(twitchStreamers)).toHaveLength(1);
+  });
+});
+
+describe("還沒設定 Twitch 應用程式時：明確告訴使用者去哪裡設定（不是「加入主播失敗（詳見伺服器 log）」）", () => {
+  const SETUP = "尚未設定 Twitch 應用程式：請到 Vercel 的環境變數加上 TWITCH_CLIENT_ID 與 TWITCH_CLIENT_SECRET，重新部署後再試";
+
+  beforeEach(() => {
+    getUsersByLogin.mockReset().mockResolvedValue([]);
+    listSubscriptions.mockReset().mockResolvedValue([]);
+    createSubscription.mockReset().mockImplementation(async (type: string) => ({ id: `new-${type}`, type, status: "enabled" }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("沒有 TWITCH_CLIENT_ID／SECRET_加主播回設定說明，不呼叫 Twitch", async () => {
+    stubTwitchEnv({ TWITCH_CLIENT_ID: "", TWITCH_CLIENT_SECRET: "" });
+
+    await expect(addStreamer(other, "bobby")).rejects.toThrow(new TwitchUserError(SETUP));
+    expect(getUsersByLogin).not.toHaveBeenCalled();
+  });
+
+  it("憑證有了、其他 Twitch 設定還缺_說明缺哪幾個", async () => {
+    stubTwitchEnv({ PUBLIC_BASE_URL: "" });
+
+    await expect(addStreamer(other, "bobby")).rejects.toThrow(new TwitchUserError("Twitch 的環境變數還沒設定好：請到 Vercel 確認 PUBLIC_BASE_URL，重新部署後再試"));
+    expect(getUsersByLogin).not.toHaveBeenCalled();
+  });
+
+  it("按「同步訂閱」也一樣回設定說明，而且不算進冷卻時間", async () => {
+    stubTwitchEnv({ TWITCH_CLIENT_ID: "", TWITCH_CLIENT_SECRET: "" });
+    await expect(syncSubscriptionsFor(me)).rejects.toThrow(new TwitchUserError(SETUP));
+
+    stubTwitchEnv({ TWITCH_CLIENT_ID: TEST_TWITCH_ENV.TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET: TEST_TWITCH_ENV.TWITCH_CLIENT_SECRET });
+    await expect(syncSubscriptionsFor(me)).resolves.toBe("已同步你追蹤的 1 位主播，1 位訂閱正常");
   });
 });

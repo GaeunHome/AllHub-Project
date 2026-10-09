@@ -4,7 +4,7 @@ import { expireTags } from "@/core/cache";
 import { db } from "@/core/db";
 import { logError } from "@/core/errors";
 import { hasChineseCaptions, listCaptionTracks } from "../lib/subtitles/captions";
-import { youtubeVideos, type ZhCaptionStatus } from "../data/schema";
+import { youtubeFollows, youtubeVideos, type ZhCaptionStatus } from "../data/schema";
 import { youtubeTags } from "./cache-tags";
 
 /** 很多頻道上片後才補字幕：發布兩天內、還沒有中文的影片，清單顯示時重新檢查 */
@@ -13,7 +13,11 @@ const RECHECK_INTERVAL_MS = 3600_000;
 // 每次最多檢查幾支，避免一次對 YouTube 發太多請求被擋
 export const RECHECK_BATCH = 5;
 
-/** 寫回檢查結果並回傳目前狀態；影片不在清單裡回 null */
+// 頁面與 Server Action 只處理登入者追蹤的頻道的影片；影片本身是共用的，檢查結果所有追蹤者都看得到
+const followedBy = (userId: string) =>
+  inArray(youtubeVideos.channelId, db().select({ channelId: youtubeFollows.channelId }).from(youtubeFollows).where(eq(youtubeFollows.userId, userId)));
+
+/** 寫回檢查結果並回傳目前狀態；影片不在任何清單裡回 null（新影片推送用，不分使用者） */
 export async function checkChineseCaptions(videoId: string, now = new Date()): Promise<ZhCaptionStatus | null> {
   const result = await listCaptionTracks(videoId);
   // 這次抓不到（多半是被擋）不代表字幕狀態變了，保留之前確認過的結果，只更新檢查時間
@@ -22,14 +26,20 @@ export async function checkChineseCaptions(videoId: string, now = new Date()): P
   return row?.zhCaptions ?? null;
 }
 
+/** 影片清單的「重新檢查中文字幕」：只能檢查自己追蹤的頻道的影片，別人的當作不在清單裡（回 null、不對 YouTube 發請求） */
+export async function checkFollowedVideoCaptions(userId: string, videoId: string, now = new Date()): Promise<ZhCaptionStatus | null> {
+  const [video] = await db().select({ id: youtubeVideos.id }).from(youtubeVideos).where(and(eq(youtubeVideos.videoId, videoId), followedBy(userId)));
+  return video ? checkChineseCaptions(videoId, now) : null;
+}
+
 export type RecheckCandidate = { videoId: string; publishedAt: Date | null; zhCaptionsCheckedAt: Date | null };
 
-/** 還沒有中文字幕的影片；不在 SQL 裡比時間，結果才能快取到下次寫入，到期與否交給 isRecheckDue 用當下時間判斷 */
-export async function recheckCandidates(): Promise<RecheckCandidate[]> {
+/** 自己追蹤的頻道裡還沒有中文字幕的影片；不在 SQL 裡比時間，結果才能快取到下次寫入，到期與否交給 isRecheckDue 用當下時間判斷 */
+export async function recheckCandidates(userId: string): Promise<RecheckCandidate[]> {
   return db()
     .select({ videoId: youtubeVideos.videoId, publishedAt: youtubeVideos.publishedAt, zhCaptionsCheckedAt: youtubeVideos.zhCaptionsCheckedAt })
     .from(youtubeVideos)
-    .where(ne(youtubeVideos.zhCaptions, "yes"));
+    .where(and(ne(youtubeVideos.zhCaptions, "yes"), followedBy(userId)));
 }
 
 /** 與 recheckDueCaptions 認領的條件相同：頁面先用快取判斷，沒有到期的影片就不必在背景碰資料庫 */
@@ -38,9 +48,10 @@ export function isRecheckDue({ publishedAt, zhCaptionsCheckedAt }: RecheckCandid
   return !zhCaptionsCheckedAt || zhCaptionsCheckedAt.getTime() < now.getTime() - RECHECK_INTERVAL_MS;
 }
 
-/** 回傳這次檢查了幾支；先把檢查時間改成現在當作認領，同時觸發好幾次也不會重複檢查同一支 */
-export async function recheckDueCaptions(now = new Date()): Promise<number> {
+/** 只檢查這個人追蹤的頻道的影片，回傳這次檢查了幾支；先把檢查時間改成現在當作認領，同時觸發好幾次也不會重複檢查同一支 */
+export async function recheckDueCaptions(userId: string, now = new Date()): Promise<number> {
   const due = and(
+    followedBy(userId),
     ne(youtubeVideos.zhCaptions, "yes"),
     gte(youtubeVideos.publishedAt, new Date(now.getTime() - RECHECK_WINDOW_MS)),
     or(isNull(youtubeVideos.zhCaptionsCheckedAt), lt(youtubeVideos.zhCaptionsCheckedAt, new Date(now.getTime() - RECHECK_INTERVAL_MS))),

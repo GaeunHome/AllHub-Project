@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { TEST_SESSION } from "@/dev/session-stub";
 import { mocksOf } from "@/dev/test-helpers";
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
@@ -21,14 +22,14 @@ beforeEach(() => {
 describe("continueTranslationAction：播放位置", () => {
   it("把目前的播放位置（毫秒）交給續翻，讓伺服器從那裡優先翻", async () => {
     await expect(continueTranslationAction(VIDEO, 12_345)).resolves.toEqual(QUEUED);
-    expect(translation.continueTranslation).toHaveBeenCalledWith(VIDEO, { positionMs: 12_345 });
+    expect(translation.continueTranslation).toHaveBeenCalledWith(TEST_SESSION.id, VIDEO, { positionMs: 12_345 });
   });
 
   it("沒給或不是正常的毫秒數（Server Action 可以被直接 POST）→ 當成沒有播放位置", async () => {
     for (const bad of [undefined, -1, Number.NaN, Number.POSITIVE_INFINITY, "60000" as unknown as number]) {
       await continueTranslationAction(VIDEO, bad);
     }
-    expect(translation.continueTranslation.mock.calls.every(([, options]) => options.positionMs === undefined)).toBe(true);
+    expect(translation.continueTranslation.mock.calls.every(([, , options]) => options.positionMs === undefined)).toBe(true);
     expect(translation.continueTranslation).toHaveBeenCalledTimes(5);
   });
 });

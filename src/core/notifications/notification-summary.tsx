@@ -17,19 +17,18 @@ export function ModuleBadge({ module, className = "size-9" }: { module?: Notific
 export function NotificationSummary({ item, module, time }: { item: NotificationItem; module?: NotificationModule; time: string }) {
   return (
     <>
-      <ModuleBadge module={module} />
+      {/* 未讀的點放在模組圖示的角落，跟通知頁一樣；標題都從同一條線開始 */}
+      <span className="relative shrink-0">
+        <ModuleBadge module={module} />
+        {!item.read && <span aria-hidden className="unread-dot absolute -top-1 -right-1 ring-2 ring-[var(--surface-solid)]" />}
+      </span>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex min-w-0 items-center gap-2">
-          <span className={`truncate text-sm ${item.read ? "text-ink-soft" : "font-semibold text-ink"}`}>{item.title}</span>
-          {!item.read && (
-            <>
-              <span aria-hidden className="unread-dot" />
-              <span className="sr-only">（未讀）</span>
-            </>
-          )}
+        <span className={`truncate text-sm ${item.read ? "text-ink-soft" : "font-semibold text-ink"}`}>
+          {item.title}
+          {!item.read && <span className="sr-only">（未讀）</span>}
         </span>
-        {item.body && <span className="line-clamp-2 text-xs leading-relaxed whitespace-pre-line text-muted">{item.body}</span>}
-        <span className="text-[0.6875rem] text-muted">
+        {item.body && <span className="line-clamp-2 text-[0.8125rem] leading-relaxed whitespace-pre-line text-ink-soft">{item.body}</span>}
+        <span className="text-xs text-muted">
           {module?.name ?? item.module} · {time}
         </span>
       </span>

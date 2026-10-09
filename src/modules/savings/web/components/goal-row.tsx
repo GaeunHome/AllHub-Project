@@ -11,19 +11,19 @@ export function GoalRow({ goal, controls, deleteControl, children }: GoalRowProp
   const [editing, setEditing] = useState(false);
 
   return (
-    <li className="flex flex-col gap-3 px-5 py-4">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="min-w-0 flex-1 basis-48">{children}</div>
-        <div className="flex items-start gap-1">
+    <li className="stack py-3 first:pt-0 last:pb-0 sm:px-4 sm:first:pt-3 sm:last:pb-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1 basis-64">{children}</div>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
           {controls}
           <button
             type="button"
             onClick={() => setEditing((open) => !open)}
             aria-expanded={editing}
             aria-label={`修改「${goal.name}」`}
-            className="btn-ghost btn-sm px-2.5 sm:px-3.5"
+            className="btn-ghost btn-icon sm:w-auto sm:px-4"
           >
-            <Icon name="pencil" className="size-3.5" />
+            <Icon name="pencil" className="size-4" />
             {/* 手機上只留圖示，整排按鈕才放得進一行 */}
             <span className="sr-only sm:not-sr-only">修改</span>
           </button>

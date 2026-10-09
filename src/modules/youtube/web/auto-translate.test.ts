@@ -77,3 +77,26 @@ describe("shouldAutoStart：按下播放時要不要自動開始翻譯", () => {
     expect(shouldAutoStart({ ...ready, attempted: true })).toBe(false);
   });
 });
+
+describe("shouldAutoContinue：打開觀看頁時要不要自動用觀看者的 API Key 接著翻", () => {
+  const own = { active: true, apiKeyMissing: false, startedByViewer: true, consented: false };
+
+  it("自己發起、還沒翻完、有 API Key → 自動接著翻（維持原本的行為）", async () => {
+    expect((await load()).shouldAutoContinue(own)).toBe(true);
+  });
+
+  it("別人發起（或發起人已刪除帳號）、還沒翻完 → 不自動接著翻（「自動即時翻譯」開著也一樣），只顯示已經翻好的部分", async () => {
+    expect((await load()).shouldAutoContinue({ ...own, startedByViewer: false })).toBe(false);
+  });
+
+  it("別人發起的翻譯_觀看者按了「用我的 API Key 繼續翻譯」→ 接著翻", async () => {
+    expect((await load()).shouldAutoContinue({ ...own, startedByViewer: false, consented: true })).toBe(true);
+  });
+
+  it("已經翻完或失敗、沒有 API Key → 不接著翻", async () => {
+    const { shouldAutoContinue } = await load();
+    expect(shouldAutoContinue({ ...own, active: false })).toBe(false);
+    expect(shouldAutoContinue({ ...own, apiKeyMissing: true })).toBe(false);
+    expect(shouldAutoContinue({ ...own, startedByViewer: false, consented: true, apiKeyMissing: true })).toBe(false);
+  });
+});

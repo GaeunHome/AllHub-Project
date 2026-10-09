@@ -7,7 +7,7 @@ import { Icon } from "../ui/icon";
 import { useNotificationCenter } from "./center";
 import { relativeTime } from "./format";
 import { NotificationSummary } from "./notification-summary";
-import { AlertSwitchTable, BrowserPermissionNotice } from "./settings";
+import { AlertSettingsHelp, AlertSwitchTable, BrowserPermissionNotice } from "./settings";
 
 const formatCount = (count: number) => (count > 99 ? "99+" : String(count));
 
@@ -27,7 +27,7 @@ export function NotificationBell() {
         aria-controls={panelId}
         aria-label={total > 0 ? `通知，${total} 則未讀` : "通知"}
         onClick={toggle}
-        className="btn-ghost btn-sm relative min-w-10 px-2.5"
+        className="btn-ghost btn-sm btn-icon relative"
       >
         {/* key 換掉時重新掛載，搖晃動畫才會每一批新通知都播一次 */}
         <span key={ringCount} className={ringCount > 0 ? "bell-ringing inline-flex" : "inline-flex"}>
@@ -76,16 +76,16 @@ function NotificationPanel({ id, onClose }: { id: string; onClose: () => void })
               <Icon name="check-check" className="size-4" />
               全部標為已讀
             </button>
-            <button ref={settingsButtonRef} type="button" onClick={() => switchTo("settings")} aria-label="提醒方式" title="提醒方式" className="btn-ghost btn-sm min-w-10 px-2.5">
+            <button ref={settingsButtonRef} type="button" onClick={() => switchTo("settings")} aria-label="提醒方式" title="提醒方式" className="btn-ghost btn-sm btn-icon">
               <Icon name="settings" className="size-4" />
             </button>
           </div>
           {feed.recent.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+            <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
               <span className="icon-tile size-11 rounded-full">
                 <Icon name="inbox" />
               </span>
-              <p className="text-sm text-muted">目前沒有通知</p>
+              <p className="text-sm text-ink-soft">目前沒有通知</p>
             </div>
           ) : (
             <ul className="divide-y divide-line overflow-y-auto overscroll-contain">
@@ -109,14 +109,14 @@ function NotificationPanel({ id, onClose }: { id: string; onClose: () => void })
       ) : (
         <>
           <div className="flex items-center gap-1 border-b border-line py-2.5 pr-4 pl-2">
-            <button ref={backButtonRef} type="button" onClick={() => switchTo("list")} aria-label="回到通知" title="回到通知" className="btn-ghost btn-sm min-w-10 px-2.5">
+            <button ref={backButtonRef} type="button" onClick={() => switchTo("list")} aria-label="回到通知" title="回到通知" className="btn-ghost btn-sm btn-icon">
               <Icon name="chevron-left" className="size-4" />
             </button>
             <h2 className="flex-1 font-semibold text-ink">提醒方式</h2>
           </div>
-          <div className="flex flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3">
-            <p className="text-xs leading-relaxed text-muted">每個模組分開設定，存在這台裝置的瀏覽器。兩個都關的模組不跳提示，只算進未讀數字。</p>
+          <div className="flex flex-col gap-4 overflow-y-auto overscroll-contain p-4">
             <AlertSwitchTable modules={moduleList} />
+            <AlertSettingsHelp />
             <BrowserPermissionNotice moduleIds={moduleList.map((m) => m.id)} />
           </div>
         </>
@@ -124,7 +124,7 @@ function NotificationPanel({ id, onClose }: { id: string; onClose: () => void })
       <Link
         href="/notifications"
         onClick={onClose}
-        className="flex items-center justify-center gap-1 border-t border-line px-4 py-3 text-sm font-medium text-brand-ink hover:bg-surface-muted"
+        className="flex min-h-11 items-center justify-center gap-1 border-t border-line px-4 py-3 text-sm font-medium text-brand-ink hover:bg-surface-muted"
       >
         查看全部通知與提醒設定
         <Icon name="chevron-right" className="size-4" />

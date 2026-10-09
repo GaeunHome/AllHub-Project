@@ -129,6 +129,30 @@ describe("account create", () => {
     expect(await verifyPassword(PASSWORD, user.passwordHash)).toBe(true);
   });
 
+  it("第一個建立的帳號是站長（owner）_之後建立的都是一般成員（member）", async () => {
+    const first = await createAccount("alice");
+    const second = await createAccount("bob");
+
+    expect((await users()).map((u) => [u.username, u.role])).toEqual([
+      ["alice", "owner"],
+      ["bob", "member"],
+    ]);
+    expect(first.printed()).toContain("已建立帳號 alice（站長）");
+    expect(second.printed()).toContain("已建立帳號 bob（成員）");
+  });
+
+  it("密碼太常見或包含帳號名稱_不建立（跟網站註冊同一套規則）", async () => {
+    const common = harness(["alice", "password1234", "password1234"]);
+    const withName = harness(["alice", "alice-wonderland-2026", "alice-wonderland-2026"]);
+
+    expect(await common.run("create")).toBe(1);
+    expect(await withName.run("create")).toBe(1);
+
+    expect(common.printed()).toContain("這個密碼太常見，容易被猜到，請換一個");
+    expect(withName.printed()).toContain("密碼不能包含帳號名稱");
+    expect(await users()).toHaveLength(0);
+  });
+
   it("create 不接受命令列參數（密碼不能出現在命令列）_也不回顯參數", async () => {
     const t = harness();
 
@@ -152,6 +176,28 @@ describe("account passwd", () => {
     expect(t.asked.every((a) => a.secret)).toBe(true);
     expect(t.printed()).toContain("已重設 alice 的密碼");
     expect(t.printed()).not.toContain(NEW_PASSWORD);
+  });
+
+  it("重設密碼也解除登入鎖定（失敗次數歸零），但不會恢復被站長停用的帳號", async () => {
+    await createAccount();
+    const disabledAt = new Date("2026-10-01T00:00:00Z");
+    await getDb().update(coreUsers).set({ failedLogins: 7, lockedUntil: new Date(Date.now() + 3_600_000), disabledAt });
+
+    expect(await harness([NEW_PASSWORD, NEW_PASSWORD]).run("passwd", "alice")).toBe(0);
+
+    const [user] = await users();
+    expect(user.failedLogins).toBe(0);
+    expect(user.lockedUntil).toBeNull();
+    expect(user.disabledAt).toEqual(disabledAt);
+  });
+
+  it("新密碼包含帳號名稱_不變更", async () => {
+    await createAccount();
+    const t = harness(["alice-in-2027-spring", "alice-in-2027-spring"]);
+
+    expect(await t.run("passwd", "alice")).toBe(1);
+    expect(t.printed()).toContain("密碼不能包含帳號名稱");
+    expect((await users())[0].sessionVersion).toBe(1);
   });
 
   it("找不到帳號_不問密碼，也不回顯輸入的名稱（可能是誤貼的密碼）", async () => {
@@ -191,16 +237,79 @@ describe("account passwd", () => {
   });
 });
 
+describe("account unlock", () => {
+  it("只解除登入鎖定：失敗次數歸零、鎖定期限清掉；不問密碼，密碼雜湊、session 版本與停用狀態都不變", async () => {
+    await createAccount();
+    const disabledAt = new Date("2026-10-01T00:00:00Z");
+    await getDb().update(coreUsers).set({ failedLogins: 5, lockedUntil: new Date(Date.now() + 3_600_000), disabledAt });
+    const [before] = await users();
+    const t = harness();
+
+    expect(await t.run("unlock", "Alice")).toBe(0);
+
+    const [after] = await users();
+    expect(after.passwordHash).toBe(before.passwordHash);
+    expect(after.sessionVersion).toBe(before.sessionVersion);
+    expect(after.disabledAt).toEqual(disabledAt);
+    expect(after.failedLogins).toBe(0);
+    expect(after.lockedUntil).toBeNull();
+    expect(t.asked).toHaveLength(0);
+    expect(t.printed()).toContain("已解除 alice 的登入鎖定");
+  });
+
+  it("目前沒有被鎖定_說明沒有鎖定，失敗次數一樣歸零", async () => {
+    await createAccount();
+    await getDb().update(coreUsers).set({ failedLogins: 3 });
+    const t = harness();
+
+    expect(await t.run("unlock", "alice")).toBe(0);
+
+    expect(t.printed()).toContain("alice 目前沒有被鎖定");
+    expect((await users())[0].failedLogins).toBe(0);
+  });
+
+  it("找不到帳號_不回顯輸入的名稱", async () => {
+    const t = harness();
+
+    expect(await t.run("unlock", "nobody-typo")).toBe(1);
+    expect(t.printed()).toContain("找不到這個帳號");
+    expect(t.printed()).not.toContain("nobody-typo");
+  });
+
+  it("沒指定帳號_顯示用法；多帶參數_拒絕且不回顯", async () => {
+    await createAccount();
+    const missing = harness();
+    const extra = harness();
+
+    expect(await missing.run("unlock")).toBe(2);
+    expect(await extra.run("unlock", "alice", "s3cr3t-extra")).toBe(2);
+
+    expect(missing.printed()).toContain("npm run account -- unlock <帳號>");
+    expect(extra.printed()).not.toContain("s3cr3t-extra");
+  });
+});
+
 describe("account list", () => {
-  it("只列出帳號名稱_不顯示雜湊", async () => {
+  it("列出帳號名稱與角色（用 tab 分隔，方便接管線）_不顯示雜湊", async () => {
     await createAccount("bob");
     await createAccount("alice");
     const t = harness();
 
     expect(await t.run("list")).toBe(0);
 
-    expect(t.stdout).toEqual(["alice", "bob"]);
+    expect(t.stdout).toEqual(["alice\t成員", "bob\t站長"]);
     expect(t.printed()).not.toContain("scrypt$");
+  });
+
+  it("被站長停用的帳號_標示已停用", async () => {
+    await createAccount("alice");
+    await createAccount("bob");
+    await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.username, "bob"));
+    const t = harness();
+
+    expect(await t.run("list")).toBe(0);
+
+    expect(t.stdout).toEqual(["alice\t站長", "bob\t成員\t已停用"]);
   });
 
   it("還沒有帳號_提示用 create 建立", async () => {
@@ -231,6 +340,14 @@ describe("其他指令與錯誤處理", () => {
     expect(text).toContain("Session pooler");
     expect(text).toContain("DATABASE_URL=… npm run account create");
     expect(text).toContain('$env:DATABASE_URL="…"; npm run account create');
+  });
+
+  it("help 列出 unlock：只解除登入鎖定、不改密碼", async () => {
+    const t = harness();
+
+    expect(await t.run("help")).toBe(0);
+    expect(t.printed()).toContain("npm run account -- unlock <帳號>");
+    expect(t.printed()).toContain("不改密碼");
   });
 
   it("不認得的指令_顯示用法、結束代碼 2", async () => {
@@ -429,7 +546,7 @@ describe("openFromEnvironment（npm run account 實際的連線方式）", () =>
     expect(passwd.asked.map((a) => a.secret)).toEqual([true, true, true]);
     expect(await verifyPassword(NEW_PASSWORD, (await users())[0].passwordHash)).toBe(true);
     expect(list.asked).toHaveLength(1);
-    expect(list.stdout).toEqual(["alice"]);
+    expect(list.stdout).toEqual(["alice\t站長"]);
     expect(list.printed()).toContain(SHOWN);
   });
 
@@ -483,6 +600,50 @@ describe("openFromEnvironment（npm run account 實際的連線方式）", () =>
     expect(connect).not.toHaveBeenCalled();
     expect(fromEnv.printed()).not.toContain("s3cr3t");
     expect(typed.printed()).not.toContain("s3cr3t");
+  });
+});
+
+describe("連線字串不完整（複製時中間斷行）", () => {
+  const FIRST_LINE = "postgresql://postgres.ref:s3cr3t-pass@aws-0-ap-northeast-1";
+  const REST = ".pooler.supabase.com:5432/postgres";
+  const INCOMPLETE = "連線字串不完整，可能複製時中間斷行了";
+
+  function fakeConnect() {
+    return vi.fn<Connect>(() => ({ db: getDb(), close: async () => {} }));
+  }
+
+  it("貼上時在主機名稱中間斷行（剩下的一段會被當成帳號）_直接報錯，不再問帳號，也不連線", async () => {
+    const connect = fakeConnect();
+    const t = harness([FIRST_LINE, REST, PASSWORD, PASSWORD], { open: (prompter) => openFromEnvironment({}, prompter, connect) });
+
+    expect(await t.run("create")).toBe(1);
+
+    expect(t.printed()).toContain(INCOMPLETE);
+    expect(t.printed()).not.toContain("帳號要");
+    expect(t.printed()).not.toContain("s3cr3t");
+    expect(t.asked).toHaveLength(1);
+    expect(connect).not.toHaveBeenCalled();
+    expect(await users()).toHaveLength(0);
+  });
+
+  it.each([
+    ["缺資料庫名稱（在 port 後面斷行）", "postgresql://postgres.ref:s3cr3t-pass@aws-0-ap-northeast-1.pooler.supabase.com:5432"],
+    ["只有斜線沒有資料庫名稱", "postgresql://postgres.ref:s3cr3t-pass@aws-0-ap-northeast-1.pooler.supabase.com:5432/"],
+    ["缺 port", "postgresql://postgres.ref:s3cr3t-pass@aws-0-ap-northeast-1.pooler.supabase.com/postgres"],
+  ])("%s_一樣直接報錯，不回顯原文", async (_name, url) => {
+    const connect = fakeConnect();
+    const typed = harness([url, "alice"], { open: (prompter) => openFromEnvironment({}, prompter, connect) });
+    const fromEnv = harness([], { open: (prompter) => openFromEnvironment({ DATABASE_URL: url }, prompter, connect) });
+
+    expect(await typed.run("list")).toBe(1);
+    expect(await fromEnv.run("list")).toBe(1);
+
+    for (const t of [typed, fromEnv]) {
+      expect(t.printed()).toContain(INCOMPLETE);
+      expect(t.printed()).not.toContain("s3cr3t");
+    }
+    expect(typed.asked).toHaveLength(1);
+    expect(connect).not.toHaveBeenCalled();
   });
 });
 
@@ -540,7 +701,14 @@ describe("用 Node 直接執行", () => {
   });
 
   it("CLI 用到的 core 檔案只 import node 內建模組與套件（純 node 不認得 @/ 與省略副檔名）", () => {
-    for (const file of ["src/dev/account.ts", "src/core/auth/credentials.ts", "src/core/db/schema.ts", "src/core/errors.ts"]) {
+    for (const file of [
+      "src/dev/account.ts",
+      "src/core/auth/credentials.ts",
+      "src/core/auth/password-rules.ts",
+      "src/core/auth/common-passwords.ts",
+      "src/core/db/schema.ts",
+      "src/core/errors.ts",
+    ]) {
       const source = readFileSync(new URL(`../../${file}`, import.meta.url), "utf8");
       const specs = [...source.matchAll(/\bfrom\s+["']([^"']+)["']/g)].map((m) => m[1]);
       const bad = specs.filter((spec) => spec.startsWith("@/") || (spec.startsWith(".") && !spec.endsWith(".ts")));

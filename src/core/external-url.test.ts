@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, hangUntilAborted } from "@/dev/fake-fetch";
-import { externalFetch, externalUrl } from "./external-url";
+import { externalAssetUrl, externalFetch, externalUrl } from "./external-url";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -93,5 +93,56 @@ describe("externalFetch", () => {
     controller.abort(new Error("使用者離開頁面"));
 
     await expect(pending).rejects.toThrow("使用者離開頁面");
+  });
+});
+
+describe("externalAssetUrl：瀏覽器直接載入的外部圖片網址", () => {
+  it("沒有網址_回 null", () => {
+    expect(externalAssetUrl(null)).toBeNull();
+    expect(externalAssetUrl(undefined)).toBeNull();
+    expect(externalAssetUrl("")).toBeNull();
+    expect(externalAssetUrl("   ")).toBeNull();
+  });
+
+  it("不是 http(s) 的絕對網址_回 null_不會把奇怪的字串放進 img", () => {
+    vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
+    expect(externalAssetUrl("javascript:alert(1)")).toBeNull();
+    expect(externalAssetUrl("data:image/png;base64,AAAA")).toBeNull();
+    expect(externalAssetUrl("/icons/ui/star.svg")).toBeNull();
+    expect(externalAssetUrl("not a url")).toBeNull();
+    expect(externalAssetUrl("ftp://example.com/a.png")).toBeNull();
+  });
+
+  it("沒設定 DEV_EXTERNAL_ORIGIN_原樣回傳", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
+    expect(externalAssetUrl("https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg")).toBe("https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg");
+  });
+
+  it("協定相對網址（//開頭）_補成 https", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
+    expect(externalAssetUrl("//yt3.ggpht.com/abc=s176")).toBe("https://yt3.ggpht.com/abc=s176");
+  });
+
+  it("開發環境有設定時_改寫到假伺服器_只換 origin_保留路徑與查詢字串", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("DEV_EXTERNAL_ORIGIN", "http://127.0.0.1:4011");
+    expect(externalAssetUrl("https://static-cdn.jtvnw.net/previews-ttv/live_user_alice-640x360.jpg?t=1")).toBe(
+      "http://127.0.0.1:4011/previews-ttv/live_user_alice-640x360.jpg?t=1",
+    );
+    expect(externalAssetUrl("//yt3.ggpht.com/abc=s176")).toBe("http://127.0.0.1:4011/abc=s176");
+  });
+
+  it("production 一律原樣輸出_設了 DEV_EXTERNAL_ORIGIN 也不改寫", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEV_EXTERNAL_ORIGIN", "http://127.0.0.1:4011");
+    expect(externalAssetUrl("https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/a.png")).toBe("https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/a.png");
+  });
+
+  it("production 不讀這個設定_設錯也不影響正式環境", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("DEV_EXTERNAL_ORIGIN", "mock-server-4011");
+    expect(externalAssetUrl("https://i.ytimg.com/vi/x/mqdefault.jpg")).toBe("https://i.ytimg.com/vi/x/mqdefault.jpg");
   });
 });

@@ -2,26 +2,28 @@
 
 [![CI](https://github.com/GaeunHome/AllHub-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/GaeunHome/AllHub-Project/actions/workflows/ci.yml)
 
-AllHub 是個人用的整合網站，把平常會用到的幾個小工具放在同一個地方：Twitch 開台通知、YouTube 新影片與韓文字幕即時翻譯、星穹鐵道的便箋與簽到、存錢記帳。這是給一個人自己用的網站：帳號只能在自己電腦上用命令列建立，網站沒有註冊頁。
+AllHub 是個人製作、非商業的整合網站，把平常會用到的幾個小工具放在同一個地方：Twitch 開台通知、YouTube 新影片與韓文字幕即時翻譯、星穹鐵道的便箋與簽到、存錢記帳。第一個帳號（站長）在自己電腦上用命令列建立；其他人只能用站長發的邀請連結註冊，網站不開放自行註冊。
 
 ## 畫面
 
 截圖都是本機假資料（`npm run mock:external`），沒有真實帳號；觀看頁的播放器是測試用的假播放器。
 
-| 首頁 | 觀看頁（雙語字幕疊在影片上，深色模式） |
-|---|---|
-| ![首頁：四個模組與導覽列的未讀數](docs/images/home.jpg) | ![觀看頁：中文與韓文字幕疊在播放器上](docs/images/watch.jpg) |
+![首頁儀表板：正在直播的主播、追蹤頻道的最新影片、星穹鐵道的即時便箋、本月存款與未讀通知](docs/images/home.jpg)
 
-![手機版：首頁、觀看頁、通知面板](docs/images/mobile.jpg)
+| 觀看頁（雙語字幕疊在影片上，深色模式） | 手機版：首頁、觀看頁、通知面板 |
+|---|---|
+| ![觀看頁：中文與韓文字幕疊在播放器上，下方是翻譯進度，右側是接下來播放](docs/images/watch.jpg) | ![手機版：首頁儀表板、雙語字幕的觀看頁、鈴鐺的通知面板](docs/images/mobile.jpg) |
 
 ## 功能
 
+- **首頁**：一進網站就看到正在直播的追蹤主播、追蹤頻道的最新影片、星穹鐵道的開拓力與委託、這個月的存款進度，以及最新的未讀通知。
 - **Twitch**：追蹤主播，開台時收到通知，內容有直播標題與分類。
-- **YouTube**：追蹤頻道的新影片，並判斷有沒有中文字幕。沒有中文字幕的影片可以在網站裡邊播邊翻，用 AI（Claude、OpenAI 或 Gemini）把韓文字幕翻成中文。
-- **星穹鐵道**：連結自己的 HoYoLAB 帳號，提供即時便箋、每日自動簽到與開拓力快滿提醒。用的是非官方介面。
-- **存錢記帳**：記下每個月固定要存的錢，看這個月存了沒、今年與全部的累計，以及最近 12 個月的長條圖。
+- **YouTube**：追蹤頻道的新影片，並判斷有沒有中文字幕。沒有中文字幕的影片可以在網站裡邊播邊翻，用自己的 AI API Key（Claude、OpenAI 或 Gemini）把韓文字幕翻成中文；翻好的字幕所有人共用、永久保留，別人翻到一半的要自己按了才會用你的 Key 接著翻。
+- **星穹鐵道**：連結自己的 HoYoLAB 帳號，提供即時便箋、角色與遺器、開拓月曆、終局戰績、兌換碼、每日自動簽到與開拓力快滿提醒。用的是非官方介面。
+- **畫面與圖片**：YouTube 頁照 YouTube 網站的版面（縮圖、頻道頭像、篩選），Twitch 風格的直播預覽、星穹鐵道遊戲風格的角色圖；圖片由瀏覽器直接向各平台載入，外部資料只放快取、不存進資料庫。外觀可以在帳號選單選淺色、深色或跟隨系統。
+- **存錢記帳**：記下每個月固定要存的錢，最上面就是這個月已存、應存與還差多少；紀錄明細、今年與全部的累計、最近 12 個月的長條圖與項目管理收在可以展開的區塊。
 - **網站通知**：各模組的通知集中在導覽列的鈴鐺。提示音與瀏覽器通知可以依模組分開開關。
-- **帳號登入**：用帳號和密碼登入，可以在帳號選單改密碼或登出。
+- **帳號與邀請**：邀請制註冊，站長在「管理」頁建立有期限、限次數的邀請連結，也可以停用（凍結：不能登入、排程與通知暫停，資料保留）或刪除帳號。每個人的追蹤名單、API Key、HoYoLAB 帳號、記帳與通知各自分開，只有 YouTube 翻譯好的字幕共用；刪除帳號時自己的資料一起刪除。登入與註冊都要輸入圖形驗證碼，密碼欄位可以切換顯示；登入錯太多次會暫時鎖定；可以改密碼、登出或刪除自己的帳號。使用聲明在 `/terms`。
 
 ## 技術
 
@@ -69,15 +71,16 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
   2. 在 Vercel 匯入這個 repo，填環境變數。
   3. 在 GitHub Secrets 填 `MIGRATION_DATABASE_URL`、`CRON_SECRET`、`HUB_URL`，再到 Vercel 重新部署。
   4. 執行 db-migrate workflow 建資料表。
-  5. 執行 `npm run account create`，依提示貼上連線字串，建好帳號後登入。
+  5. 執行 `npm run account create`，依提示貼上連線字串，建好站長帳號（第一個帳號就是站長）後登入；其他人用「管理」頁的邀請連結註冊。
 - 完整步驟，以及換成自己網域的做法，見 [部署](docs/deploy.md)。
-- 網站不讓搜尋引擎收錄；登入次數限制、被攻擊時的處理與兩步驟驗證見 [防機器人與被攻擊時](docs/deploy.md#防機器人與被攻擊時)。
+- 網站不讓搜尋引擎收錄；登入與註冊的次數限制、被攻擊時的處理與兩步驟驗證見 [防機器人與被攻擊時](docs/deploy.md#防機器人與被攻擊時)。
+- **有成員之後不能回滾**到多人化以前的版本（v0.1.0），只能往前修；Vercel 的 Deployment Protection 要保持開啟、Supabase 的 Data API 建議關閉，見 [回滾與部署保護](docs/deploy.md#回滾與部署保護)。
 
 ## 文件
 
 | 文件 | 內容 |
 |---|---|
-| [部署](docs/deploy.md) | 部署到 Vercel 與 Supabase 的步驟、防機器人、帳號管理、換成自己的網域 |
+| [部署](docs/deploy.md) | 部署到 Vercel 與 Supabase 的步驟、升級與回滾、部署保護、防機器人、邀請成員、帳號管理、換成自己的網域 |
 | [密鑰管理](docs/secrets.md) | 每個密鑰是什麼、去哪裡拿、要貼到哪裡，以及更換的步驟與影響 |
 | [模組設定與使用](docs/modules.md) | Twitch、YouTube、星穹鐵道、存錢記帳、網站通知怎麼設定與使用 |
 | [架構](docs/architecture.md) | 程式碼結構與新增模組、排程、資料保留、快取、安全 |
@@ -85,7 +88,7 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 
 ## 第三方聲明
 
-- **圖示與字型**：介面圖示來自 [Lucide](https://lucide.dev)（ISC），YouTube、Twitch 標誌來自 [Simple Icons](https://simpleicons.org)（CC0 1.0），詳見 [public/icons/LICENSE.md](public/icons/LICENSE.md)。字型是 [Geist](https://vercel.com/font) 與 Geist Mono（SIL Open Font License 1.1）。
+- **圖示與字型**：介面圖示來自 [Lucide](https://lucide.dev)（ISC），YouTube、Twitch 標誌來自 [Simple Icons](https://simpleicons.org)（CC0 1.0）；《崩壞：星穹鐵道》的標誌（`public/images/starrail-logo.png`）著作權與商標屬於 HoYoverse（COGNOSPHERE），只用來標示串接的服務，不在本專案的授權範圍內，詳見 [public/icons/LICENSE.md](public/icons/LICENSE.md)。字型是 [Geist](https://vercel.com/font)、Geist Mono 與 [Rajdhani](https://fonts.google.com/specimen/Rajdhani)（星穹鐵道頁的數字，皆為 SIL Open Font License 1.1）。
 - **商標**：YouTube、Twitch、HoYoLAB、《崩壞：星穹鐵道》、Claude、OpenAI、Gemini 是各自公司的商標，本專案與這些公司沒有關係。
 - **非官方做法**：HoYoLAB 的資料讀取與簽到、YouTube 的字幕讀取都不是官方 API，可能失效或違反服務條款，請只用在自己的帳號（見 [模組設定與使用](docs/modules.md)）。
 

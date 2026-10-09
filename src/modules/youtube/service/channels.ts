@@ -1,15 +1,15 @@
 import "server-only";
-import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, inArray, lt, lte, notInArray, sql } from "drizzle-orm";
 import { expireTags } from "@/core/cache";
+import { takeCooldown } from "@/core/cooldown";
 import { db } from "@/core/db";
 import { youtubeEnv } from "@/core/env";
 import { logError } from "@/core/errors";
 import { notify } from "@/core/notify";
-import { RETENTION_DAYS, retentionCutoff } from "@/core/retention";
 import { fetchChannelFeed, hubRequest, resolveHandle } from "../lib/api";
 import { parseChannelInput } from "../lib/parse";
 import { watchPagePath, youtubeWatchUrl } from "../lib/urls";
-import { youtubeChannels, youtubeTranslations, youtubeVideos, type YoutubeChannel, type ZhCaptionStatus } from "../data/schema";
+import { youtubeChannels, youtubeFollows, youtubeTranslations, youtubeVideos, type YoutubeChannel, type ZhCaptionStatus } from "../data/schema";
 import { channelIdFromTopic, subscriptionFailure, verifyCallbackToken, type FeedEntry, type Verification } from "../lib/websub";
 import { youtubeTags } from "./cache-tags";
 import { checkChineseCaptions } from "./caption-status";
@@ -17,6 +17,14 @@ import { checkChineseCaptions } from "./caption-status";
 /** 推送的影片發布超過這麼久就不通知：hub 在舊影片改標題、說明時也會推送 */
 const NOTIFY_WINDOW_MS = 24 * 3600_000;
 const RENEW_BEFORE_MS = 2 * 24 * 3600_000;
+/** 「續訂」每個人每分鐘只能按一次：按一次就可能對很多頻道呼叫 hub */
+const MANUAL_RENEW_COOLDOWN_MS = 60_000;
+/** 每個人的影片清單只看自己追蹤頻道的最新幾支；不在任何人清單裡的影片由排程 cleanup 刪掉 */
+export const LIST_LIMIT = 20;
+/** 發布兩天內的影片不在任何人清單裡也先留著：hub 在 24 小時通知窗內重送時才找得到、不會重複通知，背景也還會重新檢查中文字幕 */
+const KEEP_RECENT_MS = 48 * 3600_000;
+/** 清單與清理用同一個「最新」：發布時間新的在前，沒有發布時間的排最後 */
+const newestFirst = [sql`${youtubeVideos.publishedAt} desc nulls last`, desc(youtubeVideos.id)];
 // service 不能 import 模組根目錄的 info.ts，模組 id 寫在這裡（與 info.ts 的 id 相同）
 const MODULE_ID = "youtube";
 
@@ -30,17 +38,38 @@ const videoLink = (videoId: string, status: ZhCaptionStatus) => (status === "no"
 
 export class YoutubeUserError extends Error {}
 
-export async function listChannels(): Promise<YoutubeChannel[]> {
-  return db().select().from(youtubeChannels).orderBy(youtubeChannels.title);
+/** 頻道表的欄位，但 notifyEnabled 換成這個使用者自己的開關（youtube_follows），不是頻道表裡單人版的舊欄位 */
+export type FollowedChannel = YoutubeChannel;
+
+// 每個函式的 userId 都是登入者（Server Action 與頁面從 session 拿）：只讀寫他自己的追蹤；影片只列他追蹤的頻道
+const followedChannelIds = (userId: string) => db().select({ channelId: youtubeFollows.channelId }).from(youtubeFollows).where(eq(youtubeFollows.userId, userId));
+
+export async function listFollowedChannels(userId: string): Promise<FollowedChannel[]> {
+  return db()
+    .select({ ...getTableColumns(youtubeChannels), notifyEnabled: youtubeFollows.notifyEnabled })
+    .from(youtubeFollows)
+    .innerJoin(youtubeChannels, eq(youtubeChannels.channelId, youtubeFollows.channelId))
+    .where(eq(youtubeFollows.userId, userId))
+    .orderBy(youtubeChannels.title);
 }
 
-/** 回傳是否找到頻道；關掉時新影片照樣記錄，只是不建立網站通知 */
-export async function setChannelNotify(id: number, enabled: boolean): Promise<boolean> {
-  const updated = await db().update(youtubeChannels).set({ notifyEnabled: enabled }).where(eq(youtubeChannels.id, id)).returning({ id: youtubeChannels.id });
+/** 回傳是否找到自己對這個頻道的追蹤；id 是頻道表的 id。關掉時新影片照樣記錄，只是不通知這個使用者 */
+export async function setChannelNotify(userId: string, id: number, enabled: boolean): Promise<boolean> {
+  const updated = await db()
+    .update(youtubeFollows)
+    .set({ notifyEnabled: enabled })
+    .where(
+      and(
+        eq(youtubeFollows.userId, userId),
+        inArray(youtubeFollows.channelId, db().select({ channelId: youtubeChannels.channelId }).from(youtubeChannels).where(eq(youtubeChannels.id, id))),
+      ),
+    )
+    .returning({ channelId: youtubeFollows.channelId });
   return updated.length > 0;
 }
 
-export async function recentVideos(limit = 30) {
+/** 自己追蹤頻道的最新 LIST_LIMIT 支影片 */
+export async function recentVideos(userId: string, limit = LIST_LIMIT) {
   return db()
     .select({
       videoId: youtubeVideos.videoId,
@@ -48,23 +77,46 @@ export async function recentVideos(limit = 30) {
       publishedAt: youtubeVideos.publishedAt,
       zhCaptions: youtubeVideos.zhCaptions,
       zhCaptionsCheckedAt: youtubeVideos.zhCaptionsCheckedAt,
+      channelId: youtubeVideos.channelId,
       channelTitle: youtubeChannels.title,
+      channelThumbnail: youtubeChannels.thumbnail,
       translationStatus: youtubeTranslations.status,
     })
     .from(youtubeVideos)
+    .innerJoin(youtubeFollows, and(eq(youtubeFollows.channelId, youtubeVideos.channelId), eq(youtubeFollows.userId, userId)))
     .leftJoin(youtubeChannels, eq(youtubeChannels.channelId, youtubeVideos.channelId))
     .leftJoin(youtubeTranslations, eq(youtubeTranslations.videoId, youtubeVideos.videoId))
-    .orderBy(desc(youtubeVideos.publishedAt))
+    .orderBy(...newestFirst)
     .limit(limit);
 }
 
-/** 追蹤中頻道推送過的影片才有標題；其他影片回 null */
+/** 觀看頁上方的頻道：只有自己追蹤的頻道的影片查得到，其他影片回 null（畫面改用 oEmbed） */
+export async function videoChannel(userId: string, videoId: string): Promise<{ channelId: string; channelTitle: string | null; thumbnail: string | null } | null> {
+  const [row] = await db()
+    .select({ channelId: youtubeVideos.channelId, channelTitle: youtubeChannels.title, thumbnail: youtubeChannels.thumbnail })
+    .from(youtubeVideos)
+    .innerJoin(youtubeFollows, and(eq(youtubeFollows.channelId, youtubeVideos.channelId), eq(youtubeFollows.userId, userId)))
+    .leftJoin(youtubeChannels, eq(youtubeChannels.channelId, youtubeVideos.channelId))
+    .where(eq(youtubeVideos.videoId, videoId));
+  return row ?? null;
+}
+
+/** 觀看頁的標題：只查自己追蹤的頻道的影片，其他影片回 null */
+export async function followedVideoTitle(userId: string, videoId: string): Promise<string | null> {
+  const [video] = await db()
+    .select({ title: youtubeVideos.title })
+    .from(youtubeVideos)
+    .where(and(eq(youtubeVideos.videoId, videoId), inArray(youtubeVideos.channelId, followedChannelIds(userId))));
+  return video?.title ?? null;
+}
+
+/** 開始翻譯時存進翻譯紀錄的標題：任何人追蹤的頻道推送過的影片都有，其他影片回 null（翻譯是共用的，標題也是公開資訊） */
 export async function videoTitle(videoId: string): Promise<string | null> {
   const [video] = await db().select({ title: youtubeVideos.title }).from(youtubeVideos).where(eq(youtubeVideos.videoId, videoId));
   return video?.title ?? null;
 }
 
-export async function addChannel(input: string): Promise<YoutubeChannel> {
+export async function addChannel(userId: string, input: string): Promise<YoutubeChannel> {
   const parsed = parseChannelInput(input);
   if (!parsed) throw new YoutubeUserError("請輸入頻道網址、@帳號或 UC 開頭的頻道 ID");
 
@@ -81,15 +133,36 @@ export async function addChannel(input: string): Promise<YoutubeChannel> {
   const feed = await fetchChannelFeed(channelId);
   if (!feed) throw new YoutubeUserError(`找不到頻道「${channelId}」`);
 
-  const [inserted] = await db()
-    .insert(youtubeChannels)
-    .values({ channelId, title: feed.title ?? channelId, thumbnail })
-    .onConflictDoNothing({ target: youtubeChannels.channelId })
-    .returning();
-  if (!inserted) throw new YoutubeUserError(`已經在追蹤「${feed.title ?? channelId}」了`);
+  const title = feed.title ?? channelId;
+  const { channel, created, followed } = await db().transaction(async (tx) => {
+    // 同一個頻道大家共用一列與一個 WebSub 訂閱；鎖住這一列到交易結束，最後一位追蹤者同時取消追蹤時不會把它刪掉
+    const insert = () => tx.insert(youtubeChannels).values({ channelId, title, thumbnail }).onConflictDoNothing({ target: youtubeChannels.channelId }).returning();
+    let [row] = await insert();
+    let created = Boolean(row);
+    if (!row) [row] = await tx.select().from(youtubeChannels).where(eq(youtubeChannels.channelId, channelId)).for("update");
+    // 等鎖的期間剛好被最後一位追蹤者刪掉了：當成第一次追蹤重新建立
+    if (!row) {
+      [row] = await insert();
+      created = true;
+    }
+    const [follow] = await tx.insert(youtubeFollows).values({ userId, channelId }).onConflictDoNothing().returning({ channelId: youtubeFollows.channelId });
+    return { channel: row, created, followed: Boolean(follow) };
+  });
+  if (!followed) throw new YoutubeUserError(`已經在追蹤「${title}」了`);
 
-  // 本機沒有公開 HTTPS 時 hub 會拒絕，仍保留頻道，之後排程 renew 會再試
-  return subscribe(inserted);
+  await backfillVideos(channelId, feed.entries, created);
+  // 已經有人追蹤的頻道沿用原本的訂閱；本機沒有公開 HTTPS 時 hub 會拒絕，仍保留頻道，之後排程 renew 會再試
+  return created ? subscribe(channel) : channel;
+}
+
+/** 追蹤時從 RSS feed 補進最近的影片、不發通知，新追蹤的人馬上看得到；已經有人追蹤的頻道，24 小時內的影片交給 WebSub 推送（已經收過，或推送還在路上、會照常通知所有追蹤者） */
+async function backfillVideos(channelId: string, entries: FeedEntry[], newChannel: boolean): Promise<void> {
+  const cutoff = Date.now() - NOTIFY_WINDOW_MS;
+  const videos = entries
+    .filter((entry) => entry.channelId === channelId && entry.published && (newChannel || entry.published.getTime() < cutoff))
+    .map((entry) => ({ videoId: entry.videoId, channelId, title: entry.title, publishedAt: entry.published }));
+  if (videos.length === 0) return;
+  await db().insert(youtubeVideos).values(videos).onConflictDoNothing({ target: youtubeVideos.videoId });
 }
 
 /** 先寫 pending 再送出：hub 可能在請求回來之前就回呼確認，順序反過來會把 subscribed 蓋回 pending */
@@ -112,17 +185,34 @@ async function subscribe(channel: YoutubeChannel): Promise<YoutubeChannel> {
   }
 }
 
-/** 先刪除再取消訂閱，否則 hub 立刻回呼確認時資料列還在會被拒絕、留下孤兒訂閱；取消失敗仍刪除，留下的訂閱推送會因頻道不在追蹤中被忽略、租約到期後失效 */
-export async function removeChannel(id: number): Promise<{ warning?: string }> {
-  const [channel] = await db().delete(youtubeChannels).where(eq(youtubeChannels.id, id)).returning();
-  if (!channel) return {};
+/** 只刪自己的追蹤；最後一位追蹤者取消時才刪頻道並取消 WebSub 訂閱。不是自己追蹤的頻道沒有效果 */
+export async function removeChannel(userId: string, id: number): Promise<{ warning?: string }> {
+  const orphan = await db().transaction(async (tx) => {
+    // 鎖住頻道：同時有人加追蹤時，等這裡決定刪不刪之後才繼續
+    const [channel] = await tx.select().from(youtubeChannels).where(eq(youtubeChannels.id, id)).for("update");
+    if (!channel) return null;
+    const removed = await tx
+      .delete(youtubeFollows)
+      .where(and(eq(youtubeFollows.userId, userId), eq(youtubeFollows.channelId, channel.channelId)))
+      .returning({ channelId: youtubeFollows.channelId });
+    if (removed.length === 0) return null;
+    const [{ followers }] = await tx.select({ followers: count() }).from(youtubeFollows).where(eq(youtubeFollows.channelId, channel.channelId));
+    if (followers > 0) return null;
+    await tx.delete(youtubeChannels).where(eq(youtubeChannels.id, id));
+    return channel;
+  });
+  if (!orphan) return {};
+  return (await unsubscribe(orphan)) ? {} : { warning: `已刪除「${orphan.title}」，但 hub 上的訂閱沒有取消（之後的通知會被忽略，租約到期後失效）` };
+}
 
+/** 頻道已經先從資料庫刪除，hub 立刻回呼確認時才會通過；取消失敗留下的訂閱推送會因頻道不在追蹤中被忽略、租約到期後失效 */
+async function unsubscribe(channel: YoutubeChannel): Promise<boolean> {
   try {
     await hubRequest("unsubscribe", channel.channelId);
-    return {};
+    return true;
   } catch (error) {
     logError("youtube", "取消訂閱失敗", error, channel.channelId);
-    return { warning: `已刪除「${channel.title}」，但 hub 上的訂閱沒有取消（之後的通知會被忽略，租約到期後失效）` };
+    return false;
   }
 }
 
@@ -156,6 +246,7 @@ export type FeedOptions = {
   defer?: (task: () => Promise<void>) => void;
 };
 
+/** 新影片照樣記錄（影片清單要用）；通知只送給追蹤這個頻道、而且通知開著的人 */
 export async function handleFeed(entries: FeedEntry[], { defer }: FeedOptions = {}): Promise<void> {
   const fresh = entries.filter((e) => e.published && Date.now() - e.published.getTime() <= NOTIFY_WINDOW_MS);
   if (fresh.length === 0) return;
@@ -181,10 +272,12 @@ export async function handleFeed(entries: FeedEntry[], { defer }: FeedOptions = 
 
     const announce = async () => {
       try {
-        // 關掉通知的頻道也檢查：影片清單要顯示有沒有中文字幕
+        // 沒有人要收通知的頻道也檢查：影片清單要顯示有沒有中文字幕
         const status = await captionStatusOf(entry.videoId);
-        if (!channel.notifyEnabled) return;
+        const recipients = await notifiedFollowers(entry.channelId);
+        if (recipients.length === 0) return;
         await notify({
+          recipients,
           module: MODULE_ID,
           kind: "new_video",
           title: `${channel.title} 發布了新影片`,
@@ -205,6 +298,15 @@ export async function handleFeed(entries: FeedEntry[], { defer }: FeedOptions = 
   if (recorded > 0) expireTags(youtubeTags.videos);
 }
 
+/** 檢查完字幕才讀追蹤者：這段時間裡改的通知開關也算數 */
+async function notifiedFollowers(channelId: string): Promise<string[]> {
+  const rows = await db()
+    .select({ userId: youtubeFollows.userId })
+    .from(youtubeFollows)
+    .where(and(eq(youtubeFollows.channelId, channelId), eq(youtubeFollows.notifyEnabled, true)));
+  return rows.map((row) => row.userId);
+}
+
 /** 檢查字幕出錯不能讓通知發不出去，當作無法確認 */
 async function captionStatusOf(videoId: string): Promise<ZhCaptionStatus> {
   try {
@@ -215,27 +317,70 @@ async function captionStatusOf(videoId: string): Promise<ZhCaptionStatus> {
   }
 }
 
-/** 新影片紀錄只留最近 RETENTION_DAYS 天；發布時間也要超過才刪，hub 之後再推送同一支影片時才一定在 24 小時通知窗外、不會重複通知 */
+/** 每個人只看最新 LIST_LIMIT 支：不在任何人清單裡、發布超過 KEEP_RECENT_MS 的影片刪掉；翻譯是花錢翻好的，永久保留，不跟著影片刪 */
 export async function cleanupVideos(now = new Date()): Promise<string> {
-  const cutoff = retentionCutoff(now);
+  const ranked = db()
+    .select({
+      id: youtubeVideos.id,
+      rank: sql<number>`row_number() over (partition by ${youtubeFollows.userId} order by ${sql.join(newestFirst, sql`, `)})`.as("rank"),
+    })
+    .from(youtubeVideos)
+    .innerJoin(youtubeFollows, eq(youtubeFollows.channelId, youtubeVideos.channelId))
+    .as("ranked");
+  const listed = db().select({ id: ranked.id }).from(ranked).where(lte(ranked.rank, LIST_LIMIT));
+  const keepAfter = new Date(now.getTime() - KEEP_RECENT_MS);
+
   const deleted = await db()
     .delete(youtubeVideos)
-    .where(and(lt(youtubeVideos.createdAt, cutoff), or(isNull(youtubeVideos.publishedAt), lt(youtubeVideos.publishedAt, cutoff))))
+    .where(and(lt(sql`coalesce(${youtubeVideos.publishedAt}, ${youtubeVideos.createdAt})`, keepAfter), notInArray(youtubeVideos.id, listed)))
     .returning({ id: youtubeVideos.id });
-  return `刪除 ${deleted.length} 筆超過 ${RETENTION_DAYS} 天的新影片紀錄`;
+  return `刪除 ${deleted.length} 支不在任何人最新 ${LIST_LIMIT} 支裡的影片`;
 }
 
-/** 租約快到期、沒有租約（hub 還沒確認）或失敗的頻道重新訂閱 */
+/** 租約快到期、沒有租約（hub 還沒確認）或失敗的頻道重新訂閱；沒有人追蹤的頻道（例如最後一位追蹤者刪除了帳號）取消訂閱並刪除 */
 export async function renewSubscriptions(): Promise<string> {
-  const channels = await listChannels();
-  const due = channels.filter(
-    (c) => c.subscriptionStatus !== "subscribed" || !c.leaseExpiresAt || c.leaseExpiresAt.getTime() - Date.now() < RENEW_BEFORE_MS,
-  );
+  const channels = await db()
+    .select({ channel: youtubeChannels, followers: count(youtubeFollows.userId) })
+    .from(youtubeChannels)
+    .leftJoin(youtubeFollows, eq(youtubeFollows.channelId, youtubeChannels.channelId))
+    .groupBy(youtubeChannels.id)
+    .orderBy(youtubeChannels.title);
+  const followed = channels.filter((c) => c.followers > 0).map((c) => c.channel);
+  const due = followed.filter((c) => c.subscriptionStatus !== "subscribed" || !c.leaseExpiresAt || c.leaseExpiresAt.getTime() - Date.now() < RENEW_BEFORE_MS);
 
   let failed = 0;
   for (const channel of due) {
     const updated = await subscribe(channel);
     if (updated.subscriptionStatus?.startsWith("訂閱失敗")) failed++;
   }
-  return `${channels.length} 個頻道，續訂 ${due.length} 個${failed ? `（${failed} 個失敗）` : ""}`;
+  let removed = 0;
+  for (const { channel } of channels.filter((c) => c.followers === 0)) {
+    if (await removeUnfollowed(channel)) removed++;
+  }
+  return `${followed.length} 個頻道，續訂 ${due.length} 個${failed ? `（${failed} 個失敗）` : ""}${removed ? `；刪除 ${removed} 個沒有人追蹤的頻道` : ""}`;
+}
+
+/** 使用者按「續訂」：處理的是全站共用的訂閱（誰按都一樣），但回應只說他自己追蹤的頻道，不透露全站有多少頻道 */
+export async function renewSubscriptionsFor(userId: string, now = new Date()): Promise<string> {
+  const wait = await takeCooldown("youtube:renew", userId, MANUAL_RENEW_COOLDOWN_MS, now);
+  if (wait > 0) throw new YoutubeUserError(`剛剛才續訂過，請 ${wait} 秒後再試`);
+  await renewSubscriptions();
+  const mine = await listFollowedChannels(userId);
+  if (mine.length === 0) return "已檢查。你還沒有追蹤任何頻道";
+  const failed = mine.filter((channel) => channel.subscriptionStatus?.startsWith("訂閱失敗")).length;
+  return `已檢查你追蹤的 ${mine.length} 個頻道的訂閱${failed ? `，${failed} 個失敗（打開頻道的選單可以看原因）` : ""}`;
+}
+
+/** 刪除前在交易裡再確認一次沒有人追蹤：剛好有人在這時候加追蹤就留著 */
+async function removeUnfollowed(channel: YoutubeChannel): Promise<boolean> {
+  const deleted = await db().transaction(async (tx) => {
+    const [locked] = await tx.select({ id: youtubeChannels.id }).from(youtubeChannels).where(eq(youtubeChannels.id, channel.id)).for("update");
+    if (!locked) return false;
+    const [{ followers }] = await tx.select({ followers: count() }).from(youtubeFollows).where(eq(youtubeFollows.channelId, channel.channelId));
+    if (followers > 0) return false;
+    await tx.delete(youtubeChannels).where(eq(youtubeChannels.id, channel.id));
+    return true;
+  });
+  if (deleted) await unsubscribe(channel);
+  return deleted;
 }

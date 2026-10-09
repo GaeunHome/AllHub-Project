@@ -1,5 +1,7 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setupTestDb, type TestDb } from "@/dev/test-db";
+import { coreUsers } from "@/core/db/schema";
+import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { mocksOf } from "@/dev/test-helpers";
 import { youtubeSettings, youtubeTranslations, youtubeVideos } from "../data/schema";
@@ -13,18 +15,7 @@ const { fetchKoreanCaptions, translateBatch } = mocksOf(await import("../lib/sub
 const { fetchVideoTitle } = mocksOf(await import("../lib/api"), "fetchVideoTitle");
 const { AiError, DEFAULT_MODELS } = await import("../lib/subtitles");
 const translation = await import("./translation");
-const {
-  saveSettings,
-  getSettingsView,
-  startTranslation,
-  uploadSubtitles,
-  continueTranslation,
-  retryTranslation,
-  restartTranslation,
-  missingApiKeyMessage,
-  TranslationUserError,
-  ApiKeySetupError,
-} = translation;
+const { TranslationUserError, ApiKeySetupError } = translation;
 
 const VIDEO = "dQw4w9WgXcQ";
 type BatchArgs = { cues: { text: string }[]; batch: { start: number; end: number }; beforeCall?: () => Promise<void> };
@@ -34,6 +25,21 @@ const cues = (n: number) => Array.from({ length: n }, (_, i) => cue(i));
 
 let testDb: TestDb;
 const getDb = setupTestDb((d) => (testDb = d));
+/** me 是一般成員（預設的操作者）、other 是另一個成員、boss 是站長 */
+let me: string;
+let other: string;
+let boss: string;
+const member = (id: string) => ({ id, role: "member" as const });
+
+// 沒特別說的都是 me 在操作
+const saveSettings = (input: Parameters<typeof translation.saveSettings>[1]) => translation.saveSettings(me, input);
+const getSettingsView = () => translation.getSettingsView(me);
+const missingApiKeyMessage = () => translation.missingApiKeyMessage(me);
+const startTranslation = (videoId: string) => translation.startTranslation(me, videoId);
+const uploadSubtitles = (videoId: string, content: string) => translation.uploadSubtitles(member(me), videoId, content);
+const continueTranslation = (videoId: string, options?: Parameters<typeof translation.continueTranslation>[2]) => translation.continueTranslation(me, videoId, options);
+const retryTranslation = (videoId: string) => translation.retryTranslation(me, videoId);
+const restartTranslation = (videoId: string) => translation.restartTranslation(member(me), videoId);
 
 /** 每批翻譯會讓假時鐘前進 batchMs */
 let clock = 0;
@@ -41,6 +47,9 @@ let batchMs = 1000;
 const now = () => clock;
 
 beforeEach(async () => {
+  me = await insertTestUser(getDb(), "alice");
+  other = await insertTestUser(getDb(), "bob");
+  boss = await insertTestUser(getDb(), "boss", { role: "owner" });
   clock = 1_000_000;
   batchMs = 1000;
   fetchKoreanCaptions.mockReset().mockResolvedValue({ ok: true, kind: "manual", language: "ko", cues: cues(130) });
@@ -94,6 +103,29 @@ describe("設定", () => {
     const view = await getSettingsView();
     expect(view.customModels).toEqual({ anthropic: "", openai: "", gemini: "gemini-custom" });
     expect(view.defaultModels).toEqual(DEFAULT_MODELS);
+  });
+});
+
+describe("專有名詞表的上限（存檔時檢查）", () => {
+  const glossaryOf = (n: number) => Array.from({ length: n }, (_, i) => `이름${i}=名字${i}`).join("\n");
+
+  it("在上限內_照常儲存", async () => {
+    await saveSettings({ provider: "anthropic", keys: {}, clear: [], models: {}, glossaryText: glossaryOf(200) });
+
+    expect((await testDb.select().from(youtubeSettings))[0].glossary).toHaveLength(200);
+  });
+
+  it.each([
+    ["超過 200 筆", glossaryOf(201), "專有名詞表最多 200 筆"],
+    ["詞太長", `${"가".repeat(51)}=太長`, "專有名詞表每個詞最多 50 字"],
+    ["合計太長", Array.from({ length: 120 }, (_, i) => `${"가".repeat(20)}${i}=${"中".repeat(25)}`).join("\n"), "專有名詞表合計最多 5,000 字"],
+  ])("%s_回中文錯誤，整份設定都不寫入（金鑰也不換）", async (_name, glossaryText, message) => {
+    const error = await saveSettings({ provider: "openai", keys: { openai: "sk-openai-new-0000" }, clear: [], models: {}, glossaryText }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(TranslationUserError);
+    expect((error as Error).message).toContain(message);
+    const view = await getSettingsView();
+    expect(view).toMatchObject({ provider: "anthropic", keys: { openai: null }, glossaryText: "지수=Jisoo" });
   });
 });
 
@@ -179,6 +211,26 @@ describe("uploadSubtitles", () => {
   it("不是字幕檔_使用者錯誤", async () => {
     await expect(uploadSubtitles(VIDEO, "<html>nope</html>")).rejects.toBeInstanceOf(TranslationUserError);
   });
+
+  describe("句數上限 5,000 句", () => {
+    const srtOf = (n: number) =>
+      Array.from({ length: n }, (_, i) => {
+        const at = (ms: number) => new Date(ms).toISOString().slice(11, 23).replace(".", ",");
+        return `${i + 1}\n${at(i * 1000)} --> ${at(i * 1000 + 900)}\n문장 ${i}\n`;
+      }).join("\n");
+
+    it("剛好 5,000 句_照常上傳", async () => {
+      await uploadSubtitles(VIDEO, srtOf(5000));
+
+      expect((await testDb.select().from(youtubeTranslations))[0].sourceCues).toHaveLength(5000);
+    });
+
+    it("超過 5,000 句_拒絕並說明，不建立也不取代翻譯", async () => {
+      await expect(uploadSubtitles(VIDEO, srtOf(5001))).rejects.toThrow(new TranslationUserError("字幕最多 5,000 句（這個檔案有 5,001 句），請確認是不是這支影片的字幕"));
+
+      expect(await testDb.select().from(youtubeTranslations)).toHaveLength(0);
+    });
+  });
 });
 
 describe("continueTranslation", () => {
@@ -215,29 +267,70 @@ describe("continueTranslation", () => {
     expect(second.context).toEqual({ before: ["문장 27", "문장 28", "문장 29"], after: ["문장 60", "문장 61", "문장 62"] });
   });
 
-  it("AI 錯誤_狀態 failed_保留已完成的批次_訊息附建議", async () => {
+  it("跟內容有關的錯誤（AI 輸出格式不對）_共用的翻譯標 failed_保留已完成的批次_訊息附建議", async () => {
     translateBatch
       .mockImplementationOnce(async ({ batch }: { batch: { start: number; end: number } }) => Array(batch.end - batch.start).fill("好"))
-      .mockRejectedValueOnce(new AiError("rate_limit", "Claude 請求太頻繁，請約 20 秒後再試"));
+      .mockRejectedValueOnce(new AiError("bad_output", "AI 回傳的格式或句數不正確（預期 30 句），請重試或換一個模型"));
 
     const progress = await continueTranslation(VIDEO, { now });
 
     expect(progress.status).toBe("failed");
-    expect(progress.error).toContain("20 秒");
+    expect(progress.error).toContain("預期 30 句");
+    expect(progress.error).toContain("重試");
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row.nextBatch).toBe(1);
+    expect(row).toMatchObject({ status: "failed", lockId: null, nextBatch: 1 });
     expect(row.translated[0]).toBe("好");
   });
 
-  it("非 AI 的例外_failed_訊息不外洩細節", async () => {
-    translateBatch.mockRejectedValueOnce(new Error("secret internal detail"));
+  it("模型拒絕翻譯這段內容（換誰翻都一樣）_共用的翻譯標 failed", async () => {
+    translateBatch.mockRejectedValueOnce(new AiError("refused", "Claude 拒絕翻譯這段內容"));
+
     const progress = await continueTranslation(VIDEO, { now });
-    expect(progress.status).toBe("failed");
-    expect(progress.error).not.toContain("secret");
+
+    expect(progress).toMatchObject({ status: "failed", error: expect.stringContaining("Claude 拒絕翻譯這段內容") });
+    expect((await testDb.select().from(youtubeTranslations))[0]).toMatchObject({ status: "failed", lockId: null });
+  });
+
+  it.each([
+    ["quota", "Claude 帳號額度已用完，請到 Claude 後台確認付費設定"],
+    ["rate_limit", "Claude 請求太頻繁，請約 20 秒後再試"],
+    ["network", "連不上 Claude API（TypeError）"],
+    ["other", "Claude API 錯誤（HTTP 500）"],
+  ] as const)("觀看者自己的問題（%s）_放掉鎖、共用的翻譯不標 failed 也不寫錯誤；錯誤只丟給這次呼叫的人", async (kind, message) => {
+    translateBatch
+      .mockImplementationOnce(async ({ batch }: { batch: { start: number; end: number } }) => Array(batch.end - batch.start).fill("好"))
+      .mockRejectedValueOnce(new AiError(kind, message));
+
+    const thrown = await continueTranslation(VIDEO, { now }).catch((error: unknown) => error);
+
+    expect(thrown).toBeInstanceOf(TranslationUserError);
+    expect(thrown).not.toBeInstanceOf(ApiKeySetupError);
+    expect((thrown as Error).message).toContain(message);
+    const [row] = await testDb.select().from(youtubeTranslations);
+    expect(row).toMatchObject({ status: "queued", lockId: null, error: null, nextBatch: 1 });
+    expect(row.translated[0]).toBe("好");
+  });
+
+  it("觀看者的 API Key 無效（auth）_同樣不標 failed；丟要到「翻譯設定」處理的錯誤（畫面附上設定頁連結）", async () => {
+    translateBatch.mockRejectedValueOnce(new AiError("auth", "Claude API Key 無效或沒有權限，請到設定頁確認"));
+
+    await expect(continueTranslation(VIDEO, { now })).rejects.toThrow(new ApiKeySetupError("Claude API Key 無效或沒有權限，請到設定頁確認"));
+
+    expect((await testDb.select().from(youtubeTranslations))[0]).toMatchObject({ status: "queued", lockId: null, error: null });
+  });
+
+  it("非 AI 的例外（例如資料庫出錯）_放掉鎖、不標 failed；原本的錯誤往上丟，由 Server Action 只回摘要", async () => {
+    const internal = new Error("secret internal detail");
+    translateBatch.mockRejectedValueOnce(internal);
+
+    await expect(continueTranslation(VIDEO, { now })).rejects.toBe(internal);
+
+    const [row] = await testDb.select().from(youtubeTranslations);
+    expect(row).toMatchObject({ status: "queued", lockId: null, error: null });
   });
 
   it("重試失敗_從中斷的批次繼續", async () => {
-    translateBatch.mockRejectedValueOnce(new AiError("network", "連不上"));
+    translateBatch.mockRejectedValueOnce(new AiError("bad_output", "AI 回傳的格式或句數不正確（預期 30 句），請重試或換一個模型"));
     await continueTranslation(VIDEO, { now });
     await retryTranslation(VIDEO);
     translateBatch.mockClear();
@@ -249,7 +342,7 @@ describe("continueTranslation", () => {
   });
 
   it("failed 狀態下直接 continue_不會自動重跑", async () => {
-    translateBatch.mockRejectedValueOnce(new AiError("auth", "金鑰錯"));
+    translateBatch.mockRejectedValueOnce(new AiError("bad_output", "AI 回傳的格式或句數不正確（預期 30 句），請重試或換一個模型"));
     await continueTranslation(VIDEO, { now });
     translateBatch.mockClear();
     const progress = await continueTranslation(VIDEO, { now });
@@ -329,7 +422,7 @@ describe("continueTranslation：鎖的擁有權", () => {
         retried = await continueTranslation(VIDEO, { now });
         return old(args);
       })
-      .mockRejectedValueOnce(new AiError("network", "連不上"));
+      .mockRejectedValueOnce(new AiError("bad_output", "AI 回傳的格式或句數不正確（預期 30 句），請重試或換一個模型"));
 
     await continueTranslation(VIDEO, { now });
 
@@ -448,5 +541,169 @@ describe("continueTranslation：觀看中（帶播放位置）", () => {
     expect(progress).toMatchObject({ busy: true, status: "queued" });
     const [row] = await testDb.select().from(youtubeTranslations);
     expect(row).toMatchObject({ sourceKind: "upload", status: "queued", translated: [null] });
+  });
+});
+
+describe("翻譯設定與 API Key 每人一份", () => {
+  it("每個人各自一列：別人存的金鑰不會蓋掉我的，畫面也只看得到自己的末 4 碼", async () => {
+    await translation.saveSettings(other, { provider: "gemini", keys: { gemini: "gm-other-5678" }, clear: [], models: {}, glossaryText: "제니=Jennie" });
+
+    expect(await getSettingsView()).toMatchObject({ provider: "anthropic", keys: { anthropic: "1234", openai: null, gemini: null }, glossaryText: "지수=Jisoo" });
+    expect(await translation.getSettingsView(other)).toMatchObject({ provider: "gemini", keys: { anthropic: null, openai: null, gemini: "5678" }, glossaryText: "제니=Jennie" });
+    expect((await testDb.select().from(youtubeSettings)).map((row) => row.userId).sort()).toEqual([me, other].sort());
+  });
+
+  it("還沒設定過的人_提示要先填 API Key", async () => {
+    expect(await translation.missingApiKeyMessage(boss)).toContain("還沒設定 Claude 的 API Key");
+    await expect(translation.startTranslation(boss, VIDEO)).rejects.toBeInstanceOf(ApiKeySetupError);
+  });
+
+  it("單人版留下的 id = 1 那一列（migration 已歸給站長）照常讀得到；新的列自動編號，不會撞到 1", async () => {
+    await getDb().insert(youtubeSettings).values({ id: 1, userId: boss, provider: "openai", openaiKeyHint: "0000" });
+
+    expect((await translation.getSettingsView(boss)).provider).toBe("openai");
+    const ids = (await testDb.select().from(youtubeSettings)).map((row) => row.id);
+    expect(ids.filter((id) => id === 1)).toHaveLength(1);
+  });
+
+  it("刪除帳號時，他的翻譯設定（加密的 API Key）一起刪除", async () => {
+    await getDb().delete(coreUsers).where(eq(coreUsers.id, me));
+
+    expect(await testDb.select().from(youtubeSettings)).toHaveLength(0);
+  });
+});
+
+describe("翻譯共用：同一支影片所有人看同一份", () => {
+  const otherKey = async () => translation.saveSettings(other, { provider: "openai", keys: { openai: "sk-openai-other-4321" }, clear: [], models: {}, glossaryText: "제니=Jennie" });
+
+  it("記下發起人與發起時的專有名詞表；別人再按開始翻譯直接沿用，不重抓字幕", async () => {
+    await otherKey();
+    await startTranslation(VIDEO);
+
+    expect(await translation.startTranslation(other, VIDEO)).toEqual({ ok: true });
+
+    expect(fetchKoreanCaptions).toHaveBeenCalledOnce();
+    const [row] = await testDb.select().from(youtubeTranslations);
+    expect(row).toMatchObject({ requestedBy: me, glossary: [{ source: "지수", target: "Jisoo" }] });
+  });
+
+  it("續翻用觀看者自己的 API Key，但專有名詞表用發起時的快照（譯名才會一致）", async () => {
+    await otherKey();
+    await startTranslation(VIDEO);
+
+    await translation.continueTranslation(other, VIDEO, { now });
+
+    const [args] = translateBatch.mock.calls[0];
+    expect(args.ai).toEqual({ provider: "openai", apiKey: "sk-openai-other-4321", model: "gpt-4.1-mini" });
+    expect(args.glossary).toEqual([{ source: "지수", target: "Jisoo" }]);
+  });
+
+  it("沒有 API Key 的人只能看已翻好的部分：續翻丟要到設定頁的錯誤，不呼叫 AI、不改進度", async () => {
+    await startTranslation(VIDEO);
+
+    await expect(translation.continueTranslation(boss, VIDEO, { now })).rejects.toBeInstanceOf(ApiKeySetupError);
+
+    expect(translateBatch).not.toHaveBeenCalled();
+    const [row] = await testDb.select().from(youtubeTranslations);
+    expect(row).toMatchObject({ status: "queued", lockId: null });
+  });
+
+  it("B 的 API Key 失效_A 正在進行的翻譯不受影響，A 也看不到 B 的錯誤訊息", async () => {
+    await otherKey();
+    const bKeyError = "OpenAI API Key 無效或沒有權限，請到設定頁確認";
+    translateBatch.mockImplementation(async ({ cues: all, batch, ai }: BatchArgs & { ai: { apiKey: string } }) => {
+      if (ai.apiKey === "sk-openai-other-4321") throw new AiError("auth", bKeyError);
+      clock += batchMs;
+      return all.slice(batch.start, batch.end).map((c) => `中 ${c.text}`);
+    });
+    await startTranslation(VIDEO);
+    expect(await continueTranslation(VIDEO, { now, positionMs: 0 })).toMatchObject({ status: "queued", done: 10, error: null });
+
+    await expect(translation.continueTranslation(other, VIDEO, { now, positionMs: 0 })).rejects.toThrow(bKeyError);
+
+    expect((await testDb.select().from(youtubeTranslations))[0]).toMatchObject({ status: "queued", lockId: null, error: null });
+    const mine = await continueTranslation(VIDEO, { now });
+    expect(mine).toMatchObject({ status: "done", done: 130, error: null });
+    expect(JSON.stringify(mine)).not.toContain(bKeyError);
+    expect((await testDb.select().from(youtubeTranslations))[0]).toMatchObject({ status: "done", error: null });
+  });
+
+  it("舊程式寫入、沒有專有名詞表快照的翻譯_續翻時改用觀看者自己的", async () => {
+    await otherKey();
+    await startTranslation(VIDEO);
+    await getDb().update(youtubeTranslations).set({ glossary: null, requestedBy: null });
+
+    await translation.continueTranslation(other, VIDEO, { now });
+
+    expect(translateBatch.mock.calls[0][0].glossary).toEqual([{ source: "제니", target: "Jennie" }]);
+  });
+
+  it("重試：有 API Key 的人都可以接著翻；沒有 Key 的不行", async () => {
+    await otherKey();
+    await startTranslation(VIDEO);
+    await getDb().update(youtubeTranslations).set({ status: "failed", error: "金鑰錯" });
+
+    await expect(translation.retryTranslation(boss, VIDEO)).rejects.toBeInstanceOf(ApiKeySetupError);
+    expect((await testDb.select().from(youtubeTranslations))[0].status).toBe("failed");
+
+    await translation.retryTranslation(other, VIDEO);
+    expect((await testDb.select().from(youtubeTranslations))[0].status).toBe("queued");
+  });
+
+  it("只有發起人或站長可以重新翻譯：別人丟使用者錯誤、譯文不變", async () => {
+    await startTranslation(VIDEO);
+    await continueTranslation(VIDEO, { now });
+
+    await expect(translation.restartTranslation(member(other), VIDEO)).rejects.toThrow("只有發起翻譯的人或站長可以重新翻譯");
+
+    const [row] = await testDb.select().from(youtubeTranslations);
+    expect(row.status).toBe("done");
+    expect(row.translated.every((t) => t !== null)).toBe(true);
+  });
+
+  it("只有發起人或站長可以上傳字幕取代：別人丟使用者錯誤、字幕不變", async () => {
+    await startTranslation(VIDEO);
+
+    await expect(translation.uploadSubtitles(member(other), VIDEO, "1\n00:00:01,000 --> 00:00:02,000\n안녕\n")).rejects.toThrow("只有發起翻譯的人或站長可以上傳字幕");
+
+    const [row] = await testDb.select().from(youtubeTranslations);
+    expect(row).toMatchObject({ sourceKind: "manual", requestedBy: me });
+  });
+
+  it("還沒有翻譯的影片_任何人都可以上傳字幕，成為發起人", async () => {
+    await translation.uploadSubtitles(member(other), VIDEO, "1\n00:00:01,000 --> 00:00:02,000\n안녕\n");
+
+    expect((await testDb.select().from(youtubeTranslations))[0]).toMatchObject({ sourceKind: "upload", requestedBy: other });
+  });
+
+  it("站長可以重新翻譯成員發起的翻譯；之後發起人變成站長、專有名詞表換成站長當下的設定", async () => {
+    await translation.saveSettings(boss, { provider: "anthropic", keys: { anthropic: "sk-ant-boss-0000" }, clear: [], models: {}, glossaryText: "리사=Lisa" });
+    await startTranslation(VIDEO);
+    await continueTranslation(VIDEO, { now });
+
+    await translation.restartTranslation({ id: boss, role: "owner" }, VIDEO);
+
+    const [row] = await testDb.select().from(youtubeTranslations);
+    expect(row).toMatchObject({ status: "queued", requestedBy: boss, glossary: [{ source: "리사", target: "Lisa" }] });
+    expect(row.translated.every((t) => t === null)).toBe(true);
+  });
+
+  it("發起人刪除帳號後_翻譯留給其他人、發起人變成 null；之後只有站長能重新翻譯", async () => {
+    await startTranslation(VIDEO);
+
+    await getDb().delete(coreUsers).where(eq(coreUsers.id, me));
+
+    const [row] = await testDb.select().from(youtubeTranslations);
+    expect(row).toMatchObject({ videoId: VIDEO, requestedBy: null });
+    await expect(translation.restartTranslation(member(other), VIDEO)).rejects.toBeInstanceOf(TranslationUserError);
+    await expect(translation.restartTranslation({ id: boss, role: "owner" }, VIDEO)).resolves.toBeUndefined();
+  });
+
+  it("canManageTranslation：發起人或站長才能重新翻譯或上傳；沒有發起人時只有站長", () => {
+    expect(translation.canManageTranslation(member(me), { requestedBy: me })).toBe(true);
+    expect(translation.canManageTranslation(member(other), { requestedBy: me })).toBe(false);
+    expect(translation.canManageTranslation({ id: boss, role: "owner" }, { requestedBy: me })).toBe(true);
+    expect(translation.canManageTranslation(member(other), { requestedBy: null })).toBe(false);
+    expect(translation.canManageTranslation({ id: boss, role: "owner" }, { requestedBy: null })).toBe(true);
   });
 });

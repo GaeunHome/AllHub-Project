@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
-import { describeChannelStatus, describeTranslationStatus, describeZhCaptions } from "./status";
+import { channelStatusBadge, describeChannelStatus, describeTranslationStatus, describeZhCaptions } from "./status";
 
 describe("describeChannelStatus", () => {
   const now = new Date("2026-10-07T00:00:00Z");
@@ -40,5 +40,21 @@ describe("describeZhCaptions", () => {
     ["unknown", "字幕未確認", "chip chip-warning"],
   ] as const)("%s → %s", (status, label, chip) => {
     expect(describeZhCaptions(status)).toEqual({ label, chip });
+  });
+});
+
+describe("channelStatusBadge：訂閱狀態改成標籤（不用灰色小字）", () => {
+  const now = new Date("2026-10-07T00:00:00Z");
+
+  it.each([
+    [null, null, { label: "未訂閱", tone: "warning", detail: null }],
+    ["pending", null, { label: "等待 hub 確認", tone: "warning", detail: null }],
+    ["subscribed", null, { label: "訂閱正常", tone: "success", detail: null }],
+    ["subscribed", new Date("2026-10-10T00:00:00Z"), { label: "訂閱正常", tone: "success", detail: "10/10 到期，會自動續訂" }],
+    ["subscribed", new Date("2026-10-01T00:00:00Z"), { label: "租約過期，等待續訂", tone: "warning", detail: null }],
+    ["訂閱失敗：hub 回應 400", null, { label: "訂閱失敗", tone: "danger", detail: "hub 回應 400" }],
+    ["訂閱失敗：hub 拒絕（unknown topic）", null, { label: "訂閱失敗", tone: "danger", detail: "hub 拒絕（unknown topic）" }],
+  ])("%s", (status, lease, expected) => {
+    expect(channelStatusBadge(status, lease, now)).toEqual(expected);
   });
 });

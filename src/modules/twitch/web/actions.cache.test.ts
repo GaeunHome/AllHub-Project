@@ -5,27 +5,29 @@ import { form, mocksOf, updated } from "@/dev/test-helpers";
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/streamers", { spy: true });
 
-const service = mocksOf(await import("../service/streamers"), "addStreamer", "removeStreamer", "syncSubscriptions", "setStreamerNotify");
+const service = mocksOf(await import("../service/streamers"), "addStreamer", "removeStreamer", "syncSubscriptionsFor", "setStreamerNotify");
 const { TwitchUserError } = await import("../service/streamers");
 const { addStreamerAction, removeStreamerAction, setStreamerNotifyAction, syncAction } = await import("./actions");
 
 beforeEach(() => {
   service.addStreamer.mockReset().mockResolvedValue({ displayName: "Alice" });
   service.removeStreamer.mockReset().mockResolvedValue({});
-  service.syncSubscriptions.mockReset().mockResolvedValue("2 位主播，2 位訂閱正常");
+  service.syncSubscriptionsFor.mockReset().mockResolvedValue("已同步你追蹤的 2 位主播，2 位訂閱正常");
   service.setStreamerNotify.mockReset().mockResolvedValue(true);
 });
 
-describe("Twitch 的 Server Action：寫入後用 updateTag 讓主播列表失效", () => {
+describe("Twitch 的 Server Action：寫入後用 updateTag 讓改到的表失效", () => {
   it.each([
-    ["addStreamerAction", () => addStreamerAction({}, form({ login: "alice" }))],
-    ["removeStreamerAction", () => removeStreamerAction({}, form({ id: "3" }))],
-    ["syncAction", () => syncAction()],
-    ["setStreamerNotifyAction", () => setStreamerNotifyAction({}, form({ id: "3", enabled: "false" }))],
-  ])("%s_twitch:streamers", async (_name, run) => {
+    // 追蹤改的是追蹤表；第一次有人追蹤、最後一位取消時也會新增或刪除主播
+    ["addStreamerAction", ["twitch:follows", "twitch:streamers"], () => addStreamerAction({}, form({ login: "alice" }))],
+    ["removeStreamerAction", ["twitch:follows", "twitch:streamers"], () => removeStreamerAction({}, form({ id: "3" }))],
+    ["syncAction", ["twitch:streamers"], () => syncAction()],
+    // 通知開關記在自己的追蹤上
+    ["setStreamerNotifyAction", ["twitch:follows"], () => setStreamerNotifyAction({}, form({ id: "3", enabled: "false" }))],
+  ] as const)("%s_%j", async (_name, tags, run) => {
     await run();
 
-    expect(updated()).toEqual(["twitch:streamers"]);
+    expect(updated()).toEqual([...tags]);
     expect(revalidateTag).not.toHaveBeenCalled();
     // updateTag 已經會讓這次回應帶著重新算繪的頁面，再呼叫 refresh 是多餘的
     expect(refresh).not.toHaveBeenCalled();
@@ -35,7 +37,7 @@ describe("Twitch 的 Server Action：寫入後用 updateTag 讓主播列表失�
     service.addStreamer.mockRejectedValue(new TwitchUserError("已經在追蹤「Alice」了"));
 
     expect(await addStreamerAction({}, form({ login: "alice" }))).toEqual({ error: "已經在追蹤「Alice」了" });
-    expect(updated()).toEqual(["twitch:streamers"]);
+    expect(updated()).toEqual(["twitch:follows", "twitch:streamers"]);
   });
 
   it.each([

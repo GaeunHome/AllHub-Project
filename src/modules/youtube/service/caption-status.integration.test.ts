@@ -1,19 +1,24 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
-import { setupTestDb } from "@/dev/test-db";
+import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { mocksOf } from "@/dev/test-helpers";
-import { youtubeVideos } from "../data/schema";
+import { youtubeChannels, youtubeFollows, youtubeVideos } from "../data/schema";
 
 vi.mock("../lib/subtitles/captions", { spy: true });
 
 const { listCaptionTracks } = mocksOf(await import("../lib/subtitles/captions"), "listCaptionTracks");
-const { RECHECK_BATCH, checkChineseCaptions, recheckDueCaptions } = await import("./caption-status");
+const captionStatus = await import("./caption-status");
+const { RECHECK_BATCH, checkChineseCaptions } = captionStatus;
 
 const CH = "UC" + "a".repeat(22);
 const NOW = new Date("2026-10-07T12:00:00Z");
 const hoursAgo = (hours: number) => new Date(NOW.getTime() - hours * 3600_000);
 
 const getDb = setupTestDb();
+let me: string;
+let other: string;
+/** 背景重新檢查只處理這個人追蹤的頻道；沒特別說的都是 me（追蹤 CH） */
+const recheckDueCaptions = (now: Date) => captionStatus.recheckDueCaptions(me, now);
 
 const ZH = { ok: true, tracks: [{ languageCode: "zh-TW", automatic: false, translated: false }] };
 const KO = { ok: true, tracks: [{ languageCode: "ko", automatic: false, translated: false }] };
@@ -26,8 +31,12 @@ const insertVideos = (...videos: VideoSeed[]) =>
     .values(videos.map((v) => ({ channelId: CH, title: v.videoId, publishedAt: hoursAgo(2), ...v })));
 const videoRow = async (videoId: string) => (await getDb().select().from(youtubeVideos).where(eq(youtubeVideos.videoId, videoId)))[0];
 
-beforeEach(() => {
+beforeEach(async () => {
   listCaptionTracks.mockReset().mockResolvedValue(KO);
+  me = await insertTestUser(getDb(), "alice", { role: "owner" });
+  other = await insertTestUser(getDb(), "bob");
+  await getDb().insert(youtubeChannels).values({ channelId: CH, title: "뉴진스" });
+  await getDb().insert(youtubeFollows).values({ userId: me, channelId: CH });
 });
 
 describe("checkChineseCaptions", () => {
@@ -109,5 +118,27 @@ describe("recheckDueCaptions（影片清單顯示時在背景重新檢查）", (
 
     await expect(recheckDueCaptions(NOW)).resolves.toBe(2);
     expect((await getDb().select().from(youtubeVideos)).map((v) => v.zhCaptions).sort()).toEqual(["unknown", "yes"]);
+  });
+});
+
+describe("依使用者：只處理自己追蹤頻道的影片", () => {
+  it("背景重新檢查只檢查自己追蹤頻道的影片", async () => {
+    const OTHER_CH = "UC" + "b".repeat(22);
+    await getDb().insert(youtubeChannels).values({ channelId: OTHER_CH, title: "別的頻道" });
+    await getDb().insert(youtubeFollows).values({ userId: other, channelId: OTHER_CH });
+    await insertVideos({ videoId: "minemineaaa" }, { videoId: "theirstheir", channelId: OTHER_CH });
+
+    expect(await captionStatus.recheckDueCaptions(me, NOW)).toBe(1);
+    expect(listCaptionTracks.mock.calls.map(([id]) => id)).toEqual(["minemineaaa"]);
+    expect((await captionStatus.recheckCandidates(other)).map((c) => c.videoId)).toEqual(["theirstheir"]);
+  });
+
+  it("手動重新檢查：自己追蹤頻道的影片照常檢查；別人追蹤、自己沒追蹤的影片當作不在清單裡（回 null、不檢查）", async () => {
+    await insertVideos({ videoId: "aaaaaaaaaaa" });
+    listCaptionTracks.mockResolvedValue(ZH);
+
+    expect(await captionStatus.checkFollowedVideoCaptions(other, "aaaaaaaaaaa", NOW)).toBeNull();
+    expect(listCaptionTracks).not.toHaveBeenCalled();
+    expect(await captionStatus.checkFollowedVideoCaptions(me, "aaaaaaaaaaa", NOW)).toBe("yes");
   });
 });

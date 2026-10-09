@@ -1,5 +1,20 @@
 import { formatTaipeiMonthDay } from "@/core/time";
+import type { StatusBadge } from "@/core/ui/status-chip";
 import type { TranslationStatus, ZhCaptionStatus } from "../data/schema";
+
+const FAILURE_PREFIX = "訂閱失敗：";
+
+/** 頻道列上的訂閱狀態標籤；失敗原因與到期日放在 detail，需要時才顯示 */
+export function channelStatusBadge(status: string | null, leaseExpiresAt: Date | null, now = new Date()): StatusBadge {
+  if (!status) return { label: "未訂閱", tone: "warning", detail: null };
+  if (status === "pending") return { label: "等待 hub 確認", tone: "warning", detail: null };
+  if (status === "subscribed") {
+    if (!leaseExpiresAt) return { label: "訂閱正常", tone: "success", detail: null };
+    if (leaseExpiresAt > now) return { label: "訂閱正常", tone: "success", detail: `${formatTaipeiMonthDay(leaseExpiresAt)} 到期，會自動續訂` };
+    return { label: "租約過期，等待續訂", tone: "warning", detail: null };
+  }
+  return { label: "訂閱失敗", tone: "danger", detail: status.startsWith(FAILURE_PREFIX) ? status.slice(FAILURE_PREFIX.length) : status };
+}
 
 /** 資料庫存 pending／subscribed，或直接是中文的失敗原因 */
 export function describeChannelStatus(status: string | null, leaseExpiresAt: Date | null, now = new Date()): string {

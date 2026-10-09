@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseDailyNote } from "./responses";
-import { alertThreshold, staminaAlertAction } from "./stamina";
+import { alertThreshold, staminaAlertAction, staminaGauge } from "./stamina";
 
 const note = (stamina: number | null, max: number | null = 240) =>
   parseDailyNote({ current_stamina: stamina, max_stamina: max });
@@ -38,5 +38,32 @@ describe("staminaAlertAction", () => {
 
   it("does nothing when stamina is unknown", () => {
     expect(staminaAlertAction(note(null), null, false)).toBe("none");
+  });
+});
+
+describe("staminaGauge：開拓力的進度條與回滿時間（星穹鐵道頁與首頁共用）", () => {
+  const fetchedAt = new Date("2026-10-07T04:00:00Z");
+  const withRecover = (stamina: number | null, max: number | null, recover: number | null) =>
+    parseDailyNote({ current_stamina: stamina, max_stamina: max, stamina_recover_time: recover });
+
+  it("進度是目前／上限的百分比（四捨五入）", () => {
+    expect(staminaGauge(withRecover(231, 300, 3600), fetchedAt, fetchedAt).percent).toBe(77);
+  });
+
+  it("超過上限也只畫滿；讀不到目前或上限_0", () => {
+    expect(staminaGauge(withRecover(320, 300, 0), fetchedAt, fetchedAt).percent).toBe(100);
+    expect(staminaGauge(withRecover(null, 300, null), fetchedAt, fetchedAt).percent).toBe(0);
+    expect(staminaGauge(withRecover(100, null, null), fetchedAt, fetchedAt).percent).toBe(0);
+  });
+
+  it("回滿時間從查詢當下起算（便箋可能是幾分鐘前查的）", () => {
+    const now = new Date("2026-10-07T04:10:00Z");
+
+    expect(staminaGauge(withRecover(200, 300, 3600), fetchedAt, now).fullAt?.toISOString()).toBe("2026-10-07T05:00:00.000Z");
+  });
+
+  it("回滿時間已經過了或本來就滿_null（已回滿）", () => {
+    expect(staminaGauge(withRecover(200, 300, 3600), fetchedAt, new Date("2026-10-07T05:00:00Z")).fullAt).toBeNull();
+    expect(staminaGauge(withRecover(300, 300, 0), fetchedAt, fetchedAt).fullAt).toBeNull();
   });
 });

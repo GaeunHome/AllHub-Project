@@ -17,5 +17,7 @@ export default defineConfig({
     setupFiles: ["src/dev/vitest-setup.ts"],
     // 整合測試每個測試都啟動一次 PGlite（WASM）並套 migration，多個檔案平行跑時偶爾超過預設的 10 秒
     hookTimeout: 60_000,
+    // 預設依 CPU 核心數平行跑，機器忙時 PGlite 啟動太慢會逾時；固定 4 個比較穩
+    maxWorkers: 4,
   },
 });

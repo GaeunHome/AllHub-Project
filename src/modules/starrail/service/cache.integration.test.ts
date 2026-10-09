@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { cacheLife, revalidateTag } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { resetNextCache, tagged } from "@/dev/test-helpers";
 import type { DailyNote } from "../lib/responses";
@@ -25,14 +25,18 @@ const NOTE: DailyNote = {
 
 let testDb: TestDb;
 setupTestDb((d) => (testDb = d));
+let me: string;
+let other: string;
 
 const account = async () => (await testDb.select().from(starrailAccounts))[0];
 
 beforeEach(async () => {
+  me = await insertTestUser(testDb, "alice", { role: "owner" });
+  other = await insertTestUser(testDb, "bob");
   for (const fn of Object.values(hoyolab)) fn.mockReset();
   hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [ROLE], raw: {} });
   hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: NOTE, raw: { cookie_echo: COOKIE } });
-  await linkAccount(COOKIE);
+  await linkAccount(me, COOKIE);
   resetNextCache();
 });
 
@@ -40,7 +44,7 @@ describe("星穹鐵道的快取讀取", () => {
   it("cachedAccounts_starrail:accounts_快取裡沒有 cookie 原文也沒有密文", async () => {
     const { cookieEncrypted } = await account();
 
-    const [view] = await cachedAccounts();
+    const [view] = await cachedAccounts(me);
 
     expect(view).toMatchObject({ uid: "900000001", nickname: "開拓者", level: 70, cookieInvalid: false, staminaAlertThreshold: null });
     expect(view).not.toHaveProperty("cookieEncrypted");
@@ -53,10 +57,19 @@ describe("星穹鐵道的快取讀取", () => {
   it("cachedRecentCheckins_讀了紀錄與角色名稱兩張表_兩個 tag 都標", async () => {
     await testDb.insert(starrailCheckinLogs).values({ accountId: (await account()).id, result: "success", message: "簽到成功" });
 
-    const [log] = await cachedRecentCheckins();
+    const [log] = await cachedRecentCheckins(me);
 
     expect(log).toMatchObject({ nickname: "開拓者", log: { result: "success" } });
     expect(tagged()).toEqual(["starrail:accounts", "starrail:checkins"]);
+  });
+});
+
+describe("依使用者的快取：使用者 id 是參數", () => {
+  it("cachedAccounts、cachedRecentCheckins_別人讀到的是自己的（空的）", async () => {
+    await testDb.insert(starrailCheckinLogs).values({ accountId: (await account()).id, result: "success", message: "簽到成功" });
+
+    expect(await cachedAccounts(other)).toEqual([]);
+    expect(await cachedRecentCheckins(other)).toEqual([]);
   });
 });
 
@@ -64,7 +77,7 @@ describe("cachedDailyNote：即時便箋短效期快取，參數只有帳號 id"
   it("在快取函式裡才解密 cookie_回傳值沒有 cookie_用 external 效期", async () => {
     const { id } = await account();
 
-    const result = await cachedDailyNote(id);
+    const result = await cachedDailyNote(me, id);
 
     expect(hoyolab.fetchDailyNote).toHaveBeenCalledWith(COOKIE, "900000001", "prod_official_cht");
     expect(result).toMatchObject({ ok: true, note: NOTE, cookieInvalid: false });
@@ -78,7 +91,7 @@ describe("cachedDailyNote：即時便箋短效期快取，參數只有帳號 id"
     hoyolab.fetchDailyNote.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true, raw: {} });
     const { id } = await account();
 
-    expect(await cachedDailyNote(id)).toMatchObject({ ok: false, message: "cookie 已失效", cookieInvalid: true });
+    expect(await cachedDailyNote(me, id)).toMatchObject({ ok: false, message: "cookie 已失效", cookieInvalid: true });
     expect((await account()).cookieInvalid).toBe(false);
   });
 
@@ -86,13 +99,13 @@ describe("cachedDailyNote：即時便箋短效期快取，參數只有帳號 id"
     await testDb.update(starrailAccounts).set({ cookieEncrypted: "v1:broken" });
     const { id } = await account();
 
-    expect(await cachedDailyNote(id)).toMatchObject({ ok: false, cookieInvalid: true });
+    expect(await cachedDailyNote(me, id)).toMatchObject({ ok: false, cookieInvalid: true });
     expect(hoyolab.fetchDailyNote).not.toHaveBeenCalled();
     expect((await account()).cookieInvalid).toBe(false);
   });
 
   it("帳號已經刪除_回錯誤訊息", async () => {
-    expect(await cachedDailyNote(999_999)).toMatchObject({ ok: false, cookieInvalid: false });
+    expect(await cachedDailyNote(me, 999_999)).toMatchObject({ ok: false, cookieInvalid: false });
   });
 });
 
@@ -100,7 +113,7 @@ describe("syncCookieInvalid：頁面在回應後同步 cookie 失效標記（aft
   it("標記有變_寫入並讓帳號失效（expire: 0）", async () => {
     const { id } = await account();
 
-    expect(await syncCookieInvalid(id, true)).toBe(true);
+    expect(await syncCookieInvalid(me, id, true)).toBe(true);
 
     expect((await testDb.select().from(starrailAccounts).where(eq(starrailAccounts.id, id)))[0].cookieInvalid).toBe(true);
     expect(vi.mocked(revalidateTag).mock.calls).toEqual([["starrail:accounts", { expire: 0 }]]);
@@ -109,7 +122,7 @@ describe("syncCookieInvalid：頁面在回應後同步 cookie 失效標記（aft
   it("標記沒變_不寫入也不失效", async () => {
     const { id } = await account();
 
-    expect(await syncCookieInvalid(id, false)).toBe(false);
+    expect(await syncCookieInvalid(me, id, false)).toBe(false);
     expect(revalidateTag).not.toHaveBeenCalled();
   });
 });

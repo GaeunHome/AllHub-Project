@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { currentSession } from "@/dev/session-stub";
-import { setupTestDb } from "@/dev/test-db";
+import { OTHER_SESSION, TEST_SESSION, currentSession } from "@/dev/session-stub";
+import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { captureErrorLog } from "@/dev/test-helpers";
 import { coreNotifications } from "../db/schema";
 
@@ -11,14 +11,17 @@ const { GET, POST } = await import("./api");
 const getDb = setupTestDb();
 const ORIGIN = "https://hub.example.com";
 
-beforeEach(() => {
+beforeEach(async () => {
   currentSession.mockReset();
+  await insertTestUser(getDb(), TEST_SESSION.username, { id: TEST_SESSION.id, role: "owner" });
+  await insertTestUser(getDb(), OTHER_SESSION.username, { id: OTHER_SESSION.id });
 });
 
-async function seed(count: number, module = "twitch") {
+/** 預設寄給登入中的 alice（TEST_SESSION） */
+async function seed(count: number, module = "twitch", userId = TEST_SESSION.id) {
   return getDb()
     .insert(coreNotifications)
-    .values(Array.from({ length: count }, (_, i) => ({ module, kind: "test", title: `通知 ${i + 1}` })))
+    .values(Array.from({ length: count }, (_, i) => ({ userId, module, kind: "test", title: `通知 ${i + 1}` })))
     .returning();
 }
 
@@ -119,5 +122,37 @@ describe("POST /api/notifications（標為已讀）", () => {
     ["模組 id 格式不對", { action: "read-all", module: "<script>" }],
   ])("內容格式不對（%s）_400", async (_name, body) => {
     expect((await post(body)).status).toBe(400);
+  });
+});
+
+describe("/api/notifications 只碰登入者自己的通知", () => {
+  it("GET_別人的通知不算進未讀數、不出現在最近通知", async () => {
+    await seed(2, "twitch", OTHER_SESSION.id);
+    await seed(1, "youtube");
+
+    const body = await (await GET()).json();
+
+    expect(body.unread).toEqual({ total: 1, byModule: { youtube: 1 } });
+    expect(body.recent).toHaveLength(1);
+  });
+
+  it("POST read_用 A 的 session 標 B 的通知 id_沒有效果", async () => {
+    const [theirs] = await seed(1, "twitch", OTHER_SESSION.id);
+
+    const response = await post({ action: "read", ids: [theirs.id] });
+
+    expect(response.status).toBe(200);
+    expect((await getDb().select().from(coreNotifications))[0].readAt).toBeNull();
+  });
+
+  it("POST read-all_只標登入者自己的", async () => {
+    await seed(1, "twitch", OTHER_SESSION.id);
+    await seed(1, "twitch");
+
+    await post({ action: "read-all" });
+
+    const rows = await getDb().select().from(coreNotifications);
+    expect(rows.find((n) => n.userId === OTHER_SESSION.id)!.readAt).toBeNull();
+    expect(rows.find((n) => n.userId === TEST_SESSION.id)!.readAt).not.toBeNull();
   });
 });

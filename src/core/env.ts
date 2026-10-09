@@ -26,16 +26,21 @@ export const coreEnv = defineEnv(
 );
 
 // ---------- Twitch 模組 ----------
-export const twitchEnv = defineEnv(
-  "Twitch 模組",
-  z.object({
-    TWITCH_CLIENT_ID: z.string().min(1),
-    TWITCH_CLIENT_SECRET: z.string().min(1),
-    // Twitch 規定 EventSub secret 長度 10–100
-    TWITCH_EVENTSUB_SECRET: z.string().min(10).max(100),
-    PUBLIC_BASE_URL: publicBaseUrl,
-  }),
-);
+const twitchSchema = z.object({
+  TWITCH_CLIENT_ID: z.string().min(1),
+  TWITCH_CLIENT_SECRET: z.string().min(1),
+  // Twitch 規定 EventSub secret 長度 10–100
+  TWITCH_EVENTSUB_SECRET: z.string().min(10).max(100),
+  PUBLIC_BASE_URL: publicBaseUrl,
+});
+export const twitchEnv = defineEnv("Twitch 模組", twitchSchema);
+/** 缺少或格式不對的變數名稱（照上面的順序，不含值）：加主播時直接告訴使用者要設定哪幾個 */
+export function missingTwitchEnv(): string[] {
+  const result = twitchSchema.safeParse(envSource());
+  return result.success ? [] : [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
+}
+// 頭像與直播預覽在還沒設定憑證時要照常顯示（退回文字頭像），所以另外提供不丟錯的檢查，條件跟 twitchEnv() 相同
+export const hasTwitchEnv = () => missingTwitchEnv().length === 0;
 
 // ---------- YouTube 模組 ----------
 export const youtubeEnv = defineEnv(
@@ -50,6 +55,11 @@ export const youtubeEnv = defineEnv(
 // ---------- 本機測試（選填，production 會忽略） ----------
 const devSchema = z.object({
   DEV_EXTERNAL_ORIGIN: z.url().optional(),
+  // 固定登入與註冊的圖形驗證碼，給 E2E 用；字元跟 core/auth/captcha-image.ts 的 CAPTCHA_ALPHABET 一致（字型只畫得出這些字）
+  DEV_CAPTCHA_CODE: z
+    .string()
+    .regex(/^[ACDEFHJKMNPRTUVWXY34679]{5}$/, "要剛好 5 個驗證碼用的字元（大寫英文與數字，不含容易看錯的字）")
+    .optional(),
 });
 
 // 不快取：production 不會讀，開發與測試時每次重讀才能隨時切換假伺服器
@@ -60,9 +70,11 @@ function defineEnv<T extends z.ZodType>(scope: string, schema: T): () => z.outpu
   return () => (cached ??= parseEnv(schema, scope));
 }
 
+// .env 裡留空（KEY=）當成沒設定，選填的變數才不會因為空字串驗證失敗
+const envSource = () => Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== ""));
+
 function parseEnv<T extends z.ZodType>(schema: T, scope: string): z.output<T> {
-  // .env 裡留空（KEY=）當成沒設定，選填的變數才不會因為空字串驗證失敗
-  const source = Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== ""));
+  const source = envSource();
   const result = schema.safeParse(source);
   if (result.success) return result.data;
   // 只列變數名稱與原因、不帶值：這個錯誤會進 log，值可能是密鑰

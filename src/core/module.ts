@@ -1,5 +1,5 @@
-/** 對應 globals.css 的 data-accent；色值集中在 CSS，深色模式才能一起切換 */
-export type ModuleAccent = "pink" | "violet" | "sky" | "mint";
+/** 對應 globals.css 的 data-accent（模組的品牌色，只用在圖示與小標籤）；色值集中在 CSS，深色模式才能一起切換 */
+export type ModuleAccent = "blue" | "red" | "violet" | "gold" | "green";
 
 /** 每個模組對外公開的資訊；首頁與導覽列只讀這裡，不碰模組內部 */
 export type ModuleInfo = {

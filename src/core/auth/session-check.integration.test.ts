@@ -29,16 +29,16 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const { currentSession, requireSession } = await import(".");
+const { currentSession, requireOwner, requireSession } = await import(".");
 const { changePasswordAction } = await import("./actions");
 const { SESSION_COOKIE, signSession } = await import("./session");
 
 const getDb = setupTestDb();
 
-async function createUser() {
+async function createUser(extra: Partial<typeof coreUsers.$inferInsert> = {}) {
   const [user] = await getDb()
     .insert(coreUsers)
-    .values({ username: "alice", passwordHash: await hashPassword(PASSWORD, { N: 1024, r: 8, p: 1 }) })
+    .values({ username: "alice", passwordHash: await hashPassword(PASSWORD, { N: 1024, r: 8, p: 1 }), ...extra })
     .returning();
   return user;
 }
@@ -54,7 +54,7 @@ describe("requireSession（PGlite 整合）", () => {
     const user = await createUser();
     useCookie(await signSession({ userId: user.id, version: 1 }, SECRET));
 
-    expect(await requireSession()).toEqual({ id: user.id, username: "alice" });
+    expect(await requireSession()).toEqual({ id: user.id, username: "alice", role: "member" });
   });
 
   it("沒有 cookie_導向登入頁", async () => {
@@ -87,6 +87,41 @@ describe("requireSession（PGlite 整合）", () => {
   it("currentSession 不導向_沒登入回 null（給 API 回 401 用）", async () => {
     expect(await currentSession()).toBeNull();
   });
+
+  it("帳號被站長停用_簽章仍有效的 cookie 也導向登入頁", async () => {
+    const user = await createUser({ disabledAt: new Date() });
+    useCookie(await signSession({ userId: user.id, version: 1 }, SECRET));
+
+    await expect(requireSession()).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(await currentSession()).toBeNull();
+  });
+});
+
+describe("requireOwner（PGlite 整合）", () => {
+  it("站長_回傳目前使用者", async () => {
+    const owner = await createUser({ role: "owner" });
+    useCookie(await signSession({ userId: owner.id, version: 1 }, SECRET));
+
+    expect(await requireOwner()).toEqual({ id: owner.id, username: "alice", role: "owner" });
+  });
+
+  it("一般成員_導向首頁", async () => {
+    const member = await createUser();
+    useCookie(await signSession({ userId: member.id, version: 1 }, SECRET));
+
+    await expect(requireOwner()).rejects.toThrow(/^NEXT_REDIRECT:\/$/);
+  });
+
+  it("沒登入_導向登入頁", async () => {
+    await expect(requireOwner()).rejects.toThrow("NEXT_REDIRECT:/login");
+  });
+
+  it("站長帳號被停用_導向登入頁", async () => {
+    const owner = await createUser({ role: "owner", disabledAt: new Date() });
+    useCookie(await signSession({ userId: owner.id, version: 1 }, SECRET));
+
+    await expect(requireOwner()).rejects.toThrow("NEXT_REDIRECT:/login");
+  });
 });
 
 describe("變更密碼（PGlite 整合）", () => {
@@ -101,7 +136,7 @@ describe("變更密碼（PGlite 整合）", () => {
 
     expect(await changePasswordAction({}, form)).toEqual({ message: "已變更密碼。這台裝置保持登入，其他裝置都已登出。" });
 
-    expect(await requireSession()).toEqual({ id: user.id, username: "alice" });
+    expect(await requireSession()).toEqual({ id: user.id, username: "alice", role: "member" });
     useCookie(otherDevice);
     expect(await currentSession()).toBeNull();
     await expect(requireSession()).rejects.toThrow("NEXT_REDIRECT:/login");

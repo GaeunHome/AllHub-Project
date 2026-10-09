@@ -48,6 +48,16 @@ export function parseChannelInput(input: string): ChannelInput | null {
   return null;
 }
 
+export type YoutubeInput = { kind: "video"; videoId: string } | { kind: "channel"; channel: ChannelInput } | { kind: "invalid" };
+
+/** 列表頁上方只有一個輸入框：影片網址開觀看頁、頻道網址或 @帳號就追蹤（兩種格式不會重疊） */
+export function classifyYoutubeInput(input: string): YoutubeInput {
+  const videoId = parseVideoId(input);
+  if (videoId) return { kind: "video", videoId };
+  const channel = parseChannelInput(input);
+  return channel ? { kind: "channel", channel } : { kind: "invalid" };
+}
+
 function decodePathSegment(segment: string): string | null {
   try {
     return decodeURIComponent(segment);
@@ -71,4 +81,33 @@ export function parseGlossary(text: string): GlossaryEntry[] {
     entries.set(source, target);
   }
   return [...entries].map(([source, target]) => ({ source, target }));
+}
+
+/** 專有名詞表的上限：發起時的表會跟著翻譯保存，之後每個接著翻的人每批都會送出；字數照看到的字算 */
+export const GLOSSARY_LIMITS = { entries: 200, termLength: 50, totalLength: 5000 } as const;
+
+const charCount = (text: string) => [...text].length;
+/** 錯誤訊息裡的數字加千分位；不用 toLocaleString，輸出不隨執行環境的 ICU 版本改變 */
+export const withCommas = (n: number) => String(n).replace(/\B(?=(\d{3})+$)/g, ",");
+const preview = (text: string) => (charCount(text) > 10 ? `${[...text].slice(0, 10).join("")}…` : text);
+
+/** 存檔前檢查，回傳給使用者看的錯誤，沒問題回 null */
+export function glossaryProblem(entries: GlossaryEntry[]): string | null {
+  const { entries: maxEntries, termLength, totalLength } = GLOSSARY_LIMITS;
+  if (entries.length > maxEntries) return `專有名詞表最多 ${maxEntries} 筆（目前 ${entries.length} 筆），請刪掉用不到的`;
+  for (const { source, target } of entries) {
+    if (charCount(source) > termLength) return `專有名詞表每個詞最多 ${termLength} 字：「${preview(source)}」太長`;
+    if (charCount(target) > termLength) return `專有名詞表每個詞最多 ${termLength} 字：「${preview(source)}」的譯名太長`;
+  }
+  const total = entries.reduce((sum, { source, target }) => sum + charCount(source) + charCount(target), 0);
+  if (total > totalLength) return `專有名詞表合計最多 ${withCommas(totalLength)} 字（目前 ${withCommas(total)} 字），請刪掉用不到的`;
+  return null;
+}
+
+const comparable = (text: string) => text.normalize("NFC").toLowerCase();
+
+/** 只留這些句子裡實際出現的詞條：沒出現的詞每批都送，只是讓接著翻的人多付 token */
+export function relevantGlossary(glossary: GlossaryEntry[], texts: string[]): GlossaryEntry[] {
+  const haystack = comparable(texts.join("\n"));
+  return glossary.filter((entry) => haystack.includes(comparable(entry.source)));
 }

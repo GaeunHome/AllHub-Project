@@ -1,6 +1,6 @@
 import { refresh, updateTag } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { requireSession } from "@/dev/session-stub";
+import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
 import { captureErrorLog, form, mocksOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
@@ -54,14 +54,14 @@ describe("項目", () => {
   it("新增_把表單原樣交給 service 驗證_回傳成功訊息", async () => {
     const state = await actions.createGoalAction({}, form({ name: " 旅遊基金 ", monthlyAmount: "3,000", note: "日本" }));
 
-    expect(service.createGoal).toHaveBeenCalledWith({ name: " 旅遊基金 ", monthlyAmount: "3,000", note: "日本" });
+    expect(service.createGoal).toHaveBeenCalledWith(TEST_SESSION.id, { name: " 旅遊基金 ", monthlyAmount: "3,000", note: "日本" });
     expect(state).toEqual({ message: "已新增「旅遊基金」，每月 $3,000" });
   });
 
   it("修改_帶 id 給 service", async () => {
     await actions.updateGoalAction({}, form({ goalId: "1", name: "日本旅遊", monthlyAmount: "6000", note: "" }));
 
-    expect(service.updateGoal).toHaveBeenCalledWith(1, { name: "日本旅遊", monthlyAmount: "6000", note: "" });
+    expect(service.updateGoal).toHaveBeenCalledWith(TEST_SESSION.id, 1, { name: "日本旅遊", monthlyAmount: "6000", note: "" });
   });
 
   it.each([
@@ -70,7 +70,14 @@ describe("項目", () => {
   ])("啟用開關 active=%s_交給 service 的是 %s", async (raw, expected) => {
     await actions.setGoalActiveAction({}, form({ goalId: "1", active: raw }));
 
-    expect(service.setGoalActive).toHaveBeenCalledWith(1, expected);
+    expect(service.setGoalActive).toHaveBeenCalledWith(TEST_SESSION.id, 1, expected);
+  });
+
+  it.each(["yes", "", "TRUE", "1"])("啟用開關 active=%j（不是 true／false）_回錯誤、不呼叫 service：Server Action 可以被直接 POST，奇怪的值不能當成停用", async (raw) => {
+    const state = await actions.setGoalActiveAction({}, form({ goalId: "1", active: raw }));
+
+    expect(state.error).toBeTruthy();
+    expect(service.setGoalActive).not.toHaveBeenCalled();
   });
 
   it.each(["abc", "0", "-1", "1.5", ""])("id 是 %j_回錯誤_不呼叫 service", async (goalId) => {
@@ -98,7 +105,7 @@ describe("紀錄", () => {
   it("記錄項目_帶項目 id、月份、金額_回傳成功訊息", async () => {
     const state = await actions.addEntryAction({}, form({ goalId: "1", month: "2026-10", amount: "3000", note: "" }));
 
-    expect(service.addEntry).toHaveBeenCalledWith({ goalId: 1, month: "2026-10", amount: "3000", note: "" });
+    expect(service.addEntry).toHaveBeenCalledWith(TEST_SESSION.id, { goalId: 1, month: "2026-10", amount: "3000", note: "" });
     expect(state).toEqual({ message: "已記錄 2026 年 10 月「旅遊基金」$3,000" });
   });
 
@@ -107,7 +114,7 @@ describe("紀錄", () => {
 
     const state = await actions.addEntryAction({}, form({ month: "2026-10", amount: "500", note: "發票中獎" }));
 
-    expect(service.addEntry).toHaveBeenCalledWith({ goalId: null, month: "2026-10", amount: "500", note: "發票中獎" });
+    expect(service.addEntry).toHaveBeenCalledWith(TEST_SESSION.id, { goalId: null, month: "2026-10", amount: "500", note: "發票中獎" });
     expect(state).toEqual({ message: "已記錄 2026 年 10 月「臨時存款」$500" });
   });
 
@@ -129,6 +136,23 @@ describe("紀錄", () => {
     expect(await actions.deleteEntryAction({}, form({ entryId: "7" }))).toEqual({});
     expect(updateTag).not.toHaveBeenCalled();
     expect(refresh).toHaveBeenCalledOnce();
+  });
+});
+
+describe("擁有權：一律用登入者的 id 呼叫 service，表單送來的 id 只是要操作哪一筆", () => {
+  it.each([
+    ["updateGoalAction", () => actions.updateGoalAction({}, form({ goalId: "1", name: "x", monthlyAmount: "1", note: "" })), "updateGoal"],
+    ["setGoalActiveAction", () => actions.setGoalActiveAction({}, form({ goalId: "1", active: "false" })), "setGoalActive"],
+    ["moveGoalAction", () => actions.moveGoalAction({}, form({ goalId: "1", direction: "up" })), "moveGoal"],
+    ["deleteGoalAction", () => actions.deleteGoalAction({}, form({ goalId: "1" })), "deleteGoal"],
+    ["addEntryAction", () => actions.addEntryAction({}, form({ goalId: "1", month: "2026-10", amount: "1", note: "" })), "addEntry"],
+    ["deleteEntryAction", () => actions.deleteEntryAction({}, form({ entryId: "7" })), "deleteEntry"],
+  ] as const)("%s_帶的是登入者（bob）的 id", async (_name, run, method) => {
+    requireSession.mockResolvedValue(OTHER_SESSION);
+
+    await run();
+
+    expect(service[method].mock.calls[0][0]).toBe(OTHER_SESSION.id);
   });
 });
 

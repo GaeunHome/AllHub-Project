@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { requireSession } from "@/dev/session-stub";
+import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
 import { captureErrorLog, form, loggedText, mocksOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
@@ -14,7 +14,7 @@ beforeEach(() => {
   requireSession.mockReset();
   service.linkAccount.mockReset().mockResolvedValue({ ok: true, message: "已連結" });
   service.checkinAccount.mockReset().mockResolvedValue({ ok: true, message: "簽到成功" });
-  service.setStaminaThreshold.mockReset().mockResolvedValue(undefined);
+  service.setStaminaThreshold.mockReset().mockResolvedValue(true);
   service.removeAccount.mockReset().mockResolvedValue(undefined);
 });
 
@@ -54,6 +54,27 @@ describe("removeAccountAction", () => {
 
   it("成功_回空狀態（這張卡片會在同一次更新裡消失）", async () => {
     expect(await removeAccountAction({}, form({ accountId: "1" }))).toEqual({});
-    expect(service.removeAccount).toHaveBeenCalledWith(1);
+    expect(service.removeAccount).toHaveBeenCalledWith(TEST_SESSION.id, 1);
+  });
+});
+
+describe("擁有權：一律用登入者的 id 呼叫 service", () => {
+  it.each([
+    ["linkAccountAction", () => linkAccountAction({}, form({ cookie: "ltoken_v2=x; ltuid_v2=1" })), "linkAccount"],
+    ["checkinAction", () => checkinAction({}, form({ accountId: "1" })), "checkinAccount"],
+    ["setThresholdAction", () => setThresholdAction({}, form({ accountId: "1", threshold: "200" })), "setStaminaThreshold"],
+    ["removeAccountAction", () => removeAccountAction({}, form({ accountId: "1" })), "removeAccount"],
+  ] as const)("%s_帶的是登入者（bob）的 id", async (_name, run, method) => {
+    requireSession.mockResolvedValue(OTHER_SESSION);
+
+    await run();
+
+    expect(service[method].mock.calls[0][0]).toBe(OTHER_SESSION.id);
+  });
+
+  it("setThresholdAction_帳號不是自己的（service 找不到）_請重新整理", async () => {
+    service.setStaminaThreshold.mockResolvedValue(false);
+
+    expect(await setThresholdAction({}, form({ accountId: "1", threshold: "200" }))).toEqual({ error: "找不到這個帳號，請重新整理頁面" });
   });
 });

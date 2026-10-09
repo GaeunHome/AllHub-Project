@@ -9,6 +9,18 @@ export type HoyolabResult<T> =
 /** -100：未登入；10001：cookie 無效 */
 const COOKIE_INVALID_CODES = new Set([-100, 10001]);
 
+/** 常見的錯誤代碼（依 genshin.py 的 errors.py）給中文說明，不顯示 HoYoLAB 的英文原文 */
+const GEETEST = "HoYoLAB 要求驗證碼：先到 HoYoLAB 網站打開戰績頁通過驗證，再回來重新整理";
+const KNOWN_ERRORS: Record<number, string> = {
+  10101: "HoYoLAB 今天的查詢次數已達上限，明天再試",
+  10102: "資料沒有公開：到 HoYoLAB → 戰績 → 設定，打開對應的公開設定",
+  [-110]: "HoYoLAB 說查詢太頻繁，過幾分鐘再試",
+  1034: GEETEST,
+  10035: GEETEST,
+  10041: GEETEST,
+  5003: GEETEST,
+};
+
 /** 回應裡的 retcode；格式不對時回 null */
 export function retcodeOf(json: unknown): number | null {
   const retcode = asRecord(json)?.retcode;
@@ -23,6 +35,7 @@ export function interpretResponse(json: unknown): HoyolabResult<unknown> {
   if (retcode === 0) return { ok: true, data: body?.data ?? null, raw: json };
 
   const cookieInvalid = retcode !== null && COOKIE_INVALID_CODES.has(retcode);
+  const known = retcode === null ? undefined : KNOWN_ERRORS[retcode];
   return {
     ok: false,
     retcode,
@@ -32,7 +45,9 @@ export function interpretResponse(json: unknown): HoyolabResult<unknown> {
         ? typeof body?.localError === "string"
           ? body.localError
           : "HoYoLAB 回應格式和預期不同"
-        : `HoYoLAB 回應錯誤（${retcode}：${message}）`,
+        : known
+          ? `${known}（${retcode}）`
+          : `HoYoLAB 回應錯誤（${retcode}：${message}）`,
     cookieInvalid,
     raw: json,
   };
@@ -85,6 +100,57 @@ export function parseDailyNote(data: unknown): DailyNote {
     cocoonRemaining: num(note?.weekly_cocoon_cnt),
     cocoonLimit: num(note?.weekly_cocoon_limit),
   };
+}
+
+/** 委託（派遣）：角色圖只收 http(s) 網址，讀不到的欄位給 null */
+export type Expedition = {
+  name: string | null;
+  status: "ongoing" | "finished" | null;
+  remainingSeconds: number | null;
+  avatars: string[];
+  itemUrl: string | null;
+};
+
+export function parseExpeditions(data: unknown): Expedition[] {
+  const list = asRecord(data)?.expeditions;
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((item) => {
+    const expedition = asRecord(item);
+    if (!expedition) return [];
+    const status = typeof expedition.status === "string" ? expedition.status.toLowerCase() : null;
+    return [
+      {
+        name: typeof expedition.name === "string" && expedition.name !== "" ? expedition.name : null,
+        status: status === "ongoing" || status === "finished" ? status : null,
+        remainingSeconds: num(expedition.remaining_time),
+        avatars: Array.isArray(expedition.avatars) ? expedition.avatars.flatMap((avatar) => imageUrl(avatar) ?? []) : [],
+        itemUrl: imageUrl(expedition.item_url),
+      },
+    ];
+  });
+}
+
+/** 現在的委託狀態：剩餘時間扣掉查詢後已經過去的時間（便箋最多是 5 分鐘前查的） */
+export type ExpeditionState = Expedition & { done: boolean };
+
+export function expeditionStates(expeditions: Expedition[], fetchedAt: Date, now: Date): ExpeditionState[] {
+  const elapsed = Math.max(0, Math.floor((now.getTime() - fetchedAt.getTime()) / 1000));
+  return expeditions.map((expedition) => {
+    const left = expedition.remainingSeconds === null ? null : Math.max(0, expedition.remainingSeconds - elapsed);
+    const done = expedition.status === "finished" || left === 0;
+    return { ...expedition, remainingSeconds: done ? 0 : left, done };
+  });
+}
+
+/** 例如「剩 2 小時 1 分」 */
+export function formatRemaining(seconds: number | null): string | null {
+  if (seconds === null) return null;
+  if (seconds <= 0) return "已完成";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 1) return "剩不到 1 分鐘";
+  if (minutes < 60) return `剩 ${minutes} 分鐘`;
+  const rest = minutes % 60;
+  return rest === 0 ? `剩 ${Math.floor(minutes / 60)} 小時` : `剩 ${Math.floor(minutes / 60)} 小時 ${rest} 分`;
 }
 
 /** 開拓力回滿的時間點；已滿或讀不到時回 null */
@@ -140,6 +206,12 @@ function num(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
   return null;
+}
+
+function imageUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  if (value.startsWith("//")) return `https:${value}`;
+  return /^https?:\/\//i.test(value) ? value : null;
 }
 
 function str(value: unknown): string | null {

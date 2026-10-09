@@ -84,6 +84,22 @@ describe("translateBatch：各家請求格式", () => {
     }
   });
 
+  it("專有名詞表只帶這一批與前後文裡出現的詞條，沒出現的不送（每批都少付這些 token）", async () => {
+    const { impl, calls } = fakeFetch([ok("anthropic", lines("a", "b"))]);
+    const table = [
+      { source: "지수", target: "Jisoo" },
+      { source: "블랙핑크", target: "BLACKPINK" },
+      { source: "감사", target: "謝謝" },
+      { source: "제니", target: "Jennie" },
+    ];
+
+    await translateBatch({ cues, batch, ai: ai("anthropic"), glossary: table, fetchImpl: impl, context: { before: ["안녕하세요"], after: ["감사합니다"] } });
+
+    const input = JSON.parse((calls[0].body.messages as { content: string }[])[0].content);
+    expect(input.glossary).toEqual(table.slice(0, 3));
+    expect(promptText(calls[0])).not.toContain("Jennie");
+  });
+
   it("請求會經過 externalUrl", async () => {
     vi.stubEnv("DEV_EXTERNAL_ORIGIN", "http://127.0.0.1:4010");
     const { impl, calls } = fakeFetch([ok("openai", lines("a", "b"))]);
@@ -133,6 +149,18 @@ describe("translateBatch：解析輸出", () => {
     const { impl } = fakeFetch([() => Response.json({ content: [], stop_reason: "refusal" })]);
     const error = await translateBatch({ cues, batch, ai: ai("anthropic"), glossary, fetchImpl: impl }).catch((e) => e);
     expect(error).toBeInstanceOf(AiError);
+  });
+
+  it.each<[AiProvider, unknown, string]>([
+    ["anthropic", { content: [], stop_reason: "refusal" }, "Claude 拒絕翻譯這段內容"],
+    ["openai", { choices: [{ message: { content: null, refusal: "I can't help with that." } }] }, "OpenAI 拒絕翻譯這段內容"],
+    ["gemini", { promptFeedback: { blockReason: "SAFETY" } }, "Gemini 拒絕翻譯這段內容"],
+  ])("%s 拒絕翻譯 → refused 類（跟字幕內容有關，換誰翻都一樣），不重試", async (provider, body, message) => {
+    const { impl, calls } = fakeFetch([() => Response.json(body)]);
+    const error = await translateBatch({ cues, batch, ai: ai(provider), glossary, fetchImpl: impl }).catch((e) => e);
+    expect(error).toBeInstanceOf(AiError);
+    expect(error).toMatchObject({ kind: "refused", message });
+    expect(calls).toHaveLength(1);
   });
 });
 
@@ -258,5 +286,11 @@ describe("translateBatch：錯誤分類與金鑰保護", () => {
     expect(error.message).not.toMatch(/AIza[0-9A-Za-z_-]{10,}/);
     expect(error.kind).toBe("other");
     expect(error.message).toContain("HTTP 400");
+  });
+});
+
+describe("預設模型", () => {
+  it("Gemini 預設用官方建議新專案使用的 gemini-3.8-flash（2.5 系列只開放給用過的人）", () => {
+    expect(DEFAULT_MODELS.gemini).toBe("gemini-3.8-flash");
   });
 });

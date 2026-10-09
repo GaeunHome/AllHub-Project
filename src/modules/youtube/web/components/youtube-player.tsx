@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type ReactNode, type Ref } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore, type Ref } from "react";
 import { Icon } from "@/core/ui/icon";
 import { findCueIndex } from "../../lib/cue-lookup";
 import type { Cue } from "../../lib/subtitles/format";
@@ -53,9 +53,16 @@ const STATE = { ended: 0, playing: 1, paused: 2 };
 
 const subscribeNothing = () => () => {};
 
+/** iPhone Safari 不能讓一般元素全螢幕；伺服器端先當作不支援，hydrate 後再依瀏覽器決定要不要顯示按鈕 */
+export function useCanFullscreen(): boolean {
+  return useSyncExternalStore(subscribeNothing, () => document.fullscreenEnabled, () => false);
+}
+
 export type PlayerHandle = {
   /** 播放器還沒準備好或載入失敗時沒有播放位置 */
   positionMs(): number | undefined;
+  /** 連字幕一起全螢幕（YouTube 自己的全螢幕會讓疊上去的字幕消失） */
+  toggleFullscreen(): void;
 };
 
 type YoutubePlayerProps = {
@@ -69,10 +76,9 @@ type YoutubePlayerProps = {
   translating: boolean;
   /** 自動即時翻譯在使用者按下播放時才開始 */
   onPlayingChange?: (playing: boolean) => void;
-  toolbar?: ReactNode;
 };
 
-export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSize, translating, onPlayingChange, toolbar }: YoutubePlayerProps) {
+export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSize, translating, onPlayingChange }: YoutubePlayerProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const readyPlayerRef = useRef<YtPlayer | null>(null);
@@ -82,8 +88,6 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
   // 記下載入失敗的是哪支影片，換影片時訊息自然消失
   const [failedVideoId, setFailedVideoId] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
-  // iPhone Safari 不能讓一般元素全螢幕；伺服器端先當作不支援，hydrate 後再依瀏覽器決定要不要顯示按鈕
-  const canFullscreen = useSyncExternalStore(subscribeNothing, () => document.fullscreenEnabled, () => false);
 
   useEffect(() => {
     cuesRef.current = cues;
@@ -93,8 +97,19 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
     onPlayingChangeRef.current = onPlayingChange;
   }, [onPlayingChange]);
 
-  // 翻譯每次呼叫前才問播放位置，不必為了它每 200ms 重新算繪
-  useImperativeHandle(ref, () => ({ positionMs: () => (readyPlayerRef.current ? readyPlayerRef.current.getCurrentTime() * 1000 : undefined) }), []);
+  // 翻譯每次呼叫前才問播放位置，不必為了它每 200ms 重新算繪；全螢幕按鈕在標題下方那排膠囊裡
+  useImperativeHandle(
+    ref,
+    () => ({
+      positionMs: () => (readyPlayerRef.current ? readyPlayerRef.current.getCurrentTime() * 1000 : undefined),
+      toggleFullscreen: () => {
+        // 瀏覽器拒絕（例如沒有使用者手勢）時維持原狀即可，不必打斷觀看
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+        else frameRef.current?.requestFullscreen().catch(() => {});
+      },
+    }),
+    [],
+  );
 
   useEffect(() => {
     const onChange = () => setFullscreen(document.fullscreenElement === frameRef.current);
@@ -152,45 +167,26 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
   const source = index >= 0 ? cues[index]?.text : undefined;
   const display = source === undefined ? null : subtitleDisplay(source, translated[index], mode, translating);
 
-  const toggleFullscreen = () => {
-    // 瀏覽器拒絕（例如沒有使用者手勢）時維持原狀即可，不必打斷觀看
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    else frameRef.current?.requestFullscreen().catch(() => {});
-  };
-
   return (
-    <div className="flex flex-col gap-3">
-      <div ref={frameRef} className="player-frame" data-subtitle-size={subtitleSize}>
-        <div ref={mountRef} className="absolute inset-0 [&>iframe]:h-full [&>iframe]:w-full" />
-        {failedVideoId === videoId && (
-          <p className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-white/80">
-            無法載入 YouTube 播放器（可能是網路中斷，或被瀏覽器外掛擋掉），請重新整理頁面再試。
-          </p>
-        )}
-        {display && (
-          // 疊在控制列上方；pointer-events-none 讓點擊仍能操作影片
-          <div className="subtitle-overlay">
-            <SubtitleLine badge={display.badge}>{display.primary}</SubtitleLine>
-            {display.secondary !== undefined && <SubtitleLine secondary>{display.secondary}</SubtitleLine>}
-          </div>
-        )}
-        {fullscreen && (
-          <button type="button" onClick={toggleFullscreen} className="player-exit-fullscreen">
-            <Icon name="x" className="size-4" />
-            離開全螢幕
-          </button>
-        )}
-      </div>
-      {(toolbar || canFullscreen) && (
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          {toolbar}
-          {canFullscreen && (
-            <button type="button" onClick={toggleFullscreen} className="btn-secondary btn-sm ml-auto">
-              <Icon name="tv" className="size-4" />
-              全螢幕
-            </button>
-          )}
+    <div ref={frameRef} className="player-frame" data-subtitle-size={subtitleSize}>
+      <div ref={mountRef} className="absolute inset-0 [&>iframe]:h-full [&>iframe]:w-full" />
+      {failedVideoId === videoId && (
+        <p className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-white/80">
+          無法載入 YouTube 播放器（可能是網路中斷，或被瀏覽器外掛擋掉），請重新整理頁面再試。
+        </p>
+      )}
+      {display && (
+        // 疊在控制列上方；pointer-events-none 讓點擊仍能操作影片
+        <div className="subtitle-overlay">
+          <SubtitleLine badge={display.badge}>{display.primary}</SubtitleLine>
+          {display.secondary !== undefined && <SubtitleLine secondary>{display.secondary}</SubtitleLine>}
         </div>
+      )}
+      {fullscreen && (
+        <button type="button" onClick={() => document.exitFullscreen().catch(() => {})} className="player-exit-fullscreen">
+          <Icon name="x" className="size-4" />
+          離開全螢幕
+        </button>
       )}
     </div>
   );

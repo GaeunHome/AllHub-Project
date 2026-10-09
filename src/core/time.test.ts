@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
-import { formatTaipeiDateTime, formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDateKey } from "./time";
+import { formatRelativeTime, formatTaipeiDateTime, formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDateKey } from "./time";
 
 describe("formatTaipeiDateTime", () => {
   it.each([
@@ -65,5 +65,35 @@ describe("ICU 版本不同時輸出不變", () => {
     const legacy = new Intl.DateTimeFormat("zh-TW", { dateStyle: "short", timeStyle: "short", hourCycle: "h23", timeZone: "Asia/Taipei" });
 
     expect(legacy.format(instant)).not.toBe("2027/1/5 01:05");
+  });
+});
+
+describe("formatRelativeTime：影片卡片上的「3 小時前」", () => {
+  const NOW = new Date("2026-10-08T12:00:00Z");
+  const ago = (ms: number) => new Date(NOW.getTime() - ms);
+  const MINUTE = 60_000;
+  const HOUR = 60 * MINUTE;
+  const DAY = 24 * HOUR;
+
+  it.each([
+    [30_000, "剛剛"],
+    [MINUTE, "1 分鐘前"],
+    [59 * MINUTE + 59_000, "59 分鐘前"],
+    [HOUR, "1 小時前"],
+    [23 * HOUR + 59 * MINUTE, "23 小時前"],
+    [DAY, "1 天前"],
+    [6 * DAY + 23 * HOUR, "6 天前"],
+    [7 * DAY, "1 週前"],
+    [29 * DAY, "4 週前"],
+    [30 * DAY, "1 個月前"],
+    [364 * DAY, "11 個月前"],
+    [365 * DAY, "1 年前"],
+    [800 * DAY, "2 年前"],
+  ])("%d 毫秒前 → %s", (ms, expected) => {
+    expect(formatRelativeTime(ago(ms), NOW)).toBe(expected);
+  });
+
+  it("時間在未來（伺服器時鐘有誤差）_當成剛剛", () => {
+    expect(formatRelativeTime(new Date(NOW.getTime() + 5 * MINUTE), NOW)).toBe("剛剛");
   });
 });

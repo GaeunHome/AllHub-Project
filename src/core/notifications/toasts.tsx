@@ -55,7 +55,7 @@ function Toast({ item, module, onOpen, onDismiss }: { item: NotificationItem; mo
       >
         <NotificationSummary item={item} module={module} time={relativeTime(item.createdAt)} />
       </button>
-      <button type="button" onClick={() => onDismiss(item.id)} aria-label="關閉這則提示" className="btn-ghost btn-sm min-h-8 shrink-0 px-2">
+      <button type="button" onClick={() => onDismiss(item.id)} aria-label="關閉這則提示" className="icon-button text-ink-soft">
         <Icon name="x" className="size-4" />
       </button>
     </div>

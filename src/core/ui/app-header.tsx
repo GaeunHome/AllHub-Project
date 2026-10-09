@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { requireSession } from "../auth";
 import { NotificationBell } from "../notifications/bell";
-import { AccountMenu } from "./account-menu";
+import { AccountMenu, AccountMenuLink } from "./account-menu";
 import { HeaderMenus } from "./header-menus";
 import { Icon } from "./icon";
 import { NavLinkList, NavLinks, type NavModule } from "./nav-links";
@@ -12,7 +12,8 @@ export function AppHeader({ modules }: { modules: NavModule[] }) {
     <header className="app-header">
       {/* relative：手機上鈴鐺面板與帳號選單以整列為準展開，才不會超出畫面 */}
       <div className="relative mx-auto flex max-w-5xl items-center gap-2 px-4 py-2.5 sm:gap-4">
-        <Link href="/" aria-label="AllHub 首頁" className="flex shrink-0 items-center gap-2 rounded-full">
+        {/* 標誌只有 32px：用透明的偽元素往外撐 6px，點擊範圍到 44px，版面不會跟著移動 */}
+        <Link href="/" aria-label="AllHub 首頁" className="relative flex shrink-0 items-center gap-2 rounded-full before:absolute before:-inset-1.5 before:content-['']">
           <span className="logo-mark size-8">
             <Icon name="flower-2" className="size-[1.125rem]" />
           </span>
@@ -35,6 +36,11 @@ export function AppHeader({ modules }: { modules: NavModule[] }) {
                   <SignedInUsername />
                 </Suspense>
               }
+              ownerItems={
+                <Suspense fallback={null}>
+                  <OwnerMenuLink />
+                </Suspense>
+              }
             />
           </div>
         </HeaderMenus>
@@ -47,4 +53,15 @@ export function AppHeader({ modules }: { modules: NavModule[] }) {
 async function SignedInUsername() {
   const { username } = await requireSession();
   return username;
+}
+
+/** 只是不顯示入口；管理頁與它的 Server Action 都會再用 requireOwner 檢查 */
+export async function OwnerMenuLink() {
+  const { role } = await requireSession();
+  if (role !== "owner") return null;
+  return (
+    <AccountMenuLink href="/admin" icon="shield-check">
+      管理
+    </AccountMenuLink>
+  );
 }

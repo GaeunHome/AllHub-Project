@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { earliestMonth, entryLabel, goalProgress, goalTotals, monthlySeries, percentOf, summarize, type MonthGoalTotal } from "./summary";
+import { earliestMonth, entryLabel, goalProgress, goalTotals, monthProgress, monthlySeries, percentOf, summarize, type MonthGoalTotal } from "./summary";
 
 const goals = [
   { id: 1, name: "緊急預備金", monthlyAmount: 10000, active: true },
@@ -154,5 +154,40 @@ describe("earliestMonth", () => {
 
   it("沒有紀錄_回 null", () => {
     expect(earliestMonth([])).toBeNull();
+  });
+});
+
+describe("monthProgress（首頁卡片與記帳頁總覽共用的月進度）", () => {
+  it("已存含臨時存款_應存只算啟用中項目_還差是各項目沒存滿的部分", () => {
+    const progress = monthProgress(goals, totals, "2026-10");
+
+    expect(progress).toMatchObject({ planned: 13000, saved: 11500, percent: 88, remaining: 2000, doneGoals: 1 });
+    expect(progress.goals.map(({ goal, saved, remaining, status }) => ({ id: goal.id, saved, remaining, status }))).toEqual([
+      { id: 1, saved: 10000, remaining: 0, status: "done" },
+      { id: 2, saved: 1000, remaining: 2000, status: "partial" },
+    ]);
+  });
+
+  it("切換到過去的月份_只算那個月的紀錄（已刪除項目的錢算進已存，不抵任何項目）", () => {
+    expect(monthProgress(goals, totals, "2026-03")).toMatchObject({ planned: 13000, saved: 12000, percent: 92, remaining: 3000, doneGoals: 1 });
+  });
+
+  it("臨時存款再多也不抵項目的還差_達成率可以超過 100", () => {
+    const onlyTemporary: MonthGoalTotal[] = [{ month: "2026-10", goalId: null, goalName: null, amount: 26000 }];
+
+    expect(monthProgress(goals, onlyTemporary, "2026-10")).toMatchObject({ saved: 26000, percent: 200, remaining: 13000, doneGoals: 0 });
+  });
+
+  it("全部存滿_還差 0", () => {
+    const filled: MonthGoalTotal[] = [
+      { month: "2026-10", goalId: 1, goalName: "緊急預備金", amount: 10000 },
+      { month: "2026-10", goalId: 2, goalName: "旅遊基金", amount: 3500 },
+    ];
+
+    expect(monthProgress(goals, filled, "2026-10")).toMatchObject({ remaining: 0, doneGoals: 2, percent: 104 });
+  });
+
+  it("沒有項目_應存 0、沒有達成率", () => {
+    expect(monthProgress([], [], "2026-10")).toEqual({ planned: 0, saved: 0, percent: null, remaining: 0, doneGoals: 0, goals: [] });
   });
 });

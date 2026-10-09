@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { captureErrorLog, form, loggedText } from "@/dev/test-helpers";
-import { INVALID_FORM_MESSAGE, actionErrorMessage, formFlag, formId, formText, runAction } from "./form";
+import { INVALID_FORM_MESSAGE, actionErrorMessage, formFlag, formId, formText, formUuid, runAction } from "./form";
 
 class DemoUserError extends Error {}
 const isDemoUserError = (error: unknown) => error instanceof DemoUserError;
@@ -23,6 +23,16 @@ describe("表單欄位", () => {
     expect(formFlag(form({ enabled: "false" }), "enabled")).toBe(false);
     for (const bad of ["on", "1", ""]) expect(formFlag(form({ enabled: bad }), "enabled")).toBeNull();
     expect(formFlag(form({}), "enabled")).toBeNull();
+  });
+
+  it("formUuid_只收 UUID（帳號 id），大寫轉成小寫", () => {
+    const id = "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f";
+    expect(formUuid(form({ userId: id }), "userId")).toBe(id);
+    expect(formUuid(form({ userId: id.toUpperCase() }), "userId")).toBe(id);
+    for (const bad of ["", "1", "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6", "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6fz", "' or 1=1 --"]) {
+      expect(formUuid(form({ userId: bad }), "userId")).toBeNull();
+    }
+    expect(formUuid(form({}), "userId")).toBeNull();
   });
 
   it("資料不正確時的共用訊息請使用者重新整理", () => {

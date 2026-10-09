@@ -18,7 +18,7 @@ export function MonthSelect({ value, options }: { value: string; options: { valu
         const month = e.target.value;
         startTransition(() => router.push(`/savings?month=${month}`, { scroll: false }));
       }}
-      className="input min-h-9 w-auto py-1.5 text-sm font-medium"
+      className="input w-auto font-medium"
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>

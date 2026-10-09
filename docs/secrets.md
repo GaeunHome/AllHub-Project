@@ -24,7 +24,7 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 |---|---|---|
 | `DATABASE_URL` | Supabase → **Connect** → **Transaction pooler**（port 6543）的連線字串，填入資料庫密碼 | Vercel |
 | `MIGRATION_DATABASE_URL` | Supabase → **Connect** → **Session pooler**（port 5432）的連線字串 | GitHub Secrets（db-migrate 用）；`npm run account` 提示輸入連線字串時也貼這個 |
-| `SESSION_SECRET` | 登入 cookie 的簽章密鑰，用上面的指令產生 | Vercel |
+| `SESSION_SECRET` | 登入 cookie 的簽章密鑰；也用來替註冊次數限制的 IP 雜湊加料，並衍生圖形驗證碼的 HMAC 金鑰。用上面的指令產生 | Vercel |
 | `ENCRYPTION_KEY` | 加密 HoYoLAB cookie 與 AI API Key 的金鑰，用上面的指令產生 | Vercel（不要勾 Sensitive，見下方） |
 | `ENCRYPTION_KEY_PREVIOUS` | 選填，只在更換 `ENCRYPTION_KEY` 的期間放舊金鑰，多把用逗號分隔 | Vercel（平常不用建立） |
 | `CRON_SECRET` | 排程端點的密鑰，用上面的指令產生 | Vercel 與 GitHub Secrets（兩邊要一樣） |
@@ -99,14 +99,28 @@ HoYoLAB cookie 與 AI API Key 是用 `ENCRYPTION_KEY` 加密的。密文會記�
 
 | 密鑰 | 換新的影響 |
 |---|---|
-| `SESSION_SECRET` | 所有裝置都要重新登入。懷疑 cookie 外洩時換這個；只想登出其他裝置的話，改密碼就好 |
+| `SESSION_SECRET` | 所有裝置都要重新登入，註冊與邀請碼的嘗試次數也會重新計算；正在填的登入、註冊表單上的驗證碼也會失效，按「換一張」或重新整理頁面就好。懷疑 cookie 外洩時換這個；只想登出其他裝置的話，改密碼就好 |
 | `CRON_SECRET` | GitHub Secrets 的 `CRON_SECRET` 也要改成同一個值。兩邊都換好、Vercel 重新部署完成之前，GitHub 呼叫的 `starrail:stamina` 會被拒絕（401），需要的話手動補跑 |
-| `TWITCH_EVENTSUB_SECRET` | 舊訂閱仍用舊密鑰簽章，送來的通知會被拒絕，「同步訂閱」也看不出問題。要在重新部署**之後**到 Twitch 頁把主播移除再加回，用新密鑰重建訂閱 |
-| `YOUTUBE_WEBSUB_SECRET` | 舊訂閱的推送會被忽略。要等 `youtube:renew` 在租約剩不到 2 天時用新密鑰續訂才會恢復，最多約 3–4 天。想立刻恢復的話，在重新部署後把頻道移除再加回 |
+| `TWITCH_EVENTSUB_SECRET` | Twitch 上既有的訂閱一直用建立時的舊密鑰簽章（訂閱建立後不能改），換掉之後送來的開台、關台通知都會被網站拒絕；Twitch 那邊仍顯示正常，「同步訂閱」看不出問題。要用新密鑰重建訂閱，步驟見下方〈[換 `TWITCH_EVENTSUB_SECRET`](#換-twitch_eventsub_secret)〉 |
+| `YOUTUBE_WEBSUB_SECRET` | 舊訂閱的推送會被忽略。要等 `youtube:renew` 在租約剩不到 2 天時用新密鑰續訂才會恢復，最多約 3–4 天。想立刻恢復的話，在重新部署後請追蹤這個頻道的每個人都取消追蹤（最後一個人取消時才會取消舊的訂閱），再重新追蹤 |
 | 資料庫密碼 | 在 Supabase 改密碼後，Vercel 的 `DATABASE_URL` 與 GitHub Secrets 的 `MIGRATION_DATABASE_URL` 都要換新 |
 | `TWITCH_CLIENT_SECRET` | 在 Twitch 後台產生新的再貼到 Vercel，不影響既有訂閱 |
 
 把主播或頻道移除再加回時，通知開關會變回開啟；過去的紀錄不受影響。
+
+### 換 `TWITCH_EVENTSUB_SECRET`
+
+主播的訂閱是共用的（同一位主播只訂閱一次），目前也沒有「重建所有訂閱」的工具，所以要讓舊訂閱被刪掉、再用新密鑰建立：
+
+1. **換密鑰**：產生新值，改掉 Vercel 的 `TWITCH_EVENTSUB_SECRET`，重新部署。
+2. **大家都取消追蹤**：請每個人（包括站長）到 Twitch 頁把主播全部取消追蹤。最後一個追蹤者取消時，網站才會刪掉 Twitch 上的舊訂閱；只要還有一個人追蹤，舊訂閱就會留著。站長在網站上看不到成員追蹤了誰，所以要每個人都做。
+3. **再重新追蹤**：確認大家都取消之後，再各自重新追蹤。第一個追蹤的人會用新密鑰建立訂閱，其他人沿用。
+4. **收尾**：重新設定通知開關（會變回開啟），再按一次「同步訂閱」確認狀態是「正常」。
+
+影響：
+
+- 從重新部署到重建訂閱之前，這些主播的開台通知都會遺失（簽章對不上，被網站拒絕）；開台紀錄也不會記下。過去的紀錄不受影響。
+- 有人沒有取消追蹤的主播，舊訂閱會一直留著、通知一直被拒絕。Twitch 在通知失敗太多次後會停用這個訂閱（狀態變成 `notification_failures_exceeded`），之後每天的 `twitch:sync` 會用新密鑰重建；但 Twitch 沒有公開要失敗幾次，通知又只在開台、關台時才送，可能要好幾次直播才會發生，不要只靠這個。
 
 ## 從舊版升級
 

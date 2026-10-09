@@ -9,7 +9,9 @@ const BROWSER_HEADERS = {
 /** 對 YouTube 與 WebSub hub 的請求逾時 */
 export const YOUTUBE_TIMEOUT_MS = 15_000;
 
+type PageOptions = { cache?: RequestCache; fetchImpl?: typeof fetch; timeoutMs?: number };
+
 /** 用瀏覽器的 header 讀 YouTube 的網頁 */
-export function fetchYoutubePage(url: string, { cache, fetchImpl }: { cache?: RequestCache; fetchImpl?: typeof fetch } = {}): Promise<Response> {
-  return externalFetch(url, { headers: BROWSER_HEADERS, ...(cache ? { cache } : {}) }, { timeoutMs: YOUTUBE_TIMEOUT_MS, fetchImpl });
+export function fetchYoutubePage(url: string, { cache, fetchImpl, timeoutMs = YOUTUBE_TIMEOUT_MS }: PageOptions = {}): Promise<Response> {
+  return externalFetch(url, { headers: BROWSER_HEADERS, ...(cache ? { cache } : {}) }, { timeoutMs, fetchImpl });
 }
