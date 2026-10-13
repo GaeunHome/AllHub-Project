@@ -107,5 +107,23 @@ export const youtubeTranslations = pgTable("youtube_translations", {
   glossary: jsonb("glossary").$type<GlossaryEntry[]>(),
 });
 
+/** 每個人保留的影片（上限見 service）：pinned 是手動保留，false 是按過翻譯時自動加入（清單滿了先被擠掉）；video_id 不連到影片表，影片被清掉後也找得回來，標題與頻道名稱是保留時的快照 */
+export const youtubeSavedVideos = pgTable(
+  "youtube_saved_videos",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    videoId: text("video_id").notNull(),
+    title: text("title"),
+    channelTitle: text("channel_title"),
+    pinned: boolean("pinned").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  // 清單依保留時間排，滿了要找最舊的自動項目
+  (t) => [primaryKey({ columns: [t.userId, t.videoId] }), index("youtube_saved_videos_user_updated_at_idx").on(t.userId, t.updatedAt)],
+);
+
 export type YoutubeChannel = typeof youtubeChannels.$inferSelect;
 export type YoutubeTranslation = typeof youtubeTranslations.$inferSelect;

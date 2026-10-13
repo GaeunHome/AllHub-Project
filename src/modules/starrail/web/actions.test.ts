@@ -12,7 +12,7 @@ const dbError = () => Object.assign(new Error('Failed query: update "starrail_ac
 
 beforeEach(() => {
   requireSession.mockReset();
-  service.linkAccount.mockReset().mockResolvedValue({ ok: true, message: "已連結" });
+  service.linkAccount.mockReset().mockResolvedValue({ ok: true, message: "已連結", accountId: 1 });
   service.checkinAccount.mockReset().mockResolvedValue({ ok: true, message: "簽到成功" });
   service.setStaminaThreshold.mockReset().mockResolvedValue(true);
   service.removeAccount.mockReset().mockResolvedValue(undefined);
@@ -32,13 +32,24 @@ describe("帳號 id 不正確（表單被改過或畫面太舊）", () => {
 describe("非預期錯誤顯示在表單上（不會跳錯誤畫面）_log 只記錯誤種類", () => {
   it.each([
     ["linkAccountAction", "連結帳號", () => (service.linkAccount.mockRejectedValue(dbError()), linkAccountAction({}, form({ cookie: "ltoken_v2=x; ltuid_v2=1" })))],
-    ["checkinAction", "簽到", () => (service.checkinAccount.mockRejectedValue(dbError()), checkinAction({}, form({ accountId: "1" })))],
-    ["setThresholdAction", "設定提醒門檻", () => (service.setStaminaThreshold.mockRejectedValue(dbError()), setThresholdAction({}, form({ accountId: "1", threshold: "200" })))],
     ["removeAccountAction", "移除角色", () => (service.removeAccount.mockRejectedValue(dbError()), removeAccountAction({}, form({ accountId: "1" })))],
   ])("%s_回摘要不丟例外", async (_name, action, run) => {
     const log = captureErrorLog();
 
     expect(await run()).toEqual({ error: `${action}失敗（詳見伺服器 log）` });
+    expect(loggedText(log)).toContain("DrizzleQueryError");
+    expect(loggedText(log)).not.toContain("secret-detail");
+  });
+
+  // 結果框的標題已經寫「立即簽到失敗」「設定開拓力提醒門檻失敗」，說明再寫一次「簽到失敗」就重複了
+  it.each([
+    ["checkinAction", "簽到", () => (service.checkinAccount.mockRejectedValue(dbError()), checkinAction({}, form({ accountId: "1" })))],
+    ["setThresholdAction", "設定提醒門檻", () => (service.setStaminaThreshold.mockRejectedValue(dbError()), setThresholdAction({}, form({ accountId: "1", threshold: "200" })))],
+  ])("%s_結果放在有標題的結果框：說明只寫原因不明、不重複標題，log 照樣記是哪個動作失敗", async (_name, action, run) => {
+    const log = captureErrorLog();
+
+    expect(await run()).toEqual({ error: "原因不明（詳見伺服器 log）" });
+    expect(loggedText(log)).toContain(`[starrail] ${action}失敗`);
     expect(loggedText(log)).toContain("DrizzleQueryError");
     expect(loggedText(log)).not.toContain("secret-detail");
   });

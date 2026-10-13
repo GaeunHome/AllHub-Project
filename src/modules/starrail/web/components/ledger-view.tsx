@@ -17,7 +17,8 @@ export function LedgerView({ ledgers, current, fetchedLabel }: LedgerViewProps) 
 
   return (
     <section aria-labelledby={`${tabsId}-title`} className="stack">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+      {/* 至少 44px：超寬螢幕並排時跟終局戰績的標題列（本期／上期）一樣高，兩邊的標題才在同一條線上 */}
+      <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-3">
         <h3 id={`${tabsId}-title`} className="sr-title">
           開拓月曆
         </h3>

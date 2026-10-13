@@ -5,7 +5,7 @@ import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv, stubTwitchEnv, stubYoutubeEnv } from "@/dev/test-env";
 import { mocksOf } from "@/dev/test-helpers";
 import { twitchFollows, twitchStreamers } from "@/modules/twitch/data/schema";
-import { youtubeChannels, youtubeFollows } from "@/modules/youtube/data/schema";
+import { youtubeChannels, youtubeFollows, youtubeSavedVideos } from "@/modules/youtube/data/schema";
 
 // 停用＝凍結：notify()（core）不寫通知給停用的人，各模組的追蹤與訂閱照樣保留；core 不能 import 模組，所以這個跨模組的檢查放在 src 底下
 
@@ -18,7 +18,7 @@ vi.mock("@/modules/youtube/lib/api", { spy: true });
 vi.mock("@/modules/youtube/lib/subtitles/captions", { spy: true });
 
 const twitchApi = mocksOf(await import("@/modules/twitch/lib/api"), "getStreams", "listSubscriptions", "createSubscription", "deleteSubscription");
-const youtubeApi = mocksOf(await import("@/modules/youtube/lib/api"), "hubRequest");
+const youtubeApi = mocksOf(await import("@/modules/youtube/lib/api"), "hubRequest", "checkIsShort");
 const { listCaptionTracks } = mocksOf(await import("@/modules/youtube/lib/subtitles/captions"), "listCaptionTracks");
 const { handleNotification, syncSubscriptions } = await import("@/modules/twitch/service/streamers");
 const { handleFeed, renewSubscriptions } = await import("@/modules/youtube/service/channels");
@@ -43,6 +43,7 @@ beforeEach(async () => {
   twitchApi.createSubscription.mockReset().mockImplementation(async (type: string, broadcasterId: string) => ({ id: `${type}-${broadcasterId}`, type, status: "enabled" }));
   twitchApi.deleteSubscription.mockReset().mockResolvedValue(undefined);
   youtubeApi.hubRequest.mockReset().mockResolvedValue(undefined);
+  youtubeApi.checkIsShort.mockReset().mockResolvedValue(false);
   listCaptionTracks.mockReset().mockResolvedValue({ ok: true, tracks: [] });
 
   const [shared, memberOnly] = await getDb()
@@ -73,7 +74,7 @@ describe("停用＝凍結：資料全部保留，只是排程與通知不處理�
     await setUserDisabled(owner, member, true);
 
     await handleNotification("m1", onlineSub as never, onlineEvent as never);
-    await handleFeed([{ videoId: "newvideo001", channelId: SHARED_CH, title: "새 영상", published: new Date(), url: "" }]);
+    await handleFeed([{ videoId: "newvideo001", channelId: SHARED_CH, title: "새 영상", published: new Date(), url: "", isShort: false }]);
 
     expect(await notificationsOf(member)).toEqual([]);
     expect((await notificationsOf(owner)).sort()).toEqual(["twitch", "youtube"]);
@@ -84,7 +85,8 @@ describe("停用＝凍結：資料全部保留，只是排程與通知不處理�
     expect(await notificationsOf(member)).toEqual(["twitch"]);
   });
 
-  it("追蹤名單與共用的訂閱都保留：只有他追蹤的主播與頻道，同步與續訂排程不會刪掉，恢復後不用重建", async () => {
+  it("追蹤名單、保留的影片與共用的訂閱都保留：只有他追蹤的主播與頻道，同步與續訂排程不會刪掉，恢復後不用重建", async () => {
+    await getDb().insert(youtubeSavedVideos).values({ userId: member, videoId: "dQw4w9WgXcQ", title: "影片", pinned: false });
     await setUserDisabled(owner, member, true);
 
     await syncSubscriptions();
@@ -94,6 +96,7 @@ describe("停用＝凍結：資料全部保留，只是排程與通知不處理�
     expect((await getDb().select().from(youtubeChannels)).map((c) => c.channelId).sort()).toEqual([SHARED_CH, MEMBER_ONLY_CH]);
     expect(await getDb().select().from(twitchFollows).where(eq(twitchFollows.userId, member))).toHaveLength(2);
     expect(await getDb().select().from(youtubeFollows).where(eq(youtubeFollows.userId, member))).toHaveLength(2);
+    expect(await getDb().select().from(youtubeSavedVideos).where(eq(youtubeSavedVideos.userId, member))).toHaveLength(1);
     expect(twitchApi.deleteSubscription).not.toHaveBeenCalled();
     expect(youtubeApi.hubRequest.mock.calls.filter(([mode]) => mode === "unsubscribe")).toEqual([]);
   });

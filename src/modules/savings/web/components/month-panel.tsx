@@ -10,7 +10,7 @@ import { earliestMonth, monthProgress, type GoalProgress, type GoalStatus } from
 import type { SavingsGoal } from "../../data/schema";
 import { cachedEntryTotals, cachedGoals } from "../../service/cached";
 import { GoalEntryRow, TemporaryEntry } from "./entry-forms";
-import { AddGoalForm } from "./goal-forms";
+import { FirstGoalForm } from "./goal-forms";
 import { monthHref, type SearchParams } from "./month-href";
 import { MonthProgressSummary } from "./month-progress";
 import { MonthSelect } from "./month-select";
@@ -40,15 +40,14 @@ export async function MonthPanel({ searchParams }: { searchParams: SearchParams 
       <section aria-labelledby="savings-goals" className="card stack">
         <CardHeader id="savings-goals">{isCurrent ? "本月項目" : `${formatMonth(month)}的項目`}</CardHeader>
         {goals.length === 0 ? (
-          <>
-            <EmptyState compact icon="sparkles" title="還沒有每月固定要存的項目" hint="例如「緊急預備金」每月 10,000 元" />
-            <AddGoalForm />
-          </>
+          <EmptyState compact icon="sparkles" title="還沒有每月固定要存的項目" hint="例如「緊急預備金」每月 10,000 元" />
         ) : progress.goals.length === 0 ? (
           <EmptyState compact icon="target" title="沒有啟用中的固定項目" hint="到下方「管理項目」啟用，或直接記一筆臨時存款" />
         ) : (
           <GoalChecklist progress={progress.goals} month={month} />
         )}
+        {/* 有沒有項目都放在同一個位置：加了第一個項目、表單換成清單時，元件留著，成功訊息才不會跟表單一起不見 */}
+        <FirstGoalForm show={goals.length === 0} />
         {/* 換月份時重新掛載，清掉上個月打到一半的內容與訊息 */}
         <TemporaryEntry key={month} month={month} />
       </section>
@@ -67,7 +66,7 @@ function GoalStatusChip({ status, remaining }: { status: GoalStatus; remaining: 
   );
 }
 
-/** 每個項目一列：名稱、狀態標籤、每月金額（靠右）；還沒存滿的有「記一筆」，按了才出現輸入框 */
+/** 每個項目一列：名稱、狀態標籤、每月金額（靠右）；還沒存滿的有「記一筆」，按了才打開輸入的視窗 */
 function GoalChecklist({ progress, month }: { progress: GoalProgress<SavingsGoal>[]; month: MonthKey }) {
   return (
     // 下面還有「臨時存款」，清單底下也要一條線隔開
@@ -138,12 +137,13 @@ function MonthSwitcher({ month, current, options }: { month: MonthKey; current: 
 export function MonthPanelSkeleton() {
   return (
     <>
-      <LoadingState label="載入本月總覽…" className="card stack">
+      {/* 金額方塊跟內容一樣看卡片本身的寬度排欄：寬螢幕分成兩欄時卡片變窄，載入完才不會從三欄跳成一欄 */}
+      <LoadingState label="載入本月總覽…" className="card stack @container">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Skeleton className="h-7 w-28" />
           <Skeleton className="h-11 w-60 rounded-lg" />
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-3">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-11 rounded-xl" />
           ))}

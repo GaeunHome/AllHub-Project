@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { Suspense, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mocksOf } from "@/dev/test-helpers";
@@ -7,7 +7,7 @@ vi.mock(".", () => ({ requireSession: vi.fn() }));
 vi.mock("./actions", () => ({ logout: vi.fn(), changePasswordAction: vi.fn(), deleteAccountAction: vi.fn() }));
 
 const session = mocksOf(await import("."), "requireSession");
-const { AccountSections } = await import("./account-page");
+const { AccountPage, AccountSections } = await import("./account-page");
 
 const html = async () => renderToStaticMarkup((await AccountSections()) as ReactElement);
 const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
@@ -58,3 +58,30 @@ describe("帳號頁", () => {
     expect(await html()).toContain('href="/terms"');
   });
 });
+
+/** 一段 markup 裡各張卡片（section 或骨架的 div.card）的 class */
+const cardClasses = (markup: string) => [...markup.matchAll(/<(?:section|div)[^>]*class="([^"]*\bcard\b[^"]*)"/g)].map((m) => m[1].split(" "));
+
+describe("帳號頁的版面（寬螢幕兩欄）", () => {
+  it("內容：目前帳號撐滿，變更密碼佔左邊兩列，說明與刪除帳號在右邊上下排；排欄寫在各張卡片上", async () => {
+    const cards = cardClasses(await html());
+
+    expect(cards).toHaveLength(4);
+    expect(cards[0]).toContain("xl:col-span-2");
+    expect(cards[1]).toContain("xl:row-span-2");
+  });
+
+  it("載入中的骨架照同一套格線排：寬螢幕一樣是兩欄，載入完不會從一欄跳成兩欄", () => {
+    const page = AccountPage() as ReactElement<{ className: string; children: ReactNode[] }>;
+    const suspense = page.props.children.find((child) => isValidElement(child) && child.type === Suspense) as ReactElement<{ fallback: ReactNode }>;
+    const markup = renderToStaticMarkup(suspense.props.fallback as ReactElement);
+
+    expect(page.props.className.split(" ")).toEqual(expect.arrayContaining(["xl:grid", "xl:grid-cols-2"]));
+    expect(markup.match(/^<div[^>]*class="([^"]*)"/)![1].split(" ")).toEqual(expect.arrayContaining(["xl:col-span-2", "xl:grid", "xl:grid-cols-2"]));
+    const cards = cardClasses(markup);
+    expect(cards).toHaveLength(4);
+    expect(cards[0]).toContain("xl:col-span-2");
+    expect(cards[1]).toContain("xl:row-span-2");
+  });
+});
+

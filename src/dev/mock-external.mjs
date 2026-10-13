@@ -40,7 +40,14 @@ createServer(async (req, res) => {
     return true;
   };
 
-  const ctx = { req, url, body, json, text, image };
+  // 轉址：例如 YouTube 一般影片的 /shorts/<id> 會 303 到 /watch，呼叫端用 redirect: "manual" 讀 Location 判斷
+  const redirect = (status, location) => {
+    res.writeHead(status, { Location: location });
+    res.end();
+    return true;
+  };
+
+  const ctx = { req, url, body, json, text, image, redirect };
   for (const mock of mocks) if (await mock.handle(ctx)) return;
   json(404, { message: `mock 沒有這個路徑：${url.pathname}` });
 }).listen(port, "127.0.0.1", () => console.log(`[mock] listening on http://127.0.0.1:${port}（${mocks.map((m) => m.id).join("、")}）`));

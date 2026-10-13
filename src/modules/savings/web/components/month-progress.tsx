@@ -10,7 +10,7 @@ export function MonthProgressSummary({ progress }: { progress: MonthProgress<Goa
 
   return (
     <div className="@container flex flex-col gap-4">
-      <dl className="grid grid-cols-1 gap-4 @md:grid-cols-3">
+      <dl className="grid grid-cols-1 gap-4 @2xl:grid-cols-3">
         <AmountTile icon="wallet" label="已存" amount={saved} />
         <AmountTile icon="target" label="應存" amount={planned} />
         <AmountTile icon="coins" label="還差" amount={remaining} />
@@ -59,7 +59,7 @@ export function AmountTile({ icon, label, amount }: { icon: UiIconName; label: s
 export function MonthProgressSkeleton() {
   return (
     <LoadingState label="載入本月存款…" className="@container flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-4 @md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 @2xl:grid-cols-3">
         {[0, 1, 2].map((i) => (
           <Skeleton key={i} className="h-11 rounded-xl" />
         ))}

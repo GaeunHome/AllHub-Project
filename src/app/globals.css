@@ -369,7 +369,8 @@
 }
 
 /* YouTube 頁連頁面底色與導覽列也換成 YouTube 的白／#0f0f0f，整頁看起來才像 YouTube */
-:root:has(.theme-youtube) {
+/* Activity 藏起來的 YouTube 頁還留在文件裡：外框（core/ui/page-theme.tsx）藏起來時標上 data-activity-hidden，這裡排除它，看過 YouTube 再換到別頁時底色不會漏過去 */
+:root:has(.theme-youtube:not([data-activity-hidden])) {
   --bg-base: #ffffff;
   --header-bg: rgb(255 255 255 / 0.95);
 
@@ -409,6 +410,8 @@
     /* 導覽列固定在頂部，跳到錨點時不要被它蓋住 */
     scroll-padding-top: 6rem;
     -webkit-tap-highlight-color: transparent;
+    /* 一律保留捲軸的位置：有捲軸的系統上，頁面長短不同、打開視窗鎖住捲動時，版面都不會左右跳 */
+    scrollbar-gutter: stable;
   }
 
   body {
@@ -742,6 +745,10 @@
   .form-message > .icon {
     @apply mt-0.5 size-4;
   }
+  /* 跟按鈕排在同一列時（視窗關掉後接在按鈕後面的 DialogMessage、邀請的「再看一次連結」）跟按鈕垂直置中 */
+  .button-row > .form-message {
+    align-self: center;
+  }
   .form-message-error {
     color: var(--danger);
     background-color: var(--danger-soft);
@@ -749,6 +756,41 @@
   .form-message-success {
     color: var(--success);
     background-color: var(--success-soft);
+  }
+  /* core/ui/form-message.tsx 的 ResultBanner：點了之後要一眼看到的結果，圖示與標題用狀態色、說明維持深色字 */
+  .result-banner {
+    @apply flex items-start gap-3 rounded-xl p-4;
+    border: 1px solid var(--line);
+  }
+  .result-banner > .icon {
+    @apply size-6 shrink-0;
+  }
+  .result-banner-title {
+    @apply text-base font-semibold;
+  }
+  .result-banner-success {
+    border-color: var(--success-line);
+    background-color: var(--success-soft);
+  }
+  .result-banner-success > .icon,
+  .result-banner-success .result-banner-title {
+    color: var(--success);
+  }
+  .result-banner-error {
+    border-color: var(--danger-line);
+    background-color: var(--danger-soft);
+  }
+  .result-banner-error > .icon,
+  .result-banner-error .result-banner-title {
+    color: var(--danger);
+  }
+  .result-banner-warning {
+    border-color: var(--warning-line);
+    background-color: var(--warning-soft);
+  }
+  .result-banner-warning > .icon,
+  .result-banner-warning .result-banner-title {
+    color: var(--warning);
   }
 
   .choice-card {
@@ -1150,6 +1192,75 @@
     }
   }
 
+  /* ---------- 共用的彈出視窗（core/ui/dialog.tsx） ---------- */
+  /* 手機從底部升起、撐滿寬度；寬螢幕是置中的卡片。標題列固定，只有本文捲動 */
+  .dialog {
+    @apply m-0 mt-auto flex max-h-[90dvh] w-full max-w-none flex-col overflow-hidden rounded-t-2xl p-0;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    background-color: var(--surface-solid);
+    box-shadow: var(--elevation-lift);
+  }
+  .dialog:not([open]) {
+    display: none;
+  }
+  .dialog::backdrop {
+    background-color: rgb(0 0 0 / 0.5);
+  }
+  /* 裡面是 CardHeader（圖示方塊、標題、關閉鈕），這層只管內距與分隔線 */
+  .dialog-header {
+    @apply shrink-0 px-4 pt-4 pb-3;
+    border-bottom: 1px solid var(--line);
+  }
+  .dialog-body {
+    @apply flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))];
+  }
+  /* 內容自己帶標題列與內距（角色詳情）；底部仍讓開手機的 Home 指示條 */
+  .dialog-body-bare {
+    @apply block p-0 pb-[env(safe-area-inset-bottom)];
+  }
+  @media (min-width: 40rem) {
+    .dialog {
+      inset: 0;
+      margin: auto;
+      width: calc(100vw - 2rem);
+      max-height: calc(100dvh - 4rem);
+      border-radius: 1rem;
+    }
+    .dialog-sm {
+      max-width: 24rem;
+    }
+    .dialog-md {
+      max-width: 32rem;
+    }
+    .dialog-lg {
+      max-width: 44rem;
+    }
+    .dialog-header {
+      @apply px-6 pt-5 pb-4;
+    }
+    .dialog-body {
+      @apply px-6 pt-5 pb-6;
+    }
+    .dialog-body-bare {
+      @apply p-0;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .dialog[open] {
+      animation: dialog-sheet-in 200ms ease-out;
+    }
+    @media (min-width: 40rem) {
+      .dialog[open] {
+        animation-name: dialog-pop-in;
+      }
+    }
+  }
+  /* 視窗開著時背後的頁面不跟著捲（捲軸的位置在 html 一律保留，鎖住時不會左右跳） */
+  html:has(.dialog[open]) {
+    overflow: hidden;
+  }
+
   /* 只有圖示的圓形按鈕（⋮、關閉這類）：一律正方形，寬螢幕 36px、觸控 44px */
   .icon-button {
     @apply inline-grid size-9 shrink-0 cursor-pointer place-items-center rounded-full;
@@ -1389,9 +1500,11 @@
   }
   /* 手機上播放器撐滿螢幕寬度、不留圓角，跟 YouTube App 一樣 */
   @media (max-width: 39.99rem) {
-    .theme-youtube .player-frame {
+    .theme-youtube .player-slot {
       width: calc(100% + 2rem);
       margin-inline: -1rem;
+    }
+    .theme-youtube .player-frame {
       border-radius: 0;
       box-shadow: none;
     }
@@ -1439,6 +1552,18 @@
     height: 1px;
     background: linear-gradient(90deg, var(--sr-gold), transparent);
     pointer-events: none;
+  }
+  /* 星穹鐵道的彈出視窗（core/ui/dialog.tsx 加上 theme-starrail sr-dialog）：背景暗一點並模糊，寬螢幕跟面板一樣切掉右上與左下角 */
+  .sr-dialog::backdrop {
+    background-color: rgb(0 0 0 / 0.65);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+  @media (min-width: 40rem) {
+    .sr-dialog {
+      border-radius: 0;
+      clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+    }
   }
   /* 區塊標題：左邊一條金色短線，字距拉開 */
   .sr-title {
@@ -1560,17 +1685,35 @@
     }
   }
 
-  /* 字幕依播放器寬度（cqi）縮放，全螢幕時容器變大字幕就跟著放大 */
-  .player-frame {
-    --subtitle-scale: 1;
+  /* ---------- YouTube 觀看頁的播放器（web/components/youtube-player.tsx） ---------- */
+  /* 外框先佔好位置（一般 16:9），播放器疊在裡面：進出全螢幕時頁面不會跳 */
+  .player-slot {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 9;
+  }
+  /* 劇院模式撐滿內容寬度，高度封頂到整個播放器留在畫面裡（扣掉導覽列、上方留白與返回連結），影片置中、兩側留黑 */
+  /* html[data-youtube-theater]：整頁載入時 React 接手前元件還是一般大小（伺服器讀不到存在瀏覽器的偏好），觀看頁的同步腳本先標上，播放器與骨架照樣排成劇院模式（web/components/player-size-sync.tsx） */
+  @media (min-width: 64rem) {
+    .player-slot[data-size="theater"],
+    html[data-youtube-theater] .player-slot {
+      max-height: calc(100dvh - 11rem);
+    }
+    html[data-youtube-theater] .player-slot {
+      grid-column: span 2 / span 2;
+    }
+    html[data-youtube-theater] :has(> .player-slot) {
+      display: contents;
+    }
+  }
+  .player-frame {
+    --subtitle-scale: 1;
+    position: absolute;
+    inset: 0;
     overflow: hidden;
     border-radius: 1rem;
     background-color: #0b0b0d;
     box-shadow: 0 0 0 1px var(--line);
-    container-type: inline-size;
   }
   .player-frame[data-subtitle-size="small"] {
     --subtitle-scale: 0.8;
@@ -1582,36 +1725,73 @@
     border-radius: 0;
     box-shadow: none;
   }
-  .player-exit-fullscreen {
-    @apply absolute top-4 right-4 inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-lg px-4 text-sm font-semibold;
-    color: #fff;
-    background-color: rgb(17 17 20 / 0.66);
-    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
-    opacity: 0.8;
-    transition: opacity 150ms ease;
+  /* 全螢幕時不保留 html 的捲軸位置：Windows 這類占寬度的捲軸會讓外框右邊留一條黑邊；只在真的全螢幕時成立，藏起來的頁面不會比對到 */
+  html:has(.player-frame:fullscreen) {
+    scrollbar-gutter: auto;
   }
-  .player-exit-fullscreen:hover {
-    opacity: 1;
+  /* 頁內全螢幕（iPhone 不能讓一般元素全螢幕）：蓋滿整個視窗，高度跟著網址列伸縮 */
+  .player-frame[data-fullscreen="pseudo"] {
+    position: fixed;
+    z-index: 65;
+    inset: 0;
+    height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
   }
-  .subtitle-overlay {
+  /* 背後的頁面不捲動：鎖由元件寫在 html 的屬性上（player-fullscreen.ts 的 lockPageScroll），不用 :has 比對播放器的 data-fullscreen，Activity 藏起來的頁面才不會把下一頁也鎖住 */
+  html[data-player-fullscreen] {
+    overflow: hidden;
+  }
+  /* 影片、字幕與按鈕都在這層：全螢幕時讓開瀏海與 Home 指示條 */
+  .player-stage {
+    position: absolute;
+    inset: 0;
+    container-type: size;
+  }
+  .player-frame:fullscreen .player-stage,
+  .player-frame[data-fullscreen="pseudo"] .player-stage {
+    inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  /* 影片畫面實際的範圍（置中的 16:9）：劇院模式、直向的全螢幕兩側或上下留黑時，字幕仍依畫面定位與縮放 */
+  .subtitle-area {
     pointer-events: none;
     position: absolute;
+    inset: 0;
+    margin: auto;
+    width: min(100%, 100cqh * 16 / 9);
+    height: min(100%, 100cqw * 9 / 16);
+    container-type: inline-size;
+  }
+  /* 字幕依畫面寬度（cqi）縮放，全螢幕時跟著放大；平常讓開 YouTube 的控制列與進度條 */
+  .subtitle-overlay {
+    position: absolute;
     inset-inline: 0;
-    /* 留出 YouTube 控制列的高度，控制列出現時不會蓋住字幕 */
-    bottom: clamp(2.75rem, 10%, 5rem);
+    bottom: clamp(2.75rem, 12%, 6rem);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25em;
-    padding-inline: 4%;
+    gap: 0.15em;
+    padding-inline: 5%;
     text-align: center;
     font-size: calc(clamp(1.05rem, 2.9cqi, 3.5rem) * var(--subtitle-scale));
     line-height: 1.35;
   }
+  /* 播放中、滑鼠不在播放器上時 YouTube 會收起控制列，字幕跟著往下（跟 YouTube 自己的字幕一樣）；觸控裝置看不出控制列在不在，一律讓開 */
+  @media (hover: hover) {
+    .player-frame[data-playing]:not(:hover) .subtitle-overlay {
+      bottom: clamp(0.75rem, 4%, 2.5rem);
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .subtitle-overlay {
+      transition: bottom 200ms ease;
+    }
+  }
+  /* 長句最多到畫面寬度的七成多（窄的播放器再讓開右側的按鈕），換行時兩行一樣長；韓文從空白處換行，不從一個詞的中間斷開 */
   .subtitle-line {
-    max-width: 100%;
-    border-radius: 0.4em;
-    padding: 0.1em 0.55em;
+    max-width: min(80%, 100cqw - 8rem);
+    border-radius: 0.3em;
+    padding: 0.08em 0.5em;
     font-weight: 600;
     color: #fff;
     background-color: rgb(10 10 12 / 0.74);
@@ -1621,11 +1801,76 @@
       0 0 1px rgb(0 0 0 / 0.6);
     white-space: pre-line;
     overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+  .subtitle-line:lang(ko) {
+    word-break: keep-all;
   }
   .subtitle-line-secondary {
     font-size: 0.72em;
     font-weight: 500;
     color: #e4e6ea;
+  }
+  /* 還沒翻好的句子後面的小標示：小字、半透明，不搶字幕本身的視線 */
+  .subtitle-badge {
+    display: inline-block;
+    margin-inline-start: 0.5em;
+    border-radius: 9999px;
+    padding-inline: 0.5em;
+    vertical-align: 0.1em;
+    font-size: 0.55em;
+    font-weight: 500;
+    line-height: normal;
+    white-space: nowrap;
+    color: rgb(255 255 255 / 0.75);
+    background-color: rgb(255 255 255 / 0.15);
+  }
+  /* 劇院模式與全螢幕的按鈕放在右側中間：避開 YouTube 上方的稍後觀看、分享，下方的控制列與「略過廣告」 */
+  .player-controls {
+    position: absolute;
+    top: 50%;
+    right: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    translate: 0 -50%;
+    transition: opacity 150ms ease;
+  }
+  .player-control {
+    @apply inline-grid size-11 cursor-pointer place-items-center rounded-full;
+    color: #fff;
+    background-color: rgb(15 15 15 / 0.6);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+    transition: background-color 150ms ease;
+  }
+  .player-control:hover {
+    background-color: rgb(15 15 15 / 0.85);
+  }
+  .player-control:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+  /* 全螢幕時寫出「離開全螢幕」：iPhone 的頁內全螢幕沒有 Esc 可按 */
+  .player-control-labeled {
+    @apply inline-flex w-auto gap-1.5 px-4 text-sm font-semibold;
+  }
+  /* 直拿手機全螢幕時影片在畫面中間、上下留黑：按鈕移到影片上方的黑色區域，不壓在字幕上 */
+  @container (orientation: portrait) {
+    .player-controls {
+      top: 25%;
+    }
+  }
+  /* 滑鼠移到播放器上、暫停或用鍵盤移到按鈕上才出現；觸控裝置沒有滑過，一直顯示 */
+  @media (hover: hover) {
+    .player-controls {
+      opacity: 0;
+    }
+    .player-frame:hover .player-controls,
+    .player-frame:not([data-playing]) .player-controls,
+    .player-controls:has(:focus-visible) {
+      opacity: 1;
+    }
   }
 
   /* 只有使用者沒要求減少動態時才加上浮起、閃動與脈動 */
@@ -1701,6 +1946,19 @@
   from {
     opacity: 0;
     transform: translateY(0.75rem) scale(0.97);
+  }
+}
+
+@keyframes dialog-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes dialog-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.97);
   }
 }
 

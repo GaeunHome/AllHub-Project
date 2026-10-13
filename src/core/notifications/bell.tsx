@@ -23,6 +23,7 @@ export function NotificationBell() {
       <button
         ref={buttonRef}
         type="button"
+        aria-haspopup="dialog"
         aria-expanded={expanded}
         aria-controls={panelId}
         aria-label={total > 0 ? `通知，${total} 則未讀` : "通知"}

@@ -49,7 +49,12 @@ export type FeedEntry = {
   title: string;
   published: Date | null;
   url: string;
+  /** 連結是 /shorts/<id> 的是 Shorts；false 只代表從連結看不出來，推送的影片由 service 再請求確認 */
+  isShort: boolean;
 };
+
+/** RSS 與推送的 entry 裡，Shorts 的連結是 https://www.youtube.com/shorts/<id>，一般影片是 /watch?v=<id> */
+const SHORTS_LINK = /^https:\/\/(?:www\.)?youtube\.com\/shorts\//;
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
 
@@ -81,12 +86,14 @@ export function parseFeed(xml: string): { title: string | null; entries: FeedEnt
 
     const published = new Date(tag(body, "published") ?? "");
     const link = /<link[^>]*rel="alternate"[^>]*href="([^"]+)"/.exec(body)?.[1];
+    const url = link ? decodeXml(link) : youtubeWatchUrl(videoId);
     entries.push({
       videoId,
       channelId,
       title: tag(body, "title") ?? "",
       published: Number.isNaN(published.getTime()) ? null : published,
-      url: link ? decodeXml(link) : youtubeWatchUrl(videoId),
+      url,
+      isShort: SHORTS_LINK.test(url),
     });
   }
   return { title: tag(head, "title"), entries };

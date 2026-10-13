@@ -13,11 +13,11 @@ type HomeCardProps = {
   children: ReactNode;
 };
 
-/** 首頁的卡片外框：標題列不必等資料先出現，內容各自串流；慢或出錯都只影響這一張 */
+/** 首頁的卡片外框：標題列不必等資料先出現，內容各自串流；慢或出錯都只影響這一張；@container 讓內容依卡片本身的寬度排欄（超寬螢幕上有的卡片只佔半列） */
 export function HomeCard({ info, title, skeleton, children }: HomeCardProps) {
   const headingId = `home-${info.id}`;
   return (
-    <section aria-labelledby={headingId} data-accent={info.accent} className="card stack min-w-0">
+    <section aria-labelledby={headingId} data-accent={info.accent} className="card stack @container min-w-0">
       <CardHeader
         id={headingId}
         icon={info.icon ? <Icon src={info.icon} /> : <Icon name="sparkles" />}

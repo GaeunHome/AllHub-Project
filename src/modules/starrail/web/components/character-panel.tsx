@@ -40,10 +40,10 @@ export function CharacterPanelSkeleton() {
           向 HoYoLAB 查詢中…
         </span>
       </div>
-      <div className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-6 lg:grid-cols-8">
+      <div className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12">
         {Array.from({ length: 8 }, (_, i) => (
           <div key={i} className="flex flex-col gap-1.5">
-            <Skeleton className="aspect-[4/5] w-full rounded-none" />
+            <Skeleton className="aspect-square w-full rounded-none" />
             <Skeleton className="h-3.5 w-3/4" />
           </div>
         ))}

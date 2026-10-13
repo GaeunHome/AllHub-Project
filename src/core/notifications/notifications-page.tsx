@@ -17,7 +17,8 @@ export function NotificationsPage({ modules, searchParams }: { modules: ModuleIn
   const notificationModules: NotificationModule[] = modules.map(({ id, name, icon, accent, notifies }) => ({ id, name, icon, accent, notifies }));
 
   return (
-    <div className="page-stack">
+    // 寬螢幕：通知清單在左、提醒方式在右，清單不會拉到整個畫面寬
+    <div className="page-stack xl:grid xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start xl:[&>:first-child]:col-span-2">
       <PageHeader icon={<Icon name="bell" />} title="通知" actions={<span className="chip">保留最近 {RETENTION_DAYS} 天</span>} />
 
       <Suspense fallback={<LogListSkeleton rows={5} label="載入通知…" />}>

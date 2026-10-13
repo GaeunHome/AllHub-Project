@@ -1,24 +1,17 @@
 "use client";
 
-import { useActionState, useId, useState, type ReactNode } from "react";
-import { FormFeedback, InlineFeedback } from "@/core/ui/form-message";
+import type { ReactNode } from "react";
+import { Dialog, DialogButton, DialogMessage, useDialog, useDialogForm } from "@/core/ui/dialog";
+import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { MAX_AMOUNT } from "../../lib/money";
+import { formatMonth } from "../../lib/month";
 import { NOTE_MAX_LENGTH } from "../../lib/validation";
-import { addEntryAction, type FormState } from "../actions";
+import { addEntryAction } from "../actions";
 
 const AMOUNT_INPUT = { type: "number", inputMode: "numeric", required: true, min: 1, max: MAX_AMOUNT, step: 1 } as const;
 
 type Done = { onDone: (message: string | undefined) => void; onCancel: () => void };
-
-/** 成功時收起表單、把訊息交給外層顯示；失敗時留著表單與錯誤訊息 */
-function useEntryAction(onDone: Done["onDone"]) {
-  return useActionState<FormState, FormData>(async (previous, formData) => {
-    const result = await addEntryAction(previous, formData);
-    if (!result.error) onDone(result.message);
-    return result;
-  }, {});
-}
 
 type GoalEntryRowProps = {
   goalId: number;
@@ -34,11 +27,9 @@ type GoalEntryRowProps = {
   children: ReactNode;
 };
 
-/** 項目清單的一列：平常只有名稱、狀態與金額，按「記一筆」才展開輸入框 */
+/** 項目清單的一列：平常只有名稱、狀態與金額，按「記一筆」才打開輸入的視窗；成功訊息留在這一列下面，記滿後按鈕消失時焦點落在訊息上 */
 export function GoalEntryRow({ goalId, goalName, month, defaultAmount, canRecord, amount, children }: GoalEntryRowProps) {
-  const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState<string | undefined>();
-  const formId = useId();
+  const entry = useDialog();
 
   return (
     <div className="stack">
@@ -47,128 +38,90 @@ export function GoalEntryRow({ goalId, goalName, month, defaultAmount, canRecord
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">{children}</div>
         <span className="w-32 text-right sm:col-start-3">{amount}</span>
         {canRecord && (
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={formId}
-            onClick={() => {
-              setOpen((value) => !value);
-              setMessage(undefined);
-            }}
-            className="btn-secondary col-span-2 justify-self-start sm:col-span-1 sm:col-start-2 sm:row-start-1"
-          >
+          <button {...entry.triggerProps} className="btn-secondary col-span-2 justify-self-start sm:col-span-1 sm:col-start-2 sm:row-start-1">
             <Icon name="plus" className="size-4" />
             記一筆
           </button>
         )}
       </div>
-      {open && (
-        <div id={formId}>
-          <RecordGoalForm
-            goalId={goalId}
-            goalName={goalName}
-            month={month}
-            defaultAmount={defaultAmount}
-            onDone={(text) => {
-              setOpen(false);
-              setMessage(text);
-            }}
-            onCancel={() => setOpen(false)}
-          />
-        </div>
-      )}
-      {!open && message && <InlineFeedback message={message} />}
+      <DialogMessage {...entry.messageProps} />
+      <Dialog {...entry.dialogProps} title={`記一筆：${goalName}`} icon={<Icon name="piggy-bank" />} size="sm">
+        <RecordGoalForm goalId={goalId} month={month} defaultAmount={defaultAmount} onDone={entry.done} onCancel={entry.close} />
+      </Dialog>
     </div>
   );
 }
 
-function RecordGoalForm({ goalId, goalName, month, defaultAmount, onDone, onCancel }: { goalId: number; goalName: string; month: string; defaultAmount: number } & Done) {
-  const [state, action, pending] = useEntryAction(onDone);
+/** 標籤寫出記到哪個月：補記過去的月份時不會誤以為是這個月 */
+export function RecordGoalForm({ goalId, month, defaultAmount, onDone, onCancel }: { goalId: number; month: string; defaultAmount: number } & Done) {
+  const { state, pending, formProps } = useDialogForm(addEntryAction, onDone);
 
   return (
-    <form action={action} className="panel flex flex-col gap-2">
+    <form {...formProps} className="stack">
       <input type="hidden" name="goalId" value={goalId} />
       <input type="hidden" name="month" value={month} />
-      <div className="button-row">
-        <input
-          name="amount"
-          {...AMOUNT_INPUT}
-          defaultValue={defaultAmount}
-          aria-label={`「${goalName}」這個月存的金額（元）`}
-          autoFocus
-          className="input w-40 text-right tabular-nums"
-        />
-        <button disabled={pending} className="btn-primary">
-          <Icon name="check" className="size-4" />
-          {pending ? "記錄中…" : "記錄"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={pending} className="btn-ghost">
-          取消
-        </button>
-      </div>
-      {!pending && state.error && <InlineFeedback error={state.error} />}
+      <label className="field">
+        <span className="field-label">{formatMonth(month)}存的金額（元）</span>
+        <input name="amount" {...AMOUNT_INPUT} defaultValue={defaultAmount} data-autofocus className="input text-right tabular-nums" />
+      </label>
+      {!pending && <FormFeedback state={{ error: state.error }} />}
+      <FormButtons pending={pending} onCancel={onCancel} />
     </form>
   );
 }
 
-/** 不屬於任何項目的錢：平常只有一個按鈕，按了才出現輸入框 */
+/** 不屬於任何項目的錢：平常只有一個按鈕，按了才打開輸入的視窗 */
 export function TemporaryEntry({ month }: { month: string }) {
-  const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState<string | undefined>();
-  const formId = useId();
-
   return (
-    <div className="stack">
-      <div className="button-row">
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={formId}
-          onClick={() => {
-            setOpen((value) => !value);
-            setMessage(undefined);
-          }}
-          className="btn-secondary"
-        >
-          <Icon name="plus" className="size-4" />
-          臨時存款
-        </button>
-        {!open && message && <InlineFeedback message={message} />}
-      </div>
-      {open && (
-        <div id={formId}>
-          <TemporaryEntryForm
-            month={month}
-            onDone={(text) => {
-              setOpen(false);
-              setMessage(text);
-            }}
-            onCancel={() => setOpen(false)}
-          />
-        </div>
-      )}
+    <div className="button-row">
+      <DialogButton
+        label={
+          <>
+            <Icon name="plus" className="size-4" />
+            臨時存款
+          </>
+        }
+        title="臨時存款"
+        icon={<Icon name="coins" />}
+        size="sm"
+      >
+        {({ done, close }) => <TemporaryEntryForm month={month} onDone={done} onCancel={close} />}
+      </DialogButton>
     </div>
   );
 }
 
-function TemporaryEntryForm({ month, onDone, onCancel }: { month: string } & Done) {
-  const [state, action, pending] = useEntryAction(onDone);
+export function TemporaryEntryForm({ month, onDone, onCancel }: { month: string } & Done) {
+  const { state, pending, formProps } = useDialogForm(addEntryAction, onDone);
 
   return (
-    <form action={action} className="panel flex flex-col gap-2">
+    <form {...formProps} className="stack">
       <input type="hidden" name="month" value={month} />
-      <div className="button-row">
-        <input name="amount" {...AMOUNT_INPUT} aria-label="臨時存款金額（元）" placeholder="金額（元）" autoFocus className="input w-40 text-right tabular-nums" />
-        <input name="note" maxLength={NOTE_MAX_LENGTH} aria-label="備註（選填）" placeholder="備註（選填）" className="input min-w-40 flex-1" />
-        <button disabled={pending} className="btn-primary">
-          <Icon name="check" className="size-4" />
-          {pending ? "記錄中…" : "記錄"}
-        </button>
-        <button type="button" onClick={onCancel} disabled={pending} className="btn-ghost">
-          取消
-        </button>
-      </div>
+      <p className="text-ink-soft">不屬於固定項目的錢，記在 {formatMonth(month)}。</p>
+      <label className="field">
+        <span className="field-label">金額（元）</span>
+        <input name="amount" {...AMOUNT_INPUT} placeholder="1000" data-autofocus className="input text-right tabular-nums" />
+      </label>
+      <label className="field">
+        <span className="field-label">備註（選填）</span>
+        <input name="note" maxLength={NOTE_MAX_LENGTH} placeholder="例如：發票中獎" className="input" />
+      </label>
       {!pending && <FormFeedback state={{ error: state.error }} />}
+      <FormButtons pending={pending} onCancel={onCancel} />
     </form>
+  );
+}
+
+function FormButtons({ pending, onCancel }: { pending: boolean; onCancel: () => void }) {
+  return (
+    <div className="button-row justify-end">
+      <button type="button" onClick={onCancel} disabled={pending} className="btn-ghost">
+        取消
+      </button>
+      <button disabled={pending} className="btn-primary">
+        <Icon name="check" className="size-4" />
+        {pending ? "記錄中…" : "記錄"}
+      </button>
+    </div>
   );
 }

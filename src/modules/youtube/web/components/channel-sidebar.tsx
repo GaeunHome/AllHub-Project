@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { externalAssetUrl } from "@/core/external-url";
 import { ActionButton } from "@/core/ui/action-button";
@@ -6,6 +7,7 @@ import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { NotifyToggle } from "@/core/ui/notify-toggle";
 import type { YoutubeChannel } from "../../data/schema";
+import { SAVED_VIDEOS_PATH } from "../../lib/urls";
 import { removeChannelAction, setChannelNotifyAction } from "../actions";
 import { channelStatusBadge } from "../status";
 import { ChannelAvatar } from "./channel-avatar";
@@ -13,10 +15,34 @@ import { RenewButton } from "./renew-button";
 
 const STATUS_TEXT = { success: "text-success", warning: "text-warning", danger: "text-danger" } as const;
 
-/** 像 YouTube 側欄的「訂閱內容」：頭像加名稱；通知開關、刪除與訂閱狀態收進每個頻道的選單 */
-export function ChannelSidebar({ channels }: { channels: YoutubeChannel[] }) {
+/** 像 YouTube 的側欄：上面是「已保留」的入口（像「稍後觀看」），下面是「訂閱內容」：頭像加名稱；通知開關、刪除與訂閱狀態收進每個頻道的選單 */
+export function ChannelSidebar({ channels, savedCount }: { channels: YoutubeChannel[]; savedCount: number }) {
   return (
-    <nav aria-labelledby="youtube-subscriptions" className="stack min-w-0 lg:sticky lg:top-24 lg:self-start">
+    <div className="stack min-w-0 lg:sticky lg:top-24 lg:self-start">
+      <SavedVideosLink count={savedCount} />
+      <ChannelList channels={channels} />
+    </div>
+  );
+}
+
+/** 寬螢幕是側欄的一列（圖示跟頻道頭像對齊），手機在訂閱內容上面撐滿一整列 */
+function SavedVideosLink({ count }: { count: number }) {
+  return (
+    <Link href={SAVED_VIDEOS_PATH} className="-mx-2 flex min-h-11 items-center gap-3 rounded-lg px-2 font-medium text-ink transition-colors hover:bg-surface-muted lg:min-h-10 lg:text-sm">
+      <span className="grid size-6 shrink-0 place-items-center">
+        <Icon name="bookmark" className="size-5" />
+      </span>
+      <span className="min-w-0 flex-1 truncate">
+        已保留（<span className="tabular-nums">{count}</span>）
+      </span>
+      <Icon name="chevron-right" className="size-4 shrink-0 text-muted" />
+    </Link>
+  );
+}
+
+function ChannelList({ channels }: { channels: YoutubeChannel[] }) {
+  return (
+    <nav aria-labelledby="youtube-subscriptions" className="stack min-w-0">
       <div className="flex items-start justify-between gap-3">
         {/* 跟右邊的「續訂」一樣高，文字垂直置中 */}
         <h2 id="youtube-subscriptions" className="flex min-h-9 items-center text-base font-semibold text-ink pointer-coarse:min-h-11">

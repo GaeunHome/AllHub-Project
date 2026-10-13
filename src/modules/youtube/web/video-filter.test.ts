@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { TranslationStatus, ZhCaptionStatus } from "../data/schema";
-import { VIDEO_FILTERS, countByFilter, latestVideos, thumbnailBadge, upNext, videoFilters } from "./video-filter";
+import { VIDEO_FILTERS, captionCheckPending, countByFilter, latestVideos, savedBadge, thumbnailBadge, upNext, videoFilters } from "./video-filter";
 
-const video = (zhCaptions: ZhCaptionStatus, translationStatus: TranslationStatus | null = null) => ({ zhCaptions, translationStatus });
+const CHECKED_AT = new Date("2026-10-07T12:00:00Z");
+/** 沒特別說的都檢查過字幕；從沒檢查過的傳 null */
+const video = (zhCaptions: ZhCaptionStatus, translationStatus: TranslationStatus | null = null, zhCaptionsCheckedAt: Date | null = CHECKED_AT) => ({ zhCaptions, translationStatus, zhCaptionsCheckedAt });
 
 describe("VIDEO_FILTERS：列表頁的篩選膠囊", () => {
   it("全部、有中文字幕、需要翻譯、翻譯完成", () => {
@@ -36,9 +38,34 @@ describe("thumbnailBadge：縮圖角落的小標籤", () => {
     ["翻譯中", video("unknown", "running"), { label: "翻譯中", tone: "default" }],
     ["翻譯失敗", video("no", "failed"), { label: "翻譯失敗", tone: "danger" }],
     ["沒有中文字幕", video("no"), { label: "需要翻譯", tone: "default" }],
-    ["還沒確認", video("unknown"), { label: "字幕未確認", tone: "default" }],
+    ["檢查過但讀不到（被 YouTube 擋下）", video("unknown"), { label: "字幕未確認", tone: "default" }],
+    ["從沒檢查過（剛追蹤的頻道，背景正在檢查）", video("unknown", null, null), { label: "檢查字幕中", tone: "default" }],
+    ["從沒檢查過、但已經在翻譯", video("unknown", "running", null), { label: "翻譯中", tone: "default" }],
   ] as const)("%s", (_name, input, expected) => {
     expect(thumbnailBadge(input)).toEqual(expected);
+  });
+});
+
+describe("savedBadge：已保留的影片縮圖角落的小標籤（沒有檢查中文字幕，只看翻譯進度，跟 thumbnailBadge 同一套字）", () => {
+  it.each([
+    ["翻譯完成", "done", { label: "已翻譯", tone: "default" }],
+    ["排隊中", "queued", { label: "翻譯中", tone: "default" }],
+    ["翻譯中", "running", { label: "翻譯中", tone: "default" }],
+    ["翻譯失敗", "failed", { label: "翻譯失敗", tone: "danger" }],
+    ["還沒有翻譯（手動保留的）", null, { label: "還沒翻譯", tone: "default" }],
+  ] as const)("%s", (_name, status, expected) => {
+    expect(savedBadge(status)).toEqual(expected);
+  });
+});
+
+describe("captionCheckPending：從沒檢查過字幕（背景正在檢查，過幾秒重新整理就看得到結果）", () => {
+  it.each([
+    ["從沒檢查過", video("unknown", null, null), true],
+    ["檢查過但讀不到", video("unknown"), false],
+    ["檢查過、沒有中文", video("no"), false],
+    ["有中文字幕（舊資料沒有檢查時間也算確定了）", video("yes", null, null), false],
+  ] as const)("%s → %s", (_name, input, expected) => {
+    expect(captionCheckPending(input)).toBe(expected);
   });
 });
 

@@ -26,12 +26,18 @@ export function countByFilter(videos: VideoState[]): Record<VideoFilter, number>
   return counts;
 }
 
+type CaptionCheck = { zhCaptions: ZhCaptionStatus; zhCaptionsCheckedAt: Date | null };
+
+/** 從沒檢查過字幕（剛追蹤的頻道從 RSS 補進來的）：打開 YouTube 頁時背景就會檢查，跟檢查過但讀不到的「字幕未確認」分開 */
+export function captionCheckPending({ zhCaptions, zhCaptionsCheckedAt }: CaptionCheck): boolean {
+  return zhCaptions === "unknown" && zhCaptionsCheckedAt === null;
+}
+
 export type ThumbnailBadge = { label: string; tone: "default" | "danger" };
 
-/** 像 YouTube 縮圖右下角的時間長度標籤：先看能不能直接看中文，再看翻譯進度 */
-export function thumbnailBadge({ zhCaptions, translationStatus }: VideoState): ThumbnailBadge {
-  if (zhCaptions === "yes") return { label: "中文字幕", tone: "default" };
-  switch (translationStatus) {
+/** 翻譯進度的標籤；還沒有翻譯時回 null，由呼叫端決定要怎麼說 */
+function translationBadge(status: TranslationStatus | null): ThumbnailBadge | null {
+  switch (status) {
     case "done":
       return { label: "已翻譯", tone: "default" };
     case "queued":
@@ -40,8 +46,23 @@ export function thumbnailBadge({ zhCaptions, translationStatus }: VideoState): T
     case "failed":
       return { label: "翻譯失敗", tone: "danger" };
     case null:
-      return { label: zhCaptions === "no" ? "需要翻譯" : "字幕未確認", tone: "default" };
+      return null;
   }
+}
+
+/** 像 YouTube 縮圖右下角的時間長度標籤：先看能不能直接看中文，再看翻譯進度 */
+export function thumbnailBadge(video: VideoState & CaptionCheck): ThumbnailBadge {
+  const { zhCaptions, translationStatus } = video;
+  if (zhCaptions === "yes") return { label: "中文字幕", tone: "default" };
+  const translation = translationBadge(translationStatus);
+  if (translation) return translation;
+  if (zhCaptions === "no") return { label: "需要翻譯", tone: "default" };
+  return { label: captionCheckPending(video) ? "檢查字幕中" : "字幕未確認", tone: "default" };
+}
+
+/** 已保留的影片沒有檢查中文字幕（不一定是追蹤中頻道的影片），只看翻譯進度 */
+export function savedBadge(status: TranslationStatus | null): ThumbnailBadge {
+  return translationBadge(status) ?? { label: "還沒翻譯", tone: "default" };
 }
 
 /** 觀看頁的「接下來播放」：最近的影片去掉正在看的這支 */

@@ -6,6 +6,9 @@ export const youtubeWatchUrl = (videoId: string) => `https://www.youtube.com/wat
 /** 站內的翻譯觀看頁；service 與 web 不能讀模組根目錄的 info.ts，模組網址（/youtube）寫在這裡 */
 export const watchPagePath = (videoId: string) => `/youtube/watch/${videoId}`;
 
+/** 站內的「已保留的影片」 */
+export const SAVED_VIDEOS_PATH = "/youtube/saved";
+
 /** 影片縮圖：用影片 id 組出來、不必呼叫 API；mqdefault 是每支影片都有的 16:9 縮圖（320×180） */
 export const youtubeThumbnailUrl = (videoId: string) => `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`;
 

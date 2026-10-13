@@ -1,6 +1,6 @@
 import { refresh, revalidateTag, updateTag } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { captureErrorLog, form, mocksOf, updated } from "@/dev/test-helpers";
+import { captureErrorLog, expiredTags, form, mocksOf, updated } from "@/dev/test-helpers";
 
 const deferred = vi.hoisted(() => ({ tasks: [] as (() => unknown)[] }));
 
@@ -10,6 +10,7 @@ vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/channels", { spy: true });
 vi.mock("../service/caption-status", { spy: true });
 vi.mock("../service/translation", { spy: true });
+vi.mock("../service/saved-videos", { spy: true });
 
 const channels = mocksOf(await import("../service/channels"), "addChannel", "removeChannel", "renewSubscriptionsFor", "setChannelNotify");
 const captions = mocksOf(await import("../service/caption-status"), "checkFollowedVideoCaptions");
@@ -22,6 +23,7 @@ const translation = mocksOf(
   "restartTranslation",
   "continueTranslation",
 );
+const saved = mocksOf(await import("../service/saved-videos"), "keepVideo", "removeSavedVideo");
 const actions = await import("./actions");
 
 const VIDEO = "dQw4w9WgXcQ";
@@ -39,6 +41,8 @@ beforeEach(() => {
   for (const fn of Object.values(translation)) fn.mockReset().mockResolvedValue(undefined);
   translation.startTranslation.mockResolvedValue({ ok: true });
   translation.continueTranslation.mockResolvedValue(QUEUED);
+  saved.keepVideo.mockReset().mockResolvedValue("saved");
+  saved.removeSavedVideo.mockReset().mockResolvedValue(true);
 });
 
 describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag 失效", () => {
@@ -52,14 +56,17 @@ describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag �
     ["setChannelNotifyAction", ["youtube:follows"], () => actions.setChannelNotifyAction({}, form({ id: "2", enabled: "false" }))],
     ["recheckCaptionsAction", ["youtube:videos"], () => actions.recheckCaptionsAction({}, form({ videoId: VIDEO }))],
     ["saveSettingsAction", ["youtube:settings"], () => actions.saveSettingsAction({}, form({ provider: "anthropic" }))],
-    ["startTranslationAction", ["youtube:translation:dQw4w9WgXcQ", "youtube:translations"], () => actions.startTranslationAction(VIDEO)],
+    // 按過翻譯的影片同時加進自己保留的影片
+    ["startTranslationAction", ["youtube:saved_videos", "youtube:translation:dQw4w9WgXcQ", "youtube:translations"], () => actions.startTranslationAction(VIDEO)],
     [
       "uploadSubtitlesAction",
-      ["youtube:translation:dQw4w9WgXcQ", "youtube:translations"],
+      ["youtube:saved_videos", "youtube:translation:dQw4w9WgXcQ", "youtube:translations"],
       () => actions.uploadSubtitlesAction({}, form({ videoId: VIDEO, file: subtitleFile() })),
     ],
-    ["retryTranslationAction", ["youtube:translation:dQw4w9WgXcQ", "youtube:translations"], () => actions.retryTranslationAction(VIDEO)],
-    ["restartTranslationAction", ["youtube:translation:dQw4w9WgXcQ", "youtube:translations"], () => actions.restartTranslationAction(VIDEO)],
+    ["retryTranslationAction", ["youtube:saved_videos", "youtube:translation:dQw4w9WgXcQ", "youtube:translations"], () => actions.retryTranslationAction(VIDEO)],
+    ["restartTranslationAction", ["youtube:saved_videos", "youtube:translation:dQw4w9WgXcQ", "youtube:translations"], () => actions.restartTranslationAction(VIDEO)],
+    ["saveVideoAction", ["youtube:saved_videos"], () => actions.saveVideoAction({}, form({ videoId: VIDEO }))],
+    ["removeSavedVideoAction", ["youtube:saved_videos"], () => actions.removeSavedVideoAction({}, form({ videoId: VIDEO }))],
   ] as const)("%s_%j", async (_name, tags, run) => {
     await run();
 
@@ -72,7 +79,16 @@ describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag �
   it("用影片網址開始翻譯_tag 用解析出來的影片 id，跟觀看頁讀取時一致", async () => {
     await actions.startTranslationAction(`https://www.youtube.com/watch?v=${VIDEO}`);
 
-    expect(updated()).toEqual(["youtube:translation:dQw4w9WgXcQ", "youtube:translations"]);
+    expect(updated()).toEqual(["youtube:saved_videos", "youtube:translation:dQw4w9WgXcQ", "youtube:translations"]);
+  });
+
+  it("按過翻譯但沒有加入保留的影片（清單滿了而且都是手動保留的）_只讓翻譯的 tag 失效", async () => {
+    saved.keepVideo.mockResolvedValue("full");
+
+    await actions.startTranslationAction(VIDEO);
+    await actions.retryTranslationAction(VIDEO);
+
+    expect([...new Set(updated())]).toEqual(["youtube:translation:dQw4w9WgXcQ", "youtube:translations"]);
   });
 
   it("加入頻道失敗_仍讓頻道列表失效：失敗前可能已經寫入一部分", async () => {
@@ -91,6 +107,15 @@ describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag �
     ["startTranslationAction 的影片 id 不正確", () => actions.startTranslationAction("bad id")],
     ["uploadSubtitlesAction 沒選檔案", () => actions.uploadSubtitlesAction({}, form({ videoId: VIDEO }))],
     ["openVideoAction 只是轉址", () => actions.openVideoAction({}, form({ url: VIDEO }))],
+    ["saveVideoAction 的影片 id 不正確", () => actions.saveVideoAction({}, form({ videoId: "bad" }))],
+    ["removeSavedVideoAction 的影片 id 不正確", () => actions.removeSavedVideoAction({}, form({ videoId: "bad" }))],
+    [
+      "saveVideoAction 遇到清單滿了而且都是手動保留的",
+      () => {
+        saved.keepVideo.mockResolvedValue("full");
+        return actions.saveVideoAction({}, form({ videoId: VIDEO }));
+      },
+    ],
   ])("%s_沒寫入就不失效", async (_name, run) => {
     await run();
 
@@ -124,6 +149,29 @@ describe("continueTranslationAction：每批寫回不能重繪頁面", () => {
     await deferred.tasks[0]();
 
     expect(revalidateTag).toHaveBeenCalledWith("youtube:translations", { expire: 0 });
+  });
+
+  it("按了「用我的 API Key 繼續翻譯」後的呼叫（帶 join）成功_當場加進保留的影片，但照樣不重繪頁面：回應送出後才連保留清單一起失效", async () => {
+    await actions.continueTranslationAction(VIDEO, 0, true);
+
+    expect(saved.keepVideo).toHaveBeenCalledOnce();
+    expect(updateTag).not.toHaveBeenCalled();
+    expect(revalidateTag).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
+    await deferred.tasks[0]();
+    expect(expiredTags()).toEqual(["youtube:saved_videos", "youtube:translation:dQw4w9WgXcQ", "youtube:translations"]);
+  });
+
+  it("帶 join 但續翻失敗、或清單滿了而且都是手動保留的_沒有加入，只讓翻譯的 tag 失效", async () => {
+    captureErrorLog();
+    translation.continueTranslation.mockRejectedValueOnce(new Error("db down"));
+    saved.keepVideo.mockResolvedValue("full");
+
+    await actions.continueTranslationAction(VIDEO, 0, true);
+    await actions.continueTranslationAction(VIDEO, 0, true);
+    for (const task of deferred.tasks) await task();
+
+    expect(expiredTags()).toEqual(["youtube:translation:dQw4w9WgXcQ", "youtube:translations"]);
   });
 
   it("影片 id 不正確_不排失效", async () => {

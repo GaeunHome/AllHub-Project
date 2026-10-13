@@ -1,5 +1,6 @@
 // 終局戰績（game_record/hkrpg/api/challenge、challenge_story、challenge_boss）：依 genshin.py 的 starrail chronicle challenge 模型整理、尚未用真實帳號驗證
 
+import { elementIconUrl } from "./game-icons";
 import { asRecord, bool, createMissing, image, number, text } from "./json";
 import { interpretResponse, type HoyolabResult } from "./responses";
 
@@ -13,7 +14,7 @@ export const ENDGAME_ENDPOINTS: Record<EndgameMode, string> = { chaos: "challeng
 /** current 是本期（schedule_type 1），previous 是上期（2） */
 export type EndgameSchedule = "current" | "previous";
 
-export type TeamMember = { id: number | null; level: number | null; icon: string | null; rarity: number | null; element: string | null; eidolon: number | null };
+export type TeamMember = { id: number | null; level: number | null; icon: string | null; rarity: number | null; element: string | null; elementIcon: string | null; eidolon: number | null };
 
 export type EndgameNode = { avatars: TeamMember[]; score: number | null; bossDefeated: boolean | null };
 
@@ -80,13 +81,15 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
     const avatar = asRecord(value);
     if (!avatar) return [];
     const at = (key: string) => `all_floor_detail[].node[].avatars[].${key}`;
+    const element = need(text(avatar.element)?.toLowerCase() ?? null, at("element"));
     return [
       {
         id: number(avatar.id),
         level: need(number(avatar.level), at("level")),
         icon: need(image(avatar.icon), at("icon")),
         rarity: need(number(avatar.rarity), at("rarity")),
-        element: need(text(avatar.element)?.toLowerCase() ?? null, at("element")),
+        element,
+        elementIcon: elementIconUrl(element),
         eidolon: number(avatar.rank),
       },
     ];

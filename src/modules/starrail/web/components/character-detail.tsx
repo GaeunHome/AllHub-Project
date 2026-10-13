@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { ExternalImage } from "@/core/ui/external-image";
 import { Icon, type UiIconName } from "@/core/ui/icon";
-import { elementLabel, pathLabel, relicSlotLabel, type Relic, type RelicStat, type StarrailCharacter, type Trace } from "../../lib/characters";
-import { ElementBadge, Portrait, rarityClass } from "./sr-visuals";
+import { elementLabel, pathLabel, relicSlotLabel, relicUpgrades, type Relic, type RelicStat, type StarrailCharacter, type Trace } from "../../lib/characters";
+import { ElementBadge, GameIcon, Portrait, rarityClass } from "./sr-visuals";
 
 const dash = (value: string | number | null) => (value === null || value === "" ? "—" : value);
 const stars = (rarity: number | null) => (rarity ? "★".repeat(Math.min(rarity, 5)) : null);
@@ -16,7 +16,7 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
   return (
     <div className="flex flex-col">
       {/* 捲動時標題列留在上方：手機上是全螢幕，關閉鈕要一直按得到 */}
-      <header className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-[#0d1233]/95 px-5 py-4 backdrop-blur sm:px-6">
+      <header className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-[#0d1233]/95 px-4 py-4 backdrop-blur sm:px-6">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <h3 id={titleId} className="truncate text-xl font-bold tracking-wide text-ink">
             {c.name ?? "（未知角色）"}
@@ -25,11 +25,16 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
             {stars(c.rarity) && <span className="chip border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-[#f4d79b]">{stars(c.rarity)}</span>}
             {c.element && (
               <span className="chip">
-                <ElementBadge element={c.element} className="size-4 text-[0.5625rem]" />
+                <ElementBadge element={c.element} src={c.elementIcon} decorative className="size-4 text-[0.5625rem]" />
                 {elementLabel(c.element)}
               </span>
             )}
-            {path && <span className="chip">{path}</span>}
+            {path && (
+              <span className="chip">
+                <GameIcon src={c.pathIcon} className="size-4" />
+                {path}
+              </span>
+            )}
             {c.level !== null && (
               <span className="chip">
                 等級 <span className="sr-num text-[0.8125rem] font-bold">{c.level}</span>
@@ -47,12 +52,12 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
         </button>
       </header>
 
-      <div className="grid gap-8 p-5 sm:p-6 md:grid-cols-[15rem_minmax(0,1fr)]">
+      <div className="grid gap-8 p-4 sm:p-6 md:grid-cols-[15rem_minmax(0,1fr)]">
         <aside className="page-stack">
-          {/* 立繪；沒有立繪或讀不到時改放頭像，再不行就是屬性色底加名字 */}
-          <div className={`relative mx-auto aspect-[3/4] w-full max-w-60 overflow-hidden [clip-path:polygon(0_0,calc(100%-18px)_0,100%_18px,100%_100%,18px_100%,0_calc(100%-18px))] ${rarityClass(c.rarity)}`}>
+          {/* 立繪；HoYoLAB 的 image 接近方形、人物置中，用方形外框完整放進去（不裁切），四周露出稀有度底色；沒有立繪或讀不到時改放頭像，再不行就是屬性色底加名字 */}
+          <div className={`relative mx-auto aspect-square w-full max-w-60 overflow-hidden [clip-path:polygon(0_0,calc(100%-18px)_0,100%_18px,100%_100%,18px_100%,0_calc(100%-18px))] ${rarityClass(c.rarity)}`}>
             {c.image ? (
-              <ExternalImage src={c.image} alt={c.name ?? ""} fill className="object-cover object-top" fallback={<Portrait src={c.icon} name={c.name} element={c.element} />} />
+              <ExternalImage src={c.image} alt={c.name ?? ""} fill className="object-contain object-center" fallback={<Portrait src={c.icon} name={c.name} element={c.element} />} />
             ) : (
               <Portrait src={c.icon} name={c.name} element={c.element} />
             )}
@@ -95,7 +100,12 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
                 <tbody className="divide-y divide-line">
                   {c.stats.map((stat, i) => (
                     <tr key={`${stat.type}-${i}`}>
-                      <td className="py-1.5 text-ink-soft">{stat.name}</td>
+                      <td className="py-1.5 text-ink-soft">
+                        <span className="flex items-center gap-1.5">
+                          <GameIcon src={stat.icon} />
+                          {stat.name}
+                        </span>
+                      </td>
                       <td className="sr-num py-1.5 text-right text-[0.9375rem] text-ink-soft">{dash(stat.base)}</td>
                       <td className="sr-num py-1.5 text-right text-[0.9375rem] text-[#8fe3bd]">{dash(stat.add)}</td>
                       <td className="sr-num py-1.5 text-right text-base font-bold text-ink">{dash(stat.final)}</td>
@@ -183,11 +193,17 @@ function FallbackIcon({ name }: { name: UiIconName }) {
   );
 }
 
+// 數值一律靠右、欄寬至少 3rem：主屬性與副詞條的數值對齊，副詞條的「+N」緊貼在數值左邊也排成一直線
 function StatText({ stat, main = false }: { stat: RelicStat; main?: boolean }) {
+  const upgrades = main ? 0 : relicUpgrades(stat.times);
   return (
     <>
-      <span className={main ? "font-semibold text-ink" : "text-ink-soft"}>{stat.name}</span>
-      <span className={`sr-num ml-auto ${main ? "text-base font-bold text-ink" : "text-[0.9375rem] text-ink"}`}>{dash(stat.value)}</span>
+      <GameIcon src={stat.icon} />
+      <span className={`min-w-0 truncate ${main ? "font-semibold text-ink" : "text-ink-soft"}`}>{stat.name}</span>
+      <span className="ml-auto flex shrink-0 items-center gap-1.5">
+        {upgrades > 0 && <Upgrades count={upgrades} />}
+        <span className={`sr-num min-w-12 text-right ${main ? "text-base font-bold text-ink" : "text-[0.9375rem] text-ink"}`}>{dash(stat.value)}</span>
+      </span>
     </>
   );
 }
@@ -217,15 +233,21 @@ function RelicCard({ relic }: { relic: Relic }) {
           {relic.subStats.map((stat, i) => (
             <li key={i} className="flex items-center gap-2">
               <StatText stat={stat} />
-              {/* HoYoLAB 回傳的 times；尚未用真實帳號確認是否包含初始那一次 */}
-              <span title={stat.times !== null ? `強化 ${stat.times} 次` : undefined} className="sr-num w-6 shrink-0 text-right text-[0.9375rem] font-bold text-sr-gold">
-                {stat.times !== null && stat.times > 0 ? `+${stat.times}` : ""}
-              </span>
             </li>
           ))}
         </ul>
       )}
     </li>
+  );
+}
+
+/** 副詞條強化過的次數寫成「+N」（換算在 lib 的 relicUpgrades()）；照資料寫、不設上限，推定或資料有誤時才看得出來；報讀器念「強化 N 次」 */
+function Upgrades({ count }: { count: number }) {
+  return (
+    <span title={`強化 ${count} 次`} className="sr-num text-[0.8125rem] font-bold text-sr-gold">
+      <span aria-hidden>+{count}</span>
+      <span className="sr-only">強化 {count} 次</span>
+    </span>
   );
 }
 

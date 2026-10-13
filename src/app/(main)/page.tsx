@@ -17,9 +17,9 @@ export default function Page() {
         <>
           <TwitchHomeCard info={twitchInfo} />
           <YoutubeHomeCard info={youtubeInfo} />
-          <StarrailHomeCard info={starrailInfo} />
         </>
       }
+      half={<StarrailHomeCard info={starrailInfo} />}
       compact={<SavingsHomeCard info={savingsInfo} />}
     />
   );

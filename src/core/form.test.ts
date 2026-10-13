@@ -64,6 +64,15 @@ describe("runAction", () => {
     expect(log.mock.calls).toEqual([["[demo] 加入主播失敗", "DrizzleQueryError"]]);
     expect(loggedText(log)).not.toContain("secret-detail");
   });
+
+  it("結果放在標題已經寫了「…失敗」的結果框（titled）_非預期錯誤的說明只寫原因不明、不重複標題；log 照樣記「<動作>失敗」與錯誤種類", async () => {
+    const log = captureErrorLog();
+    const titled = { ...SCOPE, titled: true };
+
+    expect(await runAction(titled, isDemoUserError, async () => Promise.reject(new TypeError("secret-detail")))).toEqual({ error: "原因不明（詳見伺服器 log）" });
+    expect(log.mock.calls).toEqual([["[demo] 加入主播失敗", "TypeError"]]);
+    expect(await runAction(titled, isDemoUserError, async () => Promise.reject(new DemoUserError("Twitch 帳號格式不正確")))).toEqual({ error: "Twitch 帳號格式不正確" });
+  });
 });
 
 describe("actionErrorMessage：回傳形狀不是 FormState 的 action 用", () => {
@@ -72,6 +81,15 @@ describe("actionErrorMessage：回傳形狀不是 FormState 的 action 用", () 
 
     expect(actionErrorMessage(SCOPE, isDemoUserError, new DemoUserError("這支影片還沒開始翻譯"))).toBe("這支影片還沒開始翻譯");
     expect(actionErrorMessage(SCOPE, isDemoUserError, new TypeError("secret-detail"))).toBe("加入主播失敗（詳見伺服器 log）");
+    expect(log.mock.calls).toEqual([["[demo] 加入主播失敗", "TypeError"]]);
+  });
+
+  it("titled_非預期錯誤回原因不明（標題已經寫了「…失敗」），使用者錯誤照樣回原訊息", () => {
+    const log = captureErrorLog();
+    const titled = { ...SCOPE, titled: true };
+
+    expect(actionErrorMessage(titled, isDemoUserError, new TypeError("secret-detail"))).toBe("原因不明（詳見伺服器 log）");
+    expect(actionErrorMessage(titled, isDemoUserError, new DemoUserError("這支影片還沒開始翻譯"))).toBe("這支影片還沒開始翻譯");
     expect(log.mock.calls).toEqual([["[demo] 加入主播失敗", "TypeError"]]);
   });
 });

@@ -94,6 +94,31 @@ describe("fetchKoreanCaptions", () => {
     expect(calls[1].startsWith("https://www.youtube.com/api/timedtext")).toBe(true);
   });
 
+  it("json3 的事件沒依時間排序：先依開始時間排好再編號（譯文依位置對應句子、播放器用二分搜尋），開始時間相同的保持原本的順序，重疊的照樣截短", async () => {
+    const tracks: Track[] = [{ languageCode: "ko", baseUrl: "https://www.youtube.com/api/timedtext?v=x&lang=ko" }];
+    const { impl } = fakeFetch([
+      [/\/watch\?v=/, html(watchPage(playable(tracks)))],
+      [/timedtext/, json(json3([
+        { tStartMs: 4000, dDurationMs: 1000, segs: [{ utf8: "셋째" }] },
+        { tStartMs: 0, dDurationMs: 3000, segs: [{ utf8: "첫째" }] },
+        { tStartMs: 2000, dDurationMs: 1500, segs: [{ utf8: "둘째 A" }] },
+        { tStartMs: 2000, dDurationMs: 500, segs: [{ utf8: "둘째 B" }] },
+      ]))],
+    ]);
+
+    const result = await fetchKoreanCaptions(VIDEO, { fetchImpl: impl });
+
+    expect(result).toMatchObject({
+      ok: true,
+      cues: [
+        { start: 0, end: 2000, text: "첫째" },
+        { start: 2000, end: 3500, text: "둘째 A" },
+        { start: 2000, end: 2500, text: "둘째 B" },
+        { start: 4000, end: 5000, text: "셋째" },
+      ],
+    });
+  });
+
   it("有字幕但沒有韓文 → no_korean", async () => {
     const tracks: Track[] = [{ languageCode: "en", baseUrl: "https://www.youtube.com/api/timedtext?lang=en" }];
     const { impl } = fakeFetch([[/\/watch\?v=/, html(watchPage(playable(tracks)))]]);

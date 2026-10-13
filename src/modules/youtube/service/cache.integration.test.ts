@@ -4,15 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv, stubYoutubeEnv } from "@/dev/test-env";
 import { expiredTags, mocksOf, tagged } from "@/dev/test-helpers";
-import { youtubeChannels, youtubeFollows, youtubeSettings, youtubeTranslations, youtubeVideos } from "../data/schema";
+import { youtubeChannels, youtubeFollows, youtubeSavedVideos, youtubeSettings, youtubeTranslations, youtubeVideos } from "../data/schema";
 import { callbackToken, topicFor } from "../lib/websub";
 
 vi.mock("../lib/subtitles/captions", { spy: true });
+// 新影片推送後會請求 /shorts/ 確認是不是 Shorts，測試不能真的連 YouTube
+vi.mock("../lib/api", { spy: true });
 
 stubCoreEnv();
 const { YOUTUBE_WEBSUB_SECRET: SECRET } = stubYoutubeEnv();
 
 const { listCaptionTracks } = mocksOf(await import("../lib/subtitles/captions"), "listCaptionTracks");
+const { checkIsShort } = mocksOf(await import("../lib/api"), "checkIsShort");
 const cached = await import("./cached");
 const { isRecheckDue, recheckDueCaptions } = await import("./caption-status");
 const { handleFeed, handleVerification } = await import("./channels");
@@ -31,6 +34,7 @@ const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3600_000);
 
 beforeEach(async () => {
   listCaptionTracks.mockReset().mockResolvedValue(KO);
+  checkIsShort.mockReset().mockResolvedValue(false);
   me = await insertTestUser(testDb, "alice", { role: "owner" });
   other = await insertTestUser(testDb, "bob");
   await testDb.insert(youtubeChannels).values({ channelId: CH, title: "뉴진스", subscriptionStatus: "pending" });
@@ -108,6 +112,15 @@ describe("YouTube 的快取讀取：標上讀到的資料表、用 db 效期", (
     expect(new Set(tagged())).toEqual(new Set(["youtube:follows", "youtube:videos"]));
   });
 
+  it("cachedSavedVideos_讀了保留清單與翻譯狀態：youtube:saved_videos、youtube:translations；每個人各自一份", async () => {
+    await testDb.insert(youtubeSavedVideos).values({ userId: me, videoId: VIDEO, title: "새 영상", pinned: true });
+
+    expect((await cached.cachedSavedVideos(me)).map((video) => video.videoId)).toEqual([VIDEO]);
+    expect(tagged()).toEqual(["youtube:saved_videos", "youtube:translations"]);
+    expect(cacheLife).toHaveBeenCalledWith("db");
+    expect(await cached.cachedSavedVideos(other)).toEqual([]);
+  });
+
   it("依使用者的快取：別人讀到的是自己的那一份", async () => {
     await testDb.insert(youtubeVideos).values({ videoId: VIDEO, channelId: CH, title: "새 영상", publishedAt: hoursAgo(1) });
     await translation.saveSettings(me, { provider: "anthropic", keys: { anthropic: "sk-ant-secret-WXYZ" }, clear: [], models: {}, glossaryText: "" });
@@ -123,12 +136,19 @@ describe("影片清單的字幕重新檢查：用快取判斷要不要在背景�
   it("isRecheckDue 判斷到期的影片_就是 recheckDueCaptions 會檢查的那幾支", async () => {
     const now = new Date();
     await testDb.insert(youtubeVideos).values([
+      // 第 21 支（沒有發布時間的排最後、同樣沒有時 id 小的在後）：不在清單上，兩邊都不檢查
+      { videoId: "beyond-list", channelId: CH, title: "z", publishedAt: null },
       { videoId: "due-never00", channelId: CH, title: "a", publishedAt: hoursAgo(2) },
       { videoId: "due-stale00", channelId: CH, title: "b", publishedAt: hoursAgo(3), zhCaptionsCheckedAt: hoursAgo(2) },
       { videoId: "fresh-check", channelId: CH, title: "c", publishedAt: hoursAgo(3), zhCaptionsCheckedAt: hoursAgo(0.5) },
-      { videoId: "too-old-000", channelId: CH, title: "d", publishedAt: hoursAgo(49) },
+      { videoId: "too-old-000", channelId: CH, title: "d", publishedAt: hoursAgo(49), zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(25) },
+      { videoId: "due-oldnev0", channelId: CH, title: "g", publishedAt: hoursAgo(24 * 10) },
       { videoId: "has-zh-0000", channelId: CH, title: "e", publishedAt: hoursAgo(2), zhCaptions: "yes" },
-      { videoId: "no-publish0", channelId: CH, title: "f", publishedAt: null },
+      { videoId: "no-publish0", channelId: CH, title: "f", publishedAt: null, zhCaptionsCheckedAt: hoursAgo(5) },
+      { videoId: "due-nopub00", channelId: CH, title: "h", publishedAt: null },
+      { videoId: "due-unknown", channelId: CH, title: "i", publishedAt: hoursAgo(24 * 5), zhCaptionsCheckedAt: hoursAgo(25) },
+      { videoId: "unknown-23h", channelId: CH, title: "j", publishedAt: hoursAgo(24 * 5), zhCaptionsCheckedAt: hoursAgo(23) },
+      ...Array.from({ length: 10 }, (_, i) => ({ videoId: `zh-filler${String(i).padStart(2, "0")}`, channelId: CH, title: "k", publishedAt: hoursAgo(1), zhCaptions: "yes" as const })),
     ]);
 
     const candidates = await cached.cachedRecheckCandidates(me);
@@ -138,7 +158,7 @@ describe("影片清單的字幕重新檢查：用快取判斷要不要在背景�
     await recheckDueCaptions(me, now);
 
     expect(listCaptionTracks.mock.calls.map(([id]) => id).sort()).toEqual(due);
-    expect(due).toEqual(["due-never00", "due-stale00"]);
+    expect(due).toEqual(["due-never00", "due-nopub00", "due-oldnev0", "due-stale00", "due-unknown"]);
   });
 });
 
@@ -170,7 +190,7 @@ describe("背景寫入（webhook、after()）後讓 tag 失效（expire: 0）", 
   it("新影片推送_先失效影片清單_延後的字幕檢查與通知再失效一次", async () => {
     let deferred: (() => Promise<void>) | undefined;
 
-    await handleFeed([{ videoId: VIDEO, channelId: CH, title: "새 영상", published: new Date(), url: "" }], { defer: (task) => (deferred = task) });
+    await handleFeed([{ videoId: VIDEO, channelId: CH, title: "새 영상", published: new Date(), url: "", isShort: false }], { defer: (task) => (deferred = task) });
 
     expect(expiredTags()).toEqual(["youtube:videos"]);
     vi.mocked(revalidateTag).mockReset();
@@ -182,8 +202,20 @@ describe("背景寫入（webhook、after()）後讓 tag 失效（expire: 0）", 
     expect(expiredTags()).toEqual(["core:notifications", "youtube:videos"]);
   });
 
+  it("新影片推送後確認是 Shorts_刪掉影片也讓影片清單失效（沒有通知）", async () => {
+    checkIsShort.mockResolvedValue(true);
+    let deferred: (() => Promise<void>) | undefined;
+    await handleFeed([{ videoId: VIDEO, channelId: CH, title: "짧은 영상", published: new Date(), url: "", isShort: false }], { defer: (task) => (deferred = task) });
+    vi.mocked(revalidateTag).mockReset();
+
+    await deferred!();
+
+    expect(await testDb.select().from(youtubeVideos)).toEqual([]);
+    expect(expiredTags()).toEqual(["youtube:videos"]);
+  });
+
   it("hub 重送已經記錄過的影片_沒有寫入就不失效", async () => {
-    const entry = { videoId: VIDEO, channelId: CH, title: "새 영상", published: new Date(), url: "" };
+    const entry = { videoId: VIDEO, channelId: CH, title: "새 영상", published: new Date(), url: "", isShort: false };
     await handleFeed([entry]);
     vi.mocked(revalidateTag).mockReset();
 

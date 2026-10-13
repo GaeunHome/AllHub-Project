@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { elementLabel, interpretCharacters, parseCharacters, pathLabel, relicSlotLabel } from "./characters";
+import { elementLabel, interpretCharacters, parseCharacters, pathLabel, relicSlotLabel, relicUpgrades } from "./characters";
+
+const ICONS = "/icons/starrail";
 
 const IMG = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg";
 
@@ -31,7 +33,7 @@ function sampleData() {
             main_property: { property_type: 29, value: "352", times: 0 },
             properties: [
               { property_type: 52, value: "6.4%", times: 2 },
-              { property_type: 54, value: "12.9%", times: 3 },
+              { property_type: 53, value: "12.9%", times: 3 },
             ],
           },
           {
@@ -55,7 +57,7 @@ function sampleData() {
             name: "繁星競技場的位面球",
             desc: "飾品說明",
             icon: `${IMG}/relic/63065.png`,
-            main_property: { property_type: 61, value: "38.8%", times: 0 },
+            main_property: { property_type: 22, value: "38.8%", times: 0 },
             properties: [],
           },
         ],
@@ -65,7 +67,8 @@ function sampleData() {
         ],
         properties: [
           { property_type: 1, base: "931", add: "+1209", final: "2140" },
-          { property_type: 5, base: "0.0%", add: "+64.8%", final: "64.8%" },
+          { property_type: 5, base: "5.0%", add: "+59.8%", final: "64.8%" },
+          { property_type: 99, base: "0", add: "+10", final: "10" },
         ],
         skills: [
           {
@@ -112,14 +115,15 @@ function sampleData() {
     relic_wiki: { "61041": "https://wiki.hoyolab.com/pc/hsr/entry/2" },
     property_info: {
       "1": { property_type: 1, name: "生命值", icon: `${IMG}/prop/1.png`, property_name_relic: "生命值", property_name_filter: "生命值" },
-      "5": { property_type: 5, name: "暴擊傷害", icon: `${IMG}/prop/5.png`, property_name_relic: "暴擊傷害", property_name_filter: "暴擊傷害" },
+      "5": { property_type: 5, name: "暴擊率", icon: `${IMG}/prop/5.png`, property_name_relic: "暴擊率", property_name_filter: "暴擊率" },
       "27": { property_type: 27, name: "生命值", icon: "", property_name_relic: "生命值", property_name_filter: "生命值" },
       "29": { property_type: 29, name: "攻擊力", icon: "", property_name_relic: "攻擊力", property_name_filter: "攻擊力" },
-      "52": { property_type: 52, name: "暴擊率", icon: "", property_name_relic: "暴擊率", property_name_filter: "暴擊率" },
-      "54": { property_type: 54, name: "暴傷", icon: "", property_name_relic: "暴擊傷害", property_name_filter: "暴擊傷害" },
-      "61": { property_type: 61, name: "量子屬性傷害", icon: "", property_name_relic: "", property_name_filter: "量子屬性傷害加成" },
+      "52": { property_type: 52, name: "暴擊率", icon: `${IMG}/prop/52.png`, property_name_relic: "暴擊率", property_name_filter: "暴擊率" },
+      "53": { property_type: 53, name: "暴傷", icon: "", property_name_relic: "暴擊傷害", property_name_filter: "暴擊傷害" },
+      "22": { property_type: 22, name: "量子屬性傷害", icon: "", property_name_relic: "", property_name_filter: "量子屬性傷害加成" },
+      "99": { property_type: 99, name: "新的屬性", icon: `${IMG}/prop/99.png`, property_name_relic: "新的屬性", property_name_filter: "新的屬性" },
     },
-    recommend_property: { "1102": { recommend_relic_properties: [52, 54], custom_relic_properties: [], is_custom_property_valid: false } },
+    recommend_property: { "1102": { recommend_relic_properties: [52, 53], custom_relic_properties: [], is_custom_property_valid: false } },
     relic_properties: [],
   };
 }
@@ -143,13 +147,20 @@ describe("parseCharacters：角色列表與詳情", () => {
     });
   });
 
+  it("屬性與命途的遊戲圖示：在 lib 組好內建圖示的站內路徑", () => {
+    const [seele] = parseCharacters(sampleData()).characters;
+
+    expect(seele.elementIcon).toBe(`${ICONS}/element/quantum.png`);
+    expect(seele.pathIcon).toBe(`${ICONS}/path/hunt.png`);
+  });
+
   it("光錐：圖、名字、等級、疊影、稀有度", () => {
     const [seele] = parseCharacters(sampleData()).characters;
 
     expect(seele.lightCone).toEqual({ id: 23001, name: "於夜色中", level: 80, superimposition: 1, rarity: 5, icon: `${IMG}/equip/23001.png` });
   });
 
-  it("遺器與位面飾品合在一起依位置排序；屬性名稱用 property_info 對照（遺器優先用 property_name_relic），帶強化次數", () => {
+  it("遺器與位面飾品合在一起依位置排序；屬性名稱用 property_info 對照（遺器優先用 property_name_relic），圖示用內建的遊戲圖示，帶強化次數", () => {
     const [seele] = parseCharacters(sampleData()).characters;
 
     expect(seele.relics.map((r) => r.pos)).toEqual([1, 2, 5]);
@@ -160,23 +171,40 @@ describe("parseCharacters：角色列表與詳情", () => {
       level: 15,
       rarity: 5,
       icon: `${IMG}/relic/61042.png`,
-      mainStat: { name: "攻擊力", value: "352", times: 0 },
+      mainStat: { name: "攻擊力", value: "352", times: 0, icon: `${ICONS}/property/attack.png` },
       subStats: [
-        { name: "暴擊率", value: "6.4%", times: 2 },
-        { name: "暴擊傷害", value: "12.9%", times: 3 },
+        { name: "暴擊率", value: "6.4%", times: 2, icon: `${ICONS}/property/critical-chance.png` },
+        { name: "暴擊傷害", value: "12.9%", times: 3, icon: `${ICONS}/property/critical-damage.png` },
       ],
     });
     // property_name_relic 是空字串時退回 name
-    expect(seele.relics[2].mainStat).toEqual({ name: "量子屬性傷害", value: "38.8%", times: 0 });
+    expect(seele.relics[2].mainStat).toEqual({ name: "量子屬性傷害", value: "38.8%", times: 0, icon: `${ICONS}/property/quantum-added-ratio.png` });
   });
 
-  it("面板數值：基礎、加成、最終，名稱用 property_info 的 name", () => {
+  it("面板數值：基礎、加成、最終；名稱用 property_info 的 name，圖示用內建的遊戲圖示", () => {
     const [seele] = parseCharacters(sampleData()).characters;
 
     expect(seele.stats).toEqual([
-      { type: 1, name: "生命值", base: "931", add: "+1209", final: "2140" },
-      { type: 5, name: "暴擊傷害", base: "0.0%", add: "+64.8%", final: "64.8%" },
+      { type: 1, name: "生命值", icon: `${ICONS}/property/max-hp.png`, base: "931", add: "+1209", final: "2140" },
+      { type: 5, name: "暴擊率", icon: `${ICONS}/property/critical-chance.png`, base: "5.0%", add: "+59.8%", final: "64.8%" },
+      { type: 99, name: "新的屬性", icon: null, base: "0", add: "+10", final: "10" },
     ]);
+  });
+
+  it("圖示一律用內建的遊戲圖示（跟屬性、命途同一個來源與風格），不用 HoYoLAB 附的網址：property_info 沒有這個屬性也照樣有圖示", () => {
+    const data = sampleData();
+    delete (data.property_info as Record<string, unknown>)["1"];
+
+    const [seele] = parseCharacters(data).characters;
+    expect(seele.stats[0]).toMatchObject({ type: 1, name: "屬性 1", icon: `${ICONS}/property/max-hp.png` });
+    expect(JSON.stringify(seele)).not.toContain(`${IMG}/prop/`);
+  });
+
+  it("對照表以外的屬性_不顯示圖示（HoYoLAB 附了圖示也不用），名稱照常用 property_info，不算缺欄位", () => {
+    const { characters, missing } = parseCharacters(sampleData());
+
+    expect(characters[0].stats[2]).toMatchObject({ type: 99, name: "新的屬性", icon: null });
+    expect(missing).toEqual([]);
   });
 
   it("星魂：位置、名字、圖、有沒有解鎖", () => {
@@ -248,7 +276,7 @@ describe("parseCharacters：格式跟預期不同時（尚未用真實帳號驗�
 
     const { characters, missing } = parseCharacters(data);
 
-    expect(characters[0].stats.at(-1)).toEqual({ type: 999, name: "屬性 999", base: "1", add: "0", final: "1" });
+    expect(characters[0].stats.at(-1)).toEqual({ type: 999, name: "屬性 999", icon: null, base: "1", add: "0", final: "1" });
     expect(missing).toEqual(["property_info.999"]);
   });
 
@@ -313,6 +341,14 @@ describe("顯示用的名稱", () => {
     expect([1, 2, 3, 4, 5, 6, 7, 8, 9].map(pathLabel)).toEqual(["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"]);
     expect(pathLabel(42)).toBeNull();
     expect(pathLabel(null)).toBeNull();
+  });
+
+  it("副詞條的強化次數：times 推定含初始那一次（跟遊戲資料的詞條次數一樣），強化次數是 times − 1", () => {
+    expect([1, 2, 3, 6].map(relicUpgrades)).toEqual([0, 1, 2, 5]);
+  });
+
+  it("副詞條沒有 times 或不合理（0、負數、小數）_當作沒強化", () => {
+    expect([null, 0, -1, 2.5].map(relicUpgrades)).toEqual([0, 0, 0, 0]);
   });
 
   it("遺器位置：1–4 是遺器、5–6 是位面飾品", () => {

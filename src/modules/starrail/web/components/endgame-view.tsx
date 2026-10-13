@@ -24,7 +24,8 @@ export function EndgameView({ records, names }: { records: EndgameRecord[]; name
 
   return (
     <section aria-labelledby={`${id}-title`} className="stack">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+      {/* 超寬螢幕並排時跟開拓月曆的標題列一樣至少 44px，兩邊的標題才在同一條線上 */}
+      <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-3">
         <h3 id={`${id}-title`} className="sr-title">
           終局戰績
         </h3>
@@ -75,7 +76,7 @@ function EndgameRecordView({ endgame, names }: { endgame: Endgame; names: Record
         </div>
       </div>
       {endgame.floors.length > 0 && (
-        <ul className="stack">
+        <ul className="stack @container">
           {endgame.floors.map((floor, i) => (
             <FloorRow key={`${floor.name}-${i}`} floor={floor} names={names} />
           ))}
@@ -122,17 +123,29 @@ function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number,
         </span>
       </div>
       {floor.nodes.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        // 依這一塊的寬度（不是螢幕寬度）決定兩隊並排：並排在月曆旁邊時一樣排得下
+        <div className="grid gap-3 @2xl:grid-cols-2">
           {floor.nodes.map((node, i) => (
-            <div key={i} className="flex items-center gap-2.5">
-              <span className="w-10 shrink-0 text-sm font-medium text-[#f4d79b]">{i === 0 ? "上半" : i === 1 ? "下半" : `隊伍 ${i + 1}`}</span>
+            // 頭像下面還有等級：編號、分數、未擊敗各包一層跟頭像一樣高（h-12），對準頭像的中線；兩隊並排時分數緊跟自己的頭像，推到右緣會貼著下一隊的編號
+            <div key={i} className="flex items-start gap-2.5">
+              {/* 隊伍編號用固定大小的小方塊，不換行，頭像才對齊 */}
+              <span className="grid h-12 shrink-0 place-items-center">
+                <span className="sr-num grid size-6 place-items-center rounded-sm border border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-sm leading-none font-bold text-[#f4d79b]">
+                  <span aria-hidden>{i + 1}</span>
+                  <span className="sr-only">第 {i + 1} 隊</span>
+                </span>
+              </span>
               <div className="flex flex-wrap gap-1.5">
                 {node.avatars.map((member, j) => (
                   <TeamAvatar key={`${member.id}-${j}`} member={member} name={member.id === null ? null : (names[member.id] ?? null)} />
                 ))}
               </div>
-              {node.score !== null && <span className="sr-num ml-auto text-base font-bold text-ink">{groupDigits(node.score)}</span>}
-              {node.bossDefeated === false && <span className="chip chip-warning">未擊敗</span>}
+              {node.score !== null && <span className="sr-num ml-auto flex h-12 items-center text-base font-bold text-ink @2xl:ml-0">{groupDigits(node.score)}</span>}
+              {node.bossDefeated === false && (
+                <span className="flex h-12 items-center">
+                  <span className="chip chip-warning">未擊敗</span>
+                </span>
+              )}
             </div>
           ))}
         </div>

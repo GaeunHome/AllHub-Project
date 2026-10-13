@@ -1,5 +1,6 @@
+import type { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi, type MockInstance } from "vitest";
 import { coreUsers } from "@/core/db/schema";
 import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubYoutubeEnv } from "@/dev/test-env";
@@ -16,7 +17,7 @@ vi.mock("@/core/notify", { spy: true });
 // 新影片會去讀觀看頁判斷有沒有中文字幕，測試不能真的連 YouTube
 vi.mock("../lib/subtitles/captions", { spy: true });
 
-const api = mocksOf(await import("../lib/api"), "resolveHandle", "fetchChannelFeed", "hubRequest");
+const api = mocksOf(await import("../lib/api"), "resolveHandle", "fetchChannelFeed", "hubRequest", "checkIsShort");
 const { HubError } = await import("../lib/api");
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
 const { listCaptionTracks } = mocksOf(await import("../lib/subtitles/captions"), "listCaptionTracks");
@@ -45,10 +46,16 @@ beforeEach(async () => {
   api.resolveHandle.mockReset().mockResolvedValue({ channelId: CH, thumbnail: "https://img/1.jpg" });
   api.fetchChannelFeed.mockReset().mockResolvedValue({ title: "뉴진스", entries: [] });
   api.hubRequest.mockReset().mockResolvedValue(undefined);
+  api.checkIsShort.mockReset().mockResolvedValue(null);
   notify.mockReset().mockResolvedValue(undefined);
   listCaptionTracks.mockReset().mockResolvedValue({ ok: true, tracks: [{ languageCode: "ko", automatic: false, translated: false }] });
   return () => vi.useRealTimers();
 });
+
+/** setupTestDb 底下的 PGlite：TestDb 的型別沒有列出 drizzle 的 $client */
+const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
+/** 正式環境的 postgres-js 經 drizzle 不會把 Date 參數轉成字串（跟欄位比較時 drizzle 才會轉），測試用的 PGlite 會自己轉而查不出來：直接看送出的參數 */
+const dateParams = (query: MockInstance) => query.mock.calls.flatMap(([, params]) => (Array.isArray(params) ? params : [])).filter((param) => param instanceof Date);
 
 const insertChannel = (values: Partial<typeof youtubeChannels.$inferInsert> = {}) =>
   getDb().insert(youtubeChannels).values({ channelId: CH, title: "뉴진스", subscriptionStatus: "subscribed", ...values });
@@ -211,6 +218,7 @@ describe("handleFeed", () => {
     title: `影片 ${videoId}`,
     published,
     url: `https://www.youtube.com/watch?v=${videoId}`,
+    isShort: false,
   });
   const recent = new Date(NOW.getTime() - 10 * 60_000);
 
@@ -329,6 +337,70 @@ describe("handleFeed", () => {
     expect(notify).not.toHaveBeenCalled();
     await tasks[0]();
     expect(notify).toHaveBeenCalledOnce();
+  });
+
+  it("RSS 連結就是 /shorts/ 的影片_不存、不檢查、不通知", async () => {
+    await handleFeed([{ ...entry("shortshort1", recent), isShort: true, url: "https://www.youtube.com/shorts/shortshort1" }, entry("aaaaaaaaaaa", recent)]);
+
+    expect((await testDb.select().from(youtubeVideos)).map((v) => v.videoId)).toEqual(["aaaaaaaaaaa"]);
+    expect(api.checkIsShort).not.toHaveBeenCalledWith("shortshort1");
+    expect(listCaptionTracks).not.toHaveBeenCalledWith("shortshort1");
+    expect(notify).toHaveBeenCalledOnce();
+  });
+
+  it("連結看不出來、但請求 /shorts/ 確認是 Shorts_刪掉這支影片，不檢查字幕、不通知；log 記一行（只有種類與影片 id）", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    onTestFinished(() => info.mockRestore());
+    api.checkIsShort.mockResolvedValue(true);
+    const tasks: Array<() => Promise<void>> = [];
+
+    await handleFeed([entry("aaaaaaaaaaa", recent)], { defer: (t) => tasks.push(t) });
+    expect(await testDb.select().from(youtubeVideos)).toHaveLength(1);
+    await tasks[0]();
+
+    expect(api.checkIsShort).toHaveBeenCalledWith("aaaaaaaaaaa");
+    expect(await testDb.select().from(youtubeVideos)).toHaveLength(0);
+    expect(listCaptionTracks).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledOnce();
+    expect(info).toHaveBeenCalledWith("[youtube] 確認是 Shorts，刪除推送的影片", "aaaaaaaaaaa");
+  });
+
+  it.each([
+    ["確認是一般影片", false],
+    ["無法判斷（被擋、同意頁）", null],
+  ])("%s_當作一般影片照常檢查字幕與通知", async (_name, result) => {
+    api.checkIsShort.mockResolvedValue(result);
+
+    await handleFeed([entry("aaaaaaaaaaa", recent)]);
+
+    expect(api.checkIsShort).toHaveBeenCalledWith("aaaaaaaaaaa");
+    expect(listCaptionTracks).toHaveBeenCalledWith("aaaaaaaaaaa");
+    expect(notify).toHaveBeenCalledOnce();
+    expect(await testDb.select().from(youtubeVideos)).toHaveLength(1);
+  });
+
+  it.each([
+    ["連不上 YouTube", () => new TypeError("fetch failed: secret-detail"), "TypeError"],
+    ["逾時", () => new DOMException("The operation was aborted due to timeout: secret-detail", "TimeoutError"), "TimeoutError"],
+  ])("確認是不是 Shorts 時%s（lib 照常丟出）_當作一般影片照常檢查字幕與通知；log 只記錯誤種類", async (_name, failure, kind) => {
+    const log = captureErrorLog();
+    // 用真的 checkIsShort 打到會失敗的 fetch：錯誤要一路傳到 service 才記得到 log
+    const { checkIsShort } = await vi.importActual<typeof import("../lib/api")>("../lib/api");
+    api.checkIsShort.mockImplementation(checkIsShort);
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(failure())));
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+
+    await handleFeed([entry("aaaaaaaaaaa", recent)]);
+
+    expect(listCaptionTracks).toHaveBeenCalledWith("aaaaaaaaaaa");
+    expect(notify).toHaveBeenCalledOnce();
+    expect(await testDb.select().from(youtubeVideos)).toHaveLength(1);
+    expect(loggedText(log)).toContain("確認是不是 Shorts 失敗");
+    expect(loggedText(log)).toContain(kind);
+    expect(loggedText(log)).not.toContain("secret-detail");
   });
 
   it("通知失敗不丟錯", async () => {
@@ -575,10 +647,188 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
     await cleanupVideos(NOW);
     await follow(me);
 
-    await handleFeed([{ videoId: "oldoldoldol", channelId: CH, title: "改過的標題", published: daysAgo(15), url: "https://www.youtube.com/watch?v=oldoldoldol" }]);
+    await handleFeed([{ videoId: "oldoldoldol", channelId: CH, title: "改過的標題", published: daysAgo(15), url: "https://www.youtube.com/watch?v=oldoldoldol", isShort: false }]);
 
     expect(notify).not.toHaveBeenCalled();
     expect(await testDb.select().from(youtubeVideos)).toHaveLength(0);
+  });
+
+  describe("已經存進來的 Shorts：每個有人追蹤的頻道抓一次 RSS，把標成 Shorts 的影片刪掉", () => {
+    const feedEntry = (videoId: string, isShort: boolean, channelId = CH) => ({ videoId, channelId, title: videoId, published: daysAgo(1), url: "", isShort });
+
+    it("刪掉 RSS 標成 Shorts 的影片（翻譯保留）；一般影片留著；摘要說刪了幾支 Shorts", async () => {
+      await insertChannel();
+      await follow(me);
+      await getDb().insert(youtubeVideos).values([video("shortshort1", 1, 1), video("shortshort2", 5, 5), video("normalvideo", 1, 1)]);
+      await getDb().insert(youtubeTranslations).values(translationOf("shortshort1"));
+      api.fetchChannelFeed.mockResolvedValue({ title: "뉴진스", entries: [feedEntry("shortshort1", true), feedEntry("shortshort2", true), feedEntry("normalvideo", false), feedEntry("notstored01", true)] });
+
+      expect(await cleanupVideos(NOW)).toBe("刪除 0 支不在任何人最新 20 支裡的影片；刪除 2 支 Shorts");
+
+      // RSS 只是用來找 Shorts：每個頻道最多等 5 秒，不照一般的 15 秒
+      expect(api.fetchChannelFeed).toHaveBeenCalledWith(CH, { timeoutMs: 5_000 });
+      expect(await leftIds()).toEqual(["normalvideo"]);
+      expect((await testDb.select().from(youtubeTranslations)).map((t) => t.videoId)).toEqual(["shortshort1"]);
+    });
+
+    it("先刪 Shorts 再算最新 20 支：一般影片不會被 Shorts 擠出最新 20 支而刪掉", async () => {
+      await insertChannel();
+      await follow(me);
+      const videos = olderVideos();
+      await getDb().insert(youtubeVideos).values(videos);
+      const [newest, second] = videos;
+      api.fetchChannelFeed.mockResolvedValue({ title: "뉴진스", entries: [feedEntry(newest.videoId, true), feedEntry(second.videoId, true)] });
+
+      expect(await cleanupVideos(NOW)).toBe("刪除 0 支不在任何人最新 20 支裡的影片；刪除 2 支 Shorts");
+
+      expect(await leftIds()).toEqual(videos.slice(2).map((v) => v.videoId).sort());
+    });
+
+    it("只抓有人追蹤的頻道；抓不到的頻道（連線失敗、查無頻道）略過，log 只記錯誤種類，其他照常", async () => {
+      const log = captureErrorLog();
+      const GONE = "UC" + "c".repeat(22);
+      const UNFOLLOWED = "UC" + "d".repeat(22);
+      await insertChannel();
+      await insertChannel({ channelId: OTHER, title: "別的頻道" });
+      await insertChannel({ channelId: GONE, title: "YouTube 上已刪除" });
+      await insertChannel({ channelId: UNFOLLOWED, title: "沒人追蹤" });
+      await follow(me);
+      await follow(other, OTHER);
+      await follow(other, GONE);
+      await getDb().insert(youtubeVideos).values([video("shortaaaaa1", 1, 1), video("shortbbbbb1", 1, 1, OTHER), video("shortccccc1", 1, 1, GONE)]);
+      api.fetchChannelFeed.mockImplementation(async (channelId: string) => {
+        if (channelId === CH) throw new TypeError("fetch failed: secret-detail");
+        if (channelId === GONE) return null;
+        return { title: null, entries: [feedEntry("shortbbbbb1", true, OTHER)] };
+      });
+
+      expect(await cleanupVideos(NOW)).toBe("刪除 0 支不在任何人最新 20 支裡的影片；刪除 1 支 Shorts");
+
+      expect(api.fetchChannelFeed.mock.calls.map(([id]) => id).sort()).toEqual([CH, OTHER, GONE].sort());
+      expect(await leftIds()).toEqual(["shortaaaaa1", "shortccccc1"]);
+      expect(loggedText(log)).toContain("TypeError");
+      expect(loggedText(log)).not.toContain("secret-detail");
+    });
+
+    it("只刪這個頻道自己的影片：feed 裡混進別的頻道的 entry 不算", async () => {
+      await insertChannel();
+      await insertChannel({ channelId: OTHER, title: "別的頻道" });
+      await follow(me);
+      await follow(other, OTHER);
+      await getDb().insert(youtubeVideos).values(video("theirshort1", 1, 1, OTHER));
+      api.fetchChannelFeed.mockImplementation(async (channelId: string) => ({ title: null, entries: channelId === CH ? [feedEntry("theirshort1", true, OTHER)] : [] }));
+
+      expect(await cleanupVideos(NOW)).toBe("刪除 0 支不在任何人最新 20 支裡的影片");
+
+      expect(await leftIds()).toEqual(["theirshort1"]);
+    });
+
+    it("推送時當成一般影片、已經通知過的 Shorts_發布 48 小時內先留著（hub 重送時找得到、不會重複通知），之後的排程再刪；沒通知過的（追蹤時補進來的）立即刪", async () => {
+      await insertChannel();
+      await follow(me);
+      await getDb()
+        .insert(youtubeVideos)
+        .values([{ ...video("notified20h", 20 / 24, 20 / 24), notifiedAt: daysAgo(20 / 24) }, { ...video("notified-3d", 3, 3), notifiedAt: daysAgo(3) }, video("backfill-1d", 1, 1)]);
+      api.fetchChannelFeed.mockResolvedValue({ title: "뉴진스", entries: ["notified20h", "notified-3d", "backfill-1d"].map((id) => feedEntry(id, true)) });
+
+      expect(await cleanupVideos(NOW)).toBe("刪除 0 支不在任何人最新 20 支裡的影片；刪除 2 支 Shorts");
+      expect(await leftIds()).toEqual(["notified20h"]);
+
+      // hub 在 24 小時內改標題重送、又確認不了是不是 Shorts：找得到原本那一列，不會再通知一次
+      await handleFeed([{ videoId: "notified20h", channelId: CH, title: "改過的標題", published: daysAgo(20 / 24), url: "https://www.youtube.com/watch?v=notified20h", isShort: false }]);
+      expect(notify).not.toHaveBeenCalled();
+
+      expect(await cleanupVideos(new Date(NOW.getTime() + 2 * 24 * 3600_000))).toBe("刪除 0 支不在任何人最新 20 支裡的影片；刪除 1 支 Shorts");
+      expect(await leftIds()).toEqual([]);
+    });
+
+    describe("頻道多、YouTube 又慢時不能拖垮排程", () => {
+      const manyChannels = (count: number) => Array.from({ length: count }, (_, i) => `UC${String(i).padStart(22, "0")}`);
+      const followAll = async (channelIds: string[]) => {
+        for (const channelId of channelIds) {
+          await insertChannel({ channelId, title: channelId });
+          await follow(me, channelId);
+        }
+      };
+
+      it("同時最多讀 4 個頻道的 RSS", async () => {
+        const channels = manyChannels(9);
+        await followAll(channels);
+        let inFlight = 0;
+        let peak = 0;
+        api.fetchChannelFeed.mockImplementation(async () => {
+          peak = Math.max(peak, ++inFlight);
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          inFlight--;
+          return { title: null, entries: [] };
+        });
+
+        expect(await cleanupVideos(NOW)).toBe("刪除 0 支不在任何人最新 20 支裡的影片");
+
+        expect(api.fetchChannelFeed.mock.calls.map(([id]) => id).sort()).toEqual(channels);
+        expect(peak).toBe(4);
+      });
+
+      it("讀 RSS 超過 60 秒_剩下的頻道略過（明天再試），摘要寫出略過幾個；下面的刪除照常", async () => {
+        const channels = manyChannels(8);
+        await followAll(channels);
+        await getDb().insert(youtubeVideos).values(video("orphanoldvd", 3, 3, OTHER));
+        api.fetchChannelFeed.mockImplementation(async (channelId: string) => {
+          await Promise.resolve();
+          // 第一個頻道讀了 61 秒才回來：已經送出的照常讀完，之後的不再送
+          if (channelId === channels[0]) vi.setSystemTime(Date.now() + 61_000);
+          return { title: null, entries: [] };
+        });
+
+        expect(await cleanupVideos(NOW)).toBe("刪除 1 支不在任何人最新 20 支裡的影片；略過 4 個頻道的 Shorts 檢查（超過時間，明天再試）");
+
+        expect(api.fetchChannelFeed).toHaveBeenCalledTimes(4);
+        expect(await leftIds()).toEqual([]);
+      });
+
+      it("60 秒內讀完_不略過", async () => {
+        const channels = manyChannels(8);
+        await followAll(channels);
+        api.fetchChannelFeed.mockImplementation(async () => {
+          vi.setSystemTime(Date.now() + 7_000);
+          return { title: null, entries: [] };
+        });
+
+        expect(await cleanupVideos(NOW)).toBe("刪除 0 支不在任何人最新 20 支裡的影片");
+        expect(api.fetchChannelFeed).toHaveBeenCalledTimes(8);
+      });
+
+      it("Shorts 這一步出錯（例如刪除時資料庫出錯）_下面的刪除照樣執行，摘要說 Shorts 檢查失敗；log 只記錯誤種類", async () => {
+        const log = captureErrorLog();
+        await insertChannel();
+        await follow(me);
+        await getDb().insert(youtubeVideos).values([video("shortshort1", 1, 1), video("orphanoldvd", 3, 3, OTHER)]);
+        api.fetchChannelFeed.mockResolvedValue({ title: "뉴진스", entries: [feedEntry("shortshort1", true)] });
+        // 第一個刪除是 Shorts 這一步的；之後的刪除照常
+        vi.spyOn(testDb, "delete").mockImplementationOnce(() => {
+          throw new Error("connection reset: secret-detail");
+        });
+
+        expect(await cleanupVideos(NOW)).toBe("刪除 1 支不在任何人最新 20 支裡的影片；Shorts 檢查失敗（詳見伺服器 log）");
+
+        expect(await leftIds()).toEqual(["shortshort1"]);
+        expect(loggedText(log)).toContain("清理 Shorts 失敗");
+        expect(loggedText(log)).not.toContain("secret-detail");
+      });
+    });
+  });
+
+  it("送到資料庫的參數沒有 Date 物件：正式環境經 drizzle 的 postgres-js 收到 Date 會丟錯，整個排程失敗", async () => {
+    await insertChannel();
+    await follow(me);
+    await getDb().insert(youtubeVideos).values([{ ...video("shortshort1", 3, 3), notifiedAt: daysAgo(3) }, ...olderVideos()]);
+    api.fetchChannelFeed.mockResolvedValue({ title: "뉴진스", entries: [{ videoId: "shortshort1", channelId: CH, title: "s", published: daysAgo(3), url: "", isShort: true }] });
+    const query = vi.spyOn(pgliteOf(testDb), "query");
+
+    expect(await cleanupVideos(NOW)).toBe("刪除 2 支不在任何人最新 20 支裡的影片；刪除 1 支 Shorts");
+
+    expect(query).toHaveBeenCalled();
+    expect(dateParams(query)).toEqual([]);
   });
 
   it("發布 48 小時內的影片_不在任何人的最新 20 支裡也先留著_之後 hub 再推送仍能去重", async () => {
@@ -671,7 +921,7 @@ describe("recentVideos", () => {
 });
 
 describe("追蹤每人一份，頻道與 WebSub 訂閱共用", () => {
-  const entry = (videoId: string, published: Date, channelId = CH) => ({ videoId, channelId, title: `影片 ${videoId}`, published, url: "" });
+  const entry = (videoId: string, published: Date, channelId = CH, isShort = false) => ({ videoId, channelId, title: `影片 ${videoId}`, published, url: "", isShort });
   const hoursAgo = (hours: number) => new Date(NOW.getTime() - hours * 3600_000);
   const videoIds = async () => (await testDb.select().from(youtubeVideos)).map((v) => v.videoId).sort();
 
@@ -700,6 +950,14 @@ describe("追蹤每人一份，頻道與 WebSub 訂閱共用", () => {
     expect(await videoIds()).toEqual(["fresh000001", "older000001"]);
     expect(notify).not.toHaveBeenCalled();
     expect((await recentVideos(me)).map((v) => v.videoId)).toEqual(["fresh000001", "older000001"]);
+  });
+
+  it("追蹤時補影片_略過 RSS 裡的 Shorts", async () => {
+    api.fetchChannelFeed.mockResolvedValue({ title: "뉴진스", entries: [entry("fresh000001", hoursAgo(2)), entry("shortshort1", hoursAgo(3), CH, true), entry("shortshort2", hoursAgo(72), CH, true)] });
+
+    await addChannel(CH);
+
+    expect(await videoIds()).toEqual(["fresh000001"]);
   });
 
   it("已經有人追蹤的頻道_只補發布超過 24 小時的影片（24 小時內的交給 WebSub 推送，照常通知所有追蹤者）", async () => {

@@ -87,7 +87,8 @@ export type RoleChoice = { uid: string; nickname: string | null; server: string;
 /** ask：只有一個角色就直接連結，好幾個就回傳清單讓使用者選（還不寫入）；all：全部連結；UID 清單：只連結這些 */
 export type RoleSelection = "ask" | "all" | string[];
 
-export type LinkResult = ActionResult | { ok: false; error?: never; roles: RoleChoice[] };
+/** 連結好了：accountId 是剛連結（或更新 cookie）的自己的那一列，頁面導向它；warning 是成功了但要提醒的事 */
+export type LinkResult = { ok: true; message: string; warning?: string; accountId: number } | { ok: false; error: string } | { ok: false; error?: never; roles: RoleChoice[] };
 
 /** 選到的 UID 已經是別人的：整批不寫入 */
 class UidTakenError extends Error {
@@ -125,6 +126,7 @@ export async function linkAccount(userId: string, rawCookie: string, selection: 
 
   const cookieEncrypted = encryptSecret(parsed.cookie);
   const now = new Date();
+  const savedIds: number[] = [];
   try {
     await db().transaction(async (tx) => {
       for (const role of chosen) {
@@ -140,14 +142,15 @@ export async function linkAccount(userId: string, rawCookie: string, selection: 
           })
           .returning({ id: starrailAccounts.id });
         if (!saved) throw new UidTakenError(role.uid);
+        savedIds.push(saved.id);
       }
     });
   } catch (error) {
     if (error instanceof UidTakenError) return { ok: false, error: `UID ${error.uid} 已經被其他使用者連結了，同一個遊戲帳號只能連結在一個帳號底下` };
     throw error;
   }
-  const linked = `已連結 ${chosen.map((r) => `${r.nickname ?? "?"}（${serverLabel(r.region, r.regionName)}，${r.uid}）`).join("、")}`;
-  return { ok: true, message: parsed.hasLtmid ? linked : `${linked}。建議一併貼上 ltmid_v2，否則即時便箋可能失敗` };
+  const message = `已連結 ${chosen.map((r) => `${r.nickname ?? "?"}（${serverLabel(r.region, r.regionName)}，${r.uid}）`).join("、")}`;
+  return { ok: true, message, accountId: savedIds[0], ...(parsed.hasLtmid ? {} : { warning: "建議一併貼上 ltmid_v2，否則即時便箋可能失敗" }) };
 }
 
 export async function removeAccount(userId: string, id: number): Promise<void> {

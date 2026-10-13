@@ -80,9 +80,19 @@ describe("parseFeed", () => {
           title: `새 영상 & "특집" '1' 中`,
           published: new Date("2026-10-07T08:00:00Z"),
           url: "https://www.youtube.com/watch?v=aaaaaaaaaaa",
+          isShort: false,
         },
       ],
     });
+  });
+
+  it("link 是 /shorts/ 的 entry 標成 Shorts；/watch 的是一般影片", () => {
+    const short = entry("sssssssssss", "짧은 영상").replace("https://www.youtube.com/watch?v=sssssssssss", "https://www.youtube.com/shorts/sssssssssss");
+    const result = parseFeed(feed(short + entry("wwwwwwwwwww", "일반 영상")));
+    expect(result.entries.map((e) => [e.videoId, e.isShort, e.url])).toEqual([
+      ["sssssssssss", true, "https://www.youtube.com/shorts/sssssssssss"],
+      ["wwwwwwwwwww", false, "https://www.youtube.com/watch?v=wwwwwwwwwww"],
+    ]);
   });
 
   it("CDATA 標題", () => {
@@ -104,7 +114,7 @@ describe("parseFeed", () => {
     const broken = `<entry><yt:videoId>fffffffffff</yt:videoId><title>x</title></entry>`;
     const noLink = `<entry><yt:videoId>ggggggggggg</yt:videoId><yt:channelId>${CHANNEL}</yt:channelId><title>y</title><published>garbage</published></entry>`;
     expect(parseFeed(feed(broken + noLink)).entries).toEqual([
-      { videoId: "ggggggggggg", channelId: CHANNEL, title: "y", published: null, url: "https://www.youtube.com/watch?v=ggggggggggg" },
+      { videoId: "ggggggggggg", channelId: CHANNEL, title: "y", published: null, url: "https://www.youtube.com/watch?v=ggggggggggg", isShort: false },
     ]);
   });
 

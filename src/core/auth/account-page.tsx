@@ -10,7 +10,8 @@ import { DeleteAccountForm } from "./delete-account-form";
 
 export function AccountPage() {
   return (
-    <div className="page-stack">
+    // 寬螢幕：目前帳號撐滿，變更密碼在左、說明與刪除帳號在右上下排，不把輸入框拉到整個畫面寬；排欄寫在各卡片上（串流中的 Suspense 會多一個 template，第幾個子元素會算錯）
+    <div className="page-stack xl:grid xl:grid-cols-2 xl:items-start xl:[&>:first-child]:col-span-2">
       <PageHeader icon={<Icon name="circle-user-round" />} title="帳號" />
       <Suspense fallback={<AccountSkeleton />}>
         <AccountSections />
@@ -25,7 +26,7 @@ export async function AccountSections() {
 
   return (
     <>
-      <section className="card flex flex-wrap items-center gap-4">
+      <section className="card flex flex-wrap items-center gap-4 xl:col-span-2">
         <span className="icon-tile size-12 rounded-full">
           <Icon name="circle-user-round" />
         </span>
@@ -44,7 +45,7 @@ export async function AccountSections() {
         </form>
       </section>
 
-      <section aria-labelledby="account-password" className="card stack">
+      <section aria-labelledby="account-password" className="card stack xl:row-span-2">
         <CardHeader id="account-password" icon={<Icon name="key-round" />}>
           變更密碼
         </CardHeader>
@@ -92,25 +93,44 @@ export async function AccountSections() {
   );
 }
 
+/** 骨架照內容的格線排（寬螢幕兩欄、各張卡片的位置相同）：載入完不會從一欄跳成兩欄 */
 function AccountSkeleton() {
   return (
-    <LoadingState className="page-stack">
-      <div className="card flex items-center gap-4">
+    <LoadingState className="page-stack xl:col-span-2 xl:grid xl:grid-cols-2 xl:items-start">
+      <div className="card flex items-center gap-4 xl:col-span-2">
         <Skeleton className="size-12 shrink-0 rounded-full" />
         <div className="flex flex-1 flex-col gap-2">
           <Skeleton className="h-3 w-24" />
           <Skeleton className="h-5 w-32" />
         </div>
       </div>
-      <div className="card stack">
-        <div className="flex items-center gap-3">
-          <Skeleton className="size-9 shrink-0 rounded-xl" />
-          <Skeleton className="h-5 w-24" />
-        </div>
+      <div className="card stack xl:row-span-2">
+        <CardHeaderSkeleton />
         {Array.from({ length: 3 }, (_, i) => (
-          <Skeleton key={i} className="h-11 rounded-lg" />
+          <div key={i} className="field">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-11 rounded-lg" />
+          </div>
         ))}
+        <Skeleton className="h-11 w-32 rounded-lg" />
       </div>
+      {[2, 3].map((lines) => (
+        <div key={lines} className="card stack">
+          <CardHeaderSkeleton />
+          {Array.from({ length: lines }, (_, i) => (
+            <Skeleton key={i} className={`h-4 ${i === lines - 1 ? "w-2/3" : "w-full"}`} />
+          ))}
+        </div>
+      ))}
     </LoadingState>
+  );
+}
+
+function CardHeaderSkeleton() {
+  return (
+    <div className="flex items-center gap-3">
+      <Skeleton className="size-9 shrink-0 rounded-xl" />
+      <Skeleton className="h-5 w-24" />
+    </div>
   );
 }

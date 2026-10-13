@@ -24,8 +24,8 @@ function multi(fields: [string, string][]): FormData {
 
 beforeEach(() => {
   requireSession.mockReset();
-  service.linkAccount.mockReset().mockResolvedValue({ ok: true, message: "已連結 開拓者（台港澳服，900000001）" });
-  service.redeemCodeFor.mockReset().mockResolvedValue({ ok: true, message: "兌換成功，獎勵會寄到遊戲內信箱", cookieFlagChanged: false });
+  service.linkAccount.mockReset().mockResolvedValue({ ok: true, message: "已連結 開拓者（台港澳服，900000001）", accountId: 9 });
+  service.redeemCodeFor.mockReset().mockResolvedValue({ ok: true, message: "獎勵會寄到遊戲內信箱", cookieFlagChanged: false });
 });
 
 describe("linkAccountAction：先查角色，好幾個時讓使用者選伺服器", () => {
@@ -37,9 +37,19 @@ describe("linkAccountAction：先查角色，好幾個時讓使用者選伺服�
     expect(updateTag).not.toHaveBeenCalled();
   });
 
-  it("只有一個角色（service 直接連結）_成功訊息、帳號失效", async () => {
-    expect(await linkAccountAction({}, form({ cookie: COOKIE }))).toEqual({ message: "已連結 開拓者（台港澳服，900000001）" });
+  it("只有一個角色（service 直接連結）_成功訊息與剛連結的帳號 id（畫面導向它）、帳號失效", async () => {
+    expect(await linkAccountAction({}, form({ cookie: COOKIE }))).toEqual({ message: "已連結 開拓者（台港澳服，900000001）", accountId: 9 });
     expect(updated()).toEqual(["starrail:accounts"]);
+  });
+
+  it("cookie 少了 ltmid_v2_提醒跟成功訊息分開回傳（畫面用警告樣式）", async () => {
+    service.linkAccount.mockResolvedValue({ ok: true, message: "已連結 開拓者（台港澳服，900000001）", warning: "建議一併貼上 ltmid_v2，否則即時便箋可能失敗", accountId: 9 });
+
+    expect(await linkAccountAction({}, form({ cookie: COOKIE }))).toEqual({
+      message: "已連結 開拓者（台港澳服，900000001）",
+      warning: "建議一併貼上 ltmid_v2，否則即時便箋可能失敗",
+      accountId: 9,
+    });
   });
 
   it("第二步_cookie 從瀏覽器的表單再送一次，只連結勾選的 UID", async () => {
@@ -81,7 +91,7 @@ describe("redeemCodeAction：兌換碼", () => {
   });
 
   it("成功_顯示訊息；兌換本身不寫資料庫，不讓快取失效", async () => {
-    expect(await redeemCodeAction({}, form({ accountId: "1", code: " starrailgift " }))).toEqual({ message: "兌換成功，獎勵會寄到遊戲內信箱" });
+    expect(await redeemCodeAction({}, form({ accountId: "1", code: " starrailgift " }))).toEqual({ message: "獎勵會寄到遊戲內信箱" });
     expect(service.redeemCodeFor).toHaveBeenCalledWith(TEST_SESSION.id, 1, " starrailgift ");
     expect(updateTag).not.toHaveBeenCalled();
   });
@@ -93,10 +103,11 @@ describe("redeemCodeAction：兌換碼", () => {
     expect(updated()).toEqual(["starrail:accounts"]);
   });
 
-  it("非預期錯誤_回摘要", async () => {
-    captureErrorLog();
+  it("非預期錯誤_結果框的標題已經寫「兌換失敗」，說明只寫原因不明；log 照樣記兌換失敗", async () => {
+    const log = captureErrorLog();
     service.redeemCodeFor.mockRejectedValue(new Error("boom"));
 
-    expect(await redeemCodeAction({}, form({ accountId: "1", code: "STARRAILGIFT" }))).toEqual({ error: "兌換失敗（詳見伺服器 log）" });
+    expect(await redeemCodeAction({}, form({ accountId: "1", code: "STARRAILGIFT" }))).toEqual({ error: "原因不明（詳見伺服器 log）" });
+    expect(loggedText(log)).toContain("[starrail] 兌換失敗");
   });
 });

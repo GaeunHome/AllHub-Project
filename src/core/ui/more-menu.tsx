@@ -86,6 +86,8 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
         title={trigger ? undefined : label}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
+        // 面板是 group，aria-haspopup 沒有對應的值；popup-layer.ts 靠這個屬性認出選單開著，頁面的快捷鍵才會讓開
+        data-popup-trigger=""
         onClick={toggle}
         className={triggerClassName}
       >

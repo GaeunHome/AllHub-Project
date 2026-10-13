@@ -3,6 +3,7 @@
 - `brands/`：[Simple Icons](https://simpleicons.org) v16.34.0，[CC0 1.0](https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md)（公眾領域）。YouTube 與 Twitch 的標誌是各自公司的商標，這裡只用來標示系統串接的服務，本專案與這些公司無關。
 - `ui/`：[Lucide](https://lucide.dev) v1.52.0，ISC License，授權全文如下。
 - `../images/starrail-logo.png`：《崩壞：星穹鐵道》的官方中文標誌，著作權與商標屬於 HoYoverse（COGNOSPHERE）。這裡只用來標示系統串接的服務，不在本專案的授權範圍內，本專案與 HoYoverse 無關；星穹鐵道頁的背景是本專案自己用 CSS／SVG 畫的，沒有使用官方美術圖。
+- `starrail/`：《崩壞：星穹鐵道》的元素（`element/`）、命途（`path/`）與屬性（`property/`，面板與遺器詞條）圖示，從社群整理的 [StarRailRes](https://github.com/Mar-7th/StarRailRes) 下載（從遊戲解出的素材；它的 repository 標示 AGPL-3.0，沒有另外說明遊戲素材的授權）。檔名改成原檔名的 kebab-case（屬性圖示去掉開頭的 `Icon`），元素與命途圖示縮小成 128×128。圖示的著作權屬於 HoYoverse（COGNOSPHERE），這裡只用在本專案的非商業用途、標示遊戲裡的屬性，不在本專案的授權範圍內，本專案與 HoYoverse 無關。
 
 ---
 

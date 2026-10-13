@@ -30,14 +30,15 @@ export function formFlag(formData: FormData, name: string): boolean | null {
   return value === "true" ? true : value === "false" ? false : null;
 }
 
-/** module 用在 log 的前綴，action 用在 log 與畫面上的摘要（「加入主播失敗」） */
-export type ActionScope = { module: string; action: string };
+/** module 用在 log 的前綴，action 用在 log 與畫面上的摘要（「加入主播失敗」）；titled 是結果放在標題已經寫了「…失敗」的 ResultBanner */
+export type ActionScope = { module: string; action: string; titled?: boolean };
 
 /** 使用者輸入錯誤原樣顯示；其他錯誤的 message 可能夾帶 SQL 與參數，畫面只給摘要、log 只記錯誤種類 */
 export function actionErrorMessage(scope: ActionScope, isUserError: (error: unknown) => boolean, error: unknown): string {
   if (error instanceof Error && isUserError(error)) return error.message;
   logError(scope.module, `${scope.action}失敗`, error);
-  return `${scope.action}失敗（詳見伺服器 log）`;
+  // 結果框的標題已經寫了「兌換失敗」，說明再寫一次就重複了
+  return scope.titled ? "原因不明（詳見伺服器 log）" : `${scope.action}失敗（詳見伺服器 log）`;
 }
 
 /** 錯誤都變成表單上的訊息，不丟出去變成錯誤畫面；requireSession() 與 redirect() 會丟出 Next 的內部錯誤，要放在外面呼叫。updateTags 放 finally 還是成功之後由各 action 決定 */

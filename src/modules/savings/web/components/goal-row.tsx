@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
 import { EditGoalForm, type GoalDraft } from "./goal-forms";
 
 type GoalRowProps = { goal: GoalDraft; controls: ReactNode; deleteControl: ReactNode; children: ReactNode };
 
-/** 列的內容與按鈕由伺服器算繪好傳進來，這裡只管「修改」的展開與收合 */
+/** 列的內容與按鈕由伺服器算繪好傳進來，這裡只管「修改」的視窗與成功訊息 */
 export function GoalRow({ goal, controls, deleteControl, children }: GoalRowProps) {
-  const [editing, setEditing] = useState(false);
+  const edit = useDialog();
 
   return (
     <li className="stack py-3 first:pt-0 last:pb-0 sm:px-4 sm:first:pt-3 sm:last:pb-3">
@@ -16,13 +17,7 @@ export function GoalRow({ goal, controls, deleteControl, children }: GoalRowProp
         <div className="min-w-0 flex-1 basis-64">{children}</div>
         <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
           {controls}
-          <button
-            type="button"
-            onClick={() => setEditing((open) => !open)}
-            aria-expanded={editing}
-            aria-label={`修改「${goal.name}」`}
-            className="btn-ghost btn-icon sm:w-auto sm:px-4"
-          >
+          <button {...edit.triggerProps} aria-label={`修改「${goal.name}」`} className="btn-ghost btn-icon sm:w-auto sm:px-4">
             <Icon name="pencil" className="size-4" />
             {/* 手機上只留圖示，整排按鈕才放得進一行 */}
             <span className="sr-only sm:not-sr-only">修改</span>
@@ -30,7 +25,10 @@ export function GoalRow({ goal, controls, deleteControl, children }: GoalRowProp
           {deleteControl}
         </div>
       </div>
-      {editing && <EditGoalForm goal={goal} onClose={() => setEditing(false)} />}
+      <DialogMessage {...edit.messageProps} />
+      <Dialog {...edit.dialogProps} title={`修改「${goal.name}」`} icon={<Icon name="pencil" />}>
+        <EditGoalForm goal={goal} onDone={edit.done} onCancel={edit.close} />
+      </Dialog>
     </li>
   );
 }

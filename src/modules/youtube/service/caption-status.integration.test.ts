@@ -67,14 +67,14 @@ describe("checkChineseCaptions", () => {
 });
 
 describe("recheckDueCaptions（影片清單顯示時在背景重新檢查）", () => {
-  it("只重新檢查：發布 48 小時內、狀態是沒有或無法確認、距離上次檢查超過 1 小時（或從沒檢查過）", async () => {
+  it("檢查過的只重新檢查：發布 48 小時內、狀態是沒有或無法確認、距離上次檢查超過 1 小時", async () => {
     await insertVideos(
       { videoId: "due-no-old1", zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(2) },
-      { videoId: "due-unknown", zhCaptions: "unknown", zhCaptionsCheckedAt: null },
+      { videoId: "due-unknown", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(2) },
       { videoId: "skip-yes-01", zhCaptions: "yes", zhCaptionsCheckedAt: hoursAgo(5) },
       { videoId: "skip-recent", zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(0.5) },
       { videoId: "skip-oldvid", zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(5), publishedAt: hoursAgo(49) },
-      { videoId: "skip-nopub1", zhCaptions: "unknown", publishedAt: null },
+      { videoId: "skip-nopub1", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(5), publishedAt: null },
     );
     listCaptionTracks.mockResolvedValue(ZH);
 
@@ -83,6 +83,95 @@ describe("recheckDueCaptions（影片清單顯示時在背景重新檢查）", (
     expect(listCaptionTracks.mock.calls.map((c) => c[0]).sort()).toEqual(["due-no-old1", "due-unknown"]);
     expect((await videoRow("due-no-old1")).zhCaptions).toBe("yes");
     expect((await videoRow("skip-recent")).zhCaptions).toBe("no");
+  });
+
+  it("從來沒檢查過的（例如追蹤時從 RSS 補進來的舊影片）_不論發布多久都檢查一次；確認過沒有中文、發布超過 48 小時的就不再檢查", async () => {
+    await insertVideos(
+      { videoId: "never-old01", publishedAt: hoursAgo(24 * 10) },
+      { videoId: "never-nopub", publishedAt: null },
+      { videoId: "never-yes01", zhCaptions: "yes", publishedAt: hoursAgo(24 * 10) },
+    );
+
+    expect(await recheckDueCaptions(NOW)).toBe(2);
+    expect(listCaptionTracks.mock.calls.map((c) => c[0]).sort()).toEqual(["never-nopub", "never-old01"]);
+
+    expect(await recheckDueCaptions(new Date(NOW.getTime() + 5 * 3600_000))).toBe(0);
+    expect(listCaptionTracks).toHaveBeenCalledTimes(2);
+  });
+
+  it("從來沒檢查過的超過一次的量_新的先檢查（沒有發布時間的排最後）", async () => {
+    await insertVideos(
+      { videoId: "nopub000000", publishedAt: null },
+      ...Array.from({ length: RECHECK_BATCH }, (_, i) => ({ videoId: `old${String(i).padStart(8, "0")}`, publishedAt: hoursAgo(24 * (i + 3)) })),
+      { videoId: "newest00000", publishedAt: hoursAgo(1) },
+    );
+
+    expect(await recheckDueCaptions(NOW)).toBe(RECHECK_BATCH);
+    expect(listCaptionTracks.mock.calls.map((c) => c[0])).toEqual(["newest00000", ...Array.from({ length: RECHECK_BATCH - 1 }, (_, i) => `old${String(i).padStart(8, "0")}`)]);
+  });
+
+  it("名額有限時最久沒檢查的先（從沒檢查過的排最前）：近期影片每小時到期，也不會讓從 RSS 補進來的舊影片一直輪不到", async () => {
+    // 審查時重現的情況：8 支近期影片（檢查過、沒有中文）加 12 支從沒檢查過的舊影片，每 2 小時打開一次頁面、持續 24 小時
+    const recent = Array.from({ length: 8 }, (_, i) => `recent${String(i).padStart(5, "0")}`);
+    const backfilled = Array.from({ length: 12 }, (_, i) => `backfill${String(i).padStart(3, "0")}`);
+    await insertVideos(
+      ...recent.map((videoId, i) => ({ videoId, publishedAt: hoursAgo(i + 1), zhCaptions: "no" as const, zhCaptionsCheckedAt: hoursAgo(1.5) })),
+      ...backfilled.map((videoId, i) => ({ videoId, publishedAt: hoursAgo(24 * (i + 3)) })),
+    );
+
+    for (let hour = 0; hour < 24; hour += 2) await recheckDueCaptions(new Date(NOW.getTime() + hour * 3600_000));
+
+    const checked = new Set(listCaptionTracks.mock.calls.map(([id]) => id));
+    expect(backfilled.filter((id) => !checked.has(id))).toEqual([]);
+    expect(recent.filter((id) => !checked.has(id))).toEqual([]);
+  });
+
+  it("從沒檢查過的先輪完，接著是最久沒檢查的；同一組裡新的先", async () => {
+    await insertVideos(
+      { videoId: "chk-3h-ago0", publishedAt: hoursAgo(5), zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(3) },
+      { videoId: "chk-72m-ago", publishedAt: hoursAgo(1.5), zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(1.2) },
+      { videoId: "chk-2h-ago0", publishedAt: hoursAgo(10), zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(2) },
+      { videoId: "never-old01", publishedAt: hoursAgo(24 * 9) },
+      { videoId: "never-new01", publishedAt: hoursAgo(3) },
+      { videoId: "never-nopub", publishedAt: null },
+    );
+
+    expect(await recheckDueCaptions(NOW)).toBe(RECHECK_BATCH);
+
+    expect(listCaptionTracks.mock.calls.map(([id]) => id)).toEqual(["never-new01", "never-old01", "never-nopub", "chk-3h-ago0", "chk-2h-ago0"]);
+  });
+
+  it("只檢查自己清單上的最新 20 支：更舊、畫面上看不到（之後會被清掉）的影片不對 YouTube 發請求", async () => {
+    await insertVideos(
+      ...Array.from({ length: 19 }, (_, i) => ({ videoId: `listedyes${String(i).padStart(2, "0")}`, publishedAt: hoursAgo(i + 1), zhCaptions: "yes" as const, zhCaptionsCheckedAt: hoursAgo(1) })),
+      { videoId: "listed-20th", publishedAt: hoursAgo(24 * 3) },
+      { videoId: "beyond-list", publishedAt: hoursAgo(24 * 30) },
+      { videoId: "beyondnopub", publishedAt: null },
+    );
+
+    expect((await captionStatus.recheckCandidates(me)).map((c) => c.videoId)).toEqual(["listed-20th"]);
+    expect(await recheckDueCaptions(NOW)).toBe(1);
+    expect(listCaptionTracks.mock.calls.map(([id]) => id)).toEqual(["listed-20th"]);
+  });
+
+  it("檢查過但讀不到（無法確認）的_不論發布多久，超過 24 小時再試一次；確認過沒有中文的舊影片不再檢查", async () => {
+    await insertVideos(
+      { videoId: "unknown-25h", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(25), publishedAt: hoursAgo(24 * 10) },
+      { videoId: "unknown-nop", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(25), publishedAt: null },
+      { videoId: "unknown-23h", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(23), publishedAt: hoursAgo(24 * 10) },
+      { videoId: "nozh-25h-ol", zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(25), publishedAt: hoursAgo(24 * 10) },
+    );
+    // 一直被 YouTube 擋下：狀態維持無法確認，每支一天最多試一次，不會每次打開頁面都重試
+    listCaptionTracks.mockResolvedValue(BLOCKED);
+
+    expect(await recheckDueCaptions(NOW)).toBe(2);
+    expect(listCaptionTracks.mock.calls.map(([id]) => id).sort()).toEqual(["unknown-25h", "unknown-nop"]);
+
+    expect(await recheckDueCaptions(new Date(NOW.getTime() + 23 * 3600_000))).toBe(1);
+    expect(listCaptionTracks.mock.calls.at(-1)?.[0]).toBe("unknown-23h");
+
+    expect(await recheckDueCaptions(new Date(NOW.getTime() + 24.5 * 3600_000))).toBe(2);
+    expect(listCaptionTracks).toHaveBeenCalledTimes(5);
   });
 
   it("同時觸發兩次（例如連續重新整理）_同一支影片只檢查一次", async () => {

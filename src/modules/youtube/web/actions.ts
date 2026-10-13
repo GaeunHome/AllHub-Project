@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { requireSession } from "@/core/auth";
 import { expireTags, updateTags, type CacheTag } from "@/core/cache";
+import { logError } from "@/core/errors";
 import { INVALID_FORM_MESSAGE, actionErrorMessage, formId, formText, runAction } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
 import { parseNotifyToggle } from "@/core/ui/notify-toggle-form";
@@ -11,8 +12,10 @@ import { parseVideoId } from "../lib/parse";
 import { watchPagePath } from "../lib/urls";
 import { AI_PROVIDER_IDS, isAiProvider } from "../lib/subtitles/providers";
 import { youtubeTags } from "../service/cache-tags";
+import { cachedVideoInfo } from "../service/cached";
 import { checkFollowedVideoCaptions } from "../service/caption-status";
 import { YoutubeUserError, addChannel, removeChannel, renewSubscriptionsFor, setChannelNotify } from "../service/channels";
+import { SAVED_FULL_MESSAGE, keepVideo, removeSavedVideo, type VideoSnapshot } from "../service/saved-videos";
 import {
   ApiKeySetupError,
   TranslationUserError,
@@ -43,6 +46,30 @@ const isUserError = (error: unknown) => error instanceof YoutubeUserError || err
 const scope = (action: string) => ({ module: "youtube", action });
 const run = (action: string, work: () => Promise<FormState | string | void>) => runAction(scope(action), isUserError, work);
 const userMessage = (error: unknown, action: string) => actionErrorMessage(scope(action), isUserError, error);
+
+/** 表單送來的影片 id 只收 11 碼本身，不解析網址 */
+function formVideoId(formData: FormData): string | null {
+  const raw = formText(formData, "videoId");
+  return parseVideoId(raw) === raw ? raw : null;
+}
+
+/** 資料庫找不到的標題與頻道名稱：沿用觀看頁讀過的 oEmbed 快取（只是顯示用的快照），不讓使用者再等一次外部請求 */
+async function oembedSnapshot(videoId: string): Promise<VideoSnapshot | null> {
+  const info = await cachedVideoInfo(videoId);
+  return info && { title: info.title, channelTitle: info.channelName };
+}
+
+/** 按過翻譯的影片自動加進自己保留的影片；只是附帶的，出錯或清單滿了（都是手動保留的）都不影響翻譯。回傳有沒有寫入 */
+async function keepTranslated(userId: string, input: string): Promise<boolean> {
+  const videoId = parseVideoId(input);
+  if (!videoId) return false;
+  try {
+    return (await keepVideo(userId, videoId, { pinned: false, lookup: () => oembedSnapshot(videoId) })) === "saved";
+  } catch (error) {
+    logError("youtube", "加入保留的影片失敗", error);
+    return false;
+  }
+}
 
 export async function addChannelAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { id: userId } = await requireSession();
@@ -99,9 +126,8 @@ const RECHECK_MESSAGES = {
 /** 影片清單上的「重新檢查」：很多頻道上片後才補字幕；只能檢查自己追蹤頻道的影片 */
 export async function recheckCaptionsAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { id: userId } = await requireSession();
-  const raw = formText(formData, "videoId");
-  const videoId = parseVideoId(raw);
-  if (!videoId || videoId !== raw) return { error: INVALID_FORM_MESSAGE };
+  const videoId = formVideoId(formData);
+  if (!videoId) return { error: INVALID_FORM_MESSAGE };
   try {
     return await run("重新檢查", async () => {
       const status = await checkFollowedVideoCaptions(userId, videoId);
@@ -151,14 +177,19 @@ export type StartState = StartResult | { ok: false; message: string; canUpload: 
 
 const settingsFlag = (error: unknown) => (error instanceof ApiKeySetupError ? { needsSettings: true as const } : {});
 
+// 開始、上傳、重試、重新翻譯與「用我的 API Key 繼續翻譯」成功後把影片加進自己保留的影片（按過翻譯），有寫入才讓保留清單失效
+
 export async function startTranslationAction(videoId: string): Promise<StartState> {
   const { id: userId } = await requireSession();
+  const tags = translationTags(videoId);
   try {
-    return await startTranslation(userId, videoId);
+    const result = await startTranslation(userId, videoId);
+    if (result.ok && (await keepTranslated(userId, videoId))) tags.push(youtubeTags.savedVideos);
+    return result;
   } catch (error) {
     return { ok: false, message: userMessage(error, "開始翻譯"), canUpload: false, ...settingsFlag(error) };
   } finally {
-    updateTags(...translationTags(videoId));
+    updateTags(...tags);
   }
 }
 
@@ -167,47 +198,89 @@ export async function uploadSubtitlesAction(_prev: FormState, formData: FormData
   const file = await readSubtitleFile(formData.get("file"));
   if ("error" in file) return { error: file.error };
   const videoId = formText(formData, "videoId");
+  const tags = translationTags(videoId);
   try {
     return await run("上傳字幕", async () => {
       await uploadSubtitles(user, videoId, file.text);
+      if (await keepTranslated(user.id, videoId)) tags.push(youtubeTags.savedVideos);
       return "已上傳，開始翻譯";
     });
   } finally {
-    updateTags(...translationTags(videoId));
+    updateTags(...tags);
   }
 }
 
 export type ContinueActionError = { actionError: string; needsSettings?: true };
 
-export async function continueTranslationAction(videoId: string, positionMs?: number): Promise<Progress | ContinueActionError> {
+/** saved：這次呼叫把影片加進了登入者保留的影片（自動項目）；續翻不重繪頁面，觀看頁靠它把「保留」改成「已保留」 */
+export type ContinueResult = Progress & { saved?: true };
+
+/** join：按了「用我的 API Key 繼續翻譯」之後、續翻成功之前的呼叫才帶 true；只決定要不要把影片加進登入者自己保留的影片，續翻本身照原本的規則 */
+export async function continueTranslationAction(videoId: string, positionMs?: number, join?: boolean): Promise<ContinueResult | ContinueActionError> {
   const { id: userId } = await requireSession();
   // Server Action 可以被直接 POST，播放位置不是正常的毫秒數就當成沒有
   const position = typeof positionMs === "number" && Number.isFinite(positionMs) && positionMs >= 0 ? positionMs : undefined;
+  let saved = false;
   try {
-    return await continueTranslation(userId, videoId, { positionMs: position });
+    const progress = await continueTranslation(userId, videoId, { positionMs: position });
+    // 別人正在翻（這次沒做事）也算；直接 POST 送來 true 也只是把影片加進自己的清單（自動項目），不必另外檢查權限
+    // 只有按下後第一次成功的呼叫帶 join，這一批本來就要等 AI：當場寫入，結果才能放進回應（清單滿了而且都是手動保留的就不帶，按鈕維持「保留」）
+    saved = join === true && (await keepTranslated(userId, videoId));
+    return saved ? { ...progress, saved: true } : progress;
   } catch (error) {
     return { actionError: userMessage(error, "翻譯"), ...settingsFlag(error) };
   } finally {
-    // 每批寫回不能用 updateTag：會重繪頁面、翻譯面板重新掛載、回應還夾帶整份字幕；等回應送出後才讓快取失效
+    // 每批寫回不能用 updateTag：會重繪頁面、翻譯面板重新掛載、回應還夾帶整份字幕；等回應送出後才讓快取失效，保留的影片也一樣
     const tags = translationTags(videoId);
+    if (saved) tags.push(youtubeTags.savedVideos);
     if (tags.length > 0) after(() => expireTags(...tags));
   }
 }
 
 export async function retryTranslationAction(videoId: string): Promise<FormState> {
   const { id: userId } = await requireSession();
+  const tags = translationTags(videoId);
   try {
-    return await run("重試", () => retryTranslation(userId, videoId));
+    return await run("重試", async () => {
+      await retryTranslation(userId, videoId);
+      if (await keepTranslated(userId, videoId)) tags.push(youtubeTags.savedVideos);
+    });
   } finally {
-    updateTags(...translationTags(videoId));
+    updateTags(...tags);
   }
 }
 
 export async function restartTranslationAction(videoId: string): Promise<FormState> {
   const user = await requireSession();
+  const tags = translationTags(videoId);
   try {
-    return await run("重新翻譯", () => restartTranslation(user, videoId));
+    return await run("重新翻譯", async () => {
+      await restartTranslation(user, videoId);
+      if (await keepTranslated(user.id, videoId)) tags.push(youtubeTags.savedVideos);
+    });
   } finally {
-    updateTags(...translationTags(videoId));
+    updateTags(...tags);
   }
+}
+
+/** 觀看頁的「保留」：手動保留的不會被擠掉；滿了先擠掉最舊的自動項目，15 部都是手動的就請使用者先移除一部 */
+export async function saveVideoAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  const videoId = formVideoId(formData);
+  if (!videoId) return { error: INVALID_FORM_MESSAGE };
+  return run("保留影片", async () => {
+    if ((await keepVideo(userId, videoId, { pinned: true, lookup: () => oembedSnapshot(videoId) })) === "full") return { error: SAVED_FULL_MESSAGE };
+    updateTags(youtubeTags.savedVideos);
+  });
+}
+
+/** 已經不在清單裡（例如在別的分頁移除了）也當作成功，畫面重新整理成實際的狀態；翻譯是共用的，不跟著刪 */
+export async function removeSavedVideoAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  const videoId = formVideoId(formData);
+  if (!videoId) return { error: INVALID_FORM_MESSAGE };
+  return run("移除保留的影片", async () => {
+    await removeSavedVideo(userId, videoId);
+    updateTags(youtubeTags.savedVideos);
+  });
 }

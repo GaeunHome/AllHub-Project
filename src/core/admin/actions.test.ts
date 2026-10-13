@@ -55,7 +55,7 @@ describe("createInviteAction", () => {
 
     expect(invites.createInvite).toHaveBeenCalledWith({ createdBy: TEST_SESSION.id, days: 7, maxUses: 5, note: "給小明" });
     expect(state).toEqual({
-      message: "已建立邀請連結：7 天內可以註冊 5 個帳號。連結只會顯示這一次，請現在複製。",
+      message: "已建立邀請連結：7 天內可以註冊 5 個帳號。",
       link: `https://hub.example.com/register?code=${TOKEN}`,
     });
   });

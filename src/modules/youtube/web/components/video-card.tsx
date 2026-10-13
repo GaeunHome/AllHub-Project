@@ -35,8 +35,8 @@ export function VideoLink({ video, className, children, decorative = false }: Vi
   );
 }
 
-/** 縮圖加右下角的狀態標籤（像 YouTube 的影片長度）；讀不到縮圖時顯示影片圖示 */
-export function VideoThumbnail({ video }: { video: FeedVideo }) {
+/** 縮圖加右下角的狀態標籤（像 YouTube 的影片長度）；讀不到縮圖時顯示影片圖示。eager：畫面最上面一排，常常是 LCP，不延遲載入 */
+export function VideoThumbnail({ video, eager = false }: { video: FeedVideo; eager?: boolean }) {
   const badge = thumbnailBadge(video);
   return (
     <>
@@ -44,6 +44,7 @@ export function VideoThumbnail({ video }: { video: FeedVideo }) {
         src={externalAssetUrl(youtubeThumbnailUrl(video.videoId))}
         alt=""
         fill
+        loading={eager ? "eager" : "lazy"}
         className="object-cover"
         fallback={
           <span className="grid h-full w-full place-items-center text-accent">
@@ -62,7 +63,7 @@ export function VideoThumbnail({ video }: { video: FeedVideo }) {
 export const channelNameOf = (video: FeedVideo) => video.channelTitle ?? "（已刪除的頻道）";
 
 /** 列表頁的影片卡片：16:9 縮圖，下面是頻道頭像、兩行標題、頻道名稱與「3 小時前」；動作收在 ⋮ 選單 */
-export function VideoCard({ video, now }: { video: FeedVideo; now: Date }) {
+export function VideoCard({ video, now, eager = false }: { video: FeedVideo; now: Date; eager?: boolean }) {
   const channelName = channelNameOf(video);
   const hasZh = video.zhCaptions === "yes";
 
@@ -70,7 +71,7 @@ export function VideoCard({ video, now }: { video: FeedVideo; now: Date }) {
     <article className="yt-card flex flex-col gap-3">
       {/* 手機上縮圖撐滿螢幕寬度，跟 YouTube App 一樣 */}
       <VideoLink video={video} decorative className="yt-thumb -mx-4 rounded-none sm:mx-0 sm:rounded-xl">
-        <VideoThumbnail video={video} />
+        <VideoThumbnail video={video} eager={eager} />
       </VideoLink>
       <div className="flex items-start gap-3">
         <Suspense fallback={<Avatar src={externalAssetUrl(video.channelThumbnail)} name={channelName} size="sm" />}>

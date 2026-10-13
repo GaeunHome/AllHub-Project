@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { ModuleInfo } from "../module";
 import { NotificationCenter } from "../notifications/center";
-import { AppHeader } from "./app-header";
+import { AppHeader, SHELL_FRAME } from "./app-header";
 import type { NavModule } from "./nav-links";
 
 /** 導覽列與內容都包在通知中心裡：鈴鐺、導覽膠囊、通知頁共用同一份未讀數；提示卡片由通知中心放在 header 外面（header 的 backdrop-filter 會框住 fixed 元素） */
@@ -12,7 +12,10 @@ export function AppShell({ modules, children }: { modules: ModuleInfo[]; childre
   return (
     <NotificationCenter modules={navModules}>
       <AppHeader modules={navModules} />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-16 sm:pt-10">{children}</main>
+      {/* data-app-shell：登入頁靠它認出前一個人藏在 Activity 裡的頁面（core/auth/discard-hidden-pages.tsx） */}
+      <main className={`flex-1 pt-6 pb-16 sm:pt-10 ${SHELL_FRAME}`} data-app-shell="">
+        {children}
+      </main>
     </NotificationCenter>
   );
 }

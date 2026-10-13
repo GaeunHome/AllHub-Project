@@ -15,7 +15,8 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(saveSettingsAction, {});
 
   return (
-    <form action={action} className="page-stack">
+    // 寬螢幕三欄：選 AI、Claude、OpenAI 一列，Gemini 與專有名詞表一列；排欄寫在卡片上（表單開頭有 React 加的隱藏 input，用第幾個子元素挑會算錯）
+    <form action={action} className="page-stack xl:grid xl:grid-cols-3">
       <fieldset className="card stack min-w-0">
         <legend className={LEGEND_CLASS}>
           <span className="icon-tile size-9 rounded-xl">
@@ -23,7 +24,8 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
           </span>
           翻譯使用的 AI
         </legend>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {/* 寬螢幕的三欄裡格子窄，三個選項改成上下排 */}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 xl:grid-cols-1">
           {AI_PROVIDERS.map((p) => (
             <label key={p.id} className="choice-card">
               <input type="radio" name="provider" value={p.id} defaultChecked={settings.provider === p.id} className="size-4 shrink-0" />
@@ -82,7 +84,7 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
         );
       })}
 
-      <label className="card stack">
+      <label className="card stack xl:col-span-2">
         <span className="flex items-center gap-3">
           <span className="icon-tile size-9 rounded-xl">
             <Icon name="star" />
@@ -97,7 +99,7 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
         <textarea name="glossary" rows={8} defaultValue={state.glossaryText ?? settings.glossaryText} placeholder={"민지=珉池\n뉴진스=NewJeans"} className="input font-mono text-sm" />
       </label>
 
-      <div className="button-row">
+      <div className="button-row xl:col-span-3">
         <button disabled={pending} className="btn-primary min-w-32">
           <Icon name="check" className="size-4" />
           {pending ? "儲存中…" : "儲存"}

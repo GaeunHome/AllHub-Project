@@ -8,8 +8,8 @@ import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { ChannelAvatar } from "./channel-avatar";
 import { VideoLink, VideoThumbnail, channelNameOf, type FeedVideo } from "./video-card";
 
-// 寬螢幕一排四支、平板兩支；手機上一列一支（小縮圖在左），跟 Twitch 的卡片同一套格線
-const GRID = "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4";
+// 依卡片寬度（容器查詢，不看螢幕寬度）：寬的一排四支、中等兩支；很窄時一列一支（小縮圖在左），跟 Twitch 的卡片同一套格線
+const GRID = "grid grid-cols-1 gap-4 @md:grid-cols-2 @4xl:grid-cols-4";
 // web 層不能讀模組根目錄的 info.ts，模組網址寫在這裡
 const YOUTUBE_PAGE = "/youtube";
 
@@ -51,9 +51,10 @@ export function LatestVideoList({ videos, more, now }: { videos: FeedVideo[]; mo
 function LatestVideoTile({ video, now }: { video: FeedVideo; now: Date }) {
   const channelName = channelNameOf(video);
   return (
-    <article className="flex items-start gap-3 sm:flex-col sm:items-stretch">
-      <VideoLink video={video} decorative className="yt-thumb w-32 shrink-0 rounded-lg sm:w-full">
-        <VideoThumbnail video={video} />
+    <article className="flex items-start gap-3 @md:flex-col @md:items-stretch">
+      {/* 首頁最多 4 支，寬的時候剛好是卡片的第一排，常常是 LCP */}
+      <VideoLink video={video} decorative className="yt-thumb w-32 shrink-0 rounded-lg @md:w-full">
+        <VideoThumbnail video={video} eager />
       </VideoLink>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <h3 className="leading-snug font-semibold">
@@ -81,8 +82,8 @@ export function LatestVideosSkeleton() {
   return (
     <LoadingState label="載入最新影片…" className={GRID}>
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className={`flex items-start gap-3 sm:flex-col sm:items-stretch ${i > 1 ? "hidden lg:flex" : ""}`}>
-          <Skeleton className="aspect-video w-32 shrink-0 rounded-lg sm:w-full" />
+        <div key={i} className={`flex items-start gap-3 @md:flex-col @md:items-stretch ${i > 1 ? "hidden @4xl:flex" : ""}`}>
+          <Skeleton className="aspect-video w-32 shrink-0 rounded-lg @md:w-full" />
           <div className="flex flex-1 flex-col gap-2">
             <Skeleton className="h-4 w-11/12" />
             <Skeleton className="h-3.5 w-1/2" />

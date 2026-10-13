@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ENDGAME_MODES, endgameLabel, formatPartialTime, interpretEndgame, parseEndgame } from "./endgame";
 
 const IMG = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg";
+const ICONS = "/icons/starrail";
 const time = (day: number, hour = 4) => ({ year: 2026, month: 10, day, hour, minute: 0 });
 const avatar = (id: number, rarity = 5, element = "Quantum") => ({ id, level: 80, icon: `${IMG}/avatar/${id}.png`, rarity, element, rank: 1 });
 
@@ -95,7 +96,7 @@ describe("parseEndgame：混沌回憶", () => {
 
     expect(top).toMatchObject({ name: "混沌回憶 12", stars: 4, rounds: 7, score: null, quickClear: false });
     expect(top.nodes).toHaveLength(2);
-    expect(top.nodes[0].avatars[0]).toEqual({ id: 1102, level: 80, icon: `${IMG}/avatar/1102.png`, rarity: 5, element: "quantum", eidolon: 1 });
+    expect(top.nodes[0].avatars[0]).toEqual({ id: 1102, level: 80, icon: `${IMG}/avatar/1102.png`, rarity: 5, element: "quantum", elementIcon: `${ICONS}/element/quantum.png`, eidolon: 1 });
     expect(top.nodes[0].avatars.map((a) => a.element)).toEqual(["quantum", "quantum", "ice", "physical"]);
     expect(second).toMatchObject({ name: "混沌回憶 11", stars: 3, rounds: 3, quickClear: true, nodes: [] });
   });
@@ -137,7 +138,7 @@ describe("parseEndgame：沒有紀錄或格式不同", () => {
     const { endgame, missing } = parseEndgame(data, "chaos");
 
     expect(endgame.stars).toBeNull();
-    expect(endgame.floors[0].nodes[0].avatars[0]).toEqual({ id: 1102, level: null, icon: null, rarity: null, element: null, eidolon: null });
+    expect(endgame.floors[0].nodes[0].avatars[0]).toEqual({ id: 1102, level: null, icon: null, rarity: null, element: null, elementIcon: null, eidolon: null });
     expect(missing).toEqual([
       "all_floor_detail[].node[].avatars[].element",
       "all_floor_detail[].node[].avatars[].icon",

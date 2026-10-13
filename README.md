@@ -18,9 +18,9 @@ AllHub 是個人製作、非商業的整合網站，把平常會用到的幾個�
 
 - **首頁**：一進網站就看到正在直播的追蹤主播、追蹤頻道的最新影片、星穹鐵道的開拓力與委託、這個月的存款進度，以及最新的未讀通知。
 - **Twitch**：追蹤主播，開台時收到通知，內容有直播標題與分類。
-- **YouTube**：追蹤頻道的新影片，並判斷有沒有中文字幕。沒有中文字幕的影片可以在網站裡邊播邊翻，用自己的 AI API Key（Claude、OpenAI 或 Gemini）把韓文字幕翻成中文；翻好的字幕所有人共用、永久保留，別人翻到一半的要自己按了才會用你的 Key 接著翻。
+- **YouTube**：追蹤頻道的新影片（不含 Shorts），並判斷有沒有中文字幕。沒有中文字幕的影片可以在網站裡邊播邊翻，用自己的 AI API Key（Claude、OpenAI 或 Gemini）把韓文字幕翻成中文；翻好的字幕所有人共用、永久保留，別人翻到一半的要自己按了才會用你的 Key 接著翻。想之後再看的影片可以按「保留」，翻譯過的也會自動加進「已保留的影片」（每人最多 15 部，可以搜尋標題）。
 - **星穹鐵道**：連結自己的 HoYoLAB 帳號，提供即時便箋、角色與遺器、開拓月曆、終局戰績、兌換碼、每日自動簽到與開拓力快滿提醒。用的是非官方介面。
-- **畫面與圖片**：YouTube 頁照 YouTube 網站的版面（縮圖、頻道頭像、篩選），Twitch 風格的直播預覽、星穹鐵道遊戲風格的角色圖；圖片由瀏覽器直接向各平台載入，外部資料只放快取、不存進資料庫。外觀可以在帳號選單選淺色、深色或跟隨系統。
+- **畫面與圖片**：YouTube 頁照 YouTube 網站的版面（縮圖、頻道頭像、篩選），Twitch 風格的直播預覽、星穹鐵道遊戲風格的角色圖；圖片由瀏覽器直接向各平台載入（星穹鐵道的元素、命途、屬性小圖示是內建的靜態檔），畫面上即時讀的外部資料（即時便箋、戰績、最新的頭像與直播畫面）只放快取、不存進資料庫。外觀可以在帳號選單選淺色、深色或跟隨系統。
 - **存錢記帳**：記下每個月固定要存的錢，最上面就是這個月已存、應存與還差多少；紀錄明細、今年與全部的累計、最近 12 個月的長條圖與項目管理收在可以展開的區塊。
 - **網站通知**：各模組的通知集中在導覽列的鈴鐺。提示音與瀏覽器通知可以依模組分開開關。
 - **帳號與邀請**：邀請制註冊，站長在「管理」頁建立有期限、限次數的邀請連結，也可以停用（凍結：不能登入、排程與通知暫停，資料保留）或刪除帳號。每個人的追蹤名單、API Key、HoYoLAB 帳號、記帳與通知各自分開，只有 YouTube 翻譯好的字幕共用；刪除帳號時自己的資料一起刪除。登入與註冊都要輸入圖形驗證碼，密碼欄位可以切換顯示；登入錯太多次會暫時鎖定；可以改密碼、登出或刪除自己的帳號。使用聲明在 `/terms`。
@@ -88,10 +88,10 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 
 ## 第三方聲明
 
-- **圖示與字型**：介面圖示來自 [Lucide](https://lucide.dev)（ISC），YouTube、Twitch 標誌來自 [Simple Icons](https://simpleicons.org)（CC0 1.0）；《崩壞：星穹鐵道》的標誌（`public/images/starrail-logo.png`）著作權與商標屬於 HoYoverse（COGNOSPHERE），只用來標示串接的服務，不在本專案的授權範圍內，詳見 [public/icons/LICENSE.md](public/icons/LICENSE.md)。字型是 [Geist](https://vercel.com/font)、Geist Mono 與 [Rajdhani](https://fonts.google.com/specimen/Rajdhani)（星穹鐵道頁的數字，皆為 SIL Open Font License 1.1）。
+- **圖示與字型**：介面圖示來自 [Lucide](https://lucide.dev)（ISC），YouTube、Twitch 標誌來自 [Simple Icons](https://simpleicons.org)（CC0 1.0）；《崩壞：星穹鐵道》的標誌（`public/images/starrail-logo.png`）著作權與商標屬於 HoYoverse（COGNOSPHERE），只用來標示串接的服務，不在本專案的授權範圍內；星穹鐵道頁的元素、命途、屬性圖示（`public/icons/starrail/`）來自社群整理的 [StarRailRes](https://github.com/Mar-7th/StarRailRes)（從遊戲解出的素材），著作權屬於 HoYoverse（COGNOSPHERE），只用在本專案的非商業用途，不在本專案的授權範圍內。詳見 [public/icons/LICENSE.md](public/icons/LICENSE.md)。字型是 [Geist](https://vercel.com/font)、Geist Mono 與 [Rajdhani](https://fonts.google.com/specimen/Rajdhani)（星穹鐵道頁的數字，皆為 SIL Open Font License 1.1）。
 - **商標**：YouTube、Twitch、HoYoLAB、《崩壞：星穹鐵道》、Claude、OpenAI、Gemini 是各自公司的商標，本專案與這些公司沒有關係。
-- **非官方做法**：HoYoLAB 的資料讀取與簽到、YouTube 的字幕讀取都不是官方 API，可能失效或違反服務條款，請只用在自己的帳號（見 [模組設定與使用](docs/modules.md)）。
+- **非官方做法**：HoYoLAB 的資料讀取與簽到、YouTube 的字幕讀取與 Shorts 判斷都不是官方 API，可能失效或違反服務條款，請只用在自己的帳號（見 [模組設定與使用](docs/modules.md)）。
 
 ## 授權
 
-尚未指定。
+尚未指定授權條款。本專案是個人製作、非商業用途的網站：不收費、不放廣告，也不拿來營利；專案裡的第三方素材（見〈第三方聲明〉，例如 HoYoverse 的遊戲圖示與標誌）只在非商業用途下使用，著作權屬於原權利人。

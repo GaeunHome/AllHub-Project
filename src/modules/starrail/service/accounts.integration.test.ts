@@ -57,6 +57,19 @@ describe("linkAccount（PGlite 整合）", () => {
     expect(rows.map((r) => r.uid).sort()).toEqual(["800000002", "900000001"]);
     expect(rows.every((r) => !r.cookieEncrypted.includes("v2_secret"))).toBe(true);
   });
+
+  it("回傳剛連結的帳號 id（頁面導向它）：一定是自己那一列；好幾個時是第一個，重貼 cookie 時是原本那一列", async () => {
+    const first = await linkAccount(COOKIE, ["800000002"]);
+    const [row] = await getDb().select().from(starrailAccounts).where(eq(starrailAccounts.uid, "800000002"));
+    expect(first).toMatchObject({ ok: true, accountId: row.id });
+    expect(row.userId).toBe(me);
+
+    const all = await linkAccount(COOKIE, "all");
+    const [firstRole] = await getDb().select().from(starrailAccounts).where(eq(starrailAccounts.uid, "900000001"));
+    expect(all).toMatchObject({ ok: true, accountId: firstRole.id });
+
+    expect(await linkAccount(COOKIE, ["800000002"])).toMatchObject({ ok: true, accountId: row.id });
+  });
 });
 
 describe("checkinAll（PGlite 整合）", () => {
@@ -231,16 +244,18 @@ describe("簽到通知與失效標記（PGlite 整合）", () => {
     expect(after.cookieInvalid).toBe(true);
   });
 
-  it("沒有 ltmid_v2_可以連結_訊息提示一併貼上", async () => {
+  it("沒有 ltmid_v2_可以連結_提醒一併貼上，另外放在 warning（畫面用警告樣式，不混在成功訊息裡）", async () => {
     const result = await linkAccount(COOKIE);
 
-    expect(result).toMatchObject({ ok: true });
-    expect(result.ok && result.message).toContain("建議一併貼上 ltmid_v2");
+    expect(result).toMatchObject({ ok: true, warning: "建議一併貼上 ltmid_v2，否則即時便箋可能失敗" });
+    expect(result.ok && result.message).not.toContain("ltmid_v2");
   });
 
   it("有 ltmid_v2_不提示", async () => {
     const result = await linkAccount(`${COOKIE}; ltmid_v2=mid_x`);
 
+    expect(result).toMatchObject({ ok: true });
+    expect(result.ok && result.warning).toBeUndefined();
     expect(result.ok && result.message).not.toContain("ltmid_v2");
   });
 });

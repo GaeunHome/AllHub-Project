@@ -227,6 +227,52 @@ describe("0006 各模組資料依使用者分開", { timeout: 30_000 }, () => {
   });
 });
 
+// v0.1.2 只新增保留影片的表；正式環境停在 0006（v0.1.1）
+const SAVED_VIDEOS = "0007_youtube_saved_videos.sql";
+
+describe("0007 保留的影片（新表）", { timeout: 30_000 }, () => {
+  beforeEach(async () => {
+    await migrate(db, { migrationsFolder: migrationsUpTo(7) });
+  });
+
+  async function insertUser(id: string, username: string) {
+    await client.query(`insert into core_users (id, username, password_hash, role) values ($1, $2, 'scrypt$x', 'member')`, [id, username]);
+  }
+
+  it("一開始設 lock_timeout = 5s，而且是單獨一個 statement：新表的外鍵要鎖 core_users，等不到鎖就失敗、之後再重跑，不讓線上的登入排在後面卡住", () => {
+    const [migration] = readMigrationFiles({ migrationsFolder: MIGRATIONS }).slice(7, 8);
+
+    expect(migration.sql[0].trim()).toBe("SET LOCAL lock_timeout = '5s';");
+  });
+
+  it("只新增一張表與它的外鍵、索引：沒有刪除、改名，也不動既有的表", () => {
+    const sql = readFileSync(path.join(MIGRATIONS, SAVED_VIDEOS), "utf8");
+
+    expect(sql).not.toMatch(/\bdrop\b|\brename\b|alter column/i);
+    expect([...sql.matchAll(/(?:ALTER TABLE|CREATE TABLE|ON) "(\w+)"/g)].map((m) => m[1])).toEqual(expect.arrayContaining(["youtube_saved_videos"]));
+    for (const [, table] of sql.matchAll(/(?:ALTER TABLE|CREATE TABLE|CREATE INDEX "\w+" ON) "(\w+)"/g)) expect(table).toBe("youtube_saved_videos");
+  });
+
+  it("套用後舊程式（v0.1.1）的寫法照常可用；每人每支影片一列，刪除帳號時一起刪除", async () => {
+    const { early, boss } = OWNER_SUBQUERY_USERS;
+    await insertUser(early, "early");
+    await insertUser(boss, "boss");
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+
+    await client.query(
+      `insert into "youtube_translations" ("video_id", "status", "source_kind", "source_cues", "translated", "batches", "requested_by") values ('abcdefghijk', 'queued', 'manual', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, $1)`,
+      [boss],
+    );
+    await client.query(`insert into "youtube_saved_videos" ("user_id", "video_id", "title", "pinned") values ($1, 'abcdefghijk', '影片', true), ($2, 'abcdefghijk', null, false)`, [boss, early]);
+    await expect(client.query(`insert into "youtube_saved_videos" ("user_id", "video_id", "pinned") values ($1, 'abcdefghijk', false)`, [boss])).rejects.toThrow();
+
+    await client.query(`delete from core_users where id = $1`, [boss]);
+
+    expect(await userIdsOf("youtube_saved_videos")).toEqual([early]);
+    expect(await userIdsOf("youtube_translations", "requested_by")).toEqual([null]);
+  });
+});
+
 describe("從 v0.1.0（0004）直接升級：0005 與 0006 一起套用", { timeout: 30_000 }, () => {
   it("0005 與 0006 一開始都設 lock_timeout = 5s，而且是單獨一個 statement：等不到鎖就失敗、之後再重跑，不讓線上的查詢排在 ALTER TABLE 後面卡住", () => {
     const pending = readMigrationFiles({ migrationsFolder: MIGRATIONS }).slice(5, 7);

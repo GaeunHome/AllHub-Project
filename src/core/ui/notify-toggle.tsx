@@ -16,12 +16,18 @@ type NotifyToggleProps = {
   variant?: "button" | "menu";
 };
 
+// 跟停用的按鈕一樣變淡
+const BUSY_CLASS = "aria-disabled:cursor-wait aria-disabled:opacity-55";
+
 /** 主播、頻道列表上的通知開關；先切換圖示再等伺服器，按下去立刻有反應 */
 export function NotifyToggle({ action, id, enabled, subject, variant = "button" }: NotifyToggleProps) {
   const [shown, setShown] = useOptimistic(enabled);
   const [state, formAction, pending] = useActionState(action, {});
 
+  // 送出中不設 disabled：停用的按鈕會丟掉焦點，在彈出視窗裡焦點會跑到視窗外；改成標 aria-disabled、不理重複的點擊
+  const busy = pending || undefined;
   const toggle = () => {
+    if (pending) return;
     const next = !shown;
     startTransition(() => {
       setShown(next);
@@ -32,7 +38,7 @@ export function NotifyToggle({ action, id, enabled, subject, variant = "button" 
   if (variant === "menu") {
     return (
       <div className="flex flex-col gap-1">
-        <button type="button" role="switch" aria-checked={shown} aria-label={`${subject} 的通知`} disabled={pending} onClick={toggle} className="menu-item">
+        <button type="button" role="switch" aria-checked={shown} aria-label={`${subject} 的通知`} aria-disabled={busy} onClick={toggle} className={`menu-item ${BUSY_CLASS}`}>
           <Icon name={shown ? "bell" : "bell-off"} className="size-4" />
           <span className="flex-1">新影片通知</span>
           <span aria-hidden className="switch-visual" />
@@ -50,9 +56,9 @@ export function NotifyToggle({ action, id, enabled, subject, variant = "button" 
         aria-checked={shown}
         aria-label={`${subject} 的通知`}
         title={shown ? "通知開啟中，點一下關閉" : "通知已關閉，點一下開啟"}
-        disabled={pending}
+        aria-disabled={busy}
         onClick={toggle}
-        className={shown ? "btn-secondary btn-sm btn-icon sm:w-auto sm:px-3" : "btn-ghost btn-sm btn-icon text-muted sm:w-auto sm:px-3"}
+        className={`${shown ? "btn-secondary btn-sm btn-icon sm:w-auto sm:px-3" : "btn-ghost btn-sm btn-icon text-muted sm:w-auto sm:px-3"} ${BUSY_CLASS}`}
       >
         <Icon name={shown ? "bell" : "bell-off"} className="size-4" />
         <span className="sr-only sm:not-sr-only">{shown ? "通知" : "靜音"}</span>

@@ -1,4 +1,5 @@
-import type { ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { ReactElement, ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
@@ -9,7 +10,8 @@ vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/cached", { spy: true });
 
 const cached = mocksOf(await import("../../service/cached"), "cachedTranslation", "cachedMissingApiKeyMessage", "cachedVideoTitle");
-const { WatchLoader } = await import("./watch-page");
+const { WatchLoader, WatchPage } = await import("./watch-page");
+const { PlayerSizeSync } = await import("../components/player-size-sync");
 
 const VIDEO = "dQw4w9WgXcQ";
 const INFO: ModuleInfo = { id: "youtube", name: "YouTube", href: "/youtube", description: "", accent: "red" };
@@ -104,5 +106,90 @@ describe("觀看頁：翻譯共用，但只有發起人或站長能重新翻譯�
     await clientProps();
 
     expect(cached.cachedVideoTitle).toHaveBeenCalledWith(OTHER_SESSION.id, VIDEO);
+  });
+});
+
+describe("觀看頁的版面：播放器大小優先", () => {
+  // 在 E2E 實際量到的高度（px）：播放器上方是導覽列 57、上方留白 40、返回連結 36 與間距 16；下方是間距 16、一行標題 28、間距 16，
+  // 頻道列一列是 48，膠囊排不下時換到第二列是 48 + 16 + 44
+  const ABOVE_PLAYER = 149;
+  const BELOW_TO_CHANNEL = 16 + 28 + 16;
+  const CHANNEL_ONE_ROW = 48;
+  const CHANNEL_WRAPPED = 48 + 16 + 44;
+  // 頻道列左邊至少 12rem、間距 24，右邊最寬的一排膠囊（站長看別人翻到一半的影片）約 808：播放器比這窄時膠囊換到第二列
+  const CHANNEL_ROW_FITS = 192 + 24 + 808;
+  const SIDE_PADDING = 64;
+  const COLUMN_GAP = 32;
+  const SIDE_MIN = 352;
+
+  const gridClass = () => {
+    const page = WatchPage({ params: Promise.resolve({ videoId: VIDEO }), info: INFO }) as ReactElement<{ children: ReactElement<{ className: string }>[] }>;
+    return page.props.children[1].props.className;
+  };
+
+  /** 依 className 裡寬螢幕（xl）的欄寬公式算出播放器與接下來播放的寬度；視窗夠高時用另一組預留高度 */
+  function columns(width: number, height: number) {
+    const className = gridClass();
+    const formula = (prefix: string) => {
+      const escaped = prefix.replace(/[[\]()]/g, "\\$&");
+      const m = new RegExp(`(?:^|\\s)${escaped}grid-cols-\\[minmax\\(0,max\\((\\d+)%,calc\\(\\(100dvh-([\\d.]+)rem\\)\\*16/9\\)\\)\\)_minmax\\(22rem,1fr\\)\\]`).exec(className);
+      return m ? { percent: Number(m[1]), reserve: Number(m[2]) * 16 } : null;
+    };
+    const tall = /xl:\[@media\(min-height:([\d.]+)rem\)\]:/.exec(className);
+    const short = formula("xl:");
+    const chosen = tall && height >= Number(tall[1]) * 16 ? formula(tall[0].trim()) : short;
+    expect(chosen).not.toBeNull();
+    const content = width - SIDE_PADDING;
+    const player = Math.min(Math.max((content * chosen!.percent) / 100, ((height - chosen!.reserve) * 16) / 9), content - SIDE_MIN - COLUMN_GAP);
+    return { player, side: content - player - COLUMN_GAP };
+  }
+
+  const channelBottom = (width: number, height: number) => {
+    const { player } = columns(width, height);
+    return ABOVE_PLAYER + (player * 9) / 16 + BELOW_TO_CHANNEL + (player >= CHANNEL_ROW_FITS ? CHANNEL_ONE_ROW : CHANNEL_WRAPPED);
+  };
+
+  it("1920×950、1440×760：標題一行時，標題、頻道列與翻譯按鈕都在畫面內（膠囊換到第二列也一樣）", () => {
+    expect(channelBottom(1920, 950)).toBeLessThanOrEqual(950);
+    expect(channelBottom(1440, 760)).toBeLessThanOrEqual(760);
+  });
+
+  it("1920×950：播放器盡量大，頻道列下面只剩不到 32px（之前封頂在 1049px 寬）", () => {
+    expect(950 - channelBottom(1920, 950)).toBeLessThan(32);
+    expect(columns(1920, 950).player).toBeGreaterThan(1150);
+  });
+
+  it("1280×680：播放器不比右邊的「接下來播放」窄", () => {
+    const { player, side } = columns(1280, 680);
+
+    expect(player).toBeGreaterThanOrEqual(side);
+  });
+
+  it("很矮的視窗：播放器仍至少佔一半，不會縮到比接下來播放還小", () => {
+    const { player, side } = columns(1280, 560);
+
+    expect(player).toBeGreaterThanOrEqual(side);
+  });
+});
+
+describe("觀看頁的版面：劇院模式整頁載入時第一次繪製就排好", () => {
+  /** 版面的格子（返回連結的下一個）裡依序的子元素 */
+  const gridChildren = () => {
+    const page = WatchPage({ params: Promise.resolve({ videoId: VIDEO }), info: INFO }) as ReactElement<{ children: ReactElement<{ children: ReactElement<{ fallback?: ReactNode }>[] }>[] }>;
+    return page.props.children[1].props.children;
+  };
+
+  it("格子裡最前面是劇院模式的同步：在播放器與骨架之前，整頁載入時先在 html 標好", () => {
+    const [first, player, upNext] = gridChildren();
+
+    expect(first.type).toBe(PlayerSizeSync);
+    expect(player.props.fallback).toBeDefined();
+    expect(upNext.props.fallback).toBeDefined();
+  });
+
+  it("骨架的播放器跟播放器佔同一個位置（.player-slot），外層的排法跟 WatchClient 一樣：劇院模式、手機撐滿寬度時位置與大小也不變", () => {
+    const markup = renderToStaticMarkup(gridChildren()[1].props.fallback);
+
+    expect(markup).toMatch(/^<div class="stack min-w-0"><div aria-hidden="true" class="skeleton player-slot[^"]*"><\/div><div role="status"/);
   });
 });

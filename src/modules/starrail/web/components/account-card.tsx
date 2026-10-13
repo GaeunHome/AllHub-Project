@@ -246,7 +246,7 @@ function Meter({ label, icon, value, max, className = "" }: { label: string; ico
 /** 委託（派遣）中的角色；剩餘時間已經扣掉查詢後過去的時間（expeditionStates） */
 function ExpeditionList({ expeditions }: { expeditions: ExpeditionState[] }) {
   return (
-    <ul aria-label="委託" className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <ul aria-label="委託" className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">
       {expeditions.map((expedition, i) => {
         const done = expedition.done;
         const remaining = done ? "已完成" : formatRemaining(expedition.remainingSeconds);

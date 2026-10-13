@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
+import { Dialog } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import { elementLabel, type StarrailCharacter } from "../../lib/characters";
@@ -26,21 +27,16 @@ type CharacterBrowserProps = {
   fetchedLabel: string;
 };
 
-/** 角色列表：篩選、排序都在瀏覽器裡做（資料已經在畫面上，不必再向伺服器要）；點角色用 dialog 打開詳情 */
+/** 角色列表：篩選、排序都在瀏覽器裡做（資料已經在畫面上，不必再向伺服器要）；點角色用共用的 Dialog 打開詳情 */
 export function CharacterBrowser({ characters, fetchedLabel }: CharacterBrowserProps) {
   const [filter, setFilter] = useState<CharacterFilter>({ rarity: "all", element: "all", sort: "level" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const shown = selectCharacters(characters, filter);
   const elements = elementOptions(characters);
   const selected = characters.find((c) => c.id === selectedId) ?? null;
 
-  const open = (id: number) => {
-    setSelectedId(id);
-    dialogRef.current?.showModal();
-  };
-  const close = () => dialogRef.current?.close();
+  const open = (id: number) => setSelectedId(id);
 
   return (
     <section aria-labelledby={`${titleId}-list`} className="stack">
@@ -79,7 +75,7 @@ export function CharacterBrowser({ characters, fetchedLabel }: CharacterBrowserP
       </div>
 
       {shown.length > 0 ? (
-        <ul className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-6 lg:grid-cols-8">
+        <ul className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12">
           {shown.map((character) => (
             <li key={character.id}>
               <CharacterTile character={character} onSelect={() => open(character.id)} />
@@ -90,18 +86,17 @@ export function CharacterBrowser({ characters, fetchedLabel }: CharacterBrowserP
         <p className="sr-panel p-5 text-center text-ink-soft sm:p-6">沒有符合條件的角色</p>
       )}
 
-      {/* 關閉時（Esc、點外面、按 X）清掉選取，下次打開從頭捲起；dialog 也套上星空主題 */}
-      <dialog
-        ref={dialogRef}
-        aria-labelledby={titleId}
+      {/* 關閉時（Esc、點外面、按 X）清掉選取，下次打開從頭捲起；視窗套上星空主題與切角，手機上全螢幕 */}
+      <Dialog
+        bare
+        open={selected !== null}
         onClose={() => setSelectedId(null)}
-        onClick={(event) => {
-          if (event.target === event.currentTarget) close();
-        }}
-        className="theme-starrail m-auto max-h-[calc(100dvh-2rem)] w-[min(62rem,calc(100vw-2rem))] max-w-none overflow-y-auto overscroll-contain border border-line p-0 text-ink shadow-2xl backdrop:bg-black/65 backdrop:backdrop-blur-sm max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:border-0 sm:[clip-path:polygon(0_0,calc(100%-20px)_0,100%_20px,100%_100%,20px_100%,0_calc(100%-20px))]"
+        labelledBy={titleId}
+        size="lg"
+        className="theme-starrail sr-dialog max-sm:h-dvh max-sm:max-h-none max-sm:rounded-none max-sm:border-0 sm:max-h-[calc(100dvh-2rem)] sm:w-[min(62rem,calc(100vw-2rem))] sm:max-w-none"
       >
-        {selected && <CharacterDetail character={selected} titleId={titleId} onClose={close} />}
-      </dialog>
+        {selected && <CharacterDetail character={selected} titleId={titleId} onClose={() => setSelectedId(null)} />}
+      </Dialog>
     </section>
   );
 }

@@ -10,10 +10,12 @@ vi.mock("../service/channels", { spy: true });
 vi.mock("../service/translation", { spy: true });
 
 vi.mock("../service/caption-status", { spy: true });
+vi.mock("../service/saved-videos", { spy: true });
 
 const channels = mocksOf(await import("../service/channels"), "addChannel", "removeChannel", "setChannelNotify", "renewSubscriptionsFor");
 const captions = mocksOf(await import("../service/caption-status"), "checkFollowedVideoCaptions");
 const translation = mocksOf(await import("../service/translation"), "retryTranslation", "restartTranslation", "uploadSubtitles", "saveSettings", "startTranslation", "continueTranslation");
+const saved = mocksOf(await import("../service/saved-videos"), "keepVideo", "removeSavedVideo");
 const actions = await import("./actions");
 const { addChannelAction, restartTranslationAction, retryTranslationAction, uploadSubtitlesAction } = actions;
 
@@ -29,6 +31,8 @@ beforeEach(() => {
   for (const fn of Object.values(translation)) fn.mockReset().mockResolvedValue(undefined);
   translation.startTranslation.mockResolvedValue({ ok: true });
   translation.continueTranslation.mockResolvedValue({ status: "queued", done: 0, total: 1, error: null, translated: [null] });
+  saved.keepVideo.mockReset().mockResolvedValue("saved");
+  saved.removeSavedVideo.mockReset().mockResolvedValue(true);
 });
 
 describe("非預期錯誤", () => {
@@ -138,6 +142,9 @@ describe("擁有權：一律用登入者呼叫 service（表單送來的 id 只�
     ["startTranslationAction", () => actions.startTranslationAction(VIDEO), () => translation.startTranslation],
     ["continueTranslationAction", () => actions.continueTranslationAction(VIDEO, 0), () => translation.continueTranslation],
     ["retryTranslationAction", () => actions.retryTranslationAction(VIDEO), () => translation.retryTranslation],
+    // 保留的影片每人一份：送來的影片 id 只決定是哪一支，加進或移除的都是登入者自己的清單
+    ["saveVideoAction", () => actions.saveVideoAction({}, formOf({ videoId: VIDEO })), () => saved.keepVideo],
+    ["removeSavedVideoAction", () => actions.removeSavedVideoAction({}, formOf({ videoId: VIDEO })), () => saved.removeSavedVideo],
   ] as const)("%s_帶的是登入者（bob）的 id", async (_name, run, service) => {
     requireSession.mockResolvedValue(OTHER_SESSION);
 

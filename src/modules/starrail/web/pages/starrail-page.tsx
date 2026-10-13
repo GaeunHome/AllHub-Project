@@ -1,16 +1,17 @@
 import { Suspense } from "react";
 import { requireSession } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
-import { formatTaipeiDateTime } from "@/core/time";
 import { Icon } from "@/core/ui/icon";
 import { serverLabel } from "../../lib/roles";
 import { cachedAccounts, cachedRecentCheckins } from "../../service/cached";
 import { pickAccount } from "../account-tabs";
 import { AccountHeader, AccountSkeleton, AccountTabs, DailyNotePanel, DailyNoteSkeleton } from "../components/account-card";
 import { CharacterPanel, CharacterPanelSkeleton } from "../components/character-panel";
+import { CheckinLogList } from "../components/checkin-log-list";
 import { EndgamePanel, EndgameSkeleton } from "../components/endgame-panel";
 import { LedgerPanel, LedgerSkeleton } from "../components/ledger-panel";
 import { LinkAccountForm } from "../components/link-account-form";
+import { LinkResultBanner, LinkResultProvider } from "../components/link-result";
 import { RedeemPanel } from "../components/redeem-panel";
 import { StarrailBackdrop } from "../components/starrail-backdrop";
 import { StarrailBanner } from "../components/starrail-banner";
@@ -28,9 +29,12 @@ export function StarrailPage({ info, searchParams }: { info: ModuleInfo; searchP
     >
       <StarrailBackdrop />
       <StarrailBanner info={info} />
-      <Suspense fallback={<AccountSkeleton />}>
-        <AccountArea searchParams={searchParams} />
-      </Suspense>
+      {/* 連結帳號的表單在最下面（或是還沒有帳號時的整頁表單），結果顯示在帳號分頁上方：兩邊共用同一份 */}
+      <LinkResultProvider>
+        <Suspense fallback={<AccountSkeleton />}>
+          <AccountArea searchParams={searchParams} />
+        </Suspense>
+      </LinkResultProvider>
     </div>
   );
 }
@@ -55,6 +59,7 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
   return (
     <div className="page-stack">
       <div className="stack">
+        <LinkResultBanner accountId={account.id} />
         <AccountTabs accounts={accounts} selectedId={account.id} />
         <AccountHeader account={account} />
       </div>
@@ -65,48 +70,31 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
       <Suspense key={`characters-${account.id}`} fallback={<CharacterPanelSkeleton />}>
         <CharacterPanel account={account} />
       </Suspense>
-      <Suspense key={`ledger-${account.id}`} fallback={<LedgerSkeleton />}>
-        <LedgerPanel account={account} />
-      </Suspense>
-      <Suspense key={`endgame-${account.id}`} fallback={<EndgameSkeleton />}>
-        <EndgamePanel account={account} />
-      </Suspense>
-      <RedeemPanel key={`redeem-${account.id}`} accountId={account.id} label={`${serverLabel(account.region)} · ${account.nickname ?? "開拓者"}（UID ${account.uid}）`} />
-      <Suspense key={`checkins-${account.id}`} fallback={null}>
-        <CheckinLogs accountId={account.id} />
-      </Suspense>
+      {/* 全寬的超寬螢幕上開拓月曆與終局戰績並排，不會被拉成一長條 */}
+      <div className="grid items-start gap-8 2xl:grid-cols-2">
+        <Suspense key={`ledger-${account.id}`} fallback={<LedgerSkeleton />}>
+          <LedgerPanel account={account} />
+        </Suspense>
+        <Suspense key={`endgame-${account.id}`} fallback={<EndgameSkeleton />}>
+          <EndgamePanel account={account} />
+        </Suspense>
+      </div>
+      {/* 兌換碼的輸入框不拉到整個畫面寬：超寬螢幕跟簽到紀錄並排；同一列的卡片等高，兩邊的卡片（各自區塊裡的 sr-panel）撐滿整格 */}
+      {/* 簽到紀錄收起時仍比兌換碼高：兌換碼的內容由它自己的格線放在卡片中間，不在下面留一大片空白；展開更早的紀錄後第一列改成照內容高，回到上方 */}
+      <div className="grid gap-8 2xl:grid-cols-2 [&>section>.sr-panel]:flex-1 2xl:has-[details[open]]:[&>section>form.sr-panel]:grid-rows-[auto_auto_1fr]">
+        <RedeemPanel key={`redeem-${account.id}`} accountId={account.id} label={`${serverLabel(account.region)} · ${account.nickname ?? "開拓者"}（UID ${account.uid}）`} />
+        <Suspense key={`checkins-${account.id}`} fallback={null}>
+          <CheckinLogs accountId={account.id} />
+        </Suspense>
+      </div>
       <LinkAccountForm defaultOpen={false} />
     </div>
   );
 }
 
-const RESULT_LABEL = { success: "簽到成功", already: "已簽過", failed: "簽到失敗" } as Record<string, string>;
-const RESULT_CHIP = { success: "chip chip-success", already: "chip", failed: "chip chip-danger" } as Record<string, string>;
-
 async function CheckinLogs({ accountId }: { accountId: number }) {
   const user = await requireSession();
   const logs = await cachedRecentCheckins(user.id, accountId);
   if (logs.length === 0) return null;
-
-  return (
-    <section className="stack">
-      <h3 className="sr-title">簽到紀錄</h3>
-      <ul className="sr-panel divide-y divide-line">
-        {logs.map(({ log }) => (
-          <li key={log.id} className="card-row flex flex-wrap items-center gap-x-3 gap-y-2">
-            <span className={`${RESULT_CHIP[log.result] ?? "chip"} shrink-0`}>{RESULT_LABEL[log.result] ?? log.result}</span>
-            {log.totalSignDay !== null && (
-              <span className="chip">
-                累計 <span className="sr-num text-[0.8125rem] font-bold">{log.totalSignDay}</span> 天
-              </span>
-            )}
-            {log.message && log.result === "failed" && <span className="min-w-0 text-sm text-danger">{log.message}</span>}
-            <time dateTime={log.createdAt.toISOString()} className="sr-num ml-auto text-[0.9375rem] whitespace-nowrap text-ink-soft">
-              {formatTaipeiDateTime(log.createdAt)}
-            </time>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
+  return <CheckinLogList logs={logs} />;
 }

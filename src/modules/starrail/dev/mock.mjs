@@ -1,5 +1,5 @@
-// 假的 HoYoLAB API 與圖片 CDN；特殊輸入見 docs/development.md「假伺服器的特殊輸入」：
-// ltoken_v2=expired 是 cookie 失效、ltoken_v2=private 時角色詳情沒有公開（10102）、ltuid_v2 以 2 開頭時台港澳服與亞服各有一個角色；兌換碼見 redeem()
+// 假的 HoYoLAB API 與圖片 CDN（屬性、命途與詞條的遊戲圖示是網站內建的靜態檔，不經過這裡）；特殊輸入見 docs/development.md「假伺服器的特殊輸入」：
+// ltoken_v2=expired 是 cookie 失效、ltoken_v2=private 時角色詳情沒有公開（10102）、ltuid_v2 以 2 開頭時台港澳服與亞服各有一個角色；兌換碼見 redeem()；遺器副詞條的強化次數見 UPGRADES（連結繩的暴擊率 +5 最多）
 const signedUids = new Set();
 /** 每個 UID 兌換過的兌換碼與上次兌換的時間（模擬「已兌換」與 5 秒冷卻） */
 const redeemed = new Map();
@@ -38,10 +38,14 @@ const SMALL_ROSTER = [
   { ...CHARACTERS[6], level: 8, rank: 0 },
 ];
 
+// property_type 的編號跟 lib/game-icons.ts 的對照表一樣（hoyo-buddy 整理的 genshin.py 編號）
 const PROPERTY_NAMES = {
   1: "生命值", 2: "攻擊力", 3: "防禦力", 4: "速度", 5: "暴擊率", 6: "暴擊傷害", 9: "能量恢復效率", 10: "效果命中",
-  27: "生命值", 29: "攻擊力", 31: "防禦力", 32: "生命值", 33: "攻擊力", 51: "速度", 52: "暴擊率", 53: "暴擊傷害", 58: "擊破特攻", 61: "屬性傷害加成",
+  12: "物理屬性傷害提高", 14: "火屬性傷害提高", 16: "冰屬性傷害提高", 18: "雷屬性傷害提高", 20: "風屬性傷害提高", 22: "量子屬性傷害提高", 24: "虛數屬性傷害提高",
+  27: "生命值", 29: "攻擊力", 31: "防禦力", 32: "生命值", 33: "攻擊力", 51: "速度", 52: "暴擊率", 53: "暴擊傷害", 59: "擊破特攻",
 };
+/** 位面球的主屬性是角色屬性的傷害提高 */
+const ELEMENT_DAMAGE = { physical: 12, fire: 14, ice: 16, lightning: 18, wind: 20, quantum: 22, imaginary: 24 };
 const property_info = Object.fromEntries(
   Object.entries(PROPERTY_NAMES).map(([type, name]) => [type, { property_type: Number(type), name, icon: `${IMG}/property/${type}.png`, property_name_relic: name, property_name_filter: name }]),
 );
@@ -51,28 +55,47 @@ const RELIC_SLOTS = [
   { pos: 2, part: "手部", main: [29, "352"] },
   { pos: 3, part: "軀幹", main: [53, "64.8%"] },
   { pos: 4, part: "腳部", main: [51, "25"] },
-  { pos: 5, part: "位面球", main: [61, "38.8%"] },
+  { pos: 5, part: "位面球", main: [null, "38.8%"] },
   { pos: 6, part: "連結繩", main: [33, "43.2%"] },
 ];
 const EIDOLON_NAMES = ["初始的輝光", "第二道星芒", "第三種可能", "第四次相遇", "第五個約定", "第六重天穹"];
+/** 每個位置（頭、手、軀幹、腳、位面球、連結繩）的四條副詞條（暴擊率、暴擊傷害、速度、攻擊力）各強化幾次：+15 共 5 次，最後一件全部強化在同一條；等級低於 80 的角色腳部是 +12，只用掉前 4 次 */
+const UPGRADES = [
+  [2, 1, 0, 2],
+  [0, 3, 1, 1],
+  [1, 0, 0, 4],
+  [3, 1, 1, 0],
+  [0, 2, 2, 1],
+  [5, 0, 0, 0],
+];
 
 function detail({ id, name, element, base_type, rarity, level, rank, cone, sets }) {
-  const relic = ({ pos, part, main }, i) => ({
-    id: id * 10 + pos,
-    pos,
-    rarity: 5,
-    level: pos === 4 && level < 80 ? 12 : 15,
-    name: `${sets[pos <= 4 ? 0 : 1]}的${part}`,
-    desc: "",
-    icon: `${IMG}/relic/${id}-${pos}.png`,
-    main_property: { property_type: main[0], value: main[1], times: 0 },
-    properties: [
-      { property_type: 52, value: `${(2.6 + i * 0.6).toFixed(1)}%`, times: 1 + (i % 3) },
-      { property_type: 53, value: `${(5.2 + i * 1.3).toFixed(1)}%`, times: 1 + ((i + 1) % 4) },
-      { property_type: 51, value: String(2 + (i % 3)), times: 1 },
-      { property_type: 33, value: `${(3.9 + i).toFixed(1)}%`, times: 1 + (i % 2) },
-    ],
-  });
+  const relic = ({ pos, part, main }, i) => {
+    const relicLevel = pos === 4 && level < 80 ? 12 : 15;
+    // 每 3 級強化一次（+12 只有 4 次）；HoYoLAB 的 times 推定含初始那一次（依據見 lib/characters.ts 的 relicUpgrades()），所以是 1 + 強化次數
+    let left = Math.floor(relicLevel / 3);
+    const times = UPGRADES[i].map((n) => {
+      const used = Math.min(n, left);
+      left -= used;
+      return 1 + used;
+    });
+    return {
+      id: id * 10 + pos,
+      pos,
+      rarity: 5,
+      level: relicLevel,
+      name: `${sets[pos <= 4 ? 0 : 1]}的${part}`,
+      desc: "",
+      icon: `${IMG}/relic/${id}-${pos}.png`,
+      main_property: { property_type: main[0] ?? ELEMENT_DAMAGE[element], value: main[1], times: 0 },
+      properties: [
+        { property_type: 52, value: `${(2.6 + i * 0.6).toFixed(1)}%`, times: times[0] },
+        { property_type: 53, value: `${(5.2 + i * 1.3).toFixed(1)}%`, times: times[1] },
+        { property_type: 51, value: String(2 + (i % 3)), times: times[2] },
+        { property_type: 33, value: `${(3.9 + i).toFixed(1)}%`, times: times[3] },
+      ],
+    };
+  };
   const relics = RELIC_SLOTS.map(relic);
   return {
     id,
@@ -328,5 +351,6 @@ export function handle({ req, url, body, json, image }) {
     if (kind === "skill") return image(key.startsWith("major") ? "行" : key === "bonus" ? "+" : "技", { width: 64, height: 64, round: true });
     return image(kind, { width: 96, height: 96 });
   }
+
   return false;
 }

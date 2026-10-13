@@ -7,6 +7,7 @@ export const youtubeTags = {
   videos: "youtube:videos",
   settings: "youtube:settings",
   translations: "youtube:translations",
+  savedVideos: "youtube:saved_videos",
   /** 頻道頁的頭像與 oEmbed 影片資訊：外部資料不存資料庫，沒有寫入點，靠效期更新 */
   external: "youtube:external",
   /** 觀看頁只讀一支影片的翻譯：翻譯每批寫回時，別支影片的快取不受影響 */

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { requireSession } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { BackLink } from "@/core/ui/back-link";
+import { PageTheme } from "@/core/ui/page-theme";
 import { Icon } from "@/core/ui/icon";
 import { PageHeader } from "@/core/ui/page-header";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
@@ -15,13 +16,13 @@ async function SettingsLoader() {
 
 function SettingsSkeleton() {
   return (
-    <LoadingState className="page-stack">
+    <LoadingState className="page-stack xl:grid xl:grid-cols-3">
       <div className="card stack">
         <div className="flex items-center gap-3">
           <Skeleton className="size-9 shrink-0 rounded-xl" />
           <Skeleton className="h-5 w-36" />
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 xl:grid-cols-1">
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} className="h-11 rounded-xl" />
           ))}
@@ -50,7 +51,7 @@ function SettingsSkeleton() {
 // 跟列表頁、觀看頁一樣是 YouTube 的淺色／深色
 export function SettingsPage({ info }: { info: ModuleInfo }) {
   return (
-    <div data-accent={info.accent} className="theme-youtube page-stack">
+    <PageTheme accent={info.accent} className="theme-youtube page-stack">
       {/* 返回連結、標題與說明是同一組，組內 gap-4；下面的表單是另一個區塊 */}
       <div className="stack">
         <BackLink href={info.href}>{info.name}</BackLink>
@@ -68,6 +69,6 @@ export function SettingsPage({ info }: { info: ModuleInfo }) {
       <Suspense fallback={<SettingsSkeleton />}>
         <SettingsLoader />
       </Suspense>
-    </div>
+    </PageTheme>
   );
 }

@@ -244,6 +244,87 @@ describe("架構規則", () => {
     expect(offenders).toEqual([]);
   });
 
+  // 規則寫在 CLAUDE.md「程式碼慣例」：焦點鎖定、Esc、點背景、關閉後還焦點、Activity 藏起來時一定關掉，都只寫在共用的元件裡
+  it("原生的 <dialog> 與 showModal() 只出現在 core/ui/dialog.tsx，其他地方用它的 Dialog／DialogButton", () => {
+    const offenders = files
+      .filter((file) => !isTest(file) && file !== "core/ui/dialog.tsx")
+      .flatMap((file) =>
+        fs
+          .readFileSync(path.join(SRC, file), "utf8")
+          .split("\n")
+          .flatMap((line, i) => (/<dialog\b|\.showModal\(/.test(line) ? [`${file}:${i + 1} ${line.trim()}`] : [])),
+      );
+    expect(fs.readFileSync(path.join(SRC, "core/ui/dialog.tsx"), "utf8")).toMatch(/<dialog\b[\s\S]*\.showModal\(|\.showModal\([\s\S]*<dialog\b/);
+    expect(offenders).toEqual([]);
+  });
+
+  // 規則寫在 CLAUDE.md「程式碼慣例」的畫面風格：Activity 藏起來的頁面還留在文件裡，:root:has() 會比對到它；PageTheme 在藏起來時標記，選擇器才排除得掉
+  it("會換整頁樣式的主題 class（globals.css 的 :root:has(.theme-…)）只放在 core/ui/page-theme.tsx 的 PageTheme 上", () => {
+    const css = fs.readFileSync(path.join(SRC, "app/globals.css"), "utf8");
+    const pageThemes = [...new Set([...css.matchAll(/(?::root|html|body):has\(\.(theme-[\w-]+)/g)].map((m) => m[1]))];
+    const offenders = files
+      .filter((file) => !isTest(file) && file.endsWith(".tsx"))
+      .flatMap((file) =>
+        fs
+          .readFileSync(path.join(SRC, file), "utf8")
+          .split("\n")
+          .flatMap((line, i) => {
+            const isComment = /^\s*(?:\/\/|\{\/\*|\/?\*)/.test(line);
+            const usesTheme = pageThemes.some((theme) => new RegExp(`["'\`\\s]${theme}\\b`).test(line));
+            return usesTheme && !isComment && !/<PageTheme\b/.test(line) ? [`${file}:${i + 1} ${line.trim()}`] : [];
+          }),
+      );
+    expect(pageThemes).toContain("theme-youtube");
+    expect(offenders).toEqual([]);
+  });
+
+  // 規則寫在 CLAUDE.md「間距與對齊」：Server Action 的表單開頭有 React 加的隱藏 input，串流中的 Suspense 會在原地多一個 <template>，第幾個子元素會算錯
+  it("不從外框用子元素的位置排欄（[&>:nth-child()]、[&>:last-child]、*:first: 這類）；[&>:first-child] 只能挑永遠排第一個的 PageHeader", () => {
+    const POSITIONAL = /nth-child\(|nth-last-child\(|last-child|only-child|nth-of-type\(|nth-last-of-type\(|first-of-type|last-of-type|only-of-type/;
+    // Tailwind 的 *:（子元素）、**:（子孫）加上 first:、nth-2: 這類變體，跟 [&>:first-child] 一樣是從外框挑第幾個
+    const CHILD_VARIANT = /(?<![\w-])\*{1,2}:(?:[\w-]+:)*?(?:first|last|only|odd|even|(?:first|last|only)-of-type|nth-[^\s:"'`]+):/g;
+    const problems = files
+      .filter((file) => !isTest(file))
+      .flatMap((file) => {
+        const source = fs.readFileSync(path.join(SRC, file), "utf8");
+        const lineOf = (index: number) => source.slice(0, index).split("\n").length;
+        const childVariants = [...source.matchAll(CHILD_VARIANT)].map((m) => `${file}:${lineOf(m.index)} ${m[0]}：不能用子元素的位置排欄，col-span 寫在元素自己身上`);
+        const outerSelectors = [...source.matchAll(/\[&>[^\]\s"'`]*\]/g)].flatMap((m) => {
+          const at = `${file}:${lineOf(m.index)} ${m[0]}`;
+          if (POSITIONAL.test(m[0])) return [`${at}：不能用子元素的位置排欄，col-span 寫在元素自己身上`];
+          if (!m[0].includes("first-child")) return [];
+          // 這個 class 所在的開頭標籤結束後，第一個 JSX 子元素（略過空白與 {/* */} 註解）要是 PageHeader
+          const rest = source.slice(m.index + m[0].length);
+          const tagEnd = rest.search(/["'`][^>]*?>/);
+          const firstChild = tagEnd < 0 ? null : rest.slice(tagEnd).replace(/^["'`][^>]*?>/, "").match(/^(?:\s|\{\/\*[\s\S]*?\*\/\})*<([A-Za-z.]+)/)?.[1];
+          return firstChild === "PageHeader" ? [] : [`${at}：[&>:first-child] 只能用在第一個子元素是 <PageHeader> 的外框（這裡是 ${firstChild ?? "看不出來"}）`];
+        });
+        return [...childVariants, ...outerSelectors];
+      });
+    expect(problems).toEqual([]);
+  });
+
+  // 規則寫在 CLAUDE.md「程式碼慣例」：externalFetch() 在開發時改送假伺服器、加上逾時；直接呼叫全域 fetch 會在 E2E 打到真的服務
+  it("正式程式不直接呼叫全域 fetch()：對外請求經 core/external-url 的 externalFetch；例外只有它本身與 client 元件呼叫自家的 /api/", () => {
+    const problems = files
+      .filter((file) => !isTest(file) && placeOf(file).zone !== "dev" && file !== "core/external-url.ts")
+      .flatMap((file) => {
+        const source = fs.readFileSync(path.join(SRC, file), "utf8");
+        const isClient = /^\s*["']use client["']/.test(source);
+        // 同一個檔案裡寫成常數的自家 API 路徑，例如 const API = "/api/notifications"
+        const apiConstants = new Set([...source.matchAll(/\bconst\s+(\w+)\s*=\s*["'`]\/api\//g)].map((m) => m[1]));
+        return [...source.matchAll(/(?<![\w.$])(?:(?:globalThis|window|self)\.)?fetch\(\s*([^,)\s]*)/g)].flatMap((m) => {
+          const target = m[1];
+          const ownApi = /^["'`]\/api\//.test(target) || apiConstants.has(target);
+          if (isClient && ownApi) return [];
+          return [`${file}:${source.slice(0, m.index).split("\n").length} ${m[0]}：改用 externalFetch()${ownApi ? "（只有 client 元件可以直接呼叫自家的 /api/）" : ""}`];
+        });
+      });
+    // 先確認真的掃到了已知的例外（通知中心輪詢自家的 API），規則才不會因為沒掃到東西而空轉
+    expect(fs.readFileSync(path.join(SRC, "core/notifications/center.tsx"), "utf8")).toMatch(/(?<![\w.$])fetch\(API/);
+    expect(problems).toEqual([]);
+  });
+
   it("資料表只定義在 core/db/schema.ts 與各模組的 data/schema.ts（drizzle.config.ts 只收這些檔案），表名加前綴", () => {
     const isSchemaFile = (file: string) => file === "core/db/schema.ts" || /^modules\/[^/]+\/data\/schema\.ts$/.test(file);
     const problems = files

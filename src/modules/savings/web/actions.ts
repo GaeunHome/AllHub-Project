@@ -40,9 +40,10 @@ export async function updateGoalAction(_prev: FormState, formData: FormData): Pr
   const id = formId(formData, "goalId");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return attempt("修改項目", async () => {
-    await service.updateGoal(userId, id, goalFields(formData));
+    const goal = await service.updateGoal(userId, id, goalFields(formData));
     // 改名會同步每筆紀錄上的名稱快照
     updateTags(savingsTags.goals, savingsTags.entries);
+    return `已儲存「${goal.name}」，每月 ${formatTwd(goal.monthlyAmount)}`;
   });
 }
 

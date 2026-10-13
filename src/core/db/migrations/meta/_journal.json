@@ -50,6 +50,13 @@
       "when": 1791455237904,
       "tag": "0006_per_user_data",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791731712875,
+      "tag": "0007_youtube_saved_videos",
+      "breakpoints": true
     }
   ]
 }

@@ -54,7 +54,8 @@ describe("首頁「最新影片」（YouTube）", () => {
     const markup = await html();
     const text = textOf(markup);
 
-    expect(markup.match(/i\.ytimg\.com\/vi\/[\w-]+\/mqdefault\.jpg/g)).toHaveLength(4);
+    // 只數 <img>：不延遲載入的縮圖，React 另外會放一個 <link rel="preload"> 先載
+    expect(markup.match(/<img[^>]*i\.ytimg\.com\/vi\/[\w-]+\/mqdefault\.jpg/g)).toHaveLength(4);
     expect(text).toContain("影片 vid00000004");
     expect(text).not.toContain("影片 vid00000005");
     expect(text).toContain("模擬頻道");
@@ -62,6 +63,19 @@ describe("首頁「最新影片」（YouTube）", () => {
     // 頻道頁的頭像還在讀的時候，先用追蹤時存下的
     expect(markup).toContain("yt3.ggpht.com/ytc/stored-avatar");
     expect(markup).toContain('href="/youtube"');
+  });
+
+  it("縮圖常常是首頁的 LCP：最新影片那一排（最多 4 支）都不延遲載入；頻道頭像照樣延遲", async () => {
+    cached.cachedRecentVideos.mockResolvedValue(["vid00000001", "vid00000002", "vid00000003", "vid00000004", "vid00000005"].map((id) => video(id)));
+
+    const markup = await html();
+    const thumbnails = markup.match(/<img[^>]*i\.ytimg\.com[^>]*>/g) ?? [];
+    const avatars = markup.match(/<img[^>]*yt3\.ggpht\.com[^>]*>/g) ?? [];
+
+    expect(thumbnails).toHaveLength(4);
+    for (const img of thumbnails) expect(img).toContain('loading="eager"');
+    expect(avatars.length).toBeGreaterThan(0);
+    for (const img of avatars) expect(img).toContain('loading="lazy"');
   });
 
   it("狀態標籤與點擊照 YouTube 頁的規則：有中文字幕直接到 YouTube（新分頁），其他到翻譯觀看頁", async () => {

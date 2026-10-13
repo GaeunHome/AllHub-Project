@@ -1,19 +1,24 @@
 import "server-only";
-import { and, desc, eq, gte, inArray, isNull, lt, ne, or } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { expireTags } from "@/core/cache";
 import { db } from "@/core/db";
 import { logError } from "@/core/errors";
 import { hasChineseCaptions, listCaptionTracks } from "../lib/subtitles/captions";
 import { youtubeFollows, youtubeVideos, type ZhCaptionStatus } from "../data/schema";
 import { youtubeTags } from "./cache-tags";
+import { listedVideoIds, newestFirst } from "./video-list";
 
-/** 很多頻道上片後才補字幕：發布兩天內、還沒有中文的影片，清單顯示時重新檢查 */
+/** 很多頻道上片後才補字幕：發布兩天內、還沒有中文的影片，清單顯示時每小時重新檢查；從沒檢查過的（追蹤時從 RSS 補進來的舊影片）不論發布多久都先檢查一次 */
 const RECHECK_WINDOW_MS = 48 * 3600_000;
 const RECHECK_INTERVAL_MS = 3600_000;
+/** 檢查過但讀不到（多半是被 YouTube 擋下）的，不論發布多久隔一天再試：不會永遠停在「字幕未確認」，也不會一直打 YouTube */
+const UNKNOWN_RETRY_MS = 24 * 3600_000;
 // 每次最多檢查幾支，避免一次對 YouTube 發太多請求被擋
 export const RECHECK_BATCH = 5;
+/** 名額有限時最久沒檢查的先（從沒檢查過的排最前），同一組裡新的先：剛發布的影片每小時到期，才不會一直把從沒檢查過的舊影片擠掉 */
+const longestUncheckedFirst = [sql`${youtubeVideos.zhCaptionsCheckedAt} asc nulls first`, ...newestFirst];
 
-// 頁面與 Server Action 只處理登入者追蹤的頻道的影片；影片本身是共用的，檢查結果所有追蹤者都看得到
+// 手動重新檢查只處理登入者追蹤的頻道的影片；影片本身是共用的，檢查結果所有追蹤者都看得到
 const followedBy = (userId: string) =>
   inArray(youtubeVideos.channelId, db().select({ channelId: youtubeFollows.channelId }).from(youtubeFollows).where(eq(youtubeFollows.userId, userId)));
 
@@ -32,39 +37,56 @@ export async function checkFollowedVideoCaptions(userId: string, videoId: string
   return video ? checkChineseCaptions(videoId, now) : null;
 }
 
-export type RecheckCandidate = { videoId: string; publishedAt: Date | null; zhCaptionsCheckedAt: Date | null };
+export type RecheckCandidate = { videoId: string; publishedAt: Date | null; zhCaptions: ZhCaptionStatus; zhCaptionsCheckedAt: Date | null };
 
-/** 自己追蹤的頻道裡還沒有中文字幕的影片；不在 SQL 裡比時間，結果才能快取到下次寫入，到期與否交給 isRecheckDue 用當下時間判斷 */
+/** 自己清單上（最新 LIST_LIMIT 支）還沒有中文字幕的影片；不在 SQL 裡比時間，結果才能快取到下次寫入，到期與否交給 isRecheckDue 用當下時間判斷 */
 export async function recheckCandidates(userId: string): Promise<RecheckCandidate[]> {
   return db()
-    .select({ videoId: youtubeVideos.videoId, publishedAt: youtubeVideos.publishedAt, zhCaptionsCheckedAt: youtubeVideos.zhCaptionsCheckedAt })
+    .select({ videoId: youtubeVideos.videoId, publishedAt: youtubeVideos.publishedAt, zhCaptions: youtubeVideos.zhCaptions, zhCaptionsCheckedAt: youtubeVideos.zhCaptionsCheckedAt })
     .from(youtubeVideos)
-    .where(and(ne(youtubeVideos.zhCaptions, "yes"), followedBy(userId)));
+    .where(and(ne(youtubeVideos.zhCaptions, "yes"), inArray(youtubeVideos.id, listedVideoIds(userId))));
 }
 
 /** 與 recheckDueCaptions 認領的條件相同：頁面先用快取判斷，沒有到期的影片就不必在背景碰資料庫 */
-export function isRecheckDue({ publishedAt, zhCaptionsCheckedAt }: RecheckCandidate, now = new Date()): boolean {
+export function isRecheckDue({ publishedAt, zhCaptions, zhCaptionsCheckedAt }: RecheckCandidate, now = new Date()): boolean {
+  if (zhCaptions === "yes") return false;
+  if (!zhCaptionsCheckedAt) return true;
+  const checkedAgo = now.getTime() - zhCaptionsCheckedAt.getTime();
+  if (zhCaptions === "unknown" && checkedAgo > UNKNOWN_RETRY_MS) return true;
   if (!publishedAt || publishedAt.getTime() < now.getTime() - RECHECK_WINDOW_MS) return false;
-  return !zhCaptionsCheckedAt || zhCaptionsCheckedAt.getTime() < now.getTime() - RECHECK_INTERVAL_MS;
+  return checkedAgo > RECHECK_INTERVAL_MS;
 }
 
-/** 只檢查這個人追蹤的頻道的影片，回傳這次檢查了幾支；先把檢查時間改成現在當作認領，同時觸發好幾次也不會重複檢查同一支 */
+/** 只檢查這個人清單上的影片，回傳這次檢查了幾支；先把檢查時間改成現在當作認領，同時觸發好幾次也不會重複檢查同一支 */
 export async function recheckDueCaptions(userId: string, now = new Date()): Promise<number> {
+  const before = (ms: number) => new Date(now.getTime() - ms);
   const due = and(
-    followedBy(userId),
+    inArray(youtubeVideos.id, listedVideoIds(userId)),
     ne(youtubeVideos.zhCaptions, "yes"),
-    gte(youtubeVideos.publishedAt, new Date(now.getTime() - RECHECK_WINDOW_MS)),
-    or(isNull(youtubeVideos.zhCaptionsCheckedAt), lt(youtubeVideos.zhCaptionsCheckedAt, new Date(now.getTime() - RECHECK_INTERVAL_MS))),
+    or(
+      isNull(youtubeVideos.zhCaptionsCheckedAt),
+      and(eq(youtubeVideos.zhCaptions, "unknown"), lt(youtubeVideos.zhCaptionsCheckedAt, before(UNKNOWN_RETRY_MS))),
+      and(gte(youtubeVideos.publishedAt, before(RECHECK_WINDOW_MS)), lt(youtubeVideos.zhCaptionsCheckedAt, before(RECHECK_INTERVAL_MS))),
+    ),
   );
-  const candidates = db().select({ id: youtubeVideos.id }).from(youtubeVideos).where(due).orderBy(desc(youtubeVideos.publishedAt)).limit(RECHECK_BATCH);
-  // 外層再比一次條件：另一個請求先認領走的列，等鎖結束後重新判斷就不符合了
+  const candidates = await db()
+    .select({ id: youtubeVideos.id, videoId: youtubeVideos.videoId })
+    .from(youtubeVideos)
+    .where(due)
+    .orderBy(...longestUncheckedFirst)
+    .limit(RECHECK_BATCH);
+  if (candidates.length === 0) return 0;
+  // 認領時再比一次條件：另一個請求先認領走的列，等鎖結束後重新判斷就不符合了
   const claimed = await db()
     .update(youtubeVideos)
     .set({ zhCaptionsCheckedAt: now })
-    .where(and(inArray(youtubeVideos.id, candidates), due))
-    .returning({ videoId: youtubeVideos.videoId });
+    .where(and(inArray(youtubeVideos.id, candidates.map((c) => c.id)), due))
+    .returning({ id: youtubeVideos.id });
+  const claimedIds = new Set(claimed.map((row) => row.id));
+  // 照認領前排好的順序檢查（UPDATE … RETURNING 不保證順序）：背景工作被中斷時，排在前面的已經檢查過
+  const mine = candidates.filter((c) => claimedIds.has(c.id));
 
-  for (const { videoId } of claimed) {
+  for (const { videoId } of mine) {
     try {
       await checkChineseCaptions(videoId, now);
     } catch (error) {
@@ -72,6 +94,6 @@ export async function recheckDueCaptions(userId: string, now = new Date()): Prom
     }
   }
   // 只在頁面的 after() 裡執行，不是 Server Action
-  if (claimed.length > 0) expireTags(youtubeTags.videos);
-  return claimed.length;
+  if (mine.length > 0) expireTags(youtubeTags.videos);
+  return mine.length;
 }

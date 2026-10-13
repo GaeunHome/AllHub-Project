@@ -9,8 +9,17 @@ import type { TwitchStreamer } from "../../data/schema";
 
 type LiveStreamer = StreamerVisual<TwitchStreamer>;
 
-// 寬螢幕一排四張、平板兩張；手機上改成一列一位（小預覽圖在左），不會一張預覽圖就佔滿整個畫面
-const GRID = "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4";
+// 依卡片寬度（容器查詢，不看螢幕寬度）：寬的一排四張、中等兩張；很窄時一列一位（小預覽圖在左），不會一張預覽圖就佔滿整個畫面
+const GRID = "grid grid-cols-1 gap-4 @md:grid-cols-2 @4xl:grid-cols-4";
+// 只有一兩位在直播時改成橫的卡片（預覽圖在左、資訊在右），寬的時候兩張一列：直的卡片排四欄只會用到半張卡片，旁邊空一大片
+const FEW_GRID = "grid grid-cols-1 gap-4 @4xl:grid-cols-2";
+const FEW = 2;
+
+type TileLayout = "column" | "row";
+const TILE_CLASS: Record<TileLayout, { link: string; preview: string }> = {
+  column: { link: "group flex items-start gap-3 rounded-xl @md:flex-col @md:items-stretch", preview: "w-32 @md:w-full" },
+  row: { link: "group flex items-start gap-3 rounded-xl @md:gap-4", preview: "w-32 @md:w-56 @6xl:w-72" },
+};
 // web 層不能讀模組根目錄的 info.ts，模組網址寫在這裡
 const TWITCH_PAGE = "/twitch";
 
@@ -18,12 +27,13 @@ const TWITCH_PAGE = "/twitch";
 export function LiveNowList({ streamers, more, now }: { streamers: LiveStreamer[]; more: number; now: Date }) {
   if (streamers.length === 0) return <EmptyState compact icon="tv" title="目前沒有追蹤的主播在直播" />;
 
+  const layout: TileLayout = streamers.length <= FEW ? "row" : "column";
   return (
     <div className="stack">
-      <ul className={GRID}>
+      <ul className={layout === "row" ? FEW_GRID : GRID}>
         {streamers.map((s) => (
           <li key={s.id} className="min-w-0">
-            <LiveTile streamer={s} now={now} />
+            <LiveTile streamer={s} now={now} layout={layout} />
           </li>
         ))}
       </ul>
@@ -52,7 +62,7 @@ export function NoFollowedStreamers() {
 }
 
 /** 一位主播一個連結（新分頁開 Twitch）；沒有預覽圖（沒設定憑證、剛開台）時改放頭像，資訊只寫「直播中」 */
-function LiveTile({ streamer: s, now }: { streamer: LiveStreamer; now: Date }) {
+function LiveTile({ streamer: s, now, layout }: { streamer: LiveStreamer; now: Date; layout: TileLayout }) {
   const live = s.live;
   const avatar = externalAssetUrl(s.avatarUrl);
   const meta = [formatViewerCount(live?.viewerCount ?? null), formatLiveDuration(live?.startedAt ?? null, now)].filter((text) => text !== null);
@@ -68,10 +78,11 @@ function LiveTile({ streamer: s, now }: { streamer: LiveStreamer; now: Date }) {
       target="_blank"
       rel="noreferrer"
       title={live?.title ?? undefined}
-      className="group flex items-start gap-3 rounded-xl sm:flex-col sm:items-stretch"
+      className={TILE_CLASS[layout].link}
     >
-      <span className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg bg-surface-muted ring-accent transition-shadow group-hover:ring-2 sm:w-full">
-        {live?.previewUrl ? <ExternalImage src={externalAssetUrl(live.previewUrl)} alt="" fill className="object-cover" fallback={placeholder} /> : placeholder}
+      <span className={`relative aspect-video shrink-0 overflow-hidden rounded-lg bg-surface-muted ring-accent transition-shadow group-hover:ring-2 ${TILE_CLASS[layout].preview}`}>
+        {/* 都在首頁最上面那張卡片的第一排：立刻載入（常常是 LCP） */}
+        {live?.previewUrl ? <ExternalImage src={externalAssetUrl(live.previewUrl)} alt="" fill loading="eager" className="object-cover" fallback={placeholder} /> : placeholder}
         <span className="tw-live-badge">LIVE</span>
       </span>
       {/* 頭像對齊第一行（主播名稱），文字有三、四行時也不會飄在中間 */}
@@ -94,8 +105,8 @@ export function LiveNowSkeleton() {
   return (
     <LoadingState label="載入正在直播的主播…" className={GRID}>
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className={`flex items-start gap-3 sm:flex-col sm:items-stretch ${i > 1 ? "hidden lg:flex" : ""}`}>
-          <Skeleton className="aspect-video w-32 shrink-0 rounded-lg sm:w-full" />
+        <div key={i} className={`flex items-start gap-3 @md:flex-col @md:items-stretch ${i > 1 ? "hidden @4xl:flex" : ""}`}>
+          <Skeleton className="aspect-video w-32 shrink-0 rounded-lg @md:w-full" />
           <div className="flex flex-1 items-start gap-3">
             <Skeleton className="size-9 shrink-0 rounded-full" />
             <div className="flex flex-1 flex-col gap-1.5">

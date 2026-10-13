@@ -20,11 +20,14 @@ import type { SourceKind } from "../../data/schema";
 import type { Cue } from "../../lib/subtitles/format";
 import type { Progress } from "../../service/translation";
 import { shouldAutoContinue, shouldAutoStart, useAutoTranslate } from "../auto-translate";
+import { createJoinFlag } from "../join-translation";
+import { usePlayerSize } from "../player-size";
 import type { SubtitleMode } from "../subtitle-display";
 import { SUBTITLE_SIZES, useSubtitleSize } from "../subtitle-size";
 import { runTranslationLoop, type LoopStop } from "../translation-loop";
 import { prepareUpload } from "../upload";
-import { YoutubePlayer, useCanFullscreen, type PlayerHandle } from "./youtube-player";
+import { AutoSavedContext } from "./save-video-button";
+import { YoutubePlayer, type PlayerHandle } from "./youtube-player";
 
 export type WatchTranslation = Progress & { cues: Cue[]; sourceKind: SourceKind };
 
@@ -68,8 +71,9 @@ type WatchClientProps = {
 export function WatchClient({ videoId, title, channel, translationKey, translation, apiKeyMissing, canManage, startedByViewer, settingsHref }: WatchClientProps) {
   const [mode, setMode] = useState<SubtitleMode>("both");
   const [subtitleSize, setSubtitleSize] = useSubtitleSize();
+  const [playerSize, setPlayerSize] = usePlayerSize();
+  const theater = playerSize === "theater";
   const [autoTranslate, setAutoTranslate] = useAutoTranslate();
-  const canFullscreen = useCanFullscreen();
   const starter = useStartTranslation(videoId);
   const playerRef = useRef<PlayerHandle>(null);
   const playingRef = useRef(false);
@@ -77,6 +81,8 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
   // 按過「用我的 API Key 繼續翻譯」、開始或重試：這一頁之後都接著翻（面板重新掛載也記得）；記影片 id，換影片就要重新按
   const [consentedVideo, setConsentedVideo] = useState<string | null>(null);
   const consent = () => setConsentedVideo(videoId);
+  // 按「用我的 API Key 繼續翻譯」後伺服器把影片加進了保留的影片：續翻不重繪頁面，頻道列的「保留」靠這個當場改成「已保留」
+  const [autoSavedVideo, setAutoSavedVideo] = useState<string | null>(null);
   const autoContinue = shouldAutoContinue({
     active: isActive(translation?.status),
     apiKeyMissing: apiKeyMissing !== null,
@@ -110,71 +116,72 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
     if (on && playingRef.current) autoStart(true);
   };
 
-  // 字幕語言、大小與全螢幕：不論有沒有翻譯都放在同一排膠囊的後段
-  const playerControls = (
+  // 字幕語言與大小放在膠囊的後段；全螢幕與劇院模式的按鈕在播放器上
+  const playerControls = translation && (
     <>
-      {translation && (
-        <>
-          <PillChoice label="字幕語言" icon="captions" options={MODES} value={mode} onChange={setMode} />
-          <PillChoice label="字幕大小" text="大小" options={SUBTITLE_SIZES} value={subtitleSize} onChange={setSubtitleSize} />
-        </>
-      )}
-      {canFullscreen && (
-        <button type="button" onClick={() => playerRef.current?.toggleFullscreen()} className="yt-pill">
-          <Icon name="tv" className="size-4" />
-          全螢幕
-        </button>
-      )}
+      <PillChoice label="字幕語言" icon="captions" options={MODES} value={mode} onChange={setMode} />
+      <PillChoice label="字幕大小" text="大小" options={SUBTITLE_SIZES} value={subtitleSize} onChange={setSubtitleSize} />
     </>
   );
 
   return (
-    <div className="stack min-w-0">
-      <YoutubePlayer
-        ref={playerRef}
-        videoId={videoId}
-        cues={translation?.cues ?? []}
-        translated={translated}
-        mode={mode}
-        subtitleSize={subtitleSize}
-        translating={translating}
-        onPlayingChange={(playing) => {
-          playingRef.current = playing;
-          if (playing) autoStart(autoTranslate);
-        }}
-      />
-      {title}
-      {translation ? (
-        // 伺服器端狀態換了只重建這個面板；播放器保留，影片不會重新載入
-        <TranslationPanel
-          key={translationKey}
+    <AutoSavedContext value={{ videoId: autoSavedVideo, clear: () => setAutoSavedVideo(null) }}>
+      {/* 劇院模式在寬螢幕拆開這一層：播放器撐滿版面的兩欄，標題與翻譯面板、接下來播放排到下面一列 */}
+      <div className={theater ? "stack min-w-0 lg:contents" : "stack min-w-0"}>
+        <YoutubePlayer
+          // 換影片時整個重建：上一支的字幕與播放狀態不會留到下一支
+          key={videoId}
+          ref={playerRef}
           videoId={videoId}
-          channel={channel}
-          controls={playerControls}
-          translation={translation}
-          // 播放器還沒準備好時影片也是從頭播，先從頭翻
-          position={() => playerRef.current?.positionMs() ?? 0}
-          apiKeyMissing={apiKeyMissing}
-          canManage={canManage}
-          autoContinue={autoContinue}
-          onConsent={consent}
-          settingsHref={settingsHref}
-          onUpdate={report}
+          cues={translation?.cues ?? []}
+          translated={translated}
+          mode={mode}
+          subtitleSize={subtitleSize}
+          translating={translating}
+          size={playerSize}
+          onSizeChange={setPlayerSize}
+          className={theater ? "lg:col-span-2" : undefined}
+          onPlayingChange={(playing) => {
+            playingRef.current = playing;
+            if (playing) autoStart(autoTranslate);
+          }}
         />
-      ) : (
-        <StartPanel
-          videoId={videoId}
-          channel={channel}
-          controls={playerControls}
-          starter={starter}
-          autoTranslate={autoTranslate}
-          onAutoTranslateChange={changeAutoTranslate}
-          onConsent={consent}
-          apiKeyMissing={apiKeyMissing}
-          settingsHref={settingsHref}
-        />
-      )}
-    </div>
+        <div className="stack min-w-0">
+          {title}
+          {translation ? (
+            // 伺服器端狀態換了只重建這個面板；播放器保留，影片不會重新載入
+            <TranslationPanel
+              key={translationKey}
+              videoId={videoId}
+              channel={channel}
+              controls={playerControls}
+              translation={translation}
+              // 播放器還沒準備好時影片也是從頭播，先從頭翻
+              position={() => playerRef.current?.positionMs() ?? 0}
+              apiKeyMissing={apiKeyMissing}
+              canManage={canManage}
+              autoContinue={autoContinue}
+              onConsent={consent}
+              onSaved={() => setAutoSavedVideo(videoId)}
+              settingsHref={settingsHref}
+              onUpdate={report}
+            />
+          ) : (
+            <StartPanel
+              videoId={videoId}
+              channel={channel}
+              controls={playerControls}
+              starter={starter}
+              autoTranslate={autoTranslate}
+              onAutoTranslateChange={changeAutoTranslate}
+              onConsent={consent}
+              apiKeyMissing={apiKeyMissing}
+              settingsHref={settingsHref}
+            />
+          )}
+        </div>
+      </div>
+    </AutoSavedContext>
   );
 }
 
@@ -270,15 +277,19 @@ type TranslationPanelProps = {
   /** 打開就接著翻（自己發起的，或觀看者已經按過繼續翻譯） */
   autoContinue: boolean;
   onConsent: () => void;
+  /** 續翻的回應說伺服器把影片加進了保留的影片 */
+  onSaved: () => void;
   settingsHref: string;
   onUpdate: (update: LiveUpdate) => void;
 };
 
-function TranslationPanel({ videoId, channel, controls, translation, position, apiKeyMissing, canManage, autoContinue, onConsent, settingsHref, onUpdate }: TranslationPanelProps) {
+function TranslationPanel({ videoId, channel, controls, translation, position, apiKeyMissing, canManage, autoContinue, onConsent, onSaved, settingsHref, onUpdate }: TranslationPanelProps) {
   const [progress, setProgress] = useState<Progress>(translation);
   const [error, setError] = useState<LoopStop | null>(null);
   // 每按一次「繼續翻譯」加一，讓自動續跑重新開始
   const [run, setRun] = useState(0);
+  // 按了「用我的 API Key 繼續翻譯」：續翻成功後伺服器才把影片加進自己保留的影片
+  const [join] = useState(() => createJoinFlag(onSaved));
   const [pending, startTransition] = useTransition();
   const [uploadOpen, setUploadOpen] = useState(false);
   const uploadId = useId();
@@ -293,7 +304,7 @@ function TranslationPanel({ videoId, channel, controls, translation, position, a
     // 開發模式的 StrictMode 會掛載兩次：延到下一輪才開始，免得第一個迴圈的譯文被丟掉、排隊的呼叫帶著過時的播放位置
     const timer = setTimeout(() => {
       runTranslationLoop({
-        call: (positionMs) => continueTranslationAction(videoId, positionMs),
+        call: (positionMs) => join.send((joining) => continueTranslationAction(videoId, positionMs, joining)),
         position,
         onProgress: (p) => {
           setProgress(p);
@@ -334,6 +345,7 @@ function TranslationPanel({ videoId, channel, controls, translation, position, a
         {awaitingConsent && (
           <button
             onClick={() => {
+              join.raise();
               onConsent();
               onUpdate({ translating: true });
             }}

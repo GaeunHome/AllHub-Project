@@ -15,7 +15,7 @@
   - `MOCK_AI_MS_PER_LINE`：調整假 AI 的回應延遲。
 - **重設本機資料**：資料存在 `.pglite/`（不進版控）。要重來就停掉 `db:local`、刪掉這個資料夾，再跑一次 `db:migrate` 與 `account create`。
 - **播放器**：觀看頁的 YouTube 播放器是瀏覽器直接向 youtube.com 載入的，不經過假伺服器。
-- **圖片**：頭像、縮圖、直播預覽與角色圖的網址會經 `externalAssetUrl()` 改寫到假伺服器，由各模組的 `dev/mock.mjs` 回傳產生的 SVG 佔位圖；正式環境原樣輸出、由瀏覽器向平台的 CDN 載入。
+- **圖片**：頭像、縮圖、直播預覽與角色圖的網址會經 `externalAssetUrl()` 改寫到假伺服器，由各模組的 `dev/mock.mjs` 回傳產生的 SVG 佔位圖；正式環境原樣輸出、由瀏覽器向平台的 CDN 載入。YouTube 的影片縮圖補到跟真的縮圖差不多大（約 12 KB）：Chrome 的 LCP 不算每像素資訊量太低的圖，只有幾百 bytes 的佔位圖放大成卡片縮圖會被略過，量到的 LCP 與 next/image 的 LCP 警告會不準；其他模組的大圖（例如 Twitch 的直播預覽）還是幾百 bytes，量 LCP 時要記得這點。星穹鐵道的元素、命途與屬性小圖示是內建的靜態檔（`public/icons/starrail/`），開發時也是真的遊戲圖示，不經過假伺服器。
 
 ## 假伺服器的特殊輸入
 
@@ -28,15 +28,19 @@
 | HoYoLAB | `ltuid_v2` 的數字 | 主要角色的 UID 跟著它變（`ltuid_v2=123456` 是 `900123456`）：換一個數字就是另一個遊戲帳號；別的使用者用同一個數字連結時，會被拒絕（已經被其他使用者連結） |
 | HoYoLAB | `ltuid_v2` 以 2 開頭（例如 `ltuid_v2=223456`） | 台港澳服與亞服各有一個角色（亞服的是 4 級的小號），連結時會出現選伺服器的步驟 |
 | HoYoLAB | `ltoken_v2=private` | 角色詳情沒有公開（10102） |
+| HoYoLAB | 角色詳情的遺器副詞條 | 強化次數是固定的：+15 的遺器每件強化 5 次，最多的一條是連結繩的暴擊率 +5；頭部是暴擊率 +2、暴擊傷害 +1、攻擊力 +2；每件都有沒強化過的詞條（不顯示 +N）。等級低於 80 的角色（例如布洛妮婭、丹恆）腳部是 +12，只強化 4 次（暴擊率 +3、暴擊傷害 +1） |
 | HoYoLAB | 兌換碼 | `STARRAILGIFT` 或 `GIFT` 開頭成功（同一個 UID 第二次是已兌換）、`USED` 開頭已兌換、`EXPIRED` 開頭過期、`LEVEL` 開頭等級不足，其他無效；同一個 UID 5 秒內再兌換是太頻繁。cookie 要有 `cookie_token_v2` 與 `account_id_v2` |
 | YouTube | `@nobody` | 查無頻道；其他 `@帳號` 都會成功，hub 約 0.5 秒後回呼確認訂閱 |
-| YouTube | 頻道的 RSS feed | 每個頻道都有三支影片：3 小時前的 MV（影片 id `zhsubs` 開頭，有中文字幕）、30 小時前與 5 天前各一支；追蹤時會補進影片清單（別人已經追蹤的頻道只補超過 24 小時的） |
+| YouTube | 頻道的 RSS feed | 每個頻道都有三支一般影片：3 小時前的 MV（影片 id `zhsubs` 開頭，有中文字幕）、30 小時前與 5 天前各一支，追蹤時會補進影片清單（別人已經追蹤的頻道只補超過 24 小時的），縮圖先標「檢查字幕中」，約 4 秒後自動換成檢查結果；另有 1 小時前與 2 天前的兩支 Shorts（影片 id `short` 開頭，連結是 `/shorts/`），不會列進清單，`youtube:cleanup` 也是讀這份 RSS 找 Shorts |
 | YouTube | `@noavatar` 開頭（例如 `@noavatar_studio`） | 頻道頁沒有頭像，畫面退回文字頭像 |
 | YouTube | 影片 id 開頭 `nothumb`（例如 `nothumb0001`） | 縮圖回 404，畫面退回圖示 |
 | YouTube | 影片 id 開頭 `zhsubs`（例如 `zhsubs00001`） | 有人工上傳的中文字幕 |
 | YouTube | 影片 id 開頭 `zhauto`（例如 `zhauto00001`） | 只有自動產生的中文字幕，算沒有中文 |
 | YouTube | 影片 id 開頭 `nocaptions`（例如 `nocaptions1`） | 沒有任何字幕，可以試上傳字幕檔 |
+| YouTube | 影片 id 開頭 `syncsubs`（例如 `syncsubs001`） | 40 句長短不一的韓文字幕（從 1 秒開始），句子之間有剛好相連、40～200ms 的短空檔與 2 秒的長空檔，也有很長的句子：用來看字幕同步、換句與長句換行 |
+| YouTube | 影片 id 開頭 `short`（例如 `short000001`） | Shorts：`/shorts/<id>` 回 200。用下面的推送送這種 id，網站確認是 Shorts 後會刪掉、不通知（伺服器 log 記一行「確認是 Shorts，刪除推送的影片」與影片 id）；其他影片 id 的 `/shorts/<id>` 會 303 轉到 `/watch?v=` |
 | YouTube | 其他影片 id | 有 8 句韓文字幕 |
+| YouTube | oEmbed（沒追蹤的影片的標題與頻道） | 標題是「模擬影片標題 <影片 id>」，頻道是「模擬頻道」：觀看頁的標題、已保留的影片看得出有沒有對應到正確的影片 |
 | AI | 任何 API Key | 內建的 8 句假字幕有固定譯文，其他句子回「〔中〕原文」。每批等 0.4 秒加每句 0.08 秒；`MOCK_AI_MS_PER_LINE=0` 不等 |
 | AI | 含 `bad` 的 API Key | 翻譯時得到「… API Key 無效或沒有權限…」：只顯示給用這把 Key 的人，共用的翻譯不會標成失敗 |
 

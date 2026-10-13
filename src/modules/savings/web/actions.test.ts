@@ -64,6 +64,14 @@ describe("項目", () => {
     expect(service.updateGoal).toHaveBeenCalledWith(TEST_SESSION.id, 1, { name: "日本旅遊", monthlyAmount: "6000", note: "" });
   });
 
+  it("修改_回傳成功訊息（用存好的名稱與金額）：視窗關掉後顯示在「修改」旁邊", async () => {
+    service.updateGoal.mockResolvedValue({ ...goal, name: "日本旅遊", monthlyAmount: 6000 });
+
+    const state = await actions.updateGoalAction({}, form({ goalId: "1", name: " 日本旅遊 ", monthlyAmount: "6,000", note: "" }));
+
+    expect(state).toEqual({ message: "已儲存「日本旅遊」，每月 $6,000" });
+  });
+
   it.each([
     ["true", true],
     ["false", false],

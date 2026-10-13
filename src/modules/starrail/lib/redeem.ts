@@ -48,11 +48,12 @@ const COOKIE_INVALID = new Set([-100, 10001, -1071]);
 export function interpretRedeem(json: unknown): RedeemOutcome {
   const body = asRecord(json);
   const retcode = number(body?.retcode);
-  if (retcode === 0) return { ok: true, message: "兌換成功，獎勵會寄到遊戲內信箱", retcode, cookieInvalid: false };
+  if (retcode === 0) return { ok: true, message: "獎勵會寄到遊戲內信箱", retcode, cookieInvalid: false };
   if (retcode === null) {
     const local = typeof body?.localError === "string" ? body.localError : "HoYoLAB 回應格式和預期不同";
     return { ok: false, message: local, retcode: null, cookieInvalid: false };
   }
   if (COOKIE_INVALID.has(retcode)) return { ok: false, message: "HoYoLAB cookie 已失效，請重新登入 hoyolab.com 後重新連結", retcode, cookieInvalid: true };
-  return { ok: false, message: MESSAGES[retcode] ?? `兌換失敗（代碼 ${retcode}）`, retcode, cookieInvalid: false };
+  // 畫面的結果框標題已經寫「兌換失敗」，說明只寫原因
+  return { ok: false, message: MESSAGES[retcode] ?? `原因不明（錯誤代碼 ${retcode}）`, retcode, cookieInvalid: false };
 }

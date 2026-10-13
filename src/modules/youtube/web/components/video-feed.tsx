@@ -23,7 +23,7 @@ export function VideoFeed({ items }: { items: FeedItem[] }) {
       {shown.length === 0 ? (
         <p className="yt-box text-center text-ink-soft">目前沒有「{label}」的影片</p>
       ) : (
-        <ul className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {shown.map((item) => (
             <li key={item.id}>{item.card}</li>
           ))}

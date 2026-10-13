@@ -118,4 +118,37 @@ describe("首頁「正在直播」（Twitch）", () => {
     expect(textOf(markup)).toContain("還有 2 位正在直播");
     expect(markup).toContain('href="/twitch"');
   });
+
+  it("直播的只有一兩位_改成橫的卡片（預覽圖在左、資訊在右）兩張一列，不會只用到半張卡片", async () => {
+    cached.cachedStreamers.mockResolvedValue([streamer(1, "alice", true), streamer(2, "bob", true)]);
+
+    const markup = await html();
+
+    expect(markup.match(/<ul class="([^"]*)"/)![1].split(" ")).toEqual(expect.arrayContaining(["@4xl:grid-cols-2"]));
+    const tiles = markup.match(/<a[^>]*href="https:\/\/twitch\.tv\/[a-z]+"[^>]*>/g)!;
+    expect(tiles).toHaveLength(2);
+    for (const tile of tiles) expect(tile).not.toContain("flex-col");
+  });
+
+  it("三位以上_直的卡片（預覽圖在上）寬的時候排成四欄", async () => {
+    cached.cachedStreamers.mockResolvedValue(["aa", "bb", "cc"].map((login, i) => streamer(i + 1, login, true)));
+
+    const markup = await html();
+
+    expect(markup.match(/<ul class="([^"]*)"/)![1].split(" ")).toEqual(expect.arrayContaining(["@4xl:grid-cols-4"]));
+    for (const tile of markup.match(/<a[^>]*href="https:\/\/twitch\.tv\/[a-z]+"[^>]*>/g)!) expect(tile).toContain("@md:flex-col");
+  });
+
+  it("預覽圖都在卡片的第一排（首頁最上面）：立刻載入，不延遲", async () => {
+    cached.cachedStreamers.mockResolvedValue([streamer(1, "alice", false), streamer(2, "bob", false)]);
+    cached.cachedStreamerProfiles.mockResolvedValue([]);
+    cached.cachedLiveStreams.mockResolvedValue([liveStream("1001", "alice"), liveStream("1002", "bob")]);
+    cached.cachedGameArt.mockResolvedValue([]);
+
+    const previews = (await html()).match(/<img[^>]*live_user_[^>]*>/g)!;
+
+    expect(previews).toHaveLength(2);
+    for (const img of previews) expect(img).toContain('loading="eager"');
+  });
 });
+

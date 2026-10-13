@@ -14,7 +14,8 @@ export async function LedgerPanel({ account }: { account: StarrailAccountView })
   if (!first.ok) {
     return (
       <section className="stack">
-        <h3 className="sr-title">開拓月曆</h3>
+        {/* 標題列的高度跟有切換鈕時一樣，並排的終局戰績標題才對得齊 */}
+        <h3 className="sr-title min-h-11">開拓月曆</h3>
         <FormMessage tone="error">{first.message}</FormMessage>
       </section>
     );
@@ -27,7 +28,7 @@ export async function LedgerPanel({ account }: { account: StarrailAccountView })
 export function LedgerSkeleton() {
   return (
     <LoadingState label="向 HoYoLAB 查詢開拓月曆…" className="stack">
-      <h3 className="sr-title">開拓月曆</h3>
+      <h3 className="sr-title min-h-11">開拓月曆</h3>
       <div className="grid gap-4 sm:grid-cols-2">
         <Skeleton className="h-28 rounded-none" />
         <Skeleton className="h-28 rounded-none" />

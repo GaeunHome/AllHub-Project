@@ -3,10 +3,12 @@ import { Suspense } from "react";
 import { requireSession } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { BackLink } from "@/core/ui/back-link";
+import { PageTheme } from "@/core/ui/page-theme";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { parseVideoId } from "../../lib/parse";
 import { cachedMissingApiKeyMessage, cachedTranslation, cachedVideoTitle } from "../../service/cached";
 import { canManageTranslation, progressOf } from "../../service/translation";
+import { PlayerSizeSync } from "../components/player-size-sync";
 import { UpNext, UpNextSkeleton } from "../components/up-next";
 import { WatchClient } from "../components/watch-client";
 import { WatchChannel, WatchChannelFallback, WatchTitle, WatchTitleText } from "../components/watch-heading";
@@ -52,21 +54,25 @@ export async function WatchLoader({ params, info }: { params: Promise<{ videoId:
 /** 跟載入完成的版面一樣：播放器、標題、頻道列與膠囊按鈕、說明欄 */
 function WatchSkeleton() {
   return (
-    <LoadingState className="stack min-w-0">
-      <Skeleton className="aspect-video w-full rounded-2xl" />
-      <Skeleton className="h-7 w-3/4" />
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
-        <div className="flex min-w-0 flex-1 basis-48 items-center gap-3">
-          <Skeleton className="size-12 shrink-0 rounded-full" />
-          <Skeleton className="h-4 w-32" />
+    // 外層跟 WatchClient 一樣是播放器加下面一疊：劇院模式時一起拆開，標題排到下一列
+    <div className="stack min-w-0">
+      {/* 跟播放器佔同一個位置（.player-slot）：劇院模式、手機撐滿寬度時骨架的大小與位置也一樣，換成播放器時不會跳 */}
+      <Skeleton className="player-slot rounded-2xl max-sm:rounded-none" />
+      <LoadingState className="stack min-w-0">
+        <Skeleton className="h-7 w-3/4" />
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
+          <div className="flex min-w-0 flex-1 basis-48 items-center gap-3">
+            <Skeleton className="size-12 shrink-0 rounded-full" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-11 w-28 rounded-full" />
+            <Skeleton className="h-11 w-32 rounded-full" />
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-11 w-28 rounded-full" />
-          <Skeleton className="h-11 w-32 rounded-full" />
-        </div>
-      </div>
-      <Skeleton className="h-28 w-full rounded-xl" />
-    </LoadingState>
+        <Skeleton className="h-28 w-full rounded-xl" />
+      </LoadingState>
+    </div>
   );
 }
 
@@ -74,9 +80,12 @@ function WatchSkeleton() {
 // 照 YouTube 的觀看頁：播放器與翻譯在左，寬螢幕右側是「接下來播放」（手機排在下面）
 export function WatchPage({ params, info }: { params: Promise<{ videoId: string }>; info: ModuleInfo }) {
   return (
-    <div data-accent={info.accent} className="theme-youtube flex flex-col gap-4">
+    <PageTheme accent={info.accent} className="theme-youtube flex flex-col gap-4">
       <BackLink href={info.href}>{info.name}</BackLink>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      {/* 播放器大小優先：寬螢幕上寬度依視窗高度封頂（照 YouTube），最少佔一半，多出來的寬度給「接下來播放」；預留的高度算到一行標題與頻道列，視窗不夠高（播放器窄、膠囊會換到第二列）時多留那一列；劇院模式時播放器撐滿兩欄、其他排到下一列 */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-y-4 xl:grid-cols-[minmax(0,max(50%,calc((100dvh-20.25rem)*16/9)))_minmax(22rem,1fr)] xl:[@media(min-height:54rem)]:grid-cols-[minmax(0,max(50%,calc((100dvh-17rem)*16/9)))_minmax(22rem,1fr)]">
+        {/* 劇院模式存在瀏覽器：整頁載入時在播放器與骨架之前先標好，第一次繪製就是劇院模式 */}
+        <PlayerSizeSync />
         <Suspense fallback={<WatchSkeleton />}>
           <WatchLoader params={params} info={info} />
         </Suspense>
@@ -84,6 +93,6 @@ export function WatchPage({ params, info }: { params: Promise<{ videoId: string 
           <UpNext params={params} />
         </Suspense>
       </div>
-    </div>
+    </PageTheme>
   );
 }

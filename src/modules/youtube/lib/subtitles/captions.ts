@@ -161,7 +161,7 @@ function readTracks(player: Record<string, unknown>): CaptionTrack[] {
   return Array.isArray(tracks) ? (tracks as CaptionTrack[]) : [];
 }
 
-/** json3 → cue；自動字幕的事件會重疊，結束時間截到下一句開始，避免兩句同時顯示 */
+/** json3 → cue，依開始時間排序；自動字幕的事件會重疊，結束時間截到下一句開始，避免兩句同時顯示 */
 function json3ToCues(body: string): Cue[] | null {
   let events: Json3Event[];
   try {
@@ -179,7 +179,9 @@ function json3ToCues(body: string): Cue[] | null {
       end: e.tStartMs! + (e.dDurationMs ?? 0),
       text: e.segs!.map((s) => s.utf8 ?? "").join("").split("\n").map((l) => l.trim()).filter(Boolean).join("\n"),
     }))
-    .filter((cue) => cue.text);
+    .filter((cue) => cue.text)
+    // 寫進資料庫前排好：句子的位置就是譯文的編號，播放器也用二分搜尋；sort 是穩定的，同時開始的句子保持原本的順序
+    .sort((a, b) => a.start - b.start);
 
   return cues.map((cue, i) => {
     const next = cues[i + 1];

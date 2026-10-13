@@ -8,8 +8,8 @@ import { cachedEntryTotals, cachedGoals } from "../../service/cached";
 import { monthHref, type SearchParams } from "./month-href";
 import { AmountTile } from "./month-progress";
 
-// 兩欄等寬：長條圖與各項目累計並排時一樣大
-const PANELS = "grid gap-4 lg:grid-cols-2";
+// 兩欄等寬：長條圖與各項目累計並排時一樣大；看統計這一塊的寬度（外層是 @container），寬螢幕的記帳頁分成兩欄時這一塊沒有螢幕那麼寬
+const PANELS = "grid gap-4 @3xl:grid-cols-2";
 const PANEL = "panel-outline stack min-w-0";
 
 type Point = { month: MonthKey; amount: number; percent: number };
@@ -23,7 +23,7 @@ export async function Statistics({ searchParams }: { searchParams: SearchParams 
   const summary = summarize(goals, totals, current);
 
   return (
-    <div className="stack">
+    <div className="stack @container">
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <AmountTile icon="calendar" label={`${current.slice(0, 4)} 年累計`} amount={summary.thisYear} />
         <AmountTile icon="piggy-bank" label="全部累計" amount={summary.allTime} />
@@ -62,7 +62,8 @@ function MonthlyChart({ series, selected }: { series: Point[]; selected: MonthKe
         <p className="text-ink">最近 12 個月還沒有存款紀錄。</p>
       ) : (
         <>
-          <div className="flex flex-col gap-1.5">
+          {/* 月份標籤看長條圖本身的寬度：一欄不到 32px（24rem／12）時「10 月」放不下 */}
+          <div className="flex flex-col gap-1.5 @container">
             <p className="text-right text-xs text-ink-soft tabular-nums">最高 {formatTwd(max)}</p>
             <ol className="grid h-44 grid-cols-12 border-y border-line">
               {series.map((point, index) => (
@@ -94,9 +95,9 @@ function MonthlyChart({ series, selected }: { series: Point[]; selected: MonthKe
             <ol aria-hidden className="grid grid-cols-12 text-center text-xs leading-tight text-ink-soft">
               {series.map((point, index) => (
                 <li key={point.month} className={point.month === selected ? "font-semibold text-ink" : undefined}>
-                  {/* 一欄不到 30px 時只放月份數字才不會擠在一起 */}
-                  <span className="sm:hidden">{Number(point.month.slice(5, 7))}</span>
-                  <span className="hidden sm:inline">{formatMonthShort(point.month)}</span>
+                  {/* 太窄時只放月份數字，不會擠成兩行 */}
+                  <span className="@sm:hidden">{Number(point.month.slice(5, 7))}</span>
+                  <span className="hidden @sm:inline">{formatMonthShort(point.month)}</span>
                   {(index === 0 || point.month.endsWith("-01")) && <span className="block">{point.month.slice(0, 4)}</span>}
                 </li>
               ))}
@@ -151,7 +152,7 @@ function GoalTotals({ rows }: { rows: GoalTotal[] }) {
 
 export function StatisticsSkeleton() {
   return (
-    <LoadingState label="載入統計…" className="stack">
+    <LoadingState label="載入統計…" className="stack @container">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Skeleton className="h-11 rounded-xl" />
         <Skeleton className="h-11 rounded-xl" />

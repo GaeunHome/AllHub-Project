@@ -5,6 +5,7 @@ import type { VideoInfo } from "../lib/oembed";
 import { youtubeTags } from "./cache-tags";
 import { recheckCandidates, type RecheckCandidate } from "./caption-status";
 import { followedVideoTitle, listFollowedChannels, recentVideos, videoChannel, type FollowedChannel } from "./channels";
+import { listSavedVideos, type SavedVideo } from "./saved-videos";
 import { getSettingsView, getTranslation, missingApiKeyMessage, type SettingsView, type TranslationView } from "./translation";
 import { channelAvatar } from "./visuals";
 
@@ -57,6 +58,14 @@ export async function cachedTranslation(videoId: string): Promise<TranslationVie
   if (!row) return null;
   const { id, title, status, sourceKind, sourceCues, translated, error, updatedAt, requestedBy } = row;
   return { id, title, status, sourceKind, sourceCues, translated, error, updatedAt, requestedBy };
+}
+
+/** 保留的影片：清單頁、觀看頁的「保留」與列表頁的入口共用這一份；翻譯狀態跟著翻譯表變 */
+export async function cachedSavedVideos(userId: string): Promise<SavedVideo[]> {
+  "use cache: remote";
+  cacheLife("db");
+  cacheTag(youtubeTags.savedVideos, youtubeTags.translations);
+  return listSavedVideos(userId);
 }
 
 /** 只查得到自己追蹤頻道的影片 */

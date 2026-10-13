@@ -41,7 +41,7 @@ export async function createInviteAction(_prev: InviteFormState, formData: FormD
     const { token } = await createInvite({ createdBy: owner.id, days, maxUses, note: formText(formData, "note") });
     updateTags(authTags.invites);
     return {
-      message: `已建立邀請連結：${days} 天內可以註冊 ${maxUses} 個帳號。連結只會顯示這一次，請現在複製。`,
+      message: `已建立邀請連結：${days} 天內可以註冊 ${maxUses} 個帳號。`,
       link: `${await siteOrigin()}/register?code=${token}`,
     };
   } catch (error) {

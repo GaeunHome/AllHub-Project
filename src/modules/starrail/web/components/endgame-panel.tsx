@@ -37,7 +37,8 @@ export async function EndgamePanel({ account }: { account: StarrailAccountView }
 export function EndgameSkeleton() {
   return (
     <LoadingState label="向 HoYoLAB 查詢終局戰績…" className="stack">
-      <h3 className="sr-title">終局戰績</h3>
+      {/* 標題列跟載入完成時一樣高，並排的開拓月曆標題才對得齊 */}
+      <h3 className="sr-title min-h-11">終局戰績</h3>
       <Skeleton className="h-11 w-80 max-w-full rounded-none" />
       <Skeleton className="h-56 rounded-none" />
     </LoadingState>

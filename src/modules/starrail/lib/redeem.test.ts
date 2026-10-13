@@ -43,9 +43,9 @@ describe("redeemCookieProblem：兌換要用 cookie_token_v2 與帳號 id", () =
 describe("interpretRedeem：兌換結果的代碼對應中文訊息", () => {
   const result = (retcode: number, message = "english detail") => interpretRedeem({ retcode, message, data: null });
 
-  it("成功_獎勵會寄到遊戲內信箱", () => {
+  it("成功_獎勵會寄到遊戲內信箱（畫面的標題已經寫「兌換成功」，說明不再重複）", () => {
     expect(result(0)).toMatchObject({ ok: true, retcode: 0, cookieInvalid: false });
-    expect(result(0).message).toContain("遊戲內信箱");
+    expect(result(0).message).toBe("獎勵會寄到遊戲內信箱");
   });
 
   it.each([
@@ -77,8 +77,8 @@ describe("interpretRedeem：兌換結果的代碼對應中文訊息", () => {
     expect(result(retcode).message).toContain("cookie 已失效");
   });
 
-  it("其他代碼_兌換失敗（代碼 N）", () => {
-    expect(result(-9999).message).toBe("兌換失敗（代碼 -9999）");
+  it("其他代碼_原因不明（錯誤代碼 N）：畫面的標題已經寫「兌換失敗」，說明不再重複", () => {
+    expect(result(-9999).message).toBe("原因不明（錯誤代碼 -9999）");
   });
 
   it("連不上或格式不對_不丟錯", () => {
