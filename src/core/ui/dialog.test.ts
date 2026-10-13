@@ -22,11 +22,11 @@ describe("彈出視窗（core/ui/dialog）", () => {
   });
 
   it("開著時：標題列有標題與關閉的 X（type=button、正方形），dialog 以標題命名；內容在可捲動的本文裡", () => {
-    const markup = renderDialog({ open: true, onClose: vi.fn(), title: "記一筆", size: "sm", className: "theme-starrail" });
+    const markup = renderDialog({ open: true, onClose: vi.fn(), title: "記一筆", size: "sm", className: "sr-dialog" });
 
     const dialog = markup.match(/^<dialog[^>]*>/)![0];
     expect(dialog).toContain("dialog-sm");
-    expect(dialog).toContain("theme-starrail");
+    expect(dialog).toContain("sr-dialog");
     const labelledBy = dialog.match(/aria-labelledby="([^"]+)"/)![1];
     expect(markup).toMatch(new RegExp(`<h2[^>]*id="${labelledBy}"[^>]*>記一筆</h2>`));
     const close = markup.match(/<button[^>]*aria-label="關閉"[^>]*>/)![0];
@@ -50,6 +50,11 @@ describe("彈出視窗（core/ui/dialog）", () => {
 
     expect(markup).toMatch(/^<dialog[^>]*aria-describedby="summary warning"/);
     expect(renderDialog({ open: true, onClose: vi.fn(), title: "記一筆" })).not.toContain("aria-describedby");
+  });
+
+  it("size=full：滿版的大面板（角色詳情、主播詳情）用 dialog-full；其他尺寸照舊", () => {
+    expect(renderDialog({ open: true, onClose: vi.fn(), title: "希兒", size: "full" })).toMatch(/^<dialog[^>]*class="dialog dialog-full"/);
+    expect(renderDialog({ open: true, onClose: vi.fn(), title: "記一筆", size: "lg" })).toMatch(/^<dialog[^>]*class="dialog dialog-lg"/);
   });
 
   it("沒有標題時不畫標題列：內容自己帶標題與關閉按鈕，用 labelledBy 指定名稱", () => {
@@ -119,6 +124,12 @@ describe("按鈕＋彈出視窗（DialogButton、useDialog）", () => {
     const controls = button.match(/aria-controls="([^"]+)"/)![1];
     expect(markup).toMatch(new RegExp(`<dialog[^>]*id="${controls}"`));
     expect(markup).not.toContain('name="note"');
+  });
+
+  it("size 交給視窗：清單列打開的詳情也能用滿版的大面板（主播詳情）", () => {
+    const markup = renderToStaticMarkup(createElement(DialogButton, { label: "Hanabi", title: "Hanabi", size: "full" } as DialogButtonProps, createElement("p", null, "詳情")));
+
+    expect(markup).toMatch(/<dialog[^>]*class="dialog dialog-full"/);
   });
 
   it("內容是函式時，視窗關著就不呼叫（點了才算繪）", () => {
@@ -319,5 +330,44 @@ describe("開視窗時背後的頁面（globals.css）", () => {
 
     expect(open).toMatch(/overflow:\s*hidden/);
     expect(open).not.toContain("scrollbar-gutter");
+  });
+});
+
+describe("滿版的大面板（globals.css 的 .dialog-full）", () => {
+  // 先拿掉註解：規則前面的註解不能算進選擇器
+  const css = fs.readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  /** 每一條 .dialog-full 規則的內容，連同它所在的最內層 @media（沒有就是 null） */
+  const fullRules = () => {
+    const found: { media: string | null; body: string }[] = [];
+    const stack: (string | null)[] = [];
+    for (const token of css.matchAll(/([^{};]+)\{|\}/g)) {
+      if (token[0] === "}") {
+        stack.pop();
+        continue;
+      }
+      const head = token[1].trim();
+      stack.push(head.startsWith("@media") ? head : null);
+      if (head === ".dialog-full") found.push({ media: stack.findLast((m) => m !== null) ?? null, body: css.slice(token.index + token[0].length, css.indexOf("}", token.index)) });
+    }
+    return found;
+  };
+
+  it("手機：整個螢幕（高度跟著網址列伸縮），不留圓角與邊框", () => {
+    const mobile = fullRules().find((r) => r.media === null)!.body;
+
+    expect(mobile).toMatch(/height:\s*100dvh/);
+    expect(mobile).toMatch(/max-height:\s*none/);
+    expect(mobile).toMatch(/border-radius:\s*0/);
+    expect(mobile).toMatch(/border-width:\s*0/);
+  });
+
+  it("寬螢幕：四周只留 1rem，寬高不設上限（不像 sm～lg 是置中的固定寬度卡片）", () => {
+    const wide = fullRules().find((r) => r.media === "@media (min-width: 40rem)")!.body;
+
+    expect(wide).toMatch(/inset:\s*1rem/);
+    expect(wide).toMatch(/width:\s*auto/);
+    expect(wide).toMatch(/height:\s*auto/);
+    expect(wide).toMatch(/max-width:\s*none/);
+    expect(wide).toMatch(/max-height:\s*none/);
   });
 });

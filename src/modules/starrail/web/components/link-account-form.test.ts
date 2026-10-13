@@ -28,8 +28,9 @@ describe("連結 HoYoLAB 帳號的表單", () => {
     const markup = renderToStaticMarkup(createElement(LinkAccountForm, { defaultOpen: false }));
 
     expect(markup).toMatch(/<button[^>]*aria-haspopup="dialog"[^>]*>(?:(?!<\/button>).)*新增帳號或更新 cookie/);
-    expect(markup).toMatch(/<dialog[^>]*class="dialog [^"]*theme-starrail/);
     expect(markup).toMatch(/<dialog[^>]*class="[^"]*sr-dialog/);
+    // 星空底色由 sr-dialog 自己畫：theme-starrail 是整頁主題，只能放在 PageTheme 上（掛在視窗上，換到別頁時主題會漏過去）
+    expect(markup).not.toMatch(/<dialog[^>]*theme-starrail/);
     expect(markup).not.toContain('name="cookie"');
     expect(markup).not.toContain("<details");
   });

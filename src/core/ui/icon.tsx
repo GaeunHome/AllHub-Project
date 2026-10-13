@@ -34,7 +34,6 @@ export const UI_ICON_NAMES = [
   "flower-2",
   "gamepad-2",
   "heart",
-  "house",
   "inbox",
   "info",
   "key-round",

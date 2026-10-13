@@ -36,14 +36,7 @@ export async function Statistics({ searchParams }: { searchParams: SearchParams 
   );
 }
 
-// 第一根與最後兩根靠邊，提示框往內對齊才不會超出卡片
-function tooltipAlign(index: number, count: number): string {
-  if (index < 2) return "left-0";
-  if (index >= count - 2) return "right-0";
-  return "left-1/2 -translate-x-1/2";
-}
-
-/** 單一數列的直條圖：只用主題點綴色；數值放在提示框與表格，不在每根柱子上標數字 */
+/** 單一數列的直條圖：只用主題點綴色；不在柱子上標數字、滑過也不跳出標籤（會遮住旁邊的長條），金額寫在每根長條的名稱（報讀器）與表格 */
 function MonthlyChart({ series, selected }: { series: Point[]; selected: MonthKey }) {
   const total = series.reduce((sum, point) => sum + point.amount, 0);
   const max = Math.max(...series.map((point) => point.amount));
@@ -66,7 +59,7 @@ function MonthlyChart({ series, selected }: { series: Point[]; selected: MonthKe
           <div className="flex flex-col gap-1.5 @container">
             <p className="text-right text-xs text-ink-soft tabular-nums">最高 {formatTwd(max)}</p>
             <ol className="grid h-44 grid-cols-12 border-y border-line">
-              {series.map((point, index) => (
+              {series.map((point) => (
                 <li key={point.month} className="flex min-w-0">
                   {/* 整欄都是可點的範圍，比柱子本身大，滑鼠或鍵盤都好選 */}
                   <Link
@@ -76,18 +69,7 @@ function MonthlyChart({ series, selected }: { series: Point[]; selected: MonthKe
                     aria-label={`${formatMonth(point.month)}：${formatTwd(point.amount)}，查看這個月的紀錄`}
                     className="group flex w-full items-end justify-center rounded-t-lg px-0.5 transition-colors hover:bg-accent-soft focus-visible:bg-accent-soft"
                   >
-                    <span
-                      className="relative w-full max-w-6 rounded-t-[4px] bg-accent transition-opacity group-hover:opacity-80"
-                      style={{ height: `${point.percent}%` }}
-                    >
-                      <span
-                        aria-hidden
-                        className={`pointer-events-none absolute bottom-full z-10 mb-1.5 hidden rounded-xl border border-line bg-surface-solid px-2.5 py-1.5 text-xs whitespace-nowrap shadow-lg group-hover:block group-focus-visible:block ${tooltipAlign(index, series.length)}`}
-                      >
-                        <span className="block font-semibold text-ink tabular-nums">{formatTwd(point.amount)}</span>
-                        <span className="block text-ink-soft">{formatMonth(point.month)}</span>
-                      </span>
-                    </span>
+                    <span className="w-full max-w-6 rounded-t-[4px] bg-accent transition-opacity group-hover:opacity-80" style={{ height: `${point.percent}%` }} />
                   </Link>
                 </li>
               ))}

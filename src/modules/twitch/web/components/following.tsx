@@ -26,7 +26,6 @@ export async function Following() {
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[17rem_minmax(0,1fr)]">
       {/* 兩欄的標題同一個樣子、同一個高度，下面的內容從同一條線開始 */}
-      {/* 卡片欄數看這一欄的寬度（容器查詢）：超寬螢幕右邊多了開關台紀錄，這一欄反而比較窄 */}
       <section aria-labelledby="tw-live" className="stack @container min-w-0 lg:order-2">
         <SectionTitle id="tw-live" icon="tv">
           直播中
@@ -48,7 +47,7 @@ export async function Following() {
         </SectionTitle>
         <ul className="card flex flex-col gap-0.5 rounded-lg p-1.5">
           {visuals.map((s) => (
-            <ChannelRow key={s.id} streamer={s} />
+            <ChannelRow key={s.id} streamer={s} now={now} />
           ))}
         </ul>
       </aside>

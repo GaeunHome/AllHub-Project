@@ -87,7 +87,7 @@ export const coreNotifications = pgTable(
     kind: text("kind").notNull(),
     title: text("title").notNull(),
     body: text("body").notNull().default(""),
-    /** https 網址或站內路徑；其他格式在寫入時就丟掉 */
+    /** http(s) 網址或站內路徑；其他格式在寫入時就丟掉 */
     url: text("url"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     readAt: timestamp("read_at", { withTimezone: true }),

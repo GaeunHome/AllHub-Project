@@ -62,7 +62,16 @@ describe("cachedStreamerProfiles：主播頭像與離線橫幅（外部資料，
 describe("cachedLiveStreams：直播狀態、觀看人數與預覽圖", () => {
   it("效期 2 分鐘（live）_也標 twitch:streamers：EventSub 寫入開關台時一起重抓", async () => {
     expect(await cachedLiveStreams(["1"])).toEqual([
-      { userId: "1", title: "早安", gameId: "99", gameName: "Just Chatting", viewerCount: 12, startedAt: "2026-10-08T10:00:00Z", previewUrl: "https://p/640x360.jpg" },
+      {
+        userId: "1",
+        title: "早安",
+        gameId: "99",
+        gameName: "Just Chatting",
+        viewerCount: 12,
+        startedAt: "2026-10-08T10:00:00Z",
+        previewUrl: "https://p/640x360.jpg",
+        largePreviewUrl: "https://p/1920x1080.jpg",
+      },
     ]);
     expect(tagged()).toEqual(["twitch:external", "twitch:streamers"]);
     expect(cacheLife).toHaveBeenCalledWith("live");

@@ -1,5 +1,8 @@
-import { isValidElement, type ReactNode } from "react";
+import fs from "node:fs";
+import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
 import { mocksOf } from "@/dev/test-helpers";
 
@@ -12,6 +15,8 @@ const cached = mocksOf(await import("../../service/cached"), "cachedAccounts");
 const { AccountArea, StarrailPage } = await import("./starrail-page");
 const { AccountTabs } = await import("../components/account-card");
 const { LinkResultBanner, LinkResultProvider } = await import("../components/link-result");
+const { StarrailBanner } = await import("../components/starrail-banner");
+const { PageTheme } = await import("@/core/ui/page-theme");
 
 const view = (id: number, uid: string) => ({ id, uid, nickname: `角色 ${id}`, region: "prod_official_asia", level: 70, staminaAlertThreshold: null, cookieInvalid: false });
 const MINE = [view(1, "800000001"), view(2, "800000002")];
@@ -116,3 +121,57 @@ describe("連結帳號的結果", () => {
   });
 });
 
+const INFO: ModuleInfo = { id: "starrail", name: "星穹鐵道", href: "/starrail", description: "" };
+
+describe("星穹鐵道頁：整頁主題", () => {
+  it("外框是 PageTheme，深色星空鋪滿整個畫面（整頁底色由 globals.css 換，導覽列維持全站的樣子）；內容直接放在 AppShell 的外框裡，不再是淺灰頁面上的圓角卡片", () => {
+    const page = StarrailPage({ info: INFO, searchParams: Promise.resolve({}) }) as ReactElement<{ className?: string }>;
+    const classes = page.props.className!.split(" ");
+
+    expect(page.type).toBe(PageTheme);
+    expect(classes).toContain("theme-starrail");
+    expect(classes.filter((c) => /rounded|border|^-m|^sm:m-|^(?:sm:|lg:)?p[xytb]?-/.test(c))).toEqual([]);
+  });
+
+  it("橫幅不再是另一塊星空框：官方標誌直接放在整頁的星空上（標誌就是 h1）", () => {
+    const markup = renderToStaticMarkup(createElement(StarrailBanner, { info: INFO }));
+
+    expect(markup).not.toContain("banner-starry");
+    expect(markup).toMatch(/<h1[^>]*>.*<img[^>]*alt="星穹鐵道"/);
+  });
+});
+
+describe("星穹鐵道頁：星空（globals.css）", () => {
+  // 先拿掉註解；選擇器清單裡有這個選擇器的規則都算
+  const css = fs.readFileSync(new URL("../../../../app/globals.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const declarations = (selector: string) =>
+    [...css.matchAll(/([^{};]+)\{([^{}]*)\}/g)]
+      .filter((m) => m[1].split(",").some((s) => s.trim() === selector))
+      .map((m) => m[2])
+      .join("\n");
+  const PAGE = ":root:has(.theme-starrail:not([data-activity-hidden]))";
+
+  it("星空畫在 body、鋪滿整頁：最上面是自己畫的軌道環與列車軌道（SVG），長頁面跟著拉長", () => {
+    expect(declarations(`${PAGE} body`)).toMatch(/background-image:\s*url\("\/images\/starrail-sky\.svg"\),\s*var\(--sr-sky\)/);
+    expect(fs.existsSync(new URL("../../../../../public/images/starrail-sky.svg", import.meta.url))).toBe(true);
+  });
+
+  it("星空的 SVG 是靜態的：當成 body 背景圖的 SVG 只要有動畫，頁面開著時每一格都在重畫整頁（星點不閃爍）", () => {
+    const svg = fs.readFileSync(new URL("../../../../../public/images/starrail-sky.svg", import.meta.url), "utf8");
+
+    expect(svg).not.toMatch(/animation|@keyframes|<animate|<set\b/);
+  });
+
+  it("html 自己有底色：body 的星空才不會被當成整個畫布的背景、照視窗的高度一段一段重複", () => {
+    expect(declarations(PAGE)).toMatch(/background-color:/);
+  });
+
+  it("body 讀得到星空的變數：--sr-sky 放在 :root（只放星空，不放調色盤，導覽列不受影響），不是只在外框上（body 是外框的祖先）", () => {
+    expect(declarations(PAGE)).toMatch(/--sr-sky:/);
+    expect(declarations(PAGE)).toMatch(/--sr-sky-size:/);
+  });
+
+  it("彈出視窗自己畫星空底：整頁主題的 class 只能放在 PageTheme 上，視窗不再掛 theme-starrail", () => {
+    expect(declarations(".sr-dialog")).toMatch(/background-image:\s*var\(--sr-sky\)/);
+  });
+});

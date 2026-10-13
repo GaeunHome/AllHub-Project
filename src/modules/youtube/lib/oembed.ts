@@ -1,3 +1,5 @@
+import { isYoutubeHttpsUrl } from "./urls";
+
 /** oEmbed 是官方、免金鑰的影片資訊；讀不到的欄位給 null */
 export type VideoInfo = { title: string | null; channelName: string | null; channelUrl: string | null };
 
@@ -14,8 +16,7 @@ function text(value: unknown): string | null {
 function youtubeUrl(value: string | null): string | null {
   if (!value) return null;
   try {
-    const url = new URL(value);
-    return url.protocol === "https:" && /(^|\.)youtube\.com$/.test(url.hostname) ? value : null;
+    return isYoutubeHttpsUrl(new URL(value)) ? value : null;
   } catch {
     return null;
   }

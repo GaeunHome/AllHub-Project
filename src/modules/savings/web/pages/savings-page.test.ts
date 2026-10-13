@@ -258,6 +258,16 @@ describe("統計（收起來的區塊）", () => {
     expect(markup).not.toMatch(/\b(?:md|lg|xl):grid-cols-2\b/);
   });
 
+  it("滑過或用鍵盤移到長條上都不跳出浮動標籤（金額與年月會遮住旁邊的長條）；報讀器照樣從每根長條的名稱知道月份與金額", async () => {
+    const markup = await render(Statistics({ searchParams: params() }));
+    const bars = markup.match(/<ol class="grid h-44[^"]*">(.*?)<\/ol>/)![1];
+
+    expect(textOf(bars)).toBe("");
+    expect(bars).not.toMatch(/group-(?:hover|focus-visible):block|role="tooltip"|\stitle="/);
+    expect(bars).toContain(`aria-label="${formatMonth(MONTH)}：$12,300，查看這個月的紀錄"`);
+    expect(bars).toContain(`aria-label="${formatMonth(PREVIOUS)}：$15,000，查看這個月的紀錄"`);
+  });
+
   it("月份標籤依長條圖本身的寬度決定要不要寫「月」：一欄太窄時只寫數字，不會擠成兩行", async () => {
     const markup = await render(Statistics({ searchParams: params() }));
     const labels = markup.slice(markup.indexOf('<ol aria-hidden="true"'));

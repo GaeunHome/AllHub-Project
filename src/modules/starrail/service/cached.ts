@@ -30,7 +30,7 @@ export async function cachedAccounts(userId: string): Promise<StarrailAccountVie
 export async function cachedRecentCheckins(userId: string, accountId?: number): Promise<Awaited<ReturnType<typeof recentCheckins>>> {
   "use cache: remote";
   cacheLife("db");
-  // 紀錄旁的暱稱來自帳號表，重新連結改了暱稱也要重新讀
+  // 只列自己帳號的紀錄要 join 帳號表：認領或刪除帳號都會改變結果，帳號表改了也要重新讀
   cacheTag(starrailTags.checkins, starrailTags.accounts);
   return recentCheckins(userId, 20, accountId);
 }

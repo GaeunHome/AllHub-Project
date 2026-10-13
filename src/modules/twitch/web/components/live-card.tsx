@@ -1,9 +1,9 @@
 import { externalAssetUrl } from "@/core/external-url";
 import { Avatar } from "@/core/ui/avatar";
 import { ExternalImage } from "@/core/ui/external-image";
-import { Icon } from "@/core/ui/icon";
 import { formatLiveDuration, formatViewerCount, type StreamerVisual } from "../../lib/visuals";
 import type { TwitchStreamer } from "../../data/schema";
+import { GameBoxArt } from "./game-box-art";
 
 /** 照 Twitch「追蹤中」頁的直播卡：16:9 預覽圖、左上 LIVE、左下觀看人數；沒有預覽圖（沒設定憑證、剛開台）時改放大頭像；eager 給第一排，預覽圖立刻載入 */
 export function LiveCard({ streamer: s, now, eager = false }: { streamer: StreamerVisual<TwitchStreamer>; now: Date; eager?: boolean }) {
@@ -37,20 +37,7 @@ export function LiveCard({ streamer: s, now, eager = false }: { streamer: Stream
           <p className="truncate text-sm text-ink-soft">{s.displayName}</p>
           {live?.gameName && <p className="truncate text-sm text-brand-ink">{live.gameName}</p>}
         </div>
-        {live?.gameName && (
-          <ExternalImage
-            src={externalAssetUrl(live.boxArtUrl)}
-            alt=""
-            width={72}
-            height={96}
-            className="h-12 w-9 shrink-0 rounded bg-surface-muted object-cover"
-            fallback={
-              <span aria-hidden className="grid h-12 w-9 shrink-0 place-items-center rounded bg-surface-muted text-brand-ink">
-                <Icon name="gamepad-2" className="size-4" />
-              </span>
-            }
-          />
-        )}
+        {live?.gameName && <GameBoxArt url={live.boxArtUrl} size="sm" />}
       </div>
     </article>
   );

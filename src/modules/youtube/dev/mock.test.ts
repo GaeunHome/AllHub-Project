@@ -46,3 +46,13 @@ describe("假服務的影片縮圖", () => {
     expect(request("/vi/nothumb0001/mqdefault.jpg").status).toBe(404);
   });
 });
+
+describe("假服務的 Shorts 確認（推送時與清理時請求 /shorts/<id>）", () => {
+  it("影片 id 開頭 short 的是 Shorts：跟真的 YouTube 一樣回 200（包括 RSS 裡沒有的舊影片）", () => {
+    expect(request("/shorts/shortold0001").status).toBe(200);
+  });
+
+  it("其他影片跟真的 YouTube 一樣 303 轉到 /watch", () => {
+    expect(request("/shorts/feedabc1234")).toMatchObject({ status: 303, body: "/watch?v=feedabc1234" });
+  });
+});

@@ -46,7 +46,7 @@ export function TermsPage() {
 
         <Section title="四、第三方服務">
           <li>Vercel（網站主機）與 Supabase（資料庫），都在東京：保存與處理上面的資料；Vercel 也會留下一般的連線紀錄（含 IP）。</li>
-          <li>YouTube、Twitch：伺服器會向它們查詢頻道、影片、字幕、頭像與開台狀態；每天的排程會讀追蹤中 YouTube 頻道的 RSS，找出 Shorts 刪掉。</li>
+          <li>YouTube、Twitch：伺服器會向它們查詢頻道、影片、字幕、頭像與開台狀態；每天的排程會讀追蹤中 YouTube 頻道的 RSS，RSS 裡沒有的影片再逐支確認，找出 Shorts 刪掉。</li>
           <li>HoYoLAB：伺服器用你的 cookie 查詢即時便箋、角色、開拓月曆與終局戰績；每天替你簽到、每 30 分鐘查一次開拓力（快滿時提醒）；你輸入的兌換碼會用你的帳號送出。</li>
           {/* 只列真的只放快取的資料（效期照 next.config.ts 的 cacheLife 的 expire）；追蹤、連結、保留時存下的平台資料另外照資料表列出，不能說成都不存 */}
           <SubList intro="只放在伺服器快取、不存資料庫的外部資料（最多保留多久）：">

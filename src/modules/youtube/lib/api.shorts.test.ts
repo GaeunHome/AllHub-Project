@@ -61,6 +61,17 @@ describe("checkIsShort：請求 /shorts/<id> 判斷是不是 Shorts", () => {
 
     await expect(checkIsShort("xxxxxxxxxxx")).rejects.toMatchObject({ name: "TimeoutError" });
   });
+
+  it("推送時照一般的 YouTube 請求等 15 秒；清理時指定 timeoutMs（每支最多等 5 秒）就用指定的逾時", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    vi.stubGlobal("fetch", fakeFetch(() => new Response("<html></html>", { status: 200 })).impl);
+
+    await checkIsShort("sssssssssss");
+    expect(timeout).toHaveBeenLastCalledWith(15_000);
+
+    expect(await checkIsShort("sssssssssss", { timeoutMs: 5_000 })).toBe(true);
+    expect(timeout).toHaveBeenLastCalledWith(5_000);
+  });
 });
 
 describe("fetchChannelFeed：逾時可以調短（清理 Shorts 時每個頻道最多等 5 秒）", () => {

@@ -274,7 +274,7 @@ export async function redeemCodeFor(userId: string, accountId: number, input: st
   return { ok: false, error: outcome.message, cookieFlagChanged: outcome.cookieInvalid ? await setCookieInvalid(account.id, true) : false };
 }
 
-/** 頁面在回應後（after()）依便箋結果同步 cookie 失效標記；有改才讓帳號的快取失效 */
+/** 頁面在回應後（after()）依 HoYoLAB 的回應（便箋、角色、終局戰績）同步 cookie 失效標記；有改才讓帳號的快取失效 */
 export async function syncCookieInvalid(userId: string, accountId: number, invalid: boolean): Promise<boolean> {
   const [own] = await db().select({ id: starrailAccounts.id }).from(starrailAccounts).where(ownAccount(userId, accountId));
   if (!own) return false;

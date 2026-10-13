@@ -38,7 +38,7 @@ function LinkAccountDialog() {
         title="新增帳號或更新 cookie"
         icon={<Icon name="key-round" />}
         size="lg"
-        className="theme-starrail sr-dialog"
+        className="sr-dialog"
       >
         {({ done }) => <LinkAccountFields onLinked={() => done()} />}
       </DialogButton>

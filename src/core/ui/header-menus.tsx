@@ -51,14 +51,19 @@ function CloseOnNavigate({ onNavigate }: { onNavigate: () => void }) {
   return null;
 }
 
-/** 單一面板的開關：點面板外面或按 Esc 就收起，Esc 收起後焦點回到按鈕；rootRef 要包住按鈕與面板 */
+/** 單一面板的開關狀態，不掛任何監聽：面板裡的項目（例如選單裡的連結）要收起面板時用這個 */
 export function useHeaderMenu(id: HeaderMenuId) {
   const menus = use(HeaderMenusContext);
   if (!menus) throw new Error("useHeaderMenu 要放在 <HeaderMenus> 裡面");
   const { open, toggle: toggleMenuById, close: closeMenuById } = menus;
-  const expanded = open === id;
   const toggle = useCallback(() => toggleMenuById(id), [toggleMenuById, id]);
   const close = useCallback(() => closeMenuById(id), [closeMenuById, id]);
+  return { expanded: open === id, toggle, close };
+}
+
+/** 包住按鈕與面板的外框才用（每個面板只有一個）：點面板外面或按 Esc 就收起，Esc 收起後焦點回到按鈕；rootRef 要接在外框上，沒接上的話按哪裡都算外面，面板一按就收起 */
+export function useHeaderMenuRoot(id: HeaderMenuId) {
+  const { expanded, toggle, close } = useHeaderMenu(id);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 

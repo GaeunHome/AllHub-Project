@@ -25,3 +25,23 @@ describe("翻譯設定的表單：寬螢幕三欄", () => {
     expect(markup).toMatch(/<div class="[^"]*\bxl:col-span-3\b[^"]*"[^>]*><button[^>]*>(?:(?!<\/button>).)*儲存/);
   });
 });
+
+describe("翻譯設定的表單：訂閱方案的說明", () => {
+  const markup = renderToStaticMarkup(createElement(SettingsForm, { settings: SETTINGS }));
+  const legend = markup.match(/<legend[^>]*>(?:(?!<\/legend>).)*翻譯使用的 AI(?:(?!<\/legend>).)*<\/legend>/)?.[0] ?? "";
+
+  it("放在「翻譯使用的 AI」旁邊的 i 圓圈裡（滑過、鍵盤移到或點了才顯示），卡片裡不再另外放一段", () => {
+    expect(legend).toMatch(/<button[^>]*aria-label="關於訂閱方案"/);
+    expect(legend).toMatch(/<span[^>]*role="tooltip"[^>]*>ChatGPT Plus、Claude Pro、Gemini 這類訂閱方案都不包含 API，要另外申請 API Key。<\/span>/);
+    expect(markup.split("這類訂閱方案都不包含 API")).toHaveLength(2);
+    expect(markup).not.toContain('class="notice"');
+    expect(markup).not.toContain("依用量計費");
+  });
+
+  it("選項這一組的名稱只有「翻譯使用的 AI」：報讀器進到選項時不會連 i 圓圈的名稱一起念", () => {
+    const labelledBy = markup.match(/<fieldset[^>]*aria-labelledby="([^"]+)"[^>]*><legend[^>]*>(?:(?!<\/legend>).)*翻譯使用的 AI/)?.[1];
+
+    expect(labelledBy).toBeTruthy();
+    expect(markup).toContain(`<span id="${labelledBy}">翻譯使用的 AI</span>`);
+  });
+});

@@ -3,6 +3,9 @@
 /** 帳號不存在、密碼錯誤、帳號鎖定中都用這一句，不透露帳號是否存在 */
 export const INVALID_CREDENTIALS = "帳號或密碼錯誤";
 
+/** 註冊與邀請碼被次數限制擋下時（Server Action 與註冊頁共用） */
+export const tooManyAttempts = (retryAfterMs: number) => `嘗試次數太多，請 ${Math.ceil(retryAfterMs / 60_000)} 分鐘後再試`;
+
 /** 註冊表單的蜜罐欄位：移到畫面外、不能用 Tab 選到，只有自動填表的機器人會填 */
 export const HONEYPOT_FIELD = "website";
 

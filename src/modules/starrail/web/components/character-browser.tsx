@@ -86,15 +86,8 @@ export function CharacterBrowser({ characters, fetchedLabel }: CharacterBrowserP
         <p className="sr-panel p-5 text-center text-ink-soft sm:p-6">沒有符合條件的角色</p>
       )}
 
-      {/* 關閉時（Esc、點外面、按 X）清掉選取，下次打開從頭捲起；視窗套上星空主題與切角，手機上全螢幕 */}
-      <Dialog
-        bare
-        open={selected !== null}
-        onClose={() => setSelectedId(null)}
-        labelledBy={titleId}
-        size="lg"
-        className="theme-starrail sr-dialog max-sm:h-dvh max-sm:max-h-none max-sm:rounded-none max-sm:border-0 sm:max-h-[calc(100dvh-2rem)] sm:w-[min(62rem,calc(100vw-2rem))] sm:max-w-none"
-      >
+      {/* 關閉時（Esc、點外面、按 X）清掉選取，下次打開從頭捲起；滿版的大面板（手機上全螢幕），sr-dialog 是星空底與切角 */}
+      <Dialog bare open={selected !== null} onClose={() => setSelectedId(null)} labelledBy={titleId} size="full" className="sr-dialog">
         {selected && <CharacterDetail character={selected} titleId={titleId} onClose={() => setSelectedId(null)} />}
       </Dialog>
     </section>

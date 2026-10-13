@@ -1,11 +1,10 @@
-import { after } from "next/server";
 import { requireSession } from "@/core/auth";
-import { logError } from "@/core/errors";
 import { externalAssetUrl } from "@/core/external-url";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { ENDGAME_MODES, type EndgameSchedule } from "../../lib/endgame";
-import { syncCookieInvalid, type StarrailAccountView } from "../../service/accounts";
+import type { StarrailAccountView } from "../../service/accounts";
 import { cachedCharacters, cachedEndgame } from "../../service/cached";
+import { syncCookieFlagAfter } from "../cookie-flag";
 import { endgameAssetUrls } from "../endgame-assets";
 import { EndgameView, type EndgameRecord } from "./endgame-view";
 
@@ -20,11 +19,8 @@ export async function EndgamePanel({ account }: { account: StarrailAccountView }
     cachedCharacters(user.id, account.id),
   ]);
 
-  // 快取函式裡不能寫入：cookie 狀態跟帳號上的標記不同時，回應送出後再寫回
-  const cookieInvalid = results.some((result) => result.cookieInvalid);
-  if (cookieInvalid && !account.cookieInvalid) {
-    after(() => syncCookieInvalid(user.id, account.id, true).catch((error: unknown) => logError("starrail", "同步 cookie 狀態失敗", error)));
-  }
+  // 只設不清：有一種戰績讀到 cookie 失效就標上，其他戰績讀得到不代表 cookie 沒問題
+  if (results.some((result) => result.cookieInvalid)) syncCookieFlagAfter(user.id, account, true);
 
   const records: EndgameRecord[] = requests.map(({ mode, schedule }, i) => {
     const result = results[i];

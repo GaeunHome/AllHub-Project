@@ -1,6 +1,7 @@
 // 介面沒有公開文件、欄位依 genshin.py 整理且尚未用真實帳號驗證，所以讀不到的欄位一律給 null，原始 JSON 另外保留供除錯
 
 import { formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDateKey } from "@/core/time";
+import { asRecord, image, number } from "./json";
 
 export type HoyolabResult<T> =
   | { ok: true; data: T; raw: unknown }
@@ -53,6 +54,12 @@ export function interpretResponse(json: unknown): HoyolabResult<unknown> {
   };
 }
 
+/** 成功時把 data 交給 parse，失敗原樣回傳 */
+export function interpretWith<T>(json: unknown, parse: (data: unknown) => T): HoyolabResult<T> {
+  const result = interpretResponse(json);
+  return result.ok ? { ok: true, data: parse(result.data), raw: json } : result;
+}
+
 export type GameRole = { uid: string; nickname: string | null; region: string; regionName: string | null; level: number | null };
 
 export function parseGameRoles(data: unknown): GameRole[] {
@@ -63,7 +70,7 @@ export function parseGameRoles(data: unknown): GameRole[] {
     const uid = str(role?.game_uid);
     const region = str(role?.region);
     if (!uid || !region) return [];
-    return [{ uid, nickname: str(role?.nickname), region, regionName: str(role?.region_name), level: num(role?.level) }];
+    return [{ uid, nickname: str(role?.nickname), region, regionName: str(role?.region_name), level: number(role?.level) }];
   });
 }
 
@@ -86,19 +93,19 @@ export type DailyNote = {
 export function parseDailyNote(data: unknown): DailyNote {
   const note = asRecord(data);
   return {
-    stamina: num(note?.current_stamina),
-    maxStamina: num(note?.max_stamina),
-    staminaRecoverSeconds: num(note?.stamina_recover_time),
-    reserveStamina: num(note?.current_reserve_stamina),
+    stamina: number(note?.current_stamina),
+    maxStamina: number(note?.max_stamina),
+    staminaRecoverSeconds: number(note?.stamina_recover_time),
+    reserveStamina: number(note?.current_reserve_stamina),
     // 「epedition」是 HoYoLAB 原本的拼字
-    expeditionsAccepted: num(note?.accepted_epedition_num),
-    expeditionsTotal: num(note?.total_expedition_num),
-    trainScore: num(note?.current_train_score),
-    maxTrainScore: num(note?.max_train_score),
-    rogueScore: num(note?.current_rogue_score),
-    maxRogueScore: num(note?.max_rogue_score),
-    cocoonRemaining: num(note?.weekly_cocoon_cnt),
-    cocoonLimit: num(note?.weekly_cocoon_limit),
+    expeditionsAccepted: number(note?.accepted_epedition_num),
+    expeditionsTotal: number(note?.total_expedition_num),
+    trainScore: number(note?.current_train_score),
+    maxTrainScore: number(note?.max_train_score),
+    rogueScore: number(note?.current_rogue_score),
+    maxRogueScore: number(note?.max_rogue_score),
+    cocoonRemaining: number(note?.weekly_cocoon_cnt),
+    cocoonLimit: number(note?.weekly_cocoon_limit),
   };
 }
 
@@ -122,9 +129,9 @@ export function parseExpeditions(data: unknown): Expedition[] {
       {
         name: typeof expedition.name === "string" && expedition.name !== "" ? expedition.name : null,
         status: status === "ongoing" || status === "finished" ? status : null,
-        remainingSeconds: num(expedition.remaining_time),
-        avatars: Array.isArray(expedition.avatars) ? expedition.avatars.flatMap((avatar) => imageUrl(avatar) ?? []) : [],
-        itemUrl: imageUrl(expedition.item_url),
+        remainingSeconds: number(expedition.remaining_time),
+        avatars: Array.isArray(expedition.avatars) ? expedition.avatars.flatMap((avatar) => image(avatar) ?? []) : [],
+        itemUrl: image(expedition.item_url),
       },
     ];
   });
@@ -175,7 +182,7 @@ export function parseCheckinInfo(data: unknown): CheckinInfo {
   const info = asRecord(data);
   return {
     isSigned: typeof info?.is_sign === "boolean" ? info.is_sign : null,
-    totalSignDay: num(info?.total_sign_day),
+    totalSignDay: number(info?.total_sign_day),
   };
 }
 
@@ -196,22 +203,6 @@ export function interpretSign(json: unknown): CheckinOutcome {
     return { result: "failed", message: "HoYoLAB 要求驗證碼，請到 HoYoLAB 網站手動簽到一次", cookieInvalid: false };
   }
   return { result: "success", message: "簽到成功", cookieInvalid: false };
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-}
-
-function num(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
-  return null;
-}
-
-function imageUrl(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  if (value.startsWith("//")) return `https:${value}`;
-  return /^https?:\/\//i.test(value) ? value : null;
 }
 
 function str(value: unknown): string | null {

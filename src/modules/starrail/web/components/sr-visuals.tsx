@@ -21,7 +21,7 @@ const ELEMENT_COLORS: Record<string, string> = {
   imaginary: "bg-[#d9aa1e]",
 };
 
-export function elementColorClass(element: string | null): string {
+function elementColorClass(element: string | null): string {
   return (element && ELEMENT_COLORS[element]) || "bg-slate-500";
 }
 
@@ -37,7 +37,7 @@ type ElementBadgeProps = {
 
 // 遊戲的固定小圖示是 public/ 裡的靜態檔：跟頁面上方的官方標誌一樣用 next/image 直接載入，不經 Vercel 的圖片最佳化（圖本來就小），也不走外部圖片的 ExternalImage
 
-/** 屬性圖示：遊戲裡的屬性圖；認不得的屬性（沒有圖示）退回色圓加中文第一個字，色盲也分得出來 */
+/** 屬性圖示：遊戲裡的屬性圖；認不得的屬性（沒有圖示）退回圓圈加名稱的第一個字（沒有屬性色，是灰色），色盲也分得出來 */
 export function ElementBadge({ element, src, className = "size-5 text-[0.625rem]", decorative = false }: ElementBadgeProps) {
   const label = elementLabel(element);
   if (!element || !label) return null;

@@ -9,6 +9,12 @@ export const watchPagePath = (videoId: string) => `/youtube/watch/${videoId}`;
 /** 站內的「已保留的影片」 */
 export const SAVED_VIDEOS_PATH = "/youtube/saved";
 
+/** 只收 YouTube（含子網域）的 https 網址：字幕的下載網址會被拿去請求、oEmbed 的頻道網址會變成畫面上的連結 */
+export function isYoutubeHttpsUrl(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  return url.protocol === "https:" && (host === "youtube.com" || host.endsWith(".youtube.com"));
+}
+
 /** 影片縮圖：用影片 id 組出來、不必呼叫 API；mqdefault 是每支影片都有的 16:9 縮圖（320×180） */
 export const youtubeThumbnailUrl = (videoId: string) => `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/mqdefault.jpg`;
 

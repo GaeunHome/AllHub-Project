@@ -21,7 +21,7 @@ export function AppHeader({ modules }: { modules: NavModule[] }) {
             <Icon name="flower-2" className="size-[1.125rem]" />
           </span>
           {/* 很窄的手機上只留圖示，右邊的鈴鐺與帳號才放得下 */}
-          <span className="text-gradient hidden text-xl font-bold tracking-tight min-[25rem]:inline">AllHub</span>
+          <span className="hidden text-xl font-bold tracking-tight text-ink min-[25rem]:inline">AllHub</span>
         </Link>
         <nav aria-label="模組" className="no-scrollbar -my-1 min-w-0 flex-1 overflow-x-auto py-1">
           {/* 觀看頁是動態路由，預先算繪時還不知道網址，先放沒有高亮的版本 */}

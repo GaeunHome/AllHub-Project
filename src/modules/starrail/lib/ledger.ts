@@ -2,7 +2,7 @@
 
 import { taipeiDateKey } from "@/core/time";
 import { asRecord, createMissing, number, text } from "./json";
-import { interpretResponse, type HoyolabResult } from "./responses";
+import { interpretWith, type HoyolabResult } from "./responses";
 
 export type LedgerTotals = { jade: number | null; passes: number | null };
 export type LedgerSource = { id: string | null; name: string | null; amount: number | null; percent: number | null };
@@ -26,8 +26,7 @@ export type Ledger = {
 export type LedgerResult = { ledger: Ledger; missing: string[] };
 
 export function interpretLedger(json: unknown, requestedMonth: string): HoyolabResult<LedgerResult> {
-  const result = interpretResponse(json);
-  return result.ok ? { ok: true, data: parseLedger(result.data, requestedMonth), raw: json } : result;
+  return interpretWith(json, (data) => parseLedger(data, requestedMonth));
 }
 
 export function parseLedger(data: unknown, requestedMonth: string): LedgerResult {
@@ -82,12 +81,6 @@ function normalizeMonth(value: unknown, reference: string): string | null {
     return `${year}${String(n).padStart(2, "0")}`;
   }
   return null;
-}
-
-export function previousMonth(month: string): string {
-  const year = Number(month.slice(0, 4));
-  const m = Number(month.slice(4));
-  return m === 1 ? `${year - 1}12` : `${year}${String(m - 1).padStart(2, "0")}`;
 }
 
 export function monthLabel(month: string): string {

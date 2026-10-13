@@ -77,9 +77,10 @@ export function handle({ req, url, body, json, image }) {
     if (name?.[2] === "channel_offline_image") return image(`${name[1]} OFFLINE`, { width: 960, height: 540 });
     return image((name?.[1] ?? "?").slice(0, 2).toUpperCase(), { width: 300, height: 300 });
   }
+  // 照網址要的大小回應：直播卡片是 640x360，主播詳情的大面板是 1920x1080
   if (url.pathname.startsWith("/previews-ttv/")) {
-    const login = /live_user_(.+?)-\d+x\d+/.exec(url.pathname)?.[1] ?? "?";
-    return image(`LIVE ${login}`, { width: 640, height: 360 });
+    const [, login = "?", width = "640", height = "360"] = /live_user_(.+?)-(\d+)x(\d+)/.exec(url.pathname) ?? [];
+    return image(`LIVE ${login}`, { width: Number(width), height: Number(height) });
   }
   if (url.pathname.startsWith("/ttv-boxart/")) {
     const game = GAMES.find((g) => url.pathname.startsWith(`/ttv-boxart/${g.id}-`));

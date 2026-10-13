@@ -34,6 +34,7 @@ const liveStream = (id: number, login: string) => ({
   viewerCount: 1234,
   startedAt: new Date(Date.now() - 95 * 60_000).toISOString(),
   previewUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${login}-640x360.jpg`,
+  largePreviewUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${login}-1920x1080.jpg`,
 });
 const LOGINS = ["aa", "bb", "cc", "dd", "ee"];
 
@@ -69,5 +70,11 @@ describe("Twitch 頁「追蹤中」的直播卡片", () => {
 
     expect(previews).toHaveLength(5);
     expect(previews.map((img) => img.match(/loading="(\w+)"/)![1])).toEqual(["eager", "eager", "eager", "eager", "lazy"]);
+  });
+
+  it("直播卡片維持 640x360 的預覽圖：大張的（1920x1080）只給主播詳情的大面板", async () => {
+    const previews = (await html()).match(/<img[^>]*live_user_[^>]*>/g)!;
+
+    expect(previews.map((img) => img.match(/live_user_\w+-(\d+x\d+)\.jpg/)![1])).toEqual(Array(5).fill("640x360"));
   });
 });

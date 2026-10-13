@@ -23,7 +23,7 @@
 |---|---|---|
 | Twitch | 帳號 `nobody` | 查無此人；其他名稱都會成功 |
 | Twitch | 長度相同的兩個帳號 | 假 id 是依帳號長度產生的（`alice` 是 `1035`），所以長度相同的第二個會被當成已經在追蹤 |
-| Twitch | 帳號長度是奇數（例如 `alice`、`sakura7`） | 假 Helix 上正在直播，有預覽圖、觀看人數與遊戲封面；長度是偶數的離線，其中 id 是 4 的倍數的（例如 `mika`）有離線橫幅 |
+| Twitch | 帳號長度是奇數（例如 `alice`、`sakura7`） | 假 Helix 上正在直播，有預覽圖、觀看人數與遊戲封面；長度是偶數的離線，其中 id 是 4 的倍數的（例如 `mika`）有離線橫幅；預覽圖照網址要的大小回應（卡片 640x360、主播詳情 1920x1080） |
 | HoYoLAB | 含 `ltoken_v2`、`ltuid_v2` 的 cookie | 連結成功；`ltoken_v2=expired` 會得到「HoYoLAB cookie 已失效…」 |
 | HoYoLAB | `ltuid_v2` 的數字 | 主要角色的 UID 跟著它變（`ltuid_v2=123456` 是 `900123456`）：換一個數字就是另一個遊戲帳號；別的使用者用同一個數字連結時，會被拒絕（已經被其他使用者連結） |
 | HoYoLAB | `ltuid_v2` 以 2 開頭（例如 `ltuid_v2=223456`） | 台港澳服與亞服各有一個角色（亞服的是 4 級的小號），連結時會出現選伺服器的步驟 |
@@ -38,7 +38,7 @@
 | YouTube | 影片 id 開頭 `zhauto`（例如 `zhauto00001`） | 只有自動產生的中文字幕，算沒有中文 |
 | YouTube | 影片 id 開頭 `nocaptions`（例如 `nocaptions1`） | 沒有任何字幕，可以試上傳字幕檔 |
 | YouTube | 影片 id 開頭 `syncsubs`（例如 `syncsubs001`） | 40 句長短不一的韓文字幕（從 1 秒開始），句子之間有剛好相連、40～200ms 的短空檔與 2 秒的長空檔，也有很長的句子：用來看字幕同步、換句與長句換行 |
-| YouTube | 影片 id 開頭 `short`（例如 `short000001`） | Shorts：`/shorts/<id>` 回 200。用下面的推送送這種 id，網站確認是 Shorts 後會刪掉、不通知（伺服器 log 記一行「確認是 Shorts，刪除推送的影片」與影片 id）；其他影片 id 的 `/shorts/<id>` 會 303 轉到 `/watch?v=` |
+| YouTube | 影片 id 開頭 `short`（例如 `short000001`） | Shorts：`/shorts/<id>` 回 200。用下面的推送送這種 id，網站確認是 Shorts 後會刪掉、不通知（伺服器 log 記一行「確認是 Shorts，刪除推送的影片」與影片 id）；直接寫進資料庫、RSS 裡沒有的這種影片，`youtube:cleanup` 會逐支確認後刪掉；其他影片 id 的 `/shorts/<id>` 會 303 轉到 `/watch?v=` |
 | YouTube | 其他影片 id | 有 8 句韓文字幕 |
 | YouTube | oEmbed（沒追蹤的影片的標題與頻道） | 標題是「模擬影片標題 <影片 id>」，頻道是「模擬頻道」：觀看頁的標題、已保留的影片看得出有沒有對應到正確的影片 |
 | AI | 任何 API Key | 內建的 8 句假字幕有固定譯文，其他句子回「〔中〕原文」。每批等 0.4 秒加每句 0.08 秒；`MOCK_AI_MS_PER_LINE=0` 不等 |
@@ -104,4 +104,5 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
   - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、記帳、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像與即時便箋，只有還沒追蹤、沒連結帳號的使用者才不會對外。
   - 可見的分頁大約每 10 秒向 `/api/notifications` 輪詢一次（背景分頁每 60 秒），模擬開台或新影片後最多等 10 秒，提示卡片就會出現。
 - **自動化測試觀看頁**：要先注入假的 `window.YT.Player`，否則瀏覽器會向 youtube.com 載入播放器。細節見 CLAUDE.md〈測試與 E2E〉。
+- **自動化點按**：用 Chrome DevTools Protocol 的 `Input.dispatchMouseEvent`（手機用 `Input.dispatchTouchEvent`）模擬真的滑鼠與手指，不要用 `element.click()`：它不經過命中測試、也不發 pointerdown，測不出「按下就把選單收起來」這類問題。
 - **測試腳本直接查本機資料庫時**：PGlite 只有一條真正的連線，腳本的查詢跟網站的查詢同時送出偶爾會混在一起（例如 `bind message supplies 1 parameters`）。等頁面載入完、網站閒下來再查，出錯就重試。

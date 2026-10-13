@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
+import { InfoTip } from "@/core/ui/info-tip";
 import { saveSettingsAction, type SettingsFormState } from "../actions";
 import { AI_PROVIDERS, SUBSCRIPTION_NOTE } from "../ai-providers";
 import { GLOSSARY_LIMITS, withCommas } from "../../lib/parse";
@@ -13,16 +14,21 @@ const LEGEND_CLASS = "float-left flex w-full flex-wrap items-center gap-3 text-l
 
 export function SettingsForm({ settings }: { settings: SettingsView }) {
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(saveSettingsAction, {});
+  const providerTitleId = useId();
 
   return (
     // 寬螢幕三欄：選 AI、Claude、OpenAI 一列，Gemini 與專有名詞表一列；排欄寫在卡片上（表單開頭有 React 加的隱藏 input，用第幾個子元素挑會算錯）
     <form action={action} className="page-stack xl:grid xl:grid-cols-3">
-      <fieldset className="card stack min-w-0">
+      {/* 這一組的名稱只取標題文字：legend 裡還有 i 圓圈的按鈕，整個 legend 當名稱會連它一起念 */}
+      <fieldset aria-labelledby={providerTitleId} className="card stack min-w-0">
         <legend className={LEGEND_CLASS}>
           <span className="icon-tile size-9 rounded-xl">
             <Icon name="sparkles" />
           </span>
-          翻譯使用的 AI
+          <span className="flex items-center gap-1">
+            <span id={providerTitleId}>翻譯使用的 AI</span>
+            <InfoTip label="關於訂閱方案">{SUBSCRIPTION_NOTE}</InfoTip>
+          </span>
         </legend>
         {/* 寬螢幕的三欄裡格子窄，三個選項改成上下排 */}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 xl:grid-cols-1">
@@ -33,10 +39,6 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
             </label>
           ))}
         </div>
-        <p className="notice">
-          <Icon name="info" />
-          <span>{SUBSCRIPTION_NOTE}</span>
-        </p>
       </fieldset>
 
       {AI_PROVIDERS.map((p) => {

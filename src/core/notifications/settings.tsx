@@ -47,6 +47,9 @@ const NOTICE_TEXT: Record<PermissionNotice, string> = {
   unsupported: "這個瀏覽器不支援系統通知（iPhone 要先把網站加到主畫面），只會有提示卡片與提示音。",
 };
 
+/** 只有會發通知的模組有開關；不發通知的（notifies: false）沒有開關可以關，存著的是沿用的舊全域值，不能算進「有沒有開著」 */
+const alertModules = (modules: NotificationModule[]) => modules.filter((module) => module.notifies !== false);
+
 /** 每個模組一列、提示音與瀏覽器通知各一個開關；模組清單由 src/app 傳進來，新增模組會自動出現 */
 export function AlertSwitchTable({ modules }: { modules: NotificationModule[] }) {
   return (
@@ -65,11 +68,9 @@ export function AlertSwitchTable({ modules }: { modules: NotificationModule[] })
         </tr>
       </thead>
       <tbody className="divide-y divide-line">
-        {modules
-          .filter((module) => module.notifies !== false)
-          .map((module) => (
-            <AlertSwitchRow key={module.id} module={module} />
-          ))}
+        {alertModules(modules).map((module) => (
+          <AlertSwitchRow key={module.id} module={module} />
+        ))}
       </tbody>
     </table>
   );
@@ -125,8 +126,8 @@ function AlertSwitchRow({ module }: { module: NotificationModule }) {
 }
 
 /** 有模組開著瀏覽器通知、權限卻還沒拿到時的提示；被拒絕後也會留著，提醒要到瀏覽器的網站設定改 */
-export function BrowserPermissionNotice({ moduleIds }: { moduleIds: string[] }) {
-  const notice = permissionNotice(useNotificationPermission(), useAnyAlertPref(moduleIds, "browser"));
+export function BrowserPermissionNotice({ modules }: { modules: NotificationModule[] }) {
+  const notice = permissionNotice(useNotificationPermission(), useAnyAlertPref(alertModules(modules).map((m) => m.id), "browser"));
   if (!notice) return null;
 
   return (
@@ -160,8 +161,7 @@ export function AlertSettingsHelp() {
 
 /** 通知頁的「提醒方式」：模組開關跟鈴鐺面板的是同一份設定，另外有試聽、權限與測試通知 */
 export function NotificationSettings({ modules }: { modules: NotificationModule[] }) {
-  const moduleIds = modules.map((m) => m.id);
-  const anySound = useAnyAlertPref(moduleIds, "sound");
+  const anySound = useAnyAlertPref(alertModules(modules).map((m) => m.id), "sound");
   const permission = useNotificationPermission();
   const [soundHint, setSoundHint] = useState<string | null>(null);
   const [browserHint, setBrowserHint] = useState<string | null>(null);

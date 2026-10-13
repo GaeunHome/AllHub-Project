@@ -14,4 +14,4 @@ export const AI_PROVIDERS: readonly AiProviderOption[] = [
   },
 ];
 
-export const SUBSCRIPTION_NOTE = "ChatGPT Plus、Claude Pro、Gemini 這類訂閱方案都不包含 API，要另外申請 API Key（Claude、OpenAI 依用量計費）。";
+export const SUBSCRIPTION_NOTE = "ChatGPT Plus、Claude Pro、Gemini 這類訂閱方案都不包含 API，要另外申請 API Key。";

@@ -48,9 +48,9 @@ export async function fetchChannelAvatar(ref: string): Promise<string | null> {
   return parseChannelAvatar(await response.text());
 }
 
-/** 是不是 Shorts：/shorts/<id> 是 Shorts 才回 200，一般影片會轉址到 /watch（非官方）；被擋或轉到同意頁回 null（無法判斷），連線錯誤與逾時照常丟出 */
-export async function checkIsShort(videoId: string): Promise<boolean | null> {
-  const response = await fetchYoutubePage(`https://www.youtube.com/shorts/${encodeURIComponent(videoId)}`, { redirect: "manual" });
+/** 是不是 Shorts：/shorts/<id> 是 Shorts 才回 200，一般影片會轉址到 /watch（非官方）；被擋或轉到同意頁回 null（無法判斷），連線錯誤與逾時照常丟出。timeoutMs 給排程調短，沒給就照一般的 YouTube 請求 */
+export async function checkIsShort(videoId: string, { timeoutMs }: { timeoutMs?: number } = {}): Promise<boolean | null> {
+  const response = await fetchYoutubePage(`https://www.youtube.com/shorts/${encodeURIComponent(videoId)}`, { redirect: "manual", timeoutMs });
   // 只看狀態碼與轉址目標，Shorts 頁的 HTML 不必下載
   await response.body?.cancel();
   if (response.status === 200) return true;
@@ -59,7 +59,7 @@ export async function checkIsShort(videoId: string): Promise<boolean | null> {
   return new URL(location, "https://www.youtube.com").pathname === "/watch" ? false : null;
 }
 
-/** 官方公開的頻道 RSS：用來確認頻道存在並取得名稱；查不到回 null。timeoutMs 給排程調短，沒給就照一般的 YouTube 請求 */
+/** 官方公開的頻道 RSS：確認頻道存在、取得名稱，entries 給追蹤時補影片與每天的清理找 Shorts；查不到回 null。timeoutMs 給排程調短，沒給就照一般的 YouTube 請求 */
 export async function fetchChannelFeed(channelId: string, { timeoutMs }: { timeoutMs?: number } = {}): Promise<{ title: string | null; entries: FeedEntry[] } | null> {
   const response = await fetchYoutubePage(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, { timeoutMs });
   if (response.status === 404 || response.status === 400) return null;

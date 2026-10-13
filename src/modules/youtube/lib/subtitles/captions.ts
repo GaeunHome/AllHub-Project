@@ -1,6 +1,6 @@
 import { errorKind } from "@/core/errors";
 import { VIDEO_ID } from "../parse";
-import { youtubeWatchUrl } from "../urls";
+import { isYoutubeHttpsUrl, youtubeWatchUrl } from "../urls";
 import { fetchYoutubePage } from "../youtube-fetch";
 import type { Cue } from "./format";
 
@@ -45,7 +45,7 @@ export async function fetchKoreanCaptions(videoId: string, opts: { fetchImpl?: t
 
     const download = new URL(track.baseUrl, "https://www.youtube.com");
     // 網址來自頁面內容，只接受 YouTube 自己的網址，避免被導去抓別的地方
-    if (!isYoutubeUrl(download)) return fail("error", "字幕網址不是 YouTube 的網址");
+    if (!isYoutubeHttpsUrl(download)) return fail("error", "字幕網址不是 YouTube 的網址");
     download.searchParams.set("fmt", "json3");
     const response = await fetchYoutubePage(download.toString(), { cache: "no-store", fetchImpl });
     if (response.status === 429) return fail("blocked", `YouTube 暫時拒絕下載字幕。${UPLOAD_HINT}`);
@@ -102,11 +102,6 @@ async function loadPlayer(videoId: string, fetchImpl: typeof fetch): Promise<{ o
   if (!player) return fail("blocked", `YouTube 沒有回傳播放資訊（可能要求同意條款或驗證）。${UPLOAD_HINT}`);
 
   return readPlayability(player) ?? { ok: true, player };
-}
-
-function isYoutubeUrl(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return url.protocol === "https:" && (host === "youtube.com" || host.endsWith(".youtube.com"));
 }
 
 /** 標題、說明裡也可能出現這段字，所以逐一嘗試，取第一個解析得出、而且真的是播放資訊的那一段 */

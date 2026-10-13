@@ -15,4 +15,8 @@ describe("翻譯設定頁的 AI 供應商", () => {
   it("說明 ChatGPT Plus、Claude Pro、Gemini 這類訂閱方案不包含 API，要另外申請 API Key", () => {
     expect(SUBSCRIPTION_NOTE).toMatch(/ChatGPT Plus.*Claude Pro.*Gemini.*不包含 API.*另外申請 API Key/);
   });
+
+  it("訂閱方案的說明只講要另外申請 API Key，不再寫哪幾家依用量計費", () => {
+    expect(SUBSCRIPTION_NOTE).toBe("ChatGPT Plus、Claude Pro、Gemini 這類訂閱方案都不包含 API，要另外申請 API Key。");
+  });
 });

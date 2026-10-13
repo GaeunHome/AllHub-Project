@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, eq, getTableColumns, inArray, isNull, lte, notInArray, or, sql } from "drizzle-orm";
+import { and, count, eq, getTableColumns, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { expireTags } from "@/core/cache";
 import { takeCooldown } from "@/core/cooldown";
 import { db } from "@/core/db";
@@ -13,23 +13,28 @@ import { youtubeChannels, youtubeFollows, youtubeTranslations, youtubeVideos, ty
 import { channelIdFromTopic, subscriptionFailure, verifyCallbackToken, type FeedEntry, type Verification } from "../lib/websub";
 import { youtubeTags } from "./cache-tags";
 import { checkChineseCaptions } from "./caption-status";
-import { LIST_LIMIT, newestFirst } from "./video-list";
+import { LIST_LIMIT, allListedVideoIds, newestFirst } from "./video-list";
 
 /** 推送的影片發布超過這麼久就不通知：hub 在舊影片改標題、說明時也會推送 */
 const NOTIFY_WINDOW_MS = 24 * 3600_000;
 const RENEW_BEFORE_MS = 2 * 24 * 3600_000;
 /** 「續訂」每個人每分鐘只能按一次：按一次就可能對很多頻道呼叫 hub */
 const MANUAL_RENEW_COOLDOWN_MS = 60_000;
-/** 發布兩天內的影片不在任何人清單裡也先留著：hub 在 24 小時通知窗內重送時才找得到、不會重複通知，背景也還會重新檢查中文字幕 */
+/** 發布兩天內的影片不在任何人清單裡也先留著：hub 在 24 小時通知窗內重送時才找得到、不會重複通知 */
 const KEEP_RECENT_MS = 48 * 3600_000;
-/** 清理 Shorts 時同時讀幾個頻道的 RSS */
+/** 清理 Shorts 時同時讀幾個頻道的 RSS、同時確認幾支影片 */
 const SHORTS_SWEEP_CONCURRENCY = 4;
-/** 清理 Shorts 讀 RSS 的總時間：頻道多、YouTube 又慢時剩下的明天再試，排程才不會拖到被平台中斷而來不及做後面的刪除 */
+/** 清理 Shorts（讀 RSS 加上逐支確認）的總時間：頻道多、YouTube 又慢時剩下的明天再試，排程才不會拖到被平台中斷而來不及做後面的刪除 */
 const SHORTS_SWEEP_BUDGET_MS = 60_000;
-/** RSS 只是用來找 Shorts，慢的頻道不值得等滿 15 秒（跟頻道頭像一樣 5 秒） */
-const SHORTS_FEED_TIMEOUT_MS = 5_000;
+/** RSS 與逐支確認只是用來找 Shorts，慢的不值得等滿 15 秒（跟頻道頭像一樣 5 秒） */
+const SHORTS_REQUEST_TIMEOUT_MS = 5_000;
+/** 每次最多逐支確認幾支：RSS 認不出來的一般影片每天都會再問一次，有上限才不會對 YouTube 發太多請求 */
+const SHORTS_CHECK_LIMIT = 50;
+const recentCutoff = (now: Date) => new Date(now.getTime() - KEEP_RECENT_MS);
 /** 發布時間（沒有的用寫入時間）早於 cutoff；Date 要自己轉成字串：drizzle 只在跟欄位比較時才轉，正式環境的 postgres-js 收到 Date 物件會丟錯 */
 const publishedBefore = (cutoff: Date) => sql`coalesce(${youtubeVideos.publishedAt}, ${youtubeVideos.createdAt}) < ${cutoff.toISOString()}::timestamptz`;
+/** 已經通知過、發布不到 KEEP_RECENT_MS 的 Shorts 先留著：推送時沒確認到是 Shorts 而通知了，hub 在 24 小時內重送時要找得到這一列，才不會再通知一次 */
+const removableShort = (now: Date) => or(isNull(youtubeVideos.notifiedAt), publishedBefore(recentCutoff(now)));
 // service 不能 import 模組根目錄的 info.ts，模組 id 寫在這裡（與 info.ts 的 id 相同）
 const MODULE_ID = "youtube";
 
@@ -73,8 +78,8 @@ export async function setChannelNotify(userId: string, id: number, enabled: bool
   return updated.length > 0;
 }
 
-/** 自己追蹤頻道的最新 LIST_LIMIT 支影片 */
-export async function recentVideos(userId: string, limit = LIST_LIMIT) {
+/** 自己追蹤頻道的最新 LIST_LIMIT 支影片（跟 listedVideoIds 同一個範圍） */
+export async function recentVideos(userId: string) {
   return db()
     .select({
       videoId: youtubeVideos.videoId,
@@ -92,7 +97,7 @@ export async function recentVideos(userId: string, limit = LIST_LIMIT) {
     .leftJoin(youtubeChannels, eq(youtubeChannels.channelId, youtubeVideos.channelId))
     .leftJoin(youtubeTranslations, eq(youtubeTranslations.videoId, youtubeVideos.videoId))
     .orderBy(...newestFirst)
-    .limit(limit);
+    .limit(LIST_LIMIT);
 }
 
 /** 觀看頁上方的頻道：只有自己追蹤的頻道的影片查得到，其他影片回 null（畫面改用 oEmbed） */
@@ -341,79 +346,122 @@ async function captionStatusOf(videoId: string): Promise<ZhCaptionStatus> {
 
 /** 每個人只看最新 LIST_LIMIT 支：不在任何人清單裡、發布超過 KEEP_RECENT_MS 的影片刪掉；翻譯是花錢翻好的，永久保留，不跟著影片刪 */
 export async function cleanupVideos(now = new Date()): Promise<string> {
+  // 確認是 Shorts、但這次先留著的影片（已經通知過、發布不到 KEEP_RECENT_MS）：還在資料表裡，不排除的話會佔掉一般影片的名次
+  const keptShorts = new Set<string>();
   // 先刪 Shorts 再排名次，一般影片才不會被 Shorts 擠出最新 LIST_LIMIT 支；這一步出錯或超過時間都不能擋住後面的刪除
-  const shorts = await removeStoredShorts(now).catch((error: unknown) => {
+  const shorts = await removeStoredShorts(now, keptShorts).catch((error: unknown) => {
     logError("youtube", "清理 Shorts 失敗", error);
     return null;
   });
-  const ranked = db()
-    .select({
-      id: youtubeVideos.id,
-      rank: sql<number>`row_number() over (partition by ${youtubeFollows.userId} order by ${sql.join(newestFirst, sql`, `)})`.as("rank"),
-    })
-    .from(youtubeVideos)
-    .innerJoin(youtubeFollows, eq(youtubeFollows.channelId, youtubeVideos.channelId))
-    .as("ranked");
-  const listed = db().select({ id: ranked.id }).from(ranked).where(lte(ranked.rank, LIST_LIMIT));
-  const keepAfter = new Date(now.getTime() - KEEP_RECENT_MS);
 
   const deleted = await db()
     .delete(youtubeVideos)
-    .where(and(publishedBefore(keepAfter), notInArray(youtubeVideos.id, listed)))
+    .where(and(publishedBefore(recentCutoff(now)), notInArray(youtubeVideos.id, allListedVideoIds([...keptShorts]))))
     .returning({ id: youtubeVideos.id });
   const summary = [`刪除 ${deleted.length} 支不在任何人最新 ${LIST_LIMIT} 支裡的影片`];
   if (!shorts) summary.push("Shorts 檢查失敗（詳見伺服器 log）");
   else {
     if (shorts.removed) summary.push(`刪除 ${shorts.removed} 支 Shorts`);
     if (shorts.skipped) summary.push(`略過 ${shorts.skipped} 個頻道的 Shorts 檢查（超過時間，明天再試）`);
+    if (shorts.unconfirmed) summary.push(`還有 ${shorts.unconfirmed} 支影片沒確認是不是 Shorts（明天再試）`);
   }
   return summary.join("；");
 }
 
-/** 推送時沒確認到、或這個規則之前就存進來的 Shorts：每個有人追蹤的頻道讀一次 RSS，連結是 /shorts/ 的刪掉；RSS 只有最新幾支，更舊的交給最新 LIST_LIMIT 支的規則 */
-async function removeStoredShorts(now: Date): Promise<{ removed: number; skipped: number }> {
-  const followed = await db().selectDistinct({ channelId: youtubeFollows.channelId }).from(youtubeFollows);
-  const queue = followed.map((row) => row.channelId);
+/** 推送時沒確認到、或這個規則之前就存進來的 Shorts：每個有人追蹤的頻道讀一次 RSS，連結是 /shorts/ 的刪掉；RSS 只有最新十幾支，認不出來、還在某人清單上的再逐支確認 */
+async function removeStoredShorts(now: Date, kept: Set<string>): Promise<{ removed: number; skipped: number; unconfirmed: number }> {
   const deadline = Date.now() + SHORTS_SWEEP_BUDGET_MS;
+  const followed = await db().selectDistinct({ channelId: youtubeFollows.channelId }).from(youtubeFollows);
+  // RSS 裡出現過的影片（一般影片與 Shorts 都算）：連結已經看得出是不是 Shorts，不必再逐支確認
+  const known = new Set<string>();
   let removed = 0;
+  const skipped = await eachBefore(deadline, followed.map((row) => row.channelId), async (channelId) => {
+    removed += await removeChannelShorts(channelId, now, known, kept);
+  });
+  const listed = await removeListedShorts(now, deadline, known, kept);
+  return { removed: removed + listed.removed, skipped, unconfirmed: listed.unconfirmed };
+}
+
+/** 同時最多跑 SHORTS_SWEEP_CONCURRENCY 個；過了 deadline 就不再開始新的（已經送出的請求各自最多等 SHORTS_REQUEST_TIMEOUT_MS），回傳沒輪到的數量 */
+async function eachBefore<T>(deadline: number, items: T[], task: (item: T) => Promise<void>): Promise<number> {
+  const queue = [...items];
   let skipped = 0;
   const worker = async () => {
-    for (let channelId = queue.shift(); channelId !== undefined; channelId = queue.shift()) {
-      // 還沒輪到的頻道留給明天；已經送出的請求各自最多等 SHORTS_FEED_TIMEOUT_MS
+    for (let item = queue.shift(); item !== undefined; item = queue.shift()) {
       if (Date.now() > deadline) {
         skipped += 1 + queue.splice(0).length;
         return;
       }
-      removed += await removeChannelShorts(channelId, now);
+      await task(item);
     }
   };
-  // 等每個 worker 都停下來才往下做：還有 Shorts 在刪的時候算最新 LIST_LIMIT 支會算錯
+  // 一個出錯也等每個 worker 都停下來才丟出：還有工作在刪 Shorts 時就往下算最新 LIST_LIMIT 支會算錯
   const results = await Promise.allSettled(Array.from({ length: Math.min(SHORTS_SWEEP_CONCURRENCY, queue.length) }, worker));
   const failure = results.find((result) => result.status === "rejected");
   if (failure) throw failure.reason;
-  return { removed, skipped };
+  return skipped;
 }
 
-/** 已經通知過、發布不到 KEEP_RECENT_MS 的先留著：推送時沒確認到是 Shorts 而通知了，hub 在 24 小時內重送時要找得到這一列，才不會再通知一次 */
-async function removeChannelShorts(channelId: string, now: Date): Promise<number> {
+/** 確認是 Shorts 卻沒刪掉的記進 kept：先留著的（已經通知過、發布不到 KEEP_RECENT_MS），或 RSS 裡有、根本沒存進來的（排除了也沒影響） */
+function rememberKept(shortIds: string[], deleted: { videoId: string }[], kept: Set<string>): void {
+  const gone = new Set(deleted.map((row) => row.videoId));
+  for (const videoId of shortIds) if (!gone.has(videoId)) kept.add(videoId);
+}
+
+/** 讀一個頻道的 RSS，刪掉連結是 /shorts/ 的影片；RSS 裡出現過的影片記進 known */
+async function removeChannelShorts(channelId: string, now: Date, known: Set<string>, kept: Set<string>): Promise<number> {
   // 一個頻道讀不到不影響其他頻道，明天的排程會再試
-  const feed = await fetchChannelFeed(channelId, { timeoutMs: SHORTS_FEED_TIMEOUT_MS }).catch((error: unknown) => {
+  const feed = await fetchChannelFeed(channelId, { timeoutMs: SHORTS_REQUEST_TIMEOUT_MS }).catch((error: unknown) => {
     logError("youtube", "清理 Shorts 時讀不到頻道的 RSS", error, channelId);
     return null;
   });
-  const shortIds = (feed?.entries ?? []).filter((entry) => entry.isShort && entry.channelId === channelId).map((entry) => entry.videoId);
+  const entries = (feed?.entries ?? []).filter((entry) => entry.channelId === channelId);
+  for (const entry of entries) known.add(entry.videoId);
+  const shortIds = entries.filter((entry) => entry.isShort).map((entry) => entry.videoId);
   if (shortIds.length === 0) return 0;
   const deleted = await db()
     .delete(youtubeVideos)
-    .where(
-      and(
-        eq(youtubeVideos.channelId, channelId),
-        inArray(youtubeVideos.videoId, shortIds),
-        or(isNull(youtubeVideos.notifiedAt), publishedBefore(new Date(now.getTime() - KEEP_RECENT_MS))),
-      ),
-    )
-    .returning({ id: youtubeVideos.id });
+    .where(and(eq(youtubeVideos.channelId, channelId), inArray(youtubeVideos.videoId, shortIds), removableShort(now)))
+    .returning({ videoId: youtubeVideos.videoId });
+  rememberKept(shortIds, deleted, kept);
   return deleted.length;
+}
+
+/** 還在某人最新 LIST_LIMIT 支裡、RSS 認不出來的影片（上線前存進來的、推送時確認不了的）逐支請求 /shorts/ 確認，新的先、每次最多 SHORTS_CHECK_LIMIT 支；刪掉（或確認後先留著）Shorts 後往前補進清單的影片也一起確認 */
+async function removeListedShorts(now: Date, deadline: number, known: Set<string>, kept: Set<string>): Promise<{ removed: number; unconfirmed: number }> {
+  let removed = 0;
+  let unconfirmed = 0;
+  let budget = SHORTS_CHECK_LIMIT;
+  for (;;) {
+    const listed = await db()
+      .select({ videoId: youtubeVideos.videoId })
+      .from(youtubeVideos)
+      .where(inArray(youtubeVideos.id, allListedVideoIds([...kept])))
+      .orderBy(...newestFirst);
+    const pending = listed.map((row) => row.videoId).filter((videoId) => !known.has(videoId));
+    // 超過時間或上限而沒輪到的，跟確認不了的一起寫進摘要，明天再試
+    if (pending.length === 0 || budget === 0 || Date.now() > deadline) return { removed, unconfirmed: unconfirmed + pending.length };
+    const batch = pending.slice(0, budget);
+    budget -= batch.length;
+    const shorts: string[] = [];
+    await eachBefore(deadline, batch, async (videoId) => {
+      // 確認不了（被擋、出錯）就當一般影片留著，跟推送時一樣寧可多留一支 Shorts
+      const answer = await checkIsShort(videoId, { timeoutMs: SHORTS_REQUEST_TIMEOUT_MS }).catch((error: unknown) => {
+        logError("youtube", "清理時確認是不是 Shorts 失敗", error, videoId);
+        return null;
+      });
+      known.add(videoId);
+      if (answer === null) unconfirmed++;
+      else if (answer) shorts.push(videoId);
+    });
+    if (shorts.length === 0) continue;
+    const deleted = await db()
+      .delete(youtubeVideos)
+      .where(and(inArray(youtubeVideos.videoId, shorts), removableShort(now)))
+      .returning({ videoId: youtubeVideos.videoId });
+    rememberKept(shorts, deleted, kept);
+    removed += deleted.length;
+  }
 }
 
 /** 租約快到期、沒有租約（hub 還沒確認）或失敗的頻道重新訂閱；沒有人追蹤的頻道（例如最後一位追蹤者刪除了帳號）取消訂閱並刪除 */

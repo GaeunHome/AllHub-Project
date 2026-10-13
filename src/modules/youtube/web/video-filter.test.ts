@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TranslationStatus, ZhCaptionStatus } from "../data/schema";
-import { VIDEO_FILTERS, captionCheckPending, countByFilter, latestVideos, savedBadge, thumbnailBadge, upNext, videoFilters } from "./video-filter";
+import { VIDEO_FILTERS, captionCheckPending, latestVideos, savedBadge, thumbnailBadge, upNext, videoFilters } from "./video-filter";
 
 const CHECKED_AT = new Date("2026-10-07T12:00:00Z");
 /** 沒特別說的都檢查過字幕；從沒檢查過的傳 null */
@@ -23,10 +23,6 @@ describe("videoFilters：影片出現在哪些篩選裡", () => {
     ["翻譯完成", video("no", "done"), ["all", "done"]],
   ] as const)("%s → %j", (_name, input, expected) => {
     expect(videoFilters(input)).toEqual(expected);
-  });
-
-  it("countByFilter：每個篩選各有幾支", () => {
-    expect(countByFilter([video("yes"), video("no"), video("no", "done"), video("unknown", "queued")])).toEqual({ all: 4, zh: 1, translate: 2, done: 1 });
   });
 });
 

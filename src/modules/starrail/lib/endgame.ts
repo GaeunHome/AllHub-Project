@@ -2,7 +2,7 @@
 
 import { elementIconUrl } from "./game-icons";
 import { asRecord, bool, createMissing, image, number, text } from "./json";
-import { interpretResponse, type HoyolabResult } from "./responses";
+import { interpretWith, type HoyolabResult } from "./responses";
 
 export const ENDGAME_MODES = ["chaos", "fiction", "shadow"] as const;
 export type EndgameMode = (typeof ENDGAME_MODES)[number];
@@ -51,8 +51,7 @@ export function endgameLabel(mode: EndgameMode): string {
 }
 
 export function interpretEndgame(json: unknown, mode: EndgameMode): HoyolabResult<EndgameResult> {
-  const result = interpretResponse(json);
-  return result.ok ? { ok: true, data: parseEndgame(result.data, mode), raw: json } : result;
+  return interpretWith(json, (data) => parseEndgame(data, mode));
 }
 
 /** 回應裡的時間是 {year, month, day, hour, minute}（伺服器時區），直接組成字串，不換算時區 */

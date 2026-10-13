@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { youtubeChannelPageUrl, youtubeChannelRef, youtubeThumbnailUrl } from "./urls";
+import { isYoutubeHttpsUrl, youtubeChannelPageUrl, youtubeChannelRef, youtubeThumbnailUrl } from "./urls";
 
 describe("youtubeThumbnailUrl：影片縮圖用影片 id 組出來，不必呼叫 API", () => {
   it("用每支影片都有的 16:9 縮圖（mqdefault）", () => {
@@ -41,5 +41,21 @@ describe("youtubeChannelRef：頻道 id 或 @handle（讀頭像、當快取 key�
     expect(youtubeChannelRef("https://www.youtube.com/c/NewJeans")).toBeNull();
     expect(youtubeChannelRef("https://www.youtube.com/user/NewJeans")).toBeNull();
     expect(youtubeChannelRef("https://evil.example.com/@x")).toBeNull();
+  });
+});
+
+describe("isYoutubeHttpsUrl：只收 YouTube（含子網域）的 https 網址（字幕的下載網址、oEmbed 的頻道網址共用）", () => {
+  it.each(["https://youtube.com/@x", "https://www.youtube.com/api/timedtext?lang=ko", "https://m.youtube.com/watch?v=x", "https://WWW.YouTube.com/@x"])("%s_收", (url) => {
+    expect(isYoutubeHttpsUrl(new URL(url))).toBe(true);
+  });
+
+  it.each([
+    ["不是 https", "http://www.youtube.com/@x"],
+    ["網域只是開頭相同", "https://www.youtube.com.evil.example/@x"],
+    ["相似網域", "https://notyoutube.com/@x"],
+    ["別的網域、網址裡帶著 youtube.com", "https://evil.example.com/?next=https://www.youtube.com/"],
+    ["不是網頁網址", "javascript:alert(1)"],
+  ])("%s_不收", (_name, url) => {
+    expect(isYoutubeHttpsUrl(new URL(url))).toBe(false);
   });
 });

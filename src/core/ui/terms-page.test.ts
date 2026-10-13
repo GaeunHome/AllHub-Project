@@ -76,9 +76,9 @@ describe("使用聲明（公開頁）", () => {
     expect(text).toContain("只有伺服器在呼叫 AI 翻譯、讀取 HoYoLAB 與每天的重新加密排程時才會解密");
   });
 
-  it("第三方服務：每天的排程會讀追蹤中 YouTube 頻道的 RSS（找出 Shorts）；頻道頭像與 Shorts 的判斷也列在非官方做法裡", () => {
+  it("第三方服務：每天的排程會讀追蹤中 YouTube 頻道的 RSS，RSS 裡沒有的影片再逐支確認（找出 Shorts）；頻道頭像與 Shorts 的判斷也列在非官方做法裡", () => {
     for (const line of [
-      "YouTube、Twitch：伺服器會向它們查詢頻道、影片、字幕、頭像與開台狀態；每天的排程會讀追蹤中 YouTube 頻道的 RSS，找出 Shorts 刪掉。",
+      "YouTube、Twitch：伺服器會向它們查詢頻道、影片、字幕、頭像與開台狀態；每天的排程會讀追蹤中 YouTube 頻道的 RSS，RSS 裡沒有的影片再逐支確認，找出 Shorts 刪掉。",
       "非官方做法：HoYoLAB 的讀取、簽到與兌換，以及 YouTube 的字幕讀取、頻道頭像與 Shorts 判斷，都不是官方 API，可能失效或違反服務條款，請自行評估要不要使用。",
     ]) {
       expect(text, line).toContain(line);

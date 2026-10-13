@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cacheKeyIds, formatLiveDuration, formatViewerCount, mergeStreamerVisuals, pickLiveNow, sizedImageUrl, toGameArt, toLiveStream, toProfile } from "./visuals";
+import { cacheKeyIds, formatCount, formatLiveDuration, formatViewerCount, mergeStreamerVisuals, pickLiveNow, sizedImageUrl, toGameArt, toLiveStream, toProfile } from "./visuals";
 
 describe("sizedImageUrl：Helix 的圖片網址樣板換成實際尺寸", () => {
   it("直播預覽圖的 {width}x{height}", () => {
@@ -63,6 +63,18 @@ describe("formatViewerCount：觀看人數", () => {
   });
 });
 
+describe("formatCount：只有數字（側欄每一列的人數）", () => {
+  it("千分位，不加「人觀看」", () => {
+    expect([0, 1, 999, 1000, 10000, 1234567].map(formatCount)).toEqual(["0", "1", "999", "1,000", "10,000", "1,234,567"]);
+  });
+
+  it("四捨五入成整數、負數當 0；沒有人數_null", () => {
+    expect(formatCount(12.6)).toBe("13");
+    expect(formatCount(-3)).toBe("0");
+    expect(formatCount(null)).toBeNull();
+  });
+});
+
 describe("Helix 回應整理成只留畫面用得到的欄位", () => {
   it("toProfile_頭像與離線橫幅_空字串當作沒有", () => {
     expect(toProfile({ id: "1", login: "alice", display_name: "Alice", profile_image_url: "https://p/1.png", offline_image_url: "" })).toEqual({
@@ -72,7 +84,7 @@ describe("Helix 回應整理成只留畫面用得到的欄位", () => {
     });
   });
 
-  it("toLiveStream_標題、遊戲、人數、開台時間、預覽圖（換成 640x360）", () => {
+  it("toLiveStream_標題、遊戲、人數、開台時間、預覽圖（直播卡片用 640x360；主播詳情的大面板最寬約 1460px，640x360 放大會糊，另外要 1920x1080）", () => {
     expect(
       toLiveStream({
         user_id: "1",
@@ -91,6 +103,7 @@ describe("Helix 回應整理成只留畫面用得到的欄位", () => {
       viewerCount: 321,
       startedAt: "2026-10-08T10:00:00Z",
       previewUrl: "https://static-cdn.jtvnw.net/previews-ttv/live_user_alice-640x360.jpg",
+      largePreviewUrl: "https://static-cdn.jtvnw.net/previews-ttv/live_user_alice-1920x1080.jpg",
     });
   });
 
@@ -103,6 +116,7 @@ describe("Helix 回應整理成只留畫面用得到的欄位", () => {
       viewerCount: null,
       startedAt: null,
       previewUrl: null,
+      largePreviewUrl: null,
     });
   });
 
@@ -125,7 +139,16 @@ describe("mergeStreamerVisuals：資料庫的主播加上 Helix 的頭像、直�
     { id: "2", profileImageUrl: "https://helix/bob.png", offlineImageUrl: null },
   ];
   const streams = [
-    { userId: "1", title: "早安", gameId: "99", gameName: "Just Chatting", viewerCount: 50, startedAt: "2026-10-08T10:00:00Z", previewUrl: "https://helix/alice-640x360.jpg" },
+    {
+      userId: "1",
+      title: "早安",
+      gameId: "99",
+      gameName: "Just Chatting",
+      viewerCount: 50,
+      startedAt: "2026-10-08T10:00:00Z",
+      previewUrl: "https://helix/alice-640x360.jpg",
+      largePreviewUrl: "https://helix/alice-1920x1080.jpg",
+    },
   ];
   const games = [{ id: "99", boxArtUrl: "https://helix/99-72x96.jpg" }];
 
@@ -137,14 +160,21 @@ describe("mergeStreamerVisuals：資料庫的主播加上 Helix 的頭像、直�
       isLive: true,
       avatarUrl: "https://helix/alice.png",
       bannerUrl: "https://helix/alice-offline.png",
-      live: { title: "早安", gameName: "Just Chatting", boxArtUrl: "https://helix/99-72x96.jpg", viewerCount: 50, previewUrl: "https://helix/alice-640x360.jpg" },
+      live: {
+        title: "早安",
+        gameName: "Just Chatting",
+        boxArtUrl: "https://helix/99-72x96.jpg",
+        viewerCount: 50,
+        previewUrl: "https://helix/alice-640x360.jpg",
+        largePreviewUrl: "https://helix/alice-1920x1080.jpg",
+      },
     });
   });
 
   it("EventSub 說開台但 Helix 還查不到（剛開台）_仍是直播中，直播資訊都是 null", () => {
     const [, bob] = mergeStreamerVisuals(streamers, { profiles, streams, games });
 
-    expect(bob).toMatchObject({ login: "bob", isLive: true, live: { title: null, previewUrl: null, viewerCount: null } });
+    expect(bob).toMatchObject({ login: "bob", isLive: true, live: { title: null, previewUrl: null, largePreviewUrl: null, viewerCount: null } });
   });
 
   it("離線_沒有直播資訊；Helix 沒有這位主播的頭像時退回資料庫存的", () => {
@@ -174,7 +204,7 @@ describe("mergeStreamerVisuals：資料庫的主播加上 Helix 的頭像、直�
       ["alice", false, "https://db/alice.png", null],
       ["carol", false, "https://db/carol.png", null],
     ]);
-    expect(merged[0].live).toEqual({ title: null, gameName: null, boxArtUrl: null, viewerCount: null, startedAt: null, previewUrl: null });
+    expect(merged[0].live).toEqual({ title: null, gameName: null, boxArtUrl: null, viewerCount: null, startedAt: null, previewUrl: null, largePreviewUrl: null });
   });
 
   it("保留資料庫的其他欄位", () => {

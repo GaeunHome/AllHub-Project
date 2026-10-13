@@ -6,7 +6,7 @@ import { db } from "../db";
 import { coreInvites, coreUsers } from "../db/schema";
 import { INVITE_DAY_OPTIONS, INVITE_NOTE_MAX_LENGTH, INVITE_USE_OPTIONS } from "./invite-rules";
 
-export { INVITE_DAY_OPTIONS, INVITE_NOTE_MAX_LENGTH, INVITE_USE_OPTIONS };
+export { INVITE_DAY_OPTIONS, INVITE_USE_OPTIONS };
 
 const TOKEN_BYTES = 32;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;

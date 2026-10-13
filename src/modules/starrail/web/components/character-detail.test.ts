@@ -1,6 +1,8 @@
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { Relic, StarrailCharacter } from "../../lib/characters";
+import { CharacterBrowser } from "./character-browser";
 import { CharacterDetail } from "./character-detail";
 import { CharacterTile } from "./character-tile";
 
@@ -66,6 +68,61 @@ describe("角色詳情：版面", () => {
     expect(header).toEqual(expect.arrayContaining(["px-4", "sm:px-6"]));
     expect(body).toEqual(expect.arrayContaining(["p-4", "sm:p-6"]));
     expect([...header, ...body].filter((c) => /^px?-5$/.test(c))).toEqual([]);
+  });
+
+  it("視窗是滿版的大面板（Dialog 的 size=full），套星空主題與切角；尺寸不再自己另寫一套", () => {
+    const markup = renderToStaticMarkup(createElement(CharacterBrowser, { characters: [seele()], fetchedLabel: "今天 14:05" }));
+
+    expect(markup.match(/<dialog[^>]*>/)![0]).toContain('class="dialog dialog-full sr-dialog"');
+  });
+
+  it("寬螢幕：立繪在左、標題列與內容在右，整個面板一起捲動（游標在立繪上也捲得動），標題列固定在上方", () => {
+    const markup = detail();
+    const root = classesOf(markup, /^<div class="([^"]*)"/);
+
+    expect(root).toEqual(expect.arrayContaining(["lg:h-full", "lg:flex-row", "lg:items-start", "lg:overflow-y-auto"]));
+    expect(classesOf(markup, /<header class="([^"]*)"/)).toEqual(expect.arrayContaining(["sticky", "top-0"]));
+  });
+
+  it("手機上直排：標題列（名字與關閉鈕）在最上面，接著是立繪，再來是內容", () => {
+    const markup = detail();
+
+    expect(classesOf(markup, /<header class="([^"]*)"/)).toContain("order-1");
+    expect(classesOf(markup, /<div class="([^"]*\bsr-stage\b[^"]*)"/)).toContain("order-2");
+    expect(classesOf(markup, /<\/header><div class="([^"]*)"/)).toContain("order-3");
+    // 右欄在手機上拆開（contents），標題列才排得到立繪前面
+    expect(classesOf(markup, /<div class="([^"]*)"><header/)).toEqual(expect.arrayContaining(["contents", "lg:block"]));
+  });
+
+  it("右欄依自己的寬度分欄（容器查詢）：寬的時候面板與光錐、星魂並排，遺器與行跡排成三欄", () => {
+    const markup = detail(seele({ traces: [{ kind: "skill", name: "普攻", typeLabel: "普攻", level: 6, activated: true, icon: null }] }));
+    const content = classesOf(markup, /<\/header><div class="([^"]*)"/);
+    const relics = classesOf(markup, /<ul class="([^"]*)"><li class="sr-panel/);
+
+    expect(content).toContain("@container");
+    expect(classesOf(markup, /<\/header><div class="[^"]*"><div class="([^"]*)"/)).toContain("@3xl:grid-cols-2");
+    expect(relics).toEqual(expect.arrayContaining(["@lg:grid-cols-2", "@3xl:grid-cols-3"]));
+    expect(relics.filter((c) => c.startsWith("sm:"))).toEqual([]);
+  });
+});
+
+describe("角色詳情：立繪", () => {
+  const stageOf = (markup: string) => classesOf(markup, /<div class="([^"]*\bsr-stage\b[^"]*)"/);
+
+  it("寬螢幕依面板高度放大：左邊一整欄、跟面板一樣高（最多一半寬），捲動內容時留在原地；不再限寬 240px", () => {
+    const stage = stageOf(detail());
+
+    expect(stage).toEqual(expect.arrayContaining(["lg:sticky", "lg:top-0", "lg:h-[100cqh]", "lg:w-[min(50cqw,100cqh)]"]));
+    expect(stage).not.toContain("max-w-60");
+  });
+
+  it("手機與平板：撐滿面板寬度的方形（碰到左右兩邊），視窗矮時限高", () => {
+    expect(stageOf(detail())).toEqual(expect.arrayContaining(["w-full", "aspect-square", "max-h-[65dvh]"]));
+  });
+
+  it("背景的光暈跟著稀有度（五星金、四星紫）", () => {
+    expect(detail()).toMatch(/<div class="[^"]*\bsr-stage\b[^"]*" data-rarity="5"/);
+    expect(detail(seele({ rarity: 4 }))).toMatch(/<div class="[^"]*\bsr-stage\b[^"]*" data-rarity="4"/);
   });
 });
 

@@ -19,4 +19,10 @@ describe("parseOembed：任意影片的標題與頻道（官方、免金鑰）",
     expect(parseOembed({ title: "a", author_url: "https://evil.example.com/@x" }).channelUrl).toBeNull();
     expect(parseOembed({ title: "a", author_url: "javascript:alert(1)" }).channelUrl).toBeNull();
   });
+
+  it("不是 https、或網域只是開頭相同的頻道網址_也不採用；子網域可以", () => {
+    expect(parseOembed({ title: "a", author_url: "http://www.youtube.com/@x" }).channelUrl).toBeNull();
+    expect(parseOembed({ title: "a", author_url: "https://www.youtube.com.evil.example/@x" }).channelUrl).toBeNull();
+    expect(parseOembed({ title: "a", author_url: "https://m.youtube.com/@x" }).channelUrl).toBe("https://m.youtube.com/@x");
+  });
 });

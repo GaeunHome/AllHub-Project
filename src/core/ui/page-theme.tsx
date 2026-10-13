@@ -14,7 +14,7 @@ export function markShown(element: Marked): () => void {
   return () => element.setAttribute(ACTIVITY_HIDDEN, "");
 }
 
-/** 會換整頁底色與導覽列的主題頁外框（YouTube）：伺服器算繪的 HTML 沒有標記，整頁載入時第一次繪製就套用；換頁被 Activity 藏起來時標上，主題不漏到別頁 */
+/** 會換整頁底色的主題頁外框（YouTube 連導覽列也換；Twitch、星穹鐵道的導覽列維持全站的樣子）：伺服器算繪的 HTML 沒有標記，整頁載入時第一次繪製就套用；換頁被 Activity 藏起來時標上，主題不漏到別頁 */
 export function PageTheme({ className, accent, children }: { className: string; accent?: ModuleAccent; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   // layout effect：藏起來、再顯示都在同一次更新的繪製之前完成，不會閃一下別的底色

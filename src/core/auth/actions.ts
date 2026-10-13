@@ -10,7 +10,7 @@ import { createSession, deleteSession, requireSession } from ".";
 import { INVITE_FAILURES, REGISTER_ATTEMPTS, checkAttempts, clientKey, recordAttempt } from "./attempts";
 import { authTags } from "./cache-tags";
 import { takeCaptchaToken, verifyCaptcha } from "./captcha";
-import { CAPTCHA_ERROR, CAPTCHA_FIELD, HONEYPOT_FIELD, INVALID_CREDENTIALS } from "./messages";
+import { CAPTCHA_ERROR, CAPTCHA_FIELD, HONEYPOT_FIELD, INVALID_CREDENTIALS, tooManyAttempts } from "./messages";
 import { clientIp, createFailureLimiter } from "./rate-limit";
 import { registerMember, type RegisterResult } from "./registration";
 import { authenticate, changePassword, deleteOwnAccount } from "./users";
@@ -26,7 +26,6 @@ const passwordLimiter = createFailureLimiter(LOCK_OPTIONS);
 const FAILURE_DELAY_MS = 1000;
 
 const lockedMessage = (retryAfterMs: number) => `錯誤次數太多，請 ${Math.ceil(retryAfterMs / 60_000)} 分鐘後再試`;
-const tooManyAttempts = (retryAfterMs: number) => `嘗試次數太多，請 ${Math.ceil(retryAfterMs / 60_000)} 分鐘後再試`;
 
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const ip = clientIp((await headers()).get("x-forwarded-for"));

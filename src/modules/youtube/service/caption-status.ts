@@ -22,7 +22,7 @@ const longestUncheckedFirst = [sql`${youtubeVideos.zhCaptionsCheckedAt} asc null
 const followedBy = (userId: string) =>
   inArray(youtubeVideos.channelId, db().select({ channelId: youtubeFollows.channelId }).from(youtubeFollows).where(eq(youtubeFollows.userId, userId)));
 
-/** 寫回檢查結果並回傳目前狀態；影片不在任何清單裡回 null（新影片推送用，不分使用者） */
+/** 寫回檢查結果並回傳目前狀態；影片表裡沒有這支（例如已經被清掉）回 null。推送、手動與背景的重新檢查共用，不分使用者 */
 export async function checkChineseCaptions(videoId: string, now = new Date()): Promise<ZhCaptionStatus | null> {
   const result = await listCaptionTracks(videoId);
   // 這次抓不到（多半是被擋）不代表字幕狀態變了，保留之前確認過的結果，只更新檢查時間

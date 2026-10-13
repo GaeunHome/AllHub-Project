@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   cacheLife: {
     // 資料庫讀取：每個寫入點都會讓 tag 失效，時間只是保險（直接改資料庫時最多一天會自己更新）
     db: { stale: 30, revalidate: 3600, expire: 86_400 },
-    // 外部即時資料（HoYoLAB 即時便箋）：畫面上的資料最多 5 分鐘前
+    // 外部即時資料（HoYoLAB 即時便箋）：畫面上的資料最多 5 分鐘前；其他外部資料讀不到時也改用這個短效期，幾分鐘後再試
     external: { stale: 30, revalidate: 60, expire: 300 },
     // 直播狀態（Twitch 直播中、觀看人數、預覽圖）：最多 2 分鐘前
     live: { stale: 30, revalidate: 60, expire: 120 },

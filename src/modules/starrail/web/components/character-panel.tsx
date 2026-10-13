@@ -1,23 +1,19 @@
-import { after } from "next/server";
 import { requireSession } from "@/core/auth";
-import { logError } from "@/core/errors";
 import { externalAssetUrl } from "@/core/external-url";
 import { FormMessage } from "@/core/ui/form-message";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { formatTaipeiTime } from "../../lib/responses";
-import { syncCookieInvalid, type StarrailAccountView } from "../../service/accounts";
+import type { StarrailAccountView } from "../../service/accounts";
 import { cachedCharacters } from "../../service/cached";
 import { characterAssetUrls } from "../character-assets";
+import { syncCookieFlagAfter } from "../cookie-flag";
 import { CharacterBrowser } from "./character-browser";
 
 /** 角色列表（每個帳號快取 30 分鐘）；HoYoLAB 失敗時只在這一塊顯示錯誤 */
 export async function CharacterPanel({ account }: { account: StarrailAccountView }) {
   const user = await requireSession();
   const result = await cachedCharacters(user.id, account.id);
-  // 快取函式裡不能寫入：跟即時便箋一樣，cookie 狀態不同時在回應送出後再寫回
-  if (result.cookieInvalid !== account.cookieInvalid) {
-    after(() => syncCookieInvalid(user.id, account.id, result.cookieInvalid).catch((error: unknown) => logError("starrail", "同步 cookie 狀態失敗", error)));
-  }
+  syncCookieFlagAfter(user.id, account, result.cookieInvalid);
 
   if (!result.ok || result.characters.length === 0) {
     return (

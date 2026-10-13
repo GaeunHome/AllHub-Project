@@ -8,8 +8,8 @@ import { ENDGAME_ENDPOINTS, interpretEndgame, type EndgameMode, type EndgameResu
 import { interpretLedger, type LedgerResult } from "./ledger";
 import { interpretRedeem, type RedeemOutcome } from "./redeem";
 import {
-  interpretResponse,
   interpretSign,
+  interpretWith,
   parseCheckinInfo,
   parseDailyNote,
   parseExpeditions,
@@ -68,13 +68,8 @@ async function call(url: string, init: RequestInit): Promise<unknown> {
   }
 }
 
-function mapResult<T>(json: unknown, parse: (data: unknown) => T): HoyolabResult<T> {
-  const result = interpretResponse(json);
-  return result.ok ? { ok: true, data: parse(result.data), raw: json } : result;
-}
-
 export async function fetchGameRoles(cookie: string): Promise<HoyolabResult<GameRole[]>> {
-  return mapResult(await call(ROLES_URL, { headers: headers(cookie) }), parseGameRoles);
+  return interpretWith(await call(ROLES_URL, { headers: headers(cookie) }), parseGameRoles);
 }
 
 /** 便箋的數字給排程判斷開拓力；委託（角色圖、剩餘時間）只有頁面用 */
@@ -82,7 +77,7 @@ export type NoteWithExpeditions = DailyNote & { expeditions: Expedition[] };
 
 export async function fetchDailyNote(cookie: string, uid: string, region: string): Promise<HoyolabResult<NoteWithExpeditions>> {
   const url = `${NOTE_URL}?server=${encodeURIComponent(region)}&role_id=${encodeURIComponent(uid)}`;
-  return mapResult(await call(url, { headers: headers(cookie, { ds: generateDs() }) }), (data) => ({ ...parseDailyNote(data), expeditions: parseExpeditions(data) }));
+  return interpretWith(await call(url, { headers: headers(cookie, { ds: generateDs() }) }), (data) => ({ ...parseDailyNote(data), expeditions: parseExpeditions(data) }));
 }
 
 /** 角色詳情（光錐、遺器、面板、星魂、行跡）；need_wiki 跟 genshin.py 一樣帶上 */
@@ -118,7 +113,7 @@ const checkinHeaders = (cookie: string) => headers(cookie, { "x-rpc-signgame": "
 
 export async function fetchCheckinInfo(cookie: string): Promise<HoyolabResult<CheckinInfo>> {
   const url = `${CHECKIN_BASE}/info?lang=zh-tw&act_id=${CHECKIN_ACT_ID}`;
-  return mapResult(await call(url, { headers: checkinHeaders(cookie) }), parseCheckinInfo);
+  return interpretWith(await call(url, { headers: checkinHeaders(cookie) }), parseCheckinInfo);
 }
 
 export async function signIn(cookie: string): Promise<CheckinOutcome & { raw: unknown }> {

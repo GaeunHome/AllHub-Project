@@ -1,4 +1,4 @@
-// 彈出層（彈出視窗、⋮ 選單、鈴鐺面板、人像選單）開著時，頁面自己的快捷鍵要讓開：用語意屬性判斷，模組不必知道 core 的 class 名稱
+// 彈出層（彈出視窗、⋮ 選單、鈴鐺面板、人像選單、i 提示）開著時，頁面自己的快捷鍵要讓開：用語意屬性判斷，模組不必知道 core 的 class 名稱
 
 /** 觸發按鈕標上這個屬性（配 aria-expanded）：面板不是 aria-haspopup 能宣告的角色時（⋮ 選單的面板是 group），也認得出它開著 */
 export const POPUP_TRIGGER = "data-popup-trigger";

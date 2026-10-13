@@ -3,7 +3,7 @@
 
 import { elementIconUrl, pathIconUrl, propertyIconUrl } from "./game-icons";
 import { asRecord, bool, createMissing, image, number, text } from "./json";
-import { interpretResponse, type HoyolabResult } from "./responses";
+import { interpretWith, type HoyolabResult } from "./responses";
 
 /** times 是 HoYoLAB 原樣的次數（推定含初始那一次，依據見 relicUpgrades()），畫面用 relicUpgrades() 換成強化次數；icon 是內建遊戲圖示的站內路徑，對照表以外的屬性是 null */
 export type RelicStat = { name: string; value: string | null; times: number | null; icon: string | null };
@@ -59,9 +59,8 @@ const DATA_NOT_PUBLIC = 10102;
 const NOT_PUBLIC_HINT = "角色詳情沒有公開：到 HoYoLAB → 戰績 → 設定，打開角色詳情後再重新整理";
 
 export function interpretCharacters(json: unknown): HoyolabResult<CharacterList> {
-  const result = interpretResponse(json);
-  if (result.ok) return { ok: true, data: parseCharacters(result.data), raw: json };
-  if (result.retcode === DATA_NOT_PUBLIC) return { ...result, message: `${NOT_PUBLIC_HINT}（${result.retcode}）` };
+  const result = interpretWith(json, parseCharacters);
+  if (!result.ok && result.retcode === DATA_NOT_PUBLIC) return { ...result, message: `${NOT_PUBLIC_HINT}（${result.retcode}）` };
   return result;
 }
 

@@ -1,181 +1,226 @@
 import type { ReactNode } from "react";
 import { ExternalImage } from "@/core/ui/external-image";
 import { Icon, type UiIconName } from "@/core/ui/icon";
-import { elementLabel, pathLabel, relicSlotLabel, relicUpgrades, type Relic, type RelicStat, type StarrailCharacter, type Trace } from "../../lib/characters";
+import {
+  elementLabel,
+  pathLabel,
+  relicSlotLabel,
+  relicUpgrades,
+  type Eidolon,
+  type LightCone,
+  type Relic,
+  type RelicStat,
+  type StarrailCharacter,
+  type StatLine,
+  type Trace,
+} from "../../lib/characters";
 import { ElementBadge, GameIcon, Portrait, rarityClass } from "./sr-visuals";
 
 const dash = (value: string | number | null) => (value === null || value === "" ? "—" : value);
 const stars = (rarity: number | null) => (rarity ? "★".repeat(Math.min(rarity, 5)) : null);
 
-/** 角色詳情：立繪、光錐、遺器、面板、星魂與行跡；讀不到的欄位顯示「—」 */
+/** 角色詳情（滿版的大面板）：寬螢幕立繪是左邊一整欄、依面板高度放大，右欄是標題列與面板、光錐、星魂、遺器、行跡；手機上直排；讀不到的欄位顯示「—」 */
 export function CharacterDetail({ character, titleId, onClose }: { character: StarrailCharacter; titleId: string; onClose: () => void }) {
   const c = character;
-  const path = pathLabel(c.path);
   const traces = c.traces.filter((t) => t.kind !== "bonus");
   const bonuses = c.traces.filter((t) => t.kind === "bonus");
   return (
-    <div className="flex flex-col">
-      {/* 捲動時標題列留在上方：手機上是全螢幕，關閉鈕要一直按得到 */}
-      <header className="sticky top-0 z-10 flex items-start gap-3 border-b border-line bg-[#0d1233]/95 px-4 py-4 backdrop-blur sm:px-6">
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <h3 id={titleId} className="truncate text-xl font-bold tracking-wide text-ink">
-            {c.name ?? "（未知角色）"}
-          </h3>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {stars(c.rarity) && <span className="chip border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-[#f4d79b]">{stars(c.rarity)}</span>}
-            {c.element && (
-              <span className="chip">
-                <ElementBadge element={c.element} src={c.elementIcon} decorative className="size-4 text-[0.5625rem]" />
-                {elementLabel(c.element)}
-              </span>
-            )}
-            {path && (
-              <span className="chip">
-                <GameIcon src={c.pathIcon} className="size-4" />
-                {path}
-              </span>
-            )}
-            {c.level !== null && (
-              <span className="chip">
-                等級 <span className="sr-num text-[0.8125rem] font-bold">{c.level}</span>
-              </span>
-            )}
-            {c.eidolon !== null && (
-              <span className="chip">
-                星魂 <span className="sr-num text-[0.8125rem] font-bold">{c.eidolon}</span>
-              </span>
-            )}
-          </div>
-        </div>
-        <button type="button" onClick={onClose} className="btn-secondary btn-sm btn-icon" aria-label="關閉">
-          <Icon name="x" className="size-4" />
-        </button>
-      </header>
+    // 寬螢幕整個面板是同一個捲動區（游標在立繪上也捲得動）；container-type: size 讓立繪拿得到面板的高度
+    <div className="flex flex-col lg:h-full lg:flex-row lg:items-start lg:overflow-y-auto lg:overscroll-contain lg:[container-type:size]">
+      <CharacterStage character={c} />
 
-      <div className="grid gap-8 p-4 sm:p-6 md:grid-cols-[15rem_minmax(0,1fr)]">
-        <aside className="page-stack">
-          {/* 立繪；HoYoLAB 的 image 接近方形、人物置中，用方形外框完整放進去（不裁切），四周露出稀有度底色；沒有立繪或讀不到時改放頭像，再不行就是屬性色底加名字 */}
-          <div className={`relative mx-auto aspect-square w-full max-w-60 overflow-hidden [clip-path:polygon(0_0,calc(100%-18px)_0,100%_18px,100%_100%,18px_100%,0_calc(100%-18px))] ${rarityClass(c.rarity)}`}>
-            {c.image ? (
-              <ExternalImage src={c.image} alt={c.name ?? ""} fill className="object-contain object-center" fallback={<Portrait src={c.icon} name={c.name} element={c.element} />} />
-            ) : (
-              <Portrait src={c.icon} name={c.name} element={c.element} />
-            )}
-            <span className="absolute inset-x-0 bottom-0 h-1/4 bg-linear-to-t from-black/50 to-transparent" />
-          </div>
+      {/* 右欄：手機上拆開（contents），標題列（order-1）才排得到立繪（order-2）前面，內容是 order-3 */}
+      <div className="contents lg:block lg:min-w-0 lg:flex-1">
+        <DetailHeader character={c} titleId={titleId} onClose={onClose} />
 
-          <Section title="光錐" icon="sparkles">
-            {c.lightCone ? (
-              <div className="sr-panel flex items-center gap-3 p-4 [--sr-cut:10px]">
-                <span className={`relative h-20 w-16 shrink-0 overflow-hidden ${rarityClass(c.lightCone.rarity)}`}>
-                  <ExternalImage src={c.lightCone.icon} alt={c.lightCone.name ?? ""} fill className="object-cover" fallback={<FallbackIcon name="sparkles" />} />
-                </span>
-                <div className="flex min-w-0 flex-col gap-1">
-                  <p className="line-clamp-2 leading-snug font-semibold text-ink">{dash(c.lightCone.name)}</p>
-                  <p className="text-sm text-ink-soft">
-                    <span className="sr-num text-base font-bold text-ink">Lv.{dash(c.lightCone.level)}</span> · 疊影{" "}
-                    <span className="sr-num text-base font-bold text-ink">{dash(c.lightCone.superimposition)}</span>
-                  </p>
-                  {stars(c.lightCone.rarity) && <p className="text-sm text-[#f4d79b]">{stars(c.lightCone.rarity)}</p>}
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-ink-soft">沒有裝備光錐</p>
-            )}
-          </Section>
-        </aside>
-
-        <div className="page-stack min-w-0">
-          <Section title="面板" icon="chart-column">
-            {c.stats.length > 0 ? (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-[0.8125rem] text-ink-soft">
-                    <th className="py-1 text-left font-medium">屬性</th>
-                    <th className="py-1 text-right font-medium">基礎</th>
-                    <th className="py-1 text-right font-medium">加成</th>
-                    <th className="py-1 text-right font-medium">最終</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {c.stats.map((stat, i) => (
-                    <tr key={`${stat.type}-${i}`}>
-                      <td className="py-1.5 text-ink-soft">
-                        <span className="flex items-center gap-1.5">
-                          <GameIcon src={stat.icon} />
-                          {stat.name}
-                        </span>
-                      </td>
-                      <td className="sr-num py-1.5 text-right text-[0.9375rem] text-ink-soft">{dash(stat.base)}</td>
-                      <td className="sr-num py-1.5 text-right text-[0.9375rem] text-[#8fe3bd]">{dash(stat.add)}</td>
-                      <td className="sr-num py-1.5 text-right text-base font-bold text-ink">{dash(stat.final)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="text-sm text-ink-soft">沒有面板資料</p>
-            )}
-          </Section>
-
-          <Section title="遺器與位面飾品" icon="shield-check">
-            {c.relics.length > 0 ? (
-              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {c.relics.map((relic, i) => (
-                  <RelicCard key={relic.pos ?? `i${i}`} relic={relic} />
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-ink-soft">沒有裝備遺器</p>
-            )}
-          </Section>
-
-          {c.eidolons.length > 0 && (
-            <Section title="星魂" icon="star">
-              <ul className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                {c.eidolons.map((e, i) => (
-                  <li key={e.pos ?? i} className={`flex flex-col items-center gap-1.5 text-center ${e.unlocked === false ? "opacity-50" : ""}`}>
-                    <span className={`relative size-12 overflow-hidden rounded-full bg-[#1f2547] ring-1 ${e.unlocked === false ? "ring-line" : "ring-[var(--sr-gold-line)]"}`}>
-                      <ExternalImage src={e.icon} alt="" fill className="object-cover" fallback={<FallbackIcon name="star" />} />
-                      {e.unlocked === false && (
-                        <span className="absolute inset-0 grid place-items-center bg-black/40 text-white">
-                          <Icon name="lock" label="未解鎖" className="size-4" />
-                        </span>
-                      )}
-                    </span>
-                    <span className="line-clamp-2 text-xs leading-tight text-ink-soft">{dash(e.name)}</span>
-                  </li>
-                ))}
-              </ul>
+        {/* 依右欄自己的寬度分欄（容器查詢）：寬的時候面板與光錐、星魂並排，遺器與行跡橫跨兩欄 */}
+        <div className="@container order-3 min-w-0 p-4 sm:p-6 lg:order-none">
+          <div className="grid gap-8 @3xl:grid-cols-2">
+            <Section title="面板" icon="chart-column">
+              {c.stats.length > 0 ? <StatsTable stats={c.stats} /> : <p className="text-sm text-ink-soft">沒有面板資料</p>}
             </Section>
-          )}
 
-          {traces.length > 0 && (
-            <Section title="行跡" icon="target">
-              <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                {traces.map((trace, i) => (
-                  <TraceRow key={i} trace={trace} />
-                ))}
-              </ul>
-              {bonuses.length > 0 && (
-                <p className="text-sm text-ink-soft">
-                  屬性加成已點亮{" "}
-                  <span className="sr-num text-base font-bold text-ink">
-                    {bonuses.filter((b) => b.activated).length} / {bonuses.length}
-                  </span>
-                </p>
+            <div className="page-stack min-w-0">
+              <Section title="光錐" icon="sparkles">
+                {c.lightCone ? <LightConeCard lightCone={c.lightCone} /> : <p className="text-sm text-ink-soft">沒有裝備光錐</p>}
+              </Section>
+
+              {c.eidolons.length > 0 && (
+                <Section title="星魂" icon="star">
+                  <EidolonGrid eidolons={c.eidolons} />
+                </Section>
+              )}
+            </div>
+
+            <Section title="遺器與位面飾品" icon="shield-check" className="@3xl:col-span-2">
+              {c.relics.length > 0 ? (
+                <ul className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @3xl:grid-cols-3">
+                  {c.relics.map((relic, i) => (
+                    <RelicCard key={relic.pos ?? `i${i}`} relic={relic} />
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-ink-soft">沒有裝備遺器</p>
               )}
             </Section>
-          )}
+
+            {traces.length > 0 && (
+              <Section title="行跡" icon="target" className="@3xl:col-span-2">
+                <ul className="grid grid-cols-1 gap-1.5 @md:grid-cols-2 @3xl:grid-cols-3">
+                  {traces.map((trace, i) => (
+                    <TraceRow key={i} trace={trace} />
+                  ))}
+                </ul>
+                {bonuses.length > 0 && (
+                  <p className="text-sm text-ink-soft">
+                    屬性加成已點亮{" "}
+                    <span className="sr-num text-base font-bold text-ink">
+                      {bonuses.filter((b) => b.activated).length} / {bonuses.length}
+                    </span>
+                  </p>
+                )}
+              </Section>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function Section({ title, icon, children }: { title: string; icon: UiIconName; children: ReactNode }) {
+/** 立繪：HoYoLAB 的 image 接近方形、人物置中，object-contain 完整放進去不裁切；寬螢幕依面板高度放大（最多一半寬）並停在原地；讀不到時改放頭像，再不行是屬性色底加名字 */
+function CharacterStage({ character: c }: { character: StarrailCharacter }) {
   return (
-    <section className="stack">
+    <div className="sr-stage relative order-2 aspect-square max-h-[65dvh] w-full shrink-0 overflow-hidden lg:sticky lg:top-0 lg:order-none lg:aspect-auto lg:h-[100cqh] lg:max-h-none lg:w-[min(50cqw,100cqh)]" data-rarity={c.rarity ?? undefined}>
+      {/* next/image 的 fill 要父層是 relative 或 absolute，寬螢幕的舞台是 sticky，再包一層 */}
+      <div className="absolute inset-0">
+        {c.image ? (
+          <ExternalImage src={c.image} alt={c.name ?? ""} fill className="object-contain object-center" fallback={<Portrait src={c.icon} name={c.name} element={c.element} />} />
+        ) : (
+          <Portrait src={c.icon} name={c.name} element={c.element} />
+        )}
+        <span className="absolute inset-x-0 bottom-0 h-1/5 bg-linear-to-t from-black/45 to-transparent" />
+      </div>
+    </div>
+  );
+}
+
+/** 捲動時標題列留在上方：手機上是全螢幕，關閉鈕要一直按得到 */
+function DetailHeader({ character: c, titleId, onClose }: { character: StarrailCharacter; titleId: string; onClose: () => void }) {
+  const path = pathLabel(c.path);
+  const rarity = stars(c.rarity);
+  return (
+    <header className="sticky top-0 z-10 order-1 flex items-start gap-3 border-b border-line bg-[#0d1233]/95 px-4 py-4 backdrop-blur sm:px-6 lg:order-none">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <h3 id={titleId} className="truncate text-xl font-bold tracking-wide text-ink lg:text-2xl">
+          {c.name ?? "（未知角色）"}
+        </h3>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {rarity && <span className="chip border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-[#f4d79b]">{rarity}</span>}
+          {c.element && (
+            <span className="chip">
+              <ElementBadge element={c.element} src={c.elementIcon} decorative className="size-4 text-[0.5625rem]" />
+              {elementLabel(c.element)}
+            </span>
+          )}
+          {path && (
+            <span className="chip">
+              <GameIcon src={c.pathIcon} className="size-4" />
+              {path}
+            </span>
+          )}
+          {c.level !== null && (
+            <span className="chip">
+              等級 <span className="sr-num text-[0.8125rem] font-bold">{c.level}</span>
+            </span>
+          )}
+          {c.eidolon !== null && (
+            <span className="chip">
+              星魂 <span className="sr-num text-[0.8125rem] font-bold">{c.eidolon}</span>
+            </span>
+          )}
+        </div>
+      </div>
+      <button type="button" onClick={onClose} className="btn-secondary btn-sm btn-icon" aria-label="關閉">
+        <Icon name="x" className="size-4" />
+      </button>
+    </header>
+  );
+}
+
+function StatsTable({ stats }: { stats: StatLine[] }) {
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="text-[0.8125rem] text-ink-soft">
+          <th className="py-1 text-left font-medium">屬性</th>
+          <th className="py-1 text-right font-medium">基礎</th>
+          <th className="py-1 text-right font-medium">加成</th>
+          <th className="py-1 text-right font-medium">最終</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-line">
+        {stats.map((stat, i) => (
+          <tr key={`${stat.type}-${i}`}>
+            <td className="py-1.5 text-ink-soft">
+              <span className="flex items-center gap-1.5">
+                <GameIcon src={stat.icon} />
+                {stat.name}
+              </span>
+            </td>
+            <td className="sr-num py-1.5 text-right text-[0.9375rem] text-ink-soft">{dash(stat.base)}</td>
+            <td className="sr-num py-1.5 text-right text-[0.9375rem] text-[#8fe3bd]">{dash(stat.add)}</td>
+            <td className="sr-num py-1.5 text-right text-base font-bold text-ink">{dash(stat.final)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function LightConeCard({ lightCone }: { lightCone: LightCone }) {
+  const rarity = stars(lightCone.rarity);
+  return (
+    <div className="sr-panel flex items-center gap-3 p-4 [--sr-cut:10px]">
+      <span className={`relative h-20 w-16 shrink-0 overflow-hidden ${rarityClass(lightCone.rarity)}`}>
+        <ExternalImage src={lightCone.icon} alt={lightCone.name ?? ""} fill className="object-cover" fallback={<FallbackIcon name="sparkles" />} />
+      </span>
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="line-clamp-2 leading-snug font-semibold text-ink">{dash(lightCone.name)}</p>
+        <p className="text-sm text-ink-soft">
+          <span className="sr-num text-base font-bold text-ink">Lv.{dash(lightCone.level)}</span> · 疊影{" "}
+          <span className="sr-num text-base font-bold text-ink">{dash(lightCone.superimposition)}</span>
+        </p>
+        {rarity && <p className="text-sm text-[#f4d79b]">{rarity}</p>}
+      </div>
+    </div>
+  );
+}
+
+function EidolonGrid({ eidolons }: { eidolons: Eidolon[] }) {
+  return (
+    <ul className="grid grid-cols-3 gap-3 @sm:grid-cols-6">
+      {eidolons.map((e, i) => (
+        <li key={e.pos ?? i} className={`flex flex-col items-center gap-1.5 text-center ${e.unlocked === false ? "opacity-50" : ""}`}>
+          <span className={`relative size-12 overflow-hidden rounded-full bg-[#1f2547] ring-1 ${e.unlocked === false ? "ring-line" : "ring-[var(--sr-gold-line)]"}`}>
+            <ExternalImage src={e.icon} alt="" fill className="object-cover" fallback={<FallbackIcon name="star" />} />
+            {e.unlocked === false && (
+              <span className="absolute inset-0 grid place-items-center bg-black/40 text-white">
+                <Icon name="lock" label="未解鎖" className="size-4" />
+              </span>
+            )}
+          </span>
+          <span className="line-clamp-2 text-xs leading-tight text-ink-soft">{dash(e.name)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** className 給排欄用（col-span 寫在區塊自己身上） */
+function Section({ title, icon, className = "", children }: { title: string; icon: UiIconName; className?: string; children: ReactNode }) {
+  return (
+    <section className={`stack min-w-0 ${className}`.trim()}>
       <h4 className="sr-title text-sm">
         <Icon name={icon} className="size-4 text-sr-gold" />
         {title}

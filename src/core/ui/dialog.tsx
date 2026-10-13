@@ -5,7 +5,7 @@ import { FormMessage, type FormState } from "./form-message";
 import { Icon } from "./icon";
 import { CardHeader } from "./page-header";
 
-export type DialogSize = "sm" | "md" | "lg";
+export type DialogSize = "sm" | "md" | "lg" | "full";
 
 type DialogCommon = {
   open: boolean;
@@ -13,9 +13,9 @@ type DialogCommon = {
   onClose: () => void;
   /** 打開它的按鈕在關掉時已經不見了（例如記滿後「記一筆」消失），焦點改放到這裡，不掉到 body */
   fallbackFocus?: RefObject<HTMLElement | null>;
-  /** sm 24rem、md 32rem、lg 44rem；手機一律撐滿寬度、從底部升起 */
+  /** sm 24rem、md 32rem、lg 44rem，手機撐滿寬度、從底部升起；full 是滿版的大面板（寬螢幕四周只留 1rem、手機全螢幕），只給內容多、要大圖的詳情 */
   size?: DialogSize;
-  /** 加在 dialog 上，例如主題頁的 theme-starrail 換一套配色 */
+  /** 加在 dialog 上，例如星穹鐵道的 sr-dialog（星空底與切角）；配色跟著頁面的主題，不必再掛主題 class */
   className?: string;
   id?: string;
   /** 說明的 id（空白分隔）：打開時報讀器連同標題一起念；內容跟視窗一起出現，放在 live region 裡來不及念 */
@@ -29,7 +29,7 @@ type DialogProps = DialogCommon &
     | { /** 不畫標題列與內距：內容自己帶標題（id 給 labelledBy）與關閉按鈕 */ bare: true; labelledBy: string; title?: never; icon?: never }
   );
 
-const SIZE_CLASS: Record<DialogSize, string> = { sm: "dialog-sm", md: "dialog-md", lg: "dialog-lg" };
+const SIZE_CLASS: Record<DialogSize, string> = { sm: "dialog-sm", md: "dialog-md", lg: "dialog-lg", full: "dialog-full" };
 
 /** 按下與放開都落在 dialog 本身才是點背景：在卡片裡選取文字拖到外面不能把視窗關掉 */
 export function isBackdropClick(downTarget: EventTarget | null, clickTarget: EventTarget | null, dialog: EventTarget | null): boolean {

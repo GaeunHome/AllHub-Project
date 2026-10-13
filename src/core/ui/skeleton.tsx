@@ -53,20 +53,3 @@ export function LogListSkeleton({ rows = 4, label, className = "" }: ListSkeleto
     </LoadingState>
   );
 }
-
-export function CardGridSkeleton({ cards = 2, label }: { cards?: number; label?: string }) {
-  return (
-    <LoadingState label={label} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      {Array.from({ length: cards }, (_, i) => (
-        <div key={i} className="card flex items-center gap-3">
-          <Skeleton className="size-9 shrink-0 rounded-full" />
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <Skeleton className="h-4 w-1/2" />
-            <Skeleton className="h-3 w-3/4" />
-          </div>
-          <Skeleton className="h-9 w-16 rounded-lg" />
-        </div>
-      ))}
-    </LoadingState>
-  );
-}

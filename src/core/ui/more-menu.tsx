@@ -24,6 +24,9 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
   const byKeyboard = useRef(false);
   const panelId = useId();
 
+  // Activity 把頁面藏起來（換頁、上一頁）或卸載時收起：回到這一頁時選單不會還開著
+  useLayoutEffect(() => () => setOpen(false), []);
+
   // 繪製前算好位置，選單不會先出現在左上角再跳過去；下方放不下就改放上方
   useLayoutEffect(() => {
     const button = buttonRef.current;

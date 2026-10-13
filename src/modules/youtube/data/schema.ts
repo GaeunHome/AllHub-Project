@@ -12,7 +12,7 @@ export const youtubeChannels = pgTable("youtube_channels", {
   thumbnail: text("thumbnail"),
   /** hub 確認訂閱時給的租約到期時間；排程 renew 會在快到期前續訂 */
   leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
-  /** pending（已送出、等 hub 確認）、subscribed、denied，或「訂閱失敗：原因」 */
+  /** pending（已送出、等 hub 確認）、subscribed，或「訂閱失敗：原因」（hub 拒絕也寫成這樣） */
   subscriptionStatus: text("subscription_status"),
   /** 單人版的通知開關，已改用 youtube_follows 的；舊程式在部署空窗期還會讀寫，等它不再上線後再刪 */
   notifyEnabled: boolean("notify_enabled").notNull().default(true),

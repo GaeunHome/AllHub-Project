@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupDigits, interpretLedger, ledgerMonthOf, monthLabel, parseLedger, previousMonth } from "./ledger";
+import { groupDigits, interpretLedger, ledgerMonthOf, monthLabel, parseLedger } from "./ledger";
 
 /** 依 genshin.py 的 StarRailDiary 整理的 month_info 回應（data 的部分） */
 const sample = () => ({
@@ -105,11 +105,6 @@ describe("interpretLedger：HoYoLAB 的回應", () => {
 });
 
 describe("月份工具", () => {
-  it("previousMonth：上一個月，跨年也對", () => {
-    expect(previousMonth("202610")).toBe("202609");
-    expect(previousMonth("202701")).toBe("202612");
-  });
-
   it("monthLabel：例如「2026 年 10 月」；看不懂的原樣回傳", () => {
     expect(monthLabel("202610")).toBe("2026 年 10 月");
     expect(monthLabel("202601")).toBe("2026 年 1 月");

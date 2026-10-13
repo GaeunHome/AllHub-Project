@@ -35,23 +35,30 @@ export function VideoLink({ video, className, children, decorative = false }: Vi
   );
 }
 
-/** 縮圖加右下角的狀態標籤（像 YouTube 的影片長度）；讀不到縮圖時顯示影片圖示。eager：畫面最上面一排，常常是 LCP，不延遲載入 */
+/** 用影片 id 組出來的縮圖，讀不到時顯示影片圖示（列表與保留的影片共用）；eager：畫面最上面一排，常常是 LCP，不延遲載入 */
+export function ThumbnailImage({ videoId, eager }: { videoId: string; eager: boolean }) {
+  return (
+    <ExternalImage
+      src={externalAssetUrl(youtubeThumbnailUrl(videoId))}
+      alt=""
+      fill
+      loading={eager ? "eager" : "lazy"}
+      className="object-cover"
+      fallback={
+        <span className="grid h-full w-full place-items-center text-accent">
+          <Icon name="clapperboard" className="size-7" />
+        </span>
+      }
+    />
+  );
+}
+
+/** 縮圖加右下角的狀態標籤（像 YouTube 的影片長度） */
 export function VideoThumbnail({ video, eager = false }: { video: FeedVideo; eager?: boolean }) {
   const badge = thumbnailBadge(video);
   return (
     <>
-      <ExternalImage
-        src={externalAssetUrl(youtubeThumbnailUrl(video.videoId))}
-        alt=""
-        fill
-        loading={eager ? "eager" : "lazy"}
-        className="object-cover"
-        fallback={
-          <span className="grid h-full w-full place-items-center text-accent">
-            <Icon name="clapperboard" className="size-7" />
-          </span>
-        }
-      />
+      <ThumbnailImage videoId={video.videoId} eager={eager} />
       <span className={badge.tone === "danger" ? "yt-badge yt-badge-danger" : "yt-badge"}>
         {video.zhCaptions === "yes" && <Icon name="captions" className="size-3.5" />}
         {badge.label}

@@ -49,11 +49,11 @@ export type FeedEntry = {
   title: string;
   published: Date | null;
   url: string;
-  /** 連結是 /shorts/<id> 的是 Shorts；false 只代表從連結看不出來，推送的影片由 service 再請求確認 */
+  /** 連結是 /shorts/<id> 的是 Shorts；RSS 的連結可以信任（清理時 false 就當一般影片），推送的 false 只代表從連結看不出來，由 service 再請求確認 */
   isShort: boolean;
 };
 
-/** RSS 與推送的 entry 裡，Shorts 的連結是 https://www.youtube.com/shorts/<id>，一般影片是 /watch?v=<id> */
+/** Shorts 的連結是 https://www.youtube.com/shorts/<id>、一般影片是 /watch?v=<id>；推送的 entry 常常連 Shorts 也給 /watch，看不出來 */
 const SHORTS_LINK = /^https:\/\/(?:www\.)?youtube\.com\/shorts\//;
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };

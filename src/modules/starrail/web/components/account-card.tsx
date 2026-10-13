@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { after } from "next/server";
 import { requireSession } from "@/core/auth";
-import { logError } from "@/core/errors";
 import { externalAssetUrl } from "@/core/external-url";
 import { ActionButton } from "@/core/ui/action-button";
 import { ExternalImage } from "@/core/ui/external-image";
@@ -12,9 +10,10 @@ import { checkinAction, removeAccountAction, setThresholdAction } from "../actio
 import { expeditionStates, formatRemaining, formatTaipeiTime, type DailyNote, type Expedition, type ExpeditionState } from "../../lib/responses";
 import { serverLabel } from "../../lib/roles";
 import { alertThreshold, staminaGauge } from "../../lib/stamina";
-import { syncCookieInvalid, type StarrailAccountView } from "../../service/accounts";
+import type { StarrailAccountView } from "../../service/accounts";
 import { cachedDailyNote } from "../../service/cached";
 import { accountHref } from "../account-tabs";
+import { syncCookieFlagAfter } from "../cookie-flag";
 import { AccountActionForm } from "./account-action-form";
 
 /** 連結了兩個以上的帳號時，用伺服器切換；只有一個帳號時不顯示 */
@@ -110,10 +109,7 @@ export function AccountHeader({ account }: { account: StarrailAccountView }) {
 export async function DailyNotePanel({ account }: { account: StarrailAccountView }) {
   const user = await requireSession();
   const result = await cachedDailyNote(user.id, account.id);
-  // 快取函式裡不能寫入：便箋顯示的 cookie 狀態跟帳號上的標記不同時，回應送出後再寫回
-  if (result.cookieInvalid !== account.cookieInvalid) {
-    after(() => syncCookieInvalid(user.id, account.id, result.cookieInvalid).catch((error: unknown) => logError("starrail", "同步 cookie 狀態失敗", error)));
-  }
+  syncCookieFlagAfter(user.id, account, result.cookieInvalid);
   return (
     <section className="stack">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">

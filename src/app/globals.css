@@ -190,6 +190,7 @@
 }
 
 /* Twitch 頁：不論全站淺色或深色，都是 Twitch 網站的深色風格（近黑底、深灰面板、Twitch 紫）；共用的 card、chip、按鈕、input 跟著換色 */
+/* 調色盤只放在頁面的外框（core/ui/page-theme.tsx 的 PageTheme）上：導覽列、鈴鐺面板、人像選單在外框外面，維持全站的樣子；整頁的底色另外寫在下面的 body */
 .theme-twitch {
   color-scheme: dark;
   --surface: #18181b;
@@ -230,11 +231,10 @@
   --skeleton-base: #26262c;
   --skeleton-shine: rgb(255 255 255 / 0.05);
   color: var(--ink);
-  background-color: #0e0e10;
   accent-color: var(--brand);
 }
 
-/* 星穹鐵道頁：不論全站淺色或深色，都是遊戲裡的深藍星空；文字白與金色，面板半透明、切角 */
+/* 星穹鐵道頁：不論全站淺色或深色，都是遊戲裡的深藍星空；文字白與金色，面板半透明、切角；調色盤只放在外框上，做法跟 Twitch 一樣 */
 .theme-starrail {
   color-scheme: dark;
   --sr-gold: #e6c27a;
@@ -280,9 +280,47 @@
   --skeleton-shine: rgb(255 255 255 / 0.06);
   color: var(--ink);
   accent-color: var(--brand);
-  /* 上方的軌道環與列車軌道由 StarrailBackdrop 的 inline SVG 畫；這裡是底色漸層與整頁重複的細小星點 */
+}
+
+/* 固定深色的頁面（Twitch、星穹鐵道）：外觀選淺色時，外框裡的模組圖示與狀態點也用深色模式的值（同 :root 的深色模式），放在深色底上才不會太暗 */
+.theme-twitch,
+.theme-starrail {
+  --success-dot: #34d399;
+  --warning-dot: #fbbf24;
+  --danger-dot: #f87171;
+  --accent-blue: #8fb3ff;
+  --accent-blue-ink: #a9c4ff;
+  --accent-blue-soft: rgb(110 155 255 / 0.13);
+  --accent-blue-line: rgb(110 155 255 / 0.35);
+  --accent-red: #f87171;
+  --accent-red-ink: #fca5a5;
+  --accent-red-soft: rgb(248 113 113 / 0.12);
+  --accent-red-line: rgb(248 113 113 / 0.35);
+  --accent-violet: #a970ff;
+  --accent-violet-ink: #c9a8ff;
+  --accent-violet-soft: rgb(169 112 255 / 0.14);
+  --accent-violet-line: rgb(169 112 255 / 0.38);
+  --accent-gold: #fbbf24;
+  --accent-gold-ink: #fcd34d;
+  --accent-gold-soft: rgb(251 191 36 / 0.11);
+  --accent-gold-line: rgb(251 191 36 / 0.32);
+  --accent-green: #34d399;
+  --accent-green-ink: #6ee7b7;
+  --accent-green-soft: rgb(52 211 153 / 0.12);
+  --accent-green-line: rgb(52 211 153 / 0.34);
+}
+
+/* 整頁的深色底：頁面顯示時換 body（與星穹鐵道的 html）的背景，導覽列以下鋪滿全寬、整個高度；:root 的變數與 color-scheme 不動，導覽列維持全站的樣子 */
+/* Activity 藏起來的頁面還留在文件裡：外框（core/ui/page-theme.tsx）藏起來時標上 data-activity-hidden，這裡排除它，換到別頁時底色不會漏過去 */
+:root:has(.theme-twitch:not([data-activity-hidden])) body {
+  background-color: #0e0e10;
+}
+/* html 自己有底色（也蓋住捲過頭露出的地方）：body 的星空才畫在 body 上、跟著頁面拉長，不會被當成整個畫布的背景、照視窗高度一段一段重複 */
+/* 星空的變數也放在這裡：body 與彈出視窗（.sr-dialog）都讀得到；只有星空，導覽列用的變數不動 */
+:root:has(.theme-starrail:not([data-activity-hidden])) {
   background-color: #090d26;
-  background-image:
+  /* 星空：整頁重複的細小星點、角落的光暈與底色漸層 */
+  --sr-sky:
     radial-gradient(1.5px 1.5px at 12% 18%, rgb(255 255 255 / 0.7), transparent),
     radial-gradient(1px 1px at 37% 62%, rgb(255 255 255 / 0.5), transparent),
     radial-gradient(1.5px 1.5px at 64% 34%, rgb(199 210 254 / 0.55), transparent),
@@ -290,14 +328,21 @@
     radial-gradient(40rem 30rem at 100% 0%, rgb(76 56 160 / 0.32), transparent 70%),
     radial-gradient(36rem 28rem at 0% 100%, rgb(37 70 160 / 0.26), transparent 70%),
     linear-gradient(180deg, #0b1030 0%, #0a0f2b 45%, #120c33 100%);
-  background-size:
-    360px 420px,
-    360px 420px,
-    360px 420px,
-    360px 420px,
-    auto,
-    auto,
-    auto;
+  --sr-sky-size: 360px 420px, 360px 420px, 360px 420px, 360px 420px, auto, auto, auto;
+}
+/* 最上層是自己畫的行星、軌道環與星軌列車的軌道（撐滿寬度、高 56rem，頁面很長時不跟著拉大，軌道線維持細細的） */
+:root:has(.theme-starrail:not([data-activity-hidden])) body {
+  background-color: #090d26;
+  background-image: url("/images/starrail-sky.svg"), var(--sr-sky);
+  background-repeat: no-repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat;
+  background-position: top center, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+  background-size: 100% 56rem, var(--sr-sky-size);
+}
+/* 導覽列是半透明的 --header-bg 加模糊：直接疊在深色底上會被染灰，這兩頁改成不透明、跟別頁一樣的顏色（全站的 --header-bg 疊在 --bg-base 上）；內容捲到底下時也不會透出深色 */
+:root:has(.theme-twitch:not([data-activity-hidden])) .app-header,
+:root:has(.theme-starrail:not([data-activity-hidden])) .app-header {
+  background-color: var(--bg-base);
+  background-image: linear-gradient(var(--header-bg), var(--header-bg));
 }
 
 /* YouTube 頁：照 YouTube 網站的淺色與深色（白底／#0f0f0f、#f2f2f2／#272727 的膠囊按鈕），跟著全站的外觀切換；紅色只留給標誌與進度條 */
@@ -489,25 +534,11 @@
     display: none;
   }
 
-  /* 名稱沿用（以前是漸層字），現在是一般的深色字 */
-  .text-gradient {
-    color: var(--ink);
-  }
-
   .card {
     @apply rounded-2xl p-5 sm:p-6;
     border: 1px solid var(--line);
     background-color: var(--surface);
     box-shadow: var(--elevation-card);
-  }
-  .card-interactive {
-    transition:
-      box-shadow 200ms ease,
-      border-color 200ms ease;
-  }
-  .card-interactive:hover {
-    border-color: var(--line-strong);
-    box-shadow: var(--elevation-lift);
   }
 
   /* ---------- 版面的間距：尺度固定（規則寫在 CLAUDE.md〈程式碼慣例〉的「間距與對齊」），距離交給父層的 gap，子元素不另外加 margin ---------- */
@@ -707,19 +738,6 @@
     color: var(--danger);
     background-color: var(--danger-soft);
   }
-  .chip-live {
-    @apply font-bold tracking-wider;
-    border-color: transparent;
-    color: #fff;
-    background-color: var(--live);
-  }
-  .chip-live::before {
-    content: "";
-    width: 0.375rem;
-    height: 0.375rem;
-    border-radius: 9999px;
-    background-color: #fff;
-  }
 
   .status-dot {
     display: inline-block;
@@ -894,7 +912,7 @@
     background-color: var(--surface-muted);
   }
 
-  /* 卡片裡可以點的一列（未讀通知、帳號）：滑過時整列淡灰底，左右內距由外層的負邊距抵掉，文字跟卡片內容對齊 */
+  /* 卡片裡可以點的一列（首頁的未讀通知）：滑過時整列淡灰底，左右內距由外層的負邊距抵掉，文字跟卡片內容對齊 */
   .home-row {
     @apply flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2 text-left;
     transition: background-color 150ms ease;
@@ -1015,7 +1033,7 @@
     background-color: var(--surface-muted);
   }
 
-  /* 未讀數：鈴鐺右上角與導覽裡的小圓角數字 */
+  /* 未讀數：鈴鐺右上角、導覽與通知頁篩選膠囊裡的小圓角數字 */
   .count-badge {
     @apply inline-flex h-[1.125rem] min-w-[1.125rem] shrink-0 items-center justify-center rounded-full px-1 text-[0.6875rem] leading-none font-bold tabular-nums;
     color: var(--on-brand);
@@ -1219,6 +1237,13 @@
   .dialog-body-bare {
     @apply block p-0 pb-[env(safe-area-inset-bottom)];
   }
+  /* size="full"：滿版的大面板（角色詳情、主播詳情），手機是整個螢幕；高度固定，內容可以依面板高度排版 */
+  .dialog-full {
+    height: 100dvh;
+    max-height: none;
+    border-width: 0;
+    border-radius: 0;
+  }
   @media (min-width: 40rem) {
     .dialog {
       inset: 0;
@@ -1235,6 +1260,17 @@
     }
     .dialog-lg {
       max-width: 44rem;
+    }
+    /* 四周只留 1rem，寬高跟著視窗、不設上限；用 inset 撐開而不是 100vw，Windows 的捲軸不會把右邊吃掉 */
+    .dialog-full {
+      inset: 1rem;
+      width: auto;
+      height: auto;
+      max-width: none;
+      max-height: none;
+      margin: 0;
+      border-width: 1px;
+      border-radius: 1rem;
     }
     .dialog-header {
       @apply px-6 pt-5 pb-4;
@@ -1303,6 +1339,41 @@
   }
   [aria-checked="true"] > .switch-visual::before {
     transform: translate(1rem, -50%);
+  }
+
+  /* ---------- 標題旁的 i 圓圈（core/ui/info-tip.tsx） ---------- */
+  .info-tip {
+    display: inline-flex;
+  }
+  /* 圖示平常用次要的字色，不搶標題的視線 */
+  .info-tip-button {
+    color: var(--ink-soft);
+  }
+  .info-tip-button:hover,
+  .info-tip-button[aria-expanded="true"] {
+    color: var(--ink);
+  }
+  /* 緊貼著標題文字：焦點框畫在圓圈裡面，才不會壓到字 */
+  .info-tip-button:focus-visible {
+    outline-offset: -2px;
+  }
+  /* fixed 定位，位置由元件算好放在 --tip-top／--tip-left（左右夾在畫面內留 16px）；放在標題裡，字級與粗細要自己寫回一般內文 */
+  .info-tip-bubble {
+    @apply fixed w-max rounded-xl px-3.5 py-2.5 text-left text-sm leading-relaxed font-normal whitespace-normal;
+    top: var(--tip-top, 0);
+    left: var(--tip-left, 0);
+    z-index: 30;
+    max-width: min(20rem, calc(100vw - 2rem));
+    border: 1px solid var(--line);
+    color: var(--ink);
+    background-color: var(--surface-solid);
+    box-shadow: var(--elevation-lift);
+  }
+  /* 上下各多 8px 透明的範圍：滑鼠從按鈕移到說明框時，經過中間的空隙不算移開 */
+  .info-tip-bubble::before {
+    content: "";
+    position: absolute;
+    inset: -0.5rem 0;
   }
 
   /* ---------- YouTube 頁 ---------- */
@@ -1553,7 +1624,12 @@
     background: linear-gradient(90deg, var(--sr-gold), transparent);
     pointer-events: none;
   }
-  /* 星穹鐵道的彈出視窗（core/ui/dialog.tsx 加上 theme-starrail sr-dialog）：背景暗一點並模糊，寬螢幕跟面板一樣切掉右上與左下角 */
+  /* 星穹鐵道的彈出視窗（Dialog 的 className 加上 sr-dialog）：自己畫星空底（theme-starrail 是整頁主題，只能放在 PageTheme 上）；背景暗一點並模糊，寬螢幕跟面板一樣切掉右上與左下角 */
+  .sr-dialog {
+    background-color: #090d26;
+    background-image: var(--sr-sky);
+    background-size: var(--sr-sky-size);
+  }
   .sr-dialog::backdrop {
     background-color: rgb(0 0 0 / 0.65);
     -webkit-backdrop-filter: blur(4px);
@@ -1564,6 +1640,19 @@
       border-radius: 0;
       clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
     }
+  }
+  /* 角色詳情的立繪舞台：大面積用深藍底加一圈稀有度色的光暈（五星金、四星紫），不用整片亮色的稀有度底色 */
+  .sr-stage {
+    --sr-stage-glow: rgb(148 163 184 / 0.3);
+    background:
+      radial-gradient(circle closest-side, var(--sr-stage-glow), transparent),
+      linear-gradient(180deg, #141c4f 0%, #0a0f2c 100%);
+  }
+  .sr-stage[data-rarity="5"] {
+    --sr-stage-glow: rgb(221 170 92 / 0.5);
+  }
+  .sr-stage[data-rarity="4"] {
+    --sr-stage-glow: rgb(156 118 236 / 0.5);
   }
   /* 區塊標題：左邊一條金色短線，字距拉開 */
   .sr-title {
@@ -1600,7 +1689,6 @@
   .sr-tab:hover {
     color: var(--ink);
   }
-  .sr-tab[aria-pressed="true"],
   .sr-tab[aria-selected="true"] {
     color: var(--sr-gold);
     border-bottom-color: var(--sr-gold);
@@ -1625,64 +1713,6 @@
     border-color: var(--sr-gold-line);
     color: var(--ink);
     background-color: var(--sr-gold-soft);
-  }
-
-  /* 遊戲標誌的橫幅：官方標誌是白字，淺色、深色模式都用深色星空底；範圍內的文字顏色變數換成淺色，PageHeader 不必改 */
-  .banner-starry {
-    --ink: #f7f5ff;
-    --ink-soft: #e4e2ff;
-    --muted: rgb(224 228 255 / 0.82);
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    border: 1px solid rgb(165 180 252 / 0.28);
-    color: var(--ink);
-    background-color: #0b1033;
-    background-image:
-      radial-gradient(2px 2px at 6% 22%, rgb(255 255 255 / 0.9), transparent),
-      radial-gradient(1.5px 1.5px at 14% 78%, rgb(255 255 255 / 0.7), transparent),
-      radial-gradient(1.5px 1.5px at 27% 12%, rgb(255 255 255 / 0.75), transparent),
-      radial-gradient(2px 2px at 38% 64%, rgb(199 210 254 / 0.8), transparent),
-      radial-gradient(1px 1px at 47% 30%, rgb(255 255 255 / 0.8), transparent),
-      radial-gradient(2.5px 2.5px at 58% 16%, rgb(255 255 255 / 0.85), transparent),
-      radial-gradient(1.5px 1.5px at 64% 82%, rgb(216 180 254 / 0.8), transparent),
-      radial-gradient(1px 1px at 72% 44%, rgb(255 255 255 / 0.7), transparent),
-      radial-gradient(2px 2px at 81% 24%, rgb(255 255 255 / 0.9), transparent),
-      radial-gradient(1.5px 1.5px at 88% 70%, rgb(255 255 255 / 0.65), transparent),
-      radial-gradient(1px 1px at 94% 12%, rgb(199 210 254 / 0.8), transparent),
-      radial-gradient(30rem 18rem at 96% 115%, rgb(168 85 247 / 0.42), transparent 70%),
-      radial-gradient(26rem 14rem at 78% -25%, rgb(56 189 248 / 0.26), transparent 70%),
-      radial-gradient(22rem 16rem at -5% 110%, rgb(79 70 229 / 0.32), transparent 70%),
-      linear-gradient(135deg, #0a1033 0%, #161a58 50%, #2c1a63 100%);
-  }
-  /* 寬螢幕右邊留白多，放一顆帶光環的行星平衡畫面；手機上標誌置中，不需要 */
-  @media (min-width: 40rem) {
-    .banner-starry::before,
-    .banner-starry::after {
-      content: "";
-      position: absolute;
-      z-index: -1;
-      top: 50%;
-      pointer-events: none;
-    }
-    .banner-starry::before {
-      right: 9%;
-      width: 8.5rem;
-      height: 8.5rem;
-      border-radius: 9999px;
-      background: radial-gradient(circle at 32% 28%, rgb(238 242 255 / 0.85), rgb(165 180 252 / 0.5) 24%, rgb(99 102 241 / 0.3) 50%, rgb(49 46 129 / 0.12) 68%, transparent 71%);
-      box-shadow: 0 0 70px 6px rgb(129 140 248 / 0.22);
-      transform: translateY(-50%);
-    }
-    .banner-starry::after {
-      right: calc(9% - 3.75rem);
-      width: 16rem;
-      height: 3.5rem;
-      border: 1.5px solid rgb(230 194 122 / 0.4);
-      border-radius: 50%;
-      box-shadow: 0 0 18px rgb(230 194 122 / 0.18);
-      transform: translateY(-50%) rotate(-12deg);
-    }
   }
 
   /* ---------- YouTube 觀看頁的播放器（web/components/youtube-player.tsx） ---------- */
@@ -1873,7 +1903,7 @@
     }
   }
 
-  /* 只有使用者沒要求減少動態時才加上浮起、閃動與脈動 */
+  /* 只有使用者沒要求減少動態時才加上閃動、滑入、搖動與浮起 */
   @media (prefers-reduced-motion: no-preference) {
     .skeleton::after {
       content: "";
@@ -1882,9 +1912,6 @@
       transform: translateX(-100%);
       background-image: linear-gradient(90deg, transparent, var(--skeleton-shine), transparent);
       animation: skeleton-shimmer 1.6s ease-in-out infinite;
-    }
-    .chip-live::before {
-      animation: live-pulse 1.6s ease-in-out infinite;
     }
     .toast {
       animation: toast-in 240ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
@@ -1896,15 +1923,6 @@
     .tw-card:hover .tw-preview {
       transform: translate(4px, -4px);
       box-shadow: -4px 4px 0 0 var(--brand);
-    }
-    .sr-twinkle {
-      animation: sr-twinkle 3.6s ease-in-out infinite;
-    }
-    .sr-twinkle:nth-child(3n) {
-      animation-delay: 1.2s;
-    }
-    .sr-twinkle:nth-child(3n + 1) {
-      animation-delay: 2.4s;
     }
   }
 
@@ -1936,12 +1954,6 @@
   }
 }
 
-@keyframes live-pulse {
-  50% {
-    opacity: 0.35;
-  }
-}
-
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -1959,12 +1971,6 @@
   from {
     opacity: 0;
     transform: translateY(0.5rem) scale(0.97);
-  }
-}
-
-@keyframes sr-twinkle {
-  50% {
-    opacity: 0.25;
   }
 }
 

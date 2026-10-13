@@ -1,18 +1,18 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 import { after, connection } from "next/server";
-import { Suspense, type ReactNode } from "react";
+import { Suspense } from "react";
 import { logError } from "../errors";
 import { formatTaipeiDateTime } from "../time";
 import { Icon } from "../ui/icon";
-import { Skeleton } from "../ui/skeleton";
+import { LoadingState, Skeleton } from "../ui/skeleton";
 import { currentSession } from ".";
-import { AuthCard } from "./auth-card";
+import { AuthCard, AuthNotice } from "./auth-card";
 import { logout } from "./actions";
 import { INVITE_FAILURES, checkAttempts, clientKey, recordAttempt } from "./attempts";
 import { findUsableInvite } from "./invites";
 import { clientIp } from "./rate-limit";
-import { captchaImageUrl } from "./messages";
+import { captchaImageUrl, tooManyAttempts } from "./messages";
 import { RegisterForm } from "./register-form";
 import { INVITE_INVALID_MESSAGE } from "./registration";
 
@@ -46,18 +46,18 @@ export async function RegisterGate({ searchParams }: { searchParams: SearchParam
   if (session) return <SignedInNotice username={session.username} />;
 
   const code = typeof params.code === "string" ? params.code : "";
-  if (!code) return <Notice icon="info">需要站長的邀請連結才能註冊。拿到連結後直接打開就好；網站不開放自行註冊。</Notice>;
+  if (!code) return <AuthNotice icon="info">需要站長的邀請連結才能註冊。拿到連結後直接打開就好；網站不開放自行註冊。</AuthNotice>;
 
   // 預先抓取與預先算繪時停在這裡：不查邀請、不記失敗次數，只有真正打開連結的請求才算一次
   await connection();
   const check = await checkInvite(code, clientKey(clientIp(request.get("x-forwarded-for"))), new Date());
   switch (check.kind) {
     case "blocked":
-      return <Notice icon="circle-alert">嘗試次數太多，請 {Math.ceil(check.retryAfterMs / 60_000)} 分鐘後再試</Notice>;
+      return <AuthNotice icon="circle-alert">{tooManyAttempts(check.retryAfterMs)}</AuthNotice>;
     case "invalid":
-      return <Notice icon="circle-alert">{INVITE_INVALID_MESSAGE}</Notice>;
+      return <AuthNotice icon="circle-alert">{INVITE_INVALID_MESSAGE}</AuthNotice>;
     case "unavailable":
-      return <Notice icon="circle-alert">暫時無法檢查邀請連結，請稍後再試</Notice>;
+      return <AuthNotice icon="circle-alert">暫時無法檢查邀請連結，請稍後再試</AuthNotice>;
     case "usable":
       return <RegisterForm code={code} expiresAt={formatTaipeiDateTime(check.expiresAt)} captchaSrc={captchaImageUrl("register")} />;
   }
@@ -89,21 +89,12 @@ async function recordInviteFailure(key: string, now: Date): Promise<void> {
   }
 }
 
-function Notice({ icon, children }: { icon: "info" | "circle-alert"; children: ReactNode }) {
-  return (
-    <p role="status" className="notice">
-      <Icon name={icon} />
-      <span>{children}</span>
-    </p>
-  );
-}
-
 function SignedInNotice({ username }: { username: string }) {
   return (
     <div className="stack">
-      <Notice icon="info">
+      <AuthNotice icon="info">
         目前已用 <strong>{username}</strong> 登入。要用邀請連結註冊新帳號，請先登出，或改用另一個瀏覽器打開連結。
-      </Notice>
+      </AuthNotice>
       <div className="button-row">
         <form action={logout}>
           <button className="btn-secondary">
@@ -121,11 +112,10 @@ function SignedInNotice({ username }: { username: string }) {
 
 function RegisterSkeleton() {
   return (
-    <div role="status" aria-busy="true" className="stack">
-      <span className="sr-only">載入中…</span>
+    <LoadingState className="stack">
       {Array.from({ length: 4 }, (_, i) => (
         <Skeleton key={i} className="h-11 rounded-lg" />
       ))}
-    </div>
+    </LoadingState>
   );
 }

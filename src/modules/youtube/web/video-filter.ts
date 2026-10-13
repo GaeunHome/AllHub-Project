@@ -20,12 +20,6 @@ export function videoFilters({ zhCaptions, translationStatus }: VideoState): Vid
   return filters;
 }
 
-export function countByFilter(videos: VideoState[]): Record<VideoFilter, number> {
-  const counts: Record<VideoFilter, number> = { all: 0, zh: 0, translate: 0, done: 0 };
-  for (const video of videos) for (const filter of videoFilters(video)) counts[filter] += 1;
-  return counts;
-}
-
 type CaptionCheck = { zhCaptions: ZhCaptionStatus; zhCaptionsCheckedAt: Date | null };
 
 /** 從沒檢查過字幕（剛追蹤的頻道從 RSS 補進來的）：打開 YouTube 頁時背景就會檢查，跟檢查過但讀不到的「字幕未確認」分開 */

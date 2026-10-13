@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
-import { useHeaderMenu } from "../ui/header-menus";
+import { useHeaderMenuRoot } from "../ui/header-menus";
 import { Icon } from "../ui/icon";
 import { useNotificationCenter } from "./center";
 import { relativeTime } from "./format";
@@ -14,7 +14,7 @@ const formatCount = (count: number) => (count > 99 ? "99+" : String(count));
 export function NotificationBell() {
   const { feed, ringCount } = useNotificationCenter();
   // 跟帳號選單共用開關：打開一個時另一個收起
-  const { expanded, toggle, close, rootRef, buttonRef } = useHeaderMenu("notifications");
+  const { expanded, toggle, close, rootRef, buttonRef } = useHeaderMenuRoot("notifications");
   const panelId = useId();
   const total = feed.unread.total;
 
@@ -25,7 +25,8 @@ export function NotificationBell() {
         type="button"
         aria-haspopup="dialog"
         aria-expanded={expanded}
-        aria-controls={panelId}
+        // 面板收起時整個卸載，不能指向不存在的元素
+        aria-controls={expanded ? panelId : undefined}
         aria-label={total > 0 ? `通知，${total} 則未讀` : "通知"}
         onClick={toggle}
         className="btn-ghost btn-sm btn-icon relative"
@@ -118,7 +119,7 @@ function NotificationPanel({ id, onClose }: { id: string; onClose: () => void })
           <div className="flex flex-col gap-4 overflow-y-auto overscroll-contain p-4">
             <AlertSwitchTable modules={moduleList} />
             <AlertSettingsHelp />
-            <BrowserPermissionNotice moduleIds={moduleList.map((m) => m.id)} />
+            <BrowserPermissionNotice modules={moduleList} />
           </div>
         </>
       )}

@@ -2,9 +2,11 @@ import type { TwitchGame, TwitchStream, TwitchUser } from "./api";
 
 // Helix 的頭像、直播與遊戲封面只放快取、不存資料庫；這裡把回應整理成畫面用得到的欄位，再跟資料庫的主播合併
 
-/** 預覽圖顯示寬度最多約 480px，兩倍的 640x360 在高解析度螢幕也清楚 */
+/** 直播卡片的預覽圖最寬約 576px，用 640x360 */
 const PREVIEW = { width: 640, height: 360 };
-/** 封面顯示 36x48 的兩倍 */
+/** 主播詳情的大面板：1920x1080 的螢幕上約 1460px 寬、高解析度的筆電約 1000px（兩倍就是 2000），用直播本身的 1080p；再大 Twitch 也只是放大 */
+const LARGE_PREVIEW = { width: 1920, height: 1080 };
+/** 封面在直播卡片顯示 36x48（這裡是兩倍）、主播詳情 60x80 */
 const BOX_ART = { width: 72, height: 96 };
 
 export type StreamerProfile = { id: string; profileImageUrl: string | null; offlineImageUrl: string | null };
@@ -17,6 +19,7 @@ export type LiveStream = {
   viewerCount: number | null;
   startedAt: string | null;
   previewUrl: string | null;
+  largePreviewUrl: string | null;
 };
 
 export type GameArt = { id: string; boxArtUrl: string | null };
@@ -29,6 +32,8 @@ export type LiveInfo = {
   viewerCount: number | null;
   startedAt: string | null;
   previewUrl: string | null;
+  /** 主播詳情的大面板用 */
+  largePreviewUrl: string | null;
 };
 
 /** 參數會成為快取 key：去重、排序後，同一組主播不論資料庫回傳的順序都共用同一份快取 */
@@ -56,6 +61,7 @@ export function toLiveStream(stream: TwitchStream): LiveStream {
     viewerCount: typeof stream.viewer_count === "number" && Number.isFinite(stream.viewer_count) ? stream.viewer_count : null,
     startedAt: text(stream.started_at),
     previewUrl: sizedImageUrl(text(stream.thumbnail_url), PREVIEW.width, PREVIEW.height),
+    largePreviewUrl: sizedImageUrl(text(stream.thumbnail_url), LARGE_PREVIEW.width, LARGE_PREVIEW.height),
   };
 }
 
@@ -77,9 +83,14 @@ export function formatLiveDuration(startedAt: string | null, now: Date): string 
 }
 
 /** 千分位自己加：不依賴執行環境的語系資料 */
-export function formatViewerCount(count: number | null): string | null {
+export function formatCount(count: number | null): string | null {
   if (count === null) return null;
-  return `${String(Math.max(0, Math.round(count))).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} 人觀看`;
+  return String(Math.max(0, Math.round(count))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+export function formatViewerCount(count: number | null): string | null {
+  const digits = formatCount(count);
+  return digits === null ? null : `${digits} 人觀看`;
 }
 
 type StreamerBase = { broadcasterId: string; login: string; profileImageUrl: string | null; isLive: boolean };
@@ -107,6 +118,7 @@ export function mergeStreamerVisuals<T extends StreamerBase>(streamers: T[], { p
           viewerCount: stream?.viewerCount ?? null,
           startedAt: stream?.startedAt ?? null,
           previewUrl: stream?.previewUrl ?? null,
+          largePreviewUrl: stream?.largePreviewUrl ?? null,
         }
       : null;
     return { ...streamer, isLive, avatarUrl: profile?.profileImageUrl ?? streamer.profileImageUrl, bannerUrl: profile?.offlineImageUrl ?? null, live };

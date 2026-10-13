@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { requireSession } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { Icon } from "@/core/ui/icon";
+import { PageTheme } from "@/core/ui/page-theme";
 import { serverLabel } from "../../lib/roles";
 import { cachedAccounts, cachedRecentCheckins } from "../../service/cached";
 import { pickAccount } from "../account-tabs";
@@ -13,21 +14,16 @@ import { LedgerPanel, LedgerSkeleton } from "../components/ledger-panel";
 import { LinkAccountForm } from "../components/link-account-form";
 import { LinkResultBanner, LinkResultProvider } from "../components/link-result";
 import { RedeemPanel } from "../components/redeem-panel";
-import { StarrailBackdrop } from "../components/starrail-backdrop";
 import { StarrailBanner } from "../components/starrail-banner";
 import { gameFont } from "../game-font";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 // 圖示、名稱、點綴色由 src/app 從 info.ts 傳進來：web 層不能 import 模組根目錄
-// theme-starrail 讓這一頁不論全站淺色或深色，都是遊戲裡的深藍星空；手機上滿版，寬螢幕是圓角的面板
+// theme-starrail 讓這一頁不論全站淺色或深色，都是遊戲裡的深藍星空：整頁主題，底色與星空鋪滿導覽列以下的整個畫面（globals.css 的 :root:has(.theme-starrail…)），導覽列維持全站的樣子
 export function StarrailPage({ info, searchParams }: { info: ModuleInfo; searchParams: SearchParams }) {
   return (
-    <div
-      data-accent={info.accent}
-      className={`theme-starrail ${gameFont.variable} page-stack relative isolate -mx-4 -mt-6 -mb-16 px-4 pt-6 pb-16 sm:m-0 sm:rounded-2xl sm:border sm:border-line sm:p-6 lg:p-8`}
-    >
-      <StarrailBackdrop />
+    <PageTheme accent={info.accent} className={`theme-starrail ${gameFont.variable} page-stack`}>
       <StarrailBanner info={info} />
       {/* 連結帳號的表單在最下面（或是還沒有帳號時的整頁表單），結果顯示在帳號分頁上方：兩邊共用同一份 */}
       <LinkResultProvider>
@@ -35,7 +31,7 @@ export function StarrailPage({ info, searchParams }: { info: ModuleInfo; searchP
           <AccountArea searchParams={searchParams} />
         </Suspense>
       </LinkResultProvider>
-    </div>
+    </PageTheme>
   );
 }
 
