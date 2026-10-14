@@ -42,7 +42,7 @@ src/
   - route handler 只轉接，例如 `export { GET } from …`；排程的 `api/cron/[task]` 例外，把模組的排程清單交給 core 的 `runCron()`（core 不能 import 模組清單）。
   - 測試檢查的是 `src/app` 只透過模組的 `info`、`cron`、`web/pages`、`web/routes` 使用模組。
 - **首頁卡片**：每個模組的首頁卡片放在自己的 `web/pages/home-card.tsx`，由 `src/app/(main)/page.tsx` 組合後交給 core 的 `HomePage` 排版（core 不 import 模組）；每張卡片都要組合到首頁。
-- **資料表的位置**：只能定義在 `core/db/schema.ts`（表名以 `core_` 開頭）或模組的 `data/schema.ts`（表名以 `<id>_` 開頭）。
+- **資料表的位置**：只能定義在 `core/db/schema.ts`（表名以 `core_` 開頭）或模組的 `data/schema.ts`（表名以 `<id>_` 開頭）；每張表都加 `.enableRLS()`（見〈安全〉的資料庫的 RLS）。
 - **環境變數**：都定義在 `core/env.ts`，順序同 `.env.example`（由 `env.test.ts` 檢查）；其他地方不直接讀 `process.env`（少數例外列在 CLAUDE.md，也由 `architecture.test.ts` 檢查）。
 - **快取寫法**：由 `src/cache-rules.test.ts` 檢查（見下方〈快取〉）。
 
@@ -191,6 +191,7 @@ src/
   - YouTube WebSub：推送驗 HMAC-SHA1 簽章，訂閱確認要帶跟頻道綁定的驗證碼。
   - 排程：要帶 `CRON_SECRET`。
 - **加密欄位**：HoYoLAB cookie 與 AI API Key 用 AES-256-GCM 加密後才存，畫面與 log 都不顯示原文。
+- **資料庫的 RLS**：每張資料表都開了 RLS、沒有 policy。網站與 db-migrate 用資料表的擁有者（Supabase 的 `postgres`）連線，不受 RLS 限制；Supabase 的 Data API 用的 anon、authenticated 角色就算拿到專案的 anon key，也一列都讀寫不到。新增資料表時在 `pgTable(...)` 後面加 `.enableRLS()`，不加 policy、不用 FORCE（`migrations.integration.test.ts` 檢查）。Data API 網站用不到，建議關掉（見 [部署 › Supabase 的 Data API 建議關閉](deploy.md#supabase-的-data-api-建議關閉)）。
 - **core 的資料表**：`core_users`（帳號、角色、停用、登入失敗次數）、`core_invites`（邀請，只存雜湊）、`core_rate_limits`（註冊與邀請碼的嘗試次數、用過的驗證碼 nonce 的雜湊、手動同步與續訂的冷卻時間）、`core_notifications`（網站通知，依收件人）；各模組的表見〈資料表〉。
 - **不把密鑰放進 repo**：
   - `.env*` 都在 `.gitignore` 裡，只有不含值的 `.env.example` 例外。
@@ -199,7 +200,7 @@ src/
 
 ## 新增模組
 
-1. **建目錄**：建 `src/modules/<id>/`，照上面的結構放檔案，資料表名稱以 `<id>_` 開頭。
+1. **建目錄**：建 `src/modules/<id>/`，照上面的結構放檔案，資料表名稱以 `<id>_` 開頭、`pgTable(...)` 後面加 `.enableRLS()`。
 2. **路由**：
    - 頁面放在 `src/app/(main)/<id>/page.tsx`，只 render 模組 `web/pages/` 的元件。
    - API 放在 `src/app/api/<id>/…/route.ts`，只轉接 `web/routes/` 的 handler。

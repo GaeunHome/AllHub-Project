@@ -295,3 +295,59 @@ describe("從 v0.1.0（0004）直接升級：0005 與 0006 一起套用", { time
     expect(await userIdsOf("core_notifications")).toEqual([rows[0].id]);
   });
 });
+
+// v0.1.4：Supabase 的 Data API 用 anon、authenticated 讀寫 public 的表（預設有讀寫的權限），開了 RLS 又沒有 policy 就一列都碰不到；網站用資料表的擁有者連線，不受 RLS 限制
+const ENABLE_RLS = "0008_enable_rls.sql";
+
+describe("0008 每張表都開 RLS", { timeout: 30_000 }, () => {
+  beforeEach(async () => {
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+  });
+
+  it("public 的每張表都開了 RLS、沒有 FORCE（擁有者也會被擋），也沒有任何 policy：Supabase 安全建議的 rls_disabled_in_public", async () => {
+    const { rows } = await client.query<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>(
+      `select c.relname, c.relrowsecurity, c.relforcerowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind in ('r', 'p') order by c.relname`,
+    );
+    const { rows: policies } = await client.query(`select tablename, policyname from pg_policies where schemaname = 'public'`);
+
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.filter((row) => !row.relrowsecurity || row.relforcerowsecurity)).toEqual([]);
+    expect(policies).toEqual([]);
+  });
+
+  it("Data API 的角色（anon）就算有讀寫的權限也一列都讀不到、寫不進去；不是 superuser 的擁有者（Supabase 的 postgres）照常讀寫", async () => {
+    await client.query(`insert into core_users (username, password_hash, role) values ('owner', 'scrypt$x', 'owner')`);
+    await client.exec(`
+      create role anon nologin;
+      create role site_owner nologin;
+      grant usage on schema public to anon, site_owner;
+      grant select, insert, update, delete on all tables in schema public to anon;
+      alter table core_users owner to site_owner;
+    `);
+
+    await client.exec(`set role anon`);
+    expect((await client.query(`select id from core_users`)).rows).toEqual([]);
+    await expect(client.query(`insert into core_users (username, password_hash, role) values ('intruder', 'scrypt$y', 'owner')`)).rejects.toThrow(/row-level security/);
+    expect((await client.query(`update core_users set password_hash = 'scrypt$z'`)).affectedRows).toBe(0);
+
+    await client.exec(`reset role; set role site_owner`);
+    await client.query(`update core_users set session_version = session_version + 1`);
+    expect((await client.query(`select username, session_version from core_users`)).rows).toEqual([{ username: "owner", session_version: 2 }]);
+  });
+
+  it("一開始設 lock_timeout = 5s，而且是單獨一個 statement：開 RLS 要鎖住每張表，等不到鎖就失敗、之後再重跑，不讓線上的查詢排在後面卡住", () => {
+    const [migration] = readMigrationFiles({ migrationsFolder: MIGRATIONS }).slice(8, 9);
+
+    expect(migration.sql[0].trim()).toBe("SET LOCAL lock_timeout = '5s';");
+  });
+
+  it("只開 RLS：沒有刪除、改名，也不動欄位與資料", () => {
+    const statements = readFileSync(path.join(MIGRATIONS, ENABLE_RLS), "utf8")
+      .split("--> statement-breakpoint")
+      .map((statement) => statement.trim())
+      .slice(1);
+
+    expect(statements.length).toBeGreaterThan(0);
+    for (const statement of statements) expect(statement).toMatch(/^ALTER TABLE "\w+" ENABLE ROW LEVEL SECURITY;$/);
+  });
+});

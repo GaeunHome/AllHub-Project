@@ -3,6 +3,8 @@ import { check, index, integer, pgTable, primaryKey, serial, text, timestamp, uu
 
 // account CLI 用純 node 直接載入這個檔案，只能 import 套件，不能用 @/ 或省略副檔名的相對路徑
 
+// 每張表（含模組的）都 enableRLS() 而且不加 policy：Supabase Data API 的 anon、authenticated 一列都碰不到，網站用資料表的擁有者連線不受影響
+
 /** owner 是站長（管理頁、邀請），member 是用邀請連結註冊的成員；權限一律讀資料庫，cookie 不帶角色 */
 export const USER_ROLES = ["owner", "member"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -34,7 +36,7 @@ export const coreUsers = pgTable(
     check("core_users_role_valid", sql`${t.role} in ('owner', 'member')`),
     check("core_users_failed_logins_non_negative", sql`${t.failedLogins} >= 0`),
   ],
-);
+).enableRLS();
 
 /** 邀請連結；只存邀請碼的 sha256，原文只在建立當下顯示一次，資料庫外洩也拿不到可用的連結 */
 export const coreInvites = pgTable(
@@ -61,7 +63,7 @@ export const coreInvites = pgTable(
     check("core_invites_note_length", sql`char_length(${t.note}) <= 50`),
     index("core_invites_created_by_idx").on(t.createdBy),
   ],
-);
+).enableRLS();
 
 /** 註冊與邀請碼的嘗試次數（固定時間窗），以及用過的驗證碼 nonce；Vercel 是 serverless，記憶體不共用，所以存資料庫。key 都是雜湊，不存原本的 IP 或 nonce */
 export const coreRateLimits = pgTable(
@@ -73,7 +75,7 @@ export const coreRateLimits = pgTable(
     attempts: integer("attempts").notNull(),
   },
   (t) => [primaryKey({ columns: [t.scope, t.keyHash] }), index("core_rate_limits_window_started_at_idx").on(t.windowStartedAt)],
-);
+).enableRLS();
 
 /** 網站內通知；只保留 RETENTION_DAYS 天，排程 notifications:cleanup 刪除更舊的 */
 export const coreNotifications = pgTable(
@@ -100,6 +102,6 @@ export const coreNotifications = pgTable(
     index("core_notifications_user_created_at_idx").on(t.userId, t.createdAt),
     index("core_notifications_user_unread_idx").on(t.userId, t.module).where(sql`${t.readAt} is null`),
   ],
-);
+).enableRLS();
 
 export type CoreNotification = typeof coreNotifications.$inferSelect;

@@ -17,7 +17,7 @@ export const youtubeChannels = pgTable("youtube_channels", {
   /** 單人版的通知開關，已改用 youtube_follows 的；舊程式在部署空窗期還會讀寫，等它不再上線後再刪 */
   notifyEnabled: boolean("notify_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 /** 每個使用者各自的追蹤名單；channel_id 跟 youtube_videos 一樣是 YouTube 的頻道 id（UC…），刪除帳號時一起刪除 */
 export const youtubeFollows = pgTable(
@@ -35,7 +35,7 @@ export const youtubeFollows = pgTable(
   },
   // 新影片推送時依頻道找追蹤者，主鍵的第一欄是使用者，所以另外建索引
   (t) => [primaryKey({ columns: [t.userId, t.channelId] }), index("youtube_follows_channel_id_idx").on(t.channelId)],
-);
+).enableRLS();
 
 /** yes：有人工上傳的中文字幕；no：讀得到字幕清單但沒有；unknown：還沒檢查或 YouTube 擋下了 */
 export type ZhCaptionStatus = "yes" | "no" | "unknown";
@@ -53,7 +53,7 @@ export const youtubeVideos = pgTable("youtube_videos", {
   /** 很多頻道上片後才補字幕，影片清單會依這個時間決定要不要重新檢查 */
   zhCaptionsCheckedAt: timestamp("zh_captions_checked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 /** 每個使用者一列（user_id）。API key 用 core/crypto 加密，hint 存末 4 碼給畫面顯示 */
 export const youtubeSettings = pgTable("youtube_settings", {
@@ -75,7 +75,7 @@ export const youtubeSettings = pgTable("youtube_settings", {
   geminiModel: text("gemini_model"),
   glossary: jsonb("glossary").$type<GlossaryEntry[]>().notNull().default([]),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 export type TranslationStatus = "queued" | "running" | "done" | "failed";
 export type SourceKind = "manual" | "auto" | "upload";
@@ -105,7 +105,7 @@ export const youtubeTranslations = pgTable("youtube_translations", {
   requestedBy: uuid("requested_by").references(() => coreUsers.id, { onDelete: "set null" }),
   /** 發起時的專有名詞表快照：誰接著翻都用同一份，譯名才會一致；null 是舊程式寫入的列，續翻時改用觀看者自己的 */
   glossary: jsonb("glossary").$type<GlossaryEntry[]>(),
-});
+}).enableRLS();
 
 /** 每個人保留的影片（上限見 service）：pinned 是手動保留，false 是按過翻譯時自動加入（清單滿了先被擠掉）；video_id 不連到影片表，影片被清掉後也找得回來，標題與頻道名稱是保留時的快照 */
 export const youtubeSavedVideos = pgTable(
@@ -123,7 +123,7 @@ export const youtubeSavedVideos = pgTable(
   },
   // 清單依保留時間排，滿了要找最舊的自動項目
   (t) => [primaryKey({ columns: [t.userId, t.videoId] }), index("youtube_saved_videos_user_updated_at_idx").on(t.userId, t.updatedAt)],
-);
+).enableRLS();
 
 export type YoutubeChannel = typeof youtubeChannels.$inferSelect;
 export type YoutubeTranslation = typeof youtubeTranslations.$inferSelect;

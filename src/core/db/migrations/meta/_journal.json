@@ -57,6 +57,13 @@
       "when": 1791731712875,
       "tag": "0007_youtube_saved_videos",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791941335694,
+      "tag": "0008_enable_rls",
+      "breakpoints": true
     }
   ]
 }

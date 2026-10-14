@@ -35,7 +35,7 @@
 | **Transaction pooler**（port 6543） | Vercel 上的網站用。serverless 會開很多短連線 | Vercel 的 `DATABASE_URL` |
 | **Session pooler**（port 5432） | GitHub Actions 跑 migration、在電腦上執行 `npm run account` 時用。GitHub 的機器只有 IPv4，連不到 IPv6 的 Direct connection | GitHub Secrets 的 `MIGRATION_DATABASE_URL`；`npm run account` 提示時貼上 |
 
-3. 建議關掉 Supabase 的 Data API：網站用不到它，資料表也沒有開 RLS（步驟見 [Supabase 的 Data API 建議關閉](#supabase-的-data-api-建議關閉)）。
+3. 建議關掉 Supabase 的 Data API：網站用不到它（步驟見 [Supabase 的 Data API 建議關閉](#supabase-的-data-api-建議關閉)）。
 
 ## 2. Vercel：匯入 repo、填環境變數
 
@@ -111,13 +111,15 @@ npm run account create
 - PR 的 Preview 部署沒有環境變數（密鑰只設在 Production），只用來確認能建置。
 - 一般的部署不會讓登入失效。只有換 `SESSION_SECRET`、改密碼或重建資料庫才會。
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
-- **從 v0.1.2 升級**：沒有新的 migration（推上 main 時 db-migrate 不會執行，也不用手動跑），環境變數與排程也沒有變。`youtube:cleanup` 開始逐支確認 RSS 裡已經沒有、還在某人最新 20 支裡的影片是不是 Shorts（每次最多 50 支，跟讀 RSS 共用 60 秒）：更新後的頭幾次執行會刪掉以前存進來、還在清單上的 Shorts（翻譯好的字幕不刪），排程結果寫出刪了幾支、還有幾支沒確認。
-- **從 v0.1.1 升級**：db-migrate 只套用 `0007_youtube_saved_videos`（新增保留的影片的表，不動既有的資料，舊程式照樣能跑；一開始一樣設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次）。部署比 migration 先完成的那一兩分鐘，YouTube 的列表頁、觀看頁與保留的影片頁讀不到新的表會出錯，其他頁面與登入照常。另外 `youtube:cleanup` 在 v0.1.1 的正式環境每次都失敗（排程回「失敗（詳見伺服器 log）」：時間參數沒先轉成字串），這一版修好了：更新後第一次執行會一次刪掉之前累積下來、不在任何人最新 20 支裡而且發布超過 48 小時的影片（翻譯好的字幕不刪），也會開始對照 RSS 刪掉 Shorts，排程結果寫出各刪了幾支。
-- **從單人版（v0.1.0）升級**：會一起套用 0005 到 0007 三個 migration。它們以新增資料表與欄位為主，舊程式照樣能跑，但有幾件事會改變既有的狀態：
+- **從 v0.1.3 升級**：db-migrate 只套用 `0008_enable_rls`：每張資料表開啟 RLS（沒有 policy），Supabase 的 Data API 就讀寫不到資料，安全通知「Table publicly accessible」（`rls_disabled_in_public`）也會消失。只改存取權限、不動資料；網站與 db-migrate 都用資料表的擁有者 `postgres` 連線，不受 RLS 限制，新舊程式都照常運作，沒有部署空窗期的問題。一開始一樣設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次。環境變數與排程沒有變。
+- **從 v0.1.2 升級**：db-migrate 只套用 `0008_enable_rls`（見上一條），環境變數與排程沒有變。`youtube:cleanup` 開始逐支確認 RSS 裡已經沒有、還在某人最新 20 支裡的影片是不是 Shorts（每次最多 50 支，跟讀 RSS 共用 60 秒）：更新後的頭幾次執行會刪掉以前存進來、還在清單上的 Shorts（翻譯好的字幕不刪），排程結果寫出刪了幾支、還有幾支沒確認。
+- **從 v0.1.1 升級**：db-migrate 套用 `0007_youtube_saved_videos`（新增保留的影片的表，不動既有的資料，舊程式照樣能跑）與 `0008_enable_rls`（每張表開啟 RLS，見〈從 v0.1.3 升級〉）；兩個一開始都設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次。部署比 migration 先完成的那一兩分鐘，YouTube 的列表頁、觀看頁與保留的影片頁讀不到新的表會出錯，其他頁面與登入照常。另外 `youtube:cleanup` 在 v0.1.1 的正式環境每次都失敗（排程回「失敗（詳見伺服器 log）」：時間參數沒先轉成字串），這一版修好了：更新後第一次執行會一次刪掉之前累積下來、不在任何人最新 20 支裡而且發布超過 48 小時的影片（翻譯好的字幕不刪），也會開始對照 RSS 刪掉 Shorts，排程結果寫出各刪了幾支。
+- **從單人版（v0.1.0）升級**：會一起套用 0005 到 0008 四個 migration。它們以新增資料表與欄位為主，舊程式照樣能跑，但有幾件事會改變既有的狀態：
   - `0005_multiuser`：帳號的角色、停用、登入鎖定與邀請。**資料庫裡既有的帳號全部設成站長**：單人版用 `npm run account create` 建過好幾個帳號的話，升級後每個都是站長，不需要的請在「管理」頁刪掉或停用。
   - `0006_per_user_data`：各模組的資料依使用者分開（追蹤名單、翻譯設定、星穹鐵道帳號、記帳、網站通知加上擁有者），並把單人版留下的資料都歸給站長（最早建立的站長；沒有站長時用最早建立的帳號）。翻譯的發起人也設成站長，專有名詞表用當時的翻譯設定。`youtube_settings.id` 改成從 2 開始自動編號（BY DEFAULT 的 identity），單人版那一列維持 1。
   - `0007_youtube_saved_videos`：新增保留的影片的表（`youtube_saved_videos`，依使用者，刪除帳號時一起刪），只加新表，不動既有的資料。
-  - 三個 migration 一開始都設 `lock_timeout = 5s`：等不到資料表的鎖（例如線上剛好有很久的查詢）就直接失敗，不讓網站的查詢排在後面卡住。失敗時到 Actions 重跑一次 db-migrate 就好，沒有套用一半的問題（整批在同一個交易裡）。
+  - `0008_enable_rls`：每張資料表開啟 RLS（見〈從 v0.1.3 升級〉），不動資料。
+  - 四個 migration 一開始都設 `lock_timeout = 5s`：等不到資料表的鎖（例如線上剛好有很久的查詢）就直接失敗，不讓網站的查詢排在後面卡住。失敗時到 Actions 重跑一次 db-migrate 就好，沒有套用一半的問題（整批在同一個交易裡）。
   - **清理規則改變**：`youtube:cleanup` 從「刪除超過 14 天的影片」改成「刪除不在任何人最新 20 支裡、發布超過 48 小時的影片」，也會對照 RSS 刪掉 Shorts；翻譯好的字幕跟以前一樣不刪。開台、簽到紀錄與網站通知仍是 14 天。
 - **部署的空窗期**：Vercel 部署與 db-migrate 同時進行，有一小段時間（通常一兩分鐘）程式與資料表的版本會對不上。建議部署當下先不要操作網站，兩邊都完成再用。
   - **部署比 migration 先完成**：新程式讀不到新的欄位，頁面會出錯、登入也會失敗一下子，migration 跑完就恢復。
@@ -167,11 +169,13 @@ npm run account create
 
 ### Supabase 的 Data API 建議關閉
 
-- 網站用 Postgres 連線字串直接連資料庫，用不到 Supabase 的 Data API（PostgREST）；資料表也都沒有開 RLS。Data API 開著、`public` 又在 exposed schemas 裡的話，拿到專案 anon key 的人就能透過 REST 讀寫所有資料表。
-- 到 Supabase 的專案 → **Integrations** → **Data API**，二選一：
+- 網站用 Postgres 連線字串直接連資料庫，用不到 Supabase 的 Data API（PostgREST）。
+- v0.1.4 起每張資料表都開了 RLS、沒有 policy：Data API 開著的話，拿到專案 anon key 的人也一列都讀寫不到。v0.1.3 以前沒有開，拿到 anon key 就能透過 REST 讀寫所有資料表；Supabase 寄來的安全通知「Table publicly accessible」（`rls_disabled_in_public`）說的就是這件事。
+- 用不到的入口還是關掉比較好。到 Supabase 的專案 → **Integrations** → **Data API**，二選一：
   - **Overview** 分頁：關掉 **Enable Data API**（建議）。
   - **Settings** 分頁：在 **Exposed schemas** 取消勾選 `public`，按 **Save**。
 - 關掉之後網站照常運作（不影響連線字串）。畫面跟這裡不一樣時，以官方說明為準：[Securing your API › Disable the Data API](https://supabase.com/docs/guides/api/securing-your-api#disable-the-data-api)。
+- 確認：Supabase 的專案 → **Advisors** → **Security Advisor**，沒有 `rls_disabled_in_public` 就好（升級到 v0.1.4 之後才會消失）。
 
 ## 防機器人與被攻擊時
 

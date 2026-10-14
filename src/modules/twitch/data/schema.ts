@@ -16,7 +16,7 @@ export const twitchStreamers = pgTable("twitch_streamers", {
   /** 單人版的通知開關，已改用 twitch_follows 的；舊程式在部署空窗期還會讀寫，等它不再上線後再刪 */
   notifyEnabled: boolean("notify_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 /** 每個使用者各自的追蹤名單；刪除帳號時一起刪除，主播沒有人追蹤時由排程 sync 清掉 */
 export const twitchFollows = pgTable(
@@ -34,7 +34,7 @@ export const twitchFollows = pgTable(
   },
   // 開台時依主播找追蹤者，主鍵的第一欄是使用者，所以另外建索引
   (t) => [primaryKey({ columns: [t.userId, t.streamerId] }), index("twitch_follows_streamer_id_idx").on(t.streamerId)],
-);
+).enableRLS();
 
 export const twitchStreamEvents = pgTable("twitch_stream_events", {
   id: serial("id").primaryKey(),
@@ -46,6 +46,6 @@ export const twitchStreamEvents = pgTable("twitch_stream_events", {
   category: text("category"),
   startedAt: timestamp("started_at", { withTimezone: true }),
   receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 export type TwitchStreamer = typeof twitchStreamers.$inferSelect;

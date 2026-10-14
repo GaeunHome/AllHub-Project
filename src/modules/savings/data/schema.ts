@@ -22,7 +22,7 @@ export const savingsGoals = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [check("savings_goals_monthly_amount_range", amountInRange(t.monthlyAmount)), index("savings_goals_user_id_idx").on(t.userId, t.sortOrder)],
-);
+).enableRLS();
 
 // 紀錄永久保留，不設清理排程
 export const savingsEntries = pgTable(
@@ -48,7 +48,7 @@ export const savingsEntries = pgTable(
     check("savings_entries_month_first_day", sql`extract(day from ${t.month}) = 1`),
     check("savings_entries_goal_name_snapshot", sql`${t.goalId} is null or ${t.goalName} is not null`),
   ],
-);
+).enableRLS();
 
 export type SavingsGoal = typeof savingsGoals.$inferSelect;
 export type SavingsEntry = typeof savingsEntries.$inferSelect;

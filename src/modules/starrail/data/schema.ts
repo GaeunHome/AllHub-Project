@@ -23,7 +23,7 @@ export const starrailAccounts = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("starrail_accounts_user_id_idx").on(t.userId)],
-);
+).enableRLS();
 
 export const starrailCheckinLogs = pgTable("starrail_checkin_logs", {
   id: serial("id").primaryKey(),
@@ -35,6 +35,6 @@ export const starrailCheckinLogs = pgTable("starrail_checkin_logs", {
   message: text("message"),
   totalSignDay: integer("total_sign_day"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS();
 
 export type StarrailAccount = typeof starrailAccounts.$inferSelect;

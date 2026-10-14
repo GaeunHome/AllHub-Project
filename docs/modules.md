@@ -45,7 +45,7 @@
 
 **設定**
 
-1. 到 [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) 註冊應用程式，取得 Client ID 與 Client Secret，填到 Vercel 的環境變數 `TWITCH_CLIENT_ID`、`TWITCH_CLIENT_SECRET`（見 [密鑰管理](secrets.md)）。OAuth Redirect URL 填 `http://localhost` 即可，用不到。
+1. 到 [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) 註冊應用程式，取得 Client ID 與 Client Secret，填到 Vercel 的環境變數 `TWITCH_CLIENT_ID`、`TWITCH_CLIENT_SECRET`（見 [密鑰管理](secrets.md)）。註冊時：OAuth 重新導向網址網站用不到，但必填而且要 HTTPS，填網站網址（例如 `https://allhub-project.vercel.app`）；分類選「網站整合」；用戶端類型選「機密」（選「公開」拿不到 Client Secret）。帳號要先開兩步驟驗證才能註冊。
 2. `PUBLIC_BASE_URL` 要設成部署後的網址：Twitch 只會把通知送到公開的 HTTPS 網址。本機測試可以用 ngrok。
 3. 開發與正式環境最好各用一個 Twitch 應用程式，因為同一個 Client ID 的訂閱清單是共用的。
 
