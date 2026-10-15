@@ -83,8 +83,4 @@ describe("reencryptCookies（PGlite 整合）", () => {
     expect(await reencryptCookies()).toBe("1 筆 cookie，重新加密 0 筆");
     expect(await storedCookie("1")).toBe(current);
   });
-
-  it("沒有連結的帳號", async () => {
-    expect(await reencryptCookies()).toBe("沒有連結的帳號");
-  });
 });

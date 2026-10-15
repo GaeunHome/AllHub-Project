@@ -26,7 +26,7 @@ describe("星穹鐵道的 Server Action：寫入後用 updateTag 讓對應的 ta
 
     expect(updated()).toEqual([...tags].sort());
     expect(revalidateTag).not.toHaveBeenCalled();
-    // updateTag 已經會讓這次回應帶著重新算繪的頁面，再呼叫 refresh 是多餘的
+    // updateTag 已經會讓這次回應帶著重新算繪的頁面 再呼叫 refresh 是多餘的
     expect(refresh).not.toHaveBeenCalled();
   });
 

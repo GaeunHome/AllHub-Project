@@ -1,4 +1,5 @@
-# Vercel Hobby 的排程一天最多一次，更頻繁的改由這裡呼叫；需要 GitHub Secrets 的 HUB_URL 與 CRON_SECRET（設定方式見 docs/secrets.md）
+# Vercel Hobby 的排程一天最多一次 更頻繁的由這裡呼叫
+# 要有 GitHub Secrets 的 HUB_URL 與 CRON_SECRET 設定方式見 docs/secrets.md
 name: cron
 
 on:

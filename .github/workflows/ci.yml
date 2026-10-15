@@ -32,6 +32,6 @@ jobs:
         run: npm run lint
       - name: 建置
         run: npm run build
-      # typecheck 需要 build 產生的 .next/types，所以放最後
+      # typecheck 需要 build 產生的 .next/types 所以放最後
       - name: 型別檢查
         run: npm run typecheck

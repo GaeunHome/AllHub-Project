@@ -1,12 +1,16 @@
 import type { TwitchGame, TwitchStream, TwitchUser } from "./api";
 
-// Helix 的頭像、直播與遊戲封面只放快取、不存資料庫；這裡把回應整理成畫面用得到的欄位，再跟資料庫的主播合併
+// Helix 的頭像 直播與封面只放快取不存資料庫
+// 這裡把回應整理成畫面要的欄位 再跟資料庫的主播合併
 
-/** 直播卡片的預覽圖最寬約 576px，用 640x360 */
+/** 直播卡片的預覽圖最寬約 576px 所以用 640x360 */
 const PREVIEW = { width: 640, height: 360 };
-/** 主播詳情的大面板：1920x1080 的螢幕上約 1460px 寬、高解析度的筆電約 1000px（兩倍就是 2000），用直播本身的 1080p；再大 Twitch 也只是放大 */
+/**
+ * 大面板在 1080p 螢幕約 1460px 寬 2 倍螢幕的筆電要約 2000 像素
+ * 用直播本身的 1080p 再大 Twitch 也只是放大
+ */
 const LARGE_PREVIEW = { width: 1920, height: 1080 };
-/** 封面在直播卡片顯示 36x48（這裡是兩倍）、主播詳情 60x80 */
+/** 封面在直播卡片顯示 36x48 主播詳情 60x80 這裡用卡片的兩倍 */
 const BOX_ART = { width: 72, height: 96 };
 
 export type StreamerProfile = { id: string; profileImageUrl: string | null; offlineImageUrl: string | null };
@@ -24,7 +28,7 @@ export type LiveStream = {
 
 export type GameArt = { id: string; boxArtUrl: string | null };
 
-/** 直播中的卡片內容；EventSub 說開台、Helix 還查不到時每一項都是 null */
+/** 直播卡片的內容 EventSub 說開台但 Helix 還查不到時都是 null */
 export type LiveInfo = {
   title: string | null;
   gameName: string | null;
@@ -36,7 +40,7 @@ export type LiveInfo = {
   largePreviewUrl: string | null;
 };
 
-/** 參數會成為快取 key：去重、排序後，同一組主播不論資料庫回傳的順序都共用同一份快取 */
+/** 參數會成為快取 key 去重排序後 同一組主播不論順序都共用一份快取 */
 export function cacheKeyIds(ids: Array<string | null | undefined>): string[] {
   return [...new Set(ids.filter((id): id is string => !!id))].sort();
 }
@@ -69,7 +73,7 @@ export function toGameArt(game: TwitchGame): GameArt {
   return { id: game.id, boxArtUrl: sizedImageUrl(text(game.box_art_url), BOX_ART.width, BOX_ART.height) };
 }
 
-/** 例如「開台 2 小時 5 分」；開台時間比現在晚（伺服器時鐘誤差）也當作剛開台 */
+/** 像是開台 2 小時 5 分 伺服器時鐘有誤差 開台時間比現在晚也當作剛開台 */
 export function formatLiveDuration(startedAt: string | null, now: Date): string | null {
   if (!startedAt) return null;
   const started = Date.parse(startedAt);
@@ -82,7 +86,7 @@ export function formatLiveDuration(startedAt: string | null, now: Date): string 
   return rest === 0 ? `開台 ${hours} 小時` : `開台 ${hours} 小時 ${rest} 分`;
 }
 
-/** 千分位自己加：不依賴執行環境的語系資料 */
+/** 千分位自己加 不依賴執行環境的語系資料 */
 export function formatCount(count: number | null): string | null {
   if (count === null) return null;
   return String(Math.max(0, Math.round(count))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -97,10 +101,13 @@ type StreamerBase = { broadcasterId: string; login: string; profileImageUrl: str
 
 export type StreamerVisual<T extends StreamerBase> = T & { avatarUrl: string | null; bannerUrl: string | null; live: LiveInfo | null };
 
-/** null 代表 Helix 不能用（沒設定憑證或出錯），這時頭像用資料庫存的、直播中照 EventSub 寫的 is_live */
+/** null 代表 Helix 不能用 頭像改用資料庫存的 直播中照 EventSub 寫的 is_live */
 export type HelixVisuals = { profiles: StreamerProfile[] | null; streams: LiveStream[] | null; games: GameArt[] | null };
 
-/** 直播中 = EventSub 說開台，或 Helix 查得到直播：剛開台時 Helix 常常還查不到，不能因此顯示離線 */
+/**
+ * EventSub 說開台或 Helix 查得到都算直播中
+ * 剛開台時 Helix 常常還查不到 不能因此顯示離線
+ */
 export function mergeStreamerVisuals<T extends StreamerBase>(streamers: T[], { profiles, streams, games }: HelixVisuals): StreamerVisual<T>[] {
   const profileOf = new Map((profiles ?? []).map((p) => [p.id, p]));
   const streamOf = new Map((streams ?? []).map((s) => [s.userId, s]));
@@ -126,10 +133,13 @@ export function mergeStreamerVisuals<T extends StreamerBase>(streamers: T[], { p
   return merged.sort((a, b) => Number(b.isLive) - Number(a.isLive) || (a.login < b.login ? -1 : a.login > b.login ? 1 : 0));
 }
 
-/** 首頁「正在直播」最多列幾位：寬螢幕剛好一排 */
+/** 首頁正在直播最多列幾位 寬螢幕剛好一排 */
 const LIVE_NOW_LIMIT = 4;
 
-/** 只留直播中的，順序照清單（mergeStreamerVisuals 已經排好）；超過上限的只算人數，讓畫面連到 Twitch 頁看全部 */
+/**
+ * 只留直播中的 順序照 mergeStreamerVisuals 排好的
+ * 超過上限的只算人數 讓畫面連到 Twitch 頁看全部
+ */
 export function pickLiveNow<T extends { isLive: boolean }>(visuals: T[], limit = LIVE_NOW_LIMIT): { shown: T[]; more: number } {
   const live = visuals.filter((s) => s.isLive);
   return { shown: live.slice(0, limit), more: Math.max(0, live.length - limit) };

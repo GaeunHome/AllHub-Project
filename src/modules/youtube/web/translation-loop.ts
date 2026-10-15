@@ -3,12 +3,12 @@ import type { ContinueActionError } from "./actions";
 
 export type LoopResult = Progress | ContinueActionError;
 
-/** 中途停下的原因；needsSettings 代表要到「翻譯設定」處理（畫面附上連結） */
+/** 中途停下的原因 needsSettings 代表要到翻譯設定處理 畫面附上連結 */
 export type LoopStop = { message: string; needsSettings: boolean };
 
 export type LoopOptions = {
   call: (positionMs: number | undefined) => Promise<LoopResult>;
-  /** 每次呼叫前才讀，使用者拖曳後下一次呼叫就用新位置 */
+  /** 每次呼叫前才讀 拖曳後下一次呼叫就用新位置 */
   position?: () => number | undefined;
   onProgress: (progress: Progress) => void;
   isCancelled: () => boolean;
@@ -16,12 +16,18 @@ export type LoopOptions = {
 };
 
 const BUSY_RETRY_MS = 3000;
-/** 呼叫丟例外（斷網、504、部署後舊頁面找不到 Server Action）時的退避間隔；用完就停下，等使用者按「繼續翻譯」 */
+/**
+ * 斷網 504 或部署後舊頁面找不到 Server Action 時的退避間隔
+ * 用完就停下 等使用者按繼續翻譯
+ */
 const RETRY_DELAYS_MS = [2000, 5000, 10_000];
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** 每次呼叫只翻一批（觀看中）或幾批，所以要連續呼叫；回傳 null 是正常結束（完成、失敗、離開頁面），回傳原因時畫面顯示訊息與「繼續翻譯」 */
+/**
+ * 每次呼叫只翻一批或幾批 所以要連續呼叫 完成 失敗或離開頁面時回傳 null
+ * 回傳原因時畫面顯示訊息與繼續翻譯按鈕
+ */
 export async function runTranslationLoop({ call, position, onProgress, isCancelled, sleep = wait }: LoopOptions): Promise<LoopStop | null> {
   let failures = 0;
   while (!isCancelled()) {

@@ -19,7 +19,7 @@ const { captchaCookieName, verifyCaptchaToken } = await import("./captcha");
 
 const request = (query: string) => new NextRequest(`https://hub.example.com/api/auth/captcha${query}`);
 
-/** 只驗格式、期限與 HMAC（不碰資料庫），用來確認 cookie 對應的是哪個驗證碼 */
+/** 只驗格式 期限與 HMAC 不碰資料庫 用來確認 cookie 對應的是哪個驗證碼 */
 const signedFor = (code: string, purpose: "login" | "register" = "login") => verifyCaptchaToken(purpose, code, jar.get(captchaCookieName(purpose))!.value, new Date());
 
 beforeEach(() => {

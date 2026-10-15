@@ -46,9 +46,9 @@ describe("planBatches", () => {
 });
 
 describe("pickNextBatch", () => {
-  // 每句 3 秒：第 i 句在 i*3 秒出現、2.5 秒後消失
+  // 每句 3 秒 第 i 句在 i*3 秒出現 2.5 秒後消失
   const timed = (n: number, text = "가") => Array.from({ length: n }, (_, i) => ({ start: i * 3000, end: i * 3000 + 2500, text }));
-  /** 指定範圍（end 不含）已翻好，其餘是 null */
+  /** 指定範圍已翻好 end 不含 其餘是 null */
   const translated = (n: number, ...done: [number, number][]) =>
     Array.from({ length: n }, (_, i) => (done.some(([start, end]) => i >= start && i < end) ? "中" : null));
 
@@ -75,7 +75,7 @@ describe("pickNextBatch", () => {
   });
 
   it("15 秒內就會播到還沒翻的句子 → 仍用小批次", () => {
-    // 播到第 27 句，第 30 句 9 秒後出現
+    // 播到第 27 句 第 30 句 9 秒後出現
     expect(pickNextBatch(timed(130), translated(130, [20, 30]), 81_000)).toEqual({ start: 30, end: 40 });
   });
 
@@ -84,7 +84,7 @@ describe("pickNextBatch", () => {
   });
 
   it("播放位置前方約 2 分半都翻好了 → 從頭依序補，不是接著往後", () => {
-    // 播到第 20 句（60 秒），前方到第 74 句（222 秒）都翻好
+    // 60 秒播到第 20 句 前方到 222 秒的第 74 句都翻好
     expect(pickNextBatch(timed(130), translated(130, [20, 75]), 60_500)).toEqual({ start: 0, end: 20 });
   });
 

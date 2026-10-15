@@ -23,7 +23,7 @@ let me: string;
 let other: string;
 let streamerId: number;
 
-/** 預設只有 me 追蹤 alice（通知開著） */
+/** 預設只有 me 追蹤 alice 通知開著 */
 beforeEach(async () => {
   getStreams.mockReset().mockResolvedValue([{ user_id: "42", title: "今天玩鐵道", game_name: "Honkai: Star Rail", started_at: "" }]);
   notify.mockReset().mockResolvedValue(undefined);

@@ -21,14 +21,14 @@ const full: StarrailCharacter = {
   traces: [{ kind: "skill", name: "強寇", typeLabel: "普攻", level: 6, icon: "https://cdn/skill.png", activated: true }],
 };
 
-/** 物件裡所有的字串，用來確認沒有漏掉沒改寫的網址 */
+/** 物件裡所有的字串 用來確認沒有漏掉沒改寫的網址 */
 function strings(value: unknown): string[] {
   if (typeof value === "string") return [value];
   if (value && typeof value === "object") return Object.values(value).flatMap(strings);
   return [];
 }
 
-/** 跟 externalAssetUrl 一樣：只認 http(s) 的網址，站內路徑會變成 null */
+/** 跟 externalAssetUrl 一樣只認 http(s) 的網址 站內路徑會變成 null */
 const asset = (url: string | null) => (url?.startsWith("https://cdn/") ? url.replace("https://cdn/", "http://mock/") : null);
 
 describe("characterAssetUrls：角色資料裡的外部圖片網址都經過 externalAssetUrl", () => {

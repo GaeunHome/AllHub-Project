@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
-import { formatRelativeTime, formatTaipeiDateTime, formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDateKey } from "./time";
+import { formatRelativeTime, formatTaipeiDateTime, formatTaipeiHourMinute, formatTaipeiMonthDay, formatTaipeiHourMinuteSecond, taipeiDateKey } from "./time";
 
 describe("formatTaipeiDateTime", () => {
   it.each([
@@ -36,6 +36,30 @@ describe("formatTaipeiHourMinute", () => {
   });
 });
 
+describe("formatTaipeiHourMinuteSecond：導覽列的時鐘", () => {
+  it.each([
+    ["2026-10-07T04:05:09Z", "12:05:09", "UTC 加 8 小時，分秒補零"],
+    ["2026-10-07T15:59:59Z", "23:59:59", "台北午夜前最後一秒"],
+    ["2026-10-07T16:00:00Z", "00:00:00", "午夜是 00 不是 24（h23）"],
+    ["2026-10-07T16:00:07Z", "00:00:07", "午夜過後幾秒也是 00"],
+    ["2026-10-07T17:05:09Z", "01:05:09", "一位數的時補零"],
+    ["2026-12-31T16:00:00Z", "00:00:00", "台北已經跨年、UTC 還是 12/31"],
+    ["2026-10-07T04:05:09.999Z", "12:05:09", "毫秒捨去不進位"],
+  ])("%s → %s（%s）", (iso, expected) => {
+    expect(formatTaipeiHourMinuteSecond(new Date(iso))).toBe(expected);
+  });
+
+  it("加了秒之後_其他函式照舊不顯示秒、也不因為秒進位", () => {
+    // 台北 2026/10/7 23:59:59.999 秒一進位就會變成隔天
+    const instant = new Date("2026-10-07T15:59:59.999Z");
+
+    expect(formatTaipeiDateTime(instant)).toBe("2026/10/7 23:59");
+    expect(formatTaipeiMonthDay(instant)).toBe("10/7");
+    expect(formatTaipeiHourMinute(instant)).toBe("23:59");
+    expect(taipeiDateKey(instant)).toBe("2026-10-07");
+  });
+});
+
 describe("taipeiDateKey", () => {
   it.each([
     ["2026-10-20T15:59:59.999Z", "2026-10-20", "台北午夜前最後一刻"],
@@ -48,15 +72,16 @@ describe("taipeiDateKey", () => {
 });
 
 describe("ICU 版本不同時輸出不變", () => {
-  // 台北 2027/1/5 01:05：月、日、時都是一位數，補零規則不同時看得出來
-  const instant = new Date("2027-01-04T17:05:00Z");
+  // 台北 2027/1/5 01:05:07 月日時秒都是一位數 補零規則不同時看得出來
+  const instant = new Date("2027-01-04T17:05:07Z");
 
-  it.each(ICU_VARIANTS)("模擬「$name」_四個函式的輸出都跟平常一樣", (variant) => {
+  it.each(ICU_VARIANTS)("模擬「$name」_五個函式的輸出都跟平常一樣", (variant) => {
     simulateIcu(variant);
 
     expect(formatTaipeiDateTime(instant)).toBe("2027/1/5 01:05");
     expect(formatTaipeiMonthDay(instant)).toBe("1/5");
     expect(formatTaipeiHourMinute(instant)).toBe("01:05");
+    expect(formatTaipeiHourMinuteSecond(instant)).toBe("01:05:07");
     expect(taipeiDateKey(instant)).toBe("2027-01-05");
   });
 

@@ -162,7 +162,7 @@ describe("cleanupNotifications", () => {
 });
 
 describe("每個人只看得到、改得到自己的通知", () => {
-  /** 別人的通知，以及部署空窗期舊程式寫入、沒有收件人的通知 */
+  /** 別人的通知 以及部署空窗期舊程式寫的沒有收件人的通知 */
   async function seedOthers() {
     return seed({ module: "twitch", title: "別人的", userId: other }, { module: "youtube", title: "沒有收件人", userId: null });
   }

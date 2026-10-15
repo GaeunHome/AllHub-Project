@@ -1,7 +1,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type EffectCallback } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// effect 只在瀏覽器跑：直接呼叫元件，選單給「開著」的 state、setter 換成替身，layout effect 收起來自己跑（跑完再跑清除函式，就是 Activity 把頁面藏起來）
+// effect 只在瀏覽器跑 直接呼叫元件 選單的 state 給開著 setter 換成替身
+// layout effect 自己跑 跑完再跑清除函式 就是 Activity 把頁面藏起來
 vi.mock("react", { spy: true });
 
 const { MoreMenu } = await import("./more-menu");
@@ -10,7 +11,7 @@ afterEach(() => {
   for (const hook of [useState, useRef, useId, useLayoutEffect, useEffect]) vi.mocked(hook).mockReset();
 });
 
-/** 選單開著時頁面被藏起來：回傳開關選單的 setter */
+/** 選單開著時頁面被藏起來 回傳開關選單的 setter */
 function hideWhileOpen() {
   const setOpen = vi.fn();
   const layoutEffects: EffectCallback[] = [];
@@ -18,7 +19,7 @@ function hideWhileOpen() {
   vi.mocked(useRef).mockImplementation(((initial: unknown) => ({ current: initial })) as never);
   vi.mocked(useId).mockReturnValue("menu");
   vi.mocked(useLayoutEffect).mockImplementation((effect) => void layoutEffects.push(effect));
-  // 點外面、Esc、捲動就收起的監聽要有 document，這裡只看藏起來的當下
+  // 點外面 Esc 捲動就收起的監聽要有 document 這裡只看藏起來的當下
   vi.mocked(useEffect).mockImplementation(() => {});
 
   MoreMenu({ label: "影片的選項", children: null });

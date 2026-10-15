@@ -6,12 +6,13 @@ import { followedStreamerVisuals } from "../streamer-visuals";
 import { ChannelRow } from "./channel-row";
 import { LiveCard } from "./live-card";
 
-// auto-fit 收掉沒用到的欄：直播的人少時卡片撐滿這一欄，不會空下一兩欄；欄寬看這一欄本身的寬度（超寬螢幕右邊多了開關台紀錄，這一欄反而比較窄）
+// auto-fit 收掉沒用到的欄 直播的人少時卡片撐滿 不會空下一兩欄
+// 欄寬看這一欄本身 超寬螢幕右邊多了開關台紀錄 這欄反而比較窄
 const LIVE_GRID = "grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-x-4 gap-y-8";
-// 第一排最多四張：預覽圖立刻載入（常常是 LCP），後面的延遲
+// 第一排最多四張 預覽圖常常是 LCP 立刻載入 後面的延遲
 const EAGER_PREVIEWS = 4;
 
-/** 「追蹤中」：寬螢幕左邊是追蹤的頻道（Twitch 側欄的樣子）、右邊是直播中的卡片；手機上直播中的排前面 */
+/** 追蹤中區塊 寬螢幕左邊是頻道清單 右邊是直播卡片 手機上直播的排前面 */
 export async function Following() {
   const user = await requireSession();
   const visuals = await followedStreamerVisuals(user.id);
@@ -25,7 +26,7 @@ export async function Following() {
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[17rem_minmax(0,1fr)]">
-      {/* 兩欄的標題同一個樣子、同一個高度，下面的內容從同一條線開始 */}
+      {/* 兩欄的標題樣子與高度相同 下面的內容從同一條線開始 */}
       <section aria-labelledby="tw-live" className="stack @container min-w-0 lg:order-2">
         <SectionTitle id="tw-live" icon="tv">
           直播中

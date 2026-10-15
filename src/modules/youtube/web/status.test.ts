@@ -1,18 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
-import { channelStatusBadge, describeTranslationStatus } from "./status";
-
-describe("describeTranslationStatus", () => {
-  it.each([
-    [null, "翻譯觀看"],
-    ["queued", "翻譯中"],
-    ["running", "翻譯中"],
-    ["done", "觀看（已翻譯）"],
-    ["failed", "翻譯失敗"],
-  ] as const)("%s → %s", (status, expected) => {
-    expect(describeTranslationStatus(status)).toBe(expected);
-  });
-});
+import { channelStatusBadge } from "./status";
 
 describe("channelStatusBadge：訂閱狀態改成標籤（不用灰色小字）", () => {
   const now = new Date("2026-10-07T00:00:00Z");

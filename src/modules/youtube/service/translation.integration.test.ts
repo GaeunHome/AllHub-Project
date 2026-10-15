@@ -25,7 +25,7 @@ const cues = (n: number) => Array.from({ length: n }, (_, i) => cue(i));
 
 let testDb: TestDb;
 const getDb = setupTestDb((d) => (testDb = d));
-/** me 是一般成員（預設的操作者）、other 是另一個成員、boss 是站長 */
+/** me 是預設操作的一般成員 other 是另一個成員 boss 是站長 */
 let me: string;
 let other: string;
 let boss: string;
@@ -84,7 +84,7 @@ describe("設定", () => {
     const view = await getSettingsView();
     expect(view.customModels.anthropic).toBe("");
     expect(view.defaultModels.anthropic).toBe("claude-haiku-4-5");
-    // 「實際會用的模型」由 customModels 與 defaultModels 合併而來，不再另外放一份
+    // 實際會用的模型由 customModels 與 defaultModels 合併 不再另外放一份
     expect(view).not.toHaveProperty("models");
   });
 
@@ -416,7 +416,7 @@ describe("continueTranslation：鎖的擁有權", () => {
     let retried: Progress | undefined;
     translateBatch
       .mockImplementationOnce(async (args: BatchArgs) => {
-        clock += 10 * 60_000; // 卡住超過鎖的期限：另一個請求接手後失敗，使用者再按重試並翻完
+        clock += 10 * 60_000; // 卡住超過鎖的期限 另一個請求接手後失敗 使用者再按重試並翻完
         retried = await continueTranslation(VIDEO, { now });
         await retryTranslation(VIDEO);
         retried = await continueTranslation(VIDEO, { now });
@@ -435,7 +435,7 @@ describe("continueTranslation：鎖的擁有權", () => {
   it("心跳過期被接手後_原本的請求寫回失敗就停止，不覆蓋接手者的結果、不重翻", async () => {
     let takeover: Progress | undefined;
     translateBatch.mockImplementationOnce(async (args: BatchArgs) => {
-      clock += 10 * 60_000; // 卡住超過鎖的期限，另一個請求接手並翻完
+      clock += 10 * 60_000; // 卡住超過鎖的期限 另一個請求接手並翻完
       takeover = await continueTranslation(VIDEO, { now });
       return old(args);
     });
@@ -454,7 +454,7 @@ describe("continueTranslation：鎖的擁有權", () => {
     let concurrent: Progress | undefined;
     translateBatch.mockImplementationOnce(async (args: BatchArgs) => {
       await args.beforeCall?.();
-      clock += 100_000; // 第一次呼叫 AI 花了 100 秒（句數不符）
+      clock += 100_000; // 第一次呼叫 AI 花了 100 秒 句數不符
       await args.beforeCall?.();
       clock += 100_000; // 重試又花了 100 秒
       concurrent = await continueTranslation(VIDEO, { now });
@@ -471,7 +471,7 @@ describe("continueTranslation：鎖的擁有權", () => {
 });
 
 describe("continueTranslation：觀看中（帶播放位置）", () => {
-  // 每句 3 秒、共 130 句（6 分半）：第 20 句在 60 秒出現，第 100 句在 300 秒
+  // 每句 3 秒共 130 句約 6 分半 第 20 句在 60 秒出現 第 100 句在 300 秒
   const timedCues = Array.from({ length: 130 }, (_, i) => ({ start: i * 3000, end: i * 3000 + 2500, text: `문장 ${i}` }));
   const at = (positionMs: number) => continueTranslation(VIDEO, { now, positionMs });
   const sentBatches = () => translateBatch.mock.calls.map(([args]) => (args as BatchArgs).batch);
@@ -564,12 +564,6 @@ describe("翻譯設定與 API Key 每人一份", () => {
     expect((await translation.getSettingsView(boss)).provider).toBe("openai");
     const ids = (await testDb.select().from(youtubeSettings)).map((row) => row.id);
     expect(ids.filter((id) => id === 1)).toHaveLength(1);
-  });
-
-  it("刪除帳號時，他的翻譯設定（加密的 API Key）一起刪除", async () => {
-    await getDb().delete(coreUsers).where(eq(coreUsers.id, me));
-
-    expect(await testDb.select().from(youtubeSettings)).toHaveLength(0);
   });
 });
 

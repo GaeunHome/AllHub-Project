@@ -1,13 +1,16 @@
 import { formatTaipeiDateTime } from "@/core/time";
 import { splitRecentCheckins } from "../recent-checkins";
 
-/** 只用到的欄位：頁面傳進來的是 cachedRecentCheckins 讀到的紀錄（新的在前） */
+/** 只列用到的欄位 頁面傳進來的是 cachedRecentCheckins 讀到的紀錄 新的在前 */
 export type CheckinLogRow = { log: { id: number; result: string; message: string | null; totalSignDay: number | null; createdAt: Date } };
 
 const RESULT_LABEL = { success: "簽到成功", already: "已簽過", failed: "簽到失敗" } as Record<string, string>;
 const RESULT_CHIP = { success: "chip chip-success", already: "chip", failed: "chip chip-danger" } as Record<string, string>;
 
-/** 最近幾筆直接列出，更早的收在同一張卡片裡預設關著的 details（不必 JavaScript）：紀錄多時並排的兌換碼卡片不會被撐高 */
+/**
+ * 最近幾筆直接列出 更早的收進預設關著的 details 不用 JavaScript
+ * 紀錄多時並排的兌換碼卡片才不會被撐高
+ */
 export function CheckinLogList({ logs }: { logs: CheckinLogRow[] }) {
   const { recent, earlier } = splitRecentCheckins(logs);
   return (
@@ -17,9 +20,9 @@ export function CheckinLogList({ logs }: { logs: CheckinLogRow[] }) {
         <CheckinRows logs={recent} />
         {earlier.length > 0 && (
           <details className="disclosure border-t border-line">
-            {/* 整列都能點；卡片的切角會裁掉畫在外面的焦點框，改畫在列裡面 */}
+            {/* 整列都能點 卡片的切角會裁掉外面的焦點框 改畫在列裡面 */}
             <summary className="card-row flex text-sm focus-visible:-outline-offset-2">顯示更早的紀錄（{earlier.length} 筆）</summary>
-            {/* 接著上面的列排下去：不要 disclosure 展開內容的上邊距 */}
+            {/* 接著上面的列排下去 不要 disclosure 展開內容的上邊距 */}
             <CheckinRows logs={earlier} className="mt-0 border-t border-line" />
           </details>
         )}

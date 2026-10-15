@@ -1,16 +1,19 @@
-// HoYoLAB 戰績的角色詳情（game_record/hkrpg/api/avatar/info）：沒有公開文件，欄位依 genshin.py 的 starrail chronicle 模型整理、尚未用真實帳號驗證；
-// 讀不到的欄位給 null 並記下欄位路徑（missing），第一次用真實帳號時從 log 就看得出哪裡不同；原始 JSON（說明文字、wiki 連結）不往前端送
+// 角色詳情沒有公開文件 欄位依 genshin.py 整理 還沒用真實帳號驗證
+// 讀不到的給 null 並記下路徑 第一次接真實帳號時看 log 就知道哪裡不同
 
 import { elementIconUrl, pathIconUrl, propertyIconUrl } from "./game-icons";
 import { asRecord, bool, createMissing, image, number, text } from "./json";
 import { interpretWith, type HoyolabResult } from "./responses";
 
-/** times 是 HoYoLAB 原樣的次數（推定含初始那一次，依據見 relicUpgrades()），畫面用 relicUpgrades() 換成強化次數；icon 是內建遊戲圖示的站內路徑，對照表以外的屬性是 null */
+/**
+ * times 是 HoYoLAB 原樣的次數 畫面用 relicUpgrades 換成強化次數
+ * icon 是內建圖示的站內路徑 對照表以外的屬性是 null
+ */
 export type RelicStat = { name: string; value: string | null; times: number | null; icon: string | null };
 
 export type Relic = {
   id: number | null;
-  /** 1–4 是遺器（頭、手、軀幹、腳），5–6 是位面飾品 */
+  /** 1 到 4 是頭手軀幹腳的遺器 5 和 6 是位面飾品 */
   pos: number | null;
   name: string | null;
   level: number | null;
@@ -26,21 +29,21 @@ export type Eidolon = { pos: number | null; name: string | null; icon: string | 
 
 export type StatLine = { type: number | null; name: string; icon: string | null; base: string | null; add: string | null; final: string | null };
 
-/** skill：普攻、戰技等技能；major：額外能力；bonus：屬性加成 */
+/** skill 是普攻戰技這類技能 major 是額外能力 bonus 是屬性加成 */
 export type Trace = { kind: "skill" | "major" | "bonus"; name: string | null; typeLabel: string | null; level: number | null; icon: string | null; activated: boolean | null };
 
 export type StarrailCharacter = {
   id: number;
   name: string | null;
   level: number | null;
-  /** 星魂（rank） */
+  /** 星魂 也就是 rank */
   eidolon: number | null;
   rarity: number | null;
-  /** 小寫的英文代號，例如 quantum */
+  /** 小寫的英文代號 例如 quantum */
   element: string | null;
-  /** 內建屬性圖示的站內路徑（lib/game-icons.ts） */
+  /** 內建屬性圖示的站內路徑 見 lib/game-icons.ts */
   elementIcon: string | null;
-  /** 命途（base_type 1–9） */
+  /** 命途 base_type 1 到 9 */
   path: number | null;
   pathIcon: string | null;
   icon: string | null;
@@ -54,7 +57,7 @@ export type StarrailCharacter = {
 
 export type CharacterList = { characters: StarrailCharacter[]; missing: string[] };
 
-/** 10102：資料不公開 */
+/** 10102 是資料不公開 */
 const DATA_NOT_PUBLIC = 10102;
 const NOT_PUBLIC_HINT = "角色詳情沒有公開：到 HoYoLAB → 戰績 → 設定，打開角色詳情後再重新整理";
 
@@ -82,7 +85,8 @@ export function parseCharacters(data: unknown): CharacterList {
     missing.add(`property_info.${type}`);
     return `屬性 ${type}`;
   };
-  // 跟屬性、命途一樣用內建的遊戲圖示，不用 property_info 附的網址（遊戲的固定小圖示不向外部載入）；對照表以外的新屬性不顯示圖示，只是裝飾、不記 missing
+  // 跟屬性命途一樣用內建圖示 固定的小圖示不向外部載入
+  // 對照表以外的新屬性不顯示圖示 只是裝飾所以不記 missing
   const propertyIcon = propertyIconUrl;
 
   const relicStat = (value: unknown, path: string): RelicStat | null => {
@@ -102,14 +106,14 @@ export function parseCharacters(data: unknown): CharacterList {
       level: need(number(r.level), `${path}.level`),
       rarity: need(number(r.rarity), `${path}.rarity`),
       icon: need(image(r.icon), `${path}.icon`),
-      // 沒裝主屬性時是 null（genshin.py 也略過）
+      // 沒裝主屬性時是 null genshin.py 也略過
       mainStat: r.main_property === null ? null : relicStat(r.main_property, `${path}.main_property`),
       subStats: listAt(r, "properties", `${path}.properties`).flatMap((s) => relicStat(s, `${path}.properties[]`) ?? []),
     };
   };
 
   const lightCone = (value: unknown, path: string): LightCone | null => {
-    // 沒裝光錐時 equip 是 null，這是正常情況
+    // 沒裝光錐時 equip 是 null 這是正常情況
     if (value === null) return null;
     const equip = asRecord(value);
     if (!equip) return need(null, path);
@@ -191,7 +195,7 @@ export function parseCharacters(data: unknown): CharacterList {
             {
               kind,
               name: need(text(stage?.name), at("skills[].skill_stages[].name")),
-              // remake 是「普攻」「戰技」這類短標籤；太長的不是標籤，不顯示
+              // remake 是普攻 戰技這類短標籤 太長的不是標籤就不顯示
               typeLabel: remake && remake.length <= 8 ? remake : null,
               level: need(number(skill.level), at("skills[].level")),
               icon: need(image(skill.item_url), at("skills[].item_url")),
@@ -215,7 +219,7 @@ export const ELEMENT_ORDER = Object.keys(ELEMENTS);
 const PATHS = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
 const RELIC_SLOTS = ["頭部", "手部", "軀幹", "腳部", "位面球", "連結繩"];
 
-/** 認不得的屬性原樣顯示，HoYoLAB 新增屬性時至少看得到 */
+/** 認不得的屬性原樣顯示 HoYoLAB 新增屬性時至少看得到 */
 export function elementLabel(element: string | null): string | null {
   return element === null ? null : (ELEMENTS[element.toLowerCase()] ?? element);
 }
@@ -224,7 +228,10 @@ export function pathLabel(path: number | null): string | null {
   return path !== null && Number.isInteger(path) && path >= 1 && path <= PATHS.length ? PATHS[path - 1] : null;
 }
 
-/** 強化次數 = times − 1。推定 times 跟遊戲資料的詞條次數（Enka 的 cnt、Mihomo 的 count，hsr-optimizer 也用 count − 1 算強化次數）一樣含初始那一次：使用者回報實際畫面每條副詞條都至少 +1、+15 遺器的總次數也對得上；尚未用真實帳號的回應確認 */
+/**
+ * 強化次數是 times 減 1 推定 times 跟 Enka 的 cnt 一樣含初始那一次
+ * 依據是使用者回報的畫面 還沒用真實帳號的回應確認
+ */
 export function relicUpgrades(times: number | null): number {
   return times !== null && Number.isInteger(times) && times >= 2 ? times - 1 : 0;
 }

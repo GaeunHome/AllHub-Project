@@ -10,11 +10,12 @@ const { AppShell } = await import("./app-shell");
 
 type ShellProps = Parameters<typeof AppShell>[0];
 const props: Omit<ShellProps, "children"> = { modules: [] };
-// children 照 lint 規定用第三個參數傳；型別上 children 是必填，props 斷言成完整的型別
+// lint 規定 children 用第三個參數傳
+// 型別上 children 卻是必填 所以 props 斷言成完整的型別
 const renderShell = () => renderToStaticMarkup(createElement(AppShell, props as ShellProps, createElement("p", null, "頁面內容")));
 
 const classesOf = (markup: string, pattern: RegExp) => markup.match(pattern)?.[1].split(/\s+/) ?? [];
-/** 決定左右邊線的 class：置中、寬度、最大寬度、左右內距（含斷點） */
+/** 決定左右邊線的 class 置中 寬度 最大寬度與含斷點的左右內距 */
 const frameOf = (classes: string[]) => classes.filter((c) => /^(?:mx-auto|w-full|max-w-|(?:\w+:)?px-)/.test(c)).sort();
 
 describe("版面外框（AppShell）", () => {

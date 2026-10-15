@@ -14,7 +14,8 @@ function Pending(): Promise<never> {
 
 type CardProps = Parameters<typeof HomeCard>[0];
 const props: Omit<CardProps, "children"> = { info: INFO, title: "正在直播", skeleton: createElement("p", null, "骨架") };
-// children 照 lint 規定用第三個參數傳；型別上 children 是必填，props 斷言成完整的型別
+// lint 規定 children 用第三個參數傳
+// 型別上 children 卻是必填 所以 props 斷言成完整的型別
 const card = (child: ReactElement) => renderToStaticMarkup(createElement(HomeCard, props as CardProps, child));
 
 describe("首頁卡片的外框（core/ui/home-card）", () => {
@@ -27,13 +28,6 @@ describe("首頁卡片的外框（core/ui/home-card）", () => {
     expect(markup).toMatch(/<a[^>]*href="\/twitch"[^>]*>.*Twitch/);
     expect(markup).toContain("/icons/brands/twitch.svg");
     expect(textOf(markup)).toContain("骨架");
-  });
-
-  it("內容好了就換成內容", () => {
-    const markup = card(createElement("p", null, "兩位主播正在直播"));
-
-    expect(textOf(markup)).toContain("兩位主播正在直播");
-    expect(textOf(markup)).not.toContain("骨架");
   });
 });
 

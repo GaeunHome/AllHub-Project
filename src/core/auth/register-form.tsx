@@ -20,7 +20,7 @@ export function RegisterForm({ code, expiresAt, captchaSrc }: { code: string; ex
       <p className="text-center">這個邀請連結有效到 {expiresAt}</p>
       <label className="field">
         <span className="field-label">帳號</span>
-        {/* 送出後 React 會重設表單，用 key 讓帳號欄位帶回剛才輸入的值 */}
+        {/* 送出後 React 會重設表單 用 key 讓帳號欄位帶回剛才輸入的值 */}
         <input
           key={state.username ?? ""}
           name="username"
@@ -34,7 +34,7 @@ export function RegisterForm({ code, expiresAt, captchaSrc }: { code: string; ex
           className="input"
         />
       </label>
-      {/* 密碼欄位裡有顯示密碼的按鈕，label 不能包住它，改用 htmlFor 對應 */}
+      {/* 密碼欄位裡有按鈕 label 不能包住它 改用 htmlFor 對應 */}
       <div className="field">
         <label htmlFor={`${id}-password`} className="field-label">
           密碼
@@ -47,7 +47,7 @@ export function RegisterForm({ code, expiresAt, captchaSrc }: { code: string; ex
         </label>
         <PasswordInput id={`${id}-confirm`} name="confirmPassword" required minLength={PASSWORD_MIN_LENGTH} autoComplete="new-password" />
       </div>
-      {/* 規則收起來，畫面上不放一排小字；送出時不符合會直接說明是哪一條 */}
+      {/* 規則收起來 畫面上不放一排小字 送出時不符合會直接說明 */}
       <details className="disclosure">
         <summary>帳號與密碼的規則</summary>
         <ul className="flex list-disc flex-col gap-1 pl-5">
@@ -57,7 +57,7 @@ export function RegisterForm({ code, expiresAt, captchaSrc }: { code: string; ex
           </li>
         </ul>
       </details>
-      {/* 蜜罐：移到畫面外、不能用 Tab 選到，也不讓報讀器念出來；只有自動填表的機器人會填 */}
+      {/* 蜜罐移到畫面外 不能用 Tab 選到也不讓報讀器念 只有機器人會填 */}
       <div aria-hidden className="absolute -left-[9999px] size-px overflow-hidden">
         <label>
           個人網站
@@ -65,7 +65,7 @@ export function RegisterForm({ code, expiresAt, captchaSrc }: { code: string; ex
         </label>
       </div>
       <CaptchaField src={captchaSrc} resetSignal={state} />
-      {/* 整列都可以點，高度至少 44px */}
+      {/* 整列都可以點 高度至少 44px */}
       <label className="flex min-h-11 cursor-pointer items-center gap-3">
         <input type="checkbox" name="agree" required className="size-4 shrink-0" />
         <span>

@@ -93,6 +93,7 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
 
 ## 測試
 
+- **寫什麼測試**：只留答案來自程式以外的（需求、手算、發生過的 bug、架構規則、資料庫與安全）；照著程式抄答案的（常數、文案、class、內部函式的呼叫）不寫。規則見 CLAUDE.md〈程式碼慣例〉。
 - **`npm test`**：跑 Vitest 單元與整合測試。`vitest.config.mts` 固定最多 4 個 worker：整合測試每個都會啟動 PGlite，平行太多在機器忙時會逾時。
   - 整合測試用記憶體裡的 PGlite（`src/dev/test-db.ts`），不需要資料庫。
   - 測試不會對外部服務發請求：`src/dev/vitest-setup.ts` 把全域 `fetch` 換成只能連 localhost／127.0.0.1 的版本，其他目的地直接丟錯，錯誤訊息會說明怎麼換成替身（`fakeFetch` 傳給 `fetchImpl`、`vi.stubGlobal("fetch", …)`、`vi.mock(path, { spy: true })` 要設定回應）。
@@ -105,4 +106,5 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
   - 可見的分頁大約每 10 秒向 `/api/notifications` 輪詢一次（背景分頁每 60 秒），模擬開台或新影片後最多等 10 秒，提示卡片就會出現。
 - **自動化測試觀看頁**：要先注入假的 `window.YT.Player`，否則瀏覽器會向 youtube.com 載入播放器。細節見 CLAUDE.md〈測試與 E2E〉。
 - **自動化點按**：用 Chrome DevTools Protocol 的 `Input.dispatchMouseEvent`（手機用 `Input.dispatchTouchEvent`）模擬真的滑鼠與手指，不要用 `element.click()`：它不經過命中測試、也不發 pointerdown，測不出「按下就把選單收起來」這類問題。
+- **關閉自動化的 Chrome**：用 CDP 的 `Browser.close` 正常關閉，不要直接結束程序。macOS 上直接結束會在暫存資料夾留下 Chrome 複製出來的一份自己（`code_sign_clone`），跑多了會佔掉好幾 GB。
 - **測試腳本直接查本機資料庫時**：PGlite 只有一條真正的連線，腳本的查詢跟網站的查詢同時送出偶爾會混在一起（例如 `bind message supplies 1 parameters`）。等頁面載入完、網站閒下來再查，出錯就重試。

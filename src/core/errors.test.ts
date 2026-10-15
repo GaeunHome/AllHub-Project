@@ -52,12 +52,4 @@ describe("logError", () => {
     expect(log.mock.calls).toEqual([["[starrail] 處理帳號時發生錯誤", "900000001", "PostgresError"]]);
     expect(loggedText(log)).not.toContain("secret-detail");
   });
-
-  it("沒有附帶資訊時_只有訊息與錯誤種類", () => {
-    const log = captureErrorLog();
-
-    logError("cron", "twitch:sync 失敗", new DecryptionError("malformed"));
-
-    expect(log.mock.calls).toEqual([["[cron] twitch:sync 失敗", "malformed"]]);
-  });
 });

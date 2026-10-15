@@ -9,8 +9,8 @@ import { listSavedVideos, type SavedVideo } from "./saved-videos";
 import { getSettingsView, getTranslation, missingApiKeyMessage, type SettingsView, type TranslationView } from "./translation";
 import { channelAvatar } from "./visuals";
 
-// 只給頁面用；寫入流程、排程與翻譯鎖要讀最新資料，直接用其他 service
-// userId 一律是頁面從 session 拿到的登入者，會成為快取 key：追蹤、影片清單與翻譯設定每個人各自一份；翻譯是共用的，只用影片 id
+// 只給頁面用 寫入 排程與翻譯鎖要讀最新資料 直接用其他 service
+// userId 是登入者 會成為快取 key 所以每人各一份 共用的翻譯只用影片 id
 
 export async function cachedChannels(userId: string): Promise<FollowedChannel[]> {
   "use cache: remote";
@@ -22,7 +22,7 @@ export async function cachedChannels(userId: string): Promise<FollowedChannel[]>
 export async function cachedRecentVideos(userId: string): Promise<Awaited<ReturnType<typeof recentVideos>>> {
   "use cache: remote";
   cacheLife("db");
-  // 清單看追蹤表決定列哪些影片，同時顯示頻道名稱與翻譯狀態，四張表任一張改了都要重新讀
+  // 清單看追蹤表決定列哪些影片 也顯示頻道名稱與翻譯狀態 四張表任一張改了都要重讀
   cacheTag(youtubeTags.videos, youtubeTags.channels, youtubeTags.follows, youtubeTags.translations);
   return recentVideos(userId);
 }
@@ -34,7 +34,7 @@ export async function cachedRecheckCandidates(userId: string): Promise<RecheckCa
   return recheckCandidates(userId);
 }
 
-/** 只有末 4 碼與模型設定，金鑰（含密文）不進快取 */
+/** 只有末 4 碼與模型設定 金鑰連密文都不進快取 */
 export async function cachedSettingsView(userId: string): Promise<SettingsView> {
   "use cache: remote";
   cacheLife("db");
@@ -49,7 +49,10 @@ export async function cachedMissingApiKeyMessage(userId: string): Promise<string
   return missingApiKeyMessage(userId);
 }
 
-/** 翻譯是共用的，所有人讀同一份；翻譯鎖（lock_id）只給續翻比對、發起人的專有名詞表只給續翻用，都不進快取 */
+/**
+ * 翻譯共用 所有人讀同一份
+ * 翻譯鎖 lock_id 與發起人的專有名詞表只給續翻用 都不進快取
+ */
 export async function cachedTranslation(videoId: string): Promise<TranslationView | null> {
   "use cache: remote";
   cacheLife("db");
@@ -60,7 +63,7 @@ export async function cachedTranslation(videoId: string): Promise<TranslationVie
   return { id, title, status, sourceKind, sourceCues, translated, error, updatedAt, requestedBy };
 }
 
-/** 保留的影片：清單頁、觀看頁的「保留」與列表頁的入口共用這一份；翻譯狀態跟著翻譯表變 */
+/** 清單頁 觀看頁的保留按鈕與列表頁的入口共用這一份 翻譯狀態跟著翻譯表變 */
 export async function cachedSavedVideos(userId: string): Promise<SavedVideo[]> {
   "use cache: remote";
   cacheLife("db");
@@ -76,7 +79,7 @@ export async function cachedVideoTitle(userId: string, videoId: string): Promise
   return followedVideoTitle(userId, videoId);
 }
 
-/** 只查得到自己追蹤頻道的影片；其他影片回 null，畫面改用 oEmbed */
+/** 只查得到自己追蹤頻道的影片 其他回 null 畫面改用 oEmbed */
 export async function cachedVideoChannel(userId: string, videoId: string): Promise<Awaited<ReturnType<typeof videoChannel>>> {
   "use cache: remote";
   cacheLife("db");
@@ -84,18 +87,18 @@ export async function cachedVideoChannel(userId: string, videoId: string): Promi
   return videoChannel(userId, videoId);
 }
 
-/** 頻道頁的頭像（外部資料，不存資料庫）；參數是頻道 id 或 @handle */
+/** 頻道頁的頭像是外部資料 不存資料庫 參數是頻道 id 或 @handle */
 export async function cachedChannelAvatar(ref: string): Promise<string | null> {
   "use cache: remote";
   cacheTag(youtubeTags.external);
   const avatar = await channelAvatar(ref);
-  // 讀不到多半是 YouTube 暫時擋下雲端主機，幾分鐘後再試，不要一整天都是文字頭像
+  // 讀不到多半是暫時被擋 幾分鐘後再試 不要一整天都是文字頭像
   if (avatar) cacheLife("avatar");
   else cacheLife("external");
   return avatar;
 }
 
-/** 沒追蹤的影片用 oEmbed 補標題與頻道（外部資料，不存資料庫） */
+/** 沒追蹤的影片用 oEmbed 補標題與頻道 外部資料不存資料庫 */
 export async function cachedVideoInfo(videoId: string): Promise<VideoInfo | null> {
   "use cache: remote";
   cacheTag(youtubeTags.external);

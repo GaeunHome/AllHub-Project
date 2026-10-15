@@ -4,7 +4,7 @@ import { setupTestDb } from "@/dev/test-db";
 import { coreInvites, coreUsers } from "../db/schema";
 import { hashPassword, verifyPassword } from "./credentials";
 
-// 包一層 spy，確認帳號不存在時也有呼叫驗證（跑假的 scrypt）
+// 包一層 spy 確認帳號不存在時也有呼叫驗證 跑假的 scrypt
 vi.mock("./credentials", { spy: true });
 
 const { authenticate, changePassword, deleteOwnAccount, findSessionUser, hasAnyUser } = await import("./users");
@@ -208,7 +208,8 @@ describe("changePassword", () => {
   });
 });
 
-// 登入成功會改用正式參數重新雜湊、帳號鎖定時跑的假驗證也用正式參數，scrypt 在機器忙時會超過預設的 5 秒
+// 登入成功會改用正式參數重新雜湊 鎖定時的假驗證也用正式參數
+// 機器忙時 scrypt 會超過預設的 5 秒
 describe("authenticate：依帳號鎖定（計數存在 core_users，多個執行個體也共用）", { timeout: 30_000 }, () => {
   const T0 = new Date("2026-10-08T00:00:00Z");
   const later = (minutes: number) => new Date(T0.getTime() + minutes * 60_000);

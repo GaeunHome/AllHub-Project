@@ -3,7 +3,7 @@ import { handle } from "./mock.mjs";
 
 type Sent = { status?: number; body?: string; type?: string };
 
-/** 送一個請求給 YouTube 的假服務，記下回應；ctx.image 換成只寫 label 的替身 */
+/** 送請求給 YouTube 假服務並記下回應 ctx.image 換成只寫 label 的替身 */
 function request(path: string): Sent {
   const sent: Sent = {};
   const respond = (status: number, body: string, type: string) => {
@@ -30,7 +30,7 @@ describe("假服務的影片縮圖", () => {
 
     expect(status).toBe(200);
     expect(type).toContain("image/svg+xml");
-    // 畫面上最大的縮圖是手機橫拿時單欄撐滿約 640px 寬；留四倍的餘裕
+    // 畫面上最大的縮圖是手機橫拿時單欄撐滿約 640px 寬 留四倍的餘裕
     expect((Buffer.byteLength(body) * 8) / (640 * 360)).toBeGreaterThan(0.2);
   });
 

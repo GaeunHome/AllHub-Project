@@ -1,4 +1,5 @@
-// 新模組只要放 src/modules/<id>/dev/mock.mjs（匯出 handle(ctx)，處理了就回 true）就會自動載入，這裡不必改
+// 新模組只要放 src/modules/<id>/dev/mock.mjs 就會自動載入 這裡不必改
+// 它匯出 handle 處理了就回 true
 import { existsSync, readdirSync } from "node:fs";
 import { createServer } from "node:http";
 
@@ -27,7 +28,8 @@ createServer(async (req, res) => {
     res.end(data);
     return true;
   };
-  // 假的 CDN 圖片：瀏覽器載入的頭像、縮圖都改寫到這裡（core/external-url 的 externalAssetUrl），顏色依 label 固定，畫面上看得出是哪一張
+  // 假的 CDN 圖片 externalAssetUrl 把頭像與縮圖都改寫到這裡
+  // 顏色依 label 固定 畫面上看得出是哪一張
   const image = (label, { width = 320, height = 180, round = false } = {}) => {
     const hue = [...label].reduce((sum, ch) => (sum * 31 + ch.codePointAt(0)) % 360, 7);
     const caption = label.slice(0, 16).replace(/[<>&"]/g, "");
@@ -40,7 +42,7 @@ createServer(async (req, res) => {
     return true;
   };
 
-  // 轉址：例如 YouTube 一般影片的 /shorts/<id> 會 303 到 /watch，呼叫端用 redirect: "manual" 讀 Location 判斷
+  // 轉址 例如一般影片的 /shorts/<id> 會 303 到 /watch 呼叫端靠 Location 判斷
   const redirect = (status, location) => {
     res.writeHead(status, { Location: location });
     res.end();

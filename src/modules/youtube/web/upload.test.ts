@@ -4,7 +4,7 @@ import { MAX_UPLOAD_BYTES, prepareUpload, readSubtitleFile } from "./upload";
 const header = "1\n00:00:01,000 --> 00:00:02,000\n";
 const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 const cp949 = (...bytes: number[]) => Uint8Array.from([...ascii(header), ...bytes, 0x0a]);
-const ANNYEONG = [0xbe, 0xc8, 0xb3, 0xe7]; // 「안녕」的 CP949 編碼
+const ANNYEONG = [0xbe, 0xc8, 0xb3, 0xe7]; // 안녕 這兩個字的 CP949 編碼
 
 function form(file: File | null) {
   const data = new FormData();
@@ -44,7 +44,7 @@ describe("prepareUpload（瀏覽器送出前）", () => {
   });
 
   it("CP949 轉成 UTF-8 後變大、超過上限 → 擋下", async () => {
-    // 韓文在 CP949 是 2 bytes、UTF-8 是 3 bytes
+    // 韓文在 CP949 是 2 bytes 在 UTF-8 是 3 bytes
     const bytes = new Uint8Array(Math.floor(MAX_UPLOAD_BYTES / 2) * 2).map((_, i) => ANNYEONG[i % 2]);
     const result = await prepareUpload(form(new File([bytes], "big-cp949.srt")));
     expect(result).toEqual({ error: expect.stringContaining("太大") });

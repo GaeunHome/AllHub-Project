@@ -5,7 +5,10 @@ import { formatLiveDuration, formatViewerCount, type StreamerVisual } from "../.
 import type { TwitchStreamer } from "../../data/schema";
 import { GameBoxArt } from "./game-box-art";
 
-/** 照 Twitch「追蹤中」頁的直播卡：16:9 預覽圖、左上 LIVE、左下觀看人數；沒有預覽圖（沒設定憑證、剛開台）時改放大頭像；eager 給第一排，預覽圖立刻載入 */
+/**
+ * 照 Twitch 追蹤中頁的直播卡 沒有預覽圖時改放大頭像
+ * eager 給第一排 預覽圖立刻載入
+ */
 export function LiveCard({ streamer: s, now, eager = false }: { streamer: StreamerVisual<TwitchStreamer>; now: Date; eager?: boolean }) {
   const live = s.live;
   const channelUrl = `https://twitch.tv/${s.login}`;
@@ -19,9 +22,9 @@ export function LiveCard({ streamer: s, now, eager = false }: { streamer: Stream
   );
 
   return (
-    // 只有一位在直播時欄寬是整欄：卡片限寬，預覽圖才不會被拉得很大
+    // 只有一位在直播時欄寬是整欄 卡片限寬預覽圖才不會被拉得很大
     <article className="tw-card flex min-w-0 max-w-xl flex-col gap-3">
-      {/* 文字已經在下面，預覽圖的連結不重複報讀 */}
+      {/* 文字已經在下面 預覽圖的連結不重複報讀 */}
       <a href={channelUrl} target="_blank" rel="noreferrer" tabIndex={-1} aria-hidden className="tw-preview">
         {live?.previewUrl ? <ExternalImage src={externalAssetUrl(live.previewUrl)} alt="" fill loading={eager ? "eager" : "lazy"} className="object-cover" fallback={placeholder} /> : placeholder}
         <span className="tw-live-badge">LIVE</span>

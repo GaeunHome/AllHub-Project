@@ -13,7 +13,7 @@ const formatCount = (count: number) => (count > 99 ? "99+" : String(count));
 
 export function NotificationBell() {
   const { feed, ringCount } = useNotificationCenter();
-  // 跟帳號選單共用開關：打開一個時另一個收起
+  // 跟帳號選單共用開關 打開一個時另一個收起
   const { expanded, toggle, close, rootRef, buttonRef } = useHeaderMenuRoot("notifications");
   const panelId = useId();
   const total = feed.unread.total;
@@ -25,13 +25,13 @@ export function NotificationBell() {
         type="button"
         aria-haspopup="dialog"
         aria-expanded={expanded}
-        // 面板收起時整個卸載，不能指向不存在的元素
+        // 面板收起時整個卸載 不能指向不存在的元素
         aria-controls={expanded ? panelId : undefined}
         aria-label={total > 0 ? `通知，${total} 則未讀` : "通知"}
         onClick={toggle}
         className="btn-ghost btn-sm btn-icon relative"
       >
-        {/* key 換掉時重新掛載，搖晃動畫才會每一批新通知都播一次 */}
+        {/* 換 key 重新掛載 每批新通知才都會播一次搖晃動畫 */}
         <span key={ringCount} className={ringCount > 0 ? "bell-ringing inline-flex" : "inline-flex"}>
           <Icon name={total > 0 ? "bell-ring" : "bell"} className="size-[1.125rem]" />
         </span>
@@ -42,7 +42,7 @@ export function NotificationBell() {
         )}
       </button>
 
-      {/* 收起時整個卸載，下次打開一律回到通知清單 */}
+      {/* 收起時整個卸載 下次打開一律回到通知清單 */}
       {expanded && <NotificationPanel id={panelId} onClose={close} />}
     </div>
   );
@@ -57,7 +57,8 @@ function NotificationPanel({ id, onClose }: { id: string; onClose: () => void })
   const total = feed.unread.total;
   const moduleList = [...modules.values()];
 
-  // 切換畫面時原本的按鈕會消失，焦點移到新畫面對應的按鈕，鍵盤操作才不會掉回頁首；剛打開面板時不搶焦點
+  // 切換畫面時原本的按鈕會消失 焦點移到對應的按鈕 鍵盤才不會掉回頁首
+  // 剛打開面板時不搶焦點
   useEffect(() => {
     if (!switched.current) return;
     (view === "settings" ? backButtonRef : settingsButtonRef).current?.focus();

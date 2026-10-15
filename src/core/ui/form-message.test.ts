@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { FormMessage, ResultBanner } from "./form-message";
 
 const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
-// children 照 lint 規定用第三個參數傳；型別上 children 是必填，props 斷言成完整的型別
+// lint 規定 children 用第三個參數傳
+// 型別上 children 卻是必填 所以 props 斷言成完整的型別
 type FormMessageProps = Parameters<typeof FormMessage>[0];
 const message = (props: Omit<FormMessageProps, "children">, text: string) => renderToStaticMarkup(createElement(FormMessage, props as FormMessageProps, text));
 

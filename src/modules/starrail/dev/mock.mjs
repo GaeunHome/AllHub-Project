@@ -1,11 +1,14 @@
-// 假的 HoYoLAB API 與圖片 CDN（屬性、命途與詞條的遊戲圖示是網站內建的靜態檔，不經過這裡）；特殊輸入見 docs/development.md「假伺服器的特殊輸入」：
-// ltoken_v2=expired 是 cookie 失效、ltoken_v2=private 時角色詳情沒有公開（10102）、ltuid_v2 以 2 開頭時台港澳服與亞服各有一個角色；兌換碼見 redeem()；遺器副詞條的強化次數見 UPGRADES（連結繩的暴擊率 +5 最多）
+// 假的 HoYoLAB API 與圖片 CDN 遊戲的小圖示是內建的靜態檔不經過這裡
+// 特殊的 cookie 與兌換碼見 docs/development.md 的假伺服器的特殊輸入
 const signedUids = new Set();
-/** 每個 UID 兌換過的兌換碼與上次兌換的時間（模擬「已兌換」與 5 秒冷卻） */
+/** 每個 UID 兌換過的碼與上次兌換的時間 模擬已兌換與 5 秒冷卻 */
 const redeemed = new Map();
 const lastRedeemAt = new Map();
 const SMALL_UID = "800000002";
-/** 主要角色的 UID 跟著 ltuid_v2 變：不同的人連結到不同的遊戲帳號；同一個 ltuid_v2 拿到同一個 UID（測「已經被其他使用者連結」） */
+/**
+ * 主要角色的 UID 跟著 ltuid_v2 變 不同的人連到不同的遊戲帳號
+ * 同一個 ltuid_v2 拿到同一個 UID 用來測已被其他使用者連結
+ */
 const mainUidOf = (cookie) => {
   const ltuid = /ltuid_v2=(\d+)/.exec(cookie)?.[1];
   return ltuid ? `9${ltuid.padStart(8, "0").slice(-8)}` : "900000001";
@@ -17,8 +20,8 @@ const notPublic = { retcode: 10102, message: "Data is not public for the user", 
 
 const IMG = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/mock";
 
-// 角色欄位依 genshin.py 的 StarRailDetailCharacter；名字是繁體中文版的譯名
-// 每個角色的光錐與遺器都不同，佔位圖的字跟著變，截圖看得出有沒有對應正確
+// 角色欄位依 genshin.py 的 StarRailDetailCharacter 名字用繁中版的譯名
+// 每個角色的光錐與遺器都不同 佔位圖的字跟著變 截圖看得出有沒有對應正確
 const CHARACTERS = [
   { id: 1102, name: "希兒", element: "quantum", base_type: 2, rarity: 5, level: 80, rank: 2, cone: [23001, "於夜色中", 5], sets: ["繁星璀璨的天才", "繁星競技場"] },
   { id: 1213, name: "丹恆・飲月", element: "imaginary", base_type: 1, rarity: 5, level: 80, rank: 0, cone: [23015, "比陽光更明亮的", 5], sets: ["荒漠的廢土客", "奔狼的都藍王朝"] },
@@ -32,13 +35,13 @@ const CHARACTERS = [
 ];
 const NAME_OF = new Map(CHARACTERS.map((c) => [String(c.id), c.name]));
 const CONE_OF = new Map(CHARACTERS.filter((c) => c.cone).map((c) => [String(c.cone[0]), c.cone[1]]));
-/** 亞服的小號：只有兩個低等級角色 */
+/** 亞服的小號 只有兩個低等級角色 */
 const SMALL_ROSTER = [
   { ...CHARACTERS[5], level: 12, rank: 0 },
   { ...CHARACTERS[6], level: 8, rank: 0 },
 ];
 
-// property_type 的編號跟 lib/game-icons.ts 的對照表一樣（hoyo-buddy 整理的 genshin.py 編號）
+// property_type 的編號跟 lib/game-icons.ts 的對照表一樣
 const PROPERTY_NAMES = {
   1: "生命值", 2: "攻擊力", 3: "防禦力", 4: "速度", 5: "暴擊率", 6: "暴擊傷害", 9: "能量恢復效率", 10: "效果命中",
   12: "物理屬性傷害提高", 14: "火屬性傷害提高", 16: "冰屬性傷害提高", 18: "雷屬性傷害提高", 20: "風屬性傷害提高", 22: "量子屬性傷害提高", 24: "虛數屬性傷害提高",
@@ -59,7 +62,10 @@ const RELIC_SLOTS = [
   { pos: 6, part: "連結繩", main: [33, "43.2%"] },
 ];
 const EIDOLON_NAMES = ["初始的輝光", "第二道星芒", "第三種可能", "第四次相遇", "第五個約定", "第六重天穹"];
-/** 每個位置（頭、手、軀幹、腳、位面球、連結繩）的四條副詞條（暴擊率、暴擊傷害、速度、攻擊力）各強化幾次：+15 共 5 次，最後一件全部強化在同一條；等級低於 80 的角色腳部是 +12，只用掉前 4 次 */
+/**
+ * 六個位置的四條副詞條各強化幾次 +15 共 5 次 最後一件全加在同一條
+ * 等級低於 80 的角色腳部是 +12 只用掉前 4 次
+ */
 const UPGRADES = [
   [2, 1, 0, 2],
   [0, 3, 1, 1],
@@ -72,7 +78,8 @@ const UPGRADES = [
 function detail({ id, name, element, base_type, rarity, level, rank, cone, sets }) {
   const relic = ({ pos, part, main }, i) => {
     const relicLevel = pos === 4 && level < 80 ? 12 : 15;
-    // 每 3 級強化一次（+12 只有 4 次）；HoYoLAB 的 times 推定含初始那一次（依據見 lib/characters.ts 的 relicUpgrades()），所以是 1 + 強化次數
+    // 每 3 級強化一次 times 推定含初始那一次 所以是強化次數加 1
+    // 依據見 lib/characters.ts 的 relicUpgrades
     let left = Math.floor(relicLevel / 3);
     const times = UPGRADES[i].map((n) => {
       const used = Math.min(n, left);
@@ -170,7 +177,10 @@ function detail({ id, name, element, base_type, rarity, level, rank, cone, sets 
   };
 }
 
-/** 開拓月曆：data_month 是查詢的月份，optional_month 給最近三個月；數字依月份變化，看得出切換月份 */
+/**
+ * 開拓月曆 data_month 是查詢的月份 optional_month 給最近三個月
+ * 數字依月份變化 看得出有沒有切換月份
+ */
 function ledger(month) {
   const m = Number(month) || 202610;
   const prev = (n) => (n % 100 === 1 ? n - 89 : n - 1);
@@ -212,7 +222,7 @@ const TEAMS = [
   [1402, 1005, 1101, 1001],
 ];
 
-/** 終局戰績：本期（schedule_type=1）有 3 層紀錄，上期少一層；隊伍用角色清單裡的角色 */
+/** 終局戰績 本期有 3 層紀錄 上期少一層 隊伍用角色清單裡的角色 */
 function endgame(kind, scheduleType) {
   const previous = scheduleType === "2";
   const start = new Date(Date.UTC(2026, 9, previous ? 6 - 42 : 6));
@@ -265,7 +275,10 @@ function endgame(kind, scheduleType) {
   };
 }
 
-/** 兌換碼：GIFT 開頭或 STARRAILGIFT 成功（同一個 UID 第二次是已兌換）、USED 開頭已兌換、EXPIRED 開頭過期、LEVEL 開頭等級不足，其他無效；同一個 UID 5 秒內再兌換是太頻繁 */
+/**
+ * GIFT 開頭或 STARRAILGIFT 成功 USED 已兌換 EXPIRED 過期 LEVEL 等級不足
+ * 其他無效 同一個 UID 第二次是已兌換 5 秒內再兌換是太頻繁
+ */
 function redeem({ cdkey = "", uid = "" }, isExpired) {
   if (isExpired) return { retcode: -1071, message: "Please log in", data: null };
   const now = Date.now();
@@ -336,7 +349,7 @@ export function handle({ req, url, body, json, image }) {
     return json(200, ok({ code: "ok", gt_result: { risk_code: 0, gt: "", challenge: "", success: 0, is_risk: false } }));
   }
 
-  // ---------- 圖片 CDN（act-webstatic.hoyoverse.com） ----------
+  // 圖片 CDN act-webstatic.hoyoverse.com
   if (url.pathname.startsWith("/darkmatter/hkrpg/mock/")) {
     const [kind, file = ""] = url.pathname.slice("/darkmatter/hkrpg/mock/".length).split("/");
     const key = file.replace(/\.png$/, "");

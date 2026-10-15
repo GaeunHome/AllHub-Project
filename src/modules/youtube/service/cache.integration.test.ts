@@ -8,7 +8,7 @@ import { youtubeChannels, youtubeFollows, youtubeSavedVideos, youtubeSettings, y
 import { callbackToken, topicFor } from "../lib/websub";
 
 vi.mock("../lib/subtitles/captions", { spy: true });
-// 新影片推送後會請求 /shorts/ 確認是不是 Shorts，測試不能真的連 YouTube
+// 新影片推送後會請求 /shorts/ 確認是不是 Shorts 測試不能真的連 YouTube
 vi.mock("../lib/api", { spy: true });
 
 stubCoreEnv();
@@ -95,7 +95,7 @@ describe("YouTube 的快取讀取：標上讀到的資料表、用 db 效期", (
     expect(view).toMatchObject({ title: "새 영상", status: "running", translated: ["你好"], sourceCues: [{ text: "안녕" }], requestedBy: me });
     expect(view?.updatedAt).toBeInstanceOf(Date);
     expect(JSON.stringify(view)).not.toContain(lockId);
-    // 發起人的專有名詞表只給續翻用，不放進共用的快取
+    // 發起人的專有名詞表只給續翻用 不放進共用的快取
     expect(JSON.stringify(view)).not.toContain("秘密的譯名");
     expect(tagged()).toEqual(["youtube:translation:dQw4w9WgXcQ"]);
   });
@@ -136,7 +136,8 @@ describe("影片清單的字幕重新檢查：用快取判斷要不要在背景�
   it("isRecheckDue 判斷到期的影片_就是 recheckDueCaptions 會檢查的那幾支", async () => {
     const now = new Date();
     await testDb.insert(youtubeVideos).values([
-      // 第 21 支（沒有發布時間的排最後、同樣沒有時 id 小的在後）：不在清單上，兩邊都不檢查
+      // 沒有發布時間的排最後 同樣沒有時 id 小的在後 所以這支排第 21
+      // 不在清單上 兩邊都不檢查
       { videoId: "beyond-list", channelId: CH, title: "z", publishedAt: null },
       { videoId: "due-never00", channelId: CH, title: "a", publishedAt: hoursAgo(2) },
       { videoId: "due-stale00", channelId: CH, title: "b", publishedAt: hoursAgo(3), zhCaptionsCheckedAt: hoursAgo(2) },

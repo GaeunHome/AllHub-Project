@@ -9,7 +9,7 @@ import { characterAssetUrls } from "../character-assets";
 import { syncCookieFlagAfter } from "../cookie-flag";
 import { CharacterBrowser } from "./character-browser";
 
-/** 角色列表（每個帳號快取 30 分鐘）；HoYoLAB 失敗時只在這一塊顯示錯誤 */
+/** 角色列表每個帳號快取 30 分鐘 HoYoLAB 失敗時只在這一塊顯示錯誤 */
 export async function CharacterPanel({ account }: { account: StarrailAccountView }) {
   const user = await requireSession();
   const result = await cachedCharacters(user.id, account.id);
@@ -26,7 +26,7 @@ export async function CharacterPanel({ account }: { account: StarrailAccountView
   return <CharacterBrowser characters={characterAssetUrls(result.characters, externalAssetUrl)} fetchedLabel={formatTaipeiTime(result.fetchedAt, new Date())} />;
 }
 
-// 角色資料要等 HoYoLAB 回應，除了骨架也寫出正在做什麼
+// 角色資料要等 HoYoLAB 回應 除了骨架也寫出正在做什麼
 export function CharacterPanelSkeleton() {
   return (
     <LoadingState label="向 HoYoLAB 查詢角色資料…" className="stack">

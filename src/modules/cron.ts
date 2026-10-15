@@ -3,12 +3,14 @@ import type { CronTask } from "@/core/module";
 import { twitchCron } from "./twitch/cron";
 import { starrailCron } from "./starrail/cron";
 import { youtubeCron } from "./youtube/cron";
+import { savingsCron } from "./savings/cron";
 
-/** 各模組的排程，key 會加上模組 id 前綴，例如 starrail:checkin */
+/** 各模組的排程 key 會加上模組 id 前綴 例如 starrail:checkin */
 const registry: Record<string, Record<string, CronTask>> = {
   twitch: twitchCron,
   starrail: starrailCron,
   youtube: youtubeCron,
+  savings: savingsCron,
 };
 
 export const cronTasks: Record<string, CronTask> = Object.fromEntries(

@@ -9,17 +9,18 @@ export class SubtitleParseError extends Error {
   }
 }
 
-// SRT 用逗號、WebVTT 用句點；WebVTT 的小時可以省略
+// SRT 用逗號 WebVTT 用句點 WebVTT 的小時可以省略
 const TIME = String.raw`(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{3})`;
 const TIMING_LINE = new RegExp(String.raw`^${TIME}\s*-->\s*${TIME}(?:\s+.*)?$`);
-/** YouTube 自動字幕的過場 cue 只有 10ms；這麼短的 cue 畫面上看不到，也不用翻 */
+/** 自動字幕的過場 cue 只有 10ms 畫面上看不到 也不用翻 */
 const TRANSITION_MS = 50;
 
-/** 自動判斷 SRT 或 WebVTT；結果依開始時間排序（播放器用二分搜尋找目前的句子） */
+/** 自動判斷 SRT 或 WebVTT 依開始時間排序 播放器用二分搜尋找目前的句子 */
 export function parseSubtitles(text: string): Cue[] {
   const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
   const isVtt = /^\s*WEBVTT/.test(normalized);
-  // WebVTT 只有真正的空行才結束一個 cue（自動字幕裡只有一個空白的行是內容）；SRT 常見只有空白的分隔行
+  // WebVTT 只有真正的空行才結束 cue 自動字幕裡只有一個空白的行是內容
+  // SRT 則常見只有空白的分隔行
   const endsCue = isVtt ? (line: string) => line === "" : (line: string) => line.trim() === "";
 
   const cues: Cue[] = [];
@@ -30,9 +31,9 @@ export function parseSubtitles(text: string): Cue[] {
     current = null;
   };
 
-  // 不在 cue 裡的行（標頭、序號、cue id、NOTE／STYLE／REGION 區塊）都略過
+  // 不在 cue 裡的行都略過 例如標頭 序號 cue id 與 NOTE STYLE REGION 區塊
   for (const line of normalized.split("\n")) {
-    // cue 內容裡格式不對的箭頭行當成文字；合格的時間行就算前面少了空行也開始新的 cue
+    // cue 裡格式不對的箭頭行當成文字 合格的時間行就算前面少了空行也開始新的 cue
     if (line.includes("-->") && (!current || TIMING_LINE.test(line.trim()))) {
       finish();
       const [start, end] = parseTiming(line);
@@ -50,7 +51,10 @@ export function parseSubtitles(text: string): Cue[] {
   return result;
 }
 
-/** 自動字幕是滾動格式（每句在下一個 cue 再出現一次、中間夾 10ms 過場），不整理會重複送 AI；只拿掉多行 cue 的第一行，連續相同的單行 cue（重複的歌詞）是真的重複 */
+/**
+ * 自動字幕是滾動格式 每句會在下一個 cue 再出現一次 不整理會重複送 AI
+ * 只拿掉多行 cue 的第一行 連續相同的單行 cue 是真的重複 例如歌詞
+ */
 function collapseRolling(cues: Cue[]): Cue[] {
   const result: Cue[] = [];
   for (const cue of cues) {
@@ -75,7 +79,7 @@ function parseTiming(line: string): [number, number] {
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
 
-// 先拿掉標籤再解碼實體，否則 &lt;3 解碼後會被當成標籤刪掉
+// 先拿掉標籤再解碼實體 否則 &lt;3 解碼後會被當成標籤刪掉
 function cleanText(raw: string): string {
   return raw
     .replace(/<[^>]*>/g, "")
@@ -100,7 +104,7 @@ function formatTime(ms: number, separator: "," | "."): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}${separator}${pad(ms % 1000, 3)}`;
 }
 
-// 文字中的空行會被讀成 cue 的結尾，輸出前要壓掉
+// 文字裡的空行會被讀成 cue 的結尾 輸出前要壓掉
 function cueBody(text: string): string {
   return text.split("\n").map((line) => line.trim()).filter(Boolean).join("\n") || " ";
 }
@@ -112,7 +116,7 @@ export function toSrt(cues: Cue[]): string {
   return blocks.join("\n\n") + "\n";
 }
 
-// WebVTT 的 cue 文字裡 & 與 < 一定要跳脫（否則 <3 會被當成標籤），> 一起跳脫也避免出現 -->
+// WebVTT 的文字裡 & 與 < 一定要跳脫 否則 <3 會變成標籤 > 也跳脫免得出現箭頭
 const escapeVtt = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export function toVtt(cues: Cue[]): string {
@@ -120,12 +124,15 @@ export function toVtt(cues: Cue[]): string {
   return "WEBVTT\n\n" + blocks.join("\n\n") + "\n";
 }
 
-/** 只收 UTF-8 與韓文 Windows 預設的 CP949；Node 的 euc-kr 缺 CP949 擴充字，解不出時變成 C1 控制字元而不報錯，所以出現 C1 也當成解不開 */
+/**
+ * 只收 UTF-8 與韓文 Windows 預設的 CP949
+ * Node 的 euc-kr 缺擴充字 解不出時會變成 C1 控制字元而不報錯 所以出現 C1 也算失敗
+ */
 export function decodeSubtitleBytes(bytes: Uint8Array): string | null {
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
-    // 不是 UTF-8，改試 CP949
+    // 不是 UTF-8 改試 CP949
   }
   try {
     const text = new TextDecoder("euc-kr", { fatal: true }).decode(bytes);

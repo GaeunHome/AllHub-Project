@@ -3,7 +3,7 @@ import type { Endgame } from "../lib/endgame";
 import { endgameAssetUrls } from "./endgame-assets";
 
 const member = (id: number) => ({ id, level: 80, icon: `https://cdn/${id}.png`, rarity: 5, element: "ice", elementIcon: "/icons/starrail/element/ice.png", eidolon: 0 });
-/** 跟 externalAssetUrl 一樣：只認 http(s) 的網址，站內路徑會變成 null */
+/** 跟 externalAssetUrl 一樣只認 http(s) 的網址 站內路徑會變成 null */
 const asset = (url: string | null) => (url?.startsWith("https://cdn/") ? url.replace("https://cdn/", "http://mock/") : null);
 const endgame: Endgame = {
   mode: "chaos",

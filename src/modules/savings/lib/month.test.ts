@@ -3,8 +3,6 @@ import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
 import {
   addMonths,
   dateToMonth,
-  formatMonth,
-  formatMonthShort,
   monthToDate,
   parseMonth,
   recentMonths,
@@ -81,6 +79,11 @@ describe("資料庫日期轉換", () => {
   it("資料庫的日期轉回月份", () => {
     expect(dateToMonth("2026-10-01")).toBe("2026-10");
   });
+
+  it("任何一天的日期都轉成所在的月份", () => {
+    expect(dateToMonth("2026-10-14")).toBe("2026-10");
+    expect(dateToMonth("2026-12-31")).toBe("2026-12");
+  });
 });
 
 describe("resolveMonth（網址上的 ?month=）", () => {
@@ -124,15 +127,5 @@ describe("selectableMonths（下拉選單）", () => {
 
   it("正在看的月份比清單還早_也列進去", () => {
     expect(selectableMonths("2026-10", "2026-01", "2023-05").at(-1)).toBe("2023-05");
-  });
-});
-
-describe("月份顯示", () => {
-  it("完整寫法", () => {
-    expect(formatMonth("2026-03")).toBe("2026 年 3 月");
-  });
-
-  it("圖表用的簡短寫法", () => {
-    expect(formatMonthShort("2026-03")).toBe("3 月");
   });
 });

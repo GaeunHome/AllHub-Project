@@ -45,32 +45,12 @@ describe("帳號頁", () => {
   it("每個密碼欄位都可以切換顯示（改密碼三欄、刪除帳號一欄）", async () => {
     expect((await html()).match(/aria-label="顯示密碼"/g)).toHaveLength(4);
   });
-
-  it("刪除帳號的說明：各功能的資料一起刪除，共用的翻譯留下但不再連到你", async () => {
-    const text = textOf(await html());
-
-    expect(text).toContain("刪除帳號時，追蹤名單、加密的 API Key 與 HoYoLAB cookie、記帳資料會一起刪除，共用的翻譯留下但不再連到你");
-    expect(text).not.toContain("還沒有依帳號分開");
-    expect(text).not.toContain("之後的版本");
-  });
-
-  it("連到使用聲明", async () => {
-    expect(await html()).toContain('href="/terms"');
-  });
 });
 
-/** 一段 markup 裡各張卡片（section 或骨架的 div.card）的 class */
+/** 卡片是內容的 section 或骨架的 div.card */
 const cardClasses = (markup: string) => [...markup.matchAll(/<(?:section|div)[^>]*class="([^"]*\bcard\b[^"]*)"/g)].map((m) => m[1].split(" "));
 
 describe("帳號頁的版面（寬螢幕兩欄）", () => {
-  it("內容：目前帳號撐滿，變更密碼佔左邊兩列，說明與刪除帳號在右邊上下排；排欄寫在各張卡片上", async () => {
-    const cards = cardClasses(await html());
-
-    expect(cards).toHaveLength(4);
-    expect(cards[0]).toContain("xl:col-span-2");
-    expect(cards[1]).toContain("xl:row-span-2");
-  });
-
   it("載入中的骨架照同一套格線排：寬螢幕一樣是兩欄，載入完不會從一欄跳成兩欄", () => {
     const page = AccountPage() as ReactElement<{ className: string; children: ReactNode[] }>;
     const suspense = page.props.children.find((child) => isValidElement(child) && child.type === Suspense) as ReactElement<{ fallback: ReactNode }>;

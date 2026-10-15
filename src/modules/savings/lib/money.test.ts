@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_AMOUNT, formatTwd } from "./money";
+import { MAX_AMOUNT, formatSignedTwd, formatTwd } from "./money";
 
 describe("formatTwd", () => {
   it.each([
@@ -16,5 +16,19 @@ describe("formatTwd", () => {
 
   it("累計超過 int 範圍_不會溢位", () => {
     expect(formatTwd(3_000_000_000)).toBe("$3,000,000,000");
+  });
+
+  it("負數（信用卡未繳、透支）_帶負號", () => {
+    expect(formatTwd(-1200)).toBe("-$1,200");
+  });
+});
+
+describe("formatSignedTwd（有方向的金額）", () => {
+  it.each([
+    [43_000, "+$43,000"],
+    [-350, "-$350"],
+    [0, "$0"],
+  ])("%i 元_顯示成 %s", (amount, expected) => {
+    expect(formatSignedTwd(amount)).toBe(expected);
   });
 });

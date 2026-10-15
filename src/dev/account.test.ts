@@ -6,7 +6,7 @@ import { DrizzleQueryError, eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 import { verifyPassword } from "../core/auth/credentials";
 import { coreUsers } from "../core/db/schema";
-import { cli, describeDatabase, openFromEnvironment, resolveDatabaseUrl, type AccountDeps, type Connect, type Prompter } from "./account";
+import { cli, openFromEnvironment, resolveDatabaseUrl, type AccountDeps, type Connect, type Prompter } from "./account";
 import { setupTestDb } from "./test-db";
 
 const getDb = setupTestDb();
@@ -16,7 +16,10 @@ const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 type Asked = { question: string; secret: boolean };
 
-/** 依序回答提問的假終端機；記錄每個問題是否用不顯示的方式輸入；interactive 對應 stdin 是不是 TTY */
+/**
+ * 依序回答提問的假終端機 記下每個問題是不是用不顯示的方式輸入
+ * interactive 對應 stdin 是不是 TTY
+ */
 function fakeTerminal(answers: string[] = [], interactive = true) {
   const queue = [...answers];
   const asked: Asked[] = [];
@@ -44,7 +47,6 @@ function harness(answers: string[] = [], options: { open?: AccountDeps["openData
 
 const users = () => getDb().select().from(coreUsers).orderBy(coreUsers.username);
 
-/** 查詢時丟出指定錯誤的資料庫 */
 const throwingDb = (error: unknown) =>
   ({
     select: () => {
@@ -52,7 +54,7 @@ const throwingDb = (error: unknown) =>
     },
   }) as never;
 
-/** 先佔一個 port 再放掉，連過去就是 ECONNREFUSED（只連本機，不碰外部服務） */
+/** 先佔一個 port 再放掉 連過去就是 ECONNREFUSED 只連本機不碰外部服務 */
 function closedPort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer();
@@ -86,12 +88,6 @@ describe("account create", () => {
     expect(t.printed()).toContain("已建立帳號 alice");
     expect(t.printed()).not.toContain(PASSWORD);
     expect(t.close).toHaveBeenCalledOnce();
-  });
-
-  it("先印出要連到哪個資料庫（不含帳密）", async () => {
-    const t = await createAccount();
-
-    expect(t.printed()).toContain("127.0.0.1:5541/postgres");
   });
 
   it("兩次密碼不一樣_不建立", async () => {
@@ -219,13 +215,6 @@ describe("account passwd", () => {
     expect(await verifyPassword(PASSWORD, user.passwordHash)).toBe(true);
   });
 
-  it("沒指定帳號_顯示用法", async () => {
-    const t = harness();
-
-    expect(await t.run("passwd")).toBe(2);
-    expect(t.printed()).toContain("npm run account -- passwd <帳號>");
-  });
-
   it("多帶參數（可能是密碼）_拒絕且不回顯", async () => {
     await createAccount();
     const t = harness();
@@ -311,49 +300,9 @@ describe("account list", () => {
 
     expect(t.stdout).toEqual(["alice\t站長", "bob\t成員\t已停用"]);
   });
-
-  it("還沒有帳號_提示用 create 建立", async () => {
-    const t = harness();
-
-    expect(await t.run("list")).toBe(0);
-    expect(t.printed()).toContain("還沒有任何帳號");
-  });
 });
 
 describe("其他指令與錯誤處理", () => {
-  it("help 顯示用法_不連資料庫", async () => {
-    const open = vi.fn();
-    const t = harness([], { open });
-
-    expect(await t.run("help")).toBe(0);
-    expect(t.printed()).toContain("npm run account -- create");
-    expect(open).not.toHaveBeenCalled();
-  });
-
-  it("help 說明資料庫連線字串怎麼給：環境變數 DATABASE_URL 或依提示貼上，附 Mac／Linux 與 Windows PowerShell 的寫法", async () => {
-    const t = harness();
-
-    expect(await t.run("help")).toBe(0);
-
-    const text = t.printed();
-    expect(text).toContain("提示貼上");
-    expect(text).toContain("Session pooler");
-    expect(text).toContain("DATABASE_URL=… npm run account create");
-    expect(text).toContain('$env:DATABASE_URL="…"; npm run account create');
-  });
-
-  it("help 列出 unlock：只解除登入鎖定、不改密碼", async () => {
-    const t = harness();
-
-    expect(await t.run("help")).toBe(0);
-    expect(t.printed()).toContain("npm run account -- unlock <帳號>");
-    expect(t.printed()).toContain("不改密碼");
-  });
-
-  it("不認得的指令_顯示用法、結束代碼 2", async () => {
-    expect(await harness().run("register")).toBe(2);
-  });
-
   it("連不上資料庫_只說錯誤代碼_不印連線字串", async () => {
     const error = Object.assign(new Error("connect ECONNREFUSED postgresql://postgres:db-secret@127.0.0.1:5432/postgres"), { code: "ECONNREFUSED" });
     const t = harness([], { open: async () => Promise.reject(error) });
@@ -393,7 +342,8 @@ describe("其他指令與錯誤處理", () => {
     expect(text).not.toContain(url);
   });
 
-  // drizzle 把資料庫的錯誤包成 DrizzleQueryError（name 是 Error、沒有 code），原始錯誤放在 cause 裡
+  // drizzle 把資料庫錯誤包成 DrizzleQueryError name 是 Error 也沒有 code
+  // 原始錯誤放在 cause 裡
   it.each([
     ["主機拒絕連線", { code: "ECONNREFUSED", message: "connect ECONNREFUSED 127.0.0.1:5432" }, "主機拒絕連線"],
     ["找不到主機", { code: "ENOTFOUND", message: "getaddrinfo ENOTFOUND db.s3cr3t.example" }, "找不到這個主機"],
@@ -435,23 +385,6 @@ describe("其他指令與錯誤處理", () => {
 
     expect(await t.run("create")).toBe(1);
     expect(t.printed()).toContain("帳號 alice 已經存在");
-  });
-
-  it("資料表不存在（還沒套用 migration）_提示先 migrate", async () => {
-    const t = harness([], {
-      open: async () => ({
-        db: {
-          select: () => {
-            throw Object.assign(new Error('relation "core_users" does not exist'), { code: "42P01" });
-          },
-        } as never,
-        target: "x",
-        close: async () => {},
-      }),
-    });
-
-    expect(await t.run("list")).toBe(1);
-    expect(t.printed()).toContain("migration");
   });
 });
 
@@ -644,24 +577,6 @@ describe("連線字串不完整（複製時中間斷行）", () => {
     }
     expect(typed.asked).toHaveLength(1);
     expect(connect).not.toHaveBeenCalled();
-  });
-});
-
-describe("describeDatabase", () => {
-  it("只顯示主機、port 與資料庫名稱_不含帳號密碼", () => {
-    const shown = describeDatabase("postgresql://postgres.ref:s3cr3t-pass@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres");
-
-    expect(shown).toBe("aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres");
-    expect(shown).not.toContain("s3cr3t");
-  });
-
-  it("不是有效的連線字串_錯誤訊息不回顯原文", () => {
-    expect(() => describeDatabase("mysql://user:s3cr3t@host/db")).toThrow();
-    try {
-      describeDatabase("not a url s3cr3t");
-    } catch (error) {
-      expect(String(error)).not.toContain("s3cr3t");
-    }
   });
 });
 

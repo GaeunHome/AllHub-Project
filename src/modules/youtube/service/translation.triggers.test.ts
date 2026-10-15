@@ -3,9 +3,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// 規則見 CLAUDE.md「YouTube」：只在使用者打開觀看頁播放（或按「開始翻譯」）時翻譯，新影片推送、排程與背景一律不自動翻譯
+// 規則見 CLAUDE.md 的 YouTube 只在打開觀看頁播放或按開始翻譯時翻譯
+// 新影片推送 排程與背景一律不自動翻譯
 const MODULE_DIR = fileURLToPath(new URL("..", import.meta.url));
-/** 定義翻譯流程的服務，與觀看頁呼叫的 Server Action */
+/** 定義翻譯流程的服務與觀看頁呼叫的 Server Action */
 const ALLOWED = ["service/translation.ts", "web/actions.ts"];
 
 function sourceFiles(dir: string): string[] {

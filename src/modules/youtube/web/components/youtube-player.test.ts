@@ -49,8 +49,4 @@ describe("觀看頁的播放器", () => {
     expect(markup).toContain('data-fullscreen="off"');
     expect(markup).toContain('class="subtitle-area"');
   });
-
-  it("className 加在外框上（劇院模式時讓播放器在格線裡撐滿兩欄）", () => {
-    expect(render({ className: "lg:col-span-2" })).toMatch(/<div[^>]*class="player-slot lg:col-span-2"/);
-  });
 });

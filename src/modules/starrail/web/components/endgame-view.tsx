@@ -15,7 +15,7 @@ const SCHEDULES: { id: EndgameSchedule; label: string }[] = [
   { id: "previous", label: "上期" },
 ];
 
-/** 模式與本期／上期的切換在瀏覽器裡做：六份資料已經一起查好 */
+/** 六份資料已經一起查好 模式與期別的切換在瀏覽器裡做 */
 export function EndgameView({ records, names }: { records: EndgameRecord[]; names: Record<number, string | null> }) {
   const [mode, setMode] = useState<EndgameMode>("chaos");
   const [schedule, setSchedule] = useState<EndgameSchedule>("current");
@@ -24,7 +24,7 @@ export function EndgameView({ records, names }: { records: EndgameRecord[]; name
 
   return (
     <section aria-labelledby={`${id}-title`} className="stack">
-      {/* 超寬螢幕並排時跟開拓月曆的標題列一樣至少 44px，兩邊的標題才在同一條線上 */}
+      {/* 至少 44px 跟並排的開拓月曆標題列一樣 兩邊標題才在同一條線上 */}
       <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-3">
         <h3 id={`${id}-title`} className="sr-title">
           終局戰績
@@ -57,7 +57,7 @@ function EndgameRecordView({ endgame, names }: { endgame: Endgame; names: Record
   }
   return (
     <div className="stack">
-      {/* 手機上名稱與期間一列、三個數字排在下一列；寬螢幕數字排在右邊 */}
+      {/* 手機上名稱與期間一列 數字排在下一列 寬螢幕數字排在右邊 */}
       <div className="sr-panel flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="truncate text-lg font-bold tracking-wide text-ink">{endgame.name ?? endgameLabel(endgame.mode)}</p>
@@ -68,7 +68,7 @@ function EndgameRecordView({ endgame, names }: { endgame: Endgame; names: Record
             </p>
           )}
         </div>
-        {/* 中間的「最高關卡」字比較長，那一欄撐開，另外兩欄照內容的寬度 */}
+        {/* 中間的最高關卡字比較長 那一欄撐開 另外兩欄照內容寬度 */}
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4 sm:flex sm:gap-6">
           <Summary label="總星數" value={endgame.stars === null ? "—" : String(endgame.stars)} star />
           <Summary label="最高關卡" value={endgame.maxFloor ?? "—"} />
@@ -123,12 +123,13 @@ function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number,
         </span>
       </div>
       {floor.nodes.length > 0 && (
-        // 依這一塊的寬度（不是螢幕寬度）決定兩隊並排：並排在月曆旁邊時一樣排得下
+        // 依這一塊的寬度決定兩隊並排 並排在月曆旁邊時一樣排得下
         <div className="grid gap-3 @2xl:grid-cols-2">
           {floor.nodes.map((node, i) => (
-            // 頭像下面還有等級：編號、分數、未擊敗各包一層跟頭像一樣高（h-12），對準頭像的中線；兩隊並排時分數緊跟自己的頭像，推到右緣會貼著下一隊的編號
+            // 編號 分數 未擊敗各包一層跟頭像一樣高 對準頭像的中線
+            // 兩隊並排時分數緊跟自己的頭像 推到右緣會貼著下一隊的編號
             <div key={i} className="flex items-start gap-2.5">
-              {/* 隊伍編號用固定大小的小方塊，不換行，頭像才對齊 */}
+              {/* 隊伍編號用固定大小的方塊不換行 頭像才對齊 */}
               <span className="grid h-12 shrink-0 place-items-center">
                 <span className="sr-num grid size-6 place-items-center rounded-sm border border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-sm leading-none font-bold text-[#f4d79b]">
                   <span aria-hidden>{i + 1}</span>

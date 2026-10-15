@@ -17,7 +17,7 @@ const VIDEO = "dQw4w9WgXcQ";
 const INFO: ModuleInfo = { id: "youtube", name: "YouTube", href: "/youtube", description: "", accent: "red" };
 type ClientProps = Parameters<typeof WatchClient>[0];
 
-/** 觀看頁交給 WatchClient 的資料；只看元素的 props，不實際算繪播放器 */
+/** 觀看頁交給 WatchClient 的資料 只看元素的 props 不實際算繪播放器 */
 const clientProps = async () => ((await WatchLoader({ params: Promise.resolve({ videoId: VIDEO }), info: INFO })) as ReactElement<ClientProps>).props;
 
 const translationBy = (requestedBy: string | null, status: "queued" | "done" = "done") => ({
@@ -110,13 +110,14 @@ describe("觀看頁：翻譯共用，但只有發起人或站長能重新翻譯�
 });
 
 describe("觀看頁的版面：播放器大小優先", () => {
-  // 在 E2E 實際量到的高度（px）：播放器上方是導覽列 57、上方留白 40、返回連結 36 與間距 16；下方是間距 16、一行標題 28、間距 16，
-  // 頻道列一列是 48，膠囊排不下時換到第二列是 48 + 16 + 44
+  // E2E 量到的 px 上方 149 = 導覽列 57 + 留白 40 + 返回連結 36 + 間距 16
+  // 下方是間距 16 標題一行 28 間距 16 頻道列 48 膠囊換行時再加 16 + 44
   const ABOVE_PLAYER = 149;
   const BELOW_TO_CHANNEL = 16 + 28 + 16;
   const CHANNEL_ONE_ROW = 48;
   const CHANNEL_WRAPPED = 48 + 16 + 44;
-  // 頻道列左邊至少 12rem、間距 24，右邊最寬的一排膠囊（站長看別人翻到一半的影片）約 808：播放器比這窄時膠囊換到第二列
+  // 頻道列左邊至少 12rem 加間距 24 右邊最寬一排膠囊約 808
+  // 是站長看別人翻到一半的影片 播放器比這窄時膠囊換到第二列
   const CHANNEL_ROW_FITS = 192 + 24 + 808;
   const SIDE_PADDING = 64;
   const COLUMN_GAP = 32;
@@ -127,7 +128,10 @@ describe("觀看頁的版面：播放器大小優先", () => {
     return page.props.children[1].props.className;
   };
 
-  /** 依 className 裡寬螢幕（xl）的欄寬公式算出播放器與接下來播放的寬度；視窗夠高時用另一組預留高度 */
+  /**
+   * 依 className 裡 xl 的欄寬公式算出播放器與接下來播放的寬度
+   * 視窗夠高時用另一組預留高度
+   */
   function columns(width: number, height: number) {
     const className = gridClass();
     const formula = (prefix: string) => {
@@ -173,7 +177,7 @@ describe("觀看頁的版面：播放器大小優先", () => {
 });
 
 describe("觀看頁的版面：劇院模式整頁載入時第一次繪製就排好", () => {
-  /** 版面的格子（返回連結的下一個）裡依序的子元素 */
+  /** 版面格子裡依序的子元素 格子是返回連結的下一個 */
   const gridChildren = () => {
     const page = WatchPage({ params: Promise.resolve({ videoId: VIDEO }), info: INFO }) as ReactElement<{ children: ReactElement<{ children: ReactElement<{ fallback?: ReactNode }>[] }>[] }>;
     return page.props.children[1].props.children;

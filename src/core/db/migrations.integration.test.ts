@@ -7,7 +7,8 @@ import { readMigrationFiles } from "drizzle-orm/migrator";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// 推上 main 時 Vercel 部署與 db-migrate 同時進行：migration 套用到正式資料庫時，線上可能還是舊程式
+// 推上 main 時 Vercel 部署與 db-migrate 同時進行
+// migration 套用到正式資料庫時線上可能還是舊程式
 
 const MIGRATIONS = "src/core/db/migrations";
 const cleanups: Array<() => Promise<void> | void> = [];
@@ -16,7 +17,7 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
 });
 
-/** 只含前 count 個 migration 的資料夾，模擬正式資料庫還停在舊版 */
+/** 只含前 count 個 migration 的資料夾 模擬正式資料庫還停在舊版 */
 function migrationsUpTo(count: number): string {
   const dir = mkdtempSync(path.join(tmpdir(), "allhub-migrations-"));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
@@ -30,7 +31,8 @@ function migrationsUpTo(count: number): string {
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
 
-// 啟動 PGlite 並套用舊版 migration 要好幾秒（機器忙時更久），放在 hook 裡用 vitest.config 的 hookTimeout
+// 啟動 PGlite 並套用舊版 migration 要好幾秒 機器忙時更久
+// 所以放在 hook 裡用 vitest.config 的 hookTimeout
 beforeEach(async () => {
   client = new PGlite();
   cleanups.push(() => client.close());
@@ -38,7 +40,7 @@ beforeEach(async () => {
   await migrate(db, { migrationsFolder: migrationsUpTo(5) });
 });
 
-// 測試本身還要再套一次 migration，預設的 5 秒在機器忙時不夠
+// 測試本身還要再套一次 migration 預設的 5 秒在機器忙時不夠
 describe("0005 多人化 migration", { timeout: 30_000 }, () => {
   it("既有的帳號（舊版只能是站長本人）變成 owner", async () => {
     await client.query(`insert into core_users (username, password_hash) values ('owner', 'scrypt$x')`);
@@ -73,11 +75,12 @@ describe("0005 多人化 migration", { timeout: 30_000 }, () => {
   });
 });
 
-// 正式環境停在 0004（v0.1.0），0005 與 0006 會一起套用；0006 也要能接在 0005 後面
+// 正式環境停在 v0.1.0 的 0004 時 0005 與 0006 會一起套用
+// 0006 也要能接在 0005 後面
 const PER_USER = "0006_per_user_data.sql";
 const OWNER_SUBQUERY_USERS = { early: "11111111-1111-4111-8111-111111111111", boss: "22222222-2222-4222-8222-222222222222", late: "33333333-3333-4333-8333-333333333333" };
 
-/** v0.1.0（單人版）寫入的資料：drizzle 會明列它認得的每個欄位，新欄位不在裡面 */
+/** v0.1.0 單人版寫入的資料 drizzle 會明列它認得的欄位 新欄位不在裡面 */
 async function seedSingleUserData() {
   await client.query(`insert into "twitch_streamers" ("broadcaster_id", "login", "display_name", "notify_enabled") values ('1035', 'alice', 'Alice', false), ('2048', 'bobby', 'Bobby', true)`);
   await client.query(`insert into "youtube_channels" ("channel_id", "title", "notify_enabled") values ('UCaaaaaaaaaaaaaaaaaaaaaa', '頻道 A', false)`);
@@ -100,7 +103,8 @@ async function userIdsOf(table: string, column = "user_id") {
 
 describe("0006 各模組資料依使用者分開", { timeout: 30_000 }, () => {
   beforeEach(async () => {
-    // 外層已套到 0004（v0.1.0），這裡再套 0005（多人化核心），模擬目前最新的 migration
+    // 外層已套到 v0.1.0 的 0004 這裡再套多人化核心的 0005
+    // 模擬目前最新的 migration
     await migrate(db, { migrationsFolder: migrationsUpTo(6) });
   });
 
@@ -166,12 +170,12 @@ describe("0006 各模組資料依使用者分開", { timeout: 30_000 }, () => {
     await seedSingleUserData();
     await migrate(db, { migrationsFolder: MIGRATIONS });
 
-    // 舊程式明列它認得的欄位：主播、頻道、通知開關
+    // 舊程式明列它認得的欄位 主播 頻道 通知開關
     await client.query(`insert into "twitch_streamers" ("broadcaster_id", "login", "display_name") values ('3001', 'carol', 'Carol') on conflict ("broadcaster_id") do nothing`);
     await client.query(`update "twitch_streamers" set "notify_enabled" = true where "login" = 'alice'`);
     await client.query(`delete from "twitch_streamers" where "login" = 'bobby'`);
     await client.query(`insert into "youtube_channels" ("channel_id", "title") values ('UCbbbbbbbbbbbbbbbbbbbbbb', '頻道 B')`);
-    // 翻譯設定固定寫 id = 1：改到的是已經歸給站長的那一列
+    // 翻譯設定固定寫 id = 1 改到的是已經歸給站長的那一列
     await client.query(
       `insert into "youtube_settings" ("id", "provider", "glossary", "updated_at") values (1, 'gemini', '[]'::jsonb, now()) on conflict ("id") do update set "provider" = 'gemini'`,
     );
@@ -186,14 +190,14 @@ describe("0006 各模組資料依使用者分開", { timeout: 30_000 }, () => {
 
     expect(oldSelect).toEqual([{ id: 1, provider: "gemini", glossary: [{ source: "아이유", target: "IU" }] }]);
     expect(await userIdsOf("youtube_settings")).toEqual([boss]);
-    // 刪掉的主播連同追蹤一起刪除；空窗期加的主播沒有人追蹤
+    // 刪掉的主播連同追蹤一起刪除 空窗期加的主播沒有人追蹤
     const { rows: follows } = await client.query(`select s.login from twitch_follows f join twitch_streamers s on s.id = f.streamer_id`);
     expect(follows).toEqual([{ login: "alice" }]);
     expect(await userIdsOf("starrail_accounts")).toEqual([boss, null]);
     expect(await userIdsOf("savings_goals")).toEqual([boss, null]);
     expect(await userIdsOf("core_notifications")).toEqual([boss, null]);
     expect(await userIdsOf("youtube_translations", "requested_by")).toEqual([boss, null]);
-    // 新程式的設定列不給 id，由 identity 從 2 開始編，不會跟舊程式固定的 1 衝突
+    // 新程式不給 id 由 identity 從 2 開始編 不會跟舊程式固定的 1 衝突
     const { rows: created } = await client.query<{ id: number }>(`insert into "youtube_settings" ("user_id") values (null) returning "id"`);
     expect(created[0].id).toBeGreaterThanOrEqual(2);
   });
@@ -212,7 +216,7 @@ describe("0006 各模組資料依使用者分開", { timeout: 30_000 }, () => {
     }
     const { rows: translations } = await client.query(`select video_id, requested_by from youtube_translations`);
     expect(translations).toEqual([{ video_id: "abcdefghijk", requested_by: null }]);
-    // 主播與頻道是共用的，不跟著刪（沒人追蹤的由每天的排程清掉）
+    // 主播與頻道是共用的不跟著刪 沒人追蹤的由每天的排程清掉
     const { rows: shared } = await client.query(`select (select count(*)::int from twitch_streamers) as streamers, (select count(*)::int from youtube_channels) as channels`);
     expect(shared).toEqual([{ streamers: 2, channels: 1 }]);
   });
@@ -227,7 +231,7 @@ describe("0006 各模組資料依使用者分開", { timeout: 30_000 }, () => {
   });
 });
 
-// v0.1.2 只新增保留影片的表；正式環境停在 0006（v0.1.1）
+// v0.1.2 只新增保留影片的表 正式環境停在 v0.1.1 的 0006
 const SAVED_VIDEOS = "0007_youtube_saved_videos.sql";
 
 describe("0007 保留的影片（新表）", { timeout: 30_000 }, () => {
@@ -296,7 +300,8 @@ describe("從 v0.1.0（0004）直接升級：0005 與 0006 一起套用", { time
   });
 });
 
-// v0.1.4：Supabase 的 Data API 用 anon、authenticated 讀寫 public 的表（預設有讀寫的權限），開了 RLS 又沒有 policy 就一列都碰不到；網站用資料表的擁有者連線，不受 RLS 限制
+// v0.1.4 Supabase 的 Data API 用 anon authenticated 讀寫 public 的表
+// 開了 RLS 沒有 policy 就一列都碰不到 網站用擁有者連線不受限制
 const ENABLE_RLS = "0008_enable_rls.sql";
 
 describe("0008 每張表都開 RLS", { timeout: 30_000 }, () => {
@@ -349,5 +354,132 @@ describe("0008 每張表都開 RLS", { timeout: 30_000 }, () => {
 
     expect(statements.length).toBeGreaterThan(0);
     for (const statement of statements) expect(statement).toMatch(/^ALTER TABLE "\w+" ENABLE ROW LEVEL SECURITY;$/);
+  });
+});
+
+// v0.1.5 理財只新增五張表 正式環境停在 v0.1.4 的 0008
+// 舊的存錢記帳 savings_goals 與 savings_entries 留到下一版
+const FINANCE = "0009_finance.sql";
+const FINANCE_TABLES = ["savings_accounts", "savings_categories", "savings_purposes", "savings_recurring", "savings_transactions"];
+
+describe("0009 理財（新表）", { timeout: 30_000 }, () => {
+  beforeEach(async () => {
+    await migrate(db, { migrationsFolder: migrationsUpTo(9) });
+  });
+
+  async function insertUser(id: string, username: string) {
+    await client.query(`insert into core_users (id, username, password_hash, role) values ($1, $2, 'scrypt$x', 'member')`, [id, username]);
+  }
+
+  /**
+   * 一個人在每張理財的表各留下資料
+   * 含彼此參照的外鍵 用途 分類 扣款帳戶 轉帳的另一邊 固定收支
+   */
+  async function seedFinance(userId: string, prefix: string) {
+    const [purpose] = (await client.query<{ id: number }>(`insert into "savings_purposes" ("user_id", "name", "color") values ($1, '生活費', 'blue') returning "id"`, [userId])).rows;
+    const [category] = (await client.query<{ id: number }>(`insert into "savings_categories" ("user_id", "kind", "name", "color", "monthly_budget") values ($1, 'expense', '餐飲', 'orange', 6000) returning "id"`, [userId])).rows;
+    const [deposit] = (
+      await client.query<{ id: number }>(`insert into "savings_accounts" ("user_id", "name", "kind", "purpose_id", "opening_balance") values ($1, $2, 'deposit', $3, 1000) returning "id"`, [userId, `${prefix}存款`, purpose.id])
+    ).rows;
+    const [card] = (
+      await client.query<{ id: number }>(`insert into "savings_accounts" ("user_id", "name", "kind", "due_day", "pay_from_account_id", "opening_balance") values ($1, $2, 'credit', 6, $3, -500) returning "id"`, [userId, `${prefix}信用卡`, deposit.id])
+    ).rows;
+    const [rule] = (
+      await client.query<{ id: number }>(`insert into "savings_recurring" ("user_id", "kind", "account_id", "category_id", "amount", "day_of_month") values ($1, 'expense', $2, $3, 390, 6) returning "id"`, [userId, card.id, category.id])
+    ).rows;
+    await client.query(
+      `insert into "savings_transactions" ("user_id", "kind", "account_id", "counter_account_id", "category_id", "amount", "date", "recurring_id") values ($1, 'expense', $2, null, $3, 390, '2026-10-06', $4), ($1, 'transfer', $5, $2, null, 500, '2026-10-07', null)`,
+      [userId, card.id, category.id, rule.id, deposit.id],
+    );
+  }
+
+  const countOf = async (table: string, userId: string) => (await client.query<{ n: number }>(`select count(*)::int as n from "${table}" where "user_id" = $1`, [userId])).rows[0].n;
+
+  it("一開始設 lock_timeout = 5s，而且是單獨一個 statement：新表的外鍵要鎖 core_users，等不到鎖就失敗、之後再重跑，不讓線上的登入排在後面卡住", () => {
+    const [migration] = readMigrationFiles({ migrationsFolder: MIGRATIONS }).slice(9, 10);
+
+    expect(migration.sql[0].trim()).toBe("SET LOCAL lock_timeout = '5s';");
+  });
+
+  it("只新增理財的五張表與它們的外鍵、索引、RLS：沒有刪除、改名，也不動既有的表（外鍵只指向 core_users 與新表）", () => {
+    const sql = readFileSync(path.join(MIGRATIONS, FINANCE), "utf8");
+
+    expect(sql).not.toMatch(/\bdrop\b|\brename\b|alter column/i);
+    expect([...sql.matchAll(/CREATE TABLE "(\w+)"/g)].map((m) => m[1]).sort()).toEqual(FINANCE_TABLES);
+    const touched = [...sql.matchAll(/(?:ALTER TABLE|CREATE TABLE|CREATE (?:UNIQUE )?INDEX "\w+" ON) "(\w+)"/g)].map((m) => m[1]);
+    expect(touched.length).toBeGreaterThan(FINANCE_TABLES.length * 3);
+    expect(touched.filter((table) => !FINANCE_TABLES.includes(table))).toEqual([]);
+    const referenced = [...sql.matchAll(/REFERENCES "public"\."(\w+)"/g)].map((m) => m[1]);
+    expect(referenced).toContain("core_users");
+    expect(referenced.filter((table) => table !== "core_users" && !FINANCE_TABLES.includes(table))).toEqual([]);
+    for (const table of FINANCE_TABLES) expect(sql).toContain(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY;`);
+  });
+
+  it("套用後新表都開了 RLS、沒有 FORCE、沒有 policy；Data API 的角色（anon）讀不到也寫不進去", async () => {
+    const boss = OWNER_SUBQUERY_USERS.boss;
+    await insertUser(boss, "boss");
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+    await seedFinance(boss, "");
+
+    const { rows } = await client.query(`select relname, relrowsecurity, relforcerowsecurity from pg_class where relname = any($1) order by relname`, [FINANCE_TABLES]);
+    expect(rows).toEqual(FINANCE_TABLES.map((relname) => ({ relname, relrowsecurity: true, relforcerowsecurity: false })));
+    expect((await client.query(`select policyname from pg_policies where tablename = any($1)`, [FINANCE_TABLES])).rows).toEqual([]);
+
+    // Supabase 預設也把 sequence 給了 anon
+    // serial 的表要有 sequence 的權限才會走到 RLS 這一關
+    await client.exec(
+      `create role anon nologin; grant usage on schema public to anon; grant select, insert, update, delete on all tables in schema public to anon; grant usage, select on all sequences in schema public to anon; set role anon`,
+    );
+    for (const table of FINANCE_TABLES) expect((await client.query(`select * from "${table}"`)).rows, table).toEqual([]);
+    await expect(client.query(`insert into "savings_purposes" ("user_id", "name", "color") values ($1, '入侵', 'rose')`, [boss])).rejects.toThrow(/row-level security/);
+    await client.exec(`reset role`);
+  });
+
+  it("套用後舊程式（v0.1.4）的存錢記帳寫法照常可用（部署空窗期還會跑幾分鐘），舊表的約束也還在", async () => {
+    const boss = OWNER_SUBQUERY_USERS.boss;
+    await insertUser(boss, "boss");
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+
+    // v0.1.4 的 createGoal addEntry updateGoal 含名稱快照
+    // setGoalActive deleteGoal 與讀取 欄位都明列
+    await client.query(
+      `insert into "savings_goals" ("id", "user_id", "name", "monthly_amount", "note", "active", "sort_order", "created_at") values (default, $1, '旅行', 3000, null, default, (select coalesce(max("sort_order") + 1, 0) from "savings_goals" where "savings_goals"."user_id" = $1), default)`,
+      [boss],
+    );
+    const [goal] = (await client.query<{ id: number }>(`select "id" from "savings_goals" where "user_id" = $1`, [boss])).rows;
+    await client.query(
+      `insert into "savings_entries" ("id", "user_id", "month", "goal_id", "goal_name", "amount", "note", "created_at") values (default, $1, '2026-10-01', $2, '旅行', 3000, null, default), (default, $1, '2026-10-01', null, null, 500, '發票中獎', default)`,
+      [boss, goal.id],
+    );
+    await client.query(`update "savings_goals" set "name" = '日本旅行', "monthly_amount" = 4000 where ("savings_goals"."id" = $1 and "savings_goals"."user_id" = $2)`, [goal.id, boss]);
+    await client.query(`update "savings_entries" set "goal_name" = '日本旅行' where "savings_entries"."goal_id" = $1`, [goal.id]);
+    await client.query(`update "savings_goals" set "active" = false where ("savings_goals"."id" = $1 and "savings_goals"."user_id" = $2)`, [goal.id, boss]);
+    const { rows: entries } = await client.query(`select "month"::text as month, "goal_name", "amount", "note" from "savings_entries" where "user_id" = $1 order by "id"`, [boss]);
+    expect(entries).toEqual([
+      { month: "2026-10-01", goal_name: "日本旅行", amount: 3000, note: null },
+      { month: "2026-10-01", goal_name: null, amount: 500, note: "發票中獎" },
+    ]);
+    await client.query(`delete from "savings_goals" where ("savings_goals"."id" = $1 and "savings_goals"."user_id" = $2)`, [goal.id, boss]);
+    expect((await client.query(`select "goal_id", "goal_name" from "savings_entries" where "amount" = 3000`)).rows).toEqual([{ goal_id: null, goal_name: "日本旅行" }]);
+
+    await expect(client.query(`insert into "savings_entries" ("user_id", "month", "amount") values ($1, '2026-10-01', 0)`, [boss])).rejects.toThrow(/savings_entries_amount_range/);
+    await expect(client.query(`insert into "savings_entries" ("user_id", "month", "amount") values ($1, '2026-10-15', 100)`, [boss])).rejects.toThrow(/savings_entries_month_first_day/);
+  });
+
+  it("刪除帳號時理財的資料一起刪除（外鍵 cascade，含彼此參照的列）；別人的不受影響", async () => {
+    const { early, boss } = OWNER_SUBQUERY_USERS;
+    await insertUser(early, "early");
+    await insertUser(boss, "boss");
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+    await seedFinance(early, "早");
+    await seedFinance(boss, "老闆");
+
+    await client.query(`delete from core_users where id = $1`, [boss]);
+
+    for (const table of FINANCE_TABLES) {
+      expect(await countOf(table, boss), table).toBe(0);
+      expect(await countOf(table, early), `${table}（別人的）`).toBeGreaterThan(0);
+    }
+    expect(await countOf("savings_transactions", early)).toBe(2);
   });
 });

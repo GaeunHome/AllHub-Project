@@ -6,7 +6,7 @@ import { cachedRecentVideos } from "../../service/cached";
 import { upNext } from "../video-filter";
 import { VideoLink, VideoThumbnail, channelNameOf } from "./video-card";
 
-/** 觀看頁右側（手機在下方）的「接下來播放」：其他最近的影片，縮圖在左的小卡片 */
+/** 觀看頁右側的接下來播放 手機在下方 其他最近的影片用縮圖在左的小卡片 */
 export async function UpNext({ params }: { params: Promise<{ videoId: string }> }) {
   const user = await requireSession();
   const current = parseVideoId((await params).videoId) ?? "";
@@ -23,9 +23,9 @@ export async function UpNext({ params }: { params: Promise<{ videoId: string }> 
         {videos.map((video, i) => (
           <li key={video.videoId}>
             <VideoLink video={video} className="group flex gap-3">
-              {/* 寬螢幕的欄寬跟著視窗高度變（播放器封頂後多出來的寬度都給這一欄），縮圖用比例寬度才不會只佔左邊一小塊 */}
+              {/* 寬螢幕的欄寬跟著視窗高度變 縮圖用比例寬度才不會只佔左邊一小塊 */}
               <span className="yt-thumb w-40 shrink-0 rounded-lg lg:w-32 xl:w-2/5">
-                {/* 寬螢幕上第一支在畫面最上面；播放器是跨網域的 iframe 不算 LCP，常常輪到這張縮圖 */}
+                {/* 寬螢幕上第一支在畫面最上面 跨網域的播放器不算 LCP 常常輪到這張縮圖 */}
                 <VideoThumbnail video={video} eager={i === 0} />
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-1">

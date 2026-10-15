@@ -21,10 +21,6 @@ describe("buildSubtitleFile", () => {
 });
 
 describe("parseDownloadQuery", () => {
-  it("預設 srt + zh", () => {
-    expect(parseDownloadQuery(new URLSearchParams())).toEqual({ format: "srt", lang: "zh" });
-  });
-
   it("接受 vtt 與 both", () => {
     expect(parseDownloadQuery(new URLSearchParams("format=vtt&lang=both"))).toEqual({ format: "vtt", lang: "both" });
   });

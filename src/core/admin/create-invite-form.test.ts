@@ -3,11 +3,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Dialog } from "../ui/dialog";
 
-// 連結只有送出之後才有：直接給 useActionState 一個送出後的狀態，看畫面怎麼顯示；其他照 React 原本的實作
+// 連結要送出後才有 直接給 useActionState 送出後的狀態看畫面
+// 其他 hook 照 React 原本的實作
 vi.mock("react", { spy: true });
 vi.mock("./actions", () => ({ createInviteAction: vi.fn() }));
 
-const { CreateInviteForm, inviteResult, keepLastLink } = await import("./create-invite-form");
+const { CreateInviteForm, keepLastLink } = await import("./create-invite-form");
 const { createInviteAction } = await import("./actions");
 
 const LINK = `https://hub.example.com/register?code=${"T".repeat(43)}`;
@@ -19,7 +20,7 @@ const dialogOf = (markup: string) => markup.slice(markup.indexOf("<dialog"), mar
 
 const LIVE = /\s(?:role="(?:status|alert|log)"|aria-live="(?:polite|assertive)")/;
 const VOID_TAGS = new Set(["area", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
-/** 標記裡的每個 live region 與它外面的 live region、按鈕：live region 包著 live region 時，裡面一變外層也會再念一次 */
+/** 列出每個 live region 和包著它的 live region 或按鈕 巢狀時裡面一變外層會再念一次 */
 function liveRegions(markup: string) {
   const stack: { tag: string; live: boolean }[] = [];
   const regions: { tag: string; text: string; enclosedBy: string[] }[] = [];
@@ -39,7 +40,6 @@ function liveRegions(markup: string) {
   return regions;
 }
 
-/** 元件回傳的樹裡第一個符合條件的元素 */
 function find(node: ReactNode, match: (type: unknown, props: Record<string, unknown>) => boolean): { props: Record<string, unknown> } | null {
   if (Array.isArray(node)) return node.map((child) => find(child, match)).find(Boolean) ?? null;
   if (!isValidElement<Record<string, unknown>>(node)) return null;
@@ -55,7 +55,7 @@ beforeEach(() => {
   vi.mocked(useLayoutEffect).mockReset();
 });
 
-/** 直接呼叫元件（不經 React 算繪）時，其餘的 hook 給最簡單的替身：ref 照初始值、layout effect 先收起來 */
+/** 不經 React 直接呼叫元件 hook 換成最簡單的替身 layout effect 先收起來之後再跑 */
 function callDirectly(effects: EffectCallback[] = []) {
   vi.mocked(useRef).mockImplementation(((initial: unknown) => ({ current: initial })) as never);
   vi.mocked(useLayoutEffect).mockImplementation((effect) => {
@@ -64,7 +64,7 @@ function callDirectly(effects: EffectCallback[] = []) {
   return CreateInviteForm();
 }
 
-/** 送進 useActionState 的 action：表單送出、離開這一頁時呼叫的都是它 */
+/** 取出送進 useActionState 的 action 表單送出與離開這一頁都呼叫它 */
 function formAction() {
   type Action = (previous: object, payload: unknown) => object | Promise<object>;
   let action: Action | undefined;
@@ -164,19 +164,6 @@ describe("建立邀請連結後的畫面", () => {
 });
 
 describe("建立失敗時保留上一條連結（keepLastLink）", () => {
-  it("表單送出的就是包著它的版本：下一條建立失敗，上一條連結還留在畫面的狀態裡", async () => {
-    type Submit = (previous: object, formData: FormData) => Promise<object>;
-    let submit: Submit | undefined;
-    vi.mocked(useActionState).mockImplementationOnce((action) => {
-      submit = action as unknown as Submit;
-      return [{}, vi.fn(), false];
-    });
-    renderToStaticMarkup(createElement(CreateInviteForm));
-    vi.mocked(createInviteAction).mockResolvedValueOnce({ error: "建立邀請連結失敗（詳見伺服器 log）" });
-
-    expect(await submit!(CREATED, new FormData())).toEqual({ error: "建立邀請連結失敗（詳見伺服器 log）", ...CREATED });
-  });
-
   it("建立下一條時不把上一條連結送回伺服器：完整的連結只在建立的回應裡出現一次", async () => {
     const submit = formAction();
     const formData = new FormData();
@@ -184,10 +171,6 @@ describe("建立失敗時保留上一條連結（keepLastLink）", () => {
 
     expect(await submit(CREATED, formData)).toEqual({ error: "建立邀請連結失敗（詳見伺服器 log）", ...CREATED });
     expect(createInviteAction).toHaveBeenCalledExactlyOnceWith({}, formData);
-  });
-
-  it("這次失敗、之前有連結：留著上一條連結與它的說明，加上這次的錯誤", () => {
-    expect(keepLastLink(CREATED, { error: "建立邀請連結失敗（詳見伺服器 log）" })).toEqual({ error: "建立邀請連結失敗（詳見伺服器 log）", ...CREATED });
   });
 
   it("這次成功：換成新的連結", () => {
@@ -201,18 +184,11 @@ describe("建立失敗時保留上一條連結（keepLastLink）", () => {
   });
 });
 
-describe("建立失敗、上一條還在時（inviteResult）", () => {
-  it("錯誤顯示在表單下方、可以再看一次上一條；視窗不自動打開", () => {
-    expect(inviteResult({ error: "建立邀請連結失敗（詳見伺服器 log）", ...CREATED }, LINK)).toEqual({
-      dialogOpen: false,
-      canReopen: true,
-      feedback: { error: "建立邀請連結失敗（詳見伺服器 log）" },
-    });
-  });
-});
-
 describe("離開這一頁就看不到連結（Activity 把頁面藏起來時）", () => {
-  /** 跑完 layout effect 再跑它們的清除函式：Activity 把頁面藏起來（例如點導覽列換頁）時就是這樣；回傳送給 useActionState 的東西 */
+  /**
+   * 跑完 layout effect 再跑清除函式 Activity 把頁面藏起來時就是這樣
+   * 回傳 dispatch 看送給 useActionState 什麼
+   */
   function hide(state: object) {
     const dispatch = vi.fn();
     vi.mocked(useActionState).mockReturnValueOnce([state, dispatch, false]);

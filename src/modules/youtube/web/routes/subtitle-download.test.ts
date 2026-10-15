@@ -20,7 +20,8 @@ beforeEach(() => {
 describe("下載翻譯後的字幕檔（Route Handler）", () => {
   it("沒登入（例如改過密碼後的舊 cookie）_回 401_不讀字幕", async () => {
     currentSession.mockResolvedValue(null);
-    // 真的 requireSession 沒登入時會轉址（丟出 NEXT_REDIRECT），Route Handler 不該走這條
+    // 真的 requireSession 沒登入時會丟 NEXT_REDIRECT 轉址
+    // Route Handler 不該走這條
     requireSession.mockRejectedValue(new Error("NEXT_REDIRECT:/login"));
 
     const response = await download();

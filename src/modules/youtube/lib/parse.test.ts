@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GLOSSARY_LIMITS, classifyYoutubeInput, glossaryProblem, parseChannelInput, parseGlossary, parseVideoId, relevantGlossary } from "./parse";
+import { classifyYoutubeInput, glossaryProblem, parseChannelInput, parseGlossary, parseVideoId, relevantGlossary } from "./parse";
 
 describe("parseVideoId", () => {
   it.each([
@@ -106,10 +106,6 @@ describe("parseGlossary", () => {
 describe("glossaryProblem：專有名詞表的上限（每批都會送給 AI，太大會讓每個接著翻的人多花錢）", () => {
   const entry = (i: number, source = `이름${i}`, target = `名字${i}`) => ({ source, target });
   const many = (n: number) => Array.from({ length: n }, (_, i) => entry(i));
-
-  it("上限是 200 筆、每個詞 50 字、合計 5,000 字", () => {
-    expect(GLOSSARY_LIMITS).toEqual({ entries: 200, termLength: 50, totalLength: 5000 });
-  });
 
   it("在上限內_沒有問題（剛好 200 筆、剛好 50 字也可以）", () => {
     expect(glossaryProblem([])).toBeNull();

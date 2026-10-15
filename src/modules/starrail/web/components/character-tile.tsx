@@ -21,7 +21,7 @@ export function CharacterTile({ character, onSelect }: { character: StarrailChar
       aria-label={`${description}，查看詳情`}
       className="group flex w-full cursor-pointer flex-col items-stretch gap-1.5 text-left transition-transform motion-safe:hover:-translate-y-0.5"
     >
-      {/* 右上切角的頭像框，跟遊戲裡的角色卡一樣；HoYoLAB 的 icon 是方形頭像，外框也用方形才不會被裁掉或偏一邊 */}
+      {/* 右上切角跟遊戲的角色卡一樣 icon 是方形 外框也用方形才不會裁掉或偏一邊 */}
       <span className={`relative block aspect-square w-full overflow-hidden [clip-path:polygon(0_0,calc(100%-12px)_0,100%_12px,100%_100%,0_100%)] ${rarityClass(rarity)}`}>
         <Portrait src={character.icon} name={name} element={element} className="transition-transform duration-300 motion-safe:group-hover:scale-105" />
         <span className="absolute top-1 left-1">

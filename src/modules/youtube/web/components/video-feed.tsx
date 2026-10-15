@@ -5,7 +5,7 @@ import { VIDEO_FILTERS, type VideoFilter } from "../video-filter";
 
 export type FeedItem = { id: string; filters: VideoFilter[]; card: ReactNode };
 
-/** 篩選膠囊與影片格子：卡片由伺服器算繪好傳進來，這裡只決定要顯示哪些，切換時不必再問伺服器 */
+/** 卡片由伺服器算繪好傳進來 這裡只決定顯示哪些 切換時不必再問伺服器 */
 export function VideoFeed({ items }: { items: FeedItem[] }) {
   const [filter, setFilter] = useState<VideoFilter>("all");
   const shown = items.filter((item) => item.filters.includes(filter));

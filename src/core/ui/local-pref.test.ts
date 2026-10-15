@@ -18,7 +18,10 @@ const brokenStorage = {
   },
 };
 
-/** 別的分頁改了 localStorage 時，瀏覽器只在其他分頁觸發 storage 事件；清空時 key 是 null */
+/**
+ * 瀏覽器只在其他分頁觸發 storage 事件 用來模擬別的分頁改了設定
+ * 清空時 key 是 null
+ */
 const storageEvent = (key: string | null) => Object.assign(new Event("storage"), { key });
 
 const sizePref = () => createLocalPref<Size>({ key: "test:size", defaultValue: "medium", parse: (stored) => (SIZES.includes(stored) ? (stored as Size) : undefined) });

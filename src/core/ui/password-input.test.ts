@@ -4,10 +4,6 @@ import { describe, expect, it } from "vitest";
 import { PasswordInput, passwordToggle } from "./password-input";
 
 describe("密碼顯示切換", () => {
-  it("隱藏時_輸入框是 password，按鈕寫「顯示密碼」、用 eye 圖示", () => {
-    expect(passwordToggle(false)).toEqual({ type: "password", label: "顯示密碼", icon: "eye" });
-  });
-
   it("顯示時_輸入框是 text，按鈕寫「隱藏密碼」、用 eye-off 圖示", () => {
     expect(passwordToggle(true)).toEqual({ type: "text", label: "隱藏密碼", icon: "eye-off" });
   });

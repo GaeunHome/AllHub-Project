@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { safeEqual } from "@/core/crypto";
 
-/** 防重放：Twitch 建議拒絕超過 10 分鐘的訊息 */
+/** 防重放 Twitch 建議拒絕超過 10 分鐘的訊息 */
 const MAX_AGE_MS = 10 * 60 * 1000;
 
 export type EventSubSubscription = {
@@ -9,7 +9,7 @@ export type EventSubSubscription = {
   type: string;
   status: string;
   condition?: Record<string, string>;
-  /** 同一個 Client ID 的訂閱清單是所有環境共用的，要靠 callback 分辨是不是自己建的 */
+  /** 同一個 Client ID 的訂閱清單各環境共用 要靠 callback 分辨是不是自己建的 */
   transport?: { method: string; callback?: string };
 };
 
@@ -24,7 +24,7 @@ export type StreamEvent = {
 
 export type EventSubMessage =
   | { kind: "rejected"; reason: string }
-  /** 簽章正確但內容不是預期格式（Twitch 不該送出，但不能讓它變成 500） */
+  /** 簽章正確但格式不對 Twitch 不該送出 但不能讓它變成 500 */
   | { kind: "malformed"; reason: string }
   | { kind: "verification"; challenge: string }
   | { kind: "notification"; messageId: string; subscription: EventSubSubscription; event: StreamEvent }
@@ -36,7 +36,7 @@ export function verifySignature(messageId: string, timestamp: string, rawBody: s
   return safeEqual(signature, expected);
 }
 
-/** rawBody 必須是原始字串：先 JSON.parse 再序列化會改變位元組，簽章就對不上 */
+/** rawBody 要是原始字串 先 parse 再序列化會改變位元組 簽章就對不上 */
 export function parseEventSubRequest(headers: Headers, rawBody: string, secret: string, now = new Date()): EventSubMessage {
   const messageId = headers.get("Twitch-Eventsub-Message-Id");
   const timestamp = headers.get("Twitch-Eventsub-Message-Timestamp");

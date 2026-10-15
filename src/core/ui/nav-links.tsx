@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLayoutEffect, useRef, type Ref } from "react";
 import type { ModuleInfo } from "../module";
 import { useNotificationCenter } from "../notifications/center";
 import { Icon } from "./icon";
@@ -14,21 +15,48 @@ function currentOf(href: string, pathname: string | null): "page" | "true" | und
   return undefined;
 }
 
-export function NavLinkList({ modules, pathname }: { modules: NavModule[]; pathname: string | null }) {
+type NavView = { scrollLeft: number; width: number; endInset: number };
+
+/** 讓目前這頁的膠囊整個看得到要捲到哪 右邊留淡出的寬度 已經看得到就不動 */
+function navScrollLeft({ start, end }: { start: number; end: number }, { scrollLeft, width, endInset }: NavView): number {
+  const visible = width - endInset;
+  if (start < scrollLeft || end - start > visible) return start;
+  if (end > scrollLeft + visible) return end - visible;
+  return scrollLeft;
+}
+
+/** 只改導覽列自己的 scrollLeft 用 scrollIntoView 可能連整頁一起上下捲 */
+function revealCurrent(list: HTMLUListElement | null) {
+  const nav = list?.parentElement;
+  const current = list?.querySelector<HTMLElement>("[aria-current]");
+  if (!list || !nav || !current) return;
+  const navBox = nav.getBoundingClientRect();
+  const box = current.getBoundingClientRect();
+  const start = box.left - navBox.left + nav.scrollLeft;
+  // 右緣淡出的寬度就是清單末端的留白 見 globals.css 的 .nav-scroll
+  const endInset = Number.parseFloat(getComputedStyle(list).paddingInlineEnd) || 0;
+  const next = navScrollLeft({ start, end: start + box.width }, { scrollLeft: nav.scrollLeft, width: nav.clientWidth, endInset });
+  if (next !== nav.scrollLeft) nav.scrollLeft = next;
+}
+
+export function NavLinkList({ modules, pathname, listRef }: { modules: NavModule[]; pathname: string | null; listRef?: Ref<HTMLUListElement> }) {
   const { feed } = useNotificationCenter();
 
   return (
-    <ul className="flex items-center gap-1 sm:gap-1.5">
+    // w-max 讓清單照內容的寬度 末端的留白才算進捲動範圍
+    <ul ref={listRef} className="flex w-max items-center gap-1 sm:gap-1.5">
       {modules.map((m) => {
         const current = currentOf(m.href, pathname);
         const unread = feed.unread.byModule[m.id] ?? 0;
         return (
-          <li key={m.id}>
+          // 放不下時整排橫捲 膠囊不縮名稱不換行
+          // not-sr-only 會把 white-space 改回 normal 所以寬螢幕再指定一次
+          <li key={m.id} className="shrink-0">
             <Link href={m.href} data-accent={m.accent} aria-current={current} className="nav-pill relative">
               {m.icon && <Icon src={m.icon} />}
-              {/* 手機上只留圖示（名稱給報讀器），模組變多也擠得進一行；目前這頁靠底色標示 */}
-              <span className={m.icon ? "sr-only sm:not-sr-only" : undefined}>{m.name}</span>
-              {/* 手機上疊在圖示右上角：放在行內會把膠囊撐寬，最後一個模組就被擠出畫面 */}
+              {/* 手機上只留圖示 名稱給報讀器 模組變多也擠得進一行 */}
+              <span className={m.icon ? "sr-only whitespace-nowrap sm:not-sr-only sm:whitespace-nowrap" : "whitespace-nowrap"}>{m.name}</span>
+              {/* 手機上疊在圖示右上角 放在行內會撐寬膠囊 最後一個模組就被擠出畫面 */}
               {unread > 0 && (
                 <span className="count-badge max-sm:absolute max-sm:-top-1 max-sm:-right-1">
                   {unread > 99 ? "99+" : unread}
@@ -44,5 +72,20 @@ export function NavLinkList({ modules, pathname }: { modules: NavModule[]; pathn
 }
 
 export function NavLinks({ modules }: { modules: NavModule[] }) {
-  return <NavLinkList modules={modules} pathname={usePathname()} />;
+  const pathname = usePathname();
+  const listRef = useRef<HTMLUListElement>(null);
+  // 換頁後把目前這頁的膠囊捲進畫面 手機上常被擠到右邊看不到
+  // 用 layout effect 在繪製前就捲好 不會先閃一下
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    revealCurrent(list);
+    const nav = list?.parentElement;
+    if (!list || !nav || typeof ResizeObserver === "undefined") return;
+    // 字型載入後膠囊變寬 或轉向與右邊變寬讓導覽列變窄時再對一次
+    const observer = new ResizeObserver(() => revealCurrent(list));
+    observer.observe(list);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [pathname]);
+  return <NavLinkList modules={modules} pathname={pathname} listRef={listRef} />;
 }

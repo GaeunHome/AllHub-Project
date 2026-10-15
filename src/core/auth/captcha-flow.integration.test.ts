@@ -7,7 +7,8 @@ import { form } from "@/dev/test-helpers";
 import { coreUsers } from "../db/schema";
 import { hashPassword } from "./credentials";
 
-// 整條路都是真的：驗證碼路由發 cookie → 表單送出 → Server Action 驗證碼 → 資料庫；只把 next/headers 換成一個共用的假 cookie
+// 從驗證碼路由發 cookie 表單送出 Server Action 到資料庫整條都是真的
+// 只把 next/headers 換成一個共用的假 cookie
 
 const CODE = "K7MRX";
 const PASSWORD = "plum blossom 2026";
@@ -56,7 +57,7 @@ async function createUser(username = "alice", role: "owner" | "member" = "member
   return user;
 }
 
-// 登入成功會改用正式參數重新雜湊，scrypt 在機器忙時會超過預設的 5 秒
+// 登入成功會改用正式參數重新雜湊 機器忙時 scrypt 會超過預設的 5 秒
 describe("登入：先驗證碼、再密碼", { timeout: 30_000 }, () => {
   it("驗證碼正確（不分大小寫、可以有空白）_登入成功，驗證碼的 cookie 清掉", async () => {
     await createUser();

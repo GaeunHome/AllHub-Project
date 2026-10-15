@@ -6,7 +6,7 @@ const ICONS = "/icons/starrail";
 const time = (day: number, hour = 4) => ({ year: 2026, month: 10, day, hour, minute: 0 });
 const avatar = (id: number, rarity = 5, element = "Quantum") => ({ id, level: 80, icon: `${IMG}/avatar/${id}.png`, rarity, element, rank: 1 });
 
-/** 混沌回憶（challenge），依 genshin.py 的 StarRailChallenge */
+/** 混沌回憶 challenge 欄位依 genshin.py 的 StarRailChallenge */
 const chaos = () => ({
   schedule_id: 1012,
   begin_time: time(6),
@@ -34,7 +34,7 @@ const chaos = () => ({
   groups: [{ schedule_id: 1012, name_mi18n: "星海中的回聲", status: "Running", begin_time: time(6), end_time: time(20, 3) }],
 });
 
-/** 虛構敘事（challenge_story）：每個節點有分數 */
+/** 虛構敘事 challenge_story 每個節點有分數 */
 const fiction = () => ({
   star_num: 12,
   max_floor: "虛構敘事 4",
@@ -54,7 +54,7 @@ const fiction = () => ({
   groups: [{ schedule_id: 2004, name_mi18n: "飛光競逐", status: "Running", begin_time: time(1), end_time: time(29, 3) }],
 });
 
-/** 末日幻影（challenge_boss）：節點有分數與是否擊敗首領 */
+/** 末日幻影 challenge_boss 節點有分數與是否擊敗首領 */
 const shadow = () => ({
   star_num: 9,
   max_floor: "末日幻影 4",

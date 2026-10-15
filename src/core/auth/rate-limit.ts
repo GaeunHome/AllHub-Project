@@ -1,4 +1,4 @@
-/** 記憶體內計數，serverless 多實例時各算各的、只是盡力而為；主要防線是夠長的密碼與 scrypt 雜湊 */
+/** 記憶體內計數 serverless 多實例時各算各的 只是盡力而為 主要靠長密碼與 scrypt */
 export function createFailureLimiter({ maxFailures, windowMs, lockMs }: { maxFailures: number; windowMs: number; lockMs: number }) {
   const failures = new Map<string, number[]>();
   const lockedUntil = new Map<string, number>();
@@ -28,7 +28,7 @@ export function createFailureLimiter({ maxFailures, windowMs, lockMs }: { maxFai
   };
 }
 
-/** 取 x-forwarded-for 的第一段（Vercel 會放真正的用戶端 IP） */
+/** 取 x-forwarded-for 的第一段 Vercel 會在這裡放真正的用戶端 IP */
 export function clientIp(forwardedFor: string | null): string {
   return forwardedFor?.split(",")[0].trim() || "unknown";
 }

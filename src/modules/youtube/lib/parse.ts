@@ -1,6 +1,6 @@
 export const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 export const CHANNEL_ID = /^UC[A-Za-z0-9_-]{22}$/;
-// YouTube 的 handle 可以用各國文字；\p{M} 是泰文、印地文等的組合符號。放進網址時另外 encodeURIComponent
+// handle 可以用各國文字 \p{M} 是泰文與印地文這類的組合符號 放進網址時另外編碼
 const HANDLE = /^[\p{L}\p{M}\p{N}._-]{3,30}$/u;
 const YOUTUBE_HOSTS = new Set(["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com"]);
 
@@ -12,7 +12,7 @@ function toUrl(input: string): URL | null {
   }
 }
 
-/** 接受 watch、youtu.be、shorts、embed、live 網址或 11 碼影片 id */
+/** 接受 watch youtu.be shorts embed live 網址或 11 碼影片 id */
 export function parseVideoId(input: string): string | null {
   const value = input.trim();
   if (VIDEO_ID.test(value)) return value;
@@ -32,7 +32,7 @@ export function parseVideoId(input: string): string | null {
 
 export type ChannelInput = { kind: "id"; channelId: string } | { kind: "handle"; handle: string };
 
-/** 接受 UC 開頭的頻道 id、/channel/UC… 網址、@handle 或 /@handle 網址 */
+/** 接受 UC 開頭的頻道 id /channel/ 網址 @handle 或 /@handle 網址 */
 export function parseChannelInput(input: string): ChannelInput | null {
   const value = input.trim();
   if (CHANNEL_ID.test(value)) return { kind: "id", channelId: value };
@@ -50,7 +50,7 @@ export function parseChannelInput(input: string): ChannelInput | null {
 
 export type YoutubeInput = { kind: "video"; videoId: string } | { kind: "channel"; channel: ChannelInput } | { kind: "invalid" };
 
-/** 列表頁上方只有一個輸入框：影片網址開觀看頁、頻道網址或 @帳號就追蹤（兩種格式不會重疊） */
+/** 列表頁只有一個輸入框 影片網址開觀看頁 頻道網址或 @帳號就追蹤 兩種不會重疊 */
 export function classifyYoutubeInput(input: string): YoutubeInput {
   const videoId = parseVideoId(input);
   if (videoId) return { kind: "video", videoId };
@@ -68,7 +68,7 @@ function decodePathSegment(segment: string): string | null {
 
 export type GlossaryEntry = { source: string; target: string };
 
-/** 專有名詞表：每行「原文=譯文」（全形＝也可以），格式不對的行直接略過；同一原文以最後一行為準 */
+/** 每行一筆 原文與譯文用等號隔開 全形也行 格式不對的略過 同一原文以最後一行為準 */
 export function parseGlossary(text: string): GlossaryEntry[] {
   const entries = new Map<string, string>();
   for (const line of text.split(/\r?\n/)) {
@@ -83,15 +83,15 @@ export function parseGlossary(text: string): GlossaryEntry[] {
   return [...entries].map(([source, target]) => ({ source, target }));
 }
 
-/** 專有名詞表的上限：發起時的表會跟著翻譯保存，之後每個接著翻的人每批都會送出；字數照看到的字算 */
+/** 發起時的表跟著翻譯保存 每個接著翻的人每批都會送出 所以有上限 字數照看到的字算 */
 export const GLOSSARY_LIMITS = { entries: 200, termLength: 50, totalLength: 5000 } as const;
 
 const charCount = (text: string) => [...text].length;
-/** 錯誤訊息裡的數字加千分位；不用 toLocaleString，輸出不隨執行環境的 ICU 版本改變 */
+/** 錯誤訊息的數字加千分位 不用 toLocaleString 輸出才不隨 ICU 版本改變 */
 export const withCommas = (n: number) => String(n).replace(/\B(?=(\d{3})+$)/g, ",");
 const preview = (text: string) => (charCount(text) > 10 ? `${[...text].slice(0, 10).join("")}…` : text);
 
-/** 存檔前檢查，回傳給使用者看的錯誤，沒問題回 null */
+/** 存檔前檢查 回傳給使用者看的錯誤 沒問題回 null */
 export function glossaryProblem(entries: GlossaryEntry[]): string | null {
   const { entries: maxEntries, termLength, totalLength } = GLOSSARY_LIMITS;
   if (entries.length > maxEntries) return `專有名詞表最多 ${maxEntries} 筆（目前 ${entries.length} 筆），請刪掉用不到的`;
@@ -106,7 +106,7 @@ export function glossaryProblem(entries: GlossaryEntry[]): string | null {
 
 const comparable = (text: string) => text.normalize("NFC").toLowerCase();
 
-/** 只留這些句子裡實際出現的詞條：沒出現的詞每批都送，只是讓接著翻的人多付 token */
+/** 只留句子裡出現的詞條 沒出現的也送只會讓接著翻的人多付 token */
 export function relevantGlossary(glossary: GlossaryEntry[], texts: string[]): GlossaryEntry[] {
   const haystack = comparable(texts.join("\n"));
   return glossary.filter((entry) => haystack.includes(comparable(entry.source)));

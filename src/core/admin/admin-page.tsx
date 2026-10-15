@@ -10,10 +10,10 @@ import { InviteList } from "./invite-list";
 import { listLockedUsers } from "./service";
 import { UserList } from "./user-list";
 
-/** 只有站長能用：每個讀資料的區塊與 Server Action 都會用 requireOwner 再確認（導覽列的入口只是不顯示） */
+/** 導覽列只是藏起入口 讀資料與 Server Action 都會用 requireOwner 再確認 */
 export function AdminPage() {
   return (
-    // 寬螢幕：邀請連結在左、使用者清單在右，不把表單拉到整個畫面寬；兩欄等寬，邀請清單的每一列才不會擠成三行
+    // 寬螢幕兩欄等寬 不把表單拉滿整個畫面 邀請清單每列才不會擠成三行
     <div className="page-stack xl:grid xl:grid-cols-2 xl:items-start xl:[&>:first-child]:col-span-2">
       <PageHeader icon={<Icon name="shield-check" />} title="管理" />
 
@@ -38,10 +38,9 @@ export function AdminPage() {
   );
 }
 
-/** 建立邀請的表單在上、已建立的邀請在下（撐滿卡片左右的清單） */
 export async function InviteSection() {
   await requireOwner();
-  // 狀態（有效、過期）要用這次請求的時間算，預先抓取時不能先算好
+  // 有效或過期要用這次請求的時間算 預先抓取時不能先算好
   await connection();
   const invites = await cachedInvites();
   return (
@@ -54,7 +53,7 @@ export async function InviteSection() {
 
 export async function UserSection() {
   const owner = await requireOwner();
-  // 鎖定有沒有到期要用這次請求的時間判斷，預先抓取時不能先算好
+  // 鎖定是否到期要用這次請求的時間算 預先抓取時不能先算好
   await connection();
   const [users, locked] = await Promise.all([cachedUsers(), listLockedUsers(new Date())]);
   return <UserList users={users} currentUserId={owner.id} lockedUntil={new Map(locked.map((user) => [user.id, user.lockedUntil]))} />;

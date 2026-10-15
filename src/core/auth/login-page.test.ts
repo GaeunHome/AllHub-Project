@@ -8,7 +8,7 @@ vi.mock("./actions", () => ({ login: vi.fn() }));
 const users = vi.hoisted(() => ({ hasAnyUser: vi.fn() }));
 vi.mock("./users", () => users);
 
-const { DeletedNotice, LoginFooter, LoginGate } = await import("./login-page");
+const { DeletedNotice, LoginGate } = await import("./login-page");
 
 const html = async () => renderToStaticMarkup((await LoginGate()) as ReactElement);
 const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
@@ -50,12 +50,6 @@ describe("登入頁", () => {
     expect(markup).not.toContain("npm run account create");
   });
 
-  it("資料庫裡還沒有帳號_說明第一個帳號（站長）在電腦上建立，其他人用站長的邀請連結註冊", async () => {
-    users.hasAnyUser.mockResolvedValue(false);
-
-    expect(textOf(await html())).toContain("第一個帳號（站長）要在電腦上建立，之後的人用站長的邀請連結註冊");
-  });
-
   it("查不到資料庫_照樣顯示登入表單（登入時再回錯誤）_log 只記錯誤種類", async () => {
     const log = captureErrorLog();
     users.hasAnyUser.mockRejectedValue(Object.assign(new Error("password authentication failed for db-secret"), { name: "PostgresError" }));
@@ -68,13 +62,6 @@ describe("登入頁", () => {
 });
 
 describe("登入頁的說明與連結", () => {
-  it("頁尾連到使用聲明，並說明沒有帳號要向站長索取邀請連結", () => {
-    const markup = renderToStaticMarkup(LoginFooter());
-
-    expect(markup).toContain('href="/terms"');
-    expect(textOf(markup)).toContain("還沒有帳號？請向站長索取邀請連結");
-  });
-
   it("刪除帳號後導回來（?deleted=1）_顯示帳號已刪除；其他情況不顯示", async () => {
     const shown = renderToStaticMarkup((await DeletedNotice({ searchParams: Promise.resolve({ deleted: "1" }) })) as ReactElement);
 

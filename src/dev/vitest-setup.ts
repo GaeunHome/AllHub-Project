@@ -1,14 +1,15 @@
 import { beforeEach } from "vitest";
 import { resetNextCache } from "./test-helpers";
 
-// vitest.config.mts 的 setupFiles：每個測試都從沒有 next/cache 呼叫紀錄的狀態開始，測試檔不必自己清
+// 每個測試都從沒有 next/cache 呼叫紀錄的狀態開始 測試檔不用自己清
 beforeEach(() => {
   resetNextCache();
 });
 
-// 測試不能對外連線：模組改用 vi.mock(path, { spy: true }) 之後，忘了設定回應就會呼叫真的實作，在這裡先擋下來
+// 測試不能對外連線 spy 模式的 vi.mock 忘了設回應就會呼叫真的實作 先在這裡擋下
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
-// 同一個執行環境載入兩次時，第二次拿到的 fetch 已經是防護版，原本的要記在全域才不會自己呼叫自己
+// 同一個環境載入兩次時 第二次拿到的 fetch 已經是防護版
+// 原本的要記在全域才不會自己呼叫自己
 const ORIGINAL_FETCH = Symbol.for("allhub.originalFetch");
 const holder = globalThis as typeof globalThis & { [ORIGINAL_FETCH]?: typeof fetch };
 const originalFetch = (holder[ORIGINAL_FETCH] ??= globalThis.fetch);
@@ -30,7 +31,7 @@ function destination(input: RequestInfo | URL): URL | null {
 
 globalThis.fetch = (input, init) => {
   const url = destination(input);
-  // 網址解析不了就交給原本的 fetch，讓它照常丟出自己的錯誤
+  // 網址解析不了就交給原本的 fetch 讓它照常丟出自己的錯誤
   if (!url || LOCAL_HOSTS.has(url.hostname)) return originalFetch(input, init);
   return Promise.reject(new Error(`測試不能對外連線（${url.origin}）。${HOW_TO_FAKE}`));
 };

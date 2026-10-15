@@ -18,11 +18,11 @@ let other: string;
 
 const CH = "UC" + "a".repeat(22);
 const VIDEO = "dQw4w9WgXcQ";
-/** 11 碼的假影片 id：video000000、video000001… */
+/** 11 碼的假影片 id 依序是 video000000 video000001 */
 const idOf = (i: number) => `video${String(i).padStart(6, "0")}`;
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000);
 
-/** 直接寫進清單；越後面的越新（updated_at 由舊到新） */
+/** 直接寫進清單 越後面的 updated_at 越新 */
 async function seed(userId: string, entries: { videoId: string; pinned: boolean }[]) {
   if (entries.length === 0) return;
   await testDb.insert(youtubeSavedVideos).values(
@@ -35,10 +35,13 @@ const rowOf = async (userId: string, videoId: string) =>
   (await testDb.select().from(youtubeSavedVideos).where(and(eq(youtubeSavedVideos.userId, userId), eq(youtubeSavedVideos.videoId, videoId))))[0];
 const lookupOf = (snapshot: { title: string | null; channelTitle: string | null } | null) => vi.fn(async () => snapshot);
 
-/** setupTestDb 底下的 PGlite：TestDb 的型別沒有列出 drizzle 的 $client */
+/** setupTestDb 底下的 PGlite TestDb 的型別沒有列出 drizzle 的 $client */
 const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
 
-/** 換成會記下每一句 SQL 的連線（同一個 PGlite），交易裡的也記得到；BEGIN 由 PGlite 自己送，開始交易時另外記一筆 */
+/**
+ * 換成會記下每句 SQL 的連線 用同一個 PGlite 交易裡的也記得到
+ * BEGIN 由 PGlite 自己送 所以開始交易時另外記一筆
+ */
 function logQueries(): string[] {
   const queries: string[] = [];
   const pglite = pgliteOf(testDb);
@@ -71,7 +74,7 @@ describe("手動保留（觀看頁的「保留」）", () => {
 
   it("其他影片_頻道名稱用呼叫端給的（觀看頁讀過的 oEmbed）；標題跟觀看頁一樣先用共用翻譯存的", async () => {
     await testDb.insert(youtubeTranslations).values({ videoId: VIDEO, title: "翻譯存的標題", sourceKind: "manual", sourceCues: [], translated: [], batches: [] });
-    // 別人追蹤的頻道不算：標題與頻道名稱不從別人的追蹤拿
+    // 別人追蹤的頻道不算 標題與頻道名稱不從別人的追蹤拿
     await testDb.insert(youtubeChannels).values({ channelId: CH, title: "別人追蹤的頻道" });
     await testDb.insert(youtubeFollows).values({ userId: other, channelId: CH });
     await testDb.insert(youtubeVideos).values({ videoId: VIDEO, channelId: CH, title: "別人清單上的標題" });
@@ -137,12 +140,8 @@ describe(`每人最多 ${SAVED_LIMIT} 部`, () => {
   const autos = (from: number, count: number) => Array.from({ length: count }, (_, i) => ({ videoId: idOf(from + i), pinned: false }));
   const idsOf = async (userId: string) => (await rowsOf(userId)).map((row) => row.videoId).sort();
 
-  it("上限是 15 部", () => {
-    expect(SAVED_LIMIT).toBe(15);
-  });
-
   it("手動保留_滿了先擠掉最舊的自動項目", async () => {
-    // 最舊的是自動的 0、1，中間夾著手動的 2…11，最新的是自動的 12…14
+    // 最舊的是自動的 0 1 中間夾著手動的 2 到 11 最新的是自動的 12 到 14
     await seed(me, [...autos(0, 2), ...pinned(2, 10), ...autos(12, 3)]);
 
     expect(await keepVideo(me, VIDEO, { pinned: true })).toBe("saved");

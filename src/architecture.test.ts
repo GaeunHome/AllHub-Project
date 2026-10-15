@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// 規則的說明在 CLAUDE.md「架構規則」，改規則時兩邊要一起改
+// 規則的說明在 CLAUDE.md 的架構規則 改規則時兩邊要一起改
 const SRC = fileURLToPath(new URL(".", import.meta.url));
 const LAYERS = ["web", "service", "data", "lib", "dev"] as const;
 const MODULE_ROOT_FILES = ["info.ts", "cron.ts"];
@@ -47,7 +47,10 @@ function resolve(from: string, spec: string): string | null | undefined {
   return undefined;
 }
 
-/** 解析 import／export from、副作用 import、動態 import 與 vi.mock；import type 與全部帶 type 的具名匯入視為只用型別 */
+/**
+ * 解析 import 與 export from 副作用 import 動態 import 和 vi.mock
+ * import type 與全部帶 type 的具名匯入算只用型別
+ */
 function importsOf(file: string): Import[] {
   const source = fs.readFileSync(path.join(SRC, file), "utf8");
   const found: { spec: string; typeOnly: boolean }[] = [];
@@ -70,7 +73,7 @@ const allImports = files.flatMap(importsOf);
 const isTest = (file: string) => /\.test\.tsx?$/.test(file);
 const describeImport = (i: Import, reason: string) => `${i.from} → ${i.spec}：${reason}`;
 
-/** 無法解析的 import 由專門的測試回報，這裡略過，避免一個錯誤讓每條規則都失敗 */
+/** 無法解析的 import 由專門的測試回報 這裡略過 免得一個錯誤讓每條規則都失敗 */
 function violations(rule: (i: Import, from: Place, to: Place) => string | null): string[] {
   return allImports.flatMap((i) => {
     if (i.target.startsWith("（無法解析）")) return [];
@@ -79,7 +82,7 @@ function violations(rule: (i: Import, from: Place, to: Place) => string | null):
   });
 }
 
-/** 模組對外公開、src/app 可以用的入口 */
+/** 模組對外公開 src/app 可以用的入口 */
 function isPublicEntry(to: Place): boolean {
   if (to.zone !== "module") return false;
   return to.rest === "info.ts" || to.rest === "cron.ts" || to.rest.startsWith("web/pages/") || to.rest.startsWith("web/routes/");
@@ -173,7 +176,8 @@ describe("架構規則", () => {
     expect(problems).toEqual([]);
   });
 
-  // core 的 HomePage 只排版、不能 import 模組，卡片由 src/app 的首頁組合：漏了就不會出現在首頁
+  // core 的 HomePage 只排版不能 import 模組 卡片由 src/app 的首頁組合
+  // 漏了就不會出現在首頁
   it("每個模組的首頁卡片（web/pages/home-card.tsx）都組合到首頁（src/app/(main)/page.tsx）", () => {
     const homePage = "app/(main)/page.tsx";
     const composed = new Set(allImports.filter((i) => i.from === homePage).map((i) => i.target));
@@ -182,7 +186,8 @@ describe("架構規則", () => {
     expect(cards.filter((card) => !composed.has(card)).map((card) => `${card}：還沒組合到 ${homePage}`)).toEqual([]);
   });
 
-  // 「提醒方式」依 notifies 決定列哪些模組：沒呼叫 notify() 卻列出來會多一排沒用的開關，反過來則是通知關不掉
+  // 提醒方式依 notifies 決定列哪些模組
+  // 沒呼叫 notify 卻列出來會多一排沒用的開關 反過來則是通知關不掉
   it("沒有呼叫 notify() 的模組在 info.ts 設 notifies: false，有呼叫的不設", async () => {
     const { modules } = await import("./modules");
     const notifying = new Set(
@@ -201,7 +206,8 @@ describe("架構規則", () => {
     expect(problems).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md「架構規則」的 env.ts：環境變數都經過 core/env.ts 驗證，例外只有這裡列的幾種
+  // 規則寫在 CLAUDE.md 架構規則的 env.ts
+  // 環境變數都經過 core/env.ts 驗證 例外只有這裡列的幾種
   it("process.env 只出現在例外的地方：core/env.ts、NODE_ENV、proxy.ts 的 SESSION_SECRET、drizzle.config.ts 的 DATABASE_URL、src/dev 的命令列工具、假外部服務的 MOCK_ 設定、測試檔", () => {
     const read = (file: string) => fs.readFileSync(path.join(SRC, file), "utf8");
     const rootConfigs = fs
@@ -209,7 +215,8 @@ describe("架構規則", () => {
       .filter((name) => /\.(ts|mts|cts|js|mjs|cjs)$/.test(name) && !name.endsWith(".d.ts"))
       .map((name) => `../${name}`);
     const scanned = [...[...fileSet].filter((file) => /\.(ts|tsx|mts|cts|js|mjs|cjs)$/.test(file)), ...rootConfigs];
-    // 命令列工具是 node 直接執行的入口（有 import.meta.main）；假外部服務是 mock:external 載入的檔案
+    // 命令列工具是 node 直接執行的入口 有 import.meta.main
+    // 假外部服務是 mock:external 載入的檔案
     const isCli = (file: string) => file.startsWith("dev/") && /\bimport\.meta\.main\b/.test(read(file));
     const isMock = (file: string) => file === "dev/mock-external.mjs" || /^modules\/[^/]+\/dev\/mock\.mjs$/.test(file);
     const allowed = (file: string, name: string | undefined): boolean => {
@@ -225,12 +232,13 @@ describe("架構規則", () => {
         .flatMap((line, i) => [...line.matchAll(/process\.env(?:\.([A-Za-z_]\w*)|\[\s*["'](\w+)["']\s*\])?/g)].map((m) => ({ file, name: m[1] ?? m[2], at: `${file}:${i + 1} ${line.trim()}` }))),
     );
 
-    // 先確認真的掃到了已知的用法，規則才不會因為沒掃到東西而空轉
+    // 先確認真的掃到已知的用法 規則才不會因為沒掃到東西而空轉
     expect(uses.map((use) => use.file)).toEqual(expect.arrayContaining(["core/env.ts", "proxy.ts", "../drizzle.config.ts", "dev/mock-external.mjs"]));
     expect(uses.filter((use) => !allowed(use.file, use.name)).map((use) => use.at)).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md「程式碼慣例」：ICU 版本不同時語系輸出的空白字元會變（CI 曾因此失敗），所以只取數字欄位自己組
+  // 規則寫在 CLAUDE.md 的程式碼慣例 ICU 版本不同時語系輸出的空白字元會變
+  // CI 曾因此失敗 所以只取數字欄位自己組
   it("日期時間顯示一律用 core/time.ts：不直接用 Intl.DateTimeFormat 或 toLocale*String", () => {
     const allowed = new Set(["core/time.ts", "dev/icu-simulation.ts"]);
     const offenders = files
@@ -244,7 +252,8 @@ describe("架構規則", () => {
     expect(offenders).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md「程式碼慣例」：焦點鎖定、Esc、點背景、關閉後還焦點、Activity 藏起來時一定關掉，都只寫在共用的元件裡
+  // 規則寫在 CLAUDE.md 的程式碼慣例 焦點鎖定 Esc 點背景 關閉後還焦點
+  // Activity 藏起來時一定關掉 這些都只寫在共用的元件裡
   it("原生的 <dialog> 與 showModal() 只出現在 core/ui/dialog.tsx，其他地方用它的 Dialog／DialogButton", () => {
     const offenders = files
       .filter((file) => !isTest(file) && file !== "core/ui/dialog.tsx")
@@ -258,7 +267,8 @@ describe("架構規則", () => {
     expect(offenders).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md「程式碼慣例」的畫面風格：Activity 藏起來的頁面還留在文件裡，:root:has() 會比對到它；PageTheme 在藏起來時標記，選擇器才排除得掉
+  // 規則寫在 CLAUDE.md 的畫面風格 Activity 藏起來的頁面還留在文件裡
+  // :root:has() 會比對到它 PageTheme 在藏起來時標記 選擇器才排除得掉
   it("會換整頁樣式的主題 class（globals.css 的 :root:has(.theme-…)）只放在 core/ui/page-theme.tsx 的 PageTheme 上", () => {
     const css = fs.readFileSync(path.join(SRC, "app/globals.css"), "utf8");
     const pageThemes = [...new Set([...css.matchAll(/(?::root|html|body):has\(\.(theme-[\w-]+)/g)].map((m) => m[1]))];
@@ -278,10 +288,12 @@ describe("架構規則", () => {
     expect(offenders).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md「間距與對齊」：Server Action 的表單開頭有 React 加的隱藏 input，串流中的 Suspense 會在原地多一個 <template>，第幾個子元素會算錯
+  // 規則在 CLAUDE.md 的間距與對齊 Server Action 表單開頭有隱藏 input
+  // 串流中的 Suspense 也會多一個 template 第幾個子元素會算錯
   it("不從外框用子元素的位置排欄（[&>:nth-child()]、[&>:last-child]、*:first: 這類）；[&>:first-child] 只能挑永遠排第一個的 PageHeader", () => {
     const POSITIONAL = /nth-child\(|nth-last-child\(|last-child|only-child|nth-of-type\(|nth-last-of-type\(|first-of-type|last-of-type|only-of-type/;
-    // Tailwind 的 *:（子元素）、**:（子孫）加上 first:、nth-2: 這類變體，跟 [&>:first-child] 一樣是從外框挑第幾個
+    // Tailwind 的 *: 是子元素 **: 是子孫 加上 first: nth-2: 這類變體
+    // 跟 [&>:first-child] 一樣是從外框挑第幾個
     const CHILD_VARIANT = /(?<![\w-])\*{1,2}:(?:[\w-]+:)*?(?:first|last|only|odd|even|(?:first|last|only)-of-type|nth-[^\s:"'`]+):/g;
     const problems = files
       .filter((file) => !isTest(file))
@@ -293,7 +305,8 @@ describe("架構規則", () => {
           const at = `${file}:${lineOf(m.index)} ${m[0]}`;
           if (POSITIONAL.test(m[0])) return [`${at}：不能用子元素的位置排欄，col-span 寫在元素自己身上`];
           if (!m[0].includes("first-child")) return [];
-          // 這個 class 所在的開頭標籤結束後，第一個 JSX 子元素（略過空白與 {/* */} 註解）要是 PageHeader
+          // 這個 class 所在的開頭標籤結束後 第一個 JSX 子元素要是 PageHeader
+          // 略過空白與 JSX 註解
           const rest = source.slice(m.index + m[0].length);
           const tagEnd = rest.search(/["'`][^>]*?>/);
           const firstChild = tagEnd < 0 ? null : rest.slice(tagEnd).replace(/^["'`][^>]*?>/, "").match(/^(?:\s|\{\/\*[\s\S]*?\*\/\})*<([A-Za-z.]+)/)?.[1];
@@ -304,14 +317,15 @@ describe("架構規則", () => {
     expect(problems).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md「程式碼慣例」：externalFetch() 在開發時改送假伺服器、加上逾時；直接呼叫全域 fetch 會在 E2E 打到真的服務
+  // 規則寫在 CLAUDE.md 的程式碼慣例 externalFetch 開發時改送假伺服器又有逾時
+  // 直接呼叫全域 fetch 會在 E2E 打到真的服務
   it("正式程式不直接呼叫全域 fetch()：對外請求經 core/external-url 的 externalFetch；例外只有它本身與 client 元件呼叫自家的 /api/", () => {
     const problems = files
       .filter((file) => !isTest(file) && placeOf(file).zone !== "dev" && file !== "core/external-url.ts")
       .flatMap((file) => {
         const source = fs.readFileSync(path.join(SRC, file), "utf8");
         const isClient = /^\s*["']use client["']/.test(source);
-        // 同一個檔案裡寫成常數的自家 API 路徑，例如 const API = "/api/notifications"
+        // 同一個檔案裡寫成常數的自家 API 路徑 例如通知中心的 API 常數
         const apiConstants = new Set([...source.matchAll(/\bconst\s+(\w+)\s*=\s*["'`]\/api\//g)].map((m) => m[1]));
         return [...source.matchAll(/(?<![\w.$])(?:(?:globalThis|window|self)\.)?fetch\(\s*([^,)\s]*)/g)].flatMap((m) => {
           const target = m[1];
@@ -320,7 +334,8 @@ describe("架構規則", () => {
           return [`${file}:${source.slice(0, m.index).split("\n").length} ${m[0]}：改用 externalFetch()${ownApi ? "（只有 client 元件可以直接呼叫自家的 /api/）" : ""}`];
         });
       });
-    // 先確認真的掃到了已知的例外（通知中心輪詢自家的 API），規則才不會因為沒掃到東西而空轉
+    // 先確認掃到已知的例外 通知中心輪詢自家的 API
+    // 規則才不會因為沒掃到東西而空轉
     expect(fs.readFileSync(path.join(SRC, "core/notifications/center.tsx"), "utf8")).toMatch(/(?<![\w.$])fetch\(API/);
     expect(problems).toEqual([]);
   });

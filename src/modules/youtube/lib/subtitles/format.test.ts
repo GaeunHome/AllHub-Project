@@ -77,7 +77,8 @@ describe("parseSubtitles：WebVTT", () => {
 });
 
 describe("parseSubtitles：yt-dlp 下載的 YouTube 自動字幕（滾動格式）", () => {
-  // yt-dlp --write-auto-subs 的實際輸出：第一個 cue 首行是一個空白，每句在下一個 cue 再出現一次當第一行，中間夾 10ms 過場 cue，新的一行帶逐字時間標籤
+  // yt-dlp --write-auto-subs 的實際輸出 每句在下一個 cue 再當第一行出現
+  // 中間夾 10ms 過場 cue 新的一行帶逐字時間標籤 第一個 cue 首行是空白
   const autoVtt = [
     "WEBVTT",
     "Kind: captions",
@@ -205,7 +206,7 @@ describe("decodeSubtitleBytes", () => {
   });
 
   it("CP949（韓文 Windows 記事本的預設存檔）→ 正確的韓文", () => {
-    // 「안녕」的 CP949／EUC-KR 編碼是 BE C8 B3 E7
+    // 안녕 的 CP949 與 EUC-KR 編碼都是 BE C8 B3 E7
     const bytes = Uint8Array.from([...ascii("1\n00:00:01,000 --> 00:00:02,000\n"), 0xbe, 0xc8, 0xb3, 0xe7, 0x0a]);
     expect(decodeSubtitleBytes(bytes)).toBe("1\n00:00:01,000 --> 00:00:02,000\n안녕\n");
   });
@@ -215,7 +216,8 @@ describe("decodeSubtitleBytes", () => {
   });
 
   it("CP949 擴充字（例如「똠」= 8C 63）不會解成亂碼：解得出就是正確的字，解不出就拒絕", () => {
-    // Node（ICU）的 euc-kr 不含 CP949 擴充區，會把 8C 當成 C1 控制字元；瀏覽器的 euc-kr 才是完整的 CP949
+    // Node 的 ICU euc-kr 不含 CP949 擴充區 會把 8C 當成 C1 控制字元
+    // 瀏覽器的 euc-kr 才是完整的 CP949
     expect(["똠", null]).toContain(decodeSubtitleBytes(Uint8Array.from([0x8c, 0x63])));
   });
 });

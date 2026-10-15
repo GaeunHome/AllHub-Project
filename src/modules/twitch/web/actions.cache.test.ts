@@ -18,7 +18,7 @@ beforeEach(() => {
 
 describe("Twitch 的 Server Action：寫入後用 updateTag 讓改到的表失效", () => {
   it.each([
-    // 追蹤改的是追蹤表；第一次有人追蹤、最後一位取消時也會新增或刪除主播
+    // 追蹤改的是追蹤表 第一次有人追蹤或最後一位取消時也會增刪主播
     ["addStreamerAction", ["twitch:follows", "twitch:streamers"], () => addStreamerAction({}, form({ login: "alice" }))],
     ["removeStreamerAction", ["twitch:follows", "twitch:streamers"], () => removeStreamerAction({}, form({ id: "3" }))],
     ["syncAction", ["twitch:streamers"], () => syncAction()],
@@ -29,7 +29,7 @@ describe("Twitch 的 Server Action：寫入後用 updateTag 讓改到的表失�
 
     expect(updated()).toEqual([...tags]);
     expect(revalidateTag).not.toHaveBeenCalled();
-    // updateTag 已經會讓這次回應帶著重新算繪的頁面，再呼叫 refresh 是多餘的
+    // updateTag 已經讓這次回應帶著重新算繪的頁面 再呼叫 refresh 是多餘的
     expect(refresh).not.toHaveBeenCalled();
   });
 

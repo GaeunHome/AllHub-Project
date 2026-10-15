@@ -7,7 +7,7 @@ const SIZES = {
   lg: { box: "h-20 w-15", icon: "size-5" },
 } as const;
 
-/** 遊戲封面（直播卡片用 sm、主播詳情用 lg）；讀不到時放手把圖示，版面一樣大 */
+/** 遊戲封面 直播卡片用 sm 主播詳情用 lg 讀不到時放手把圖示 版面一樣大 */
 export function GameBoxArt({ url, size }: { url: string | null; size: keyof typeof SIZES }) {
   const { box, icon } = SIZES[size];
   return (

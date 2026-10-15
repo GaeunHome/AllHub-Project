@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-// 公開頁面（proxy 不擋）：登入、註冊前就要能讀；不讀資料庫與 cookie，建置時就能算繪好
+// 公開頁面 proxy 不擋 登入註冊前就要能讀 不讀資料庫與 cookie 建置時就能算繪好
 
 export function TermsPage() {
   return (
@@ -13,7 +13,7 @@ export function TermsPage() {
         </header>
 
         <Section title="一、這是什麼網站">
-          <li>AllHub 是站長個人製作的非商業網站，整合 Twitch 開台通知、YouTube 新影片與字幕翻譯、星穹鐵道便箋與簽到、存錢記帳。</li>
+          <li>AllHub 是站長個人製作的非商業網站，整合 Twitch 開台通知、YouTube 新影片與字幕翻譯、星穹鐵道便箋與簽到、理財記帳。</li>
           <li>不收費、不放廣告，不販售、出租或分享任何人的資料，也不拿資料做行銷或分析。</li>
           <li>只能用站長的邀請連結註冊，只提供給站長認識的人使用。</li>
         </Section>
@@ -22,13 +22,14 @@ export function TermsPage() {
           <li>帳號：帳號名稱、角色（站長或成員）、建立時間、停用時間，以及登入失敗次數與暫時鎖定時間（防止有人猜密碼）。</li>
           <li>密碼：只存 scrypt 雜湊，任何人（包括站長）都看不到原本的密碼。</li>
           <li>第三方憑證：你的 AI 服務 API Key 與 HoYoLAB cookie，加密後才存（見第三節）。</li>
-          <li>你設定的內容：追蹤名單（Twitch 主播、YouTube 頻道）、翻譯設定與專有名詞表、保留的 YouTube 影片、連結的 HoYoLAB 帳號、存錢記帳的項目與紀錄。</li>
+          <li>你設定的內容：追蹤名單（Twitch 主播、YouTube 頻道）、翻譯設定與專有名詞表、保留的 YouTube 影片、連結的 HoYoLAB 帳號、理財的帳戶與紀錄。</li>
+          <li>理財的帳戶只存你取的名稱與金額，不存帳號、卡號。</li>
           <SubList intro="保存多久：">
             <li>網站通知、開台紀錄、簽到紀錄：14 天後自動刪除</li>
             <li>YouTube 影片：只留每個人追蹤頻道的最新 20 支，其餘的在發布兩天後刪除；Shorts 確認後就刪除（已發過通知的留到發布兩天後）</li>
             <li>翻譯好的字幕：永久保留（見第五節）</li>
             <li>保留的影片清單：每人最多 15 部，留到你自己移除；按過翻譯的影片會自動加入，滿了先移除最舊的自動加入項目，你手動保留的不會被移除</li>
-            <li>存錢記帳：永久保留，直到你刪除</li>
+            <li>理財：永久保留，直到你刪除</li>
           </SubList>
           <li>
             防濫用紀錄：註冊與邀請碼的嘗試次數、用過的驗證碼、手動同步與續訂的冷卻時間；IP、驗證碼代號（nonce）與帳號 id 都只存雜湊，看不出原本的值。超過 1 天的紀錄會在下次有人登入、註冊或按同步、續訂時刪除。
@@ -48,7 +49,8 @@ export function TermsPage() {
           <li>Vercel（網站主機）與 Supabase（資料庫），都在東京：保存與處理上面的資料；Vercel 也會留下一般的連線紀錄（含 IP）。</li>
           <li>YouTube、Twitch：伺服器會向它們查詢頻道、影片、字幕、頭像與開台狀態；每天的排程會讀追蹤中 YouTube 頻道的 RSS，RSS 裡沒有的影片再逐支確認，找出 Shorts 刪掉。</li>
           <li>HoYoLAB：伺服器用你的 cookie 查詢即時便箋、角色、開拓月曆與終局戰績；每天替你簽到、每 30 分鐘查一次開拓力（快滿時提醒）；你輸入的兌換碼會用你的帳號送出。</li>
-          {/* 只列真的只放快取的資料（效期照 next.config.ts 的 cacheLife 的 expire）；追蹤、連結、保留時存下的平台資料另外照資料表列出，不能說成都不存 */}
+          {/* 只列真的只放快取的資料 效期照 next.config.ts 的 cacheLife expire
+              追蹤 連結與保留時存下的平台資料另外列出 不能說成都不存 */}
           <SubList intro="只放在伺服器快取、不存資料庫的外部資料（最多保留多久）：">
             <li>HoYoLAB 即時便箋：5 分鐘</li>
             <li>HoYoLAB 角色、開拓月曆、終局戰績：30 分鐘</li>
@@ -79,13 +81,13 @@ export function TermsPage() {
           <li>翻譯好的字幕永久保留，影片被清掉或頻道沒人追蹤時也不刪除。</li>
         </Section>
 
-        {/* 這一節寫的是最終版：這頁跟各模組資料依帳號分開、刪除帳號時連帶刪除一起上線 */}
+        {/* 這節寫的是最終版 這頁跟資料依帳號分開與刪帳號連帶刪除一起上線 */}
         <Section title="六、刪除帳號與資料">
           <li>你可以在「帳號設定」頁輸入密碼刪除自己的帳號，刪除後無法復原。</li>
-          <li>刪除帳號時，追蹤名單、保留的影片清單、加密的 API Key 與 HoYoLAB cookie、記帳資料、網站通知、簽到紀錄與你建立的邀請連結都會一起刪除。</li>
+          <li>刪除帳號時，追蹤名單、保留的影片清單、加密的 API Key 與 HoYoLAB cookie、理財資料、網站通知、簽到紀錄與你建立的邀請連結都會一起刪除。</li>
           <li>共用的翻譯字幕會留給其他使用者，但不再連到你的帳號。</li>
           <li>帳號被濫用時，站長可以停用或刪除帳號。</li>
-          <li>停用等於凍結：不能登入，排程不會用你的 HoYoLAB cookie 簽到、查便箋或提醒開拓力，也不會寫網站通知給你。</li>
+          <li>停用等於凍結：不能登入，排程不會用你的 HoYoLAB cookie 簽到、查便箋或提醒開拓力，不會自動記固定收支，也不會寫網站通知給你。</li>
           <li>停用期間資料與訂閱都保留；恢復後照常運作，但要重新登入。</li>
         </Section>
 
@@ -118,7 +120,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** 一條裡再分項（依效期、依平台）：寫成一長句很難讀；li 本身不能是 flex，否則項目符號會不見 */
+/** 一條裡再分項 寫成一長句很難讀 li 本身不能是 flex 否則項目符號會不見 */
 function SubList({ intro, children }: { intro: string; children: ReactNode }) {
   return (
     <li>

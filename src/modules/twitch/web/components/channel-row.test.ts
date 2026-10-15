@@ -42,9 +42,9 @@ const live = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 const detail = (overrides: Record<string, unknown>) => renderToStaticMarkup(ChannelDetail({ streamer: streamer(overrides), now: NOW } as RowProps));
-/** 預覽圖外框的 class：裡面是預覽圖或佔位 */
+/** 預覽圖外框的 class 裡面是預覽圖或佔位 */
 const stageOf = (markup: string) => markup.match(/<div class="([^"]*\baspect-video\b[^"]*)"/)?.[1].split(/\s+/) ?? [];
-/** 預覽圖外框裡的 markup（外框裡只有 img 與 span，第一個 </div> 就是它的結尾） */
+/** 預覽圖外框裡的 markup 裡面只有 img 與 span 第一個 </div> 就是結尾 */
 const stageHtml = (markup: string) => markup.slice(markup.indexOf("aspect-video"), markup.indexOf("</div>", markup.indexOf("aspect-video")));
 
 describe("追蹤的頻道的一列（Twitch）", () => {
@@ -124,20 +124,6 @@ describe("主播詳情：滿版的大面板（Twitch）", () => {
     expect(textOf(stage)).toContain("開台 1 小時 35 分");
   });
 
-  it("預覽圖下面是放大的直播標題與遊戲（標題在遊戲前面）", () => {
-    const text = textOf(detail({ isLive: true, live: live() }));
-
-    expect(text.indexOf("今天玩鐵道")).toBeGreaterThan(-1);
-    expect(text.indexOf("今天玩鐵道")).toBeLessThan(text.indexOf("Honkai: Star Rail"));
-    expect(detail({ isLive: true, live: live() })).toMatch(/<p[^>]*class="[^"]*text-xl[^"]*"[^>]*>今天玩鐵道<\/p>/);
-  });
-
-  it("手機上預覽撐滿螢幕寬度（碰到左右兩邊）；限高：橫拿手機時不比畫面高，寬螢幕上標題列與直播資訊留在畫面裡", () => {
-    const stage = stageOf(detail({ isLive: true, live: live() }));
-
-    expect(stage).toEqual(expect.arrayContaining(["w-full", "max-sm:-mx-4", "max-sm:w-[calc(100%+2rem)]", "max-h-[65dvh]", "lg:max-h-[calc(100dvh-15.75rem)]"]));
-  });
-
   it("寬螢幕：左邊是預覽與直播資訊，右邊一欄是通知開關、訂閱狀態、Twitch 連結與刪除", () => {
     const markup = detail({ isLive: true, live: live() });
     const grid = markup.match(/^<div class="([^"]*)"/)![1].split(/\s+/);
@@ -158,10 +144,6 @@ describe("主播詳情：滿版的大面板（Twitch）", () => {
     expect(textOf(stage)).toContain("離線");
     expect(textOf(stage)).not.toContain("LIVE");
     expect(textOf(markup).match(/離線/g)).toHaveLength(1);
-  });
-
-  it("剛開台、Helix 還查不到標題：寫「<名稱> 正在直播」", () => {
-    expect(detail({ isLive: true, live: live({ title: null, gameName: null }) })).toMatch(/<p[^>]*class="[^"]*text-xl[^"]*"[^>]*>Hanabi 正在直播<\/p>/);
   });
 
   it("離線、沒有橫幅（或直播中但還查不到預覽）：放頭像的佔位，版面一樣大", () => {

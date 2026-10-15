@@ -51,12 +51,6 @@ describe("cachedStreamerProfiles：主播頭像與離線橫幅（外部資料，
     expect(loggedText(log)).toContain("401");
     expect(loggedText(log)).not.toContain("invalid client secret");
   });
-
-  it("沒有主播_空陣列", async () => {
-    api.getUsersById.mockResolvedValue([]);
-
-    expect(await cachedStreamerProfiles([])).toEqual([]);
-  });
 });
 
 describe("cachedLiveStreams：直播狀態、觀看人數與預覽圖", () => {

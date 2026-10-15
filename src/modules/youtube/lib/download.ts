@@ -11,7 +11,7 @@ export function parseDownloadQuery(params: URLSearchParams): { format: DownloadF
   return { format, lang };
 }
 
-/** 中文版還沒翻到的句子用韓文原文補上，下載下來的時間軸才完整 */
+/** 中文還沒翻到的句子用韓文原文補 下載的時間軸才完整 */
 export function buildSubtitleFile(cues: Cue[], translated: (string | null)[], lang: DownloadLang, format: DownloadFormat): string {
   const lines = cues.map((cue, i) => {
     const zh = translated[i] ?? cue.text;

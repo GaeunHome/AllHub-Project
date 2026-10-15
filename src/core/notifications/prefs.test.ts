@@ -5,10 +5,10 @@ function fakeStorage(initial: Record<string, string> = {}) {
   return { data, getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => void data.set(key, value) };
 }
 
-/** 別的分頁改了 localStorage 時，瀏覽器只在其他分頁觸發 storage 事件 */
+/** 瀏覽器只在其他分頁觸發 storage 事件 用來模擬別的分頁改了設定 */
 const storageEvent = (key: string | null) => Object.assign(new Event("storage"), { key });
 
-// prefs 會記住建立過的偏好，每個測試重新載入，才不會沿用上一個測試的狀態
+// prefs 會記住建立過的偏好 每個測試重新載入 才不會沿用上一個測試的狀態
 async function loadPrefs(initial: Record<string, string> = {}) {
   const storage = fakeStorage(initial);
   vi.stubGlobal("localStorage", storage);

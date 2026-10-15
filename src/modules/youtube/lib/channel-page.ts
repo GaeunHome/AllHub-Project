@@ -1,8 +1,8 @@
-// 頻道頁的 HTML 沒有公開格式（非官方，改版可能失效）：讀不到就回 null，畫面退回文字頭像
+// 頻道頁的 HTML 沒有公開格式 改版可能失效 讀不到就回 null 畫面退回文字頭像
 
-/** 頭像只認 Google 的圖片網域：YouTube 擋下雲端主機時會回同意頁，那裡的 og:image 是 YouTube 的通用圖 */
+/** 只認 Google 的圖片網域 被擋時回的同意頁也有 og:image 但那是 YouTube 的通用圖 */
 const AVATAR_HOSTS = /(^|\.)(ggpht\.com|googleusercontent\.com|ytimg\.com)$/;
-/** 畫面上的頭像最大 44px，三倍多就夠清楚；原圖常是 900px */
+/** 畫面上的頭像最大 44px 三倍多就夠清楚 原圖常是 900px */
 const AVATAR_PIXELS = 176;
 
 export function parseChannelId(html: string): string | null {
@@ -13,7 +13,7 @@ export function parseChannelId(html: string): string | null {
   );
 }
 
-/** 先讀 og:image，沒有再讀 ytInitialData 裡的頭像 */
+/** 先讀 og:image 沒有再讀 ytInitialData 裡的頭像 */
 export function parseChannelAvatar(html: string): string | null {
   for (const candidate of [ogImage(html), initialDataAvatar(html)]) {
     const url = normalizeAvatar(candidate);

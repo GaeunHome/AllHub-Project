@@ -8,7 +8,8 @@ import { hubRequest } from "../lib/api";
 import { parseVerification, topicFor } from "../lib/websub";
 import { handleVerification } from "./channels";
 
-// 從送給 hub 的訂閱請求一路走到 hub 回呼確認：只把 fetch 換成假 hub，hubRequest、parseVerification、handleVerification 與資料庫都是真的
+// 從送給 hub 的訂閱請求一路走到 hub 回呼確認 只把 fetch 換成假 hub
+// hubRequest parseVerification handleVerification 與資料庫都是真的
 
 stubYoutubeEnv();
 
@@ -21,7 +22,6 @@ const DAY_MS = 24 * 3600_000;
 let testDb: TestDb;
 setupTestDb((d) => (testDb = d));
 
-/** 假 hub：記下收到的訂閱請求 */
 let hub = fakeFetch(() => new Response(null, { status: 202 }));
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -39,7 +39,7 @@ async function callbackFor(mode: "subscribe" | "unsubscribe", channelId: string)
   return new URLSearchParams(String(hub.calls.at(-1)!.init.body)).get("hub.callback")!;
 }
 
-/** hub 照 WebSub 規範在 callback 上「加上」hub.* 參數再 GET；callback 原本的 query 會保留 */
+/** hub 照 WebSub 規範在 callback 加上 hub.* 參數再 GET 原本的 query 會保留 */
 async function hubVerifies(callback: string, params: Record<string, string>): Promise<string | null> {
   const url = new URL(callback);
   for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);

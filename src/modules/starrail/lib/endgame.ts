@@ -1,4 +1,4 @@
-// 終局戰績（game_record/hkrpg/api/challenge、challenge_story、challenge_boss）：依 genshin.py 的 starrail chronicle challenge 模型整理、尚未用真實帳號驗證
+// 終局戰績的欄位依 genshin.py 的 challenge 模型整理 還沒用真實帳號驗證
 
 import { elementIconUrl } from "./game-icons";
 import { asRecord, bool, createMissing, image, number, text } from "./json";
@@ -8,10 +8,9 @@ export const ENDGAME_MODES = ["chaos", "fiction", "shadow"] as const;
 export type EndgameMode = (typeof ENDGAME_MODES)[number];
 
 const LABELS: Record<EndgameMode, string> = { chaos: "混沌回憶", fiction: "虛構敘事", shadow: "末日幻影" };
-/** 戰績介面的路徑 */
 export const ENDGAME_ENDPOINTS: Record<EndgameMode, string> = { chaos: "challenge", fiction: "challenge_story", shadow: "challenge_boss" };
 
-/** current 是本期（schedule_type 1），previous 是上期（2） */
+/** current 是本期 previous 是上期 對應 schedule_type 的 1 和 2 */
 export type EndgameSchedule = "current" | "previous";
 
 export type TeamMember = { id: number | null; level: number | null; icon: string | null; rarity: number | null; element: string | null; elementIcon: string | null; eidolon: number | null };
@@ -21,9 +20,9 @@ export type EndgameNode = { avatars: TeamMember[]; score: number | null; bossDef
 export type EndgameFloor = {
   name: string | null;
   stars: number | null;
-  /** 混沌回憶用了幾回合；其他兩種沒有 */
+  /** 混沌回憶用了幾回合 其他兩種沒有 */
   rounds: number | null;
-  /** 虛構敘事、末日幻影兩個節點的分數總和；混沌回憶沒有 */
+  /** 虛構敘事與末日幻影兩個節點的分數總和 混沌回憶沒有 */
   score: number | null;
   quickClear: boolean | null;
   nodes: EndgameNode[];
@@ -34,10 +33,10 @@ export type Endgame = {
   /** 這一期有沒有挑戰紀錄 */
   hasData: boolean;
   name: string | null;
-  /** 伺服器時間，例如「2026/10/6 04:00」 */
+  /** 伺服器時間 例如 2026/10/6 04:00 */
   begin: string | null;
   end: string | null;
-  /** 總星數（含加碼的星） */
+  /** 總星數 含加碼的星 */
   stars: number | null;
   maxFloor: string | null;
   battles: number | null;
@@ -54,7 +53,7 @@ export function interpretEndgame(json: unknown, mode: EndgameMode): HoyolabResul
   return interpretWith(json, (data) => parseEndgame(data, mode));
 }
 
-/** 回應裡的時間是 {year, month, day, hour, minute}（伺服器時區），直接組成字串，不換算時區 */
+/** 回應裡的時間是伺服器時區的年月日時分 直接組成字串不換算時區 */
 export function formatPartialTime(value: unknown): string | null {
   const t = asRecord(value);
   const [year, month, day, hour, minute] = ["year", "month", "day", "hour", "minute"].map((key) => number(t?.[key]));
@@ -73,7 +72,7 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
   const declared = bool(root.has_data);
   if (declared === null) missing.add("has_data");
   const group = asRecord(Array.isArray(root.groups) ? root.groups[0] : null);
-  // 這一期沒有挑戰時很多欄位本來就是空的，不算格式不同
+  // 這一期沒有挑戰時很多欄位本來就是空的 不算格式不同
   const need = declared === false ? <T>(value: T | null) => value : missing.need;
 
   const member = (value: unknown): TeamMember[] => {

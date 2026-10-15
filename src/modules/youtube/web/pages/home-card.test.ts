@@ -54,13 +54,13 @@ describe("首頁「最新影片」（YouTube）", () => {
     const markup = await html();
     const text = textOf(markup);
 
-    // 只數 <img>：不延遲載入的縮圖，React 另外會放一個 <link rel="preload"> 先載
+    // 只數 <img> 不延遲載入的縮圖 React 另外會放 <link rel="preload"> 先載
     expect(markup.match(/<img[^>]*i\.ytimg\.com\/vi\/[\w-]+\/mqdefault\.jpg/g)).toHaveLength(4);
     expect(text).toContain("影片 vid00000004");
     expect(text).not.toContain("影片 vid00000005");
     expect(text).toContain("模擬頻道");
     expect(text).toContain("3 小時前");
-    // 頻道頁的頭像還在讀的時候，先用追蹤時存下的
+    // 頻道頁的頭像還在讀的時候 先用追蹤時存下的
     expect(markup).toContain("yt3.ggpht.com/ytc/stored-avatar");
     expect(markup).toContain('href="/youtube"');
   });

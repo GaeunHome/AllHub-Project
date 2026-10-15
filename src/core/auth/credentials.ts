@@ -2,7 +2,8 @@ import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { COMMON_PASSWORDS } from "./common-passwords.ts";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./password-rules.ts";
 
-// 網站與 account CLI 共用這一份；CLI 用純 node 直接載入，只能 import node 內建模組與帶 .ts 副檔名的相對路徑
+// 網站與 account CLI 共用 CLI 用純 node 直接載入
+// 只能 import node 內建模組與帶 .ts 副檔名的相對路徑
 
 export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH };
 export const USERNAME_MIN_LENGTH = 3;
@@ -10,28 +11,29 @@ export const USERNAME_MAX_LENGTH = 32;
 
 export type ScryptParams = { N: number; r: number; p: number };
 
-// OWASP 列出與 N=2^17,p=1 等效的組合；N=2^15,p=3 每次只佔 32 MiB，serverless 同時多個登入也不會吃光記憶體
+// N=2^15 p=3 是 OWASP 列出跟 N=2^17 p=1 等效的組合
+// 每次只佔 32 MiB serverless 同時多個登入也不會吃光記憶體
 export const DEFAULT_SCRYPT: ScryptParams = { N: 2 ** 15, r: 8, p: 3 };
 
 const ALGORITHM = "scrypt";
 const SALT_BYTES = 16;
 const KEY_BYTES = 32;
-// 參數是從資料庫的雜湊字串讀出來的，限制範圍，壞掉或被竄改的值才不會讓伺服器卡住或吃光記憶體
+// 參數從資料庫的雜湊讀出 限制範圍 壞掉或被竄改的值才不會拖垮伺服器
 const LIMITS = { minLogN: 10, maxLogN: 20, maxR: 32, maxP: 16, maxMemory: 256 * 1024 * 1024 };
 const USERNAME_PATTERN = /^[a-z0-9_.-]+$/;
-// 同一小段（最多 6 個字）重複到底：aaaaaaaaaaaa、abcabcabcabc、qwertyqwerty 都只比一小段好猜一點
+// 最多 6 字的一小段重複到底 例如 abcabcabcabc 幾乎跟那一小段一樣好猜
 const REPEATED_CHUNK = /^([\s\S]{1,6}?)\1+$/u;
 
 type ParsedHash = { params: ScryptParams; salt: Buffer; hash: Buffer };
 
-/** Node 預設 maxmem 是 32 MiB，N=2^15、r=8 剛好超過，一定要依參數放寬 */
+/** Node 預設 maxmem 是 32 MiB N=2^15 r=8 剛好超過 要依參數放寬 */
 function maxmemFor({ N, r, p }: ScryptParams): number {
   return 128 * r * (N + p + 2) + 1024 * 1024;
 }
 
 function derive(password: string, salt: Buffer, params: ScryptParams, keyLength: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    // NFKC：同一個密碼在不同裝置可能用組合字元或預組字元輸入，正規化後才比得起來
+    // 不同裝置可能用組合字元或預組字元輸入 NFKC 正規化後才比得起來
     scrypt(password.normalize("NFKC"), salt, keyLength, { ...params, maxmem: maxmemFor(params) }, (error, key) => (error ? reject(error) : resolve(key)));
   });
 }
@@ -70,7 +72,7 @@ export async function hashPassword(password: string, params: ScryptParams = DEFA
   return [ALGORITHM, params.N, params.r, params.p, salt.toString("base64url"), hash.toString("base64url")].join("$");
 }
 
-/** stored 是 null（帳號不存在）或格式壞掉時，也用預設參數跑一次 scrypt，回應時間才不會透露帳號是否存在 */
+/** 帳號不存在或雜湊壞掉時也跑一次 scrypt 回應時間才不會透露帳號是否存在 */
 export async function verifyPassword(password: string, stored: string | null): Promise<boolean> {
   const parsed = stored === null ? null : parseHash(stored);
   if (!parsed) {
@@ -81,7 +83,7 @@ export async function verifyPassword(password: string, stored: string | null): P
   return timingSafeEqual(actual, parsed.hash);
 }
 
-/** 登入成功時順便換成目前的參數，調高強度後舊帳號也會逐漸跟上 */
+/** 登入成功時順便換成目前的參數 調高強度後舊帳號也會逐漸跟上 */
 export function needsRehash(stored: string, params: ScryptParams = DEFAULT_SCRYPT): boolean {
   const parsed = parseHash(stored);
   return !parsed || parsed.params.N !== params.N || parsed.params.r !== params.r || parsed.params.p !== params.p || parsed.hash.length !== KEY_BYTES;
@@ -94,7 +96,10 @@ export function passwordProblem(password: string): string | null {
   return null;
 }
 
-/** 只在設定新密碼時檢查（註冊、改密碼、CLI）；登入不檢查，以前設的密碼照樣能用。username 傳 normalizeUsername 之後的值 */
+/**
+ * 只在設定新密碼時檢查 登入不檢查 以前設的密碼照樣能用
+ * username 傳 normalizeUsername 之後的值
+ */
 export function weakPasswordProblem(password: string, username?: string): string | null {
   const normalized = password.normalize("NFKC").toLowerCase();
   if (COMMON_PASSWORDS.has(normalized) || COMMON_PASSWORDS.has(normalized.replace(/\s+/g, ""))) return "這個密碼太常見，容易被猜到，請換一個";
@@ -103,12 +108,12 @@ export function weakPasswordProblem(password: string, username?: string): string
   return null;
 }
 
-/** 設定新密碼的完整規則：先看長度，再看是不是常見密碼、有沒有包含帳號名稱 */
+/** 設定新密碼時用這個 長度與強度都檢查 */
 export function newPasswordProblem(password: string, username?: string): string | null {
   return passwordProblem(password) ?? weakPasswordProblem(password, username);
 }
 
-/** 帳號不分大小寫：一律存小寫，全形英數也換成半形 */
+/** 帳號不分大小寫 一律存小寫 全形英數也換成半形 */
 export function normalizeUsername(input: string): string {
   return input.normalize("NFKC").trim().toLowerCase();
 }

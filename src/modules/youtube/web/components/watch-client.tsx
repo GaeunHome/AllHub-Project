@@ -51,23 +51,26 @@ type LiveUpdate = { translated?: (string | null)[]; translating: boolean };
 
 type WatchClientProps = {
   videoId: string;
-  /** 播放器下方的標題（伺服器元件，可能還在串流） */
+  /** 播放器下方的標題 是伺服器元件 可能還在串流 */
   title: ReactNode;
-  /** 標題下方頻道列的左半邊：頭像與頻道名稱 */
+  /** 標題下方頻道列的左半邊 頭像與頻道名稱 */
   channel: ReactNode;
-  /** 伺服器端翻譯狀態的版本；開始、上傳、重試、重新翻譯後會換掉 */
+  /** 伺服器端翻譯狀態的版本 開始 上傳 重試或重新翻譯後會換掉 */
   translationKey: string;
   translation: WatchTranslation | null;
-  /** 目前的供應商還沒設定 API Key 時的提示，有金鑰時是 null；翻譯是共用的，沒有金鑰的人只能看已經翻好的部分 */
+  /**
+   * 目前的供應商還沒設定 API Key 時的提示 有金鑰時是 null
+   * 翻譯共用 沒有金鑰的人只能看已經翻好的部分
+   */
   apiKeyMissing: string | null;
-  /** 能不能重新翻譯或上傳字幕：只有發起人或站長（還沒有翻譯時大家都可以） */
+  /** 能不能重新翻譯或上傳字幕 只有發起人或站長 還沒有翻譯時大家都可以 */
   canManage: boolean;
-  /** 翻譯是不是觀看者自己發起的：別人發起、還沒翻完的不自動用他的 API Key 接著翻 */
+  /** 是不是觀看者自己發起的 別人發起的不自動用他的 API Key 接著翻 */
   startedByViewer: boolean;
   settingsHref: string;
 };
 
-/** 照 YouTube 的觀看頁排：播放器、標題、頻道列（右邊是翻譯的膠囊按鈕），下面像說明欄的灰色區塊放翻譯進度 */
+/** 照 YouTube 的觀看頁排 翻譯按鈕在頻道列右邊 翻譯進度放在像說明欄的灰色區塊 */
 export function WatchClient({ videoId, title, channel, translationKey, translation, apiKeyMissing, canManage, startedByViewer, settingsHref }: WatchClientProps) {
   const [mode, setMode] = useState<SubtitleMode>("both");
   const [subtitleSize, setSubtitleSize] = useSubtitleSize();
@@ -78,10 +81,12 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
   const playerRef = useRef<PlayerHandle>(null);
   const playingRef = useRef(false);
   const autoAttemptedRef = useRef(false);
-  // 按過「用我的 API Key 繼續翻譯」、開始或重試：這一頁之後都接著翻（面板重新掛載也記得）；記影片 id，換影片就要重新按
+  // 按過用我的 API Key 繼續翻譯 開始或重試後這一頁都接著翻 面板重新掛載也記得
+  // 記的是影片 id 換影片就要重新按
   const [consentedVideo, setConsentedVideo] = useState<string | null>(null);
   const consent = () => setConsentedVideo(videoId);
-  // 按「用我的 API Key 繼續翻譯」後伺服器把影片加進了保留的影片：續翻不重繪頁面，頻道列的「保留」靠這個當場改成「已保留」
+  // 續翻後伺服器把影片加進了保留清單 但續翻不重繪頁面
+  // 頻道列的保留靠這個當場改成已保留
   const [autoSavedVideo, setAutoSavedVideo] = useState<string | null>(null);
   const autoContinue = shouldAutoContinue({
     active: isActive(translation?.status),
@@ -89,7 +94,8 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
     startedByViewer,
     consented: consentedVideo === videoId,
   });
-  // 翻譯中每批回來就更新，播放器可以先顯示已翻好的部分；伺服器端狀態換了就改用伺服器給的資料
+  // 翻譯中每批回來就更新 播放器可以先顯示翻好的部分
+  // 伺服器端狀態換了就改用伺服器給的資料
   const [live, setLive] = useState<{ key: string; translated: (string | null)[]; translating: boolean } | null>(null);
   const current = live?.key === translationKey ? live : null;
   const translated = current?.translated ?? translation?.translated ?? [];
@@ -102,7 +108,7 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
       translating: nowTranslating,
     }));
 
-  /** 只在使用者打開觀看頁播放時翻譯；同一頁只自動試一次，抓不到字幕時不會每按一次播放就重抓 */
+  /** 只在觀看頁播放時翻譯 同一頁只自動試一次 抓不到字幕時不會每按一次播放就重抓 */
   const autoStart = (enabled: boolean) => {
     const attempted = autoAttemptedRef.current || starter.result !== null;
     if (!shouldAutoStart({ enabled, hasTranslation: translation !== null, apiKeyMissing: apiKeyMissing !== null, attempted, pending: starter.pending })) return;
@@ -112,11 +118,11 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
 
   const changeAutoTranslate = (on: boolean) => {
     setAutoTranslate(on);
-    // 播放中才打開也算數，不必再按一次播放
+    // 播放中才打開也算數 不必再按一次播放
     if (on && playingRef.current) autoStart(true);
   };
 
-  // 字幕語言與大小放在膠囊的後段；全螢幕與劇院模式的按鈕在播放器上
+  // 字幕語言與大小放在膠囊的後段 全螢幕與劇院模式的按鈕在播放器上
   const playerControls = translation && (
     <>
       <PillChoice label="字幕語言" icon="captions" options={MODES} value={mode} onChange={setMode} />
@@ -126,10 +132,10 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
 
   return (
     <AutoSavedContext value={{ videoId: autoSavedVideo, clear: () => setAutoSavedVideo(null) }}>
-      {/* 劇院模式在寬螢幕拆開這一層：播放器撐滿版面的兩欄，標題與翻譯面板、接下來播放排到下面一列 */}
+      {/* 劇院模式在寬螢幕拆開這一層 播放器撐滿兩欄 標題 翻譯面板與接下來播放排到下一列 */}
       <div className={theater ? "stack min-w-0 lg:contents" : "stack min-w-0"}>
         <YoutubePlayer
-          // 換影片時整個重建：上一支的字幕與播放狀態不會留到下一支
+          // 換影片時整個重建 上一支的字幕與播放狀態不會留到下一支
           key={videoId}
           ref={playerRef}
           videoId={videoId}
@@ -149,14 +155,14 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
         <div className="stack min-w-0">
           {title}
           {translation ? (
-            // 伺服器端狀態換了只重建這個面板；播放器保留，影片不會重新載入
+            // 伺服器端狀態換了只重建這個面板 播放器保留 影片不會重新載入
             <TranslationPanel
               key={translationKey}
               videoId={videoId}
               channel={channel}
               controls={playerControls}
               translation={translation}
-              // 播放器還沒準備好時影片也是從頭播，先從頭翻
+              // 播放器還沒準備好時影片也是從頭播 先從頭翻
               position={() => playerRef.current?.positionMs() ?? 0}
               apiKeyMissing={apiKeyMissing}
               canManage={canManage}
@@ -194,7 +200,7 @@ type PillChoiceProps<T extends string> = {
   onChange: (value: T) => void;
 };
 
-/** 一組互斥的選項收在同一顆膠囊裡（字幕語言、字幕大小） */
+/** 一組互斥的選項收在同一顆膠囊裡 例如字幕語言與大小 */
 function PillChoice<T extends string>({ label, icon, text, options, value, onChange }: PillChoiceProps<T>) {
   return (
     <div role="group" aria-label={label} className="yt-segmented">
@@ -209,7 +215,7 @@ function PillChoice<T extends string>({ label, icon, text, options, value, onCha
   );
 }
 
-/** 頻道列：左邊頭像與名稱，右邊一排膠囊按鈕；手機上按鈕排成一列橫向捲動，跟 YouTube App 一樣 */
+/** 左邊頭像與名稱 右邊一排膠囊按鈕 手機上按鈕橫向捲動 跟 YouTube App 一樣 */
 function ChannelRow({ channel, children }: { channel: ReactNode; children: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
@@ -223,7 +229,7 @@ function ChannelRow({ channel, children }: { channel: ReactNode; children: React
 
 type Starter = { result: StartState | null; pending: boolean; start: () => void };
 
-/** 按鈕與自動即時翻譯共用同一個狀態，畫面才不會同時送出兩次、訊息也只有一份 */
+/** 按鈕與自動即時翻譯共用同一個狀態 才不會同時送出兩次 訊息也只有一份 */
 function useStartTranslation(videoId: string): Starter {
   const [result, setResult] = useState<StartState | null>(null);
   const [pending, startTransition] = useTransition();
@@ -274,10 +280,10 @@ type TranslationPanelProps = {
   position: () => number;
   apiKeyMissing: string | null;
   canManage: boolean;
-  /** 打開就接著翻（自己發起的，或觀看者已經按過繼續翻譯） */
+  /** 打開就接著翻 自己發起的或觀看者已經按過繼續翻譯 */
   autoContinue: boolean;
   onConsent: () => void;
-  /** 續翻的回應說伺服器把影片加進了保留的影片 */
+  /** 續翻的回應說伺服器把影片加進了保留清單 */
   onSaved: () => void;
   settingsHref: string;
   onUpdate: (update: LiveUpdate) => void;
@@ -286,22 +292,24 @@ type TranslationPanelProps = {
 function TranslationPanel({ videoId, channel, controls, translation, position, apiKeyMissing, canManage, autoContinue, onConsent, onSaved, settingsHref, onUpdate }: TranslationPanelProps) {
   const [progress, setProgress] = useState<Progress>(translation);
   const [error, setError] = useState<LoopStop | null>(null);
-  // 每按一次「繼續翻譯」加一，讓自動續跑重新開始
+  // 每按一次繼續翻譯加一 讓自動續跑重新開始
   const [run, setRun] = useState(0);
-  // 按了「用我的 API Key 繼續翻譯」：續翻成功後伺服器才把影片加進自己保留的影片
+  // 按了用我的 API Key 繼續翻譯後 續翻成功時伺服器才把影片加進保留清單
   const [join] = useState(() => createJoinFlag(onSaved));
   const [pending, startTransition] = useTransition();
   const [uploadOpen, setUploadOpen] = useState(false);
   const uploadId = useId();
   const active = isActive(progress.status);
-  // 別人發起、還沒翻完：先只看已經翻好的部分，等觀看者自己決定要不要花他的錢接著翻
+  // 別人發起又還沒翻完 先只看翻好的部分 等觀看者自己決定要不要花錢接著翻
   const awaitingConsent = active && !autoContinue && !apiKeyMissing;
 
-  // 連續呼叫直到完成或失敗；離開頁面就停。沒有自己的 API Key、或還沒決定要不要接著翻別人發起的翻譯，就只看已經翻好的部分
+  // 連續呼叫直到完成或失敗 離開頁面就停
+  // 沒有自己的 API Key 或還沒決定要不要接著翻別人的 就只看翻好的部分
   useEffect(() => {
     if (!autoContinue) return;
     let cancelled = false;
-    // 開發模式的 StrictMode 會掛載兩次：延到下一輪才開始，免得第一個迴圈的譯文被丟掉、排隊的呼叫帶著過時的播放位置
+    // 開發模式的 StrictMode 會掛載兩次 延到下一輪才開始
+    // 免得第一個迴圈的譯文被丟掉 排隊的呼叫也不會帶著過時的播放位置
     const timer = setTimeout(() => {
       runTranslationLoop({
         call: (positionMs) => join.send((joining) => continueTranslationAction(videoId, positionMs, joining)),
@@ -324,7 +332,7 @@ function TranslationPanel({ videoId, channel, controls, translation, position, a
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onUpdate、position 每次渲染都是新函式，放進依賴會讓迴圈重啟
   }, [videoId, run, autoContinue]);
 
-  /** 重試、重新翻譯：失敗時在面板上顯示，不丟到錯誤畫面（成功時伺服器會刷新畫面、換掉這個面板） */
+  /** 重試與重新翻譯失敗時顯示在面板上 不丟到錯誤畫面 成功時伺服器會換掉這個面板 */
   const runAction = (action: () => Promise<FormState>) =>
     startTransition(async () => {
       setError(null);
@@ -372,7 +380,7 @@ function TranslationPanel({ videoId, channel, controls, translation, position, a
           <button
             disabled={pending}
             onClick={() => {
-              // 按重試就是決定用自己的 API Key 接著翻，重新掛載後的面板直接開始
+              // 按重試就是決定用自己的 API Key 接著翻 重新掛載後的面板直接開始
               onConsent();
               runAction(() => retryTranslationAction(videoId));
             }}
@@ -462,7 +470,7 @@ type StartPanelProps = {
 function StartPanel({ videoId, channel, controls, starter: { result, pending, start }, autoTranslate, onAutoTranslateChange, onConsent, apiKeyMissing, settingsHref }: StartPanelProps) {
   const failed = result && !result.ok ? result : null;
   const canUpload = failed?.canUpload || result === null;
-  // 抓不到韓文字幕而失敗時直接展開上傳；使用者自己按過就照他的選擇
+  // 抓不到韓文字幕時直接展開上傳 使用者自己按過就照他的選擇
   const [uploadChoice, setUploadChoice] = useState<boolean | null>(null);
   const uploadOpen = canUpload && (uploadChoice ?? result !== null);
   const uploadId = useId();
@@ -473,7 +481,7 @@ function StartPanel({ videoId, channel, controls, starter: { result, pending, st
         <button
           disabled={pending}
           onClick={() => {
-            // 自己按開始：抓字幕的期間別人剛好先開始了，沿用他的翻譯也照樣接著翻
+            // 自己按開始時 抓字幕期間別人剛好先開始了 沿用他的翻譯也照樣接著翻
             onConsent();
             start();
           }}
@@ -515,7 +523,7 @@ function UploadForm({ id, videoId }: { id: string; videoId: string }) {
     try {
       return await uploadSubtitlesAction(previous, prepared.formData);
     } catch (thrown) {
-      // 例如斷線或伺服器拒收：留在表單上顯示，不讓整頁變成錯誤畫面
+      // 斷線或伺服器拒收時留在表單上顯示 不讓整頁變成錯誤畫面
       unstable_rethrow(thrown);
       return { error: "上傳失敗（連線中斷或伺服器拒收），請再試一次" };
     }

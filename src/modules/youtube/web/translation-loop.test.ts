@@ -11,7 +11,7 @@ const progress = (status: Progress["status"], extra: Partial<Progress> = {}): Pr
   ...extra,
 });
 
-/** 依序回應的假 Server Action；陣列裡的 Error 代表那一次呼叫丟例外 */
+/** 依序回應的假 Server Action 陣列裡的 Error 代表那一次呼叫丟例外 */
 function fakeCall(results: Array<LoopResult | Error>) {
   let i = 0;
   return vi.fn(async () => {

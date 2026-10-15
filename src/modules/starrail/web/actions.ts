@@ -8,26 +8,29 @@ import * as service from "../service/accounts";
 import { starrailTags } from "../service/cache-tags";
 
 export type { FormState } from "@/core/ui/form-message";
-/** 連結帳號的表單：好幾個伺服器都有角色時，第一步回傳清單讓使用者選；連結好了帶著剛連結的帳號 id（畫面導向它）與要提醒的事 */
+/**
+ * 好幾個伺服器都有角色時 第一步回傳清單讓使用者選
+ * 連結好了帶著剛連結的帳號 id 讓畫面導向它 還有要提醒的事
+ */
 export type LinkState = FormState & { roles?: service.RoleChoice[]; warning?: string; accountId?: number };
 
 const done = (result: service.ActionResult): FormState => (result.ok ? { message: result.message } : { error: result.error });
-// 輸入錯誤與 HoYoLAB 的錯誤由 service 用結果回傳，丟出來的都是預期外的錯誤
+// 輸入與 HoYoLAB 的錯誤由 service 用結果回傳 丟出來的都是預期外的錯誤
 const run = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "starrail", action }, () => false, work);
-// 立即簽到、設定門檻、兌換的結果放在標題已經寫了「…失敗」的結果框裡：預期外的錯誤只寫原因不明
+// 簽到 門檻 兌換的結果框標題已經寫了失敗 預期外的錯誤只寫原因不明
 const runTitled = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "starrail", action, titled: true }, () => false, work);
 
-// 連結與簽到要逐個角色寫入、也會打 HoYoLAB，失敗時可能只完成一部分，所以在 finally 讓 tag 失效
-// 一律用登入者的 id 呼叫 service：表單送來的帳號 id 只決定操作哪一個，別人的會被當作不存在
+// 連結與簽到逐個角色寫入 失敗時可能只完成一部分 所以在 finally 讓 tag 失效
+// 一律用登入者的 id 呼叫 service 表單送來的帳號 id 只決定操作哪一個
 
 export async function linkAccountAction(_prev: LinkState, formData: FormData): Promise<LinkState> {
   const { id: userId } = await requireSession();
   const cookie = formText(formData, "cookie").trim();
   if (!cookie) return { error: "請貼上 cookie" };
-  // 第二步帶著勾選的 UID 再送一次 cookie（cookie 只留在瀏覽器的表單裡，伺服器不存）
+  // cookie 只留在瀏覽器的表單裡 第二步跟勾選的 UID 一起再送一次
   const selection: service.RoleSelection = formData.get("step") === "choose" ? formData.getAll("uid").map(String) : "ask";
   let roles: service.RoleChoice[] | undefined;
-  // 帳號 id 來自 service 剛寫入的自己那一列，不是表單送來的
+  // 帳號 id 來自 service 剛寫入的自己那一列 不是表單送來的
   let linked: Pick<LinkState, "warning" | "accountId"> | undefined;
   try {
     const state = await run("連結帳號", async () => {
@@ -42,7 +45,7 @@ export async function linkAccountAction(_prev: LinkState, formData: FormData): P
     });
     return roles ? { roles } : { ...state, ...linked };
   } finally {
-    // 選伺服器的步驟還沒寫入，不必讓快取失效
+    // 選伺服器的步驟還沒寫入 不用讓快取失效
     if (!roles) updateTags(starrailTags.accounts);
   }
 }
@@ -54,7 +57,7 @@ export async function checkinAction(_prev: FormState, formData: FormData): Promi
   try {
     return await runTitled("簽到", async () => done(await service.checkinAccount(userId, id)));
   } finally {
-    // 失敗也會寫一筆紀錄，也可能把 cookie 標成失效
+    // 失敗也會寫一筆紀錄 也可能把 cookie 標成失效
     updateTags(starrailTags.checkins, starrailTags.accounts);
   }
 }
@@ -90,7 +93,7 @@ export async function redeemCodeAction(_prev: FormState, formData: FormData): Pr
       return result.ok ? { message: result.message } : { error: result.error };
     });
   } finally {
-    // 兌換本身不寫資料庫；只有寫了 cookie 失效標記時才讓帳號的快取失效
+    // 兌換本身不寫資料庫 只有寫了 cookie 失效標記時才讓帳號的快取失效
     if (cookieFlagChanged) updateTags(starrailTags.accounts);
   }
 }

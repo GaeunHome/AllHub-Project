@@ -1,14 +1,14 @@
 import { taipeiDateKey } from "@/core/time";
 
-/** 月份一律用 YYYY-MM 字串（例如 2026-10），跟網址參數與 <input type="month"> 的格式一樣 */
+/** YYYY-MM 字串 跟網址參數與月份輸入框同一種格式 */
 export type MonthKey = string;
 
-// 更早的月份多半是打錯，順便讓日期運算不用處理不到四位數的年份
+// 更早的月份多半是打錯 日期運算也不用處理不到四位數的年份
 export const MIN_MONTH: MonthKey = "2000-01";
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
-// 「本月」要以台北時間為準，伺服器（Vercel）是 UTC，月底晚上 8 點後就會差一個月
+// 伺服器是 UTC 月底晚上八點後會差一個月 所以本月用台北時間算
 export function taipeiMonth(date: Date): MonthKey {
   return dateToMonth(taipeiDateKey(date));
 }

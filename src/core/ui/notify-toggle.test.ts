@@ -2,7 +2,8 @@ import { createElement, useActionState, useOptimistic, type ReactElement, type R
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-// 送出中只有點了之後才有：直接給 useActionState 一個送出中的狀態，其他照 React 原本的實作
+// 送出中要點了之後才有 直接給 useActionState 一個送出中的狀態
+// 其他照 React 原本的實作
 vi.mock("react", { spy: true });
 
 const { NotifyToggle } = await import("./notify-toggle");
@@ -10,14 +11,14 @@ const { NotifyToggle } = await import("./notify-toggle");
 type ToggleProps = Parameters<typeof NotifyToggle>[0];
 const props: ToggleProps = { action: vi.fn(), id: 7, enabled: true, subject: "Hanabi" };
 
-/** 送出中（pending）或閒著；回傳表單送出的替身 */
+/** 送出中 pending 或閒著 回傳表單送出的替身 */
 function sending(pending: boolean) {
   const formAction = vi.fn();
   vi.mocked(useActionState).mockReturnValue([{}, formAction, pending]);
   return formAction;
 }
 
-/** 元件回傳的樹裡第一個 button（開關本身） */
+/** 元件回傳的樹裡第一個 button 就是開關本身 */
 function switchButton(node: ReactNode): ReactElement<{ onClick: () => void }> | null {
   if (Array.isArray(node)) return node.map(switchButton).find(Boolean) ?? null;
   if (!node || typeof node !== "object" || !("props" in node)) return null;

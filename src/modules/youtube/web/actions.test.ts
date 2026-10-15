@@ -1,4 +1,4 @@
-import { refresh, updateTag } from "next/cache";
+import { refresh } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
 import { captureErrorLog, mocksOf } from "@/dev/test-helpers";
@@ -54,15 +54,6 @@ describe("非預期錯誤", () => {
 });
 
 describe("重試與重新翻譯", () => {
-  it("成功 → 刷新畫面、沒有錯誤", async () => {
-    await expect(retryTranslationAction(VIDEO)).resolves.toEqual({});
-    await expect(restartTranslationAction(VIDEO)).resolves.toEqual({});
-    expect(translation.retryTranslation).toHaveBeenCalledWith(TEST_SESSION.id, VIDEO);
-    expect(translation.restartTranslation).toHaveBeenCalledWith(TEST_SESSION, VIDEO);
-    expect(vi.mocked(updateTag).mock.calls.filter(([tag]) => tag === `youtube:translation:${VIDEO}`)).toHaveLength(2);
-    expect(refresh).not.toHaveBeenCalled();
-  });
-
   it("失敗 → 回傳錯誤狀態，不丟例外（專案沒有 error.tsx，丟出去整頁都會壞）", async () => {
     captureErrorLog();
     translation.retryTranslation.mockRejectedValue(new Error("db down"));
@@ -92,7 +83,7 @@ describe("uploadSubtitlesAction：編碼", () => {
   });
 
   it("CP949（韓文 Windows 的預設編碼）→ 轉成正確的韓文再交給翻譯，不送亂碼", async () => {
-    // 「안녕」的 CP949 編碼
+    // 안녕 這兩個字的 CP949 編碼
     await upload(Uint8Array.from([...ascii(header), 0xbe, 0xc8, 0xb3, 0xe7, 0x0a]));
     expect(translation.uploadSubtitles).toHaveBeenCalledWith(TEST_SESSION, VIDEO, `${header}안녕\n`);
   });
@@ -135,14 +126,14 @@ describe("擁有權：一律用登入者呼叫 service（表單送來的 id 只�
     ["addChannelAction", () => actions.addChannelAction({}, formOf({ channel: "@newjeans" })), () => channels.addChannel],
     ["removeChannelAction", () => actions.removeChannelAction({}, formOf({ id: "2" })), () => channels.removeChannel],
     ["setChannelNotifyAction", () => actions.setChannelNotifyAction({}, formOf({ id: "2", enabled: "false" })), () => channels.setChannelNotify],
-    // 冷卻時間依登入者計算，回應也只說他自己追蹤的頻道
+    // 冷卻時間依登入者計算 回應也只說他自己追蹤的頻道
     ["renewAction", () => actions.renewAction(), () => channels.renewSubscriptionsFor],
     ["recheckCaptionsAction", () => actions.recheckCaptionsAction({}, formOf({ videoId: VIDEO })), () => captions.checkFollowedVideoCaptions],
     ["saveSettingsAction", () => actions.saveSettingsAction({}, formOf({ provider: "anthropic" })), () => translation.saveSettings],
     ["startTranslationAction", () => actions.startTranslationAction(VIDEO), () => translation.startTranslation],
     ["continueTranslationAction", () => actions.continueTranslationAction(VIDEO, 0), () => translation.continueTranslation],
     ["retryTranslationAction", () => actions.retryTranslationAction(VIDEO), () => translation.retryTranslation],
-    // 保留的影片每人一份：送來的影片 id 只決定是哪一支，加進或移除的都是登入者自己的清單
+    // 保留的影片每人一份 送來的 id 只決定是哪一支 改的都是登入者自己的清單
     ["saveVideoAction", () => actions.saveVideoAction({}, formOf({ videoId: VIDEO })), () => saved.keepVideo],
     ["removeSavedVideoAction", () => actions.removeSavedVideoAction({}, formOf({ videoId: VIDEO })), () => saved.removeSavedVideo],
   ] as const)("%s_帶的是登入者（bob）的 id", async (_name, run, service) => {

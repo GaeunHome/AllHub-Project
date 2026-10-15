@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-// 根版面會載入 Google 字型，測試只看 metadata，換成假的
+// 根版面會載入 Google 字型 測試只看 metadata 所以換成假的
 vi.mock("next/font/google", () => ({ Geist: () => ({ variable: "font-geist" }), Geist_Mono: () => ({ variable: "font-geist-mono" }) }));
 
 const { NO_INDEX, robots } = await import("./core/robots");

@@ -85,7 +85,7 @@ describe("擁有權：一律用登入者的 id 呼叫 service", () => {
     ["addStreamerAction", () => addStreamerAction({}, form({ login: "alice" })), "addStreamer"],
     ["removeStreamerAction", () => removeStreamerAction({}, form({ id: "3" })), "removeStreamer"],
     ["setStreamerNotifyAction", () => setStreamerNotifyAction({}, form({ id: "3", enabled: "false" })), "setStreamerNotify"],
-    // 冷卻時間依登入者計算，回應也只說他自己追蹤的主播
+    // 冷卻時間依登入者計算 回應也只說他自己追蹤的主播
     ["syncAction", () => syncAction(), "syncSubscriptionsFor"],
   ] as const)("%s_帶的是登入者（bob）的 id", async (_name, run, method) => {
     requireSession.mockResolvedValue(OTHER_SESSION);

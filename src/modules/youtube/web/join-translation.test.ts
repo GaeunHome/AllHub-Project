@@ -3,7 +3,7 @@ import type { Progress } from "../service/translation";
 import { createJoinFlag, type JoinResult } from "./join-translation";
 
 const PROGRESS: Progress = { status: "queued", done: 1, total: 8, error: null, translated: [] };
-/** 假的續翻 Server Action：記下每次帶的 join */
+/** 假的續翻 Server Action 記下每次帶的 join */
 const fakeCall = (result: JoinResult = PROGRESS) => vi.fn<(join: boolean) => Promise<JoinResult>>(async () => result);
 
 describe("「用我的 API Key 繼續翻譯」：續翻成功之前每次呼叫都帶 join，伺服器才知道要把影片加進他保留的影片", () => {

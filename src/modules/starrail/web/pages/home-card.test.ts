@@ -40,7 +40,7 @@ const okNote = {
   cookieInvalid: false as const,
 };
 
-/** 列表交給每一列的帳號 id；只看元素樹，不實際向 HoYoLAB 查 */
+/** 列表交給每一列的帳號 id 只看元素樹 不實際向 HoYoLAB 查 */
 function accountIdsIn(node: ReactNode, found: number[] = []): number[] {
   if (Array.isArray(node)) node.forEach((child) => accountIdsIn(child, found));
   else if (isValidElement<{ account?: { id: number }; children?: ReactNode }>(node)) {

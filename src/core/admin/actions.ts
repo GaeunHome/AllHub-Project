@@ -10,19 +10,19 @@ import { INVALID_FORM_MESSAGE, actionErrorMessage, formFlag, formId, formText, f
 import type { FormState } from "../ui/form-message";
 import { AdminUserError, deleteUser, setUserDisabled, unlockUser } from "./service";
 
-/** link 只出現在建立當下的回應裡；資料庫只存雜湊，重新整理後就拿不回來 */
+/** 資料庫只存雜湊 link 只在建立當下的回應裡 重新整理就拿不回來 */
 export type InviteFormState = FormState & { link?: string };
 
 const USER_GONE = "找不到這個帳號，可能已經被刪除";
 const isAdminError = (error: unknown) => error instanceof AdminUserError;
 
-/** 表單送來的字串要剛好是其中一個選項；Server Action 可以被直接 POST，不能相信下拉選單 */
+/** Server Action 可以被直接 POST 不能相信下拉選單 值要剛好是其中一個選項 */
 function optionOf(options: readonly number[], raw: string): number | null {
   const value = Number(raw);
   return raw !== "" && options.includes(value) ? value : null;
 }
 
-/** Server Action 的 Origin 已經被 Next 比對過跟 Host 相同；站長在哪個網址建立邀請就給哪個網址 */
+/** Next 已確認 Origin 跟 Host 相同 站長在哪個網址建立邀請就給哪個網址 */
 async function siteOrigin(): Promise<string> {
   const request = await headers();
   const origin = request.get("origin");
@@ -36,7 +36,7 @@ export async function createInviteAction(_prev: InviteFormState, formData: FormD
   const maxUses = optionOf(INVITE_USE_OPTIONS, formText(formData, "uses"));
   if (days === null || maxUses === null) return { error: INVALID_FORM_MESSAGE };
 
-  // 回傳的形狀多了 link，不套 runAction，錯誤一樣交給 actionErrorMessage（log 只記錯誤種類，不會印出邀請碼）
+  // 回傳多了 link 所以不套 runAction log 一樣只記錯誤種類 不印邀請碼
   try {
     const { token } = await createInvite({ createdBy: owner.id, days, maxUses, note: formText(formData, "note") });
     updateTags(authTags.invites);
@@ -58,7 +58,7 @@ export async function revokeInviteAction(_prev: FormState, formData: FormData): 
       updateTags(authTags.invites);
       return;
     }
-    // 已經撤銷或不存在時沒有寫入、不失效快取，但畫面上那一列要重新算繪才會更新
+    // 沒有寫入就不會失效快取 但那一列要重新算繪畫面才會更新
     refresh();
     return { error: "這個邀請已經撤銷或不存在" };
   });
@@ -85,7 +85,7 @@ export async function deleteUserAction(_prev: FormState, formData: FormData): Pr
   if (userId === null) return { error: INVALID_FORM_MESSAGE };
   return runAction({ module: "admin", action: "刪除帳號" }, isAdminError, async () => {
     if (await deleteUser(owner.id, userId)) {
-      // 他建立的邀請也跟著外鍵刪掉
+      // 他建立的邀請跟著外鍵刪掉 所以邀請也要失效
       updateTags(authTags.users, authTags.invites);
       return;
     }

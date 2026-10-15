@@ -37,7 +37,7 @@ function fakeRoot() {
   };
 }
 
-/** 在假的 localStorage 與 document 上執行觀看頁開頭的同步腳本，回傳 <html> 的屬性 */
+/** 在假的 localStorage 與 document 上執行觀看頁開頭的同步腳本 回傳 <html> 的屬性 */
 function runInitScript(storage: { getItem(key: string): string | null }) {
   const root = fakeRoot();
   new Function("localStorage", "document", PLAYER_SIZE_INIT_SCRIPT)(storage, { documentElement: root });

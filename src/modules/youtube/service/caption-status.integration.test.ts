@@ -17,7 +17,7 @@ const hoursAgo = (hours: number) => new Date(NOW.getTime() - hours * 3600_000);
 const getDb = setupTestDb();
 let me: string;
 let other: string;
-/** 背景重新檢查只處理這個人追蹤的頻道；沒特別說的都是 me（追蹤 CH） */
+/** 背景重新檢查只處理這個人追蹤的頻道 沒特別說的都是追蹤 CH 的 me */
 const recheckDueCaptions = (now: Date) => captionStatus.recheckDueCaptions(me, now);
 
 const ZH = { ok: true, tracks: [{ languageCode: "zh-TW", automatic: false, translated: false }] };
@@ -111,7 +111,8 @@ describe("recheckDueCaptions（影片清單顯示時在背景重新檢查）", (
   });
 
   it("名額有限時最久沒檢查的先（從沒檢查過的排最前）：近期影片每小時到期，也不會讓從 RSS 補進來的舊影片一直輪不到", async () => {
-    // 審查時重現的情況：8 支近期影片（檢查過、沒有中文）加 12 支從沒檢查過的舊影片，每 2 小時打開一次頁面、持續 24 小時
+    // 審查時重現的情況 8 支檢查過沒有中文的近期影片加 12 支從沒檢查過的舊影片
+    // 每 2 小時打開一次頁面 持續 24 小時
     const recent = Array.from({ length: 8 }, (_, i) => `recent${String(i).padStart(5, "0")}`);
     const backfilled = Array.from({ length: 12 }, (_, i) => `backfill${String(i).padStart(3, "0")}`);
     await insertVideos(
@@ -161,7 +162,8 @@ describe("recheckDueCaptions（影片清單顯示時在背景重新檢查）", (
       { videoId: "unknown-23h", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(23), publishedAt: hoursAgo(24 * 10) },
       { videoId: "nozh-25h-ol", zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(25), publishedAt: hoursAgo(24 * 10) },
     );
-    // 一直被 YouTube 擋下：狀態維持無法確認，每支一天最多試一次，不會每次打開頁面都重試
+    // 一直被 YouTube 擋下時狀態維持無法確認
+    // 每支一天最多試一次 不會每次打開頁面都重試
     listCaptionTracks.mockResolvedValue(BLOCKED);
 
     expect(await recheckDueCaptions(NOW)).toBe(2);

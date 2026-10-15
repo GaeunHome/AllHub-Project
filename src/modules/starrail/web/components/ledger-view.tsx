@@ -6,7 +6,7 @@ import { groupDigits, monthLabel, type Ledger } from "../../lib/ledger";
 
 type LedgerViewProps = { ledgers: Ledger[]; current: string; fetchedLabel: string };
 
-/** 月份切換在瀏覽器裡做：幾個月份的資料已經一起查好 */
+/** 幾個月的資料已經一起查好 月份切換在瀏覽器裡做 */
 export function LedgerView({ ledgers, current, fetchedLabel }: LedgerViewProps) {
   const [month, setMonth] = useState(current);
   const tabsId = useId();
@@ -17,7 +17,7 @@ export function LedgerView({ ledgers, current, fetchedLabel }: LedgerViewProps) 
 
   return (
     <section aria-labelledby={`${tabsId}-title`} className="stack">
-      {/* 至少 44px：超寬螢幕並排時跟終局戰績的標題列（本期／上期）一樣高，兩邊的標題才在同一條線上 */}
+      {/* 至少 44px 跟並排的終局戰績標題列一樣高 兩邊標題才在同一條線上 */}
       <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-3">
         <h3 id={`${tabsId}-title`} className="sr-title">
           開拓月曆
@@ -45,8 +45,8 @@ export function LedgerView({ ledgers, current, fetchedLabel }: LedgerViewProps) 
       <div className="sr-panel stack p-5 sm:p-6">
         <h4 className="font-semibold text-ink">星瓊從哪裡來</h4>
         {ledger.sources.length > 0 ? (
-          // 長條以最多的那一項為滿格，比例寫在數字旁邊；這份清單本身就是表格：數字兩欄固定寬度、靠右，每一列的長條一樣長
-          // 手機上名稱與數字一行、長條在下一行撐滿；寬螢幕四欄排在同一行
+          // 長條以最多的那項為滿格 數字兩欄固定寬度靠右 每列的長條一樣長
+          // 手機上長條在下一行撐滿 寬螢幕四欄排在同一行
           <ul className="flex flex-col gap-3">
             {ledger.sources.map((source, i) => (
               <li
@@ -74,7 +74,7 @@ export function LedgerView({ ledgers, current, fetchedLabel }: LedgerViewProps) 
 
 type StatTileProps = { label: string; icon: "sparkles" | "train-front"; value: number | null; last: number | null; rate: number | null; today: number | null };
 
-/** 這個月的數量，跟上個月比增減幾 %；方向用箭頭加正負號，不只靠顏色 */
+/** 這個月的數量與跟上個月比的增減 方向用箭頭加正負號 不只靠顏色 */
 function StatTile({ label, icon, value, last, rate, today }: StatTileProps) {
   return (
     <div className="sr-panel flex flex-col gap-3 p-5 sm:p-6">

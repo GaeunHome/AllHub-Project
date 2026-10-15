@@ -25,7 +25,7 @@ describe("createPlaybackClock：播放中用經過的時間與播放速度內插
   it("暫停：停在暫停那一刻，不再往前推；之後收到的回報直接採用", () => {
     const clock = createPlaybackClock();
     clock.setPlaying(true, 0, 0);
-    // 暫停的事件先到，播放器還沒送來暫停時的時間（getCurrentTime() 還是舊的 0）
+    // 暫停的事件先到 播放器還沒送來暫停時的時間 getCurrentTime() 還是舊的 0
     clock.setPlaying(false, 0, 1000);
 
     expect(clock.playing).toBe(false);
@@ -95,7 +95,7 @@ describe("createPlaybackClock：播放中用經過的時間與播放速度內插
     expect(clock.estimate(500)).toBe(500);
     const later = [520, 540, 560, 580, 600, 650].map((now) => clock.estimate(now));
     for (let i = 1; i < later.length; i++) expect(later[i]).toBeGreaterThan(later[i - 1]);
-    // 落後的 100ms 用 200ms 追回，之後照常前進
+    // 落後的 100ms 用 200ms 追回 之後照常前進
     expect(clock.estimate(700)).toBe(600);
     expect(clock.estimate(800)).toBe(700);
   });
@@ -135,7 +135,7 @@ describe("createPlaybackClock：播放中用經過的時間與播放速度內插
   });
 });
 
-/** 固定種子的亂數：模擬的抖動每次都一樣，失敗時重跑得出來 */
+/** 固定種子的亂數 模擬的抖動每次都一樣 失敗時重跑得出來 */
 function seeded(seed: number) {
   let state = seed;
   return () => {
@@ -146,7 +146,10 @@ function seeded(seed: number) {
 
 type Event = { at: number; kind: "seek"; to: number } | { at: number; kind: "rate"; rate: number };
 
-/** 模擬真的 IFrame API：getCurrentTime() 只在收到 iframe 回報時更新（間隔 250ms 起跳、加抖動與傳遞延遲）；頁面每一幀（60fps）讀一次 */
+/**
+ * 模擬真的 IFrame API getCurrentTime() 只在收到 iframe 回報時更新
+ * 間隔 250ms 起跳加上抖動與傳遞延遲 頁面每一幀 60fps 讀一次
+ */
 function simulate({ durationMs, events = [], reportEveryMs = 250, jitterMs = 80, delayMs = 20 }: { durationMs: number; events?: Event[]; reportEveryMs?: number; jitterMs?: number; delayMs?: number }) {
   const random = seeded(7);
   const clock = createPlaybackClock();
@@ -239,14 +242,14 @@ describe("模擬真的 IFrame API（每 250ms 左右才回報一次）", () => {
   });
 });
 
-/** 回報固定在取樣之後 delay 毫秒才送到（沒有抖動）的情況 */
+/** 回報固定在取樣之後 delay 毫秒才送到 沒有抖動的情況 */
 function simulateDelayed(delay: number) {
   const clock = createPlaybackClock();
   const frames: { truth: number; estimate: number }[] = [];
   let reported = 0;
   clock.setPlaying(true, 0, 0);
   for (let now = 0; now <= 20_000; now += 1000 / 60) {
-    // 每 250ms 取樣一次，delay 之後才讀得到
+    // 每 250ms 取樣一次 delay 之後才讀得到
     const sampledAt = Math.floor((now - delay) / 250) * 250;
     if (sampledAt > 0) reported = sampledAt;
     clock.observe(reported, now);

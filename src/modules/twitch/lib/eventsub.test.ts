@@ -5,7 +5,8 @@ import { parseEventSubRequest, verifySignature } from "./eventsub";
 const SECRET = "test-secret-1234567890";
 const NOW = new Date("2026-10-07T12:00:00Z");
 
-// 依 Twitch 文件：sha256= + hex(HMAC-SHA256(secret, messageId + timestamp + body))
+// 照 Twitch 文件 用 secret 對 messageId + timestamp + body
+// 算 HMAC-SHA256 轉成 hex 前面加 sha256=
 function sign(messageId: string, timestamp: string, body: string, secret = SECRET) {
   return "sha256=" + createHmac("sha256", secret).update(messageId + timestamp + body).digest("hex");
 }

@@ -9,9 +9,11 @@ import type { TwitchStreamer } from "../../data/schema";
 
 type LiveStreamer = StreamerVisual<TwitchStreamer>;
 
-// 依卡片寬度（容器查詢，不看螢幕寬度）：寬的一排四張、中等兩張；很窄時一列一位（小預覽圖在左），不會一張預覽圖就佔滿整個畫面
+// 用容器查詢依卡片寬度排欄 不看螢幕寬度
+// 很窄時一列一位 小預覽圖在左 不會一張就佔滿整個畫面
 const GRID = "grid grid-cols-1 gap-4 @md:grid-cols-2 @4xl:grid-cols-4";
-// 只有一兩位在直播時改成橫的卡片（預覽圖在左、資訊在右），寬的時候兩張一列：直的卡片排四欄只會用到半張卡片，旁邊空一大片
+// 只有一兩位在直播時改成橫的卡片 寬的時候兩張一列
+// 直的卡片排四欄只會用到一半 旁邊空一大片
 const FEW_GRID = "grid grid-cols-1 gap-4 @4xl:grid-cols-2";
 const FEW = 2;
 
@@ -20,10 +22,10 @@ const TILE_CLASS: Record<TileLayout, { link: string; preview: string }> = {
   column: { link: "group flex items-start gap-3 rounded-xl @md:flex-col @md:items-stretch", preview: "w-32 @md:w-full" },
   row: { link: "group flex items-start gap-3 rounded-xl @md:gap-4", preview: "w-32 @md:w-56 @6xl:w-72" },
 };
-// web 層不能讀模組根目錄的 info.ts，模組網址寫在這裡
+// web 層不能讀模組根目錄的 info.ts 網址寫在這裡
 const TWITCH_PAGE = "/twitch";
 
-/** 首頁「正在直播」的內容；streamers 只有直播中的（最多幾位），其餘的人數放在 more */
+/** 首頁正在直播的內容 streamers 只有直播中的前幾位 其餘的人數放在 more */
 export function LiveNowList({ streamers, more, now }: { streamers: LiveStreamer[]; more: number; now: Date }) {
   if (streamers.length === 0) return <EmptyState compact icon="tv" title="目前沒有追蹤的主播在直播" />;
 
@@ -61,7 +63,7 @@ export function NoFollowedStreamers() {
   );
 }
 
-/** 一位主播一個連結（新分頁開 Twitch）；沒有預覽圖（沒設定憑證、剛開台）時改放頭像，資訊只寫「直播中」 */
+/** 一位主播一個連結 在新分頁開 Twitch 沒有預覽圖時改放頭像 資訊只寫直播中 */
 function LiveTile({ streamer: s, now, layout }: { streamer: LiveStreamer; now: Date; layout: TileLayout }) {
   const live = s.live;
   const avatar = externalAssetUrl(s.avatarUrl);
@@ -81,17 +83,17 @@ function LiveTile({ streamer: s, now, layout }: { streamer: LiveStreamer; now: D
       className={TILE_CLASS[layout].link}
     >
       <span className={`relative aspect-video shrink-0 overflow-hidden rounded-lg bg-surface-muted ring-accent transition-shadow group-hover:ring-2 ${TILE_CLASS[layout].preview}`}>
-        {/* 都在首頁最上面那張卡片的第一排：立刻載入（常常是 LCP） */}
+        {/* 都在首頁最上面那張卡片的第一排 常常是 LCP 所以立刻載入 */}
         {live?.previewUrl ? <ExternalImage src={externalAssetUrl(live.previewUrl)} alt="" fill loading="eager" className="object-cover" fallback={placeholder} /> : placeholder}
         <span className="tw-live-badge">LIVE</span>
       </span>
-      {/* 頭像對齊第一行（主播名稱），文字有三、四行時也不會飄在中間 */}
+      {/* 頭像對齊第一行的主播名稱 文字有三四行時也不會飄在中間 */}
       <span className="flex min-w-0 flex-1 items-start gap-3">
         {live?.previewUrl && <Avatar src={avatar} name={s.displayName} size="sm" className="ring-2 ring-accent" />}
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-semibold text-ink group-hover:text-accent-ink">{s.displayName}</span>
           {live?.gameName && <span className="truncate text-sm text-accent-ink">{live.gameName}</span>}
-          {/* 觀看人數與開台多久放不下一行時各佔一行，不截斷 */}
+          {/* 觀看人數與開台多久放不下一行時各佔一行 不截斷 */}
           <span className="flex flex-wrap gap-x-3 text-sm text-ink-soft tabular-nums">
             {meta.length > 0 ? meta.map((text) => <span key={text}>{text}</span>) : "直播中"}
           </span>

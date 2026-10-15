@@ -4,7 +4,7 @@ import { stubTwitchEnv } from "@/dev/test-env";
 
 stubTwitchEnv();
 
-/** App Access Token 快取在模組裡，每個測試重新載入才會重新取得 */
+/** App Access Token 快取在模組裡 每個測試重新載入才會重新取得 */
 async function loadApi() {
   vi.resetModules();
   return import("./api");

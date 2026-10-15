@@ -2,7 +2,8 @@ import { createElement, useActionState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-// 結果只有送出之後才有：直接給 useActionState 一個送出後的狀態，看畫面怎麼顯示；其他照 React 原本的實作
+// 結果要送出後才有 所以直接給 useActionState 送出後的狀態看畫面
+// 其他照 React 原本的實作
 vi.mock("react", { spy: true });
 
 const { AccountActionForm, numberedAction } = await import("./account-action-form");

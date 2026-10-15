@@ -5,7 +5,8 @@ import { form } from "@/dev/test-helpers";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
-// 視窗關著時內容不算繪：換掉 DialogButton 才看得到視窗裡的表單；其他照原本的實作
+// 視窗關著時內容不算繪 換掉 DialogButton 才看得到裡面的表單
+// 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });
 vi.mock("./link-result", { spy: true });
 vi.mock("../actions", () => ({ linkAccountAction: vi.fn() }));
@@ -29,7 +30,8 @@ describe("連結 HoYoLAB 帳號的表單", () => {
 
     expect(markup).toMatch(/<button[^>]*aria-haspopup="dialog"[^>]*>(?:(?!<\/button>).)*新增帳號或更新 cookie/);
     expect(markup).toMatch(/<dialog[^>]*class="[^"]*sr-dialog/);
-    // 星空底色由 sr-dialog 自己畫：theme-starrail 是整頁主題，只能放在 PageTheme 上（掛在視窗上，換到別頁時主題會漏過去）
+    // 星空底色由 sr-dialog 自己畫 theme-starrail 只能放在 PageTheme 上
+    // 整頁主題掛在視窗上的話 換到別頁時會漏過去
     expect(markup).not.toMatch(/<dialog[^>]*theme-starrail/);
     expect(markup).not.toContain('name="cookie"');
     expect(markup).not.toContain("<details");
@@ -58,7 +60,7 @@ const LINKED = { message: "已連結 開拓者（台港澳服，900000001）", w
 describe("連結帳號的表單送出後", () => {
   const done = vi.fn();
   const show = vi.fn();
-  /** 這次算繪交給 useDialogForm 的 Server Action、完成時的處理與「完成了沒」的判斷 */
+  /** 這次算繪交給 useDialogForm 的 Server Action 完成處理與完成了沒的判斷 */
   const formArgs = () => vi.mocked(dialog.useDialogForm).mock.calls.at(-1) as unknown as FormArgs;
 
   beforeEach(() => {

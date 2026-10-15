@@ -17,7 +17,7 @@ beforeEach(async () => {
   await insertTestUser(getDb(), OTHER_SESSION.username, { id: OTHER_SESSION.id });
 });
 
-/** 預設寄給登入中的 alice（TEST_SESSION） */
+/** 預設寄給登入中的 alice 也就是 TEST_SESSION */
 async function seed(count: number, module = "twitch", userId = TEST_SESSION.id) {
   return getDb()
     .insert(coreNotifications)

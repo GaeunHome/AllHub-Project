@@ -5,7 +5,7 @@ import { FormFeedback, type FormState } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { renewAction } from "../actions";
 
-/** 訂閱內容旁的「續訂」：WebSub 的訂閱會到期，排程會自動續訂，失敗或快到期時也可以手動再送一次 */
+/** WebSub 的訂閱會到期 排程會自動續訂 失敗或快到期時也能手動再送一次 */
 export function RenewButton() {
   const [state, renew, renewing] = useActionState<FormState>(renewAction, {});
 

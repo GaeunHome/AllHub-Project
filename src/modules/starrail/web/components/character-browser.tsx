@@ -23,11 +23,14 @@ const SORTS: { id: SortKey; label: string }[] = [
 type CharacterBrowserProps = {
   /** 圖片網址已在伺服器端換成瀏覽器載入用的網址 */
   characters: StarrailCharacter[];
-  /** 例如「今天 14:05」 */
+  /** 例如今天 14:05 */
   fetchedLabel: string;
 };
 
-/** 角色列表：篩選、排序都在瀏覽器裡做（資料已經在畫面上，不必再向伺服器要）；點角色用共用的 Dialog 打開詳情 */
+/**
+ * 資料已經在畫面上 篩選與排序都在瀏覽器裡做
+ * 點角色用共用的 Dialog 打開詳情
+ */
 export function CharacterBrowser({ characters, fetchedLabel }: CharacterBrowserProps) {
   const [filter, setFilter] = useState<CharacterFilter>({ rarity: "all", element: "all", sort: "level" });
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -51,7 +54,7 @@ export function CharacterBrowser({ characters, fetchedLabel }: CharacterBrowserP
           <Icon name="clock" className="size-3.5" />
           {fetchedLabel} 更新
         </span>
-        {/* 篩選列的三個控制項一樣高（44px）；手機上稀有度一列、兩個下拉選單並排一列，各佔一半 */}
+        {/* 三個控制項都是 44px 手機上稀有度一列 兩個下拉選單並排一列 */}
         <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:items-center">
           <div className="col-span-2">
             <SegmentedControl label="稀有度" options={RARITIES} value={filter.rarity} onChange={(rarity) => setFilter({ ...filter, rarity })} />
@@ -86,7 +89,7 @@ export function CharacterBrowser({ characters, fetchedLabel }: CharacterBrowserP
         <p className="sr-panel p-5 text-center text-ink-soft sm:p-6">沒有符合條件的角色</p>
       )}
 
-      {/* 關閉時（Esc、點外面、按 X）清掉選取，下次打開從頭捲起；滿版的大面板（手機上全螢幕），sr-dialog 是星空底與切角 */}
+      {/* 關閉時清掉選取 下次打開從頭捲起 sr-dialog 是星空底與切角 */}
       <Dialog bare open={selected !== null} onClose={() => setSelectedId(null)} labelledBy={titleId} size="full" className="sr-dialog">
         {selected && <CharacterDetail character={selected} titleId={titleId} onClose={() => setSelectedId(null)} />}
       </Dialog>

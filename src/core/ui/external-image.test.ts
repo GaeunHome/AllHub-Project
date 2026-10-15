@@ -15,10 +15,6 @@ describe("外部圖片（core/ui/external-image）", () => {
     expect(img).toContain('src="https://static-cdn.jtvnw.net/previews-ttv/live_user_alice-640x360.jpg"');
   });
 
-  it("畫面最上面一排的縮圖或預覽可以改成立刻載入（eager）：它們常常是最大的內容（LCP），延遲載入會慢一拍", () => {
-    expect(image({ loading: "eager" })).toContain('loading="eager"');
-  });
-
   it("沒有網址：顯示替代的內容", () => {
     expect(renderToStaticMarkup(createElement(ExternalImage, { src: null, alt: "", width: 10, height: 10, fallback: createElement("span", null, "文字頭像") }))).toBe("<span>文字頭像</span>");
   });

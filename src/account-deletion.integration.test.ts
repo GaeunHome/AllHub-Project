@@ -5,12 +5,13 @@ import { hashPassword } from "@/core/auth/credentials";
 import { deleteOwnAccount } from "@/core/auth/users";
 import { coreInvites, coreNotifications, coreUsers } from "@/core/db/schema";
 import { insertTestUser, setupTestDb } from "@/dev/test-db";
-import { savingsEntries, savingsGoals } from "@/modules/savings/data/schema";
+import { savingsAccounts, savingsCategories, savingsPurposes, savingsRecurring, savingsTransactions } from "@/modules/savings/data/schema";
 import { starrailAccounts, starrailCheckinLogs } from "@/modules/starrail/data/schema";
 import { twitchFollows, twitchStreamers } from "@/modules/twitch/data/schema";
 import { youtubeChannels, youtubeFollows, youtubeSavedVideos, youtubeSettings, youtubeTranslations } from "@/modules/youtube/data/schema";
 
-// 刪除帳號（core）跟各模組的資料表只靠外鍵連在一起：core 不能 import 模組，所以這個跨模組的檢查放在 src 底下
+// 刪除帳號跟各模組的資料表只靠外鍵連在一起
+// core 不能 import 模組 所以跨模組的檢查放在 src 底下
 
 const getDb = setupTestDb();
 const PASSWORD = "correct horse battery staple";
@@ -28,12 +29,17 @@ async function seedEverything(userId: string, suffix: string) {
   await db.insert(youtubeFollows).values({ userId, channelId: CH.slice(0, -1) + suffix });
   await db.insert(youtubeSettings).values({ userId, anthropicKey: "v1:cipher", anthropicKeyHint: "1234" });
   await db.insert(youtubeTranslations).values({ videoId: `video000000${suffix}`.slice(-11), requestedBy: userId, sourceKind: "upload", sourceCues: [], translated: [], batches: [] });
-  // 兩個人都保留了同一支影片：刪掉一個人的清單，另一個人的不受影響
+  // 兩個人都保留同一支影片 刪掉一個人的清單不影響另一個人
   await db.insert(youtubeSavedVideos).values({ userId, videoId: "dQw4w9WgXcQ", title: "影片", pinned: true });
-  const [account] = await db.insert(starrailAccounts).values({ userId, ltuid: suffix, uid: `80000000${suffix}`, region: "prod_official_asia", cookieEncrypted: "v1:cipher" }).returning();
-  await db.insert(starrailCheckinLogs).values({ accountId: account.id, result: "success" });
-  const [goal] = await db.insert(savingsGoals).values({ userId, name: "旅行", monthlyAmount: 1000 }).returning();
-  await db.insert(savingsEntries).values({ userId, month: "2026-10-01", goalId: goal.id, goalName: goal.name, amount: 1000 });
+  const [starrail] = await db.insert(starrailAccounts).values({ userId, ltuid: suffix, uid: `80000000${suffix}`, region: "prod_official_asia", cookieEncrypted: "v1:cipher" }).returning();
+  await db.insert(starrailCheckinLogs).values({ accountId: starrail.id, result: "success" });
+  // 理財的表彼此參照 帳戶指向用途 紀錄與固定收支指向帳戶和分類
+  // 刪除帳號時整串一起刪
+  const [purpose] = await db.insert(savingsPurposes).values({ userId, name: "生活費", color: "blue" }).returning();
+  const [category] = await db.insert(savingsCategories).values({ userId, kind: "expense", name: "餐飲", color: "orange" }).returning();
+  const [account] = await db.insert(savingsAccounts).values({ userId, name: "國泰", kind: "deposit", purposeId: purpose.id, openingBalance: 1000 }).returning();
+  const [rule] = await db.insert(savingsRecurring).values({ userId, kind: "expense", accountId: account.id, categoryId: category.id, amount: 390, dayOfMonth: 6 }).returning();
+  await db.insert(savingsTransactions).values({ userId, kind: "expense", accountId: account.id, categoryId: category.id, amount: 390, date: "2026-10-06", recurringId: rule.id });
   await db.insert(coreNotifications).values({ userId, module: "twitch", kind: "stream_online", title: "開台了" });
   await db.insert(coreInvites).values({ tokenHash: `hash${suffix}`, createdBy: userId, expiresAt: new Date(Date.now() + 86_400_000), maxUses: 1 });
 }
@@ -49,7 +55,7 @@ beforeEach(async () => {
 });
 
 describe("刪除自己的帳號：各功能的資料一起刪除，共用的翻譯留下但不再連到他", () => {
-  it("追蹤名單、保留的影片、加密的 API Key、HoYoLAB 帳號與簽到紀錄、記帳、通知、邀請都刪掉；別人的資料不受影響", async () => {
+  it("追蹤名單、保留的影片、加密的 API Key、HoYoLAB 帳號與簽到紀錄、理財（帳戶、用途、分類、紀錄、固定收支）、通知、邀請都刪掉；別人的資料不受影響", async () => {
     expect(await deleteOwnAccount(member, PASSWORD)).toEqual({ ok: true });
 
     for (const [name, table, column] of [
@@ -58,8 +64,11 @@ describe("刪除自己的帳號：各功能的資料一起刪除，共用的翻�
       ["youtube_settings", youtubeSettings, youtubeSettings.userId],
       ["youtube_saved_videos", youtubeSavedVideos, youtubeSavedVideos.userId],
       ["starrail_accounts", starrailAccounts, starrailAccounts.userId],
-      ["savings_goals", savingsGoals, savingsGoals.userId],
-      ["savings_entries", savingsEntries, savingsEntries.userId],
+      ["savings_purposes", savingsPurposes, savingsPurposes.userId],
+      ["savings_categories", savingsCategories, savingsCategories.userId],
+      ["savings_accounts", savingsAccounts, savingsAccounts.userId],
+      ["savings_recurring", savingsRecurring, savingsRecurring.userId],
+      ["savings_transactions", savingsTransactions, savingsTransactions.userId],
       ["core_notifications", coreNotifications, coreNotifications.userId],
       ["core_invites", coreInvites, coreInvites.createdBy],
     ] as const) {

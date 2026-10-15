@@ -8,17 +8,20 @@ import { AI_PROVIDER_NAMES, type AiProvider } from "./providers";
 export type { AiProvider } from "./providers";
 export type AiConfig = { provider: AiProvider; apiKey: string; model: string };
 
-/** Claude 選便宜的 Haiku；OpenAI 與 Gemini 的模型更新很快，這兩個只是建議值 */
+/** Claude 選便宜的 Haiku OpenAI 與 Gemini 的模型換得很快 這兩個只是建議值 */
 export const DEFAULT_MODELS: Record<AiProvider, string> = {
   anthropic: "claude-haiku-4-5",
   openai: "gpt-4.1-mini",
   gemini: "gemini-3.8-flash",
 };
 
-/** 單次呼叫 AI（含讀完回應）的上限；翻譯鎖的期限要比這個長 */
+/** 單次呼叫 AI 含讀完回應的上限 翻譯鎖的期限要比這個長 */
 export const AI_TIMEOUT_MS = 120_000;
 
-/** refused：模型拒絕翻譯這段內容；它跟 bad_output 是字幕內容的問題，換誰的 API Key 都一樣，其他是觀看者自己的金鑰、額度或連線問題 */
+/**
+ * refused 是模型拒絕翻譯 它跟 bad_output 都是字幕內容的問題 換誰的 Key 都一樣
+ * 其他是觀看者自己的金鑰 額度或連線問題
+ */
 export class AiError extends Error {
   constructor(
     readonly kind: "auth" | "rate_limit" | "quota" | "bad_output" | "refused" | "network" | "other",
@@ -52,7 +55,7 @@ type TranslateArgs = {
   ai: AiConfig;
   glossary: GlossaryEntry[];
   context?: { before: string[]; after: string[] };
-  /** 每次呼叫 AI 前執行（更新翻譯鎖的心跳）；丟錯就中止，不呼叫 AI */
+  /** 每次呼叫 AI 前執行 用來更新翻譯鎖的心跳 丟錯就中止不呼叫 AI */
   beforeCall?: () => Promise<void>;
   fetchImpl?: typeof fetch;
 };
@@ -70,7 +73,7 @@ export async function translateBatch(args: TranslateArgs): Promise<string[]> {
     lines: source,
   });
 
-  // 模型偶爾會合併或拆開句子，句數不符時重試一次並明確提醒
+  // 模型偶爾會合併或拆開句子 句數不符時重試一次並明確提醒
   for (const reminder of ["", `\n\n注意：上一次輸出的句數不對。lines 必須剛好 ${source.length} 句。`]) {
     await args.beforeCall?.();
     const text = await callProvider(args.ai, input + reminder, args.fetchImpl ?? fetch);
@@ -112,7 +115,7 @@ function buildRequest(ai: AiConfig, user: string): ProviderRequest {
       return {
         url: "https://api.anthropic.com/v1/messages",
         headers: { "x-api-key": ai.apiKey, "anthropic-version": "2023-06-01" },
-        // 不送 temperature：較新的 Claude 模型設定非預設值會回 400
+        // 不送 temperature 較新的 Claude 模型設非預設值會回 400
         body: { model: ai.model, max_tokens: 16000, system: SYSTEM_PROMPT, messages: [{ role: "user", content: user }] },
         read: (json) => {
           const message = json as { content?: Array<{ type: string; text?: string }>; stop_reason?: string };
@@ -124,7 +127,7 @@ function buildRequest(ai: AiConfig, user: string): ProviderRequest {
       return {
         url: "https://api.openai.com/v1/chat/completions",
         headers: { Authorization: `Bearer ${ai.apiKey}` },
-        // 不送 temperature：推理類模型只接受預設值
+        // 不送 temperature 推理類模型只接受預設值
         body: {
           model: ai.model,
           response_format: { type: "json_object" },
@@ -173,7 +176,7 @@ async function callProvider(ai: AiConfig, user: string, fetchImpl: typeof fetch)
       { timeoutMs: AI_TIMEOUT_MS, fetchImpl },
     );
   } catch (error) {
-    // 例外訊息可能帶有請求內容，只回報錯誤種類
+    // 例外訊息可能帶有請求內容 只回報錯誤種類
     throw new AiError("network", `連不上 ${name} API（${errorKind(error)}）`);
   }
 
@@ -187,11 +190,11 @@ async function callProvider(ai: AiConfig, user: string, fetchImpl: typeof fetch)
   try {
     json = JSON.parse(text);
   } catch {
-    // 非 JSON 的錯誤頁，下面只用狀態碼判斷
+    // 非 JSON 的錯誤頁 下面只用狀態碼判斷
   }
 
   if (!response.ok) throw classify(ai, name, response, json);
-  // 200 但不是 JSON 或結構不對（例如閘道錯誤頁）：回空字串，交給上層當成輸出格式錯誤重試
+  // 200 但不是 JSON 或結構不對 例如閘道錯誤頁 回空字串讓上層當成格式錯誤重試
   try {
     const output = request.read(json);
     return typeof output === "string" ? output : "";
@@ -227,7 +230,7 @@ function classify(ai: AiConfig, name: string, response: Response, json: unknown)
   return new AiError("other", `${name} API 錯誤（HTTP ${status}）${detail ? `：${detail.slice(0, 200)}` : ""}`);
 }
 
-/** 供應商的錯誤訊息有時會回顯金鑰（完整或部分遮罩），一律換掉 */
+/** 供應商的錯誤訊息有時會帶出完整或部分遮住的金鑰 一律換掉 */
 function redact(message: string, apiKey: string): string {
   let out = apiKey ? message.split(apiKey).join("***") : message;
   out = out.replace(/sk-[A-Za-z0-9*_-]{4,}/g, "***").replace(/AIza[0-9A-Za-z_-]{10,}/g, "***");

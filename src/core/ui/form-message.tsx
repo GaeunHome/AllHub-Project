@@ -7,15 +7,15 @@ export type FormState = { error?: string; message?: string };
 type FormMessageProps = {
   tone: "error" | "success";
   children: ReactNode;
-  /** 給了就能用程式把焦點放上來（例如視窗關掉後原本的按鈕不見了） */
+  /** 給了就能用程式把焦點放上來 例如視窗關掉後原本的按鈕不見了 */
   ref?: Ref<HTMLParagraphElement>;
   /** 讓彈出視窗的 aria-describedby 指向 */
   id?: string;
-  /** false：跟彈出視窗一起出現的說明，改由視窗的 aria-describedby 念；再當 live region 會念兩次 */
+  /** 跟視窗一起出現的說明設 false 改由 aria-describedby 念 不然會念兩次 */
   live?: boolean;
 };
 
-// 錯誤用 alert 立刻念出來，成功用 status 等報讀器念完手上的內容
+// 錯誤用 alert 立刻念 成功用 status 等報讀器念完手上的內容
 export function FormMessage({ tone, children, ref, id, live = true }: FormMessageProps) {
   const error = tone === "error";
   return (
@@ -38,7 +38,7 @@ export function FormFeedback({ state }: { state: FormState }) {
   return null;
 }
 
-/** 按鈕旁的小字回饋（FormFeedback 的精簡版）；只想顯示錯誤時不傳 message。className 用來調整寬度與對齊 */
+/** 按鈕旁的小字回饋 只想顯示錯誤時不傳 message className 調整寬度與對齊 */
 export function InlineFeedback({ error, message, className = "" }: FormState & { className?: string }) {
   if (error) {
     return (
@@ -57,7 +57,10 @@ export function InlineFeedback({ error, message, className = "" }: FormState & {
   return null;
 }
 
-/** 點了之後要讓人一眼看到的結果（兌換碼、立即簽到、連結帳號）：比 FormFeedback 大一級，有標題；一般表單仍用 FormFeedback。warning 是成功了但有要注意的地方 */
+/**
+ * 點了要一眼看到的結果 比 FormFeedback 大一級而且有標題
+ * warning 是成功了但有要注意的地方
+ */
 export function ResultBanner({ tone, title, children }: { tone: "error" | "success" | "warning"; title: ReactNode; children?: ReactNode }) {
   return (
     <div role={tone === "error" ? "alert" : "status"} className={`result-banner result-banner-${tone}`}>

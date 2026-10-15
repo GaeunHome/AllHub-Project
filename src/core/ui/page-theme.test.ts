@@ -3,7 +3,7 @@ import { createElement, useLayoutEffect, useRef, type EffectCallback, type React
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// layout effect 只在瀏覽器跑：直接呼叫元件時收起來自己執行
+// layout effect 只在瀏覽器跑 直接呼叫元件時收起來自己執行
 vi.mock("react", { spy: true });
 
 const { ACTIVITY_HIDDEN, PageTheme, markShown } = await import("./page-theme");
@@ -16,7 +16,6 @@ afterEach(() => {
 type ThemeProps = Parameters<typeof PageTheme>[0];
 const theme = (props: Omit<ThemeProps, "children">, child: ReactNode = createElement("p", null, "頁面")) => createElement(PageTheme, props as ThemeProps, child);
 
-/** 只記錄屬性的假元素 */
 function fakeElement(initial: string[] = []) {
   const attributes = new Set(initial);
   return {
@@ -70,7 +69,7 @@ describe("會換整頁樣式的 :has()（globals.css）", () => {
   });
 
   describe("Twitch、星穹鐵道：整頁的深色底，導覽列維持全站的樣子", () => {
-    // 先拿掉註解；每一條規則拆成選擇器清單與宣告
+    // 先拿掉註解 規則前面的註解才不會算進選擇器
     const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{};]+)\{([^{}]*)\}/g)].map((m) => ({ selectors: m[1].split(",").map((s) => s.trim()), body: m[2] }));
     const declarations = (match: (selector: string) => boolean) =>
       rules
@@ -93,7 +92,8 @@ describe("會換整頁樣式的 :has()（globals.css）", () => {
       });
 
       it(`${theme}：:root、html、body 只換整頁的背景（與星空的變數），不換導覽列、鈴鐺面板、人像選單用的變數（文字、面、主色、模組圖示、導覽列底色）與 color-scheme`, () => {
-        // 選擇器本身是 :root／html／body，或其中的 body：導覽列是它們的子孫，在這裡設的變數都會被導覽列繼承
+        // 選擇器是 :root html body 或其中的 body 時 導覽列是它們的子孫
+        // 在這裡設的變數都會被導覽列繼承
         const page = declarations((s) => s.includes(`.${theme}`) && /^(?::root|html|body):has\(.*\)(?:\s+body)?$/.test(s));
 
         expect(page).not.toBe("");

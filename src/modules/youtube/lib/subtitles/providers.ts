@@ -1,6 +1,7 @@
-// 這個檔不 import 任何東西：資料表 schema 也用它產生 enum，drizzle-kit 載入 schema 時才不會牽連到其他檔案
+// 這個檔不 import 任何東西 資料表 schema 也用它產生 enum
+// drizzle-kit 載入 schema 時才不會牽連到其他檔案
 
-/** 翻譯可以用的 AI 供應商；資料表的 enum、翻譯、設定頁都從這份清單來 */
+/** 翻譯可用的 AI 供應商 資料表 enum 翻譯與設定頁都用這份清單 */
 export const AI_PROVIDER_IDS = ["anthropic", "openai", "gemini"] as const;
 
 export type AiProvider = (typeof AI_PROVIDER_IDS)[number];

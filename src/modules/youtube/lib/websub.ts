@@ -6,7 +6,7 @@ import { CHANNEL_ID } from "./parse";
 import { youtubeWatchUrl } from "./urls";
 
 const TOPIC_BASE = "https://www.youtube.com/xml/feeds/videos.xml";
-/** hub 實際給 5 天；設上限是怕租約被設成幾十年後，續訂排程就永遠不會觸發 */
+/** hub 實際給 5 天 設上限是怕租約被設成幾十年後 續訂排程就永遠不會跑 */
 const MAX_LEASE_SECONDS = 10 * 24 * 3600;
 const MAX_REASON_LENGTH = 200;
 
@@ -14,7 +14,7 @@ export function topicFor(channelId: string): string {
   return `${TOPIC_BASE}?channel_id=${channelId}`;
 }
 
-/** 只認 YouTube 自己的影片 feed，避免被拿來確認任意 topic */
+/** 只認 YouTube 自己的影片 feed 免得被拿來確認任意 topic */
 export function channelIdFromTopic(topic: string): string | null {
   try {
     const url = new URL(topic);
@@ -26,7 +26,10 @@ export function channelIdFromTopic(topic: string): string | null {
   }
 }
 
-/** hub 的 GET 確認沒有簽章：callback 帶上跟頻道綁定、猜不到的 k，別人就無法偽造確認或用自己的 secret 代訂 */
+/**
+ * hub 的 GET 確認沒有簽章 callback 帶上跟頻道綁定又猜不到的 k
+ * 別人就無法偽造確認或用自己的 secret 代訂
+ */
 export function callbackToken(channelId: string, secret: string): string {
   return createHmac("sha256", secret).update(`websub:${channelId}`).digest("hex");
 }
@@ -35,7 +38,7 @@ export function verifyCallbackToken(channelId: string, token: string | undefined
   return Boolean(token) && safeEqual(token!, callbackToken(channelId, secret));
 }
 
-/** WebSub 的 X-Hub-Signature：sha1=hex(HMAC-SHA1(secret, 原始 body)) */
+/** WebSub 的 X-Hub-Signature 是對原始 body 算的 HMAC-SHA1 */
 export function verifyHubSignature(rawBody: string, header: string | null, secret: string): boolean {
   const match = /^sha1=([0-9a-f]{40})$/i.exec(header ?? "");
   if (!match) return false;
@@ -49,11 +52,14 @@ export type FeedEntry = {
   title: string;
   published: Date | null;
   url: string;
-  /** 連結是 /shorts/<id> 的是 Shorts；RSS 的連結可以信任（清理時 false 就當一般影片），推送的 false 只代表從連結看不出來，由 service 再請求確認 */
+  /**
+   * 連結是 /shorts/ 的是 Shorts RSS 的連結可信 清理時 false 就當一般影片
+   * 推送的 false 只代表從連結看不出來 由 service 再請求確認
+   */
   isShort: boolean;
 };
 
-/** Shorts 的連結是 https://www.youtube.com/shorts/<id>、一般影片是 /watch?v=<id>；推送的 entry 常常連 Shorts 也給 /watch，看不出來 */
+/** 推送的 entry 常常連 Shorts 也給 /watch 連結 這時看不出來 */
 const SHORTS_LINK = /^https:\/\/(?:www\.)?youtube\.com\/shorts\//;
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
@@ -73,7 +79,10 @@ function tag(xml: string, name: string): string | null {
   return match ? decodeXml(match[1]) : null;
 }
 
-/** 只用到少數固定標籤，小型解析就夠、不必引入 XML 套件；刪除通知是 at:deleted-entry，自然會被略過 */
+/**
+ * 只用到少數固定標籤 小型解析就夠 不必引入 XML 套件
+ * 刪除通知是 at:deleted-entry 自然會被略過
+ */
 export function parseFeed(xml: string): { title: string | null; entries: FeedEntry[] } {
   const firstEntry = xml.search(/<entry[\s>]/);
   const head = firstEntry < 0 ? xml : xml.slice(0, firstEntry);
@@ -99,19 +108,19 @@ export function parseFeed(xml: string): { title: string | null; entries: FeedEnt
   return { title: tag(head, "title"), entries };
 }
 
-/** token 是 callback 網址上的 k（hub 會原樣帶回），交給 verifyCallbackToken 驗證 */
+/** token 是 callback 網址上的 k hub 會原樣帶回 交給 verifyCallbackToken 驗證 */
 export type Verification =
   | { mode: "subscribe" | "unsubscribe"; topic: string; challenge: string; leaseSeconds?: number; token?: string }
   | { mode: "denied"; topic: string; reason?: string; token?: string };
 
-/** hub 用 GET 確認訂閱／退訂，或通知訂閱被拒（denied）；參數不完整回 null */
+/** hub 用 GET 確認訂閱與退訂 或通知訂閱被拒 參數不完整回 null */
 export function parseVerification(params: URLSearchParams): Verification | null {
   const mode = params.get("hub.mode");
   const topic = params.get("hub.topic");
   if (!topic) return null;
   const token = params.get("k") ?? undefined;
   if (mode === "denied") {
-    // reason 會寫進頻道狀態顯示在畫面上，任何人都能送，要限制長度
+    // reason 會顯示在畫面上 任何人都能送 所以限制長度
     const reason = params.get("hub.reason");
     return { mode, topic, reason: reason === null ? undefined : [...reason].slice(0, MAX_REASON_LENGTH).join(""), token };
   }
@@ -124,7 +133,10 @@ export function parseVerification(params: URLSearchParams): Verification | null 
   return { mode, topic, challenge, leaseSeconds: lease === null ? undefined : Math.min(Number(lease), MAX_LEASE_SECONDS), token };
 }
 
-/** 訂閱失敗的原因會寫進頻道狀態、顯示在畫面上：只放中文摘要，錯誤原文可能是英文或夾帶 hub 的回應；用名稱判斷 HubError，這裡才不必載入 server-only 的 api.ts */
+/**
+ * 訂閱失敗的原因會顯示在畫面上 只放中文摘要 原文可能是英文或夾帶 hub 的回應
+ * 用名稱判斷 HubError 才不必載入 server-only 的 api.ts
+ */
 export function subscriptionFailure(error: unknown): string {
   return `訂閱失敗：${connectionProblem(error, "WebSub hub") ?? hubProblem(error)}`;
 }

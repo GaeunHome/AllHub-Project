@@ -8,12 +8,15 @@ import { CardHeader } from "./page-header";
 type HomeCardProps = {
   info: Pick<ModuleInfo, "id" | "name" | "href" | "icon" | "accent">;
   title: string;
-  /** 內容還在讀的時候顯示，大小盡量跟內容一樣，載入完不會跳動 */
+  /** 內容還在讀時顯示 大小盡量跟內容一樣 載入完才不會跳動 */
   skeleton: ReactNode;
   children: ReactNode;
 };
 
-/** 首頁的卡片外框：標題列不必等資料先出現，內容各自串流；慢或出錯都只影響這一張；@container 讓內容依卡片本身的寬度排欄（超寬螢幕上有的卡片只佔半列） */
+/**
+ * 標題列不必等資料先出現 內容各自串流 慢或出錯都只影響這一張
+ * 用 @container 讓內容依卡片本身的寬度排欄 超寬螢幕上有的卡片只佔半列
+ */
 export function HomeCard({ info, title, skeleton, children }: HomeCardProps) {
   const headingId = `home-${info.id}`;
   return (

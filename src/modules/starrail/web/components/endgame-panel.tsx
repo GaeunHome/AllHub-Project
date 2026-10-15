@@ -10,7 +10,10 @@ import { EndgameView, type EndgameRecord } from "./endgame-view";
 
 const SCHEDULES: EndgameSchedule[] = ["current", "previous"];
 
-/** 終局戰績：三種模式的本期與上期一起查（各自快取 30 分鐘），切換時不必再等；角色名字從角色資料對照（同一份快取） */
+/**
+ * 三種模式的本期與上期一起查 各自快取 30 分鐘 切換時不用再等
+ * 角色名字從同一份快取的角色資料對照
+ */
 export async function EndgamePanel({ account }: { account: StarrailAccountView }) {
   const user = await requireSession();
   const requests = ENDGAME_MODES.flatMap((mode) => SCHEDULES.map((schedule) => ({ mode, schedule })));
@@ -19,7 +22,7 @@ export async function EndgamePanel({ account }: { account: StarrailAccountView }
     cachedCharacters(user.id, account.id),
   ]);
 
-  // 只設不清：有一種戰績讀到 cookie 失效就標上，其他戰績讀得到不代表 cookie 沒問題
+  // 只設不清 有一種讀到 cookie 失效就標上 其他讀得到不代表 cookie 沒問題
   if (results.some((result) => result.cookieInvalid)) syncCookieFlagAfter(user.id, account, true);
 
   const records: EndgameRecord[] = requests.map(({ mode, schedule }, i) => {
@@ -33,7 +36,7 @@ export async function EndgamePanel({ account }: { account: StarrailAccountView }
 export function EndgameSkeleton() {
   return (
     <LoadingState label="向 HoYoLAB 查詢終局戰績…" className="stack">
-      {/* 標題列跟載入完成時一樣高，並排的開拓月曆標題才對得齊 */}
+      {/* 標題列跟載入完成時一樣高 並排的開拓月曆標題才對得齊 */}
       <h3 className="sr-title min-h-11">終局戰績</h3>
       <Skeleton className="h-11 w-80 max-w-full rounded-none" />
       <Skeleton className="h-56 rounded-none" />

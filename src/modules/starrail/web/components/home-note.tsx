@@ -12,9 +12,9 @@ import { staminaGauge } from "../../lib/stamina";
 import type { DailyNoteResult, StarrailAccountView } from "../../service/accounts";
 import { accountHref } from "../account-tabs";
 
-// web 層不能讀模組根目錄的 info.ts，模組網址寫在這裡（帳號的網址用 accountHref）
+// web 層不能讀模組根目錄的 info.ts 網址寫在這裡 帳號的網址用 accountHref
 const STARRAIL_PAGE = "/starrail";
-// 寬螢幕左邊是開拓力、右邊是後備開拓力與每日實訓，兩欄等寬等高；手機上上下排
+// 寬螢幕左邊開拓力 右邊後備開拓力與每日實訓 兩欄等寬等高
 const PAIR = "grid gap-4 sm:grid-cols-2";
 
 export function NoLinkedAccount() {
@@ -32,7 +32,7 @@ export function NoLinkedAccount() {
   );
 }
 
-/** 帳號的名牌（伺服器、暱稱、等級），點了到星穹鐵道頁的這個帳號；便箋還在查的時候也先顯示 */
+/** 帳號的名牌 點了到星穹鐵道頁的這個帳號 便箋還在查時也先顯示 */
 function AccountTitle({ account }: { account: StarrailAccountView }) {
   return (
     <Link href={accountHref(account.id)} className="group flex min-w-0 items-center gap-2 pointer-coarse:min-h-11">
@@ -44,7 +44,7 @@ function AccountTitle({ account }: { account: StarrailAccountView }) {
   );
 }
 
-/** 一個帳號的即時便箋：開拓力（目前／上限、回滿時間）、後備開拓力、每日實訓、委託；查詢失敗時只在這一列說明 */
+/** 一個帳號的即時便箋 查詢失敗時只在這一列說明 */
 export function AccountNoteRow({ account, result, now }: { account: StarrailAccountView; result: DailyNoteResult; now: Date }) {
   if (!result.ok) {
     return (
@@ -75,7 +75,7 @@ export function AccountNoteRow({ account, result, now }: { account: StarrailAcco
     <div className="stack">
       <AccountTitle account={account} />
       <div className={PAIR}>
-        {/* 開拓力最常看，放大成主角；右邊兩個數字跟它一樣高 */}
+        {/* 開拓力最常看 放大成主角 右邊兩個數字跟它一樣高 */}
         <div className="panel flex flex-col justify-between gap-3">
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-ink">
@@ -131,7 +131,7 @@ function NoteFigure({ icon, label, children }: { icon: UiIconName; label: string
   );
 }
 
-/** 派遣中的角色頭像，一個委託一組；完成的加上勾勾 */
+/** 派遣中的角色頭像 一個委託一組 完成的加上勾勾 */
 function ExpeditionAvatars({ expeditions }: { expeditions: ExpeditionState[] }) {
   const done = expeditions.filter((e) => e.done).length;
   return (
@@ -168,7 +168,7 @@ function ExpeditionAvatars({ expeditions }: { expeditions: ExpeditionState[] }) 
   );
 }
 
-/** 便箋還在向 HoYoLAB 查詢：先顯示是哪個帳號 */
+/** 便箋還在向 HoYoLAB 查詢時先顯示是哪個帳號 */
 export function AccountNoteSkeleton({ account }: { account: StarrailAccountView }) {
   return (
     <LoadingState label="向 HoYoLAB 查詢即時便箋…" className="stack">

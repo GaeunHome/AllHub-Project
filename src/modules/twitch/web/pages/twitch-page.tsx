@@ -8,9 +8,8 @@ import { AddStreamerForm } from "../components/add-streamer-form";
 import { Following, FollowingSkeleton } from "../components/following";
 import { RecentEvents } from "../components/recent-events";
 
-// 圖示、名稱、點綴色由 src/app 從 info.ts 傳進來：web 層不能 import 模組根目錄
-// theme-twitch 讓這一頁不論全站淺色或深色，都是 Twitch 網站的深色風格：整頁主題，深色底鋪滿導覽列以下的整個畫面（globals.css 的 :root:has(.theme-twitch…)），導覽列維持全站的樣子
-// 超寬螢幕時開關台紀錄移到右邊一欄（像 Twitch 的聊天室），不會被拉成一長條
+// 圖示與名稱由 src/app 從 info.ts 傳進來 web 層不能 import 模組根目錄
+// theme-twitch 固定 Twitch 的深色 超寬螢幕時開關台紀錄像聊天室移到右邊一欄
 export function TwitchPage({ info }: { info: ModuleInfo }) {
   return (
     <PageTheme accent={info.accent} className="theme-twitch page-stack 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_24rem] 2xl:items-start">

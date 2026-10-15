@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Icon } from "../ui/icon";
 import { DiscardHiddenPages } from "./discard-hidden-pages";
 
-/** 卡片裡的提示（還沒有帳號、帳號已刪除、邀請連結的狀態） */
+/** 卡片裡的提示 例如還沒有帳號 帳號已刪除 邀請連結的狀態 */
 export function AuthNotice({ icon, children }: { icon: "info" | "circle-alert" | "circle-check"; children: ReactNode }) {
   return (
     <p role="status" className="notice">
@@ -12,7 +12,7 @@ export function AuthNotice({ icon, children }: { icon: "info" | "circle-alert" |
   );
 }
 
-/** 登入與註冊共用的外框：置中的一張卡片、同一個寬度；卡片裡分成標題、表單、頁尾三段，段與段之間 gap-6（比欄位之間的 gap-4 大一級） */
+/** 登入與註冊共用的外框 三段之間用 gap-6 比欄位之間的 gap-4 大一級 */
 export function AuthCard({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-12">

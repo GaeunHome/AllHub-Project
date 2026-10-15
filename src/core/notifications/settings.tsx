@@ -15,7 +15,7 @@ function readPermission(): PermissionState {
 
 function subscribePermission(listener: () => void): () => void {
   permissionListeners.add(listener);
-  // 使用者在瀏覽器的網站設定改了權限，回到這一頁時重新讀
+  // 使用者可能在瀏覽器的網站設定改了權限 回到這一頁時重新讀
   window.addEventListener("focus", listener);
   return () => {
     permissionListeners.delete(listener);
@@ -23,7 +23,7 @@ function subscribePermission(listener: () => void): () => void {
   };
 }
 
-/** 伺服器算繪時不知道權限，回 null 先不顯示按鈕，避免閃一下錯的狀態 */
+/** 伺服器算繪時不知道權限 回 null 先不顯示按鈕 免得閃一下錯的狀態 */
 function useNotificationPermission(): PermissionState | null {
   return useSyncExternalStore(subscribePermission, readPermission, () => null);
 }
@@ -33,7 +33,7 @@ async function requestPermission(): Promise<void> {
   permissionListeners.forEach((listener) => listener());
 }
 
-/** 權限狀態用標籤顯示；被封鎖或不支援時要告訴使用者怎麼處理，其他狀態的說明收在「說明」裡 */
+/** 被封鎖或不支援時要告訴使用者怎麼處理 其他狀態的說明收在說明裡 */
 const PERMISSION_CHIP: Record<PermissionState, { label: string; chip: string; action?: string }> = {
   default: { label: "還沒允許", chip: "chip chip-warning" },
   granted: { label: "已允許", chip: "chip chip-success" },
@@ -47,10 +47,13 @@ const NOTICE_TEXT: Record<PermissionNotice, string> = {
   unsupported: "這個瀏覽器不支援系統通知（iPhone 要先把網站加到主畫面），只會有提示卡片與提示音。",
 };
 
-/** 只有會發通知的模組有開關；不發通知的（notifies: false）沒有開關可以關，存著的是沿用的舊全域值，不能算進「有沒有開著」 */
+/**
+ * 只有會發通知的模組有開關
+ * 不發通知的模組存著的是沿用的舊全域值 不能算進有沒有開著
+ */
 const alertModules = (modules: NotificationModule[]) => modules.filter((module) => module.notifies !== false);
 
-/** 每個模組一列、提示音與瀏覽器通知各一個開關；模組清單由 src/app 傳進來，新增模組會自動出現 */
+/** 模組清單由 src/app 傳進來 新增模組會自動出現 */
 export function AlertSwitchTable({ modules }: { modules: NotificationModule[] }) {
   return (
     <table className="w-full border-collapse text-sm">
@@ -88,7 +91,7 @@ function AlertSwitchRow({ module }: { module: NotificationModule }) {
           <span className="truncate">{module.name}</span>
         </span>
       </th>
-      {/* 開關本身只有 24px 高，外面包一層 44×44 的 label，手指也點得到 */}
+      {/* 開關只有 24px 高 外面包一層 44px 的 label 手指才點得到 */}
       <td className="py-1 text-center">
         <label className="inline-grid min-h-11 min-w-11 cursor-pointer place-items-center align-middle">
           <input
@@ -98,7 +101,7 @@ function AlertSwitchRow({ module }: { module: NotificationModule }) {
             checked={sound}
             onChange={(event) => {
               setAlertPref(module.id, "sound", event.target.checked);
-              // 這次點擊本身就算互動，順便把音效準備好
+              // 這次點擊就算互動 順便把音效準備好
               chime.unlock();
             }}
             className="switch"
@@ -125,7 +128,7 @@ function AlertSwitchRow({ module }: { module: NotificationModule }) {
   );
 }
 
-/** 有模組開著瀏覽器通知、權限卻還沒拿到時的提示；被拒絕後也會留著，提醒要到瀏覽器的網站設定改 */
+/** 有模組開著瀏覽器通知卻沒拿到權限時提示 被拒絕後也留著 提醒要到網站設定改 */
 export function BrowserPermissionNotice({ modules }: { modules: NotificationModule[] }) {
   const notice = permissionNotice(useNotificationPermission(), useAnyAlertPref(alertModules(modules).map((m) => m.id), "browser"));
   if (!notice) return null;
@@ -144,7 +147,7 @@ export function BrowserPermissionNotice({ modules }: { modules: NotificationModu
   );
 }
 
-/** 開關的運作方式：不常需要看，收起來，需要時再展開 */
+/** 開關的運作方式不常需要看 所以收起來 */
 export function AlertSettingsHelp() {
   return (
     <details className="disclosure text-sm">
@@ -159,7 +162,7 @@ export function AlertSettingsHelp() {
   );
 }
 
-/** 通知頁的「提醒方式」：模組開關跟鈴鐺面板的是同一份設定，另外有試聽、權限與測試通知 */
+/** 通知頁的提醒方式 模組開關跟鈴鐺面板是同一份設定 */
 export function NotificationSettings({ modules }: { modules: NotificationModule[] }) {
   const anySound = useAnyAlertPref(alertModules(modules).map((m) => m.id), "sound");
   const permission = useNotificationPermission();
@@ -180,7 +183,7 @@ export function NotificationSettings({ modules }: { modules: NotificationModule[
     }
   }
 
-  // 外面的卡片與標題列在通知頁；這裡是撐滿卡片左右的三個區塊，文字跟標題對齊同一條線
+  // 外面的卡片與標題列在通知頁 這裡用撐滿卡片的區塊 文字才跟標題對齊
   return (
     <div className="card-list">
       <div className="card-row stack">
@@ -195,7 +198,7 @@ export function NotificationSettings({ modules }: { modules: NotificationModule[
           </span>
           <p className="min-w-0 flex-1 font-semibold text-ink">提示音</p>
         </div>
-        {/* 寬螢幕上按鈕對齊標題文字（圖示 36px＋間距 12px） */}
+        {/* 寬螢幕上按鈕對齊標題文字 圖示 36px 加間距 12px */}
         <div className="button-row sm:pl-12">
           <button type="button" onClick={preview} className="btn-secondary btn-sm">
             <Icon name="play" className="size-3.5" />

@@ -4,9 +4,9 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent, t
 import { Icon } from "./icon";
 
 type MoreMenuProps = {
-  /** 按鈕的名稱（報讀器與提示），例如「「影片標題」的選項」 */
+  /** 給報讀器與提示的按鈕名稱 例如影片標題的選項 */
   label: string;
-  /** 自訂按鈕內容（例如頻道頭像與名稱）；預設是 ⋮ */
+  /** 自訂按鈕內容 例如頻道頭像與名稱 預設是 ⋮ */
   trigger?: ReactNode;
   triggerClassName?: string;
   children: ReactNode;
@@ -15,7 +15,10 @@ type MoreMenuProps = {
 const GAP = 4;
 const EDGE = 8;
 
-/** 卡片、頻道上的 ⋮ 選單：寬螢幕貼著按鈕，手機從底部升起；用 fixed 定位，放在會橫向捲動的列裡也不會被裁掉 */
+/**
+ * 卡片與頻道上的 ⋮ 選單 寬螢幕貼著按鈕 手機從底部升起
+ * 用 fixed 定位 放在會橫向捲動的列裡也不會被裁掉
+ */
 export function MoreMenu({ label, trigger, triggerClassName = "icon-button", children }: MoreMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -24,10 +27,10 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
   const byKeyboard = useRef(false);
   const panelId = useId();
 
-  // Activity 把頁面藏起來（換頁、上一頁）或卸載時收起：回到這一頁時選單不會還開著
+  // Activity 藏起頁面或卸載時收起 回到這一頁時選單才不會還開著
   useLayoutEffect(() => () => setOpen(false), []);
 
-  // 繪製前算好位置，選單不會先出現在左上角再跳過去；下方放不下就改放上方
+  // 繪製前算好位置 選單才不會先出現在左上角再跳過去 下方放不下就改放上方
   useLayoutEffect(() => {
     const button = buttonRef.current;
     const panel = panelRef.current;
@@ -53,7 +56,7 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
       close();
       buttonRef.current?.focus();
     };
-    // 選單貼在按鈕旁邊，頁面一捲動就對不上，所以直接收起；選單自己裡面的捲動不算
+    // 選單貼著按鈕 頁面一捲動就對不上 所以直接收起 選單裡面的捲動不算
     const onScroll = (event: Event) => {
       if (!panelRef.current?.contains(event.target as Node)) close();
     };
@@ -70,12 +73,12 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
   }, [open]);
 
   const toggle = (event: MouseEvent<HTMLButtonElement>) => {
-    // detail 為 0 是鍵盤或報讀器按下的：打開後把焦點移進選單
+    // detail 為 0 是鍵盤或報讀器按的 打開後把焦點移進選單
     byKeyboard.current = event.detail === 0;
     setOpen((value) => !value);
   };
 
-  // 點了連結就收起；表單（重新檢查、通知開關）留著，結果才看得到
+  // 點了連結就收起 表單留著 結果才看得到
   const onPanelClick = (event: MouseEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest("a")) setOpen(false);
   };
@@ -89,7 +92,8 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
         title={trigger ? undefined : label}
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        // 面板是 group，aria-haspopup 沒有對應的值；popup-layer.ts 靠這個屬性認出選單開著，頁面的快捷鍵才會讓開
+        // 面板是 group 沒有對應的 aria-haspopup 值
+        // popup-layer.ts 靠這個屬性認出選單開著 頁面的快捷鍵才會讓開
         data-popup-trigger=""
         onClick={toggle}
         className={triggerClassName}

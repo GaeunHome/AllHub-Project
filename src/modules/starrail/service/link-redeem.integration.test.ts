@@ -91,7 +91,7 @@ describe("redeemCodeFor：兌換碼，參數是帳號 id", () => {
     const account = await linkWith(REDEEM_COOKIE);
 
     expect(await redeemCodeFor(account.id, " starrail gift ")).toEqual({ ok: true, message: "獎勵會寄到遊戲內信箱", cookieFlagChanged: false });
-    // 連結時只留需要的鍵、照固定順序存
+    // 連結時只留需要的鍵 照固定順序存
     expect(hoyolab.redeemCode).toHaveBeenCalledWith("ltoken_v2=v2_secret; ltuid_v2=42; account_id_v2=42; cookie_token_v2=ct_secret", "900000001", "prod_official_cht", "STARRAILGIFT");
   });
 

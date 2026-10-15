@@ -3,14 +3,13 @@ import type { ReactNode } from "react";
 import { ExternalImage } from "@/core/ui/external-image";
 import { elementLabel } from "../../lib/characters";
 
-/** 稀有度的底色跟遊戲一樣：五星金、四星紫 */
+/** 稀有度的底色跟遊戲一樣 五星金 四星紫 */
 export function rarityClass(rarity: number | null): string {
   if (rarity === 5) return "sr-five";
   if (rarity === 4) return "sr-four";
   return "bg-linear-to-b from-slate-600 to-slate-500";
 }
 
-/** 遊戲的屬性色：物理灰、火紅、冰青、雷紫、風綠、量子靛、虛數金 */
 const ELEMENT_COLORS: Record<string, string> = {
   physical: "bg-[#8a93a6]",
   fire: "bg-[#e5484d]",
@@ -27,17 +26,18 @@ function elementColorClass(element: string | null): string {
 
 type ElementBadgeProps = {
   element: string | null;
-  /** 內建屬性圖示的站內路徑（lib/game-icons.ts），null 是認不得的屬性 */
+  /** 內建屬性圖示的站內路徑 null 是認不得的屬性 */
   src: string | null;
-  /** 大小（size-*）與退回色圓時的字級 */
+  /** 大小與退回色圓時的字級 */
   className?: string;
-  /** 旁邊已經寫了屬性名稱：報讀器不再念一次 */
+  /** 旁邊已經寫了屬性名稱 報讀器不再念一次 */
   decorative?: boolean;
 };
 
-// 遊戲的固定小圖示是 public/ 裡的靜態檔：跟頁面上方的官方標誌一樣用 next/image 直接載入，不經 Vercel 的圖片最佳化（圖本來就小），也不走外部圖片的 ExternalImage
+// 固定小圖示是 public 裡的靜態檔 跟官方標誌一樣用 next/image 直接載入
+// 圖本來就小 不經 Vercel 的圖片最佳化 也不走 ExternalImage
 
-/** 屬性圖示：遊戲裡的屬性圖；認不得的屬性（沒有圖示）退回圓圈加名稱的第一個字（沒有屬性色，是灰色），色盲也分得出來 */
+/** 屬性圖示 認不得的屬性退回灰色圓圈加名稱的第一個字 色盲也分得出來 */
 export function ElementBadge({ element, src, className = "size-5 text-[0.625rem]", decorative = false }: ElementBadgeProps) {
   const label = elementLabel(element);
   if (!element || !label) return null;
@@ -54,14 +54,17 @@ export function ElementBadge({ element, src, className = "size-5 text-[0.625rem]
   );
 }
 
-/** 裝飾用的小圖示（命途、面板與遺器詞條的屬性圖示）：旁邊都有文字，沒有圖示時整個不畫、不佔位；src 是內建圖示的站內路徑，className 是大小（size-*） */
+/**
+ * 命途與詞條這類裝飾用的小圖示 旁邊都有文字 沒有圖示時整個不畫
+ * src 是內建圖示的站內路徑 className 是大小
+ */
 export function GameIcon({ src, className = "size-4" }: { src: string | null; className?: string }) {
   if (!src) return null;
   return <Image src={src} alt="" width={16} height={16} unoptimized className={`shrink-0 object-contain ${className}`} />;
 }
 
 type PortraitProps = {
-  /** 伺服器端已經過 externalAssetUrl() */
+  /** 伺服器端已經過 externalAssetUrl */
   src: string | null;
   name: string | null;
   element: string | null;
@@ -70,7 +73,10 @@ type PortraitProps = {
   placeholder?: ReactNode;
 };
 
-/** 填滿外框的角色圖（外框要是 relative、決定大小）；讀不到時退回屬性色底加名字的第一個字，版面不會塌 */
+/**
+ * 填滿外框的角色圖 外框要是 relative 並決定大小
+ * 讀不到時退回屬性色底加名字的第一個字 版面不會塌
+ */
 export function Portrait({ src, name, element, className = "", placeholder }: PortraitProps) {
   return (
     <ExternalImage

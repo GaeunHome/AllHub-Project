@@ -13,22 +13,27 @@ const { cronTasks } = await import("./cron");
 
 setupTestDb();
 
-/** 排程 → 執行後要失效的 tag；新增排程時這張表也要加，否則下面的「每個排程都在表上」會失敗 */
+/**
+ * 排程執行後要失效的 tag
+ * 新增排程時這張表也要加 不然每個排程都在表上的測試會失敗
+ */
 const EXPECTED: Record<string, string[]> = {
   "twitch:sync": ["twitch:streamers"],
   "twitch:cleanup": ["twitch:events"],
   "youtube:renew": ["youtube:channels"],
-  // 只刪影片，翻譯永久保留
+  // 只刪影片 翻譯永久保留
   "youtube:cleanup": ["youtube:videos"],
   "youtube:reencrypt": ["youtube:settings"],
   "starrail:checkin": ["starrail:accounts", "starrail:checkins"],
   "starrail:stamina": ["starrail:accounts"],
   "starrail:cleanup": ["starrail:checkins"],
   "starrail:reencrypt": ["starrail:accounts"],
+  // 自動記的紀錄改了餘額與統計 固定收支記到的月份也往前推
+  "savings:recurring": ["savings:recurring", "savings:transactions"],
 };
 
 beforeEach(() => {
-  // 測試不能打到真的 Twitch／YouTube：需要連線的排程會在這裡失敗
+  // 測試不能打到真的 Twitch 與 YouTube 需要連線的排程會在這裡失敗
   vi.stubGlobal("fetch", fakeFetch(() => Promise.reject(new Error("offline"))).impl);
   vi.spyOn(console, "error").mockImplementation(() => {});
 });

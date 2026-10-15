@@ -4,7 +4,7 @@ export function Skeleton({ className }: { className?: string }) {
   return <div aria-hidden className={className ? `skeleton ${className}` : "skeleton"} />;
 }
 
-// 骨架本身沒有文字，外層補上 role="status" 與隱藏文字，報讀器才知道正在載入
+// 骨架本身沒有文字 外層補上 status 與隱藏文字 報讀器才知道正在載入
 export function LoadingState({ label = "載入中…", className, children }: { label?: string; className?: string; children: ReactNode }) {
   return (
     <div role="status" aria-busy="true" className={className}>
@@ -16,7 +16,7 @@ export function LoadingState({ label = "載入中…", className, children }: { 
 
 type ListSkeletonProps = { rows?: number; label?: string };
 
-/** 卡片裡撐滿左右的清單（card-list）還在載入：放在卡片的標題列下面 */
+/** card-list 還在載入時用 放在卡片的標題列下面 */
 export function ListSkeleton({ rows = 3, label }: ListSkeletonProps) {
   return (
     <LoadingState label={label} className="card-list">
@@ -34,7 +34,7 @@ export function ListSkeleton({ rows = 3, label }: ListSkeletonProps) {
   );
 }
 
-/** 只有一則一則紀錄的卡片（通知、開關台）還在載入；列的內距跟卡片一樣（card-row），主題頁可以加上自己的外框樣式 */
+/** 紀錄卡片還在載入時用 例如通知 開關台 主題頁可以加上自己的外框樣式 */
 export function LogListSkeleton({ rows = 4, label, className = "" }: ListSkeletonProps & { className?: string }) {
   return (
     <LoadingState label={label} className={`card divide-y divide-line p-0 ${className}`}>

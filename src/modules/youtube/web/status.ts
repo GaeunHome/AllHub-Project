@@ -4,7 +4,7 @@ import type { TranslationStatus } from "../data/schema";
 
 const FAILURE_PREFIX = "訂閱失敗：";
 
-/** 頻道列上的訂閱狀態標籤；失敗原因與到期日放在 detail，需要時才顯示 */
+/** 頻道列的訂閱狀態標籤 失敗原因與到期日放在 detail 需要時才顯示 */
 export function channelStatusBadge(status: string | null, leaseExpiresAt: Date | null, now = new Date()): StatusBadge {
   if (!status) return { label: "未訂閱", tone: "warning", detail: null };
   if (status === "pending") return { label: "等待 hub 確認", tone: "warning", detail: null };

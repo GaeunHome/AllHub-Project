@@ -9,7 +9,8 @@ import { AI_PROVIDERS, SUBSCRIPTION_NOTE } from "../ai-providers";
 import { GLOSSARY_LIMITS, withCommas } from "../../lib/parse";
 import type { SettingsView } from "../../service/translation";
 
-// legend 預設會壓在 fieldset 的邊框上、也不吃父層的 gap；浮動後變成一般的子元素，樣子跟其他卡片的標題列（CardHeader）一樣
+// legend 預設壓在 fieldset 的邊框上 也不吃父層的 gap
+// 浮動後變成一般的子元素 樣子才跟其他卡片的 CardHeader 一樣
 const LEGEND_CLASS = "float-left flex w-full flex-wrap items-center gap-3 text-lg font-semibold text-ink";
 
 export function SettingsForm({ settings }: { settings: SettingsView }) {
@@ -17,9 +18,10 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
   const providerTitleId = useId();
 
   return (
-    // 寬螢幕三欄：選 AI、Claude、OpenAI 一列，Gemini 與專有名詞表一列；排欄寫在卡片上（表單開頭有 React 加的隱藏 input，用第幾個子元素挑會算錯）
+    // 寬螢幕三欄 排欄寫在卡片上
+    // 表單開頭有 React 加的隱藏 input 用第幾個子元素挑會算錯
     <form action={action} className="page-stack xl:grid xl:grid-cols-3">
-      {/* 這一組的名稱只取標題文字：legend 裡還有 i 圓圈的按鈕，整個 legend 當名稱會連它一起念 */}
+      {/* 名稱只取標題文字 legend 裡還有 i 圓圈按鈕 整個當名稱會連它一起念 */}
       <fieldset aria-labelledby={providerTitleId} className="card stack min-w-0">
         <legend className={LEGEND_CLASS}>
           <span className="icon-tile size-9 rounded-xl">
@@ -30,7 +32,7 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
             <InfoTip label="關於訂閱方案">{SUBSCRIPTION_NOTE}</InfoTip>
           </span>
         </legend>
-        {/* 寬螢幕的三欄裡格子窄，三個選項改成上下排 */}
+        {/* 寬螢幕的三欄裡格子窄 三個選項改成上下排 */}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 xl:grid-cols-1">
           {AI_PROVIDERS.map((p) => (
             <label key={p.id} className="choice-card">
@@ -79,7 +81,7 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
                 模型（留空使用預設 {settings.defaultModels[p.id]}
                 {p.id === "anthropic" ? "" : "，這只是建議值，請依你帳號能用的模型填寫"}）
               </span>
-              {/* 預設值只放在 placeholder：放進 defaultValue 的話按一次儲存就寫死進資料庫，之後改程式預設值不會生效 */}
+              {/* 預設值只放 placeholder 放進 defaultValue 會在存檔時寫死 之後改預設值就不生效 */}
               <input name={`model_${p.id}`} defaultValue={settings.customModels[p.id]} placeholder={settings.defaultModels[p.id]} className="input font-mono" />
             </label>
           </fieldset>

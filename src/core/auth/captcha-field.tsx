@@ -4,12 +4,15 @@ import { useId, useState } from "react";
 import { Icon } from "../ui/icon";
 import { CAPTCHA_FIELD } from "./messages";
 
-/** src 由伺服器算繪頁面時給（帶時間參數）；每次送出表單（resetSignal 換了）或按「換一張」都重新載入，伺服器會一起換掉 cookie */
+/**
+ * src 由伺服器算繪時帶上時間參數
+ * 送出後 resetSignal 會換 或按換一張 都重新載入圖 伺服器也一起換 cookie
+ */
 export function CaptchaField({ src, resetSignal, hiddenLabel = false }: { src: string; resetSignal: unknown; hiddenLabel?: boolean }) {
   const id = useId();
   const [version, setVersion] = useState(0);
   const [seenSignal, setSeenSignal] = useState(resetSignal);
-  // 送出後伺服器已經清掉這張驗證碼的 cookie（不論對錯），在算繪時就換新的圖，不必等 effect
+  // 送出後伺服器已清掉這張的 cookie 算繪時就換新圖 不必等 effect
   if (seenSignal !== resetSignal) {
     setSeenSignal(resetSignal);
     setVersion((current) => current + 1);

@@ -1,16 +1,16 @@
 import "server-only";
 import { randomInt } from "node:crypto";
 
-// 圖形驗證碼的圖：用內建的筆畫字型畫成扭曲過的 <path>，原始碼裡沒有 <text> 也沒有字元本身，機器人不能直接讀 SVG 破解
+// 字畫成扭曲的 path 元素 SVG 裡沒有 text 也沒有字元 機器人讀不出答案
 
-/** 不容易看錯的字元：拿掉 0／O／Q、1／I／L、2／Z、5／S、8／B、G／6 這些長得像的 */
+/** 拿掉容易看錯的 0 O Q 1 I L 2 Z 5 S 8 B G 6 */
 export const CAPTCHA_ALPHABET = "ACDEFHJKMNPRTUVWXY34679";
 export const CAPTCHA_LENGTH = 5;
 
 type Point = readonly [number, number];
 type Glyph = readonly (readonly Point[])[];
 
-// 每個字元是幾條折線，座標在寬 10、高 14 的格子裡（y 往下）；曲線用多個點逼近，畫的時候再整組扭曲
+// 每個字是幾條折線 座標在寬 10 高 14 的格子裡 y 往下 畫的時候再整組扭曲
 const GLYPHS: Readonly<Record<string, Glyph>> = {
   A: [
     [[0, 14], [5, 0], [10, 14]],
@@ -76,11 +76,11 @@ export const CAPTCHA_GLYPH_CHARS = Object.keys(GLYPHS);
 
 const WIDTH = 170;
 const HEIGHT = 60;
-// 深色的字與淺色的干擾：灰階才不會在深色模式或色弱時看不清楚
+// 深色的字配淺色干擾 用灰階才不會在深色模式或色弱時看不清楚
 const INK = ["#1e293b", "#27272a", "#334155", "#3f3f46"];
 const NOISE = ["#64748b", "#94a3b8", "#a1a1aa"];
 
-/** 驗證碼本身用密碼學等級的亂數；圖的扭曲只要看起來亂就好 */
+/** 驗證碼用密碼學等級的亂數 圖的扭曲只要看起來亂就好 */
 export function generateCaptchaCode(): string {
   return Array.from({ length: CAPTCHA_LENGTH }, () => CAPTCHA_ALPHABET[randomInt(CAPTCHA_ALPHABET.length)]).join("");
 }
@@ -105,7 +105,7 @@ export function renderCaptchaSvg(code: string, random: () => number = Math.rando
     const width = between(2.2, 2.8);
     for (const stroke of glyph) {
       const points = stroke.map(([x, y]): Point => {
-        // 以格子中心為原點：先斜切、縮放，再旋轉，每個點再多抖一點，同一個字每次的座標都不一樣
+        // 以格子中心為原點斜切縮放再旋轉 每個點多抖一點 同一個字每次座標都不同
         const sx = (x - 5 + shear * (y - 7)) * scale + between(-0.7, 0.7);
         const sy = (y - 7) * scale + between(-0.7, 0.7);
         return [cx + sx * Math.cos(angle) - sy * Math.sin(angle), cy + sx * Math.sin(angle) + sy * Math.cos(angle)];
@@ -114,7 +114,8 @@ export function renderCaptchaSvg(code: string, random: () => number = Math.rando
     }
   });
 
-  // 干擾線有一條跟字同色、短筆畫也跟字差不多粗，不能只靠屬性把干擾濾掉；其他的淡一點，人還看得清楚
+  // 有一條干擾線跟字同色 短筆畫也跟字差不多粗 不能只靠屬性濾掉干擾
+  // 其他的淡一點 人還看得清楚
   for (let i = 0; i < 5; i++) {
     const glyphLike = i === 0;
     let y = between(10, HEIGHT - 10);
@@ -133,7 +134,7 @@ export function renderCaptchaSvg(code: string, random: () => number = Math.rando
     elements.push(`<circle cx="${num(between(0, WIDTH))}" cy="${num(between(0, HEIGHT))}" r="${num(between(0.6, 1.5))}" fill="${pick(NOISE)}"/>`);
   }
 
-  // 打亂順序：字的筆畫不會照順序出現在原始碼裡
+  // 打亂順序 字的筆畫才不會照順序出現在原始碼裡
   for (let i = elements.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [elements[i], elements[j]] = [elements[j], elements[i]];

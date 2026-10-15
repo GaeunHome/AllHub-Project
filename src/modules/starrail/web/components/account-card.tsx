@@ -16,7 +16,7 @@ import { accountHref } from "../account-tabs";
 import { syncCookieFlagAfter } from "../cookie-flag";
 import { AccountActionForm } from "./account-action-form";
 
-/** 連結了兩個以上的帳號時，用伺服器切換；只有一個帳號時不顯示 */
+/** 連結兩個以上的帳號時用伺服器切換 只有一個時不顯示 */
 export function AccountTabs({ accounts, selectedId }: { accounts: StarrailAccountView[]; selectedId: number }) {
   if (accounts.length < 2) return null;
   return (
@@ -33,11 +33,11 @@ export function AccountTabs({ accounts, selectedId }: { accounts: StarrailAccoun
   );
 }
 
-/** 帳號的名牌：伺服器、UID、開拓等級；常用的「立即簽到」放外面，門檻與移除收在「帳號設定」 */
+/** 帳號的名牌 常用的立即簽到放外面 門檻與移除收在帳號設定 */
 export function AccountHeader({ account }: { account: StarrailAccountView }) {
   return (
     <header className="sr-panel stack p-5 sm:p-6">
-      {/* 名牌的文字至少佔 14rem：手機上「立即簽到」換到下一行，標籤不會被擠成一個一行 */}
+      {/* 名牌文字至少佔 14rem 手機上立即簽到換到下一行 標籤才不會被擠成直的 */}
       <div className="flex flex-wrap items-center gap-4">
         <span className="grid size-12 shrink-0 place-items-center rounded-full border border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-sr-gold">
           <Icon name="train-front" className="size-6" />
@@ -105,7 +105,7 @@ export function AccountHeader({ account }: { account: StarrailAccountView }) {
   );
 }
 
-/** 即時便箋（快取最多 5 分鐘）；HoYoLAB 失敗時只在這一塊顯示錯誤 */
+/** 即時便箋快取最多 5 分鐘 HoYoLAB 失敗時只在這一塊顯示錯誤 */
 export async function DailyNotePanel({ account }: { account: StarrailAccountView }) {
   const user = await requireSession();
   const result = await cachedDailyNote(user.id, account.id);
@@ -130,11 +130,11 @@ export async function DailyNotePanel({ account }: { account: StarrailAccountView
   );
 }
 
-// 五個數字：手機兩欄、寬螢幕三欄；最後一個（委託）佔兩欄，兩種寬度的最後一列都排滿，不留空格
+// 五個數字裡最後的委託佔兩欄 手機兩欄與寬螢幕三欄時最後一列都排滿
 const METER_GRID = "grid grid-cols-2 gap-4 sm:grid-cols-3";
 const NOTE_GRID = "grid gap-4 lg:grid-cols-[minmax(0,18rem)_1fr]";
 
-// HoYoLAB 回應要等幾秒，除了骨架也把正在做什麼寫出來
+// HoYoLAB 回應要等幾秒 除了骨架也寫出正在做什麼
 export function DailyNoteSkeleton() {
   return (
     <LoadingState label="向 HoYoLAB 查詢即時便箋…" className="stack">
@@ -181,7 +181,7 @@ function NoteView({ note, expeditions, fetchedAt, customThreshold }: NoteViewPro
   return (
     <div className="stack">
       <div className={NOTE_GRID}>
-        {/* 開拓力最常看，放大成主角 */}
+        {/* 開拓力最常看 放大成主角 */}
         <div className="sr-panel flex flex-col justify-between gap-4 p-5 sm:p-6">
           <p className="flex items-center gap-2 font-semibold text-ink-soft">
             <Icon name="battery-charging" className="size-5 text-sr-gold" />
@@ -239,7 +239,7 @@ function Meter({ label, icon, value, max, className = "" }: { label: string; ico
   );
 }
 
-/** 委託（派遣）中的角色；剩餘時間已經扣掉查詢後過去的時間（expeditionStates） */
+/** 委託中的角色 剩餘時間已經由 expeditionStates 扣掉查詢後過去的時間 */
 function ExpeditionList({ expeditions }: { expeditions: ExpeditionState[] }) {
   return (
     <ul aria-label="委託" className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-4">

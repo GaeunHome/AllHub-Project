@@ -19,11 +19,11 @@ const UNLOCK_EVENTS = ["pointerdown", "pointerup", "keydown"] as const;
 
 type CenterValue = {
   feed: NotificationFeed;
-  /** 第一次輪詢回來之前 feed 是空的；首頁的未讀摘要靠它分辨「還在載入」與「沒有未讀」 */
+  /** 第一次輪詢回來前 feed 是空的 首頁靠它分辨還在載入與沒有未讀 */
   loaded: boolean;
-  /** 目前看過最新的通知 id；通知頁靠它知道有新通知要重新整理 */
+  /** 看過最新的通知 id 通知頁靠它知道有新通知要重新整理 */
   latestId: number | null;
-  /** 每來一批新通知加一，鈴鐺用它重播搖晃動畫 */
+  /** 每來一批新通知加一 鈴鐺用它重播搖晃動畫 */
   ringCount: number;
   modules: ReadonlyMap<string, NotificationModule>;
   open(item: NotificationItem): void;
@@ -39,7 +39,7 @@ export function useNotificationCenter(): CenterValue {
 }
 
 async function loadFeed(signal: AbortSignal): Promise<PollResult> {
-  // 沒有 cookie 時 proxy 會轉址到登入頁；manual 讓它變成 opaqueredirect，不必真的去抓登入頁
+  // 沒有 cookie 時 proxy 會轉址到登入頁 manual 讓它變成 opaqueredirect 不必真的抓登入頁
   const response = await fetch(API, { cache: "no-store", redirect: "manual", signal, headers: { Accept: "application/json" } });
   if (response.status === 401 || response.type === "opaqueredirect") return { status: "unauthorized" };
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -59,7 +59,7 @@ function localStorageOrNull(): Storage | null {
   }
 }
 
-/** 包住導覽列：輪詢未讀數，有新通知時依各模組的提醒設定跳提示卡片、播提示音、背景時跳系統通知 */
+/** 包住導覽列輪詢未讀數 新通知依各模組設定跳卡片與播聲音 背景時跳系統通知 */
 export function NotificationCenter({ modules, children }: { modules: NotificationModule[]; children: ReactNode }) {
   const router = useRouter();
   const [feed, setFeed] = useState<NotificationFeed>(EMPTY_FEED);
@@ -111,7 +111,7 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
     [markRead, router],
   );
 
-  // 輪詢的回呼只建立一次，透過 ref 拿到最新的 open 與模組清單
+  // 輪詢的回呼只建立一次 透過 ref 拿到最新的 open 與模組清單
   const openRef = useRef(open);
   const modulesRef = useRef(moduleMap);
   const routerRef = useRef(router);
@@ -124,7 +124,7 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
   useEffect(() => {
     const announce = (fresh: NotificationItem[]) => {
       const claimed = new Set(claimAlerts(fresh.map((item) => item.id), localStorageOrNull()));
-      // 每次都重讀設定：別的分頁或鈴鐺面板剛改過也算數
+      // 每次都重讀設定 別的分頁或鈴鐺面板剛改過也算數
       const plan = planAlerts(fresh, claimed, readAlertPref);
       if (plan.toasts.length > 0) {
         setToasts((current) => [...plan.toasts.slice(-MAX_TOASTS).reverse(), ...current].slice(0, MAX_TOASTS));
@@ -138,13 +138,14 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
         try {
           showSystemNotification(item, { NotificationImpl: Notification, onOpen: (n) => openRef.current(n), focus: () => window.focus() });
         } catch {
-          // Android 的 Chrome 只允許 Service Worker 顯示系統通知，new Notification 會丟錯；提示卡片與提示音照常
+          // Android 的 Chrome 只讓 Service Worker 顯示系統通知 new Notification 會丟錯
+          // 提示卡片與提示音照常
         }
       }
     };
 
     const onFeed = (next: NotificationFeed) => {
-      // 標已讀的請求還沒回來時不要用舊資料蓋掉畫面，下一輪再同步
+      // 標已讀的請求還沒回來時不用舊資料蓋掉畫面 下一輪再同步
       if (pendingMarks.current > 0) return;
       setFeed(next);
       setLoaded(true);
@@ -153,7 +154,8 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
       setLatestId(newest);
       if (fresh.length === 0) return;
       announce(fresh);
-      // 正在看的模組頁（例如 /youtube）有新紀錄時順便重新抓，清單不用手動重新整理；只比對完全相同的路徑，觀看頁不受影響
+      // 正在看的模組頁有新紀錄時順便重新抓 清單不用手動重新整理
+      // 只比對完全相同的路徑 觀看頁不受影響
       const path = window.location.pathname;
       if (fresh.some((item) => modulesRef.current.get(item.module)?.href === path)) routerRef.current.refresh();
     };
@@ -161,7 +163,7 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
     const poller = startPoller({
       load: loadFeed,
       onFeed,
-      // session 失效（例如在別的裝置改了密碼）：重新整理畫面，SessionGuard 會把這個分頁導回登入頁
+      // session 失效時重新整理 SessionGuard 會把這個分頁導回登入頁
       onUnauthorized: () => routerRef.current.refresh(),
       isHidden: () => document.visibilityState === "hidden",
     });
@@ -178,7 +180,7 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
     };
   }, []);
 
-  // 瀏覽器規定使用者在頁面上互動過才能播聲音：第一次點擊或按鍵時就把音效準備好
+  // 瀏覽器規定互動過才能播聲音 第一次點擊或按鍵時就把音效準備好
   useEffect(() => {
     const unlock = () => chime.unlock();
     for (const type of UNLOCK_EVENTS) window.addEventListener(type, unlock, { capture: true, once: true, passive: true });

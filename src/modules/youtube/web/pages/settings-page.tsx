@@ -48,11 +48,11 @@ function SettingsSkeleton() {
   );
 }
 
-// 跟列表頁、觀看頁一樣是 YouTube 的淺色／深色
+// 跟列表頁與觀看頁一樣照 YouTube 的淺色與深色
 export function SettingsPage({ info }: { info: ModuleInfo }) {
   return (
     <PageTheme accent={info.accent} className="theme-youtube page-stack">
-      {/* 返回連結、標題與說明是同一組，組內 gap-4；下面的表單是另一個區塊 */}
+      {/* 返回連結 標題與說明是同一組 組內 gap-4 下面的表單是另一個區塊 */}
       <div className="stack">
         <BackLink href={info.href}>{info.name}</BackLink>
         <PageHeader icon={<Icon name="languages" />} title="翻譯設定" />

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
+import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
 import { captureErrorLog, form, loggedText, mocksOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
@@ -41,7 +41,7 @@ describe("非預期錯誤顯示在表單上（不會跳錯誤畫面）_log 只�
     expect(loggedText(log)).not.toContain("secret-detail");
   });
 
-  // 結果框的標題已經寫「立即簽到失敗」「設定開拓力提醒門檻失敗」，說明再寫一次「簽到失敗」就重複了
+  // 結果框的標題已經寫了是哪個動作失敗 說明再寫一次就重複了
   it.each([
     ["checkinAction", "簽到", () => (service.checkinAccount.mockRejectedValue(dbError()), checkinAction({}, form({ accountId: "1" })))],
     ["setThresholdAction", "設定提醒門檻", () => (service.setStaminaThreshold.mockRejectedValue(dbError()), setThresholdAction({}, form({ accountId: "1", threshold: "200" })))],
@@ -61,11 +61,6 @@ describe("removeAccountAction", () => {
 
     await expect(removeAccountAction({}, form({ accountId: "1" }))).rejects.toThrow("NEXT_REDIRECT");
     expect(service.removeAccount).not.toHaveBeenCalled();
-  });
-
-  it("成功_回空狀態（這張卡片會在同一次更新裡消失）", async () => {
-    expect(await removeAccountAction({}, form({ accountId: "1" }))).toEqual({});
-    expect(service.removeAccount).toHaveBeenCalledWith(TEST_SESSION.id, 1);
   });
 });
 

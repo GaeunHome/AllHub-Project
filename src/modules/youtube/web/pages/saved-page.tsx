@@ -13,12 +13,12 @@ import { SAVED_LIMIT, type SavedVideo } from "../../service/saved-videos";
 import { SavedVideoCard } from "../components/saved-video-card";
 import { SavedVideoList } from "../components/saved-video-list";
 
-/** 寬螢幕一排最多 5 部（2xl:grid-cols-5）：這一排的縮圖常常是 LCP，不延遲載入 */
+/** 寬螢幕一排最多 5 部 這一排的縮圖常常是 LCP 不延遲載入 */
 const FIRST_ROW = 5;
-// web 層不能讀模組根目錄的 info.ts，模組網址寫在這裡
+// web 層不能讀根目錄的 info.ts 所以網址寫在這裡
 const YOUTUBE_PAGE = "/youtube";
 
-/** 保留時沒讀到標題或頻道名稱的，再試一次 oEmbed（快取：讀過的不會再向外請求）；還是沒有就顯示影片 id */
+/** 保留時沒讀到標題或頻道的再試一次 oEmbed 讀過的有快取 還是沒有就顯示影片 id */
 async function withNames(videos: SavedVideo[]): Promise<SavedVideo[]> {
   return Promise.all(
     videos.map(async (video) => {
@@ -53,7 +53,7 @@ export async function SavedVideosLoader() {
       limit={SAVED_LIMIT}
       items={videos.map((video, i) => ({
         id: video.videoId,
-        // 篩選的文字跟卡片上看到的一樣：沒有標題時是影片 id
+        // 篩選的文字跟卡片上看到的一樣 沒有標題時是影片 id
         text: [video.title ?? video.videoId, video.channelTitle].filter(Boolean).join(" "),
         card: <SavedVideoCard video={video} now={now} eager={i < FIRST_ROW} />,
       }))}
@@ -61,7 +61,7 @@ export async function SavedVideosLoader() {
   );
 }
 
-/** 跟載入完成的版面一樣：搜尋框與數量、卡片格子 */
+/** 跟載入完成的版面一樣 有搜尋框 數量與卡片格子 */
 function SavedSkeleton() {
   return (
     <LoadingState label="載入已保留的影片…" className="stack">
@@ -84,11 +84,12 @@ function SavedSkeleton() {
   );
 }
 
-// 圖示、名稱、點綴色由 src/app 從 info.ts 傳進來：web 層不能 import 模組根目錄；跟列表頁一樣是 YouTube 的淺色／深色
+// 圖示 名稱與點綴色由 src/app 從 info.ts 傳進來 web 層不能 import 根目錄
+// 跟列表頁一樣照 YouTube 的淺色與深色
 export function SavedVideosPage({ info }: { info: ModuleInfo }) {
   return (
     <PageTheme accent={info.accent} className="theme-youtube page-stack">
-      {/* 返回連結、標題與說明是同一組，組內 gap-4；下面的清單是另一個區塊 */}
+      {/* 返回連結 標題與說明是同一組 組內 gap-4 下面的清單是另一個區塊 */}
       <div className="stack">
         <BackLink href={info.href}>{info.name}</BackLink>
         <PageHeader icon={<Icon name="bookmark" />} title="已保留的影片" />

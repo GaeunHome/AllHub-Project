@@ -6,25 +6,26 @@ import { Icon } from "./icon";
 import { notifyToggleFormData } from "./notify-toggle-form";
 
 type NotifyToggleProps = {
-  /** 模組的 Server Action：用 parseNotifyToggle 解析，自己負責 requireSession */
+  /** 模組的 Server Action 用 parseNotifyToggle 解析 自己負責 requireSession */
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   id: number;
   enabled: boolean;
-  /** 給報讀器與提示文字用，例如主播或頻道名稱 */
+  /** 給報讀器與提示文字用 例如主播或頻道名稱 */
   subject: string;
-  /** menu：放在 ⋮ 選單裡的整列開關（文字加右側的開關圖示） */
+  /** menu 是放在 ⋮ 選單裡的整列開關 文字加右側的開關圖示 */
   variant?: "button" | "menu";
 };
 
 // 跟停用的按鈕一樣變淡
 const BUSY_CLASS = "aria-disabled:cursor-wait aria-disabled:opacity-55";
 
-/** 主播、頻道列表上的通知開關；先切換圖示再等伺服器，按下去立刻有反應 */
+/** 主播與頻道列表上的通知開關 先切換圖示再等伺服器 按下去立刻有反應 */
 export function NotifyToggle({ action, id, enabled, subject, variant = "button" }: NotifyToggleProps) {
   const [shown, setShown] = useOptimistic(enabled);
   const [state, formAction, pending] = useActionState(action, {});
 
-  // 送出中不設 disabled：停用的按鈕會丟掉焦點，在彈出視窗裡焦點會跑到視窗外；改成標 aria-disabled、不理重複的點擊
+  // 送出中不設 disabled 停用的按鈕會丟掉焦點 在視窗裡會跑到視窗外
+  // 改成標 aria-disabled 並不理重複的點擊
   const busy = pending || undefined;
   const toggle = () => {
     if (pending) return;

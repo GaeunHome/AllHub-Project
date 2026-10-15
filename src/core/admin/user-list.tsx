@@ -10,11 +10,14 @@ const ROLE: Record<UserRole, { label: string; chip: string }> = {
   member: { label: "成員", chip: "chip" },
 };
 
-/** 停用等於凍結：排程與通知不再處理他，資料與訂閱保留；停用時 session 版本加一，恢復後要重新登入 */
-export const disableConfirmMessage = (username: string) =>
+/** 停用等於凍結 排程與通知暫停 資料與訂閱保留 恢復後要重新登入 */
+const disableConfirmMessage = (username: string) =>
   `確定停用「${username}」？停用後他會立刻被登出、不能再登入，排程與通知也會暫停；資料與追蹤的訂閱都會保留，恢復後要重新登入。`;
 
-/** 自己那一列不給停用與刪除：停用自己就沒人能恢復，刪除自己要到帳號頁輸入密碼；站長被鎖時本來就進不了這一頁，也不必解除自己的鎖定 */
+/**
+ * 自己那一列不給停用與刪除 停用自己就沒人能恢復 刪除要到帳號頁輸入密碼
+ * 站長被鎖時進不了這一頁 所以也不必解除自己的鎖定
+ */
 export function UserList({ users, currentUserId, lockedUntil }: { users: ManagedUser[]; currentUserId: string; lockedUntil: ReadonlyMap<string, Date> }) {
   return (
     <ul aria-label="使用者清單" className="card-list">
@@ -23,7 +26,7 @@ export function UserList({ users, currentUserId, lockedUntil }: { users: Managed
         const lockEnd = self ? undefined : lockedUntil.get(user.id);
         const dates = [`建立於 ${formatTaipeiDateTime(user.createdAt)}`, ...(user.disabledAt ? [`停用於 ${formatTaipeiDateTime(user.disabledAt)}`] : [])];
         return (
-          // 手機上按鈕換到下一行，每一列的文字都是同樣的寬度
+          // 手機上按鈕換到下一行 每列文字才會一樣寬
           <li key={user.id} className="card-row flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <span className="icon-tile hidden size-9 shrink-0 rounded-full sm:inline-grid">

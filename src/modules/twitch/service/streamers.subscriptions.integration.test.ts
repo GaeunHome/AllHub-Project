@@ -183,7 +183,7 @@ describe("syncSubscriptionsFor：使用者按「同步訂閱」", () => {
   const later = (ms: number) => new Date(NOW.getTime() + ms);
 
   beforeEach(async () => {
-    // bob 另外追蹤兩位主播，全站共有三位
+    // bob 另外追蹤兩位主播 全站共有三位
     const others = await getDb()
       .insert(twitchStreamers)
       .values([

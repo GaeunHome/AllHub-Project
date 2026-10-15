@@ -9,7 +9,7 @@ import { ModuleBadge, type NotificationModule } from "./notification-summary";
 import type { NotificationItem } from "./types";
 import { unreadDigest } from "./unread";
 
-/** 跟鈴鐺用同一份輪詢資料：在鈴鐺或這裡標成已讀，兩邊一起更新，不必另外向伺服器要 */
+/** 跟鈴鐺用同一份輪詢資料 在哪邊標已讀兩邊都一起更新 不必另外向伺服器要 */
 export function HomeNotifications() {
   const { feed, loaded, modules, open } = useNotificationCenter();
   const { items, more } = unreadDigest(feed);
@@ -21,14 +21,14 @@ type UnreadDigestListProps = {
   items: NotificationItem[];
   more: number;
   modules: ReadonlyMap<string, NotificationModule>;
-  /** 只給測試固定時間；畫面上用瀏覽器的現在時間 */
+  /** 只給測試固定時間 畫面上用瀏覽器的現在時間 */
   now?: Date;
   /** 標成已讀並打開通知的連結 */
   onOpen: (item: NotificationItem) => void;
 };
 
 export function UnreadDigestList({ loaded, items, more, modules, now, onOpen }: UnreadDigestListProps) {
-  // 第一次輪詢回來之前不知道有沒有未讀，先不說「沒有」
+  // 第一次輪詢回來前不知道有沒有未讀 先不說沒有
   if (!loaded) return <UnreadDigestSkeleton />;
   if (items.length === 0) return <EmptyState compact icon="check-check" title="沒有未讀通知" />;
 

@@ -19,21 +19,25 @@ import { ElementBadge, GameIcon, Portrait, rarityClass } from "./sr-visuals";
 const dash = (value: string | number | null) => (value === null || value === "" ? "—" : value);
 const stars = (rarity: number | null) => (rarity ? "★".repeat(Math.min(rarity, 5)) : null);
 
-/** 角色詳情（滿版的大面板）：寬螢幕立繪是左邊一整欄、依面板高度放大，右欄是標題列與面板、光錐、星魂、遺器、行跡；手機上直排；讀不到的欄位顯示「—」 */
+/**
+ * 滿版的角色詳情 寬螢幕立繪是左邊一整欄 依面板高度放大
+ * 手機上直排 讀不到的欄位顯示橫線
+ */
 export function CharacterDetail({ character, titleId, onClose }: { character: StarrailCharacter; titleId: string; onClose: () => void }) {
   const c = character;
   const traces = c.traces.filter((t) => t.kind !== "bonus");
   const bonuses = c.traces.filter((t) => t.kind === "bonus");
   return (
-    // 寬螢幕整個面板是同一個捲動區（游標在立繪上也捲得動）；container-type: size 讓立繪拿得到面板的高度
+    // 寬螢幕整個面板同一個捲動區 游標在立繪上也捲得動
+    // container-type 設成 size 立繪才拿得到面板的高度
     <div className="flex flex-col lg:h-full lg:flex-row lg:items-start lg:overflow-y-auto lg:overscroll-contain lg:[container-type:size]">
       <CharacterStage character={c} />
 
-      {/* 右欄：手機上拆開（contents），標題列（order-1）才排得到立繪（order-2）前面，內容是 order-3 */}
+      {/* 右欄在手機上用 contents 拆開 標題列才排得到立繪前面 */}
       <div className="contents lg:block lg:min-w-0 lg:flex-1">
         <DetailHeader character={c} titleId={titleId} onClose={onClose} />
 
-        {/* 依右欄自己的寬度分欄（容器查詢）：寬的時候面板與光錐、星魂並排，遺器與行跡橫跨兩欄 */}
+        {/* 用容器查詢依右欄自己的寬度分欄 遺器與行跡橫跨兩欄 */}
         <div className="@container order-3 min-w-0 p-4 sm:p-6 lg:order-none">
           <div className="grid gap-8 @3xl:grid-cols-2">
             <Section title="面板" icon="chart-column">
@@ -88,11 +92,14 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
   );
 }
 
-/** 立繪：HoYoLAB 的 image 接近方形、人物置中，object-contain 完整放進去不裁切；寬螢幕依面板高度放大（最多一半寬）並停在原地；讀不到時改放頭像，再不行是屬性色底加名字 */
+/**
+ * 立繪接近方形而且人物置中 完整放進去不裁切 寬螢幕依面板高度放大
+ * 讀不到時改放頭像 再不行是屬性色底加名字
+ */
 function CharacterStage({ character: c }: { character: StarrailCharacter }) {
   return (
     <div className="sr-stage relative order-2 aspect-square max-h-[65dvh] w-full shrink-0 overflow-hidden lg:sticky lg:top-0 lg:order-none lg:aspect-auto lg:h-[100cqh] lg:max-h-none lg:w-[min(50cqw,100cqh)]" data-rarity={c.rarity ?? undefined}>
-      {/* next/image 的 fill 要父層是 relative 或 absolute，寬螢幕的舞台是 sticky，再包一層 */}
+      {/* fill 要父層是 relative 或 absolute 寬螢幕的舞台是 sticky 所以再包一層 */}
       <div className="absolute inset-0">
         {c.image ? (
           <ExternalImage src={c.image} alt={c.name ?? ""} fill className="object-contain object-center" fallback={<Portrait src={c.icon} name={c.name} element={c.element} />} />
@@ -105,7 +112,7 @@ function CharacterStage({ character: c }: { character: StarrailCharacter }) {
   );
 }
 
-/** 捲動時標題列留在上方：手機上是全螢幕，關閉鈕要一直按得到 */
+/** 捲動時標題列留在上方 手機上是全螢幕 關閉鈕要一直按得到 */
 function DetailHeader({ character: c, titleId, onClose }: { character: StarrailCharacter; titleId: string; onClose: () => void }) {
   const path = pathLabel(c.path);
   const rarity = stars(c.rarity);
@@ -217,7 +224,7 @@ function EidolonGrid({ eidolons }: { eidolons: Eidolon[] }) {
   );
 }
 
-/** className 給排欄用（col-span 寫在區塊自己身上） */
+/** className 給排欄用 col-span 寫在區塊自己身上 */
 function Section({ title, icon, className = "", children }: { title: string; icon: UiIconName; className?: string; children: ReactNode }) {
   return (
     <section className={`stack min-w-0 ${className}`.trim()}>
@@ -238,7 +245,7 @@ function FallbackIcon({ name }: { name: UiIconName }) {
   );
 }
 
-// 數值一律靠右、欄寬至少 3rem：主屬性與副詞條的數值對齊，副詞條的「+N」緊貼在數值左邊也排成一直線
+// 數值靠右且欄寬至少 3rem 主屬性與副詞條才對齊 強化次數也排成一直線
 function StatText({ stat, main = false }: { stat: RelicStat; main?: boolean }) {
   const upgrades = main ? 0 : relicUpgrades(stat.times);
   return (
@@ -286,7 +293,10 @@ function RelicCard({ relic }: { relic: Relic }) {
   );
 }
 
-/** 副詞條強化過的次數寫成「+N」（換算在 lib 的 relicUpgrades()）；照資料寫、不設上限，推定或資料有誤時才看得出來；報讀器念「強化 N 次」 */
+/**
+ * 副詞條的強化次數寫成 +N 照資料寫不設上限 推定或資料錯了才看得出來
+ * 報讀器念強化幾次
+ */
 function Upgrades({ count }: { count: number }) {
   return (
     <span title={`強化 ${count} 次`} className="sr-num text-[0.8125rem] font-bold text-sr-gold">

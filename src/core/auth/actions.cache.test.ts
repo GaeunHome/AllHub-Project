@@ -51,9 +51,9 @@ beforeEach(async () => {
 
 describe("帳號的 Server Action：寫入後用 updateTag 讓管理頁的清單失效", () => {
   it.each([
-    // 新帳號出現在使用者清單、邀請的已用次數加一
+    // 新帳號出現在使用者清單 邀請的已用次數也加一
     ["registerAction", ["core:invites", "core:users"], () => registerAction({}, registerFields())],
-    // 帳號刪除時，他建立的邀請也跟著外鍵刪掉
+    // 刪除帳號時他建立的邀請跟著外鍵刪掉 所以邀請也失效
     ["deleteAccountAction", ["core:invites", "core:users"], () => deleteAccountAction({}, form({ password: PASSWORD }))],
   ] as const)("%s_%j", async (_name, tags, run) => {
     await expect(run()).rejects.toThrow("NEXT_REDIRECT");

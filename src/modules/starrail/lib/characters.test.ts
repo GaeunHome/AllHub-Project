@@ -5,7 +5,10 @@ const ICONS = "/icons/starrail";
 
 const IMG = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg";
 
-/** 依 genshin.py 的 StarRailDetailCharacterResponse 整理的回應（data 的部分） */
+/**
+ * 依 genshin.py 的 StarRailDetailCharacterResponse 整理
+ * 只有回應裡 data 的部分
+ */
 function sampleData() {
   return {
     avatar_list: [

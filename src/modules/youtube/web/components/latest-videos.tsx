@@ -8,12 +8,13 @@ import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { ChannelAvatar } from "./channel-avatar";
 import { VideoLink, VideoThumbnail, channelNameOf, type FeedVideo } from "./video-card";
 
-// 依卡片寬度（容器查詢，不看螢幕寬度）：寬的一排四支、中等兩支；很窄時一列一支（小縮圖在左），跟 Twitch 的卡片同一套格線
+// 依卡片寬度用容器查詢 寬的一排四支 中等兩支 很窄時一列一支 小縮圖在左
+// 跟 Twitch 的卡片同一套格線
 const GRID = "grid grid-cols-1 gap-4 @md:grid-cols-2 @4xl:grid-cols-4";
-// web 層不能讀模組根目錄的 info.ts，模組網址寫在這裡
+// web 層不能讀根目錄的 info.ts 所以網址寫在這裡
 const YOUTUBE_PAGE = "/youtube";
 
-/** 首頁「最新影片」的內容；點擊與狀態標籤照 YouTube 頁（VideoLink、VideoThumbnail） */
+/** 首頁最新影片的內容 點擊與狀態標籤跟 YouTube 頁共用 */
 export function LatestVideoList({ videos, more, now }: { videos: FeedVideo[]; more: number; now: Date }) {
   if (videos.length === 0) {
     return (
@@ -52,7 +53,7 @@ function LatestVideoTile({ video, now }: { video: FeedVideo; now: Date }) {
   const channelName = channelNameOf(video);
   return (
     <article className="flex items-start gap-3 @md:flex-col @md:items-stretch">
-      {/* 首頁最多 4 支，寬的時候剛好是卡片的第一排，常常是 LCP */}
+      {/* 首頁最多 4 支 寬的時候剛好是卡片第一排 常常是 LCP */}
       <VideoLink video={video} decorative className="yt-thumb w-32 shrink-0 rounded-lg @md:w-full">
         <VideoThumbnail video={video} eager />
       </VideoLink>

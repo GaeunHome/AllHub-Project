@@ -10,7 +10,7 @@ on:
 permissions:
   contents: read
 
-# 不取消執行中的工作，避免 migration 跑到一半被中斷
+# 不取消執行中的工作 免得 migration 跑到一半被中斷
 concurrency:
   group: db-migrate
   cancel-in-progress: false
@@ -36,7 +36,7 @@ jobs:
 
   migrate:
     needs: check
-    # 只從 main 套用，避免手動執行時選到未合併分支的 migration
+    # 只從 main 套用 免得手動執行時選到還沒合併的分支
     if: needs.check.outputs.configured == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -47,12 +47,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          # 這個工作拿得到正式資料庫的連線字串，不用相依套件快取以免快取被污染
+          # 這個工作拿得到正式資料庫的連線字串 不用套件快取免得快取被污染
           package-manager-cache: false
       - name: 安裝套件
         run: npm ci
       - name: 套用 migration
         env:
-          # GitHub 的機器只有 IPv4，Supabase 的 Direct connection 是 IPv6，所以這裡要用 Session pooler（5432）的連線字串
+          # GitHub 的機器只有 IPv4 Supabase 的 Direct connection 是 IPv6
+          # 所以要用 Session pooler 5432 的連線字串
           DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
         run: npx drizzle-kit migrate

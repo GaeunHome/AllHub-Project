@@ -1,4 +1,4 @@
-// 開拓月曆（sg-public-api.hoyolab.com/event/srledger/month_info）：依 genshin.py 的 StarRailDiary 整理、尚未用真實帳號驗證
+// 開拓月曆依 genshin.py 的 StarRailDiary 整理 還沒用真實帳號驗證
 
 import { taipeiDateKey } from "@/core/time";
 import { asRecord, createMissing, number, text } from "./json";
@@ -10,16 +10,16 @@ export type LedgerSource = { id: string | null; name: string | null; amount: num
 export type Ledger = {
   /** YYYYMM */
   month: string;
-  /** HoYoLAB 給得到的月份（YYYYMM，由舊到新） */
+  /** HoYoLAB 給得到的月份 YYYYMM 由舊到新 */
   months: string[];
-  /** 星瓊與車票：這個月、上個月，以及跟上個月比增減幾 % */
+  /** 星瓊與車票 這個月 上個月以及跟上個月比增減幾 % */
   current: LedgerTotals;
   last: LedgerTotals;
   jadeRate: number | null;
   passRate: number | null;
-  /** 今天拿到的（只有本月有意義） */
+  /** 今天拿到的 只有本月有意義 */
   today: LedgerTotals;
-  /** 星瓊的來源，依數量由多到少 */
+  /** 星瓊的來源 依數量由多到少 */
   sources: LedgerSource[];
 };
 
@@ -54,7 +54,7 @@ export function parseLedger(data: unknown, requestedMonth: string): LedgerResult
   const optional = Array.isArray(root?.optional_month) ? root.optional_month.flatMap((m) => normalizeMonth(m, month) ?? []) : [];
   const months = [...new Set([...optional, month])].sort();
 
-  // month_data 整個不見時只記一筆，不必每個欄位都記
+  // month_data 整個不見時只記一筆 不用每個欄位都記
   const field = (record: Record<string, unknown> | null, key: string, path: string) => (record ? missing.need(number(record[key]), path) : null);
   return {
     ledger: {
@@ -71,7 +71,7 @@ export function parseLedger(data: unknown, requestedMonth: string): LedgerResult
   };
 }
 
-/** YYYYMM 或只有月份（1–12）都整理成 YYYYMM；只有月份時，比參考月份大的算去年 */
+/** YYYYMM 或只有月份都整理成 YYYYMM 只有月份時比參考月份大的算去年 */
 function normalizeMonth(value: unknown, reference: string): string | null {
   const n = number(value);
   if (n === null || !Number.isInteger(n)) return null;
@@ -87,12 +87,12 @@ export function monthLabel(month: string): string {
   return /^\d{6}$/.test(month) ? `${month.slice(0, 4)} 年 ${Number(month.slice(4))} 月` : month;
 }
 
-/** 查詢用的月份：以台北的日期為準（HoYoLAB 的月份也是伺服器當地時間） */
+/** 查詢用的月份以台北日期為準 HoYoLAB 的月份也是伺服器當地時間 */
 export function ledgerMonthOf(date: Date): string {
   return taipeiDateKey(date).slice(0, 7).replace("-", "");
 }
 
-/** 千分位自己加：不依賴執行環境的語系資料 */
+/** 千分位自己加 不依賴執行環境的語系資料 */
 export function groupDigits(value: number): string {
   const sign = value < 0 ? "-" : "";
   return sign + String(Math.abs(Math.round(value))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");

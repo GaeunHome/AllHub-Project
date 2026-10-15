@@ -4,10 +4,12 @@ import { coreNotifications } from "@/core/db/schema";
 import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv, stubTwitchEnv, stubYoutubeEnv } from "@/dev/test-env";
 import { mocksOf } from "@/dev/test-helpers";
+import { savingsAccounts, savingsRecurring, savingsTransactions } from "@/modules/savings/data/schema";
 import { twitchFollows, twitchStreamers } from "@/modules/twitch/data/schema";
 import { youtubeChannels, youtubeFollows, youtubeSavedVideos } from "@/modules/youtube/data/schema";
 
-// 停用＝凍結：notify()（core）不寫通知給停用的人，各模組的追蹤與訂閱照樣保留；core 不能 import 模組，所以這個跨模組的檢查放在 src 底下
+// 停用就是凍結 notify 不寫給他 追蹤與訂閱照樣保留 固定收支也不記
+// core 不能 import 模組 所以跨模組的檢查放在 src 底下
 
 stubCoreEnv();
 stubTwitchEnv();
@@ -22,6 +24,7 @@ const youtubeApi = mocksOf(await import("@/modules/youtube/lib/api"), "hubReques
 const { listCaptionTracks } = mocksOf(await import("@/modules/youtube/lib/subtitles/captions"), "listCaptionTracks");
 const { handleNotification, syncSubscriptions } = await import("@/modules/twitch/service/streamers");
 const { handleFeed, renewSubscriptions } = await import("@/modules/youtube/service/channels");
+const { postDueRecurring } = await import("@/modules/savings/service/recurring");
 const { setUserDisabled } = await import("@/core/admin/service");
 
 const getDb = setupTestDb();
@@ -99,5 +102,39 @@ describe("停用＝凍結：資料全部保留，只是排程與通知不處理�
     expect(await getDb().select().from(youtubeSavedVideos).where(eq(youtubeSavedVideos.userId, member))).toHaveLength(1);
     expect(twitchApi.deleteSubscription).not.toHaveBeenCalled();
     expect(youtubeApi.hubRequest.mock.calls.filter(([mode]) => mode === "unsubscribe")).toEqual([]);
+  });
+
+  it("理財的固定收支：停用的人不自動記帳、記到的月份也不往前推，其他人照常；恢復後補記停用期間的月份", async () => {
+    // 台北時間 2026-10-14 中午 帳戶與固定收支都是 9/1 建立 每月 6 日
+    // 開始記帳之前的日期不記
+    const now = new Date("2026-10-14T04:00:00Z");
+    const createdAt = new Date("2026-09-01T04:00:00Z");
+    const [ownerAccount, memberAccount] = await getDb()
+      .insert(savingsAccounts)
+      .values([
+        { userId: owner, name: "國泰", kind: "deposit", createdAt },
+        { userId: member, name: "郵局", kind: "deposit", createdAt },
+      ])
+      .returning();
+    const [, memberRule] = await getDb()
+      .insert(savingsRecurring)
+      .values([
+        { userId: owner, kind: "expense", accountId: ownerAccount.id, amount: 390, dayOfMonth: 6, createdAt },
+        { userId: member, kind: "expense", accountId: memberAccount.id, amount: 390, dayOfMonth: 6, createdAt },
+      ])
+      .returning();
+    const datesOf = async (userId: string) => (await getDb().select().from(savingsTransactions).where(eq(savingsTransactions.userId, userId))).map((t) => t.date).sort();
+    await setUserDisabled(owner, member, true);
+
+    expect(await postDueRecurring(now)).toBe("自動記帳 2 筆");
+
+    expect(await datesOf(owner)).toEqual(["2026-09-06", "2026-10-06"]);
+    expect(await datesOf(member)).toEqual([]);
+    expect((await getDb().select().from(savingsRecurring).where(eq(savingsRecurring.id, memberRule.id)))[0].lastPostedMonth).toBeNull();
+
+    await setUserDisabled(owner, member, false);
+    expect(await postDueRecurring(now)).toBe("自動記帳 2 筆");
+
+    expect(await datesOf(member)).toEqual(["2026-09-06", "2026-10-06"]);
   });
 });

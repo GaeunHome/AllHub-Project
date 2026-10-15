@@ -1,5 +1,5 @@
-// 屬性、命途與面板詞條的遊戲圖示：內建在 public/icons/starrail/ 的靜態檔（從社群整理的 StarRailRes 下載，遊戲素材的著作權屬 HoYoverse，見 public/icons/LICENSE.md），瀏覽器不必向 GitHub 載入
-// 檔名是 StarRailRes 檔名的 kebab-case（詞條去掉開頭的 Icon），對得回原始檔；HoYoLAB 沒附屬性與命途的圖，詞條也跟著用同一套，來源與風格一致
+// HoYoLAB 沒附屬性與命途的圖 改用 StarRailRes 的圖內建在 public/icons/starrail/
+// 檔名是原檔名的 kebab-case 著作權見 public/icons/LICENSE.md
 
 const ICONS = "/icons/starrail";
 
@@ -14,10 +14,10 @@ const ELEMENT_FILES: Record<string, string> = {
   imaginary: "imaginary",
 };
 
-/** base_type 1–9 的順序，跟 characters.ts 的命途名稱一樣 */
+/** base_type 1 到 9 的順序 跟 characters.ts 的命途名稱一樣 */
 const PATH_FILES = ["destruction", "hunt", "erudition", "harmony", "nihility", "preservation", "abundance", "remembrance", "elation"];
 
-/** 認不得的屬性回 null，畫面退回色圓 */
+/** 認不得的屬性回 null 畫面退回色圓 */
 export function elementIconUrl(element: string | null): string | null {
   if (element === null) return null;
   const key = element.toLowerCase();
@@ -28,7 +28,8 @@ export function pathIconUrl(path: number | null): string | null {
   return path !== null && Number.isInteger(path) && path >= 1 && path <= PATH_FILES.length ? `${ICONS}/path/${PATH_FILES[path - 1]}.png` : null;
 }
 
-// property_type 是哪個屬性依 hoyo-buddy 的 genshin.py 對照表（constants.py 的 YATTA_PROP_TYPE_TO_GPY_TYPE），圖示依 StarRailRes 的 index_new/cht/properties.json；固定值、百分比、基礎值共用同一個圖示
+// property_type 的對照依 hoyo-buddy 的 YATTA_PROP_TYPE_TO_GPY_TYPE
+// 圖示檔名依 StarRailRes 的 properties.json 固定值與百分比共用圖示
 const PROPERTY_TYPES: Record<string, number[]> = {
   "max-hp": [1, 26, 27, 32],
   attack: [2, 28, 29, 33],
@@ -60,7 +61,7 @@ const PROPERTY_TYPES: Record<string, number[]> = {
 };
 const PROPERTY_FILE = new Map(Object.entries(PROPERTY_TYPES).flatMap(([file, types]) => types.map((type) => [type, file] as const)));
 
-/** 面板與遺器詞條的屬性圖示；對照表以外的回 null，畫面不顯示圖示 */
+/** 面板與遺器詞條的圖示 對照表以外的回 null 畫面就不顯示 */
 export function propertyIconUrl(type: number | null): string | null {
   const file = type === null ? undefined : PROPERTY_FILE.get(type);
   return file ? `${ICONS}/property/${file}.png` : null;

@@ -9,7 +9,10 @@ import { addChannelAction, openVideoAction } from "../actions";
 
 const INVALID = "請貼 YouTube 頻道網址、@帳號或影片網址";
 
-/** 像 YouTube 的搜尋列：貼影片網址就開觀看頁，貼頻道網址或 @帳號就追蹤；伺服器端的兩個 Server Action 仍各自驗證 */
+/**
+ * 像 YouTube 的搜尋列 貼影片網址開觀看頁 貼頻道網址或 @帳號就追蹤
+ * 兩個 Server Action 仍各自驗證
+ */
 export function YoutubeSearchBar() {
   const [state, action, pending] = useActionState<FormState, FormData>(async (previous, formData) => {
     const text = String(formData.get("q") ?? "");
@@ -20,7 +23,7 @@ export function YoutubeSearchBar() {
     try {
       return input.kind === "video" ? await openVideoAction(previous, data) : await addChannelAction(previous, data);
     } catch (thrown) {
-      // 轉址（開觀看頁、登入逾時）交回給 Next；斷線之類的錯誤留在輸入框下方
+      // 開觀看頁或登入逾時的轉址交回給 Next 斷線這類錯誤留在輸入框下方
       unstable_rethrow(thrown);
       return { error: "連線失敗，請稍後再試" };
     }

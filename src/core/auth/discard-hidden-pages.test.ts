@@ -2,7 +2,7 @@ import { createElement, isValidElement, useLayoutEffect, type EffectCallback, ty
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// layout effect 只在瀏覽器跑：收起來自己執行，document 與 window 換成替身
+// layout effect 只在瀏覽器跑 收起來自己執行 document 與 window 換成替身
 vi.mock("react", { spy: true });
 vi.mock("../notifications/center", () => ({ NotificationCenter: ({ children }: { children: ReactNode }) => children }));
 vi.mock("../ui/app-header", () => ({ AppHeader: () => null, SHELL_FRAME: "mx-auto" }));
@@ -16,7 +16,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** 在登入頁掛上元件、跑它的 layout effect；shell 是找到的 AppShell（null 是沒有），回傳 reload 的替身 */
+/**
+ * 在登入頁掛上元件並跑它的 layout effect
+ * shell 是找到的 AppShell null 代表沒有 回傳 reload 的替身
+ */
 function mountWith(shell: { getClientRects: () => unknown[] } | null) {
   const reload = vi.fn();
   const querySelector = vi.fn((selector: string) => (selector === APP_SHELL_SELECTOR ? shell : null));

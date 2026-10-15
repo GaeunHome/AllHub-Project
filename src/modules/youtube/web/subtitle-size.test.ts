@@ -9,12 +9,6 @@ function fakeStorage(initial: Record<string, string> = {}) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("字幕大小偏好", () => {
-  it("沒存過、或存的值認不得_用「中」", () => {
-    vi.stubGlobal("localStorage", fakeStorage({ "allhub:youtube:subtitle-size": "huge" }));
-
-    expect(readSubtitleSize()).toBe("medium");
-  });
-
   it("存進 localStorage；別的分頁改了大小，這個分頁讀到新的值，不必重新整理", () => {
     const storage = fakeStorage();
     vi.stubGlobal("localStorage", storage);

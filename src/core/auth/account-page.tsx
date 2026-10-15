@@ -10,7 +10,8 @@ import { DeleteAccountForm } from "./delete-account-form";
 
 export function AccountPage() {
   return (
-    // 寬螢幕：目前帳號撐滿，變更密碼在左、說明與刪除帳號在右上下排，不把輸入框拉到整個畫面寬；排欄寫在各卡片上（串流中的 Suspense 會多一個 template，第幾個子元素會算錯）
+    // 寬螢幕分兩欄 不把輸入框拉滿整個畫面
+    // 排欄寫在各卡片上 串流中的 Suspense 會多一個 template 第幾個會算錯
     <div className="page-stack xl:grid xl:grid-cols-2 xl:items-start xl:[&>:first-child]:col-span-2">
       <PageHeader icon={<Icon name="circle-user-round" />} title="帳號" />
       <Suspense fallback={<AccountSkeleton />}>
@@ -57,7 +58,7 @@ export async function AccountSections() {
           忘記密碼或要登出所有裝置
         </CardHeader>
         <div className="flex flex-col gap-2 leading-relaxed">
-          {/* 只有站長拿得到資料庫的連線字串，成員只能請站長重設 */}
+          {/* 只有站長拿得到資料庫的連線字串 成員只能請站長重設 */}
           {isOwner ? (
             <p>
               在電腦上執行 <code>npm run account -- passwd {user.username}</code> 重設密碼（也會解除登入鎖定），所有裝置都會被登出。
@@ -80,7 +81,7 @@ export async function AccountSections() {
         <details className="disclosure">
           <summary>其他功能的資料呢？</summary>
           <p className="leading-relaxed">
-            刪除帳號時，追蹤名單、加密的 API Key 與 HoYoLAB cookie、記帳資料會一起刪除，共用的翻譯留下但不再連到你。保存哪些資料見
+            刪除帳號時，追蹤名單、加密的 API Key 與 HoYoLAB cookie、理財資料會一起刪除，共用的翻譯留下但不再連到你。保存哪些資料見
             <Link href="/terms" className="link">
               使用聲明
             </Link>
@@ -93,7 +94,7 @@ export async function AccountSections() {
   );
 }
 
-/** 骨架照內容的格線排（寬螢幕兩欄、各張卡片的位置相同）：載入完不會從一欄跳成兩欄 */
+/** 骨架照內容的格線排 載入完才不會從一欄跳成兩欄 */
 function AccountSkeleton() {
   return (
     <LoadingState className="page-stack xl:col-span-2 xl:grid xl:grid-cols-2 xl:items-start">

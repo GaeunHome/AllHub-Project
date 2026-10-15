@@ -8,21 +8,24 @@ import { FormFeedback, FormMessage, type FormState } from "../ui/form-message";
 import { Icon } from "../ui/icon";
 import { createInviteAction, type InviteFormState } from "./actions";
 
-// legend 預設會壓在 fieldset 的邊框上、也不吃父層的 gap；浮動後變成一般的子元素，跟其他欄位的標籤一樣排
+// legend 預設壓在 fieldset 邊框上又不吃 gap 浮動後才跟一般標籤一樣排
 const LEGEND_CLASS = "field-label float-left";
 
 export type InviteResult = { dialogOpen: boolean; canReopen: boolean; feedback: FormState };
 
-/** 新的連結自動打開視窗；關掉後表單下方留著「再看一次連結」，離開這一頁或重新整理之前都還看得到，不必用確認視窗擋著關閉；建立下一條失敗時錯誤顯示在表單下方 */
+/**
+ * 新連結自動開視窗 關掉後留著再看一次連結 不必用確認擋著關閉
+ * 建立下一條失敗時錯誤顯示在表單下方
+ */
 export function inviteResult(state: InviteFormState, closedLink: string | undefined): InviteResult {
   if (!state.link) return { dialogOpen: false, canReopen: false, feedback: state };
-  // 視窗開著時按鈕也留在背景：送出時按鈕停用、焦點早就掉了，關掉視窗後要有地方放
+  // 視窗開著時按鈕也留在背景 關掉後焦點才有地方放
   const dialogOpen = state.link !== closedLink;
   const feedback = state.error ? { error: state.error } : dialogOpen ? {} : { message: "已建立邀請連結，可以在下面的清單撤銷" };
   return { dialogOpen, canReopen: true, feedback };
 }
 
-/** 建立失敗時留著上一條連結：資料庫只存雜湊，弄丟了就拿不回來 */
+/** 建立失敗時留著上一條連結 資料庫只存雜湊 弄丟就拿不回來 */
 export function keepLastLink(previous: InviteFormState, result: InviteFormState): InviteFormState {
   if (result.link || !previous.link) return result;
   return { error: result.error, message: previous.message, link: previous.link };
@@ -31,16 +34,16 @@ export function keepLastLink(previous: InviteFormState, result: InviteFormState)
 /** 離開這一頁時要忘掉的那一條連結 */
 type ForgetLink = { forget: string };
 
-/** 表單送出時建立邀請；離開這一頁時忘掉畫面上的連結（已經換成新的就不動） */
+/** 送出時建立邀請 離開這一頁時忘掉畫面上的連結 已經換成新的就不動 */
 function inviteFormAction(previous: InviteFormState, payload: FormData | ForgetLink): InviteFormState | Promise<InviteFormState> {
   if (!(payload instanceof FormData)) return previous.link === payload.forget ? {} : previous;
-  // 上一次的結果不送回伺服器：完整的連結只在建立的回應裡出現一次
+  // 上一次的結果不送回伺服器 完整連結只在建立的回應裡出現一次
   return createInviteAction({}, payload).then((result) => keepLastLink(previous, result));
 }
 
 export function CreateInviteForm() {
   const [state, action, pending] = useActionState<InviteFormState, FormData | ForgetLink>(inviteFormAction, {});
-  // 記下關掉的是哪一條：建立下一條時照樣自動打開
+  // 記下關掉的是哪一條 建立下一條時才會照樣自動打開
   const [closedLink, setClosedLink] = useState<string>();
   const result = inviteResult(state, closedLink);
   const dialogId = useId();
@@ -49,7 +52,7 @@ export function CreateInviteForm() {
   useLayoutEffect(() => {
     shownLink.current = state.link;
   }, [state.link]);
-  // 清除函式在 Activity 把頁面藏起來（換到別頁）時會跑：連結只在這一頁看得到，回到這一頁就沒了
+  // Activity 藏起頁面時會跑清除函式 連結只在這一頁看得到 回來就沒了
   useLayoutEffect(
     () => () => {
       const link = shownLink.current;
@@ -103,7 +106,8 @@ export function CreateInviteForm() {
           {pending ? "建立中…" : "建立邀請連結"}
         </button>
       </form>
-      {/* 內容跟視窗一起出現，放在 live region 裡來不及念：建立的結果與提醒改由視窗的 aria-describedby 連同標題念出來，視窗裡只剩複製結果一個 live region */}
+      {/* 內容跟視窗一起出現 放在 live region 裡來不及念
+          改由 aria-describedby 連同標題念出 視窗裡只留複製結果一個 live region */}
       <Dialog
         id={dialogId}
         open={result.dialogOpen}
@@ -127,8 +131,11 @@ export function CreateInviteForm() {
   );
 }
 
-/** 資料庫只存雜湊：完整的連結只在建立的這一頁看得到（關掉視窗還能再打開）；warningId 讓視窗的 aria-describedby 指向提醒 */
-export function InviteCreated({ link, warningId }: { link: string; warningId?: string }) {
+/**
+ * 資料庫只存雜湊 完整連結只在建立的這一頁看得到
+ * warningId 讓視窗的 aria-describedby 指向提醒
+ */
+function InviteCreated({ link, warningId }: { link: string; warningId?: string }) {
   return (
     <div className="notice">
       <Icon name="link" />
@@ -136,7 +143,8 @@ export function InviteCreated({ link, warningId }: { link: string; warningId?: s
         <p id={warningId} className="font-semibold">
           只在這一頁看得到，重新整理或離開就沒了
         </p>
-        {/* 網址很長，單行的輸入框會截掉一段：用唯讀的多行欄位，在任何地方換行、高度跟著內容，整條看得完整（不支援 field-sizing 的瀏覽器至少三行） */}
+        {/* 網址很長 單行輸入框會截掉 改用唯讀多行欄位才看得完整
+            不支援 field-sizing 的瀏覽器至少三行 */}
         <textarea
           readOnly
           value={link}

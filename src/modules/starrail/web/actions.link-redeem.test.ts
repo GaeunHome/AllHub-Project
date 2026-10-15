@@ -15,7 +15,7 @@ const ROLES = [
   { uid: "800000002", nickname: "小號", server: "亞服", level: 4, likelyUnused: true, selected: false },
 ];
 
-/** 同一個欄位送好幾個值（勾選多個 UID） */
+/** 同一個欄位送好幾個值 例如勾選多個 UID */
 function multi(fields: [string, string][]): FormData {
   const data = new FormData();
   for (const [key, value] of fields) data.append(key, value);

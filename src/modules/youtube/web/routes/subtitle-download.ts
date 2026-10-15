@@ -3,7 +3,10 @@ import { buildSubtitleFile, parseDownloadQuery } from "../../lib/download";
 import { parseVideoId } from "../../lib/parse";
 import { getTranslation } from "../../service/translation";
 
-/** 下載翻譯後的字幕檔。proxy 只驗簽章，這裡再比對資料庫的 session 版本（改密碼後的舊 cookie）；Route Handler 不轉址，回 401 */
+/**
+ * proxy 只驗簽章 這裡再比對資料庫的 session 版本 擋下改密碼前的舊 cookie
+ * Route Handler 不轉址 直接回 401
+ */
 export async function GET(request: Request, { params }: RouteContext<"/api/youtube/subtitles/[videoId]">) {
   if (!(await currentSession())) return Response.json({ error: "unauthorized" }, { status: 401 });
   const videoId = parseVideoId((await params).videoId);

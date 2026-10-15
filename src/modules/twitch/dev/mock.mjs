@@ -1,6 +1,7 @@
-// 假的 Twitch API 與圖片 CDN；login 是 nobody 時查無此人；假 id 是奇數的主播正在直播（alice 是 1035），偶數的離線，離線且 id 是 4 的倍數的有離線橫幅
+// 假的 Twitch API 與圖片 CDN login 是 nobody 時查無此人
+// 假 id 是奇數的在直播 像 alice 是 1035 偶數離線 其中 4 的倍數有離線橫幅
 let subscriptionSeq = 0;
-/** 用帳號查過的 id → 帳號，頭像上的字才對得上；假伺服器重開後查不到就用 id */
+/** 記下查過的 id 對應的帳號 頭像上的字才對得上 假伺服器重開後查不到就用 id */
 const loginOf = new Map();
 
 const CDN = "https://static-cdn.jtvnw.net";
@@ -71,13 +72,13 @@ export function handle({ req, url, body, json, image }) {
     return json(200, { data: [], total: 0, total_cost: 0, max_total_cost: 10000, pagination: {} });
   }
 
-  // ---------- 圖片 CDN（static-cdn.jtvnw.net） ----------
+  // 圖片 CDN static-cdn.jtvnw.net
   if (url.pathname.startsWith("/jtv_user_pictures/")) {
     const name = /mock-(.+?)-(profile_image|channel_offline_image)/.exec(url.pathname);
     if (name?.[2] === "channel_offline_image") return image(`${name[1]} OFFLINE`, { width: 960, height: 540 });
     return image((name?.[1] ?? "?").slice(0, 2).toUpperCase(), { width: 300, height: 300 });
   }
-  // 照網址要的大小回應：直播卡片是 640x360，主播詳情的大面板是 1920x1080
+  // 照網址要的大小回應 直播卡片是 640x360 主播詳情的大面板是 1920x1080
   if (url.pathname.startsWith("/previews-ttv/")) {
     const [, login = "?", width = "640", height = "360"] = /live_user_(.+?)-(\d+)x(\d+)/.exec(url.pathname) ?? [];
     return image(`LIVE ${login}`, { width: Number(width), height: Number(height) });

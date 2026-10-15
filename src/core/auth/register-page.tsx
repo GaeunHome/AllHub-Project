@@ -18,7 +18,7 @@ import { INVITE_INVALID_MESSAGE } from "./registration";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-/** 公開頁面（proxy 不擋）：只有帶著有效邀請碼才顯示表單，送出時 registerAction 會再檢查一次 */
+/** 公開頁面 proxy 不擋 有效邀請碼才顯示表單 送出時 registerAction 會再檢查 */
 export function RegisterPage({ searchParams }: { searchParams: SearchParams }) {
   return (
     <AuthCard title="加入 AllHub" subtitle="用站長給你的邀請連結建立帳號">
@@ -41,14 +41,14 @@ export function RegisterPage({ searchParams }: { searchParams: SearchParams }) {
 
 export async function RegisterGate({ searchParams }: { searchParams: SearchParams }) {
   const [params, request] = await Promise.all([searchParams, headers()]);
-  // 已登入的人送出註冊會換掉目前的登入，先請他登出
+  // 已登入的人送出註冊會換掉目前的登入 所以先請他登出
   const session = await currentSession();
   if (session) return <SignedInNotice username={session.username} />;
 
   const code = typeof params.code === "string" ? params.code : "";
   if (!code) return <AuthNotice icon="info">需要站長的邀請連結才能註冊。拿到連結後直接打開就好；網站不開放自行註冊。</AuthNotice>;
 
-  // 預先抓取與預先算繪時停在這裡：不查邀請、不記失敗次數，只有真正打開連結的請求才算一次
+  // 預先抓取與算繪時停在這裡 只有真正打開連結的請求才查邀請與記次數
   await connection();
   const check = await checkInvite(code, clientKey(clientIp(request.get("x-forwarded-for"))), new Date());
   switch (check.kind) {
@@ -71,11 +71,11 @@ async function checkInvite(code: string, key: string, now: Date): Promise<Invite
     if (!gate.allowed) return { kind: "blocked", retryAfterMs: gate.retryAfterMs };
     const invite = await findUsableInvite(code, now);
     if (invite) return { kind: "usable", expiresAt: invite.expiresAt };
-    // 回應不必等寫入；記下失敗次數，猜邀請碼的人很快就會被擋下
+    // 回應不必等寫入 記下失敗次數 猜邀請碼的人很快就會被擋下
     after(() => recordInviteFailure(key, now));
     return { kind: "invalid" };
   } catch (error) {
-    // 錯誤訊息可能帶著查詢參數（邀請碼的雜湊），log 只記錯誤種類
+    // 錯誤訊息可能帶著邀請碼的雜湊 log 只記錯誤種類
     logError("auth", "檢查邀請連結時發生錯誤", error);
     return { kind: "unavailable" };
   }

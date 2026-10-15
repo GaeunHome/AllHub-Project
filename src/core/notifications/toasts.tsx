@@ -15,7 +15,7 @@ type ToastsProps = {
   onDismiss: (id: number) => void;
 };
 
-/** 右下角的提示卡片；容器一直存在，報讀器才會念出新加進來的卡片 */
+/** 右下角的提示卡片 容器一直存在 報讀器才會念出新加的卡片 */
 export function NotificationToasts({ toasts, modules, onOpen, onDismiss }: ToastsProps) {
   return (
     <div aria-live="polite" aria-label="新通知" className="toast-region">
@@ -27,7 +27,7 @@ export function NotificationToasts({ toasts, modules, onOpen, onDismiss }: Toast
 }
 
 function Toast({ item, module, onOpen, onDismiss }: { item: NotificationItem; module?: NotificationModule; onOpen: ToastsProps["onOpen"]; onDismiss: ToastsProps["onDismiss"] }) {
-  // 滑鼠移上去或用鍵盤停在卡片上時先不要收起來，讓人看得完
+  // 滑鼠移上去或鍵盤停在卡片上時先不收起來 讓人看得完
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {

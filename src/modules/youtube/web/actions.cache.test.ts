@@ -47,7 +47,7 @@ beforeEach(() => {
 
 describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag 失效", () => {
   it.each([
-    // 追蹤改的是追蹤表；第一次有人追蹤時新增頻道，追蹤時也從 RSS feed 補進影片
+    // 追蹤改的是追蹤表 第一次有人追蹤時新增頻道 也從 RSS feed 補進影片
     ["addChannelAction", ["youtube:channels", "youtube:follows", "youtube:videos"], () => actions.addChannelAction({}, form({ channel: "@newjeans" }))],
     // 最後一位追蹤者取消時也會刪除頻道
     ["removeChannelAction", ["youtube:channels", "youtube:follows"], () => actions.removeChannelAction({}, form({ id: "2" }))],
@@ -72,7 +72,7 @@ describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag �
 
     expect(updated()).toEqual([...tags].sort());
     expect(revalidateTag).not.toHaveBeenCalled();
-    // updateTag 已經會讓這次回應帶著重新算繪的頁面，再呼叫 refresh 是多餘的
+    // updateTag 已經讓這次回應帶著重新算繪的頁面 再呼叫 refresh 是多餘的
     expect(refresh).not.toHaveBeenCalled();
   });
 

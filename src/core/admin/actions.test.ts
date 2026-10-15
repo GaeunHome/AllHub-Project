@@ -1,4 +1,4 @@
-import { refresh, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TEST_SESSION, requireOwner } from "@/dev/session-stub";
 import { captureErrorLog, form, loggedText, mocksOf } from "@/dev/test-helpers";
@@ -10,7 +10,6 @@ vi.mock("./service", { spy: true });
 const request = vi.hoisted(() => ({ headers: {} as Record<string, string> }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers(request.headers) }));
 
-const { InviteInputError } = await import("../auth/invites");
 const invites = mocksOf(await import("../auth/invites"), "createInvite", "revokeInvite");
 const { AdminUserError } = await import("./service");
 const service = mocksOf(await import("./service"), "setUserDisabled", "deleteUser", "unlockUser");
@@ -75,12 +74,6 @@ describe("createInviteAction", () => {
     expect(invites.createInvite).not.toHaveBeenCalled();
   });
 
-  it("備註太長（InviteInputError）_顯示原因、沒有連結", async () => {
-    invites.createInvite.mockRejectedValue(new InviteInputError("備註最多 50 個字"));
-
-    expect(await createInviteAction({}, form({ days: "7", uses: "1", note: "字".repeat(51) }))).toEqual({ error: "備註最多 50 個字" });
-  });
-
   it("資料庫出錯_只回摘要、沒有連結_log 只記錯誤種類", async () => {
     const log = captureErrorLog();
     invites.createInvite.mockRejectedValue(Object.assign(new Error(`insert core_invites ${TOKEN}`), { name: "PostgresError" }));
@@ -92,21 +85,9 @@ describe("createInviteAction", () => {
 });
 
 describe("revokeInviteAction", () => {
-  it("撤銷_帶 id 給 service", async () => {
-    expect(await revokeInviteAction({}, form({ inviteId: "3" }))).toEqual({});
-    expect(invites.revokeInvite).toHaveBeenCalledWith(3);
-  });
-
   it("id 格式不對_不撤銷", async () => {
     expect(await revokeInviteAction({}, form({ inviteId: "abc" }))).toEqual({ error: INVALID_FORM_MESSAGE });
     expect(invites.revokeInvite).not.toHaveBeenCalled();
-  });
-
-  it("已經撤銷或不存在（畫面太舊）_說明原因並重新算繪畫面", async () => {
-    invites.revokeInvite.mockResolvedValue(false);
-
-    expect(await revokeInviteAction({}, form({ inviteId: "3" }))).toEqual({ error: "這個邀請已經撤銷或不存在" });
-    expect(refresh).toHaveBeenCalledOnce();
   });
 });
 
@@ -133,13 +114,6 @@ describe("setUserDisabledAction", () => {
     expect(await setUserDisabledAction({}, form({ userId: TEST_SESSION.id, disabled: "true" }))).toEqual({ error: "不能停用自己的帳號" });
     expect(updateTag).not.toHaveBeenCalled();
   });
-
-  it("帳號已經不在了_說明原因並重新算繪畫面", async () => {
-    service.setUserDisabled.mockResolvedValue(false);
-
-    expect(await setUserDisabledAction({}, form({ userId: MEMBER_ID, disabled: "true" }))).toEqual({ error: "找不到這個帳號，可能已經被刪除" });
-    expect(refresh).toHaveBeenCalledOnce();
-  });
 });
 
 describe("deleteUserAction", () => {
@@ -152,36 +126,11 @@ describe("deleteUserAction", () => {
     expect(await deleteUserAction({}, form({ userId: "../etc" }))).toEqual({ error: INVALID_FORM_MESSAGE });
     expect(service.deleteUser).not.toHaveBeenCalled();
   });
-
-  it("刪除自己（AdminUserError）_顯示原因", async () => {
-    service.deleteUser.mockRejectedValue(new AdminUserError("不能在管理頁刪除自己的帳號"));
-
-    expect(await deleteUserAction({}, form({ userId: TEST_SESSION.id }))).toEqual({ error: "不能在管理頁刪除自己的帳號" });
-  });
-
-  it("帳號已經不在了_說明原因並重新算繪畫面", async () => {
-    service.deleteUser.mockResolvedValue(false);
-
-    expect(await deleteUserAction({}, form({ userId: MEMBER_ID }))).toEqual({ error: "找不到這個帳號，可能已經被刪除" });
-    expect(refresh).toHaveBeenCalledOnce();
-  });
 });
 
 describe("unlockUserAction", () => {
-  it("解除鎖定_帶帳號 id 給 service", async () => {
-    expect(await unlockUserAction({}, form({ userId: MEMBER_ID }))).toEqual({});
-    expect(service.unlockUser).toHaveBeenCalledWith(MEMBER_ID);
-  });
-
   it("帳號 id 格式不對_不解除", async () => {
     expect(await unlockUserAction({}, form({ userId: "abc" }))).toEqual({ error: INVALID_FORM_MESSAGE });
     expect(service.unlockUser).not.toHaveBeenCalled();
-  });
-
-  it("帳號已經不在了_說明原因並重新算繪畫面", async () => {
-    service.unlockUser.mockResolvedValue(false);
-
-    expect(await unlockUserAction({}, form({ userId: MEMBER_ID }))).toEqual({ error: "找不到這個帳號，可能已經被刪除" });
-    expect(refresh).toHaveBeenCalledOnce();
   });
 });

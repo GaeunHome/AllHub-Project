@@ -106,7 +106,7 @@ describe("listLockedUsers", () => {
   });
 });
 
-// 解除鎖定後的登入會用正式參數重新雜湊，scrypt 在機器忙時會超過預設的 5 秒
+// 解除鎖定後登入會用正式參數重新雜湊 機器忙時 scrypt 會超過預設的 5 秒
 describe("unlockUser", { timeout: 30_000 }, () => {
   it("只把失敗次數歸零、清掉鎖定期限；密碼雜湊、停用狀態與 session 版本都不變", async () => {
     const bob = await createUser("bob", { failedLogins: 7, lockedUntil: new Date(Date.now() + 3_600_000), disabledAt: NOW, sessionVersion: 3 });

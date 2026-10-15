@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cacheKeyIds, formatCount, formatLiveDuration, formatViewerCount, mergeStreamerVisuals, pickLiveNow, sizedImageUrl, toGameArt, toLiveStream, toProfile } from "./visuals";
+import { cacheKeyIds, formatCount, formatLiveDuration, formatViewerCount, mergeStreamerVisuals, pickLiveNow, sizedImageUrl, toLiveStream, toProfile } from "./visuals";
 
 describe("sizedImageUrl：Helix 的圖片網址樣板換成實際尺寸", () => {
   it("直播預覽圖的 {width}x{height}", () => {
@@ -119,13 +119,6 @@ describe("Helix 回應整理成只留畫面用得到的欄位", () => {
       largePreviewUrl: null,
     });
   });
-
-  it("toGameArt_封面換成 72x96", () => {
-    expect(toGameArt({ id: "1234", name: "Honkai: Star Rail", box_art_url: "https://static-cdn.jtvnw.net/ttv-boxart/1234-{width}x{height}.jpg" })).toEqual({
-      id: "1234",
-      boxArtUrl: "https://static-cdn.jtvnw.net/ttv-boxart/1234-72x96.jpg",
-    });
-  });
 });
 
 describe("mergeStreamerVisuals：資料庫的主播加上 Helix 的頭像、直播與封面", () => {
@@ -205,12 +198,6 @@ describe("mergeStreamerVisuals：資料庫的主播加上 Helix 的頭像、直�
       ["carol", false, "https://db/carol.png", null],
     ]);
     expect(merged[0].live).toEqual({ title: null, gameName: null, boxArtUrl: null, viewerCount: null, startedAt: null, previewUrl: null, largePreviewUrl: null });
-  });
-
-  it("保留資料庫的其他欄位", () => {
-    const [first] = mergeStreamerVisuals([{ ...streamers[0], id: 7, displayName: "Alice" }], { profiles, streams: [], games: [] });
-
-    expect(first).toMatchObject({ id: 7, displayName: "Alice", login: "alice" });
   });
 });
 

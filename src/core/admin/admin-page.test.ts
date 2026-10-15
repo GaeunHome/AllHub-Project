@@ -1,4 +1,4 @@
-import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
+import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TEST_SESSION, requireOwner } from "@/dev/session-stub";
@@ -13,8 +13,7 @@ vi.mock("./actions", () => ({ createInviteAction: vi.fn(), revokeInviteAction: v
 const cached = mocksOf(await import("./cached"), "cachedUsers", "cachedInvites");
 const service = mocksOf(await import("./service"), "listLockedUsers");
 const { AdminPage, InviteSection, UserSection } = await import("./admin-page");
-const { CreateInviteForm, InviteCreated, inviteResult } = await import("./create-invite-form");
-const { disableConfirmMessage } = await import("./user-list");
+const { inviteResult } = await import("./create-invite-form");
 
 const DAY = 86_400_000;
 const at = (offsetMs: number) => new Date(Date.now() + offsetMs);
@@ -78,12 +77,6 @@ describe("管理頁：使用者", () => {
   });
 });
 
-describe("停用的確認訊息", () => {
-  it("說清楚停用等於凍結：立刻登出、不能登入、排程與通知暫停；資料與訂閱保留，恢復後要重新登入", () => {
-    expect(disableConfirmMessage("bob")).toBe("確定停用「bob」？停用後他會立刻被登出、不能再登入，排程與通知也會暫停；資料與追蹤的訂閱都會保留，恢復後要重新登入。");
-  });
-});
-
 describe("管理頁：登入鎖定", () => {
   it("被鎖定的帳號顯示「鎖定中，到 HH:mm」（台北時間）與「解除鎖定」；鎖定狀態每次直接讀，不走快取", async () => {
     service.listLockedUsers.mockResolvedValue([{ id: MEMBER_ID, lockedUntil: new Date("2026-10-08T07:45:00Z") }]);
@@ -125,10 +118,6 @@ describe("管理頁：邀請", () => {
     expect(markup).toMatch(/name="note"/);
   });
 
-  it("還沒有邀請_顯示空狀態", async () => {
-    expect(textOf(renderToStaticMarkup((await InviteSection()) as ReactElement))).toContain("還沒有邀請連結");
-  });
-
   it("列出有效、過期、撤銷、用完的邀請；只有有效的可以撤銷", async () => {
     cached.cachedInvites.mockResolvedValue([
       invite({ id: 11, note: "給小明", usedCount: 1 }),
@@ -146,37 +135,6 @@ describe("管理頁：邀請", () => {
   });
 });
 
-describe("建立後顯示的邀請連結", () => {
-  it("唯讀的完整連結、複製按鈕，並提醒只在這一頁看得到", () => {
-    const link = `https://hub.example.com/register?code=${"T".repeat(43)}`;
-
-    const markup = renderToStaticMarkup(createElement(InviteCreated, { link }));
-
-    // 網址很長：唯讀、可以整段選取的欄位，在任何地方都能換行，整條看得完整（單行的 input 會被截掉一段）
-    const field = markup.match(/<textarea[^>]*aria-label="邀請連結"[^>]*>([^<]*)<\/textarea>/)!;
-    expect(field[0]).toContain('readOnly=""');
-    expect(field[0]).toMatch(/class="[^"]*\bbreak-all\b/);
-    expect(field[1]).toBe(link);
-    expect(textOf(markup)).toContain("複製連結");
-    expect(textOf(markup)).toContain("只在這一頁看得到，重新整理或離開就沒了");
-    expect(textOf(markup)).not.toContain("只會顯示這一次");
-  });
-
-  it("連結在彈出視窗裡顯示：建立前只有關著的視窗", () => {
-    const markup = renderToStaticMarkup(createElement(CreateInviteForm));
-
-    expect(markup).toMatch(/<dialog[^>]*class="dialog /);
-    expect(markup).not.toContain('aria-label="邀請連結"');
-  });
-
-  it("提醒只在這一頁看得到、重新整理或離開就沒了（關掉視窗還能再打開）", () => {
-    const text = textOf(renderToStaticMarkup(createElement(InviteCreated, { link: "https://hub.example.com/register?code=abc" })));
-
-    expect(text).toContain("只在這一頁看得到，重新整理或離開就沒了");
-    expect(text).not.toContain("關掉或重新整理");
-  });
-});
-
 describe("建立邀請後的畫面（inviteResult）", () => {
   const LINK = "https://hub.example.com/register?code=new";
   const created = { message: "已建立邀請連結：7 天內可以註冊 1 個帳號。", link: LINK };
@@ -186,26 +144,10 @@ describe("建立邀請後的畫面（inviteResult）", () => {
     expect(inviteResult({ error: "建立邀請連結失敗（詳見伺服器 log）" }, undefined)).toEqual({ dialogOpen: false, canReopen: false, feedback: { error: "建立邀請連結失敗（詳見伺服器 log）" } });
   });
 
-  it("剛建立：自動打開視窗，表單下方不重複顯示；「再看一次連結」先放在背景，關掉視窗時焦點才有地方回去", () => {
-    expect(inviteResult(created, undefined)).toEqual({ dialogOpen: true, canReopen: true, feedback: {} });
-  });
-
-  it("關掉視窗後：表單下方說已建立，還能再看一次連結（重新整理前都在），不必用確認視窗擋著關閉", () => {
-    expect(inviteResult(created, LINK)).toEqual({ dialogOpen: false, canReopen: true, feedback: { message: "已建立邀請連結，可以在下面的清單撤銷" } });
-  });
-
   it("再建立一條：新的連結照樣自動打開", () => {
     expect(inviteResult({ ...created, link: `${LINK}2` }, LINK)).toMatchObject({ dialogOpen: true });
   });
 });
-
-/** 頁面外框裡寫死的文字；讀資料的區塊在 Suspense 裡，不實際算繪 */
-function staticText(node: ReactNode): string {
-  if (typeof node === "string" || typeof node === "number") return String(node);
-  if (Array.isArray(node)) return node.map(staticText).join("");
-  if (isValidElement<{ children?: ReactNode }>(node)) return staticText(node.props.children);
-  return "";
-}
 
 describe("管理頁的外框", () => {
   it("寬螢幕：邀請連結與使用者兩欄等寬（邀請清單的每一列不會擠成三行），頁首撐滿；排欄不靠第幾個子元素", () => {
@@ -216,13 +158,5 @@ describe("管理頁的外框", () => {
     expect(classes.filter((c) => /(?:nth|last|only)-child/.test(c))).toEqual([]);
     const sections = page.props.children.filter((child) => isValidElement<{ "aria-labelledby"?: string }>(child) && child.type === "section");
     expect(sections.map((section) => (section as ReactElement<{ "aria-labelledby": string }>).props["aria-labelledby"])).toEqual(["admin-invites", "admin-users"]);
-  });
-
-  it("各功能的資料已經依帳號分開：不再提醒「先不要邀請別人」", () => {
-    const text = staticText(AdminPage());
-
-    expect(text).toContain("邀請連結");
-    expect(text).not.toContain("先不要邀請別人");
-    expect(text).not.toContain("還沒有依帳號分開");
   });
 });

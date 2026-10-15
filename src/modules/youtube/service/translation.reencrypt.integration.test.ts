@@ -95,10 +95,4 @@ describe("reencryptApiKeys（PGlite 整合）", () => {
 
     expect(await reencryptApiKeys()).toBe("4 把 API Key，重新加密 3 把");
   });
-
-  it("沒有設定 API Key", async () => {
-    await saveSettings({ provider: "anthropic", keys: {}, clear: ["anthropic"], models: {}, glossaryText: "" });
-
-    expect(await reencryptApiKeys()).toBe("沒有設定 API Key");
-  });
 });

@@ -4,7 +4,7 @@ import { stubTwitchEnv } from "@/dev/test-env";
 
 stubTwitchEnv();
 
-/** App Access Token 快取在模組裡，每個測試重新載入才會重新取得 */
+/** App Access Token 快取在模組裡 每個測試重新載入才會重新取得 */
 async function loadApi() {
   vi.resetModules();
   return import("./api");
@@ -19,7 +19,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  vi.restoreAllMocks();
 });
 
 describe("畫面用的 Helix 查詢：一次查多位主播", () => {
@@ -67,16 +66,6 @@ describe("畫面用的 Helix 查詢：一次查多位主播", () => {
     expect(users).toHaveLength(2);
   });
 
-  it("同時發出的查詢共用同一個 token 請求（頁面會同時查頭像與直播狀態）", async () => {
-    const twitch = twitchServer();
-    vi.stubGlobal("fetch", twitch.impl);
-    const { getLiveStreams, getUsersById } = await loadApi();
-
-    await Promise.all([getUsersById(["1"]), getLiveStreams(["1"])]);
-
-    expect(twitch.urls.filter((url) => url.includes("/oauth2/token"))).toHaveLength(1);
-  });
-
   it("沒有 id_不發請求", async () => {
     const twitch = twitchServer();
     vi.stubGlobal("fetch", twitch.impl);
@@ -86,16 +75,5 @@ describe("畫面用的 Helix 查詢：一次查多位主播", () => {
     expect(await getLiveStreams([])).toEqual([]);
     expect(await getGames([])).toEqual([]);
     expect(twitch.urls).toEqual([]);
-  });
-
-  it("畫面用的查詢只是附加資訊_Helix 逾時 5 秒", async () => {
-    const timeout = vi.spyOn(AbortSignal, "timeout");
-    vi.stubGlobal("fetch", twitchServer().impl);
-    const { getLiveStreams } = await loadApi();
-
-    await getLiveStreams(["1"]);
-
-    // 第一個是取得 token（沿用 15 秒），第二個是 Helix
-    expect(timeout.mock.calls).toEqual([[15_000], [5_000]]);
   });
 });

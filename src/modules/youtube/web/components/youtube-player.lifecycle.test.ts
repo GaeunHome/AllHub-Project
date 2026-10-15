@@ -2,7 +2,8 @@ import fs from "node:fs";
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type DependencyList, type EffectCallback } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// effect 只在瀏覽器跑：直接呼叫元件，state 給初始值、setter 換成替身，effect 收起來自己跑（跑完再跑清除函式，就是卸載或 Activity 把頁面藏起來）
+// effect 只在瀏覽器跑 直接呼叫元件 state 給初始值 setter 換成替身
+// effect 收起來自己跑 跑完再跑清除函式就是卸載或 Activity 把頁面藏起來
 vi.mock("react", { spy: true });
 
 const { YoutubePlayer } = await import("./youtube-player");
@@ -11,7 +12,7 @@ const VIDEO = "syncsubs001";
 const CUES = [{ start: 1000, end: 2000, text: "안녕" }];
 type Events = { onReady(): void; onStateChange(event: { data: number }): void };
 
-/** 假的 YT.Player：時間由測試指定 */
+/** 假的 YT.Player 時間由測試指定 */
 class FakePlayer {
   static last: FakePlayer | undefined;
   time = 0;
@@ -32,12 +33,12 @@ const flushMicrotasks = async () => {
 };
 
 type Mounted = {
-  /** 依 useState 的順序：字幕、載入失敗、播放中、原生全螢幕、頁內全螢幕 */
+  /** 依 useState 的順序 字幕 載入失敗 播放中 原生全螢幕 頁內全螢幕 */
   set: { index: ReturnType<typeof vi.fn>; failed: ReturnType<typeof vi.fn>; playing: ReturnType<typeof vi.fn>; native: ReturnType<typeof vi.fn>; pseudo: ReturnType<typeof vi.fn> };
   frame: ReturnType<typeof fakeElement>;
   onPlayingChange: ReturnType<typeof vi.fn>;
   onSizeChange: ReturnType<typeof vi.fn>;
-  /** 跑完所有 effect（含 layout effect），回傳清除函式 */
+  /** 跑完所有 effect 含 layout effect 回傳清除函式 */
   runEffects: () => (() => void)[];
 };
 
@@ -72,7 +73,10 @@ function mount({ pseudo = false } = {}): Mounted {
 }
 
 let doc: { hidden: boolean; fullscreenElement: unknown; exitFullscreen: ReturnType<typeof vi.fn>; documentElement: ReturnType<typeof fakeElement>; addEventListener: ReturnType<typeof vi.fn>; removeEventListener: ReturnType<typeof vi.fn>; createElement: () => unknown; querySelectorAll: () => unknown[] };
-/** 畫面上開著的彈出層（⋮ 選單、鈴鐺面板、人像選單、彈出視窗）；document.querySelectorAll 回傳這些 */
+/**
+ * 畫面上開著的彈出層 像 ⋮ 選單 鈴鐺面板 人像選單 彈出視窗
+ * document.querySelectorAll 回傳這些
+ */
 let openPopups: unknown[] = [];
 
 beforeEach(() => {
@@ -201,10 +205,13 @@ describe("播放器加在 html 上的規則（globals.css）", () => {
 });
 
 describe("播放器的快捷鍵：彈出層開著時讓開", () => {
-  /** 展開中的 ⋮ 選單觸發按鈕（core 的 popup-layer 認得出來） */
+  /** 展開中的 ⋮ 選單觸發按鈕 core 的 popup-layer 認得出來 */
   const openMenu = { tagName: "BUTTON", hasAttribute: (name: string) => name === "data-popup-trigger", getAttribute: (name: string) => (name === "aria-expanded" ? "true" : null), getClientRects: () => ({ length: 1 }) };
 
-  /** 像瀏覽器派送一次按鍵：先跑 window 的捕獲階段，再跑 document 上的 keydown 監聽；between 模擬選單自己的 Esc 監聽先把選單收掉 */
+  /**
+   * 像瀏覽器派送一次按鍵 先跑 window 的捕獲階段再跑 document 的 keydown
+   * between 模擬選單自己的 Esc 監聽先把選單收掉
+   */
   function press(key: string, between: () => void = () => {}) {
     const event = { key, ctrlKey: false, metaKey: false, altKey: false, repeat: false, isComposing: false, defaultPrevented: false, target: { tagName: "BODY" }, preventDefault: vi.fn() };
     const listeners = (target: { addEventListener: ReturnType<typeof vi.fn> }, capture: boolean) =>

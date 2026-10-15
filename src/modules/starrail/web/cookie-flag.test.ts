@@ -21,7 +21,7 @@ const account = (cookieInvalid: boolean) => ({ id: 3, uid: "900000003", nickname
 const failed = (cookieInvalid: boolean) => ({ ok: false as const, message: cookieInvalid ? "HoYoLAB cookie 已失效" : "HoYoLAB 說查詢太頻繁", fetchedAt, cookieInvalid });
 const empty: Endgame = { mode: "chaos", hasData: false, name: null, begin: null, end: null, stars: null, maxFloor: null, battles: null, floors: [] };
 const endgameOk = { ok: true as const, endgame: empty, fetchedAt, cookieInvalid: false as const };
-/** 執行排進 after() 的工作（回應送出後才跑） */
+/** 執行排進 after() 的工作 正式環境要等回應送出後才跑 */
 const runAfter = async () => {
   for (const [task] of vi.mocked(after).mock.calls) await (task as () => Promise<unknown>)();
 };

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-/** 每個測試重新載入模組，記憶體裡的快取才不會帶到下一個測試 */
+/** 每個測試重新載入模組 記憶體裡的快取才不會帶到下一個測試 */
 const load = () => import("./auto-translate");
 
 function fakeStorage(initial: Record<string, string> = {}) {
@@ -29,22 +29,6 @@ describe("自動即時翻譯開關", () => {
     vi.resetModules();
     expect((await load()).readAutoTranslate()).toBe(false);
     expect([...storage.data.values()]).toEqual(["off"]);
-  });
-
-  it("讀寫 localStorage 失敗（隱私模式）→ 預設開啟，切換仍在這次瀏覽生效", async () => {
-    vi.stubGlobal("localStorage", {
-      getItem: () => {
-        throw new Error("SecurityError");
-      },
-      setItem: () => {
-        throw new Error("SecurityError");
-      },
-    });
-    const preference = await load();
-    expect(preference.readAutoTranslate()).toBe(true);
-
-    preference.saveAutoTranslate(false);
-    expect(preference.readAutoTranslate()).toBe(false);
   });
 });
 

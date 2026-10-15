@@ -5,7 +5,7 @@ import { pickLiveNow } from "../../lib/visuals";
 import { LiveNowList, LiveNowSkeleton, NoFollowedStreamers } from "../components/live-now";
 import { followedStreamerVisuals } from "../streamer-visuals";
 
-// 名稱、圖示、點綴色由 src/app 從 info.ts 傳進來：web 層不能 import 模組根目錄
+// web 層不能 import 模組根目錄 名稱 圖示 點綴色由 src/app 從 info.ts 傳進來
 export function TwitchHomeCard({ info }: { info: ModuleInfo }) {
   return (
     <HomeCard info={info} title="正在直播" skeleton={<LiveNowSkeleton />}>
@@ -14,7 +14,10 @@ export function TwitchHomeCard({ info }: { info: ModuleInfo }) {
   );
 }
 
-/** 自己追蹤、正在直播的主播；沒有 Twitch 憑證時 Helix 都是 null，照 EventSub 記下的開台狀態列出，不顯示錯誤 */
+/**
+ * 自己追蹤而且正在直播的主播
+ * 沒有 Twitch 憑證時照 EventSub 記下的開台狀態列出 不顯示錯誤
+ */
 export async function LiveNow() {
   const user = await requireSession();
   const visuals = await followedStreamerVisuals(user.id);

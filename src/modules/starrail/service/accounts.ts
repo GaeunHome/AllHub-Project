@@ -19,16 +19,16 @@ import { starrailAccounts, starrailCheckinLogs, type StarrailAccount } from "../
 import { alertThreshold, staminaAlertAction } from "../lib/stamina";
 import { starrailTags } from "./cache-tags";
 
-/** already：今天已簽到過（排程不為這種結果發通知） */
+/** already 是今天已經簽過 排程不為這種結果發通知 */
 export type ActionResult = { ok: true; message: string; already?: boolean } | { ok: false; error: string };
 
 const UNDECRYPTABLE = "cookie 無法解密，請重新連結（換過 ENCRYPTION_KEY 的話，把舊金鑰放進 ENCRYPTION_KEY_PREVIOUS 即可恢復）";
 const ACCOUNT_NOT_FOUND = "找不到這個帳號，請重新整理頁面";
-// service 不能 import 模組根目錄的 info.ts，模組 id 寫在這裡（與 info.ts 的 id 相同）
+// service 不能 import 模組根目錄的 info.ts 模組 id 寫在這裡
 const MODULE_ID = "starrail";
 const CHECKIN_URL = "https://act.hoyolab.com/bbs/event/signin/hkrpg/index.html?act_id=e202303301540311";
 
-/** 解密失敗（例如換了 ENCRYPTION_KEY）時回 null 並標記失效，讓頁面仍能移除或重新連結 */
+/** 換了 ENCRYPTION_KEY 這類解密失敗時回 null 並標記失效 頁面仍能移除或重新連結 */
 async function cookieOf(account: StarrailAccount): Promise<string | null> {
   try {
     return decryptSecret(account.cookieEncrypted);
@@ -38,10 +38,13 @@ async function cookieOf(account: StarrailAccount): Promise<string | null> {
   }
 }
 
-// 頁面與 Server Action 傳進來的 userId 都是登入者：帳號 id 只在自己的帳號裡找，別人的一律當作不存在
+// userId 都是登入者 帳號 id 只在自己的帳號裡找 別人的一律當作不存在
 const ownAccount = (userId: string, accountId: number) => and(eq(starrailAccounts.id, accountId), eq(starrailAccounts.userId, userId));
 
-/** 排程要處理的帳號：沒有擁有者的列（部署空窗期舊程式連結的）通知不知道要給誰，略過；重新連結就會歸給連結的人。擁有者被停用時凍結，不用他的 cookie 簽到或查便箋 */
+/**
+ * 沒有擁有者的列不知道通知給誰所以略過 重新連結就會歸給連結的人
+ * 擁有者被停用時凍結 不用他的 cookie 簽到或查便箋
+ */
 async function listAccounts(): Promise<(StarrailAccount & { userId: string })[]> {
   const rows = await db()
     .select(getTableColumns(starrailAccounts))
@@ -51,7 +54,7 @@ async function listAccounts(): Promise<(StarrailAccount & { userId: string })[]>
   return rows.filter((row): row is StarrailAccount & { userId: string } => row.userId !== null);
 }
 
-/** 頁面顯示用的欄位：不含 cookie（連密文也不讀出來），可以放進快取 */
+/** 頁面顯示用的欄位 不含 cookie 連密文也不讀 才能放進快取 */
 export type StarrailAccountView = Pick<StarrailAccount, "id" | "uid" | "nickname" | "region" | "level" | "staminaAlertThreshold" | "cookieInvalid">;
 
 export async function listAccountViews(userId: string): Promise<StarrailAccountView[]> {
@@ -70,7 +73,7 @@ export async function listAccountViews(userId: string): Promise<StarrailAccountV
     .orderBy(starrailAccounts.id);
 }
 
-/** 給了帳號 id 就只列那個帳號的紀錄（頁面一次只看一個伺服器的帳號）；只列自己帳號的紀錄 */
+/** 只列自己帳號的紀錄 頁面一次只看一個帳號 給了 id 就只列那個帳號的 */
 export async function recentCheckins(userId: string, limit = 20, accountId?: number) {
   return db()
     .select({ log: starrailCheckinLogs, nickname: starrailAccounts.nickname, uid: starrailAccounts.uid })
@@ -81,23 +84,32 @@ export async function recentCheckins(userId: string, limit = 20, accountId?: num
     .limit(limit);
 }
 
-/** 連結時讓使用者選的角色：伺服器用中文名稱，預設勾等級最高的，等級很低的標示「可能是沒在玩的帳號」 */
+/** 連結時讓使用者選的角色 預設勾等級最高的 等級很低的標示可能沒在玩 */
 export type RoleChoice = { uid: string; nickname: string | null; server: string; level: number | null; likelyUnused: boolean; selected: boolean };
 
-/** ask：只有一個角色就直接連結，好幾個就回傳清單讓使用者選（還不寫入）；all：全部連結；UID 清單：只連結這些 */
+/**
+ * ask 只有一個角色就直接連結 好幾個就回傳清單讓使用者選 還不寫入
+ * all 全部連結 UID 清單只連結這些
+ */
 export type RoleSelection = "ask" | "all" | string[];
 
-/** 連結好了：accountId 是剛連結（或更新 cookie）的自己的那一列，頁面導向它；warning 是成功了但要提醒的事 */
+/**
+ * accountId 是剛連結或更新 cookie 的自己那一列 頁面導向它
+ * warning 是成功了但要提醒的事
+ */
 export type LinkResult = { ok: true; message: string; warning?: string; accountId: number } | { ok: false; error: string } | { ok: false; error?: never; roles: RoleChoice[] };
 
-/** 選到的 UID 已經是別人的：整批不寫入 */
+/** 選到的 UID 已經是別人的 整批不寫入 */
 class UidTakenError extends Error {
   constructor(readonly uid: string) {
     super("UID 已經被其他使用者連結");
   }
 }
 
-/** 新增或更新 cookie：用 cookie 查出星穹鐵道角色，選到的每個角色存一列（同 UID 就更新）；兩個步驟之間 cookie 留在瀏覽器的表單裡，伺服器不存 */
+/**
+ * 用 cookie 查出角色 選到的每個角色存一列 同 UID 就更新
+ * 兩個步驟之間 cookie 留在瀏覽器的表單裡 伺服器不存
+ */
 export async function linkAccount(userId: string, rawCookie: string, selection: RoleSelection = "all"): Promise<LinkResult> {
   const parsed = parseHoyolabCookie(rawCookie);
   if (!parsed.ok) return { ok: false, error: parsed.error };
@@ -120,7 +132,7 @@ export async function linkAccount(userId: string, rawCookie: string, selection: 
       })),
     };
   }
-  // 只信任 HoYoLAB 查到的角色：表單送來的 UID 只用來挑選，不在這個帳號底下的會被略過
+  // 只信任 HoYoLAB 查到的角色 表單送來的 UID 只用來挑選 不在這帳號底下的略過
   const chosen = Array.isArray(selection) ? roles.data.filter((role) => selection.includes(role.uid)) : roles.data;
   if (chosen.length === 0) return { ok: false, error: "請至少選一個要連結的帳號" };
 
@@ -131,7 +143,8 @@ export async function linkAccount(userId: string, rawCookie: string, selection: 
     await db().transaction(async (tx) => {
       for (const role of chosen) {
         const values = { userId, ltuid: parsed.ltuid, cookieEncrypted, nickname: role.nickname, region: role.region, level: role.level };
-        // 同 UID 只更新自己的列；沒有擁有者的（部署空窗期舊程式連結的）由貼得出有效 cookie 的人認領，別人的不動
+        // 同 UID 只更新自己的列 別人的不動
+        // 沒有擁有者的列由貼得出有效 cookie 的人認領
         const [saved] = await tx
           .insert(starrailAccounts)
           .values({ ...values, uid: role.uid })
@@ -167,7 +180,10 @@ export async function setStaminaThreshold(userId: string, id: number, threshold:
   return updated.length > 0;
 }
 
-/** cookie 失效標記只從這裡寫：比對資料庫裡的值而不是記憶體裡的帳號，同一次簽到先清掉再設上時才不會讀到舊值而跳過；回傳有沒有改 */
+/**
+ * cookie 失效標記只從這裡寫 比對資料庫的值而不是記憶體裡的帳號
+ * 同一次簽到先清掉再設上時才不會讀到舊值而跳過 回傳有沒有改
+ */
 async function setCookieInvalid(accountId: number, invalid: boolean): Promise<boolean> {
   const updated = await db()
     .update(starrailAccounts)
@@ -177,7 +193,10 @@ async function setCookieInvalid(accountId: number, invalid: boolean): Promise<bo
   return updated.length > 0;
 }
 
-/** 頁面向 HoYoLAB 讀資料前先取帳號與 cookie；只讀不寫（cookie 失效標記由頁面在回應後寫回），才能放進快取 */
+/**
+ * 頁面向 HoYoLAB 讀資料前先取帳號與 cookie
+ * 只讀不寫才能放進快取 失效標記由頁面在回應後寫回
+ */
 async function pageAccount(
   userId: string,
   accountId: number,
@@ -191,12 +210,15 @@ async function pageAccount(
   }
 }
 
-/** fetchedAt 是向 HoYoLAB 查詢的時間：快取最多 5 分鐘，回滿時間要從這裡起算 */
+/** fetchedAt 是向 HoYoLAB 查詢的時間 快取最多 5 分鐘 回滿時間要從這裡算 */
 export type DailyNoteResult =
   | { ok: true; note: DailyNote; expeditions: Expedition[]; fetchedAt: Date; cookieInvalid: false }
   | { ok: false; message: string; fetchedAt: Date; cookieInvalid: boolean };
 
-/** 頁面的即時便箋：只讀不寫才能放進快取；cookie 失效標記由頁面在回應後用 syncCookieInvalid 寫回 */
+/**
+ * 頁面的即時便箋 只讀不寫才能放進快取
+ * 失效標記由頁面在回應後用 syncCookieInvalid 寫回
+ */
 export async function dailyNoteFor(userId: string, accountId: number): Promise<DailyNoteResult> {
   const target = await pageAccount(userId, accountId);
   if (!target.ok) return { ...target, fetchedAt: new Date() };
@@ -207,10 +229,13 @@ export async function dailyNoteFor(userId: string, accountId: number): Promise<D
   return { ok: true, note, expeditions, fetchedAt, cookieInvalid: false };
 }
 
-/** 頁面讀戰績類資料失敗時的結果；cookie 失效標記由頁面在回應後寫回 */
+/** 頁面讀戰績類資料失敗時的結果 失效標記由頁面在回應後寫回 */
 type PageFailure = { ok: false; message: string; fetchedAt: Date; cookieInvalid: boolean };
 
-/** 戰績類資料（外部資料，不存資料庫）共用的讀法：只讀不寫才能放進快取；失敗只記 retcode、格式不同只記欄位名稱，回應原文可能帶有帳號資料 */
+/**
+ * 戰績類資料共用的讀法 只讀不寫才能放進快取
+ * 回應原文可能帶有帳號資料 log 只記 retcode 與缺少的欄位名稱
+ */
 async function readRecord<T extends { missing: string[] }>(
   userId: string,
   accountId: number,
@@ -238,7 +263,7 @@ export async function charactersFor(userId: string, accountId: number): Promise<
 
 export type LedgerFetch = { ok: true; ledger: Ledger; fetchedAt: Date; cookieInvalid: false } | PageFailure;
 
-/** 開拓月曆；month 是 YYYYMM */
+/** 開拓月曆 month 是 YYYYMM */
 export async function ledgerFor(userId: string, accountId: number, month: string): Promise<LedgerFetch> {
   const read = await readRecord(userId, accountId, "開拓月曆", (cookie, account) => fetchLedger(cookie, account.uid, account.region, month));
   return read.ok ? { ok: true, ledger: read.data.ledger, fetchedAt: read.fetchedAt, cookieInvalid: false } : read;
@@ -251,7 +276,10 @@ export async function endgameFor(userId: string, accountId: number, mode: Endgam
   return read.ok ? { ok: true, endgame: read.data.endgame, fetchedAt: read.fetchedAt, cookieInvalid: false } : read;
 }
 
-/** 兌換碼：兌換碼與結果都不存，log 只記 retcode；cookieFlagChanged 讓 Server Action 只在寫了失效標記時才讓快取失效 */
+/**
+ * 兌換碼與結果都不存 log 只記 retcode
+ * cookieFlagChanged 讓 Server Action 只在寫了失效標記時讓快取失效
+ */
 export type RedeemResult = ({ ok: true; message: string } | { ok: false; error: string }) & { cookieFlagChanged: boolean };
 
 export async function redeemCodeFor(userId: string, accountId: number, input: string): Promise<RedeemResult> {
@@ -274,7 +302,10 @@ export async function redeemCodeFor(userId: string, accountId: number, input: st
   return { ok: false, error: outcome.message, cookieFlagChanged: outcome.cookieInvalid ? await setCookieInvalid(account.id, true) : false };
 }
 
-/** 頁面在回應後（after()）依 HoYoLAB 的回應（便箋、角色、終局戰績）同步 cookie 失效標記；有改才讓帳號的快取失效 */
+/**
+ * 頁面在回應後依 HoYoLAB 的回應同步 cookie 失效標記
+ * 有改才讓帳號的快取失效
+ */
 export async function syncCookieInvalid(userId: string, accountId: number, invalid: boolean): Promise<boolean> {
   const [own] = await db().select({ id: starrailAccounts.id }).from(starrailAccounts).where(ownAccount(userId, accountId));
   if (!own) return false;
@@ -291,7 +322,7 @@ export async function getDailyNote(account: StarrailAccount): Promise<HoyolabRes
   return result;
 }
 
-/** 簽到是以 HoYoLAB 帳號為單位，紀錄掛在觸發簽到的那個角色上 */
+/** 簽到以 HoYoLAB 帳號為單位 紀錄掛在觸發簽到的那個角色上 */
 export async function checkin(account: StarrailAccount): Promise<ActionResult> {
   const cookie = await cookieOf(account);
   if (cookie === null) {
@@ -312,7 +343,7 @@ export async function checkin(account: StarrailAccount): Promise<ActionResult> {
     const outcome = await signIn(cookie);
     ({ result, message } = outcome);
     if (outcome.result === "success" && totalSignDay !== null) totalSignDay += 1;
-    // 原始回應可能帶有帳號資料，只記 retcode
+    // 原始回應可能帶有帳號資料 只記 retcode
     if (outcome.result === "failed") console.error("[starrail] 簽到失敗", account.uid, `retcode ${retcodeOf(outcome.raw)}`);
     await setCookieInvalid(account.id, outcome.cookieInvalid);
   }
@@ -321,7 +352,7 @@ export async function checkin(account: StarrailAccount): Promise<ActionResult> {
   return result === "failed" ? { ok: false, error: message } : { ok: true, message, already: result === "already" };
 }
 
-/** 頁面上的「立即簽到」只帶帳號 id */
+/** 頁面上的立即簽到只帶帳號 id */
 export async function checkinAccount(userId: string, id: number): Promise<ActionResult> {
   const [account] = await db().select().from(starrailAccounts).where(ownAccount(userId, id));
   if (!account) return { ok: false, error: "找不到這個帳號" };
@@ -336,7 +367,7 @@ export async function checkinAll(): Promise<string> {
   const seenLtuid = new Map<string, ActionResult>();
   const byOwner = new Map<string, { lines: string[]; results: ActionResult[] }>();
   for (const account of accounts) {
-    // 同一個 HoYoLAB 帳號只送一次簽到，其餘角色沿用結果
+    // 同一個 HoYoLAB 帳號只送一次簽到 其餘角色沿用結果
     const result = seenLtuid.get(account.ltuid) ?? (await isolate(account, () => checkin(account)));
     seenLtuid.set(account.ltuid, result);
     const line = `${account.nickname ?? account.uid}：${result.ok ? result.message : `失敗 — ${result.error}`}`;
@@ -347,7 +378,7 @@ export async function checkinAll(): Promise<string> {
     byOwner.set(account.userId, owner);
   }
 
-  // 每個擁有者只收到自己帳號的結果；都是「今天已經簽到過了」的人不通知
+  // 每個擁有者只收到自己帳號的結果 全都是今天已簽過的人不通知
   for (const [userId, owner] of byOwner) {
     if (owner.results.every((r) => r.ok && r.already)) continue;
     const failed = owner.results.some((r) => !r.ok);
@@ -402,7 +433,7 @@ async function checkStamina(account: StarrailAccount & { userId: string }, now: 
   return { ok: true, message: `${note.data.stamina}/${note.data.maxStamina}${action === "alert" ? "（已通知）" : ""}` };
 }
 
-/** 簽到紀錄屬於通知紀錄，只留最近 RETENTION_DAYS 天 */
+/** 簽到紀錄屬於通知紀錄 只留最近 RETENTION_DAYS 天 */
 export async function cleanupCheckinLogs(now = new Date()): Promise<string> {
   const deleted = await db()
     .delete(starrailCheckinLogs)
@@ -411,7 +442,10 @@ export async function cleanupCheckinLogs(now = new Date()): Promise<string> {
   return `刪除 ${deleted.length} 筆超過 ${RETENTION_DAYS} 天的簽到紀錄`;
 }
 
-/** 換金鑰後把還沒用目前金鑰加密的 cookie 改用目前金鑰；單筆失敗不影響其他筆。沒有擁有者的列也處理：移除舊金鑰前要全部換好 */
+/**
+ * 換金鑰後把舊金鑰加密的 cookie 改用目前金鑰 單筆失敗不影響其他筆
+ * 沒有擁有者的列也處理 移除舊金鑰前要全部換好
+ */
 export async function reencryptCookies(): Promise<string> {
   const accounts = await db().select().from(starrailAccounts).orderBy(starrailAccounts.id);
   if (accounts.length === 0) return "沒有連結的帳號";
@@ -420,7 +454,7 @@ export async function reencryptCookies(): Promise<string> {
   let failed = 0;
   for (const account of accounts.filter((a) => needsReencrypt(a.cookieEncrypted))) {
     try {
-      // 只在密文沒變時寫回：期間重新連結寫入的新 cookie 不能被舊的蓋掉
+      // 只在密文沒變時寫回 期間重新連結的新 cookie 不能被舊的蓋掉
       const [updated] = await db()
         .update(starrailAccounts)
         .set({ cookieEncrypted: encryptSecret(decryptSecret(account.cookieEncrypted)) })
@@ -435,7 +469,7 @@ export async function reencryptCookies(): Promise<string> {
   return `${accounts.length} 筆 cookie，重新加密 ${reencrypted} 筆${failed ? `（${failed} 筆失敗，詳見伺服器 log）` : ""}`;
 }
 
-/** 單一帳號出錯（資料庫、程式錯誤）不能中斷整批排程；錯誤細節只進 log */
+/** 單一帳號出錯不能中斷整批排程 錯誤細節只進 log */
 async function isolate(account: StarrailAccount, work: () => Promise<ActionResult>): Promise<ActionResult> {
   try {
     return await work();

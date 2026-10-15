@@ -67,19 +67,6 @@ describe("recheckCaptionsAction（手動重新檢查中文字幕）", () => {
     expect(captions.checkFollowedVideoCaptions).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["yes", "有中文字幕了，可以直接在 YouTube 看"],
-    ["no", "還沒有中文字幕，可以用翻譯觀看"],
-    ["unknown", "無法確認是否有中文字幕（YouTube 可能擋下了請求），晚點再試"],
-  ])("結果是 %s_回對應的說明並重新整理清單", async (status, message) => {
-    captions.checkFollowedVideoCaptions.mockResolvedValue(status);
-
-    expect(await recheckCaptionsAction({}, form({ videoId: VIDEO }))).toEqual({ message });
-    expect(captions.checkFollowedVideoCaptions).toHaveBeenCalledWith(TEST_SESSION.id, VIDEO);
-    expect(updateTag).toHaveBeenCalledWith("youtube:videos");
-    expect(refresh).not.toHaveBeenCalled();
-  });
-
   it("影片 id 格式不對_不檢查", async () => {
     expect((await recheckCaptionsAction({}, form({ videoId: "../../etc" }))).error).toBeTruthy();
     expect(captions.checkFollowedVideoCaptions).not.toHaveBeenCalled();

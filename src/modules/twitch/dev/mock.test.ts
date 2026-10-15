@@ -3,7 +3,7 @@ import { handle } from "./mock.mjs";
 
 type Image = { label: string; width?: number; height?: number };
 
-/** 向 Twitch 的假 CDN 要一張圖，記下 ctx.image 收到的字與大小 */
+/** 向 Twitch 的假 CDN 要一張圖 記下 ctx.image 收到的字與大小 */
 function requestImage(path: string): Image | null {
   let sent: Image | null = null;
   handle({

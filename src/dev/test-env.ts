@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 
-// 測試用的環境變數；env.ts 會快取驗證結果，所以要在 await import() 被測模組之前呼叫 stub 系列
+// env.ts 會快取驗證結果 stub 系列要在 await import 被測模組之前呼叫
 
 export const TEST_CORE_ENV = {
   DATABASE_URL: "postgresql://unused@127.0.0.1:1/x",
@@ -28,7 +28,7 @@ function stubAll<T extends Record<string, string>>(vars: T): T {
   return vars;
 }
 
-/** 核心設定（資料庫、session、加密、排程密鑰）；回傳實際設定的值 */
+/** 資料庫 session 加密 排程密鑰這些核心設定 回傳實際設定的值 */
 export const stubCoreEnv = (overrides: CoreOverrides = {}) => stubAll({ ...TEST_CORE_ENV, ...overrides });
 
 export const stubTwitchEnv = (overrides: Partial<typeof TEST_TWITCH_ENV> = {}) => stubAll({ ...TEST_TWITCH_ENV, ...overrides });

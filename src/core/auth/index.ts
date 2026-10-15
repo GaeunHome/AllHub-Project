@@ -23,21 +23,24 @@ export async function deleteSession(): Promise<void> {
   (await cookies()).delete(SESSION_COOKIE);
 }
 
-/** 同一次請求裡很多元件都會檢查登入，用 React cache 只查一次資料庫 */
+/** 同一次請求很多元件都會檢查登入 用 React cache 只查一次資料庫 */
 export const currentSession = cache(async (): Promise<SessionUser | null> => {
   const claims = await verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value, coreEnv().SESSION_SECRET);
-  // proxy 只驗簽章；使用者被刪除、停用或改過密碼（版本不符）要在這裡擋下
+  // proxy 只驗簽章 被刪除 停用或改過密碼的使用者要在這裡擋下
   return claims ? findSessionUser(claims) : null;
 });
 
-/** proxy 只驗簽章；Server Action（可被直接 POST）與讀資料的元件都要再呼叫，改密碼後簽章仍有效的舊 cookie、被停用的帳號只有這裡擋得住 */
+/**
+ * proxy 只驗簽章 Server Action 與讀資料的元件都要呼叫
+ * 改密碼後的舊 cookie 與停用的帳號只有這裡擋得住
+ */
 export async function requireSession(): Promise<SessionUser> {
   const session = await currentSession();
   if (!session) redirect("/login");
   return session;
 }
 
-/** 管理頁與管理用的 Server Action 都要呼叫；角色每次都從資料庫讀（cookie 不帶角色），不是站長就回首頁 */
+/** 管理頁與管理用的 Server Action 都要呼叫 cookie 不帶角色 每次從資料庫讀 */
 export async function requireOwner(): Promise<SessionUser> {
   const session = await requireSession();
   if (session.role !== "owner") redirect("/");

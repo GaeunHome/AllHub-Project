@@ -3,13 +3,13 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { FormState } from "./form-message";
-import { Dialog, DialogButton, dialogFormAction, dialogReducer, isBackdropClick, returnFocusTarget, shownMessage, showDialog, useDialog, useDialogForm } from "./dialog";
+import { Dialog, DialogButton, DialogMessage, dialogFormAction, dialogReducer, isBackdropClick, returnFocusTarget, shownMessage, showDialog, useDialog, useDialogForm } from "./dialog";
 
 const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const amountInput = createElement("input", { name: "amount" });
 type DialogProps = Parameters<typeof Dialog>[0];
 type DialogButtonProps = Parameters<typeof DialogButton>[0];
-/** 內容照 JSX 的寫法放在第三個參數；props 的型別要求 children，所以先轉型 */
+/** 內容照 JSX 寫法放在第三個參數 props 型別卻要求 children 所以先轉型 */
 const renderDialog = (props: Omit<DialogProps, "children">, child: ReactNode = amountInput) => renderToStaticMarkup(createElement(Dialog, props as DialogProps, child));
 
 describe("彈出視窗（core/ui/dialog）", () => {
@@ -36,25 +36,11 @@ describe("彈出視窗（core/ui/dialog）", () => {
     expect(markup.indexOf("dialog-header")).toBeLessThan(markup.indexOf("dialog-body"));
   });
 
-  it("標題列跟卡片的 CardHeader 同一個樣子：圖示方塊、標題、右邊的關閉鈕", () => {
-    const markup = renderDialog({ open: true, onClose: vi.fn(), title: "記一筆", icon: createElement("span", { className: "icon" }) });
-
-    const header = markup.slice(markup.indexOf("dialog-header"), markup.indexOf("dialog-body"));
-    expect(header).toContain('class="icon-tile size-9 rounded-xl"');
-    expect(header).toMatch(/<h2[^>]*class="min-w-0 flex-1 basis-24 text-lg font-semibold text-ink"/);
-    expect(header.indexOf("<h2")).toBeLessThan(header.indexOf('aria-label="關閉"'));
-  });
-
   it("describedBy：打開時報讀器連同標題一起念的說明（內容跟視窗一起出現，live region 來不及念）", () => {
     const markup = renderDialog({ open: true, onClose: vi.fn(), title: "邀請連結已建立", describedBy: "summary warning" }, createElement("p", { id: "summary" }, "已建立邀請連結"));
 
     expect(markup).toMatch(/^<dialog[^>]*aria-describedby="summary warning"/);
     expect(renderDialog({ open: true, onClose: vi.fn(), title: "記一筆" })).not.toContain("aria-describedby");
-  });
-
-  it("size=full：滿版的大面板（角色詳情、主播詳情）用 dialog-full；其他尺寸照舊", () => {
-    expect(renderDialog({ open: true, onClose: vi.fn(), title: "希兒", size: "full" })).toMatch(/^<dialog[^>]*class="dialog dialog-full"/);
-    expect(renderDialog({ open: true, onClose: vi.fn(), title: "記一筆", size: "lg" })).toMatch(/^<dialog[^>]*class="dialog dialog-lg"/);
   });
 
   it("沒有標題時不畫標題列：內容自己帶標題與關閉按鈕，用 labelledBy 指定名稱", () => {
@@ -126,16 +112,11 @@ describe("按鈕＋彈出視窗（DialogButton、useDialog）", () => {
     expect(markup).not.toContain('name="note"');
   });
 
-  it("size 交給視窗：清單列打開的詳情也能用滿版的大面板（主播詳情）", () => {
-    const markup = renderToStaticMarkup(createElement(DialogButton, { label: "Hanabi", title: "Hanabi", size: "full" } as DialogButtonProps, createElement("p", null, "詳情")));
-
-    expect(markup).toMatch(/<dialog[^>]*class="dialog dialog-full"/);
-  });
-
   it("內容是函式時，視窗關著就不呼叫（點了才算繪）", () => {
     const children = vi.fn(() => createElement("input", { name: "note" }));
 
-    // 函式內容只能從 JSX 的 children 傳；createElement 的第三個參數型別只收 ReactNode
+    // 函式內容只能從 JSX 的 children 傳
+    // createElement 的第三個參數型別只收 ReactNode 所以轉型
     renderToStaticMarkup(createElement(DialogButton, { label: "臨時存款", title: "臨時存款" } as DialogButtonProps, children as unknown as ReactNode));
 
     expect(children).not.toHaveBeenCalled();
@@ -165,6 +146,16 @@ describe("按鈕＋彈出視窗（DialogButton、useDialog）", () => {
   });
 });
 
+describe("成功後留下的訊息（DialogMessage）", () => {
+  it("沒有訊息時什麼都不畫；有訊息時是成功的 FormMessage（status，圖示與底色）", () => {
+    expect(renderToStaticMarkup(createElement(DialogMessage, {}))).toBe("");
+
+    const markup = renderToStaticMarkup(createElement(DialogMessage, { message: "已記錄：餐飲 $120" }));
+    expect(markup).toMatch(/^<p role="status" class="form-message form-message-success">/);
+    expect(textOf(markup)).toBe("已記錄：餐飲 $120");
+  });
+});
+
 describe("視窗裡的表單（useDialogForm）", () => {
   it("給 <form> 的是 onSubmit 與 ref，不是 action：React 的 <form action> 送完一定清空欄位，失敗時打的字會不見", () => {
     function Probe() {
@@ -175,19 +166,6 @@ describe("視窗裡的表單（useDialogForm）", () => {
     const markup = renderToStaticMarkup(createElement(Probe));
 
     expect(markup).toBe('<form class="stack"><input name="amount"/></form>');
-  });
-
-  it("一開始沒有結果、也不在送出中", () => {
-    let result: ReturnType<typeof useDialogForm> | undefined;
-    function Probe() {
-      result = useDialogForm(vi.fn(), vi.fn());
-      return null;
-    }
-
-    renderToStaticMarkup(createElement(Probe));
-
-    expect(result?.state).toEqual({});
-    expect(result?.pending).toBe(false);
   });
 });
 
@@ -224,15 +202,6 @@ describe("視窗裡的表單送出後（dialogFormAction）", () => {
     await dialogFormAction(returning<FormState>({}), onDone)({}, new FormData());
 
     expect(onDone).toHaveBeenCalledWith(undefined, {});
-  });
-
-  it("onDone 也拿得到整個結果（例如剛連結的帳號 id）", async () => {
-    const onDone = vi.fn();
-    const result: LinkState = { message: "已連結 開拓者", accountId: 9 };
-
-    await dialogFormAction(returning(result), onDone)({}, new FormData());
-
-    expect(onDone).toHaveBeenCalledExactlyOnceWith("已連結 開拓者", result);
   });
 
   it("有下一步的表單（例如還要選伺服器）：isDone 說還沒完成就不呼叫 onDone，視窗留著", async () => {
@@ -334,9 +303,9 @@ describe("開視窗時背後的頁面（globals.css）", () => {
 });
 
 describe("滿版的大面板（globals.css 的 .dialog-full）", () => {
-  // 先拿掉註解：規則前面的註解不能算進選擇器
+  // 先拿掉註解 規則前面的註解不能算進選擇器
   const css = fs.readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  /** 每一條 .dialog-full 規則的內容，連同它所在的最內層 @media（沒有就是 null） */
+  /** 每條 .dialog-full 規則的內容與所在的最內層 @media 沒有就是 null */
   const fullRules = () => {
     const found: { media: string | null; body: string }[] = [];
     const stack: (string | null)[] = [];

@@ -12,7 +12,7 @@ const STATUS: Record<InviteStatus, { label: string; chip: string }> = {
   revoked: { label: "已撤銷", chip: "chip chip-danger" },
 };
 
-/** now 由頁面傳進來：清單本身有快取，狀態要用這次請求的時間算 */
+/** 清單有快取 狀態要用這次請求的時間 所以 now 由頁面傳進來 */
 export function InviteList({ invites, now }: { invites: InviteSummary[]; now: Date }) {
   if (invites.length === 0) return <EmptyState compact icon="link" title="還沒有邀請連結" />;
 
@@ -26,7 +26,7 @@ export function InviteList({ invites, now }: { invites: InviteSummary[]; now: Da
           `${invite.createdBy} 建立於 ${formatTaipeiDateTime(invite.createdAt)}`,
         ];
         return (
-          // 手機上按鈕換到下一行，每一列的文字都是同樣的寬度
+          // 手機上按鈕換到下一行 每列文字才會一樣寬
           <li key={invite.id} className="card-row flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex min-w-0 flex-1 flex-col gap-1.5">
               <p className="flex flex-wrap items-center gap-2">

@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NotificationModule } from "./notification-summary";
 
-// 靜態算繪拿不到瀏覽器裡的狀態：面板開著沒有、通知中心的模組清單、提醒開關與通知權限都換成替身，其他照原本的實作
+// 靜態算繪拿不到瀏覽器的狀態 面板開著沒有 模組清單 提醒開關與權限換成替身
+// 其他照原本的實作
 vi.mock("react", { spy: true });
 vi.mock("../ui/header-menus", { spy: true });
 vi.mock("./center", { spy: true });
@@ -16,10 +17,10 @@ const { NotificationBell } = await import("./bell");
 
 const MODULES: NotificationModule[] = [
   { id: "twitch", name: "Twitch", icon: "/icons/brands/twitch.svg", accent: "violet" },
-  { id: "savings", name: "存錢記帳", icon: "/icons/ui/piggy-bank.svg", accent: "green", notifies: false },
+  { id: "savings", name: "理財", icon: "/icons/ui/wallet.svg", accent: "green", notifies: false },
 ];
 
-/** 面板開著或收起；view 是面板裡的畫面（通知清單或提醒方式） */
+/** view 是面板裡的畫面 通知清單或提醒方式 */
 function renderBell({ expanded, view = "list" }: { expanded: boolean; view?: "list" | "settings" }) {
   vi.mocked(useHeaderMenuRoot).mockReturnValue({ expanded, toggle: vi.fn(), close: vi.fn(), rootRef: { current: null }, buttonRef: { current: null } });
   vi.mocked(useNotificationCenter).mockReturnValue({
@@ -61,11 +62,11 @@ describe("鈴鐺按鈕指向的面板（aria-controls）", () => {
 });
 
 describe("鈴鐺面板的「提醒方式」：要允許瀏覽器通知的提示", () => {
-  /** 只有這些模組開著瀏覽器通知（其他都關了），瀏覽器還沒決定通知權限 */
+  /** 只有這些模組開著瀏覽器通知 其他都關了 瀏覽器還沒決定通知權限 */
   function renderSettingsWith(enabled: string[]) {
     vi.mocked(useAlertPref).mockImplementation((id) => enabled.includes(id));
     vi.mocked(useAnyAlertPref).mockImplementation((ids) => ids.some((id) => enabled.includes(id)));
-    // 面板裡只有權限的狀態用 useSyncExternalStore（開關的狀態已經換成替身）
+    // 開關已經換成替身 面板裡只剩權限用 useSyncExternalStore
     vi.mocked(useSyncExternalStore).mockReturnValueOnce("default");
     return renderBell({ expanded: true, view: "settings" }).markup;
   }
@@ -77,10 +78,10 @@ describe("鈴鐺面板的「提醒方式」：要允許瀏覽器通知的提示"
     expect(markup).toMatch(/<button[^>]*>.*允許<\/button>/);
   });
 
-  it("看得到的瀏覽器通知開關全關了：不提示要允許通知；不發通知的模組（存錢記帳，沒有開關、沿用舊的全域值）開著也不算", () => {
+  it("看得到的瀏覽器通知開關全關了：不提示要允許通知；不發通知的模組（理財，沒有開關、沿用舊的全域值）開著也不算", () => {
     const markup = renderSettingsWith(["savings"]);
 
-    expect(markup).not.toContain('aria-label="存錢記帳：瀏覽器通知"');
+    expect(markup).not.toContain('aria-label="理財：瀏覽器通知"');
     expect(markup).not.toContain("瀏覽器還沒允許通知");
   });
 });

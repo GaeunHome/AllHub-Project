@@ -21,7 +21,7 @@ export function ChangePasswordForm({ username }: { username: string }) {
     <form action={action} className="stack">
       {/* 讓密碼管理工具知道是哪個帳號的密碼 */}
       <input type="text" name="username" value={username} autoComplete="username" readOnly hidden />
-      {/* 密碼欄位裡有顯示密碼的按鈕，label 不能包住它，改用 htmlFor 對應 */}
+      {/* 密碼欄位裡有按鈕 label 不能包住它 改用 htmlFor 對應 */}
       {FIELDS.map((field) => (
         <div key={field.name} className="field">
           <label htmlFor={`${id}-${field.name}`} className="field-label">

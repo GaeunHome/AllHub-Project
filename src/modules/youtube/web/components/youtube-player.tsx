@@ -24,10 +24,10 @@ declare global {
 }
 
 let apiPromise: Promise<YtNamespace> | undefined;
-/** iframe_api 還會再載入一支 script，那支失敗時不會有任何事件，只能靠逾時發現 */
+/** iframe_api 還會再載入一支 script 那支失敗時沒有任何事件 只能靠逾時發現 */
 const LOAD_TIMEOUT_MS = 30_000;
 
-/** 官方 IFrame Player API 只能用 script 載入，而且全頁只能載一次；失敗時清掉快取，下次掛載可以重試 */
+/** 官方 API 只能用 script 載入 全頁只能載一次 失敗時清掉快取 下次掛載才能重試 */
 function loadYoutubeApi(): Promise<YtNamespace> {
   apiPromise ??= new Promise<YtNamespace>((resolve, reject) => {
     if (window.YT?.Player) return resolve(window.YT);
@@ -54,16 +54,19 @@ function loadYoutubeApi(): Promise<YtNamespace> {
   return apiPromise;
 }
 
-/** YouTube 自己的全螢幕會讓疊上去的字幕消失：一律關掉（iPhone 也是），改用播放器上自己的全螢幕；手機上維持在頁面裡播放 */
+/**
+ * YouTube 自己的全螢幕會讓疊上去的字幕消失 iPhone 也一律關掉改用自己的
+ * 手機上維持在頁面裡播放
+ */
 export const YOUTUBE_PLAYER_VARS = { rel: 0, cc_load_policy: 0, playsinline: 1, fs: 0 } as const;
 
-/** IFrame Player API 的播放狀態；緩衝也停止推算時間 */
+/** IFrame Player API 的播放狀態 緩衝也停止推算時間 */
 const STATE = { ended: 0, playing: 1, paused: 2 };
-/** 暫停、緩衝時拖曳進度也要很快換句，但不必每一幀檢查 */
+/** 暫停或緩衝時拖曳進度也要很快換句 但不必每一幀檢查 */
 const IDLE_POLL_MS = 100;
-/** 上一句結束到下一句開始不到這麼久時繼續顯示上一句，換句時字幕框不會閃一下 */
+/** 兩句之間的空檔不到這麼久就繼續顯示上一句 換句時字幕框才不會閃一下 */
 const SUBTITLE_GAP_BRIDGE_MS = 250;
-/** 劇院模式只在寬螢幕有作用，跟版面的 lg 斷點一樣 */
+/** 劇院模式只在寬螢幕有作用 跟版面的 lg 斷點一樣 */
 const THEATER_MEDIA = "(min-width: 64rem)";
 
 export type PlayerHandle = {
@@ -78,11 +81,11 @@ type YoutubePlayerProps = {
   translated: (string | null)[];
   mode: SubtitleMode;
   subtitleSize: SubtitleSize;
-  /** 沒有在翻（失敗、暫停）時，還沒翻好的句子不能標成「翻譯中」 */
+  /** 失敗或暫停時 還沒翻好的句子不能標成翻譯中 */
   translating: boolean;
   size: PlayerSize;
   onSizeChange: (size: PlayerSize) => void;
-  /** 加在外框上，例如劇院模式時在格線裡撐滿兩欄 */
+  /** 加在外框上 例如劇院模式時在格線裡撐滿兩欄 */
   className?: string;
   /** 自動即時翻譯在使用者按下播放時才開始 */
   onPlayingChange?: (playing: boolean) => void;
@@ -95,9 +98,9 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
   const onPlayingChangeRef = useRef(onPlayingChange);
   const cuesRef = useRef(cues);
   const [index, setIndex] = useState(-1);
-  // 記下載入失敗的是哪支影片，換影片時訊息自然消失
+  // 記下載入失敗的是哪支影片 換影片時訊息自然消失
   const [failedVideoId, setFailedVideoId] = useState<string | null>(null);
-  // 播放中 YouTube 會收起控制列：字幕往下、播放器上的按鈕滑過才出現
+  // 播放中 YouTube 會收起控制列 字幕往下 播放器上的按鈕滑過才出現
   const [playing, setPlaying] = useState(false);
   const fullscreen = useFullscreen(frameRef);
   const theater = size === "theater";
@@ -115,7 +118,8 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
   // 翻譯每次呼叫前才問播放位置
   useImperativeHandle(ref, () => ({ positionMs: () => positionRef.current?.() }), []);
 
-  // 焦點在 YouTube 的 iframe 裡時按鍵到不了這裡（由 YouTube 處理）；⋮ 選單、鈴鐺面板這類彈出層開著時讓給它（Esc 只關掉它）；每次算繪重新掛上，拿到的一定是最新的狀態
+  // 焦點在 iframe 裡時按鍵到不了這裡 彈出層開著時讓給它 Esc 只關掉它
+  // 每次算繪都重新掛上 拿到的一定是最新的狀態
   useEffect(() =>
     listenPageKeys((event) => {
       const shortcut = playerShortcut(event);
@@ -143,7 +147,8 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
 
     const reported = () => (player ? player.getCurrentTime() * 1000 : 0);
     const notifyPlaying = (isPlaying: boolean) => onPlayingChangeRef.current?.(isPlaying);
-    // 每一幀只做一次二分搜尋，換句時才重新算繪；同步算繪，新的一句跟偵測到的這一幀一起畫出來，不會等 React 排程晚一幀
+    // 每一幀只做一次二分搜尋 換句時才重新算繪
+    // 同步算繪讓新的一句跟偵測到的這一幀一起畫出來 不會晚一幀
     const show = (now: number) => {
       const next = findCueIndex(cuesRef.current, clock.estimate(now), { bridgeGapMs: SUBTITLE_GAP_BRIDGE_MS });
       if (next === shown) return;
@@ -156,7 +161,7 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
       frame = 0;
       timer = undefined;
     };
-    // 播放中每一幀推算一次；暫停、緩衝、還沒有字幕時慢慢輪詢；分頁看不到時整個停掉
+    // 播放中每一幀推算一次 暫停 緩衝或還沒有字幕時慢慢輪詢 分頁看不到時整個停掉
     const schedule = () => {
       stop();
       if (cancelled || !ready || document.hidden) return;
@@ -174,7 +179,7 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
     loadYoutubeApi().then(
       (YT) => {
         if (cancelled || !mountRef.current) return;
-        // YT.Player 會把傳入的元素換成 iframe，所以給它一個自己的子元素，避免動到 React 管理的節點
+        // YT.Player 會把傳入的元素換成 iframe 所以給它自己的子元素 免得動到 React 管理的節點
         const target = document.createElement("div");
         mountRef.current.appendChild(target);
         player = new YT.Player(target, {
@@ -184,10 +189,10 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
           playerVars: { ...YOUTUBE_PLAYER_VARS },
           events: {
             onReady: () => {
-              // 卸載後才 ready 的話不能再開始推算，否則沒有人會停掉它
+              // 卸載後才 ready 的話不能再開始推算 否則沒人會停掉它
               if (cancelled) return;
               ready = true;
-              // 分頁在背景時沒有逐幀推算，翻譯問位置時先讀一次播放器最新的回報
+              // 分頁在背景時沒有逐幀推算 翻譯問位置時先讀一次最新的回報
               positionRef.current = () => {
                 const now = performance.now();
                 clock.observe(reported(), now);
@@ -228,7 +233,8 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
       positionRef.current = null;
       player?.destroy();
       mount?.replaceChildren();
-      // Activity 把頁面藏起來（例如按上一頁）時元件的狀態會留著，再顯示時播放器卻是重新建立的：字幕、播放中與載入失敗的訊息都回到初始值
+      // Activity 藏起頁面時元件狀態會留著 再顯示時播放器卻是重新建立的
+      // 所以字幕 播放中與載入失敗的訊息都回到初始值
       setIndex(-1);
       setPlaying(false);
       setFailedVideoId(null);
@@ -291,13 +297,13 @@ export function YoutubePlayer({ ref, videoId, cues, translated, mode, subtitleSi
 
 type Fullscreen = { mode: FullscreenMode; toggle: () => void; exitPseudo: () => void };
 
-/** 能用 Fullscreen API 就讓外框連字幕一起全螢幕；不能用（iPhone）或被拒絕時改用頁內全螢幕 */
+/** 能用 Fullscreen API 就讓外框連字幕一起全螢幕 iPhone 不能用或被拒絕時改用頁內全螢幕 */
 function useFullscreen(frameRef: RefObject<HTMLDivElement | null>): Fullscreen {
   const [native, setNative] = useState(false);
   const [pseudo, setPseudo] = useState(false);
 
   useEffect(() => {
-    // 以瀏覽器的狀態為準：按 Esc、切分頁、旋轉螢幕後都重新對一次，畫面不會卡在半全螢幕
+    // 以瀏覽器為準 按 Esc 切分頁或旋轉螢幕後都重新對一次 畫面不會卡在半全螢幕
     const sync = () => setNative(document.fullscreenElement !== null && document.fullscreenElement === frameRef.current);
     document.addEventListener("fullscreenchange", sync);
     document.addEventListener("visibilitychange", sync);
@@ -309,10 +315,11 @@ function useFullscreen(frameRef: RefObject<HTMLDivElement | null>): Fullscreen {
     };
   }, [frameRef]);
 
-  // 頁內全螢幕時 html 不捲動；layout effect 的清除函式在收起、卸載或頁面被藏起來的當下就解除
+  // 頁內全螢幕時 html 不捲動 清除函式在收起 卸載或頁面被藏起來時立刻解除
   useLayoutEffect(() => (pseudo ? lockPageScroll(document.documentElement) : undefined), [pseudo]);
 
-  // 卸載或 Activity 把頁面藏起來（例如按上一頁、iPhone 從左緣滑回去）時一定離開全螢幕：藏起來的頁面收不到 fullscreenchange，回來時畫面與按鈕會對不上
+  // 卸載或被 Activity 藏起來時一定離開全螢幕 例如按上一頁或 iPhone 從左緣滑回
+  // 藏起來的頁面收不到 fullscreenchange 回來時畫面與按鈕會對不上
   useLayoutEffect(() => {
     const frame = frameRef.current;
     return () => {
@@ -326,7 +333,7 @@ function useFullscreen(frameRef: RefObject<HTMLDivElement | null>): Fullscreen {
     const frame = frameRef.current;
     if (!frame) return;
     const action = fullscreenToggle(fullscreenMode({ native: document.fullscreenElement === frame, pseudo }), document.fullscreenEnabled === true);
-    // 瀏覽器拒絕（例如嵌在不允許全螢幕的頁面裡）時退回頁內全螢幕，照樣看得到字幕
+    // 瀏覽器拒絕時退回頁內全螢幕 例如嵌在不允許全螢幕的頁面裡 照樣看得到字幕
     if (action === "enter-native") frame.requestFullscreen({ navigationUI: "hide" }).catch(() => setPseudo(true));
     else if (action === "exit-native") document.exitFullscreen().catch(() => {});
     else setPseudo(action === "enter-pseudo");

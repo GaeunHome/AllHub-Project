@@ -17,7 +17,7 @@ const failureOf = (pending: Promise<unknown>) =>
     (error: unknown) => (error instanceof Error ? error.message : String(error)),
   );
 
-/** 本機的小伺服器，確認 localhost／127.0.0.1 照常連得到 */
+/** 本機的小伺服器 確認 localhost 與 127.0.0.1 照常連得到 */
 async function withLocalServer(run: (port: number) => Promise<void>) {
   const server = createServer((_request, response) => response.end("ok"));
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

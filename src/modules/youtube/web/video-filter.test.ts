@@ -3,7 +3,7 @@ import type { TranslationStatus, ZhCaptionStatus } from "../data/schema";
 import { VIDEO_FILTERS, captionCheckPending, latestVideos, savedBadge, thumbnailBadge, upNext, videoFilters } from "./video-filter";
 
 const CHECKED_AT = new Date("2026-10-07T12:00:00Z");
-/** 沒特別說的都檢查過字幕；從沒檢查過的傳 null */
+/** 沒特別說的都檢查過字幕 從沒檢查過的傳 null */
 const video = (zhCaptions: ZhCaptionStatus, translationStatus: TranslationStatus | null = null, zhCaptionsCheckedAt: Date | null = CHECKED_AT) => ({ zhCaptions, translationStatus, zhCaptionsCheckedAt });
 
 describe("VIDEO_FILTERS：列表頁的篩選膠囊", () => {

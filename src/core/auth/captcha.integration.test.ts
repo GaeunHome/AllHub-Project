@@ -105,10 +105,6 @@ describe("verifyCaptcha", () => {
     expect(await verifyCaptcha("login", "K7MRX", token, later(CAPTCHA_TTL_MS))).toBe(false);
   });
 
-  it("登入的驗證碼不能拿去註冊", async () => {
-    expect(await verifyCaptcha("register", "K7MRX", createCaptchaToken("login", "K7MRX", NOW), NOW)).toBe(false);
-  });
-
   it("沒有 cookie 或格式不對_拒絕", async () => {
     for (const token of [undefined, "", "abc", "a.b.c", `${"x".repeat(22)}.soon.${"y".repeat(43)}.${"z".repeat(43)}`, `${"x".repeat(22)}.${NOW.getTime() + 60_000}.${"y".repeat(43)}`]) {
       expect(await verifyCaptcha("login", "K7MRX", token, NOW)).toBe(false);

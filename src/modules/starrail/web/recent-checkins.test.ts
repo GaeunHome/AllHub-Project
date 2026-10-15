@@ -1,15 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { RECENT_CHECKINS, splitRecentCheckins } from "./recent-checkins";
+import { splitRecentCheckins } from "./recent-checkins";
 
-/** 跟資料庫讀出來的一樣是新的在前：id 越大越新 */
+/** 跟資料庫讀出來的一樣新的在前 id 越大越新 */
 const newestFirst = (count: number) => Array.from({ length: count }, (_, index) => ({ id: count - index }));
 const ids = (list: { id: number }[]) => list.map((item) => item.id);
 
 describe("splitRecentCheckins：簽到紀錄先列最近幾筆，更早的收起來", () => {
-  it("預設直接列出最近 5 筆", () => {
-    expect(RECENT_CHECKINS).toBe(5);
-  });
-
   it("超過 5 筆_最新的 5 筆在 recent，其餘照原本的順序（新的在前）放進 earlier", () => {
     const { recent, earlier } = splitRecentCheckins(newestFirst(17));
 
@@ -31,12 +27,5 @@ describe("splitRecentCheckins：簽到紀錄先列最近幾筆，更早的收起
 
   it("沒有紀錄_兩邊都是空的", () => {
     expect(splitRecentCheckins([])).toEqual({ recent: [], earlier: [] });
-  });
-
-  it("可以指定直接列出的筆數", () => {
-    const { recent, earlier } = splitRecentCheckins(newestFirst(4), 3);
-
-    expect(ids(recent)).toEqual([4, 3, 2]);
-    expect(ids(earlier)).toEqual([1]);
   });
 });

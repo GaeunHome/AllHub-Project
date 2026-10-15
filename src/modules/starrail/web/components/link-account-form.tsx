@@ -10,7 +10,7 @@ import { linkAccountAction, type LinkState } from "../actions";
 import type { RoleChoice } from "../../service/accounts";
 import { useShowLinkResult } from "./link-result";
 
-/** 還沒連結帳號時直接顯示表單；已經有帳號時只是一個按鈕，要新增或更新 cookie 再打開視窗 */
+/** 還沒連結時直接顯示表單 已有帳號時只是一個按鈕 要新增或更新 cookie 再打開視窗 */
 export function LinkAccountForm({ defaultOpen }: { defaultOpen: boolean }) {
   if (!defaultOpen) return <LinkAccountDialog />;
   return (
@@ -24,7 +24,7 @@ export function LinkAccountForm({ defaultOpen }: { defaultOpen: boolean }) {
   );
 }
 
-/** 視窗也套星空配色與切角；連結好了就關掉，結果顯示在帳號分頁上方（不留在頁面最下面的按鈕旁邊） */
+/** 視窗也套星空配色與切角 連結好了就關掉 結果顯示在帳號分頁上方 */
 function LinkAccountDialog() {
   return (
     <div className="button-row">
@@ -46,10 +46,13 @@ function LinkAccountDialog() {
   );
 }
 
-/** 還要選伺服器、或出錯時留在表單裡 */
+/** 還要選伺服器或出錯時留在表單裡 */
 const isLinked = (result: LinkState) => !result.error && !result.roles;
 
-/** cookie 只放在這個表單的狀態裡：選伺服器的第二步再送一次，伺服器不存；連結好了導向剛連結的帳號 */
+/**
+ * cookie 只放在表單狀態裡 選伺服器的第二步再送一次 伺服器不存
+ * 連結好了導向剛連結的帳號
+ */
 function LinkAccountFields({ onLinked }: { onLinked?: () => void }) {
   const router = useRouter();
   const showResult = useShowLinkResult();
@@ -63,7 +66,7 @@ function LinkAccountFields({ onLinked }: { onLinked?: () => void }) {
   const { state, pending, formProps } = useDialogForm(
     step,
     (message, result) => {
-      // 連結好了就不必再留著 cookie
+      // 連結好了就不用再留著 cookie
       setChoices(null);
       setCookie("");
       onLinked?.();
@@ -74,7 +77,8 @@ function LinkAccountFields({ onLinked }: { onLinked?: () => void }) {
     isLinked,
   );
 
-  // 送出時按鈕停用，焦點會掉到 body：換到選伺服器的步驟時放到第一個角色（出錯時 useDialogForm 會放回這一步的欄位）
+  // 送出時按鈕停用 焦點會掉到 body 換到選伺服器時放到第一個角色
+  // 出錯時由 useDialogForm 放回這一步的欄位
   useEffect(() => {
     if (state.roles) formProps.ref.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
   }, [state, formProps.ref]);
@@ -141,11 +145,11 @@ function CookieHelp() {
 
 type RoleChooserProps = { cookie: string; choices: RoleChoice[]; pending: boolean; onBack: () => void };
 
-/** 同一個 HoYoLAB 帳號在好幾個伺服器都有角色時，讓使用者勾選要連結哪些；預設勾等級最高的 */
+/** 好幾個伺服器都有角色時讓使用者勾選要連結哪些 預設勾等級最高的 */
 export function RoleChooser({ cookie, choices, pending, onBack }: RoleChooserProps) {
   return (
     <fieldset className="stack min-w-0">
-      {/* legend 浮動後才會是一般的子元素，吃得到父層的 gap */}
+      {/* legend 浮動後才是一般的子元素 吃得到父層的 gap */}
       <legend className="float-left font-semibold text-ink">這個 HoYoLAB 帳號在好幾個伺服器都有角色，要連結哪些？</legend>
       <input type="hidden" name="cookie" value={cookie} />
       <input type="hidden" name="step" value="choose" />

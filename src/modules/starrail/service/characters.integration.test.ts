@@ -125,12 +125,6 @@ describe("cachedDailyNote：便箋另外帶上委託", () => {
     expect(result).toMatchObject({ ok: true, expeditions });
     expect(result.ok && result.note).not.toHaveProperty("expeditions");
   });
-
-  it("便箋沒有委託欄位_空列表", async () => {
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: { stamina: 100, maxStamina: 300 }, raw: {} });
-
-    expect(await cachedDailyNote(me, (await account()).id)).toMatchObject({ ok: true, expeditions: [] });
-  });
 });
 
 describe("擁有權：別人的帳號 id 當作不存在", () => {

@@ -7,14 +7,17 @@ import type { StarrailAccountView } from "../../service/accounts";
 import { cachedLedger } from "../../service/cached";
 import { LedgerView } from "./ledger-view";
 
-/** 開拓月曆：先查這個月，再一起查 HoYoLAB 給得到的其他月份（各自快取 30 分鐘），切換月份不必再等 */
+/**
+ * 先查這個月 再一起查其他給得到的月份 各自快取 30 分鐘
+ * 切換月份不用再等
+ */
 export async function LedgerPanel({ account }: { account: StarrailAccountView }) {
   const user = await requireSession();
   const first = await cachedLedger(user.id, account.id, ledgerMonthOf(new Date()));
   if (!first.ok) {
     return (
       <section className="stack">
-        {/* 標題列的高度跟有切換鈕時一樣，並排的終局戰績標題才對得齊 */}
+        {/* 標題列跟有切換鈕時一樣高 並排的終局戰績標題才對得齊 */}
         <h3 className="sr-title min-h-11">開拓月曆</h3>
         <FormMessage tone="error">{first.message}</FormMessage>
       </section>

@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// 規則的說明在 CLAUDE.md「快取」，改規則時兩邊要一起改
+// 規則的說明在 CLAUDE.md 的快取 改規則時兩邊要一起改
 const SRC = fileURLToPath(new URL(".", import.meta.url));
 
 function walk(dir: string): string[] {
@@ -17,7 +17,7 @@ const read = (file: string) => fs.readFileSync(path.join(SRC, file), "utf8");
 const sources = walk(SRC).filter((file) => /\.(ts|tsx)$/.test(file) && !/\.test\.tsx?$/.test(file));
 const moduleIds = fs.readdirSync(path.join(SRC, "modules"), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
 
-/** 從 { 開始找到對應的 }，略過字串、樣板字串與註解裡的括號 */
+/** 從左大括號找到對應的右大括號 略過字串 樣板字串與註解裡的括號 */
 function blockFrom(source: string, open: number): string {
   let depth = 0;
   for (let i = open; i < source.length; i++) {
@@ -130,7 +130,8 @@ describe("快取規則", () => {
   });
 
   it("寫入流程與排程不讀快取（cached.ts）：要依最新資料判斷，只有頁面與輪詢 API 讀快取", () => {
-    // core 沒有 service 資料夾，寫資料庫的檔案在這裡列出來（註冊、登入鎖定、邀請次數都要讀最新的資料）
+    // core 沒有 service 資料夾 寫資料庫的檔案列在這裡
+    // 註冊 登入鎖定 邀請次數都要讀最新的資料
     const CORE_WRITERS = [
       "core/notify.ts",
       "core/notifications/service.ts",

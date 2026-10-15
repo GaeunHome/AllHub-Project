@@ -14,7 +14,6 @@ const playable = (tracks: Track[] | null) => ({
   ...(tracks ? { captions: { playerCaptionsTracklistRenderer: { captionTracks: tracks, translationLanguages: [{ languageCode: "zh-Hant" }] } } } : {}),
 });
 
-/** 每次都回同一頁的假 fetch，calls 是被呼叫的網址 */
 function fakeFetch(page: () => Response) {
   const { impl, urls } = recordFetch(page);
   return { impl, calls: urls };

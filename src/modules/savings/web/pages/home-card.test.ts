@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
@@ -8,78 +8,80 @@ import { addMonths, taipeiMonth } from "../../lib/month";
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/cached", { spy: true });
 
-const cached = mocksOf(await import("../../service/cached"), "cachedGoals", "cachedEntryTotals");
-const { SavingsSnapshot } = await import("./home-card");
+const cached = mocksOf(await import("../../service/cached"), "cachedAccounts", "cachedAccountFlows", "cachedCategoryTotals");
+const { FinanceSnapshot, FinanceSnapshotSkeleton } = await import("./home-card");
 
 const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
-const html = async () => renderToStaticMarkup((await SavingsSnapshot()) as ReactElement);
+const html = async () => renderToStaticMarkup((await FinanceSnapshot()) as ReactElement);
 const MONTH = taipeiMonth(new Date());
+const CREATED = new Date("2025-01-05T02:00:00Z");
 
-const goal = (id: number, name: string, monthlyAmount: number, active = true) => ({ id, userId: null, name, monthlyAmount, note: null, active, sortOrder: id, createdAt: new Date() });
-const GOALS = [goal(1, "緊急預備金", 10000), goal(2, "旅遊基金", 3000), goal(3, "換手機", 2000), goal(4, "換車", 5000, false)];
-const total = (goalId: number | null, goalName: string | null, amount: number, month = MONTH) => ({ month, goalId, goalName, amount });
+const account = (id: number, name: string, kind: "deposit" | "investment" | "credit", openingBalance: number, active = true) => ({
+  id,
+  userId: "u",
+  name,
+  kind,
+  purposeId: null,
+  openingBalance,
+  openingCost: null,
+  monthlyPlan: null,
+  targetAmount: null,
+  dueDay: null,
+  payFromAccountId: null,
+  active,
+  sortOrder: id,
+  createdAt: CREATED,
+});
+const flow = (accountId: number, month: string, income: number, expense: number) => ({ accountId, month, income, expense, transferIn: 0, transferOut: 0, adjust: 0 });
+const total = (kind: "income" | "expense", month: string, amount: number) => ({ categoryId: null, kind, month, amount });
+/** 最後的數字 就是報讀器讀的那一份 */
+const finals = (markup: string) => [...markup.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>.*?<span class="fin-count-final">(.*?)<\/span>/g)].map((m) => [textOf(m[1]), m[2]]);
 
 beforeEach(() => {
   requireSession.mockReset();
-  cached.cachedGoals.mockReset().mockResolvedValue(GOALS);
-  cached.cachedEntryTotals.mockReset().mockResolvedValue([total(1, "緊急預備金", 10000), total(2, "旅遊基金", 1500), total(null, null, 800)]);
+  cached.cachedAccounts.mockReset().mockResolvedValue([account(1, "國泰", "deposit", 50000), account(2, "國泰信用卡", "credit", -3000), account(3, "舊帳戶", "deposit", 9000, false)]);
+  cached.cachedAccountFlows.mockReset().mockResolvedValue([flow(1, MONTH, 43000, 12000), flow(1, addMonths(MONTH, -1), 0, 5000)]);
+  cached.cachedCategoryTotals.mockReset().mockResolvedValue([total("income", MONTH, 43000), total("expense", MONTH, 12000), total("expense", addMonths(MONTH, -1), 5000)]);
 });
 
-describe("首頁「本月存款」（存錢記帳）", () => {
-  it("用登入者的 id 讀項目與紀錄", async () => {
+describe("首頁的理財卡片", () => {
+  it("用登入者的 id 讀帳戶與紀錄", async () => {
     requireSession.mockResolvedValue(OTHER_SESSION);
 
     await html();
 
-    expect(cached.cachedGoals).toHaveBeenCalledWith(OTHER_SESSION.id);
-    expect(cached.cachedEntryTotals).toHaveBeenCalledWith(OTHER_SESSION.id);
+    expect(cached.cachedAccounts).toHaveBeenCalledWith(OTHER_SESSION.id);
+    expect(cached.cachedAccountFlows).toHaveBeenCalledWith(OTHER_SESSION.id);
+    expect(cached.cachedCategoryTotals).toHaveBeenCalledWith(OTHER_SESSION.id);
   });
 
-  it("這個月的進度：已存（含臨時存款）、應存、還差多少、達成百分比與存滿的項目數", async () => {
-    const text = textOf(await html());
-
-    expect(text).toContain("已存");
-    expect(text).toContain("$12,300");
-    expect(text).toContain("應存");
-    expect(text).toContain("$15,000");
-    expect(text).toContain("還差");
-    expect(text).toContain("$3,500");
-    expect(text).toContain("82%");
-    expect(text).toContain("1／3 個項目已存滿");
+  it("本月支出與總資產（停用的帳戶與信用卡不算進總資產），數字從 0 往上數", async () => {
+    expect(finals(await html())).toEqual([
+      ["本月支出", "$12,000"],
+      ["總資產", "$76,000"],
+    ]);
   });
 
-  it("別的月份的紀錄不算進這個月", async () => {
-    cached.cachedEntryTotals.mockResolvedValue([total(1, "緊急預備金", 10000, addMonths(MONTH, -1))]);
+  it("上個月的支出不算進本月", async () => {
+    cached.cachedCategoryTotals.mockResolvedValue([total("expense", addMonths(MONTH, -1), 5000)]);
 
-    const text = textOf(await html());
-
-    expect(text).toContain("$0");
-    expect(text).toContain("0%");
-    expect(text).toContain("0／3 個項目已存滿");
+    expect(finals(await html())[0]).toEqual(["本月支出", "$0"]);
   });
 
-  it("項目都存滿_說明都存滿了", async () => {
-    cached.cachedEntryTotals.mockResolvedValue([total(1, "緊急預備金", 10000), total(2, "旅遊基金", 3000), total(3, "換手機", 2000)]);
-
-    expect(textOf(await html())).toContain("所有項目都存滿了");
-  });
-
-  it("還沒有任何項目_顯示建立的入口（到存錢記帳頁）", async () => {
-    cached.cachedGoals.mockResolvedValue([]);
-    cached.cachedEntryTotals.mockResolvedValue([]);
+  it("還沒有帳戶_顯示開始使用的入口（到理財頁）", async () => {
+    cached.cachedAccounts.mockResolvedValue([]);
+    cached.cachedAccountFlows.mockResolvedValue([]);
+    cached.cachedCategoryTotals.mockResolvedValue([]);
 
     const markup = await html();
 
-    expect(textOf(markup)).toContain("還沒有每月固定項目");
-    expect(markup).toMatch(/<a[^>]*href="\/savings"[^>]*>.*建立項目/);
+    expect(textOf(markup)).toContain("還沒有帳戶");
+    expect(markup).toMatch(/<a[^>]*href="\/savings"[^>]*>(?:(?!<\/a>).)*開始使用/);
   });
 
-  it("項目都停用了_說明沒有啟用中的項目，連到存錢記帳頁", async () => {
-    cached.cachedGoals.mockResolvedValue([goal(4, "換車", 5000, false)]);
+  it("骨架跟內容一樣依卡片的寬度排成一欄或兩欄，載入完不會跳", async () => {
+    const grid = (markup: string) => markup.match(/class="(grid [^"]*@md:grid-cols-2[^"]*)"/)![1];
 
-    const markup = await html();
-
-    expect(textOf(markup)).toContain("沒有啟用中的項目");
-    expect(markup).toContain('href="/savings"');
+    expect(grid(renderToStaticMarkup(createElement(FinanceSnapshotSkeleton)))).toBe(grid(await html()));
   });
 });

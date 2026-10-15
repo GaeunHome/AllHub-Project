@@ -18,7 +18,10 @@ function focusMenuItem(menu: HTMLElement | null, target: FocusTarget) {
   items[target === "first" ? 0 : items.length - 1]?.focus();
 }
 
-/** 選單裡的連結：點了就收起選單（換頁時也會收，但點同一頁時不會換頁）；只拿開關，點外面就收起的監聽由外框的 AccountMenu 掛 */
+/**
+ * 點了就收起選單 點同一頁時不會換頁 所以不能只靠換頁收起
+ * 只拿開關 點外面收起的監聽由外框的 AccountMenu 掛
+ */
 export function AccountMenuLink({ href, icon, children }: { href: string; icon: UiIconName; children: ReactNode }) {
   const { close } = useHeaderMenu("account");
   return (
@@ -31,7 +34,10 @@ export function AccountMenuLink({ href, icon, children }: { href: string; icon: 
   );
 }
 
-/** 導覽列右上角的人像按鈕：手機與電腦都從這裡切換外觀、進帳號設定或登出；帳號名稱與只有站長看得到的項目由伺服器元件讀好傳進來 */
+/**
+ * 導覽列右上角的人像按鈕 切換外觀 帳號設定與登出都在這裡
+ * 帳號名稱與站長才有的項目由伺服器元件讀好傳進來
+ */
 export function AccountMenu({ username, ownerItems }: { username: ReactNode; ownerItems?: ReactNode }) {
   const { expanded, toggle, close, rootRef, buttonRef } = useHeaderMenuRoot("account");
   const menuRef = useRef<HTMLUListElement>(null);
@@ -41,7 +47,7 @@ export function AccountMenu({ username, ownerItems }: { username: ReactNode; own
   const themeLabelId = useId();
   const [theme, setTheme] = useThemePref();
 
-  // 用鍵盤打開時，選單算繪出來才有項目可以聚焦
+  // 用鍵盤打開時 選單算繪出來才有項目可以聚焦
   useEffect(() => {
     if (!expanded || !pendingFocus.current) return;
     focusMenuItem(menuRef.current, pendingFocus.current);
@@ -58,7 +64,8 @@ export function AccountMenu({ username, ownerItems }: { username: ReactNode; own
   };
 
   const onButtonClick = (event: MouseEvent<HTMLButtonElement>) => {
-    // detail 為 0 是鍵盤或報讀器按下的：照選單按鈕的慣例把焦點移到第一項；滑鼠、手指點開不搶焦點
+    // detail 為 0 是鍵盤或報讀器按的 照慣例把焦點移到第一項
+    // 滑鼠或手指點開不搶焦點
     if (!expanded && event.detail === 0) openWithFocus("first");
     else toggle();
   };
@@ -77,7 +84,8 @@ export function AccountMenu({ username, ownerItems }: { username: ReactNode; own
     items[next].focus();
   };
 
-  // Tab 離開選單就收起；relatedTarget 不是元素代表點到沒有焦點的地方，交給點外面的處理
+  // Tab 離開選單就收起
+  // relatedTarget 不是元素代表點到沒有焦點的地方 交給點外面的處理
   const onRootBlur = (event: FocusEvent<HTMLDivElement>) => {
     const next = event.relatedTarget;
     if (expanded && next instanceof Node && !event.currentTarget.contains(next)) close();
@@ -106,7 +114,7 @@ export function AccountMenu({ username, ownerItems }: { username: ReactNode; own
             已登入：<span className="font-semibold break-all text-ink">{username}</span>
           </p>
           <ul ref={menuRef} id={menuId} role="menu" aria-labelledby={labelId} onKeyDown={onMenuKeyDown} className="flex flex-col gap-1">
-            {/* 選了不收起選單，馬上看得到換色的結果 */}
+            {/* 選了不收起選單 馬上看得到換色的結果 */}
             <li role="none" className="flex flex-col gap-1.5 border-b border-line px-1.5 pt-0.5 pb-2.5">
               <p id={themeLabelId} className="px-1.5 text-[0.8125rem] font-medium text-ink-soft">
                 外觀
@@ -125,7 +133,7 @@ export function AccountMenu({ username, ownerItems }: { username: ReactNode; own
               帳號設定
             </AccountMenuLink>
             <li role="none">
-              {/* 送出時才收起：在 click 就卸載表單的話，瀏覽器會取消這次送出 */}
+              {/* 送出時才收起 在 click 就卸載表單的話瀏覽器會取消送出 */}
               <form action={logout} onSubmit={close}>
                 <button type="submit" role="menuitem" className="menu-item menu-item-danger">
                   <Icon name="log-out" className="size-4" />

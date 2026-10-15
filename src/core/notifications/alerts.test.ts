@@ -66,7 +66,7 @@ describe("claimAlerts（開了好幾個分頁也只響一次）", () => {
 });
 
 describe("planAlerts（提示音與瀏覽器通知依模組分開設定）", () => {
-  /** 沒列出來的模組與種類都是開的（預設全開） */
+  /** 沒列出來的模組與種類都當成開著 照預設全開 */
   const switches =
     (off: Partial<Record<string, AlertKind[]>>) =>
     (module: string, kind: AlertKind): boolean =>

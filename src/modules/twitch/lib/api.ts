@@ -5,7 +5,7 @@ import type { EventSubSubscription } from "./eventsub";
 
 const HELIX = "https://api.twitch.tv/helix";
 const REFRESH_MARGIN_MS = 5 * 60 * 1000;
-/** 畫面上的頭像與直播狀態只是附加資訊，Helix 慢的時候不等滿 15 秒 */
+/** 頭像與直播狀態只是附加資訊 Helix 慢的時候不等滿 15 秒 */
 const DISPLAY_TIMEOUT_MS = 5_000;
 /** Helix 一次最多查 100 個 id */
 const HELIX_BATCH = 100;
@@ -51,7 +51,7 @@ export class TwitchApiError extends Error {
 }
 
 let token: { value: string; expiresAt: number } | undefined;
-// 頁面會同時查頭像與直播狀態，還沒有 token 時共用同一個請求，不必各拿一個
+// 頁面會同時查頭像與直播狀態 還沒有 token 時共用同一個請求
 let pendingToken: Promise<string> | undefined;
 
 async function appToken(): Promise<string> {
@@ -97,7 +97,7 @@ async function helix<T>(method: string, path: string, body?: object, { timeoutMs
 
   let response = await send();
   if (response.status === 401) {
-    // token 可能被 Twitch 提前作廢，丟掉快取重拿一次
+    // token 可能被 Twitch 提前作廢 丟掉快取重拿一次
     token = undefined;
     response = await send();
   }
@@ -126,7 +126,7 @@ export async function getStreams(userIds: string[]): Promise<TwitchStream[]> {
   return (await helix<{ data: TwitchStream[] }>("GET", `/streams?${query}`)).data;
 }
 
-/** 重複的 id 只查一次，超過 100 個分批；沒有 id 就不發請求 */
+/** 重複的 id 只查一次 超過 100 個分批 沒有 id 就不發請求 */
 async function inBatches<T>(ids: string[], fetchBatch: (batch: string[]) => Promise<T[]>): Promise<T[]> {
   const unique = [...new Set(ids)];
   const batches: Promise<T[]>[] = [];
@@ -142,7 +142,7 @@ export async function getUsersById(ids: string[]): Promise<TwitchUser[]> {
   return inBatches(ids, (batch) => displayGet<TwitchUser>("/users", batch.map((id) => ["id", id])));
 }
 
-/** 正在直播的才會回傳；預設只回 20 筆，要用 first 指定 */
+/** 只回傳正在直播的 預設只回 20 筆 要用 first 指定 */
 export async function getLiveStreams(userIds: string[]): Promise<TwitchStream[]> {
   return inBatches(userIds, (batch) => displayGet<TwitchStream>("/streams", [...batch.map((id): [string, string] => ["user_id", id]), ["first", String(HELIX_BATCH)]]));
 }

@@ -8,7 +8,10 @@ export type InfoTipEvent = "hover" | "unhover" | "focus" | "blur" | "toggle" | "
 
 export const INFO_TIP_CLOSED: InfoTipState = { hover: false, focus: false, pinned: false, dismissed: false };
 
-/** 什麼時候顯示拆成純函式，不靠瀏覽器也能測：滑過與鍵盤焦點暫時顯示，點了固定顯示（觸控裝置沒有滑過，只靠點） */
+/**
+ * 拆成純函式不靠瀏覽器也能測 滑過與鍵盤焦點暫時顯示 點了固定顯示
+ * 觸控裝置沒有滑過 只靠點
+ */
 export function infoTipReducer(state: InfoTipState, event: InfoTipEvent): InfoTipState {
   switch (event) {
     case "hover":
@@ -17,10 +20,11 @@ export function infoTipReducer(state: InfoTipState, event: InfoTipEvent): InfoTi
       return { ...state, hover: false };
     case "focus":
       return { ...state, focus: true, dismissed: false };
-    // 不收起點開的：手機上點說明框裡的字時按鈕也會失去焦點；焦點真的移到外面時由 outside 收起
+    // 不收起點開的 手機上點說明框裡的字時按鈕也會失去焦點
+    // 焦點真的移到外面時由 outside 收起
     case "blur":
       return { ...state, focus: false };
-    // 點開的再點一次就收起，滑鼠還停在上面也一樣
+    // 點開的再點一次就收起 滑鼠還停在上面也一樣
     case "toggle":
       return state.pinned ? { ...state, pinned: false, dismissed: true } : { ...state, pinned: true, dismissed: false };
     case "escape":
@@ -43,7 +47,7 @@ const EDGE = 16;
 type Box = { left: number; right: number; top: number; bottom: number };
 type Size = { width: number; height: number };
 
-/** 置中放在按鈕下方，左右不超出畫面（留 EDGE）；下方放不下才改放上方 */
+/** 置中放在按鈕下方 左右留 EDGE 不超出畫面 下方放不下才改放上方 */
 export function placeInfoTip(anchor: Box, tip: Size, viewport: Size): { left: number; top: number } {
   const left = Math.max(EDGE, Math.min((anchor.left + anchor.right) / 2 - tip.width / 2, viewport.width - EDGE - tip.width));
   const below = anchor.bottom + GAP;
@@ -52,7 +56,10 @@ export function placeInfoTip(anchor: Box, tip: Size, viewport: Size): { left: nu
   return { left: Math.round(left), top: Math.round(top) };
 }
 
-/** 標題旁的 i 圓圈：滑鼠移上去或用鍵盤移到上面時顯示說明，點一下固定顯示（觸控裝置靠這個）；說明用 aria-describedby 接在按鈕上，報讀器移到按鈕就會念 */
+/**
+ * 標題旁的 i 圓圈 滑過或鍵盤移到時顯示 點一下固定顯示給觸控裝置用
+ * 說明用 aria-describedby 接在按鈕上 報讀器移到按鈕就會念
+ */
 export function InfoTip({ label, children }: { label: string; children: ReactNode }) {
   const [state, dispatch] = useReducer(infoTipReducer, INFO_TIP_CLOSED);
   const visible = infoTipVisible(state);
@@ -61,7 +68,8 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
   const tipRef = useRef<HTMLSpanElement>(null);
   const tipId = useId();
 
-  // fixed 定位，卡片或會捲動的區塊都裁不到；繪製前依按鈕的位置算好，捲動或改變視窗大小時跟著移動
+  // fixed 定位才不會被卡片或捲動區塊裁掉
+  // 繪製前依按鈕位置算好 捲動或改變視窗大小時跟著移動
   useLayoutEffect(() => {
     const button = buttonRef.current;
     const tip = tipRef.current;
@@ -82,7 +90,7 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
 
   useEffect(() => {
     if (!visible) return;
-    // 點外面或焦點移到外面就收起：iPhone 點按鈕不會給焦點，只靠失去焦點收不起來
+    // 點外面或焦點移到外面就收起 iPhone 點按鈕不給焦點 只靠失去焦點收不起來
     const onOutside = (event: Event) => {
       if (!rootRef.current?.contains(event.target as Node)) dispatch("outside");
     };
@@ -99,14 +107,15 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
     };
   }, [visible]);
 
-  // Activity 把頁面藏起來（或卸載）時收起：回到這一頁時不會留著上次點開的說明
+  // Activity 藏起頁面或卸載時收起 回來時才不會留著上次點開的說明
   useLayoutEffect(() => () => dispatch("reset"), []);
 
-  // 手指點下去也會觸發 pointerenter，只認滑鼠與觸控筆的滑過；觸控裝置靠 onClick 切換
+  // 手指點下去也會觸發 pointerenter 只認滑鼠與觸控筆 觸控裝置靠 onClick 切換
   const onHover = (event: ReactPointerEvent) => {
     if (event.pointerType !== "touch") dispatch(event.type === "pointerenter" ? "hover" : "unhover");
   };
-  // 只有鍵盤移過來的焦點（:focus-visible）才顯示：滑鼠或手指點的交給 onClick，點過之後切回這個視窗、焦點被還回按鈕時也不會突然跳出來
+  // 只有鍵盤來的焦點才顯示 滑鼠或手指點的交給 onClick
+  // 切回這個視窗焦點被還回按鈕時才不會突然跳出來
   const onFocus = (event: FocusEvent<HTMLButtonElement>) => {
     if (event.currentTarget.matches(":focus-visible")) dispatch("focus");
   };
@@ -119,7 +128,8 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
         aria-label={label}
         aria-describedby={tipId}
         aria-expanded={visible}
-        // 說明框（tooltip）沒有 aria-haspopup 能宣告的值；popup-layer.ts 靠這個屬性認出它開著，頁面自己的快捷鍵才會讓開
+        // tooltip 沒有 aria-haspopup 能宣告的值
+        // popup-layer.ts 靠這個屬性認出它開著 頁面的快捷鍵才會讓開
         data-popup-trigger=""
         onClick={() => dispatch("toggle")}
         onFocus={onFocus}

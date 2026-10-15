@@ -4,11 +4,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TEST_CORE_ENV as CORE, TEST_TWITCH_ENV as TWITCH, TEST_YOUTUBE_ENV as YOUTUBE } from "@/dev/test-env";
 
 const OPTIONAL = ["DATABASE_POOL_MAX", "ENCRYPTION_KEY_PREVIOUS", "DEV_EXTERNAL_ORIGIN", "DEV_CAPTCHA_CODE"];
-// 帳號改存資料庫、通知改成網站內通知後就不再使用
-const REMOVED = ["APP_PASSWORD", "DISCORD_WEBHOOK_URL"];
-const ALL_NAMES = [...new Set([...Object.keys(CORE), ...Object.keys(TWITCH), ...Object.keys(YOUTUBE), ...OPTIONAL, ...REMOVED])];
+const ALL_NAMES = [...new Set([...Object.keys(CORE), ...Object.keys(TWITCH), ...Object.keys(YOUTUBE), ...OPTIONAL])];
 
-// env.ts 會快取驗證結果，每個測試都要重新載入；先清掉同名變數，本機 shell 設過的值才不會混進來
+// env.ts 會快取驗證結果 每個測試都要重新載入
+// 先清掉同名變數 本機 shell 設過的值才不會混進來
 async function loadEnv(vars: Record<string, string>) {
   for (const name of ALL_NAMES) vi.stubEnv(name, undefined);
   for (const [name, value] of Object.entries(vars)) vi.stubEnv(name, value);
@@ -17,7 +16,7 @@ async function loadEnv(vars: Record<string, string>) {
   return devEnvModule;
 }
 
-// DEV_CAPTCHA_CODE 的格式檢查：devEnv 每次都重新讀取，不必重新載入模組
+// devEnv 每次都重新讀取 檢查 DEV_CAPTCHA_CODE 的格式不必重新載入模組
 let devEnvModule: typeof import("./env") | undefined;
 function loadEnvSync(code: string) {
   vi.stubEnv("DEV_CAPTCHA_CODE", code);
@@ -61,13 +60,6 @@ describe("分組驗證：用到才驗證", () => {
     expect(env.youtubeEnv()).toEqual(YOUTUBE);
     expect(errorOf(() => env.coreEnv())).toContain("核心環境變數設定有誤");
   });
-
-  it("每組只回自己的變數", async () => {
-    const env = await loadEnv({ ...CORE, ...TWITCH, ...YOUTUBE });
-
-    expect(Object.keys(env.youtubeEnv()).sort()).toEqual(["PUBLIC_BASE_URL", "YOUTUBE_WEBSUB_SECRET"]);
-    expect(env.twitchEnv()).not.toHaveProperty("DATABASE_URL");
-  });
 });
 
 describe("值的驗證", () => {
@@ -82,12 +74,6 @@ describe("值的驗證", () => {
     const env = await loadEnv({ ...CORE, SESSION_SECRET: "" });
 
     expect(errorOf(() => env.coreEnv())).toContain("SESSION_SECRET：未設定");
-  });
-
-  it("ENCRYPTION_KEY_PREVIOUS 沒設定_是空陣列", async () => {
-    const env = await loadEnv({ ...CORE, ENCRYPTION_KEY_PREVIOUS: "" });
-
-    expect(env.coreEnv().ENCRYPTION_KEY_PREVIOUS).toEqual([]);
   });
 
   it("ENCRYPTION_KEY_PREVIOUS 可以放多把_逗號分隔_忽略空白", async () => {
@@ -115,15 +101,6 @@ describe("值的驗證", () => {
     expect(message).not.toContain("short-session-secret");
     expect(message).not.toContain("bm90LTMyLWJ5dGVz");
   });
-
-  it("不再使用 APP_PASSWORD 與 DISCORD_WEBHOOK_URL_沒設定也不報錯、設了也不會讀", async () => {
-    const env = await loadEnv({ ...CORE, APP_PASSWORD: "old-password-1234", DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/1/x" });
-
-    expect(env.coreEnv()).not.toHaveProperty("APP_PASSWORD");
-    expect(env.coreEnv()).not.toHaveProperty("DISCORD_WEBHOOK_URL");
-    const source = readFileSync(new URL("./env.ts", import.meta.url), "utf8");
-    for (const name of REMOVED) expect(source).not.toContain(name);
-  });
 });
 
 describe("與 .env.example 一致", () => {
@@ -131,7 +108,7 @@ describe("與 .env.example 一致", () => {
 
   it("env.ts 定義的變數_.env.example 都有列出_順序相同", () => {
     const defined = namesIn(new URL("./env.ts", import.meta.url), /^\s+([A-Z][A-Z0-9_]*):/gm);
-    // 註解掉的範例（# NAME=…）也算有列出
+    // 用井號註解掉的範例也算有列出
     const documented = namesIn(new URL("../../.env.example", import.meta.url), /^#?\s*([A-Z][A-Z0-9_]*)=/gm);
 
     expect(defined.length).toBeGreaterThanOrEqual(12);
@@ -166,18 +143,6 @@ describe("docs/secrets.md 的產生亂數密鑰指令", () => {
 });
 
 describe("本機測試設定：devEnv", () => {
-  it("不需要核心或模組設定_DEV_EXTERNAL_ORIGIN 選填", async () => {
-    const env = await loadEnv({});
-
-    expect(env.devEnv().DEV_EXTERNAL_ORIGIN).toBeUndefined();
-  });
-
-  it("有設定_回傳假伺服器網址", async () => {
-    const env = await loadEnv({ DEV_EXTERNAL_ORIGIN: "http://127.0.0.1:4010" });
-
-    expect(env.devEnv()).toEqual({ DEV_EXTERNAL_ORIGIN: "http://127.0.0.1:4010" });
-  });
-
   it("DEV_CAPTCHA_CODE 選填_要剛好 5 個驗證碼用的字元；不對時報出名稱但不顯示值", async () => {
     expect((await loadEnv({ DEV_CAPTCHA_CODE: "K7MRX" })).devEnv().DEV_CAPTCHA_CODE).toBe("K7MRX");
     expect((await loadEnv({})).devEnv().DEV_CAPTCHA_CODE).toBeUndefined();

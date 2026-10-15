@@ -8,7 +8,7 @@ vi.stubEnv("SESSION_SECRET", SECRET);
 
 const { proxy, config } = await import("./proxy");
 
-/** matcher 是整段比對的正規式：比對到的路徑才會經過 proxy（要登入），比對不到的就是公開的 */
+/** matcher 整段比對 比對到的路徑經過 proxy 要登入 比對不到的是公開的 */
 const needsLogin = (pathname: string) => new RegExp(`^${config.matcher[0]}$`).test(pathname);
 
 const requestWith = (token?: string) =>

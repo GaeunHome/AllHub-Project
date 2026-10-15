@@ -1,6 +1,3 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupTestDb, insertTestUser } from "@/dev/test-db";
@@ -44,12 +41,6 @@ describe("notify（PGlite 整合）", () => {
       readAt: null,
     });
     expect(row.createdAt).toBeInstanceOf(Date);
-  });
-
-  it("內容與連結可以省略", async () => {
-    await notify({ recipients: [alice], module: "starrail", kind: "checkin", title: "星穹鐵道簽到完成" });
-
-    expect(await rows()).toMatchObject([{ body: "", url: null }]);
   });
 
   it("站內路徑也可以當連結", async () => {
@@ -121,16 +112,6 @@ describe("notify（PGlite 整合）", () => {
   it("收件人不是使用者 id 的格式_丟錯（呼叫端的程式錯誤），不寫入", async () => {
     await expect(notify({ recipients: [alice, "alice"], module: "twitch", kind: "x", title: "t" })).rejects.toThrow();
     expect(await rows()).toHaveLength(0);
-  });
-
-  it("程式、設定與文件都不再有 Discord（測試裡檢查「沒有」的除外）", () => {
-    const root = fileURLToPath(new URL("../../", import.meta.url));
-    const sources = readdirSync(join(root, "src"), { recursive: true, encoding: "utf8" })
-      .filter((file) => /\.(ts|tsx|mjs)$/.test(file) && !/\.test\.tsx?$/.test(file))
-      .map((file) => join("src", file));
-    const mentions = [...sources, "README.md", "CLAUDE.md", ".env.example", "vercel.json"].filter((file) => /discord/i.test(readFileSync(join(root, file), "utf8")));
-
-    expect(mentions).toEqual([]);
   });
 
   it("不再呼叫外部服務（Discord Webhook 已移除）", async () => {

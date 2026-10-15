@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   robots: NO_INDEX,
 };
 
-// 手機瀏覽器的網址列跟著頁面背景換色，深色模式時才不會頂著一條亮色
+// 手機的網址列跟著頁面背景換色 深色模式時才不會頂著一條亮色
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f6f7f9" },
@@ -31,10 +31,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // <head> 的腳本在 React 接手前就設好 data-theme，屬性跟伺服器算繪的不同是預期的
+    // head 的腳本在 React 接手前就設好 data-theme 跟伺服器算繪的不同是預期的
     <html lang="zh-Hant" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
-        {/* 同步執行：第一次繪製前就套用存著的主題，深色模式不會先閃一下淺色 */}
+        {/* 同步執行 第一次繪製前就套用主題 深色模式才不會先閃一下淺色 */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col">

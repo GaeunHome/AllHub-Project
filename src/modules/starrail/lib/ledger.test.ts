@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { groupDigits, interpretLedger, ledgerMonthOf, monthLabel, parseLedger } from "./ledger";
 
-/** 依 genshin.py 的 StarRailDiary 整理的 month_info 回應（data 的部分） */
+/**
+ * 依 genshin.py 的 StarRailDiary 整理的 month_info 回應
+ * 只有 data 的部分
+ */
 const sample = () => ({
   uid: 900000001,
   region: "prod_official_cht",

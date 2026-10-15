@@ -1,4 +1,4 @@
-// 建立邀請的表單（瀏覽器）也用這些選項，所以獨立成不 import 任何東西的檔案
+// 瀏覽器的建立邀請表單也用這些選項 所以獨立成不 import 任何東西的檔案
 
 export const INVITE_DAY_OPTIONS = [1, 7, 30] as const;
 export const INVITE_USE_OPTIONS = [1, 5, 10] as const;

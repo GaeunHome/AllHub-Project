@@ -1,6 +1,9 @@
-// account CLI 也會用純 node 載入這個檔案（經 credentials.ts），不能 import 任何東西
+// account CLI 會經 credentials.ts 用純 node 載入 這裡不能 import 任何東西
 
-/** 外洩密碼清單裡常見、而且至少 12 個字元的密碼（短的已經被長度規則擋掉，同一小段重複的由 credentials.ts 另外擋）；比對前會轉小寫並做 NFKC 正規化 */
+/**
+ * 外洩清單裡常見而且至少 12 字的密碼 短的與重複一小段的另外擋
+ * 比對前會轉小寫並做 NFKC 正規化
+ */
 export const COMMON_PASSWORDS: ReadonlySet<string> = new Set([
   "112233445566",
   "1234567890-=",

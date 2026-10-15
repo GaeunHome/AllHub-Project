@@ -19,7 +19,6 @@ function playable(tracks: Track[] | null) {
 
 const json3 = (events: unknown[]) => JSON.stringify({ events });
 
-/** 依網址回應的假 fetch，calls 是被呼叫的網址 */
 function fakeFetch(routes: Array<[RegExp, () => Response]>) {
   const { impl, urls } = recordFetch(byUrl(routes));
   return { impl, calls: urls };

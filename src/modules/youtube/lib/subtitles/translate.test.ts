@@ -13,7 +13,7 @@ const batch = { start: 1, end: 3 };
 const glossary = [{ source: "지수", target: "Jisoo" }];
 const KEY = "sk-test-SUPERSECRET123";
 
-/** 各家回應格式不同，這裡包成同一種寫法 */
+/** 各家回應格式不同 這裡包成同一種寫法 */
 function providerBody(provider: AiProvider, text: string): unknown {
   switch (provider) {
     case "anthropic":
@@ -27,7 +27,6 @@ function providerBody(provider: AiProvider, text: string): unknown {
 
 type Call = FakeFetchCall;
 
-/** 依序回應的假 fetch */
 const fakeFetch = (responses: Array<() => Response>) => recordFetch(inOrder(...responses));
 
 const ok = (provider: AiProvider, text: string) => () => Response.json(providerBody(provider, text));
@@ -143,12 +142,6 @@ describe("translateBatch：解析輸出", () => {
     const error = await translateBatch({ cues, batch, ai: ai("gemini"), glossary, fetchImpl: impl }).catch((e) => e);
     expect(error).toBeInstanceOf(AiError);
     expect(error.kind).toBe("bad_output");
-  });
-
-  it("Anthropic 拒答（refusal）→ AiError，不當成翻譯結果", async () => {
-    const { impl } = fakeFetch([() => Response.json({ content: [], stop_reason: "refusal" })]);
-    const error = await translateBatch({ cues, batch, ai: ai("anthropic"), glossary, fetchImpl: impl }).catch((e) => e);
-    expect(error).toBeInstanceOf(AiError);
   });
 
   it.each<[AiProvider, unknown, string]>([

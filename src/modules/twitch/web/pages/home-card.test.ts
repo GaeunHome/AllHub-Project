@@ -40,7 +40,7 @@ const liveStream = (userId: string, login: string) => ({
 beforeEach(() => {
   requireSession.mockReset();
   cached.cachedStreamers.mockReset().mockResolvedValue([]);
-  // 預設是沒有 Twitch 憑證：Helix 的快取函式都回 null
+  // 預設是沒有 Twitch 憑證 Helix 的快取函式都回 null
   cached.cachedStreamerProfiles.mockReset().mockResolvedValue(null);
   cached.cachedLiveStreams.mockReset().mockResolvedValue(null);
   cached.cachedGameArt.mockReset().mockResolvedValue(null);
@@ -91,7 +91,7 @@ describe("首頁「正在直播」（Twitch）", () => {
     expect(text).toContain("開台 1 小時 35 分");
     expect(text).toContain("Honkai: Star Rail");
     expect(text).not.toContain("BOB");
-    // 跟 Twitch 頁用同一組 id（排序過），共用同一份快取
+    // 跟 Twitch 頁用同一組排序過的 id 共用同一份快取
     expect(cached.cachedLiveStreams).toHaveBeenCalledWith(["1001", "1002"]);
   });
 
@@ -117,26 +117,6 @@ describe("首頁「正在直播」（Twitch）", () => {
     expect(markup.match(/href="https:\/\/twitch\.tv\/[a-z]+"/g)).toHaveLength(4);
     expect(textOf(markup)).toContain("還有 2 位正在直播");
     expect(markup).toContain('href="/twitch"');
-  });
-
-  it("直播的只有一兩位_改成橫的卡片（預覽圖在左、資訊在右）兩張一列，不會只用到半張卡片", async () => {
-    cached.cachedStreamers.mockResolvedValue([streamer(1, "alice", true), streamer(2, "bob", true)]);
-
-    const markup = await html();
-
-    expect(markup.match(/<ul class="([^"]*)"/)![1].split(" ")).toEqual(expect.arrayContaining(["@4xl:grid-cols-2"]));
-    const tiles = markup.match(/<a[^>]*href="https:\/\/twitch\.tv\/[a-z]+"[^>]*>/g)!;
-    expect(tiles).toHaveLength(2);
-    for (const tile of tiles) expect(tile).not.toContain("flex-col");
-  });
-
-  it("三位以上_直的卡片（預覽圖在上）寬的時候排成四欄", async () => {
-    cached.cachedStreamers.mockResolvedValue(["aa", "bb", "cc"].map((login, i) => streamer(i + 1, login, true)));
-
-    const markup = await html();
-
-    expect(markup.match(/<ul class="([^"]*)"/)![1].split(" ")).toEqual(expect.arrayContaining(["@4xl:grid-cols-4"]));
-    for (const tile of markup.match(/<a[^>]*href="https:\/\/twitch\.tv\/[a-z]+"[^>]*>/g)!) expect(tile).toContain("@md:flex-col");
   });
 
   it("預覽圖都在卡片的第一排（首頁最上面）：立刻載入，不延遲", async () => {

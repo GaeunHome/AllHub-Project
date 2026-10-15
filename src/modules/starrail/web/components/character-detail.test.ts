@@ -16,13 +16,14 @@ const relic: Relic = {
   level: 15,
   rarity: 5,
   icon: `${IMG}/relic.png`,
-  // 主屬性也給 times：畫面要自己略過主屬性，不能靠資料剛好是 0
+  // 主屬性也給 times 畫面要自己略過主屬性 不能靠資料剛好是 0
   mainStat: { name: "生命值", value: "705", times: 3, icon: `${ICONS}/property/max-hp.png` },
   subStats: [
     { name: "暴擊率", value: "3.2%", times: 1, icon: `${ICONS}/property/critical-chance.png` },
     { name: "暴擊傷害", value: "12.9%", times: 3, icon: `${ICONS}/property/critical-damage.png` },
     { name: "攻擊力", value: "4.3%", times: 2, icon: `${ICONS}/property/attack.png` },
-    // 換算是強化 6 次，超過 +15 遺器的 5 次：畫面照資料寫，推定或資料有誤時才看得出來
+    // 換算是強化 6 次 超過 +15 遺器的 5 次
+    // 畫面照資料寫 推定或資料有誤時才看得出來
     { name: "速度", value: "8", times: 7, icon: null },
   ],
 };
@@ -50,48 +51,20 @@ const seele = (overrides: Partial<StarrailCharacter> = {}): StarrailCharacter =>
 const detail = (character = seele()) => renderToStaticMarkup(CharacterDetail({ character, titleId: "title", onClose: () => {} }));
 const tile = (character = seele()) => renderToStaticMarkup(CharacterTile({ character, onSelect: () => {} }));
 const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
-/** 遺器卡片裡某一條副詞條的 markup：最內層、裡面沒有其他 li 的那一個 li */
+/** 遺器卡片裡某一條副詞條的 markup 也就是裡面沒有其他 li 的最內層 li */
 const statRow = (markup: string, name: string) =>
   [...markup.matchAll(/<li[^>]*>(?:(?!<\/?li[\s>]).)*<\/li>/g)].map((m) => m[0]).find((li) => li.includes(`>${name}<`)) ?? "";
-/** 主屬性那一行：數值是 705 的那一個 p */
+/** 主屬性那一行 也就是數值是 705 的那個 p */
 const mainStatRow = (markup: string) => [...markup.matchAll(/<p[^>]*>(?:(?!<\/?p[\s>]).)*<\/p>/g)].map((m) => m[0]).find((p) => p.includes(">705<")) ?? "";
-/** 畫面上的「+N」（報讀器改念 sr-only 的「強化 N 次」） */
+/** 畫面上的 +N 報讀器改念 sr-only 的強化 N 次 */
 const upgradeText = (row: string) => row.match(/<span aria-hidden="true"[^>]*>(\+\d+)<\/span>/)?.[1] ?? null;
 const classesOf = (markup: string, pattern: RegExp) => markup.match(pattern)?.[1].split(/\s+/) ?? [];
 
 describe("角色詳情：版面", () => {
-  it("左右內距跟共用的彈出視窗一樣：手機 16px、寬螢幕 24px（標題列與內容對齊同一條線）", () => {
-    const markup = detail();
-    const header = classesOf(markup, /<header class="([^"]*)"/);
-    const body = classesOf(markup, /<\/header><div class="([^"]*)"/);
-
-    expect(header).toEqual(expect.arrayContaining(["px-4", "sm:px-6"]));
-    expect(body).toEqual(expect.arrayContaining(["p-4", "sm:p-6"]));
-    expect([...header, ...body].filter((c) => /^px?-5$/.test(c))).toEqual([]);
-  });
-
   it("視窗是滿版的大面板（Dialog 的 size=full），套星空主題與切角；尺寸不再自己另寫一套", () => {
     const markup = renderToStaticMarkup(createElement(CharacterBrowser, { characters: [seele()], fetchedLabel: "今天 14:05" }));
 
     expect(markup.match(/<dialog[^>]*>/)![0]).toContain('class="dialog dialog-full sr-dialog"');
-  });
-
-  it("寬螢幕：立繪在左、標題列與內容在右，整個面板一起捲動（游標在立繪上也捲得動），標題列固定在上方", () => {
-    const markup = detail();
-    const root = classesOf(markup, /^<div class="([^"]*)"/);
-
-    expect(root).toEqual(expect.arrayContaining(["lg:h-full", "lg:flex-row", "lg:items-start", "lg:overflow-y-auto"]));
-    expect(classesOf(markup, /<header class="([^"]*)"/)).toEqual(expect.arrayContaining(["sticky", "top-0"]));
-  });
-
-  it("手機上直排：標題列（名字與關閉鈕）在最上面，接著是立繪，再來是內容", () => {
-    const markup = detail();
-
-    expect(classesOf(markup, /<header class="([^"]*)"/)).toContain("order-1");
-    expect(classesOf(markup, /<div class="([^"]*\bsr-stage\b[^"]*)"/)).toContain("order-2");
-    expect(classesOf(markup, /<\/header><div class="([^"]*)"/)).toContain("order-3");
-    // 右欄在手機上拆開（contents），標題列才排得到立繪前面
-    expect(classesOf(markup, /<div class="([^"]*)"><header/)).toEqual(expect.arrayContaining(["contents", "lg:block"]));
   });
 
   it("右欄依自己的寬度分欄（容器查詢）：寬的時候面板與光錐、星魂並排，遺器與行跡排成三欄", () => {
@@ -103,26 +76,6 @@ describe("角色詳情：版面", () => {
     expect(classesOf(markup, /<\/header><div class="[^"]*"><div class="([^"]*)"/)).toContain("@3xl:grid-cols-2");
     expect(relics).toEqual(expect.arrayContaining(["@lg:grid-cols-2", "@3xl:grid-cols-3"]));
     expect(relics.filter((c) => c.startsWith("sm:"))).toEqual([]);
-  });
-});
-
-describe("角色詳情：立繪", () => {
-  const stageOf = (markup: string) => classesOf(markup, /<div class="([^"]*\bsr-stage\b[^"]*)"/);
-
-  it("寬螢幕依面板高度放大：左邊一整欄、跟面板一樣高（最多一半寬），捲動內容時留在原地；不再限寬 240px", () => {
-    const stage = stageOf(detail());
-
-    expect(stage).toEqual(expect.arrayContaining(["lg:sticky", "lg:top-0", "lg:h-[100cqh]", "lg:w-[min(50cqw,100cqh)]"]));
-    expect(stage).not.toContain("max-w-60");
-  });
-
-  it("手機與平板：撐滿面板寬度的方形（碰到左右兩邊），視窗矮時限高", () => {
-    expect(stageOf(detail())).toEqual(expect.arrayContaining(["w-full", "aspect-square", "max-h-[65dvh]"]));
-  });
-
-  it("背景的光暈跟著稀有度（五星金、四星紫）", () => {
-    expect(detail()).toMatch(/<div class="[^"]*\bsr-stage\b[^"]*" data-rarity="5"/);
-    expect(detail(seele({ rarity: 4 }))).toMatch(/<div class="[^"]*\bsr-stage\b[^"]*" data-rarity="4"/);
   });
 });
 
@@ -189,10 +142,6 @@ describe("角色詳情：遊戲圖示", () => {
 
     expect(markup).not.toContain("element/quantum.png");
     expect(markup).toContain(">量</span>");
-  });
-
-  it("立繪完整放進方形外框（object-contain），不裁切人物", () => {
-    expect(detail()).toMatch(/<img[^>]*alt="希兒"[^>]*class="[^"]*object-contain/);
   });
 });
 

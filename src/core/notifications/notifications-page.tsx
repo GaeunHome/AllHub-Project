@@ -12,12 +12,12 @@ import { NotificationSettings } from "./settings";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-// 模組清單由 src/app 傳進來：core 不能 import 模組
+// core 不能 import 模組 所以模組清單由 src/app 傳進來
 export function NotificationsPage({ modules, searchParams }: { modules: ModuleInfo[]; searchParams: SearchParams }) {
   const notificationModules: NotificationModule[] = modules.map(({ id, name, icon, accent, notifies }) => ({ id, name, icon, accent, notifies }));
 
   return (
-    // 寬螢幕：通知清單在左、提醒方式在右，清單不會拉到整個畫面寬
+    // 寬螢幕分兩欄 清單才不會拉到整個畫面寬
     <div className="page-stack xl:grid xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start xl:[&>:first-child]:col-span-2">
       <PageHeader icon={<Icon name="bell" />} title="通知" actions={<span className="chip">保留最近 {RETENTION_DAYS} 天</span>} />
 
@@ -38,7 +38,7 @@ export function NotificationsPage({ modules, searchParams }: { modules: ModuleIn
 async function NotificationSection({ modules, searchParams }: { modules: NotificationModule[]; searchParams: SearchParams }) {
   const user = await requireSession();
   const requested = (await searchParams).module;
-  // 只接受認得的模組 id，網址被亂改時當成全部
+  // 只接受認得的模組 id 網址被亂改時當成全部
   const selected = typeof requested === "string" && modules.some((m) => m.id === requested) ? requested : null;
   const [items, counts] = await Promise.all([cachedNotificationList(user.id, selected ?? undefined), cachedNotificationCounts(user.id)]);
 

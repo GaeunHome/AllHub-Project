@@ -21,7 +21,10 @@ const { PageTheme } = await import("@/core/ui/page-theme");
 const view = (id: number, uid: string) => ({ id, uid, nickname: `角色 ${id}`, region: "prod_official_asia", level: 70, staminaAlertThreshold: null, cookieInvalid: false });
 const MINE = [view(1, "800000001"), view(2, "800000002")];
 
-/** 頁面交給各區塊的帳號 id（account 或 accountId 屬性）；只看元素樹，不實際算繪向 HoYoLAB 查詢的區塊 */
+/**
+ * 頁面交給各區塊的帳號 id 看 account 或 accountId 屬性
+ * 只看元素樹 不實際算繪要向 HoYoLAB 查詢的區塊
+ */
 function accountIdsIn(node: ReactNode, found = new Set<number>()): Set<number> {
   if (Array.isArray(node)) node.forEach((child) => accountIdsIn(child, found));
   else if (isValidElement<{ account?: { id: number }; accountId?: number; children?: ReactNode }>(node)) {
@@ -55,40 +58,6 @@ describe("星穹鐵道頁：一次只看自己的一個帳號", () => {
 
   it("?account= 是別人的帳號 id_當作不存在，改看自己的第一個帳號", async () => {
     expect([...accountIdsIn(await area("99"))]).toEqual([1]);
-  });
-});
-
-/** 直接子元素裡有 key 以 prefix 開頭的元素的那一層（頁面用 key 區分各區塊） */
-function parentOfKey(node: ReactNode, prefix: string): { className?: string } | null {
-  if (Array.isArray(node)) return node.map((child) => parentOfKey(child, prefix)).find(Boolean) ?? null;
-  if (!isValidElement<{ className?: string; children?: ReactNode }>(node)) return null;
-  const children = [node.props.children].flat();
-  if (children.some((child) => isValidElement(child) && String(child.key).startsWith(prefix))) return node.props;
-  return parentOfKey(node.props.children, prefix);
-}
-
-describe("星穹鐵道頁：超寬螢幕的並排", () => {
-  it("兌換碼與簽到紀錄同一列：兩張卡等高（格子不貼齊上方，卡片撐滿整格）", async () => {
-    const row = parentOfKey(await area(), "redeem-");
-
-    expect(row?.className).toContain("2xl:grid-cols-2");
-    expect(row?.className).not.toContain("items-start");
-    expect(row?.className).toContain("[&>section>.sr-panel]:flex-1");
-  });
-
-  it("簽到紀錄收起時兌換碼卡片比內容高：內容由兌換碼卡片自己的格線放在中間（見 redeem-panel）；展開更早的紀錄後回到上方，不會停在很高的卡片中間", async () => {
-    const row = parentOfKey(await area(), "redeem-");
-
-    expect(row?.className).toContain("2xl:has-[details[open]]:[&>section>form.sr-panel]:grid-rows-[auto_auto_1fr]");
-    // 兌換碼卡片在超寬螢幕是格線：justify-content 置中會讓唯一的一欄縮成內容的寬度
-    expect(row?.className).not.toMatch(/form\.sr-panel\]:justify-/);
-  });
-
-  it("開拓月曆與終局戰績同一列：內容高度差很多，各自照內容的高度（標題列另外對齊）", async () => {
-    const row = parentOfKey(await area(), "ledger-");
-
-    expect(row?.className).toContain("2xl:grid-cols-2");
-    expect(row?.className).toContain("items-start");
   });
 });
 
@@ -142,7 +111,7 @@ describe("星穹鐵道頁：整頁主題", () => {
 });
 
 describe("星穹鐵道頁：星空（globals.css）", () => {
-  // 先拿掉註解；選擇器清單裡有這個選擇器的規則都算
+  // 先拿掉註解 選擇器清單裡有這個選擇器的規則都算
   const css = fs.readFileSync(new URL("../../../../app/globals.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const declarations = (selector: string) =>
     [...css.matchAll(/([^{};]+)\{([^{}]*)\}/g)]

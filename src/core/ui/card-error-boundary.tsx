@@ -3,7 +3,7 @@
 import { catchError, type ErrorInfo } from "next/error";
 import { Icon } from "./icon";
 
-/** 錯誤內容可能夾帶 SQL 參數或憑證，畫面上只說讀不到；retry 會重新向伺服器要這一塊 */
+/** 錯誤可能夾帶 SQL 參數或憑證 畫面只說讀不到 retry 會重新向伺服器要這一塊 */
 export function CardError(_props: object, { retry }: ErrorInfo) {
   return (
     <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] p-4">
@@ -17,5 +17,5 @@ export function CardError(_props: object, { retry }: ErrorInfo) {
   );
 }
 
-/** 首頁每張卡片各包一層：一張出錯只影響那一張，不會讓整頁變成錯誤畫面 */
+/** 首頁每張卡片各包一層 一張出錯只影響那一張 不會整頁變成錯誤畫面 */
 export const CardErrorBoundary = catchError(CardError);

@@ -5,7 +5,8 @@ const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
 const VERSION = "v1";
 
-// 底層的 AES-256-GCM，輸出 base64(iv | tag | ciphertext)，也就是沒有版本前綴的舊格式；模組要用 encryptSecret 才能換金鑰
+// 底層的 AES-256-GCM 輸出沒有版本前綴的舊格式
+// 模組要用 encryptSecret 才能換金鑰
 export function encrypt(plain: string, keyBase64: string): string {
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv("aes-256-gcm", Buffer.from(keyBase64, "base64"), iv);
@@ -15,7 +16,7 @@ export function encrypt(plain: string, keyBase64: string): string {
 
 export function decrypt(payload: string, keyBase64: string): string {
   const raw = Buffer.from(payload, "base64");
-  // 固定標籤長度：不指定的話被截短的標籤也會被接受，竄改比較容易過關
+  // 固定標籤長度 不指定的話截短的標籤也會被接受 竄改比較容易過關
   const decipher = createDecipheriv("aes-256-gcm", Buffer.from(keyBase64, "base64"), raw.subarray(0, IV_LENGTH), { authTagLength: TAG_LENGTH });
   decipher.setAuthTag(raw.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH));
   return Buffer.concat([decipher.update(raw.subarray(IV_LENGTH + TAG_LENGTH)), decipher.final()]).toString("utf8");
@@ -28,7 +29,7 @@ export function createKeyring(current: string, previous: readonly string[] = [])
   return { current: toKey(current), previous: previous.map(toKey) };
 }
 
-// 密文要標出是哪把金鑰加密的，又不能洩漏金鑰，所以只取 SHA-256 的前 8 個 hex
+// 要標出是哪把金鑰加密的又不能洩漏金鑰 所以只取 SHA-256 的前 8 個 hex
 function toKey(secret: string): Key {
   return { id: createHash("sha256").update(Buffer.from(secret, "base64")).digest("hex").slice(0, 8), secret };
 }
@@ -40,7 +41,7 @@ function keyringFromEnv(): Keyring {
   return envKeyring;
 }
 
-// 訊息固定、不含密文，畫面和 log 都能安全使用
+// 訊息固定不含密文 畫面和 log 都能安全使用
 export class DecryptionError extends Error {
   name = "DecryptionError";
 
@@ -49,7 +50,7 @@ export class DecryptionError extends Error {
   }
 }
 
-// 舊格式是純 base64、不會出現「.」，有「.」就一定是新格式
+// 舊格式是純 base64 不會有點號 有點號就一定是新格式
 function parsePayload(payload: string): { keyId: string | null; body: string } {
   if (!payload.includes(".")) return { keyId: null, body: payload };
   const [version, keyId, body, ...rest] = payload.split(".");
@@ -57,7 +58,7 @@ function parsePayload(payload: string): { keyId: string | null; body: string } {
   return { keyId, body };
 }
 
-/** 一律用目前的金鑰加密，輸出 v1.<keyId>.<base64(iv|tag|ciphertext)> */
+/** 一律用目前的金鑰加密 格式是 v1 keyId 密文 用點號隔開 */
 export function encryptSecret(plain: string, keyring: Keyring = keyringFromEnv()): string {
   return [VERSION, keyring.current.id, encrypt(plain, keyring.current.secret)].join(".");
 }
@@ -65,7 +66,7 @@ export function encryptSecret(plain: string, keyring: Keyring = keyringFromEnv()
 export function decryptSecret(payload: string, keyring: Keyring = keyringFromEnv()): string {
   const { keyId, body } = parsePayload(payload);
   const keys = [keyring.current, ...keyring.previous];
-  // 舊格式沒有 keyId 只能逐把試；GCM 的驗證標籤會擋下錯的金鑰
+  // 舊格式沒有 keyId 只能逐把試 GCM 的驗證標籤會擋下錯的金鑰
   const candidates = keyId === null ? keys : keys.filter((key) => key.id === keyId);
   if (candidates.length === 0) throw new DecryptionError("unknown_key");
   for (const key of candidates) {
@@ -82,7 +83,7 @@ export function needsReencrypt(payload: string, keyring: Keyring = keyringFromEn
   return !payload.startsWith(`${VERSION}.${keyring.current.id}.`);
 }
 
-/** 長度不同也不會提早結束的字串比對，用在密碼與 token */
+/** 長度不同也不會提早結束的比對 用在密碼與 token */
 export function safeEqual(a: string, b: string): boolean {
   const ha = createHash("sha256").update(a).digest();
   const hb = createHash("sha256").update(b).digest();

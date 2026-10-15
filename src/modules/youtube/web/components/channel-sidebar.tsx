@@ -15,7 +15,10 @@ import { RenewButton } from "./renew-button";
 
 const STATUS_TEXT = { success: "text-success", warning: "text-warning", danger: "text-danger" } as const;
 
-/** 像 YouTube 的側欄：上面是「已保留」的入口（像「稍後觀看」），下面是「訂閱內容」：頭像加名稱；通知開關、刪除與訂閱狀態收進每個頻道的選單 */
+/**
+ * 像 YouTube 的側欄 上面是已保留的入口 像稍後觀看 下面是訂閱內容
+ * 通知開關 刪除與訂閱狀態收進每個頻道的選單
+ */
 export function ChannelSidebar({ channels, savedCount }: { channels: YoutubeChannel[]; savedCount: number }) {
   return (
     <div className="stack min-w-0 lg:sticky lg:top-24 lg:self-start">
@@ -25,7 +28,7 @@ export function ChannelSidebar({ channels, savedCount }: { channels: YoutubeChan
   );
 }
 
-/** 寬螢幕是側欄的一列（圖示跟頻道頭像對齊），手機在訂閱內容上面撐滿一整列 */
+/** 寬螢幕是側欄的一列 圖示跟頻道頭像對齊 手機在訂閱內容上面撐滿一整列 */
 function SavedVideosLink({ count }: { count: number }) {
   return (
     <Link href={SAVED_VIDEOS_PATH} className="-mx-2 flex min-h-11 items-center gap-3 rounded-lg px-2 font-medium text-ink transition-colors hover:bg-surface-muted lg:min-h-10 lg:text-sm">
@@ -44,7 +47,7 @@ function ChannelList({ channels }: { channels: YoutubeChannel[] }) {
   return (
     <nav aria-labelledby="youtube-subscriptions" className="stack min-w-0">
       <div className="flex items-start justify-between gap-3">
-        {/* 跟右邊的「續訂」一樣高，文字垂直置中 */}
+        {/* 跟右邊的續訂一樣高 文字垂直置中 */}
         <h2 id="youtube-subscriptions" className="flex min-h-9 items-center text-base font-semibold text-ink pointer-coarse:min-h-11">
           訂閱內容
         </h2>
@@ -53,7 +56,7 @@ function ChannelList({ channels }: { channels: YoutubeChannel[] }) {
       {channels.length === 0 ? (
         <p className="text-[0.9375rem] text-ink-soft">還沒有追蹤頻道：在上面貼頻道網址或 @帳號，新影片上架時就會通知你</p>
       ) : (
-        // 寬螢幕的每一列有左右內距（滑過時的底色），清單往外撐開同樣的距離，頭像對齊標題的左邊線
+        // 寬螢幕每一列有滑過時底色用的左右內距 清單往外撐開同樣距離 頭像才對齊標題
         <ul className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-1 lg:-mx-2 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:px-0">
           {channels.map((channel) => (
             <li key={channel.id} className="shrink-0">
@@ -68,7 +71,7 @@ function ChannelList({ channels }: { channels: YoutubeChannel[] }) {
 
 function ChannelEntry({ channel }: { channel: YoutubeChannel }) {
   const status = channelStatusBadge(channel.subscriptionStatus, channel.leaseExpiresAt);
-  // 手機是大頭像（lg）、名稱在下面；寬螢幕是側欄跟文字同一行的小頭像（xs 的大小）
+  // 手機是 lg 大頭像 名稱在下面 寬螢幕是跟文字同一行的 xs 小頭像
   const avatarClass = "lg:size-6 lg:text-[0.6875rem]";
 
   return (
@@ -78,11 +81,11 @@ function ChannelEntry({ channel }: { channel: YoutubeChannel }) {
       trigger={
         <>
           <span className="relative shrink-0">
-            {/* 頻道頁的頭像要等 YouTube 回應，先顯示追蹤時存下的頭像或文字頭像 */}
+            {/* 頻道頁的頭像要等 YouTube 回應 先顯示追蹤時存下的頭像或文字頭像 */}
             <Suspense fallback={<Avatar src={externalAssetUrl(channel.thumbnail)} name={channel.title} size="lg" className={avatarClass} />}>
               <ChannelAvatar channelRef={channel.channelId} name={channel.title} stored={channel.thumbnail} size="lg" className={avatarClass} />
             </Suspense>
-            {/* 訂閱有問題時在頭像角落放一個點，原因在選單裡 */}
+            {/* 訂閱有問題時在頭像角落放一個點 原因在選單裡 */}
             {status.tone !== "success" && (
               <span className={`status-dot status-dot-${status.tone} absolute right-0 bottom-0 size-3 ring-2 ring-[var(--bg-base)] lg:size-2.5`} />
             )}

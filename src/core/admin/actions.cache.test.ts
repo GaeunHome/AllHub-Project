@@ -26,7 +26,7 @@ describe("管理頁的 Server Action：寫入後用 updateTag 讓對應的清單
     ["createInviteAction", ["core:invites"], () => actions.createInviteAction({}, form({ days: "7", uses: "1", note: "" }))],
     ["revokeInviteAction", ["core:invites"], () => actions.revokeInviteAction({}, form({ inviteId: "1" }))],
     ["setUserDisabledAction", ["core:users"], () => actions.setUserDisabledAction({}, form({ userId: MEMBER_ID, disabled: "true" }))],
-    // 刪除帳號時，他建立的邀請也跟著外鍵刪掉
+    // 刪除帳號時他建立的邀請跟著外鍵刪掉 所以邀請也失效
     ["deleteUserAction", ["core:invites", "core:users"], () => actions.deleteUserAction({}, form({ userId: MEMBER_ID }))],
     ["unlockUserAction", ["core:users"], () => actions.unlockUserAction({}, form({ userId: MEMBER_ID }))],
   ] as const)("%s_%j", async (_name, tags, run) => {

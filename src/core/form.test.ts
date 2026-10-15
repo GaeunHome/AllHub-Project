@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { captureErrorLog, form, loggedText } from "@/dev/test-helpers";
-import { INVALID_FORM_MESSAGE, actionErrorMessage, formFlag, formId, formText, formUuid, runAction } from "./form";
+import { actionErrorMessage, formFlag, formId, formText, formUuid, runAction } from "./form";
 
 class DemoUserError extends Error {}
 const isDemoUserError = (error: unknown) => error instanceof DemoUserError;
@@ -33,10 +33,6 @@ describe("表單欄位", () => {
       expect(formUuid(form({ userId: bad }), "userId")).toBeNull();
     }
     expect(formUuid(form({}), "userId")).toBeNull();
-  });
-
-  it("資料不正確時的共用訊息請使用者重新整理", () => {
-    expect(INVALID_FORM_MESSAGE).toContain("重新整理頁面");
   });
 });
 

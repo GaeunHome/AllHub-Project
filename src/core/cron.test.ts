@@ -106,7 +106,7 @@ describe("core 自己的排程", () => {
     const [minute, hour, ...rest] = cleanup!.schedule.split(" ");
     expect([minute, hour].every((v) => /^\d+$/.test(v))).toBe(true);
     expect(rest).toEqual(["*", "*", "*"]);
-    // Hobby 方案只保證在設定的那個小時內觸發，所以要排在沒有其他排程的小時
+    // Hobby 方案只保證在設定的那個小時內觸發 所以要排在沒有其他排程的小時
     const otherHours = crons.filter((c) => c !== cleanup).map((c) => c.schedule.split(" ")[1]);
     expect(otherHours).not.toContain(hour);
   });

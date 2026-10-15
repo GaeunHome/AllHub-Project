@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { createElement, isValidElement, use, useCallback, useEffect, useId, useRef, type EffectCallback, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// effect 只在瀏覽器跑：直接呼叫元件，開關的 context 換成替身、effect 收起來自己跑，document 換成記下監聽的替身
+// effect 只在瀏覽器跑 所以直接呼叫元件 開關的 context 換成替身
+// effect 收起來自己跑 document 換成記下監聽的替身
 vi.mock("react", { spy: true });
 vi.mock("../auth/actions", () => ({ logout: vi.fn() }));
 vi.mock("./theme-sync", () => ({ useThemePref: () => ["system", vi.fn()] }));
@@ -15,7 +16,7 @@ type Listener = (event: { target?: unknown; key?: string }) => void;
 type LinkProps = Parameters<typeof AccountMenuLink>[0];
 type ItemProps = { role: string; href?: string; onClick?: () => void; children?: ReactNode };
 
-/** 人像選單開著（HeaderMenus 的 context）；close 收到的是要收起的面板 */
+/** 人像選單開著的 HeaderMenus context close 收到要收起的面板 */
 const menus = { open: "account", toggle: vi.fn(), close: vi.fn() };
 let listeners: { type: string; listener: Listener }[] = [];
 
@@ -27,7 +28,10 @@ const pressKey = (key: string) => {
   for (const { type, listener } of [...listeners]) if (type === "keydown") listener({ key });
 };
 
-/** 依序呼叫元件（含選單裡的每個 AccountMenuLink）並跑完 effect，就像選單開著時算繪到畫面上；外框包住按鈕與整個選單 */
+/**
+ * 依序呼叫元件與選單裡的 AccountMenuLink 再跑完 effect
+ * 就像選單開著時算繪到畫面上 外框包住按鈕與整個選單
+ */
 function renderOpenMenu() {
   const effects: EffectCallback[] = [];
   vi.mocked(useEffect).mockImplementation((effect) => void effects.push(effect));
@@ -43,7 +47,7 @@ function renderOpenMenu() {
   visit(tree);
   const inside = new Set<unknown>(items);
   (tree.props as { ref: { current: unknown } }).ref.current = { contains: (node: unknown) => inside.has(node) };
-  // 人像按鈕（外框的第一個子元素）：Esc 收起後焦點要回到這裡
+  // 人像按鈕是外框的第一個子元素 Esc 收起後焦點要回到這裡
   const button = { focus: vi.fn() };
   const [trigger] = (tree.props as { children: ReactElement<{ ref: { current: unknown } }>[] }).children;
   trigger.props.ref.current = button;

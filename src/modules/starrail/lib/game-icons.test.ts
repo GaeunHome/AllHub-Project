@@ -33,15 +33,18 @@ describe("遊戲圖示：內建在 public/icons/starrail/ 的靜態檔（站內�
   });
 });
 
-/** 期望的檔名：property_type → public/icons/starrail/property/ 的檔名（StarRailRes 的 Icon*.png 去掉 Icon、轉成 kebab-case） */
+/**
+ * 期望每個 property_type 對到 property 資料夾裡的哪個檔
+ * 檔名是 StarRailRes 的 Icon*.png 去掉 Icon 再轉成 kebab-case
+ */
 const PROPERTY_FILES: Record<number, string> = {
   // 面板
   1: "max-hp", 2: "attack", 3: "defence", 4: "speed", 5: "critical-chance", 6: "critical-damage", 7: "heal-ratio", 9: "energy-recovery", 10: "status-probability", 11: "status-resistance",
   26: "max-hp", 28: "attack", 30: "defence", 35: "speed", 60: "energy-limit",
-  // 遺器的主屬性與副詞條：固定值與百分比是同一個圖示
+  // 遺器的主屬性與副詞條 固定值與百分比是同一個圖示
   27: "max-hp", 29: "attack", 31: "defence", 32: "max-hp", 33: "attack", 34: "defence", 51: "speed", 52: "critical-chance", 53: "critical-damage",
   54: "energy-recovery", 55: "heal-ratio", 56: "status-probability", 57: "status-resistance", 58: "break-up", 59: "break-up", 71: "joy", 72: "joy",
-  // 屬性傷害提高（位面球）與屬性抗性
+  // 位面球的屬性傷害提高與屬性抗性
   12: "physical-added-ratio", 14: "fire-added-ratio", 16: "ice-added-ratio", 18: "thunder-added-ratio", 20: "wind-added-ratio", 22: "quantum-added-ratio", 24: "imaginary-added-ratio",
   13: "physical-resistance-delta", 15: "fire-resistance-delta", 17: "ice-resistance-delta", 19: "thunder-resistance-delta", 21: "wind-resistance-delta", 23: "quantum-resistance-delta", 25: "imaginary-resistance-delta",
   37: "physical-resistance-delta", 38: "fire-resistance-delta", 39: "ice-resistance-delta", 40: "thunder-resistance-delta", 41: "wind-resistance-delta", 42: "quantum-resistance-delta", 43: "imaginary-resistance-delta",
@@ -67,7 +70,7 @@ describe("面板與遺器詞條的屬性圖示", () => {
 describe("內建的圖示檔", () => {
   const used = [...ELEMENTS.map(elementIconUrl), ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map(pathIconUrl), ...Object.keys(PROPERTY_FILES).map((type) => propertyIconUrl(Number(type)))];
 
-  // 靜態檔不存在時 next/image 只會顯示破圖，在測試裡擋下打錯或漏放的檔名
+  // 靜態檔不存在時 next/image 只會顯示破圖 在測試裡擋下打錯或漏放的檔名
   it("每個對照到的圖示在 public/ 都有對應的 PNG", () => {
     const missing = used.filter((url) => !url || !fs.existsSync(fileURLToPath(new URL(`.${url}`, PUBLIC_DIR))));
     expect(missing).toEqual([]);

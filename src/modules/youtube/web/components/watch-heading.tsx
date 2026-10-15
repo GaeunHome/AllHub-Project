@@ -10,7 +10,10 @@ import { WatchSaveButton } from "./save-video-button";
 
 type WatchMeta = { title: string | null; channel: { name: string; url: string | null; avatar: string | null } | null };
 
-/** 自己追蹤的頻道的影片從資料庫找頻道；其他影片用 oEmbed 補上頻道與標題（外部資料都只放快取）；標題與頻道列各自串流，cache 讓兩邊共用同一次查詢 */
+/**
+ * 自己追蹤頻道的影片從資料庫找 其他用 oEmbed 補上頻道與標題
+ * 標題與頻道列各自串流 cache 讓兩邊共用同一次查詢
+ */
 const watchMeta = cache(async (userId: string, videoId: string): Promise<WatchMeta> => {
   const tracked = await cachedVideoChannel(userId, videoId);
   if (tracked) {
@@ -27,7 +30,7 @@ const watchMeta = cache(async (userId: string, videoId: string): Promise<WatchMe
   return { title: info?.title ?? null, channel: info?.channelName ? { name: info.channelName, url: info.channelUrl ?? null, avatar } : null };
 });
 
-/** 播放器下方的標題（YouTube 觀看頁的排法）：最多兩行 */
+/** 照 YouTube 觀看頁放在播放器下方 最多兩行 */
 export function WatchTitleText({ title }: { title: string }) {
   return (
     <h1 title={title} className="line-clamp-2 text-lg leading-snug font-bold text-ink sm:text-xl">
@@ -39,13 +42,13 @@ export function WatchTitleText({ title }: { title: string }) {
 export async function WatchTitle({ videoId, title }: { videoId: string; title: string }) {
   const user = await requireSession();
   const meta = await watchMeta(user.id, videoId);
-  // 還沒翻譯過、也不是追蹤中頻道的影片只知道 id，有 oEmbed 的標題就換上
+  // 沒翻譯過也不是追蹤中頻道的影片只知道 id 有 oEmbed 的標題就換上
   return <WatchTitleText title={title === videoId && meta.title ? meta.title : title} />;
 }
 
 type ChannelIdentityProps = { avatar: ReactNode; name: string | null; url?: string | null; action: ReactNode };
 
-/** 頻道列的左半邊放不下時「保留」換到下一行，不把頻道名稱擠成一兩個字 */
+/** 頻道列左半邊放不下時保留按鈕換到下一行 不把頻道名稱擠成一兩個字 */
 function ChannelIdentity({ avatar, name, url, action }: ChannelIdentityProps) {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
@@ -68,7 +71,7 @@ function ChannelIdentity({ avatar, name, url, action }: ChannelIdentityProps) {
   );
 }
 
-/** 標題下方的頻道列左半邊：頭像、頻道名稱與「保留」（右半邊是翻譯的膠囊按鈕） */
+/** 頻道列的左半邊 頭像 頻道名稱與保留按鈕 右半邊是翻譯的膠囊按鈕 */
 export async function WatchChannel({ videoId }: { videoId: string }) {
   const user = await requireSession();
   const [{ channel }, saved] = await Promise.all([watchMeta(user.id, videoId), cachedSavedVideos(user.id)]);
@@ -79,7 +82,7 @@ export async function WatchChannel({ videoId }: { videoId: string }) {
   );
 }
 
-/** 頭像還沒讀到前先放模組圖示，大小跟頭像一樣；「保留」先放一樣大的骨架，載入前後版面不會跳 */
+/** 頭像讀到前先放一樣大的模組圖示 保留按鈕也先放一樣大的骨架 版面才不會跳 */
 export function WatchChannelFallback({ icon }: { icon?: `/${string}.svg` }) {
   return (
     <ChannelIdentity

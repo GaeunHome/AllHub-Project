@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-// 包一層計數器，確認「帳號不存在」時也真的跑了一次 scrypt
+// 包一層計數器 確認帳號不存在時也真的跑了一次 scrypt
 const scryptCalls = vi.hoisted(() => ({ count: 0 }));
 vi.mock("node:crypto", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:crypto")>();
@@ -25,7 +25,7 @@ const {
   weakPasswordProblem,
 } = await import("./credentials");
 
-// 測試用低成本參數，只有確認預設值的測試才用正式參數
+// 測試用低成本參數 只有確認預設值的測試才用正式參數
 const FAST = { N: 1024, r: 8, p: 1 };
 const PASSWORD = "correct horse battery";
 

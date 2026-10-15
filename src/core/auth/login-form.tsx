@@ -17,7 +17,7 @@ export function LoginForm({ captchaSrc }: { captchaSrc: string }) {
       <label className="relative block">
         <span className="sr-only">帳號</span>
         <Icon name="circle-user-round" className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted" />
-        {/* 送出後 React 會重設表單，用 key 讓帳號欄位帶回剛才輸入的值 */}
+        {/* 送出後 React 會重設表單 用 key 讓帳號欄位帶回剛才輸入的值 */}
         <input
           key={state.username ?? ""}
           name="username"
@@ -31,7 +31,7 @@ export function LoginForm({ captchaSrc }: { captchaSrc: string }) {
           className="input pl-11"
         />
       </label>
-      {/* 密碼欄位裡有顯示密碼的按鈕，label 不能包住它，改用 htmlFor 對應 */}
+      {/* 密碼欄位裡有按鈕 label 不能包住它 改用 htmlFor 對應 */}
       <div className="relative">
         <label htmlFor={passwordId} className="sr-only">
           密碼

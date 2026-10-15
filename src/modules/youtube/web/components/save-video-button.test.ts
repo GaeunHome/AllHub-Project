@@ -14,7 +14,7 @@ const { AutoSavedContext, SaveVideoButton, WatchSaveButton } = await import("./s
 const VIDEO = "dQw4w9WgXcQ";
 type ButtonProps = { action: unknown; fields: Record<string, string>; confirmMessage?: string; "aria-label"?: string };
 const button = (saved: boolean) => SaveVideoButton({ videoId: VIDEO, saved }) as ReactElement<ButtonProps>;
-/** 只看按鈕上的字：表單旁邊還有 React 放的 <script> */
+/** 只看按鈕上的字 表單旁邊還有 React 放的 <script> */
 const textOf = (saved: boolean) => renderToStaticMarkup(button(saved)).match(/<button[^>]*>([\s\S]*?)<\/button>/)?.[1].replace(/<[^>]+>/g, "");
 
 describe("觀看頁頻道列的「保留」", () => {

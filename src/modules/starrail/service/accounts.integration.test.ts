@@ -7,7 +7,8 @@ import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 import type { DailyNote } from "../lib/responses";
 import { starrailAccounts, starrailCheckinLogs } from "../data/schema";
 
-// HoYoLAB 的 client 整個換掉：沒設定回應的呼叫只會拿到 undefined，不會連到真的 HoYoLAB
+// HoYoLAB 的 client 整個換掉
+// 沒設定回應的呼叫只會拿到 undefined 不會連到真的 HoYoLAB
 const hoyolab = vi.hoisted(() => ({ fetchGameRoles: vi.fn(), fetchDailyNote: vi.fn(), fetchCheckinInfo: vi.fn(), signIn: vi.fn() }));
 vi.mock("../lib/hoyolab", () => hoyolab);
 vi.mock("@/core/notify", { spy: true });

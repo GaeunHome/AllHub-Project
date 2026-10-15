@@ -1,11 +1,15 @@
-// 假的 YouTube／WebSub hub／AI 與圖片 CDN；特殊輸入（@nobody、@noavatar…、影片 id 開頭 nocaptions／zhsubs／zhauto／nothumb／short／syncsubs、金鑰含 bad、MOCK_AI_MS_PER_LINE）見 docs/development.md「假伺服器的特殊輸入」
+// 假的 YouTube WebSub hub AI 與圖片 CDN
+// 特殊輸入見 docs/development.md 的假伺服器的特殊輸入
 import { createHash } from "node:crypto";
 
-/** 依 handle 產生固定的假頻道 id（UC + 22 碼） */
+/** 依 handle 產生固定的假頻道 id 之後還能還原回 handle */
 const channelIdOf = (handle) => "UC" + Buffer.from(handle).toString("base64url").padEnd(22, "x").slice(0, 22);
-/** 從假頻道 id 還原 handle 的開頭（只用來決定頭像的字與要不要有頭像） */
+/** 從假頻道 id 還原 handle 的開頭 只用來決定頭像的字與要不要有頭像 */
 const handleOf = (channelId) => Buffer.from(channelId.slice(2).replace(/x+$/, ""), "base64url").toString("utf8");
-/** 每個頻道的 RSS feed 有三支一般影片（追蹤時會補進影片清單）與兩支 Shorts（id 開頭 short，連結是 /shorts/，不會列進清單）；影片 id 依頻道 id 雜湊，不同頻道不會撞在一起 */
+/**
+ * 每個頻道的 RSS 有三支一般影片與兩支 Shorts 追蹤時只補一般影片
+ * 影片 id 依頻道 id 雜湊 不同頻道才不會撞在一起
+ */
 const feedEntries = (channelId) => {
   const tag = createHash("sha1").update(channelId).digest("base64url").replace(/[-_]/g, "a");
   const hour = 3600_000;
@@ -17,9 +21,11 @@ const feedEntries = (channelId) => {
     { videoId: `feed${tag.slice(0, 6)}2`, title: "幕後花絮", ago: 5 * 24 * hour },
   ];
 };
-/** 跟真的 YouTube 一樣，id 開頭 short 的影片是 Shorts */
 const isShort = (videoId) => videoId.startsWith("short");
-/** 從 @帳號 產生的頻道用帳號當名字，截圖分得出是哪個頻道；直接用 UC id 加的頻道解不出帳號，用 id 末四碼 */
+/**
+ * 用帳號當頻道名稱 截圖才分得出是哪個頻道
+ * 直接用 UC id 加的頻道解不出帳號 改用 id 末四碼
+ */
 const feedName = (channelId) => {
   const handle = handleOf(channelId);
   return /^[\w.-]{1,40}$/.test(handle) ? handle : channelId.slice(-4);
@@ -27,15 +33,18 @@ const feedName = (channelId) => {
 const feedXml = (channelId) =>
   feedEntries(channelId)
     .map(({ videoId, title, ago }) => {
-      // 真的 RSS 裡 Shorts 的連結是 /shorts/<id>，一般影片是 /watch?v=<id>
+      // 跟真的 RSS 一樣 Shorts 與一般影片的連結不同
       const link = isShort(videoId) ? `https://www.youtube.com/shorts/${videoId}` : `https://www.youtube.com/watch?v=${videoId}`;
       return `<entry><yt:videoId>${videoId}</yt:videoId><yt:channelId>${channelId}</yt:channelId><title>${title}</title><link rel="alternate" href="${link}"/><published>${new Date(Date.now() - ago).toISOString()}</published></entry>`;
     })
     .join("");
 
-/** 真的 mqdefault.jpg（320×180）約 10～20 KB；Chrome 的 LCP 不算每像素不到 0.05 bit 的圖（當成佔位圖），ctx.image 只有幾百 bytes，放大成卡片縮圖會被略過、改算別張延遲載入的縮圖，所以縮圖自己產生並補到這個大小 */
+/**
+ * Chrome 的 LCP 不算每像素不到 0.05 bit 的圖 幾百 bytes 的佔位圖會被略過
+ * 所以縮圖自己畫 再補到跟真的 mqdefault.jpg 差不多大
+ */
 const THUMBNAIL_BYTES = 12_000;
-/** 畫法跟 ctx.image 一樣（依影片 id 配色、圖上寫影片 id）；最後補一段依影片 id 連續雜湊出來的註解，同一支每次都一樣 */
+/** 畫法跟 ctx.image 一樣 補大小的 SVG 註解由影片 id 雜湊 同一支每次都一樣 */
 const thumbnailSvg = (videoId) => {
   const hue = [...videoId].reduce((sum, ch) => (sum * 31 + ch.codePointAt(0)) % 360, 7);
   const caption = videoId.slice(0, 16).replace(/[<>&"]/g, "");
@@ -45,13 +54,14 @@ const thumbnailSvg = (videoId) => {
   return `${svg}<!-- ${filler.slice(0, THUMBNAIL_BYTES - svg.length)} --></svg>`;
 };
 
-/** 頻道頁：@noavatar 開頭的頻道沒有 og:image，畫面會退回文字頭像 */
+/** @noavatar 開頭的頻道沒有 og:image 用來看退回文字頭像的畫面 */
 const channelPage = (channelId) => {
   const avatar = handleOf(channelId).startsWith("noavatar") ? "" : `<meta property="og:image" content="https://yt3.googleusercontent.com/ytc/${channelId}=s900-c-k-c0x00ffffff-no-rj">`;
   return `<html><head><link rel="canonical" href="https://www.youtube.com/channel/${channelId}">${avatar}</head></html>`;
 };
 
-// 內建的假字幕給固定譯文，畫面上看得出中文字幕疊在影片上；其他句子（例如上傳的字幕檔）回「〔中〕原文」
+// 內建的假字幕給固定譯文 畫面上看得出中文字幕疊在影片上
+// 其他句子例如上傳的字幕檔 回原文加上標記
 const KOREAN_LINES = {
   "안녕하세요 여러분": "大家好",
   "오늘은 특별한 날이에요": "今天是特別的日子",
@@ -63,7 +73,8 @@ const KOREAN_LINES = {
   안녕: "掰掰",
 };
 
-// 影片 id 開頭 syncsubs：40 句長短不一的字幕，句子之間有剛好相連、40～200ms 的短空檔與 2 秒的長空檔，也有很長的句子，用來看字幕同步與換句時的顯示
+// 影片 id 開頭 syncsubs 用來看字幕同步與換句 40 句長短不一
+// 句子之間有剛好相連 40 到 200ms 的短空檔與 2 秒的長空檔
 const SYNC_TEXTS = [
   "안녕하세요 여러분",
   "오늘은 특별한 날이에요",
@@ -87,7 +98,7 @@ const syncEvents = () => {
 };
 
 export function handle({ req, url, body, json, text, image, redirect }) {
-  // ---------- YouTube ----------
+  // YouTube
   if (url.pathname.startsWith("/@")) {
     const name = decodeURIComponent(url.pathname.slice(2));
     if (name === "nobody") return text(404, "not found");
@@ -95,7 +106,7 @@ export function handle({ req, url, body, json, text, image, redirect }) {
   }
   if (url.pathname.startsWith("/channel/")) return text(200, channelPage(url.pathname.split("/")[2] ?? ""), "text/html");
 
-  // ---------- 圖片 CDN（i.ytimg.com 的縮圖、yt3 的頻道頭像） ----------
+  // 圖片 CDN 有 i.ytimg.com 的縮圖與 yt3 的頻道頭像
   if (url.pathname.startsWith("/vi/")) {
     const videoId = url.pathname.split("/")[2] ?? "";
     if (videoId.startsWith("nothumb")) return text(404, "not found");
@@ -109,7 +120,7 @@ export function handle({ req, url, body, json, text, image, redirect }) {
     const id = url.searchParams.get("channel_id") ?? "";
     return text(200, `<?xml version="1.0"?><feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom"><title>模擬頻道 ${feedName(id)}</title>${feedXml(id)}</feed>`, "application/atom+xml");
   }
-  // 確認是不是 Shorts：Shorts 回 200，其他影片跟真的 YouTube 一樣 303 轉到 /watch
+  // 跟真的 YouTube 一樣 Shorts 回 200 其他影片 303 轉到 /watch
   if (url.pathname.startsWith("/shorts/")) {
     const videoId = url.pathname.split("/")[2] ?? "";
     if (isShort(videoId)) return text(200, "<html><body>Shorts</body></html>", "text/html");
@@ -128,17 +139,17 @@ export function handle({ req, url, body, json, text, image, redirect }) {
     return json(200, { events: Object.keys(KOREAN_LINES).map((utf8, i) => ({ tStartMs: i * 2000, dDurationMs: 1900, segs: [{ utf8 }] })) });
   }
   if (url.pathname === "/oembed") {
-    // 標題帶影片 id：保留的影片、觀看頁的標題才看得出有沒有對應到正確的影片
+    // 標題帶影片 id 才看得出保留的影片與觀看頁有沒有對到正確的影片
     const v = URL.canParse(url.searchParams.get("url") ?? "") ? (new URL(url.searchParams.get("url")).searchParams.get("v") ?? "") : "";
     return json(200, { title: `模擬影片標題 ${v}`.trim(), author_name: "模擬頻道", author_url: "https://www.youtube.com/@mockchannel" });
   }
 
-  // ---------- WebSub hub ----------
+  // WebSub hub
   if (url.pathname === "/subscribe" && req.method === "POST") {
     const form = new URLSearchParams(body);
     const mode = form.get("hub.mode");
     setTimeout(async () => {
-      // 跟真的 hub 一樣在 callback 上「加上」參數：callback 原本的 query（驗證用的 k）要保留
+      // 跟真的 hub 一樣把參數加在 callback 上 原本驗證用的 k 要留著
       const verify = new URL(form.get("hub.callback"));
       const params = { "hub.mode": mode, "hub.topic": form.get("hub.topic"), "hub.challenge": `challenge-${Date.now()}`, ...(mode === "subscribe" ? { "hub.lease_seconds": "432000" } : {}) };
       for (const [name, value] of Object.entries(params)) verify.searchParams.set(name, value);
@@ -152,7 +163,7 @@ export function handle({ req, url, body, json, text, image, redirect }) {
     return json(202);
   }
 
-  // ---------- AI ----------
+  // AI
   if (["/v1/messages", "/v1/chat/completions"].includes(url.pathname) || url.pathname.startsWith("/v1beta/models/")) {
     const aiKey = req.headers["x-api-key"] ?? req.headers["x-goog-api-key"] ?? req.headers.authorization ?? "";
     if (String(aiKey).includes("bad")) return json(401, { error: { message: "invalid api key" } });
@@ -161,7 +172,7 @@ export function handle({ req, url, body, json, text, image, redirect }) {
     const user = kind === "claude" ? request.messages[0].content : kind === "openai" ? request.messages.at(-1).content : request.contents[0].parts[0].text;
     const input = JSON.parse(user.slice(0, user.lastIndexOf("}") + 1));
     const text = JSON.stringify({ lines: input.lines.map((line) => KOREAN_LINES[line] ?? `〔中〕${line}`) });
-    // 真實的 AI 句數越多回得越慢，模擬出來才看得出播放位置的小批次有沒有先出現
+    // 真的 AI 句數越多回得越慢 模擬出來才看得出播放位置的小批次有沒有先出現
     const msPerLine = Number(process.env.MOCK_AI_MS_PER_LINE ?? 80);
     const delayMs = msPerLine > 0 ? 400 + msPerLine * input.lines.length : 0;
     return new Promise((resolve) => setTimeout(resolve, delayMs)).then(() => {

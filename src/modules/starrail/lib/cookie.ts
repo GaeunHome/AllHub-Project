@@ -1,12 +1,12 @@
-/** 只留 HoYoLAB 介面需要的鍵，其他追蹤用 cookie 一律丟掉，不存進資料庫 */
+/** 只留 HoYoLAB 介面需要的鍵 其他追蹤用的 cookie 都丟掉不存 */
 const KEPT_KEYS = ["ltoken_v2", "ltuid_v2", "ltmid_v2", "account_id_v2", "account_mid_v2", "cookie_token_v2"] as const;
 
-/** RFC 6265 cookie-octet：不合法的字元送進 fetch 會讓錯誤訊息帶出整段 cookie，所以先擋下 */
+/** RFC 6265 的 cookie-octet 不合法的字元會讓錯誤訊息帶出整段 cookie 先擋下 */
 const COOKIE_OCTETS = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/;
 
 export type ParsedCookie = { ok: true; cookie: string; ltuid: string; hasLtmid: boolean } | { ok: false; error: string };
 
-/** 接受 document.cookie 的分號格式，也接受一行一個（換行或 tab 分隔）。錯誤訊息不帶任何 cookie 內容。 */
+/** 接受 document.cookie 的分號格式或一行一個 錯誤訊息不帶任何 cookie 內容 */
 export function parseHoyolabCookie(input: string): ParsedCookie {
   const values = new Map<string, string>();
   for (const part of input.split(/[;\r\n\t]/)) {

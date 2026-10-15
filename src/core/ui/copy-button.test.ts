@@ -2,7 +2,8 @@ import { createElement, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-// 複製的結果要等按下去才有：直接給 useState 一個複製後的狀態，看畫面怎麼顯示；其他照 React 原本的實作
+// 複製的結果要按下去才有 直接給 useState 一個複製後的狀態
+// 其他照 React 原本的實作
 vi.mock("react", { spy: true });
 
 const { CopyButton } = await import("./copy-button");

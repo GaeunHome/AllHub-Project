@@ -31,7 +31,7 @@ const video = (videoId: string, { zhCaptions = "no", zhCaptionsCheckedAt = CHECK
   translationStatus: null,
 });
 
-/** 只看伺服器元件回傳的元素樹，不實際算繪（client 元件要瀏覽器的 router） */
+/** 只看伺服器元件回傳的元素樹 不實際算繪 client 元件要瀏覽器的 router */
 function findByType(node: ReactNode, type: unknown): ReactElement | undefined {
   if (Array.isArray(node)) {
     for (const child of node) {

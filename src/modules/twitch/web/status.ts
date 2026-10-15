@@ -14,7 +14,7 @@ const LABELS: Record<string, string> = {
 
 const FAILURE_PREFIX = "訂閱失敗：";
 
-/** 主播的訂閱狀態標籤；收不到通知的情況（失敗、撤銷）一律是紅色，原因放在 detail */
+/** 主播的訂閱狀態標籤 失敗或撤銷這類收不到通知的一律紅色 原因放在 detail */
 export function subscriptionBadge(streamer: Parameters<typeof subscriptionsHealthy>[0]): StatusBadge {
   const raw = streamer.subscriptionStatus;
   if (!subscriptionsHealthy(streamer)) {
@@ -28,8 +28,8 @@ export function subscriptionBadge(streamer: Parameters<typeof subscriptionsHealt
   return { label: "訂閱異常", tone: "warning", detail: describeSubscriptionStatus(raw) };
 }
 
-/** 資料庫存的是 Twitch 原始代碼（可能多個以「；」串接，或包在中文訊息裡），只替換認得的代碼 */
-export function describeSubscriptionStatus(raw: string | null): string {
+/** 資料庫存的是 Twitch 的原始代碼 可能好幾個串在一起或包在中文訊息裡 只換認得的 */
+function describeSubscriptionStatus(raw: string | null): string {
   if (!raw) return "未訂閱";
   return raw.replace(/[a-z_]+/g, (code) => LABELS[code] ?? code);
 }

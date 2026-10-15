@@ -19,13 +19,13 @@ import { gameFont } from "../game-font";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-// 圖示、名稱、點綴色由 src/app 從 info.ts 傳進來：web 層不能 import 模組根目錄
-// theme-starrail 讓這一頁不論全站淺色或深色，都是遊戲裡的深藍星空：整頁主題，底色與星空鋪滿導覽列以下的整個畫面（globals.css 的 :root:has(.theme-starrail…)），導覽列維持全站的樣子
+// web 層不能 import 模組根目錄 圖示 名稱 點綴色由 src/app 從 info.ts 傳進來
+// theme-starrail 讓這頁不論外觀都是遊戲的深藍星空 鋪滿導覽列以下 導覽列不變
 export function StarrailPage({ info, searchParams }: { info: ModuleInfo; searchParams: SearchParams }) {
   return (
     <PageTheme accent={info.accent} className={`theme-starrail ${gameFont.variable} page-stack`}>
       <StarrailBanner info={info} />
-      {/* 連結帳號的表單在最下面（或是還沒有帳號時的整頁表單），結果顯示在帳號分頁上方：兩邊共用同一份 */}
+      {/* 連結的表單在最下面 結果顯示在帳號分頁上方 兩邊共用同一份 */}
       <LinkResultProvider>
         <Suspense fallback={<AccountSkeleton />}>
           <AccountArea searchParams={searchParams} />
@@ -35,7 +35,10 @@ export function StarrailPage({ info, searchParams }: { info: ModuleInfo; searchP
   );
 }
 
-/** 一次只看一個帳號：網址參數 ?account=<id> 選帳號，下面每一塊都只顯示這個帳號；只從自己的帳號裡選，別人的 id 當作不存在 */
+/**
+ * 一次只看一個帳號 用網址參數 account 選 下面每一塊都只顯示它
+ * 只從自己的帳號裡選 別人的 id 當作不存在
+ */
 export async function AccountArea({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireSession();
   const accounts = await cachedAccounts(user.id);
@@ -59,14 +62,14 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
         <AccountTabs accounts={accounts} selectedId={account.id} />
         <AccountHeader account={account} />
       </div>
-      {/* 每一塊各自向 HoYoLAB 查、各自串流，不互相等待；key 讓切換帳號時重新顯示骨架 */}
+      {/* 每塊各自查各自串流不互相等 key 讓切換帳號時重新顯示骨架 */}
       <Suspense key={`note-${account.id}`} fallback={<DailyNoteSkeleton />}>
         <DailyNotePanel account={account} />
       </Suspense>
       <Suspense key={`characters-${account.id}`} fallback={<CharacterPanelSkeleton />}>
         <CharacterPanel account={account} />
       </Suspense>
-      {/* 全寬的超寬螢幕上開拓月曆與終局戰績並排，不會被拉成一長條 */}
+      {/* 超寬螢幕上開拓月曆與終局戰績並排 不會被拉成一長條 */}
       <div className="grid items-start gap-8 2xl:grid-cols-2">
         <Suspense key={`ledger-${account.id}`} fallback={<LedgerSkeleton />}>
           <LedgerPanel account={account} />
@@ -75,8 +78,8 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
           <EndgamePanel account={account} />
         </Suspense>
       </div>
-      {/* 兌換碼的輸入框不拉到整個畫面寬：超寬螢幕跟簽到紀錄並排；同一列的卡片等高，兩邊的卡片（各自區塊裡的 sr-panel）撐滿整格 */}
-      {/* 簽到紀錄收起時仍比兌換碼高：兌換碼的內容由它自己的格線放在卡片中間，不在下面留一大片空白；展開更早的紀錄後第一列改成照內容高，回到上方 */}
+      {/* 超寬螢幕時兌換碼跟簽到紀錄並排 同一列的卡片等高撐滿整格 */}
+      {/* 展開更早的紀錄時兌換碼的第一列改成照內容高 回到上方 */}
       <div className="grid gap-8 2xl:grid-cols-2 [&>section>.sr-panel]:flex-1 2xl:has-[details[open]]:[&>section>form.sr-panel]:grid-rows-[auto_auto_1fr]">
         <RedeemPanel key={`redeem-${account.id}`} accountId={account.id} label={`${serverLabel(account.region)} · ${account.nickname ?? "開拓者"}（UID ${account.uid}）`} />
         <Suspense key={`checkins-${account.id}`} fallback={null}>

@@ -1,4 +1,5 @@
-// 站長帳號從這裡建立（網站公開，沒有邀請就不能註冊）；用純 node 執行，所以不能用 @/、相對路徑要寫 .ts、型別一律 import type
+// 網站要有邀請才能註冊 所以站長帳號從這裡建立
+// 用純 node 執行 不能用 @/ 相對路徑要寫 .ts 型別一律 import type
 import { createInterface } from "node:readline";
 import { Writable } from "node:stream";
 import { asc, eq, sql } from "drizzle-orm";
@@ -37,7 +38,7 @@ const UNIQUE_VIOLATION = "23505";
 const CONNECTION_HINT = "請檢查連線字串的主機、port 和密碼（正式資料庫用 Supabase 的 Session pooler，5432 port）。";
 const CONNECTION_TIMEOUT = "連線逾時，可能是主機或 port 不對，或網路擋住了";
 const NETWORK_UNREACHABLE = "網路連不到這個主機（只有 IPv4 的網路連不到 Supabase 的 Direct connection）";
-/** 連線失敗的代碼：Node 的連線錯誤、postgres 套件自己的代碼，以及登入階段的 PostgreSQL 錯誤 */
+/** 連線失敗的代碼 Node 與 postgres 套件的代碼加上登入階段的 PostgreSQL 錯誤 */
 const CONNECTION_PROBLEMS: Record<string, string> = {
   ECONNREFUSED: "主機拒絕連線，可能是 port 不對或資料庫沒有啟動",
   ENOTFOUND: "找不到這個主機，可能是主機名稱打錯或網路沒有連上",
@@ -56,11 +57,11 @@ const SESSION_POOLER_HINT = "正式資料庫用 Supabase 的 Session pooler（54
 const ENV_EXAMPLES = `  Mac／Linux：DATABASE_URL=… npm run account create
   Windows PowerShell：$env:DATABASE_URL="…"; npm run account create`;
 const URL_PROMPT = "資料庫連線字串（正式資料庫用 Supabase 的 Session pooler，5432 port；貼上後按 Enter，不會顯示）：";
-// 使用者遇過：貼上時在主機名稱中間斷行，前半段被當成連線字串，後半段跑進帳號欄位
+// 使用者遇過貼上時中間斷行 前半段被當成連線字串 後半段跑進帳號欄位
 const INCOMPLETE_URL =
   "連線字串不完整，可能複製時中間斷行了（缺少 port 或資料庫名稱）。請重新複製 Supabase 的 Session pooler 連線字串（結尾是 :5432/postgres），貼上時確認是同一行。";
 const ROLE_LABELS: Record<UserRole, string> = { owner: "站長", member: "成員" };
-// 在 insert 裡判斷，不必先查：問密碼的期間可能有人先建了帳號
+// 在 insert 裡判斷 問密碼的期間可能有人先建了帳號
 const OWNER_IF_FIRST = sql`(case when exists (select 1 from ${coreUsers}) then 'member' else 'owner' end)`;
 
 const USAGE = `用法：
@@ -115,13 +116,13 @@ export async function cli(argv: readonly string[], deps: AccountDeps): Promise<n
 }
 
 function noArgs(args: readonly string[], command: string) {
-  // 多出來的參數可能就是密碼，不回顯
+  // 多出來的參數可能是密碼 不回顯
   if (args.length > 0) throw usageError(`${command} 不接受參數；帳號與密碼請在提示出現後輸入，剛才打的內容記得從 shell history 刪掉`);
 }
 
 function usernameArg(args: readonly string[], command: "passwd" | "unlock"): string {
   if (args.length === 0) throw usageError(`請指定帳號，例如 npm run account -- ${command} <帳號>`);
-  // 多出來的參數可能就是密碼，不回顯
+  // 多出來的參數可能是密碼 不回顯
   if (args.length > 1) {
     throw usageError(
       command === "passwd"
@@ -150,7 +151,7 @@ async function findUser(db: AccountDb, username: string) {
   return user;
 }
 
-/** 跟網站註冊、改密碼同一套規則：長度、常見密碼、不能包含帳號名稱 */
+/** 跟網站的註冊與改密碼同一套規則 */
 async function askNewPassword(prompter: Prompter, label: string, username: string): Promise<string> {
   const password = await prompter.askSecret(`${label}（至少 ${PASSWORD_MIN_LENGTH} 個字元，輸入時不會顯示）：`);
   const problem = newPasswordProblem(password, username);
@@ -181,23 +182,24 @@ async function create(db: AccountDb, deps: AccountDeps): Promise<number> {
 
 async function passwd(db: AccountDb, username: string, deps: AccountDeps): Promise<number> {
   const user = await findUser(db, username);
-  // 名稱可能是誤貼的密碼，找不到時不回顯
+  // 名稱可能是誤貼的密碼 找不到時不回顯
   if (!user) throw new CliError(`找不到這個帳號（${LIST_HINT}）`);
 
   const password = await askNewPassword(deps.prompter, "新密碼", user.username);
   await db
     .update(coreUsers)
-    // 版本在資料庫裡加一：同時執行也不會少加，舊 cookie 一定失效；被鎖住的帳號也一起解鎖（停用要由站長在管理頁恢復）
+    // session 版本在資料庫裡加一 同時執行也不會少加 舊 cookie 一定失效
+    // 也順便解除鎖定 停用要由站長在管理頁恢復
     .set({ passwordHash: await hashPassword(password), sessionVersion: sql`${coreUsers.sessionVersion} + 1`, failedLogins: 0, lockedUntil: null, updatedAt: new Date() })
     .where(eq(coreUsers.id, user.id));
   deps.stdout(`已重設 ${user.username} 的密碼；這個帳號在所有裝置上的登入都已失效，請用新密碼重新登入。`);
   return 0;
 }
 
-/** 站長自己被鎖住時進不了管理頁，用這個解鎖；不改密碼、session 版本與停用狀態 */
+/** 站長自己被鎖住時進不了管理頁 用這個解鎖 不改密碼 session 版本與停用狀態 */
 async function unlock(db: AccountDb, username: string, deps: AccountDeps): Promise<number> {
   const user = await findUser(db, username);
-  // 名稱可能是誤貼的密碼，找不到時不回顯
+  // 名稱可能是誤貼的密碼 找不到時不回顯
   if (!user) throw new CliError(`找不到這個帳號（${LIST_HINT}）`);
   const wasLocked = user.lockedUntil !== null && user.lockedUntil.getTime() > Date.now();
   await db.update(coreUsers).set({ failedLogins: 0, lockedUntil: null }).where(eq(coreUsers.id, user.id));
@@ -214,13 +216,13 @@ async function list(db: AccountDb, deps: AccountDeps): Promise<number> {
     deps.stderr("還沒有任何帳號，用 npm run account create 建立");
     return 0;
   }
-  // stdout 每行是「帳號 tab 角色（tab 已停用）」，方便接管線；其他說明走 stderr
+  // stdout 每行只有 tab 隔開的欄位 方便接管線 其他說明走 stderr
   for (const row of rows) deps.stdout([row.username, ROLE_LABELS[row.role], ...(row.disabledAt ? ["已停用"] : [])].join("\t"));
   deps.stderr(`（共 ${rows.length} 個帳號）`);
   return 0;
 }
 
-/** drizzle 把資料庫的錯誤包成 DrizzleQueryError（name 是 Error、沒有 code），原始錯誤在 cause 裡，要往下找 */
+/** drizzle 把資料庫錯誤包成沒有 code 的 DrizzleQueryError 原始錯誤要往 cause 找 */
 function causes(error: unknown): unknown[] {
   const chain: unknown[] = [];
   for (let current = error; current instanceof Object && chain.length < 5; current = (current as { cause?: unknown }).cause) chain.push(current);
@@ -235,7 +237,7 @@ function errorCode(error: unknown): string | undefined {
   return undefined;
 }
 
-/** 資料庫錯誤的 message 可能夾帶連線字串或 SQL 參數，只說錯誤代碼或種類 */
+/** 資料庫錯誤的 message 可能夾帶連線字串或 SQL 參數 只說代碼或種類 */
 function describeError(error: unknown): { message: string; exitCode: number } {
   if (error instanceof CliError) return { message: error.message, exitCode: error.exitCode };
   const code = errorCode(error);
@@ -247,27 +249,27 @@ function describeError(error: unknown): { message: string; exitCode: number } {
   return { message: `發生未預期的錯誤（${code ?? errorKind(causes(error).at(-1))}）`, exitCode: 1 };
 }
 
-/** 正式資料庫的連線字串用提示輸入：寫在指令前面會連同密碼留在 shell 的歷史紀錄 */
+/** 連線字串用提示輸入 寫在指令前面會連同密碼留在 shell 的歷史紀錄 */
 export async function resolveDatabaseUrl(env: Readonly<Record<string, string | undefined>>, prompter: Prompter): Promise<{ url: string; source: string }> {
   if (env.DATABASE_URL) return { url: env.DATABASE_URL, source: "環境變數 DATABASE_URL" };
-  // 沒有終端機就沒辦法不顯示地輸入，接管線時 stdin 也不是給連線字串用的
+  // 沒有終端機就沒辦法隱藏輸入 接管線時 stdin 也不是給連線字串用的
   if (!prompter.interactive) throw new CliError(`沒有設定環境變數 DATABASE_URL，也沒有終端機可以貼上連線字串。請先設定環境變數再執行：\n${ENV_EXAMPLES}\n${SESSION_POOLER_HINT}`);
   const url = (await prompter.askSecret(URL_PROMPT)).trim();
   if (!url) throw new CliError("沒有輸入連線字串，沒有連線資料庫");
   return { url, source: "終端機輸入" };
 }
 
-/** 畫面上只顯示主機、port 與資料庫名稱，確認連對地方又不露出帳密 */
-export function describeDatabase(url: string): string {
+/** 只顯示主機 port 與資料庫名稱 確認連對地方又不露出帳密 */
+function describeDatabase(url: string): string {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    // URL 的錯誤物件帶著原始輸入，不能往外丟
+    // URL 的錯誤物件帶著原始輸入 不能往外丟
     throw new CliError("資料庫連線字串格式不對（內容不顯示）");
   }
   if (!POSTGRES_PROTOCOLS.includes(parsed.protocol)) throw new CliError("資料庫連線字串要用 postgresql:// 開頭");
-  // 中間斷行時前半段照樣是合法的網址，要靠缺 port 或資料庫名稱認出來，不然剩下的那段會被當成帳號
+  // 中間斷行的前半段仍是合法網址 只能靠缺 port 或資料庫名稱認出來
   if (!parsed.port || parsed.pathname.replace(/^\//, "") === "") throw new CliError(INCOMPLETE_URL);
   return `${parsed.host}${parsed.pathname}`;
 }
@@ -279,12 +281,15 @@ export async function openFromEnvironment(env: Readonly<Record<string, string | 
 }
 
 function connectPostgres(url: string): Omit<OpenedDatabase, "target"> {
-  // prepare: false 才能接 Supabase 的 transaction pooler；CLI 只需要一條連線
+  // 關掉 prepare 才能接 Supabase 的 transaction pooler CLI 只要一條連線
   const client = postgres(url, { prepare: false, max: 1, connect_timeout: 15, onnotice: () => {} });
   return { db: drizzle(client), close: () => client.end({ timeout: 5 }) };
 }
 
-/** 第一次發問才接上 stdin：help 與有 DATABASE_URL 時的 list 不必等鍵盤輸入；密碼與連線字串輸入時把回顯丟掉 */
+/**
+ * 第一次發問才接上 stdin help 和已有 DATABASE_URL 的 list 不用等鍵盤
+ * 輸入密碼與連線字串時把回顯丟掉
+ */
 function terminalPrompter(): Prompter {
   let session: { ask(question: string, secret: boolean): Promise<string>; close(): void } | undefined;
   const interactive = Boolean(process.stdin.isTTY);
@@ -310,7 +315,7 @@ function terminalPrompter(): Prompter {
           return String(value);
         } finally {
           muted = false;
-          // 輸入被丟掉時不會換行；接管線時也沒有回顯
+          // 丟掉回顯時不會換行 接管線時也沒有回顯
           if (secret || !interactive) process.stderr.write("\n");
         }
       },

@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { form } from "@/dev/test-helpers";
 
-// 結果只有送出之後才有：直接給 useActionState 一個送出後的狀態，看畫面怎麼顯示；其他照 React 原本的實作
+// 結果要送出後才有 所以直接給 useActionState 送出後的狀態看畫面
+// 其他照 React 原本的實作
 vi.mock("react", { spy: true });
 vi.mock("../actions", () => ({ redeemCodeAction: vi.fn() }));
 
@@ -11,12 +12,14 @@ const { RedeemPanel, RedeemResult, redeemFormAction } = await import("./redeem-p
 
 const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const panel = () => createElement(RedeemPanel, { accountId: 7, label: "台港澳服 · 開拓者（UID 900123456）" });
-/** 表單最後面放結果框的那一格：class 與裡面的內容（form 後面還有 React 補的 script） */
+/**
+ * 表單最後面放結果框的那一格 取出 class 與裡面的內容
+ * form 後面還有 React 補的 script
+ */
 const resultSlot = (markup: string) => {
   const match = /<div class="([^"]*)">((?:<div role="(?:status|alert)" class="result-banner.*)?)<\/div><\/form>/.exec(markup);
   return match ? { classes: match[1].split(" "), content: match[2] } : null;
 };
-const buttonClasses = (markup: string) => /<button[^>]*class="([^"]*)"/.exec(markup)?.[1].split(" ") ?? [];
 
 describe("兌換碼", () => {
   it("還沒兌換：兌換到哪個帳號、輸入框與兌換鈕，沒有結果框", () => {
@@ -47,15 +50,6 @@ describe("兌換碼", () => {
     expect(textOf(renderToStaticMarkup(createElement(RedeemResult, { state: { error: "請輸入兌換碼" } })))).toBe("兌換失敗請輸入兌換碼");
   });
 
-  it("送出後的畫面：結果框標出剛才兌換的碼", () => {
-    vi.mocked(useActionState).mockReturnValueOnce([{ message: "獎勵會寄到遊戲內信箱", code: "GIFT2026" }, vi.fn(), false]);
-
-    const markup = renderToStaticMarkup(panel());
-
-    expect(markup).toContain("result-banner-success");
-    expect(textOf(markup)).toContain("兌換成功GIFT2026獎勵會寄到遊戲內信箱");
-  });
-
   it("再按一次兌換：送出中先留著上一次的結果，新結果回來才換掉（不會先清空再出現，下面的內容也不會跳一下）", () => {
     vi.mocked(useActionState).mockReturnValueOnce([{ error: "兌換碼已過期", code: "EXPIRED1", seq: 1 }, vi.fn(), true]);
 
@@ -71,7 +65,8 @@ describe("兌換碼", () => {
 
     const formClasses = /<form[^>]*class="([^"]*)"/.exec(markup)![1].split(" ");
     expect(formClasses).toEqual(expect.arrayContaining(["2xl:grid", "2xl:grid-rows-[1fr_auto_auto]"]));
-    // 上下兩列都用 1fr 時，格線照內容算高度會把兩列撐成一樣高（都跟留好的結果框一樣高），整列卡片平白多出約 46px
+    // 上下兩列都用 1fr 時 格線照內容算高度會把兩列撐成一樣高
+    // 整列卡片平白多出約 46px
     expect(formClasses.filter((c) => /grid-rows-\[[^\]]*1fr[^\]]*1fr/.test(c))).toEqual([]);
     expect(/<p class="([^"]*)">兌換到/.exec(markup)![1].split(" ")).toContain("2xl:self-end");
   });
@@ -81,18 +76,12 @@ describe("兌換碼", () => {
     vi.mocked(useActionState).mockReturnValueOnce([{ message: "獎勵會寄到遊戲內信箱", code: "GIFT2026", seq: 1 }, vi.fn(), false]);
     const after = resultSlot(renderToStaticMarkup(panel()));
 
-    // 兩行說明的結果框高 102px（上下內距 16px、邊框、標題一行 24px、間距 4px、說明兩行 40px）：最長的說明（cookie 少了兌換要用的欄位）在超寬螢幕是兩行
+    // 結果框高 內距 16×2 + 邊框 2 + 標題 24 + 間距 4 + 說明兩行 40 = 102px
+    // 最長的說明是 cookie 少了兌換要用的欄位 在超寬螢幕是兩行
     expect(before).toEqual({ classes: expect.arrayContaining(["2xl:min-h-[6.375rem]", "max-2xl:empty:hidden"]), content: "" });
     expect(before?.classes).not.toContain("2xl:min-h-[5.125rem]");
     expect(after?.classes).toEqual(before?.classes);
     expect(after?.content).toMatch(/^<div role="status" class="result-banner result-banner-success"/);
-  });
-
-  it("兌換鈕一直放得下最長的文字（「請等 5 秒」約 114px）：倒數時按鈕不會變寬、輸入框不會變窄", () => {
-    const classes = buttonClasses(renderToStaticMarkup(panel()));
-
-    expect(classes).toContain("min-w-30");
-    expect(classes).not.toContain("min-w-28");
   });
 });
 

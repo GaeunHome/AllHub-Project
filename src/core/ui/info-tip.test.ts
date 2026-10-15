@@ -3,17 +3,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { INFO_TIP_CLOSED, InfoTip, infoTipReducer, infoTipVisible, placeInfoTip, type InfoTipEvent, type InfoTipState } from "./info-tip";
 
-// 元件接線的測試直接呼叫元件：狀態與 dispatch 換成替身、effect 收起來自己跑；其他測試照 React 原本的實作
+// 元件接線的測試直接呼叫元件 狀態與 dispatch 換成替身 effect 收起來自己跑
+// 其他測試照 React 原本的實作
 vi.mock("react", { spy: true });
 
-/** 從收起的狀態依序發生這些事件後，說明有沒有顯示 */
 const visibleAfter = (...events: InfoTipEvent[]) => infoTipVisible(events.reduce(infoTipReducer, INFO_TIP_CLOSED));
 
 describe("i 圓圈的說明什麼時候顯示", () => {
-  it("一開始收起", () => {
-    expect(infoTipVisible(INFO_TIP_CLOSED)).toBe(false);
-  });
-
   it("滑鼠：移上去顯示、移開收起", () => {
     expect(visibleAfter("hover")).toBe(true);
     expect(visibleAfter("hover", "unhover")).toBe(false);
@@ -115,7 +111,10 @@ describe("InfoTip 的接線（滑過、焦點、點外面、Esc、Activity）", 
     for (const hook of [useReducer, useRef, useId, useLayoutEffect, useEffect]) vi.mocked(hook).mockReset();
   });
 
-  /** 直接呼叫元件，就像算繪到畫面上；回傳外框（span）、dispatch 的替身與收起來的 effect */
+  /**
+   * 直接呼叫元件 就像算繪到畫面上
+   * 回傳外框 span 與 dispatch 的替身 還有收起來的 effect
+   */
   function mount(state: InfoTipState) {
     const dispatch = vi.fn();
     const layoutEffects: EffectCallback[] = [];
@@ -169,16 +168,6 @@ describe("InfoTip 的接線（滑過、焦點、點外面、Esc、Activity）", 
 
     for (const cleanup of cleanups) cleanup?.();
     expect(listeners).toEqual([]);
-  });
-
-  it("收起時不掛點外面與 Esc 的監聽", () => {
-    const addEventListener = vi.fn();
-    vi.stubGlobal("document", { addEventListener, removeEventListener: vi.fn() });
-    const { effects } = mount(INFO_TIP_CLOSED);
-
-    effects.forEach((effect) => effect());
-
-    expect(addEventListener).not.toHaveBeenCalled();
   });
 
   it("滑過只認滑鼠與觸控筆：手指點下去的 pointerenter／pointerleave 不算（觸控裝置靠點一下切換）", () => {

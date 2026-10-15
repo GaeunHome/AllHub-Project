@@ -53,7 +53,7 @@ describe("findCueIndex", () => {
 });
 
 describe("findCueIndex：bridgeGapMs 把很短的空檔接起來，換句時字幕不會閃一下", () => {
-  // 第一句與第二句之間空 100ms，第二句與第三句之間空 1 秒
+  // 第一句與第二句之間空 100ms 第二句與第三句之間空 1 秒
   const spaced = [
     { start: 1000, end: 2000 },
     { start: 2100, end: 3000 },

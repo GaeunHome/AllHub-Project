@@ -35,7 +35,7 @@ const textOf = (markup: string) => markup.replace(/<[^>]+>/g, " ").replace(/\s+/
 const loaded = async () => (await SavedVideosLoader()) as ReactElement<ListProps>;
 const cardHtml = (item: Item) => renderToStaticMarkup(item.card);
 
-/** 只看伺服器元件回傳的元素樹，不實際算繪 */
+/** 只看伺服器元件回傳的元素樹 不實際算繪 */
 function findByType(node: ReactNode, type: unknown): ReactElement | undefined {
   if (Array.isArray(node)) {
     for (const child of node) {

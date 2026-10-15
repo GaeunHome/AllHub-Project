@@ -1,7 +1,7 @@
 import type { NotificationFeed } from "./types";
 
 export const POLL_VISIBLE_MS = 10_000;
-// 背景分頁的計時器本來就會被瀏覽器節流到約一分鐘一次，放慢也省資料庫查詢
+// 背景分頁的計時器本來就會被節流到約一分鐘一次 放慢也省資料庫查詢
 export const POLL_HIDDEN_MS = 60_000;
 
 export type PollResult = { status: "ok"; feed: NotificationFeed } | { status: "unauthorized" };
@@ -15,7 +15,10 @@ export type PollerOptions = {
 
 export type Poller = { refresh(): void; visibilityChanged(): void; stop(): void };
 
-/** 不依賴 React 的輪詢：每次抓完才排下一次，請求不會重疊；React 元件只負責接上 visibilitychange 等事件 */
+/**
+ * 不依賴 React 的輪詢 每次抓完才排下一次 請求不會重疊
+ * React 元件只負責接上 visibilitychange 這類事件
+ */
 export function startPoller({ load, onFeed, onUnauthorized, isHidden }: PollerOptions): Poller {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let controller: AbortController | undefined;
@@ -30,7 +33,7 @@ export function startPoller({ load, onFeed, onUnauthorized, isHidden }: PollerOp
 
   async function tick() {
     if (stopped) return;
-    // 正在抓的時候又被要求更新：等這次結束再補抓一次，結果才會是最新的
+    // 正在抓時又要求更新 等這次結束再補抓一次 結果才會是最新的
     if (inFlight) {
       queued = true;
       return;
@@ -48,7 +51,7 @@ export function startPoller({ load, onFeed, onUnauthorized, isHidden }: PollerOp
       }
       onFeed(result.feed);
     } catch {
-      // 網路斷線或伺服器暫時出錯：下一輪再試
+      // 網路斷線或伺服器暫時出錯 下一輪再試
     } finally {
       inFlight = false;
     }

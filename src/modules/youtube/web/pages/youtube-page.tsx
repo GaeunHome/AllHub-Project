@@ -17,21 +17,21 @@ import { VideoFeed } from "../components/video-feed";
 import { YoutubeSearchBar } from "../components/youtube-search-bar";
 import { captionCheckPending, videoFilters } from "../video-filter";
 
-/** 寬螢幕一排最多 4 支（2xl:grid-cols-4）：這一排的縮圖常常是 LCP，不延遲載入 */
+/** 寬螢幕一排最多 4 支 這一排的縮圖常常是 LCP 不延遲載入 */
 const FIRST_ROW = 4;
 
-// 圖示、名稱、點綴色由 src/app 從 info.ts 傳進來：web 層不能 import 模組根目錄
-// theme-youtube 照 YouTube 網站的淺色與深色，跟著全站的外觀切換
+// 圖示 名稱與點綴色由 src/app 從 info.ts 傳進來 web 層不能 import 根目錄
+// 配色照 YouTube 網站的淺色與深色 跟著全站的外觀切換
 export function YoutubePage({ info }: { info: ModuleInfo }) {
   return (
     <PageTheme accent={info.accent} className="theme-youtube page-stack">
-      {/* 靠上對齊：搜尋列下方出現回饋訊息時，標誌與設定鈕不會跟著往下移（三者都是 44px 高） */}
+      {/* 靠上對齊 搜尋列下方出現訊息時 標誌與設定鈕才不會往下移 三者都是 44px 高 */}
       <header className="flex flex-wrap items-start gap-x-6 gap-y-4 sm:flex-nowrap">
         <YoutubeLogo info={info} />
         <div className="order-last w-full sm:order-none sm:mx-auto sm:w-auto sm:max-w-xl sm:flex-1">
           <YoutubeSearchBar />
         </div>
-        {/* 手機上只有圖示，按鈕是正方形 */}
+        {/* 手機上只有圖示 按鈕是正方形 */}
         <Link href={`${info.href}/settings`} className="yt-pill ml-auto w-11 px-0 sm:ml-0 sm:w-auto sm:px-4" aria-label="翻譯設定">
           <Icon name="settings" className="size-[1.125rem]" />
           <span className="hidden sm:inline">翻譯設定</span>
@@ -44,7 +44,7 @@ export function YoutubePage({ info }: { info: ModuleInfo }) {
   );
 }
 
-/** 跟 YouTube 一樣是紅色標誌加字樣；頁面標題就是它 */
+/** 跟 YouTube 一樣是紅色標誌加字樣 頁面標題就是它 */
 function YoutubeLogo({ info }: { info: ModuleInfo }) {
   return (
     <h1 className="yt-logo">
@@ -62,7 +62,7 @@ export async function YoutubeHome() {
     cachedRecheckCandidates(user.id),
     cachedSavedVideos(user.id),
   ]);
-  // 很多頻道上片後才補字幕：自己清單上有到期的影片才在背景重新檢查，沒有就不碰資料庫
+  // 很多頻道上片後才補字幕 清單上有到期的影片才在背景重新檢查 沒有就不碰資料庫
   const now = new Date();
   if (candidates.some((candidate) => isRecheckDue(candidate, now))) {
     after(() => recheckDueCaptions(user.id).catch((error: unknown) => logError("youtube", "背景重新檢查中文字幕失敗", error)));
@@ -80,18 +80,18 @@ export async function YoutubeHome() {
           />
         )}
       </div>
-      {/* 剛追蹤的頻道補進來的影片還沒檢查過字幕：背景檢查完自動重新整理，不必手動重新整理才看得到結果 */}
+      {/* 剛追蹤時補進來的影片還沒檢查過字幕 背景檢查完自動重新整理才看得到結果 */}
       {videos.some(captionCheckPending) && <CaptionCheckRefresh />}
     </>
   );
 }
 
-/** 跟載入完成的版面一樣：側欄（手機是頭像列）、篩選膠囊與兩欄卡片 */
+/** 跟載入完成的版面一樣 有側欄 篩選膠囊與卡片 手機的側欄是頭像列 */
 function YoutubeHomeSkeleton() {
   return (
     <LoadingState label="載入影片中…" className="grid grid-cols-1 gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
       <div className="stack min-w-0">
-        {/* 「已保留」的入口 */}
+        {/* 已保留的入口 */}
         <Skeleton className="h-11 w-full rounded-lg lg:h-10" />
         <div className="flex gap-4 overflow-hidden lg:flex-col lg:gap-3">
           <Skeleton className="hidden h-6 w-20 lg:block" />

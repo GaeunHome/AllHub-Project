@@ -1,4 +1,4 @@
-// 介面沒有公開文件、欄位依 genshin.py 整理且尚未用真實帳號驗證，所以讀不到的欄位一律給 null，原始 JSON 另外保留供除錯
+// 介面沒有公開文件也還沒驗證 讀不到的欄位給 null 原始 JSON 留著除錯
 
 import { formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDateKey } from "@/core/time";
 import { asRecord, image, number } from "./json";
@@ -7,10 +7,10 @@ export type HoyolabResult<T> =
   | { ok: true; data: T; raw: unknown }
   | { ok: false; retcode: number | null; message: string; cookieInvalid: boolean; raw: unknown };
 
-/** -100：未登入；10001：cookie 無效 */
+/** -100 是未登入 10001 是 cookie 無效 */
 const COOKIE_INVALID_CODES = new Set([-100, 10001]);
 
-/** 常見的錯誤代碼（依 genshin.py 的 errors.py）給中文說明，不顯示 HoYoLAB 的英文原文 */
+/** 常見的錯誤代碼給中文說明 不顯示 HoYoLAB 的英文原文 */
 const GEETEST = "HoYoLAB 要求驗證碼：先到 HoYoLAB 網站打開戰績頁通過驗證，再回來重新整理";
 const KNOWN_ERRORS: Record<number, string> = {
   10101: "HoYoLAB 今天的查詢次數已達上限，明天再試",
@@ -22,7 +22,7 @@ const KNOWN_ERRORS: Record<number, string> = {
   5003: GEETEST,
 };
 
-/** 回應裡的 retcode；格式不對時回 null */
+/** 回應裡的 retcode 格式不對時回 null */
 export function retcodeOf(json: unknown): number | null {
   const retcode = asRecord(json)?.retcode;
   return typeof retcode === "number" ? retcode : null;
@@ -54,7 +54,7 @@ export function interpretResponse(json: unknown): HoyolabResult<unknown> {
   };
 }
 
-/** 成功時把 data 交給 parse，失敗原樣回傳 */
+/** 成功時把 data 交給 parse 失敗原樣回傳 */
 export function interpretWith<T>(json: unknown, parse: (data: unknown) => T): HoyolabResult<T> {
   const result = interpretResponse(json);
   return result.ok ? { ok: true, data: parse(result.data), raw: json } : result;
@@ -97,7 +97,7 @@ export function parseDailyNote(data: unknown): DailyNote {
     maxStamina: number(note?.max_stamina),
     staminaRecoverSeconds: number(note?.stamina_recover_time),
     reserveStamina: number(note?.current_reserve_stamina),
-    // 「epedition」是 HoYoLAB 原本的拼字
+    // epedition 是 HoYoLAB 原本的拼字
     expeditionsAccepted: number(note?.accepted_epedition_num),
     expeditionsTotal: number(note?.total_expedition_num),
     trainScore: number(note?.current_train_score),
@@ -109,7 +109,7 @@ export function parseDailyNote(data: unknown): DailyNote {
   };
 }
 
-/** 委託（派遣）：角色圖只收 http(s) 網址，讀不到的欄位給 null */
+/** 委託 角色圖只收 http 與 https 網址 讀不到的欄位給 null */
 export type Expedition = {
   name: string | null;
   status: "ongoing" | "finished" | null;
@@ -137,7 +137,7 @@ export function parseExpeditions(data: unknown): Expedition[] {
   });
 }
 
-/** 現在的委託狀態：剩餘時間扣掉查詢後已經過去的時間（便箋最多是 5 分鐘前查的） */
+/** 便箋最多是 5 分鐘前查的 剩餘時間要扣掉查詢後過去的時間 */
 export type ExpeditionState = Expedition & { done: boolean };
 
 export function expeditionStates(expeditions: Expedition[], fetchedAt: Date, now: Date): ExpeditionState[] {
@@ -149,7 +149,7 @@ export function expeditionStates(expeditions: Expedition[], fetchedAt: Date, now
   });
 }
 
-/** 例如「剩 2 小時 1 分」 */
+/** 例如剩 2 小時 1 分 */
 export function formatRemaining(seconds: number | null): string | null {
   if (seconds === null) return null;
   if (seconds <= 0) return "已完成";
@@ -160,14 +160,14 @@ export function formatRemaining(seconds: number | null): string | null {
   return rest === 0 ? `剩 ${Math.floor(minutes / 60)} 小時` : `剩 ${Math.floor(minutes / 60)} 小時 ${rest} 分`;
 }
 
-/** 開拓力回滿的時間點；已滿或讀不到時回 null */
+/** 開拓力回滿的時間點 已滿或讀不到時回 null */
 export function staminaFullAt(note: DailyNote, now: Date): Date | null {
   if (note.staminaRecoverSeconds === null || note.staminaRecoverSeconds <= 0) return null;
   return new Date(now.getTime() + note.staminaRecoverSeconds * 1000);
 }
 
 export function formatTaipeiTime(date: Date, now: Date): string {
-  // 用台北的年月日算相差幾天；開拓力從 0 回滿要約 30 小時，可能跨兩天
+  // 用台北的年月日算相差幾天 從 0 回滿要約 30 小時 可能跨兩天
   const taipeiDay = (d: Date) => Date.parse(taipeiDateKey(d));
   const days = Math.round((taipeiDay(date) - taipeiDay(now)) / 86_400_000);
   const time = formatTaipeiHourMinute(date);
@@ -188,7 +188,7 @@ export function parseCheckinInfo(data: unknown): CheckinInfo {
 
 export type CheckinOutcome = { result: "success" | "already" | "failed"; message: string; cookieInvalid: boolean };
 
-/** -5003：今天已經簽過 */
+/** -5003 是今天已經簽過 */
 const ALREADY_SIGNED = -5003;
 
 export function interpretSign(json: unknown): CheckinOutcome {
@@ -198,7 +198,7 @@ export function interpretSign(json: unknown): CheckinOutcome {
     return { result: "failed", message: response.message, cookieInvalid: response.cookieInvalid };
   }
 
-  // 被風控要求驗證碼時 retcode 仍是 0，要看 gt_result
+  // 被風控要求驗證碼時 retcode 仍是 0 要看 gt_result
   if (asRecord(asRecord(response.data)?.gt_result)?.is_risk === true) {
     return { result: "failed", message: "HoYoLAB 要求驗證碼，請到 HoYoLAB 網站手動簽到一次", cookieInvalid: false };
   }

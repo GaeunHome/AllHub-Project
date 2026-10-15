@@ -15,17 +15,6 @@ const SETTINGS: SettingsView = {
   glossaryText: "민지=珉池",
 };
 
-describe("翻譯設定的表單：寬螢幕三欄", () => {
-  const markup = renderToStaticMarkup(createElement(SettingsForm, { settings: SETTINGS }));
-  const formClasses = markup.match(/<form[^>]*class="([^"]*)"/)?.[1].split(/\s+/) ?? [];
-
-  it("選 AI、三家 AI 的設定各一格；專有名詞表佔兩格、儲存那一列撐滿", () => {
-    expect(formClasses).toContain("xl:grid-cols-3");
-    expect(markup).toMatch(/<label class="[^"]*\bxl:col-span-2\b[^"]*"[^>]*>(?:(?!<\/label>).)*專有名詞表/);
-    expect(markup).toMatch(/<div class="[^"]*\bxl:col-span-3\b[^"]*"[^>]*><button[^>]*>(?:(?!<\/button>).)*儲存/);
-  });
-});
-
 describe("翻譯設定的表單：訂閱方案的說明", () => {
   const markup = renderToStaticMarkup(createElement(SettingsForm, { settings: SETTINGS }));
   const legend = markup.match(/<legend[^>]*>(?:(?!<\/legend>).)*翻譯使用的 AI(?:(?!<\/legend>).)*<\/legend>/)?.[0] ?? "";

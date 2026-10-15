@@ -1,9 +1,11 @@
 import type { CSSProperties } from "react";
 
-/** 列出檔名讓 TypeScript 擋下打錯的名稱：mask 載入失敗不會報錯，只會默默不顯示 */
+/** 列出檔名讓 TypeScript 擋下打錯的名稱 mask 載入失敗不會報錯只會不顯示 */
 export const UI_ICON_NAMES = [
   "arrow-down",
+  "arrow-left-right",
   "arrow-up",
+  "banknote",
   "battery-charging",
   "bell",
   "bell-off",
@@ -14,9 +16,9 @@ export const UI_ICON_NAMES = [
   "calendar-check",
   "captions",
   "chart-column",
+  "chart-pie",
   "check",
   "check-check",
-  "chevron-down",
   "chevron-left",
   "chevron-right",
   "circle-alert",
@@ -24,8 +26,8 @@ export const UI_ICON_NAMES = [
   "circle-user-round",
   "clapperboard",
   "clock",
-  "coins",
   "copy",
+  "credit-card",
   "download",
   "ellipsis-vertical",
   "external-link",
@@ -37,9 +39,11 @@ export const UI_ICON_NAMES = [
   "inbox",
   "info",
   "key-round",
+  "landmark",
   "languages",
+  "layout-dashboard",
   "link",
-  "list-video",
+  "list",
   "loader-circle",
   "lock",
   "log-out",
@@ -52,8 +56,11 @@ export const UI_ICON_NAMES = [
   "play",
   "plus",
   "radio",
+  "receipt",
   "rectangle-horizontal",
   "refresh-cw",
+  "repeat",
+  "scale",
   "search",
   "settings",
   "shield-check",
@@ -63,6 +70,8 @@ export const UI_ICON_NAMES = [
   "target",
   "train-front",
   "trash-2",
+  "trending-down",
+  "trending-up",
   "tv",
   "upload",
   "users",
@@ -79,11 +88,11 @@ type IconSource = { name: UiIconName; src?: never } | { src: `/${string}.svg`; n
 
 type IconProps = IconSource & {
   className?: string;
-  /** 只有圖示本身帶意義（旁邊沒有文字）時才給，否則當裝飾讓報讀器略過 */
+  /** 只有圖示本身帶意義時才給 否則當裝飾讓報讀器略過 */
   label?: string;
 };
 
-// 圖示維持 public/ 裡的靜態檔，用 CSS mask 套上 currentColor，才能跟著主題與點綴色變色
+// 圖示是 public/ 裡的靜態檔 用 CSS mask 套上 currentColor 才能跟著主題變色
 export function Icon({ name, src, className, label }: IconProps) {
   const url = src ?? `/icons/ui/${name}.svg`;
   return (

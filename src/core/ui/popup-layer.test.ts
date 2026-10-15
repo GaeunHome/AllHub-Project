@@ -12,7 +12,10 @@ const { NotificationBell } = await import("../notifications/bell");
 
 type FakeOptions = { tag?: string; attributes?: Record<string, string>; shown?: boolean };
 
-/** 只有判斷需要的幾個方法的假元素；shown 為 false 代表在 Activity 藏起來的頁面裡（display: none，沒有版面） */
+/**
+ * 只有判斷需要的幾個方法的假元素
+ * shown 是 false 時在 Activity 藏起來的頁面裡 沒有版面
+ */
 function fakeElement({ tag = "BUTTON", attributes = {}, shown = true }: FakeOptions = {}) {
   return {
     tagName: tag,
@@ -65,7 +68,10 @@ describe("popupLayerOpen：畫面上有沒有彈出層開著", () => {
 
 type Listener = (event: Event) => void;
 
-/** 記下監聽的假 window／document：dispatch 依序跑 window 的捕獲階段與 document 的冒泡階段，中間可以插入別的元件的 document 監聽 */
+/**
+ * 記下監聽的假 window 與 document
+ * dispatch 先跑 window 的捕獲階段 再跑 document 的冒泡階段
+ */
 function fakeTargets(root: ReturnType<typeof fakeRoot>) {
   const listeners: { target: "window" | "document"; listener: Listener; capture: boolean }[] = [];
   const target = (name: "window" | "document") => ({
@@ -82,7 +88,7 @@ function fakeTargets(root: ReturnType<typeof fakeRoot>) {
     doc: { ...target("document"), querySelectorAll: root.querySelectorAll },
     dispatch(event: Event, between: () => void = () => {}) {
       run((l) => l.target === "window" && l.capture, event);
-      // 例如 ⋮ 選單自己掛在 document 上的 Esc 監聽先跑、把選單收起來
+      // 中間插入別的元件的監聽 例如 ⋮ 選單自己的 Esc 監聽先把選單收起來
       between();
       run((l) => l.target === "document" && !l.capture, event);
     },

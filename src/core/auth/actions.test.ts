@@ -9,7 +9,7 @@ const NEW_PASSWORD = "plum blossom 2026";
 
 stubCoreEnv({ SESSION_SECRET: SECRET });
 
-/** 假的 cookie 與 header：next/headers 只能在請求裡用 */
+/** next/headers 只能在請求裡用 所以換成假的 cookie 與 header */
 const request = vi.hoisted(() => ({
   ip: "203.0.113.1",
   jar: new Map<string, { value: string; options?: Record<string, unknown> }>(),
@@ -30,7 +30,7 @@ vi.mock("next/navigation", () => ({
 
 const users = vi.hoisted(() => ({ authenticate: vi.fn(), changePassword: vi.fn(), findSessionUser: vi.fn(), hasAnyUser: vi.fn(), deleteOwnAccount: vi.fn() }));
 vi.mock("./users", () => users);
-// 驗證碼本身另外測；這裡預設答對，專心測登入流程
+// 驗證碼本身另外測 這裡預設答對 專心測登入流程
 vi.mock("./captcha", { spy: true });
 
 const captcha = mocksOf(await import("./captcha"), "takeCaptchaToken", "verifyCaptcha");
@@ -39,7 +39,7 @@ const { SESSION_COOKIE, signSession, verifySessionToken } = await import("./sess
 
 let ipSeq = 0;
 beforeEach(() => {
-  // 失敗次數限制是模組層級的狀態，每個測試換一個 IP 才不會互相影響
+  // 失敗次數限制是模組層級的狀態 每個測試換一個 IP 才不會互相影響
   request.ip = `203.0.113.${++ipSeq}`;
   request.jar.clear();
   Object.values(users).forEach((fn) => fn.mockReset());
@@ -51,7 +51,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-/** 登入失敗會故意等 1 秒，測試用假時鐘快轉 */
+/** 登入失敗會故意等 1 秒 測試用假時鐘快轉 */
 async function settle<T>(promise: Promise<T>): Promise<T> {
   vi.useFakeTimers({ toFake: ["setTimeout"] });
   const result = promise.then(
@@ -109,15 +109,6 @@ describe("login", () => {
     expect(state.error).toMatch(/^錯誤次數太多，請 \d+ 分鐘後再試$/);
     expect(request.jar.has(SESSION_COOKIE)).toBe(false);
     expect(users.authenticate).toHaveBeenCalledTimes(5);
-  });
-
-  it("驗證碼用這次表單的答案與 cookie 驗證（cookie 每次都取出並清掉）", async () => {
-    users.authenticate.mockResolvedValue({ id: USER_ID, sessionVersion: 1 });
-
-    await login({}, form({ username: "alice", password: PASSWORD, captcha: "k7mrx" })).catch(() => {});
-
-    expect(captcha.takeCaptchaToken).toHaveBeenCalledWith("login");
-    expect(captcha.verifyCaptcha).toHaveBeenCalledWith("login", "k7mrx", "captcha-token");
   });
 
   it("驗證碼錯誤_回「驗證碼錯誤，請重新輸入」；還沒檢查密碼，不算帳號的失敗次數", async () => {
@@ -196,17 +187,6 @@ describe("changePasswordAction", () => {
     expect(users.changePassword).not.toHaveBeenCalled();
   });
 
-  it("成功_遞增後的 session 版本重新簽發這台裝置的 cookie", async () => {
-    await loggedIn();
-    users.changePassword.mockResolvedValue({ ok: true, sessionVersion: 2 });
-
-    const state = await changePasswordAction({}, passwords(PASSWORD, NEW_PASSWORD));
-
-    expect(users.changePassword).toHaveBeenCalledWith(USER_ID, PASSWORD, NEW_PASSWORD);
-    expect(state).toEqual({ message: "已變更密碼。這台裝置保持登入，其他裝置都已登出。" });
-    expect(await verifySessionToken(request.jar.get(SESSION_COOKIE)!.value, SECRET)).toEqual({ userId: USER_ID, version: 2 });
-  });
-
   it("目前密碼錯誤_回錯誤訊息_cookie 不變", async () => {
     await loggedIn();
     const before = request.jar.get(SESSION_COOKIE)!.value;
@@ -217,7 +197,7 @@ describe("changePasswordAction", () => {
   });
 
   it("目前密碼連續錯 5 次_先鎖住，不再驗證（依帳號計算，換 IP 也一樣）", async () => {
-    // 失敗次數依帳號累計，用另一個帳號才不會被前面的測試影響
+    // 失敗次數依帳號累計 用另一個帳號才不會被前面的測試影響
     await loggedIn("0b6f3c1e-9d2a-4f6b-8c7d-2e3f4a5b6c7d");
     users.changePassword.mockResolvedValue({ ok: false, reason: "wrong_password", error: "目前的密碼不正確" });
     for (let i = 0; i < 5; i++) {

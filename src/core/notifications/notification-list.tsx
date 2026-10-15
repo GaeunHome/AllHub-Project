@@ -13,7 +13,7 @@ import type { NotificationItem } from "./types";
 
 type ListProps = {
   items: NotificationItem[];
-  /** 保留期內有通知的模組，決定要顯示哪些篩選按鈕 */
+  /** 保留期內有通知的模組 決定要顯示哪些篩選按鈕 */
   moduleIds: string[];
   module: string | null;
   modules: NotificationModule[];
@@ -23,14 +23,14 @@ type ListProps = {
 export function NotificationList({ items, moduleIds, module, modules, retentionDays }: ListProps) {
   const router = useRouter();
   const { feed, latestId, markRead, markAllRead } = useNotificationCenter();
-  // 先在畫面上標成已讀，不必等重新整理
+  // 先在畫面上標成已讀 不必等重新整理
   const [locallyRead, setLocallyRead] = useState<ReadonlySet<number>>(new Set());
   const byId = new Map(modules.map((m) => [m.id, m]));
   const filters = modules.filter((m) => moduleIds.includes(m.id) || m.id === module);
   const isRead = (item: NotificationItem) => item.read || locallyRead.has(item.id);
   const unreadHere = items.filter((item) => !isRead(item));
 
-  // 輪詢看到更新的通知時重新抓這一頁，列表不用手動重新整理
+  // 輪詢看到更新的通知時重新抓這一頁 列表不用手動重新整理
   const seenId = useRef(latestId);
   useEffect(() => {
     if (latestId !== null && seenId.current !== null && latestId > seenId.current) router.refresh();
@@ -44,7 +44,7 @@ export function NotificationList({ items, moduleIds, module, modules, retentionD
 
   return (
     <div className="stack">
-      {/* 手機上篩選膠囊自己一列（可以橫向捲動），按鈕換到下一列，不會被按鈕蓋住 */}
+      {/* 手機上篩選膠囊自己一列可以橫捲 按鈕換到下一列才不會蓋住膠囊 */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <nav aria-label="依模組篩選" className="no-scrollbar -my-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-1">
           <FilterLink href="/notifications" current={module === null} count={feed.unread.total}>
@@ -105,13 +105,13 @@ function NotificationEntry({ item, module, read, onRead }: { item: NotificationI
 
   return (
     <li className="card-row flex items-start gap-3">
-      {/* 未讀的點放在模組圖示的角落：已讀、未讀的標題都從同一條線開始 */}
+      {/* 未讀的點放在模組圖示的角落 已讀未讀的標題才從同一條線開始 */}
       <span className="relative shrink-0">
         <ModuleBadge module={module} />
         {!read && <span aria-hidden className="unread-dot absolute -top-1 -right-1 ring-2 ring-[var(--surface)]" />}
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        {/* 標題一行、模組與時間一行：手機與寬螢幕同一個排法，跟鈴鐺面板一樣 */}
+        {/* 標題一行 模組與時間一行 各種寬度都跟鈴鐺面板一樣 */}
         <div className="flex flex-col gap-1">
           <p className={read ? "font-medium text-ink-soft" : "font-semibold text-ink"}>
             {!read && <span className="sr-only">未讀：</span>}

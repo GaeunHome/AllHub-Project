@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-/* 深色模式：<html data-theme> 有值時以它為準（人像選單裡的「外觀」），沒有值時跟隨系統；Tailwind 的 dark: 與下面的 @variant dark 都走這個規則 */
+/* 深色模式 html 有 data-theme 時以它為準 沒有時跟隨系統 */
+/* Tailwind 的 dark 變體與下面的 @variant dark 都走這個規則 */
 @custom-variant dark {
   &:where([data-theme="dark"], [data-theme="dark"] *) {
     @slot;
@@ -12,8 +13,8 @@
   }
 }
 
-/* 配色全部走 CSS 變數：深色模式與 Twitch、星穹鐵道頁的主題只換變數，元件裡不必到處寫 dark: */
-/* 全站是簡潔中性的風格：白／淡灰底、灰色細框；主色只有一個深藍，只用在主要按鈕、連結與焦點框；模組的品牌色只出現在圖示與小標籤 */
+/* 配色全部走 CSS 變數 深色模式與主題頁只換變數 元件裡不用到處寫 dark 變體 */
+/* 全站簡潔中性 主色只有深藍 只用在主要按鈕 連結與焦點框 品牌色只給圖示與小標籤 */
 :root {
   color-scheme: light;
 
@@ -29,7 +30,7 @@
 
   --ink: #15171c;
   --ink-soft: #343842;
-  /* 說明文字也要在白底上維持 6:1 以上，不要太淡 */
+  /* 說明文字在白底上也要有 6:1 以上 不要太淡 */
   --muted: #545a66;
   --placeholder: #6b7280;
 
@@ -62,7 +63,7 @@
   --skeleton-base: #eceef1;
   --skeleton-shine: rgb(255 255 255 / 0.65);
 
-  /* 模組的品牌色：只給圖示與小標籤用；圖示會單獨出現在手機導覽列，主色要對淺底有 3:1 */
+  /* 模組的品牌色只給圖示與小標籤 圖示會單獨出現在手機導覽列 對淺底要有 3:1 */
   --accent-blue: #1d4ed8;
   --accent-blue-ink: #1e40af;
   --accent-blue-soft: #eef3ff;
@@ -83,6 +84,21 @@
   --accent-green-ink: #047857;
   --accent-green-soft: #ecfdf5;
   --accent-green-line: #a7f3d0;
+
+  /* 理財的分類與圖表色 照 lib/kinds 的 PALETTE 順序相鄰的兩色色盲也分得開 */
+  /* 對白底有 3:1 黃色例外 旁邊一定有名稱與金額 */
+  --fin-blue: #2677da;
+  --fin-teal: #06a2ae;
+  --fin-green: #2c9934;
+  --fin-amber: #dfa11a;
+  --fin-orange: #e95c12;
+  --fin-rose: #da327d;
+  --fin-violet: #6251d1;
+  --fin-slate: #7c8493;
+  /* 趨勢圖的收入與支出用青與橘 色盲也分得開 資產自己一張圖用藍 */
+  --fin-income: var(--fin-teal);
+  --fin-expense: var(--fin-orange);
+  --fin-assets: var(--fin-blue);
 }
 
 :root {
@@ -153,10 +169,20 @@
     --accent-green-ink: #6ee7b7;
     --accent-green-soft: rgb(52 211 153 / 0.12);
     --accent-green-line: rgb(52 211 153 / 0.34);
+
+    /* 同一組色相換成深色底用的亮度 一樣照 PALETTE 的順序驗證過 */
+    --fin-blue: #357cf1;
+    --fin-teal: #18a2b8;
+    --fin-green: #40844d;
+    --fin-amber: #b28b11;
+    --fin-orange: #c14315;
+    --fin-rose: #df5c8e;
+    --fin-violet: #8e7fe6;
+    --fin-slate: #858c99;
   }
 }
 
-/* data-accent 只換對應關係，淺色／深色的實際色值由上面的變數決定；沒指定的（core 的頁面）用主色的藍 */
+/* data-accent 只換對應關係 實際色值由上面的變數決定 core 的頁面沒指定就用藍 */
 :root,
 [data-accent="blue"] {
   --accent: var(--accent-blue);
@@ -189,8 +215,8 @@
   --accent-line: var(--accent-green-line);
 }
 
-/* Twitch 頁：不論全站淺色或深色，都是 Twitch 網站的深色風格（近黑底、深灰面板、Twitch 紫）；共用的 card、chip、按鈕、input 跟著換色 */
-/* 調色盤只放在頁面的外框（core/ui/page-theme.tsx 的 PageTheme）上：導覽列、鈴鐺面板、人像選單在外框外面，維持全站的樣子；整頁的底色另外寫在下面的 body */
+/* Twitch 頁不論外觀都是 Twitch 的深色風格 共用的 card chip 按鈕 input 跟著換色 */
+/* 調色盤只放在 PageTheme 外框上 導覽列與選單在外框外面 維持全站的樣子 */
 .theme-twitch {
   color-scheme: dark;
   --surface: #18181b;
@@ -234,7 +260,7 @@
   accent-color: var(--brand);
 }
 
-/* 星穹鐵道頁：不論全站淺色或深色，都是遊戲裡的深藍星空；文字白與金色，面板半透明、切角；調色盤只放在外框上，做法跟 Twitch 一樣 */
+/* 星穹鐵道頁不論外觀都是遊戲的深藍星空 調色盤只放在外框上 做法同 Twitch */
 .theme-starrail {
   color-scheme: dark;
   --sr-gold: #e6c27a;
@@ -282,7 +308,7 @@
   accent-color: var(--brand);
 }
 
-/* 固定深色的頁面（Twitch、星穹鐵道）：外觀選淺色時，外框裡的模組圖示與狀態點也用深色模式的值（同 :root 的深色模式），放在深色底上才不會太暗 */
+/* 固定深色的頁面選淺色外觀時 圖示與狀態點也用深色值 深色底上才不會太暗 */
 .theme-twitch,
 .theme-starrail {
   --success-dot: #34d399;
@@ -310,16 +336,16 @@
   --accent-green-line: rgb(52 211 153 / 0.34);
 }
 
-/* 整頁的深色底：頁面顯示時換 body（與星穹鐵道的 html）的背景，導覽列以下鋪滿全寬、整個高度；:root 的變數與 color-scheme 不動，導覽列維持全站的樣子 */
-/* Activity 藏起來的頁面還留在文件裡：外框（core/ui/page-theme.tsx）藏起來時標上 data-activity-hidden，這裡排除它，換到別頁時底色不會漏過去 */
+/* 整頁的深色底只換背景 :root 的變數與 color-scheme 不動 導覽列維持原樣 */
+/* Activity 藏起來的頁面還在文件裡 排除 data-activity-hidden 底色才不會漏到別頁 */
 :root:has(.theme-twitch:not([data-activity-hidden])) body {
   background-color: #0e0e10;
 }
-/* html 自己有底色（也蓋住捲過頭露出的地方）：body 的星空才畫在 body 上、跟著頁面拉長，不會被當成整個畫布的背景、照視窗高度一段一段重複 */
-/* 星空的變數也放在這裡：body 與彈出視窗（.sr-dialog）都讀得到；只有星空，導覽列用的變數不動 */
+/* html 自己有底色 body 的星空才不會被當成畫布背景 照視窗高度一段段重複 */
+/* 星空的變數放這裡 body 與 sr-dialog 都讀得到 導覽列用的變數不動 */
 :root:has(.theme-starrail:not([data-activity-hidden])) {
   background-color: #090d26;
-  /* 星空：整頁重複的細小星點、角落的光暈與底色漸層 */
+  /* 星空是整頁重複的細小星點 角落的光暈與底色漸層 */
   --sr-sky:
     radial-gradient(1.5px 1.5px at 12% 18%, rgb(255 255 255 / 0.7), transparent),
     radial-gradient(1px 1px at 37% 62%, rgb(255 255 255 / 0.5), transparent),
@@ -330,7 +356,7 @@
     linear-gradient(180deg, #0b1030 0%, #0a0f2b 45%, #120c33 100%);
   --sr-sky-size: 360px 420px, 360px 420px, 360px 420px, 360px 420px, auto, auto, auto;
 }
-/* 最上層是自己畫的行星、軌道環與星軌列車的軌道（撐滿寬度、高 56rem，頁面很長時不跟著拉大，軌道線維持細細的） */
+/* 最上層是自己畫的行星與軌道 高 56rem 頁面很長時不跟著拉大 軌道線才維持細的 */
 :root:has(.theme-starrail:not([data-activity-hidden])) body {
   background-color: #090d26;
   background-image: url("/images/starrail-sky.svg"), var(--sr-sky);
@@ -338,15 +364,16 @@
   background-position: top center, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
   background-size: 100% 56rem, var(--sr-sky-size);
 }
-/* 導覽列是半透明的 --header-bg 加模糊：直接疊在深色底上會被染灰，這兩頁改成不透明、跟別頁一樣的顏色（全站的 --header-bg 疊在 --bg-base 上）；內容捲到底下時也不會透出深色 */
+/* 半透明的導覽列疊在深色底上會被染灰 這兩頁改成跟別頁一樣的不透明顏色 */
+/* 內容捲到底下時也不會透出深色 */
 :root:has(.theme-twitch:not([data-activity-hidden])) .app-header,
 :root:has(.theme-starrail:not([data-activity-hidden])) .app-header {
   background-color: var(--bg-base);
   background-image: linear-gradient(var(--header-bg), var(--header-bg));
 }
 
-/* YouTube 頁：照 YouTube 網站的淺色與深色（白底／#0f0f0f、#f2f2f2／#272727 的膠囊按鈕），跟著全站的外觀切換；紅色只留給標誌與進度條 */
-/* 灰色的面用半透明黑白疊出來（跟 YouTube 一樣），放在白底、灰底或深色底上都對得上 */
+/* YouTube 頁照 YouTube 網站的淺色與深色 跟著外觀切換 紅色只留給標誌與進度條 */
+/* 灰色的面跟 YouTube 一樣用半透明黑白疊出來 放在什麼底上都對得上 */
 .theme-youtube {
   --surface: #ffffff;
   --surface-solid: #ffffff;
@@ -356,7 +383,7 @@
   --line-strong: #d3d3d3;
   --ink: #0f0f0f;
   --ink-soft: #272727;
-  /* YouTube 的次要文字色；在白底上 6:1，不會太淡 */
+  /* YouTube 的次要文字色 在白底上有 6:1 不會太淡 */
   --muted: #606060;
   --placeholder: #717171;
   --brand: #0f0f0f;
@@ -413,8 +440,8 @@
   }
 }
 
-/* YouTube 頁連頁面底色與導覽列也換成 YouTube 的白／#0f0f0f，整頁看起來才像 YouTube */
-/* Activity 藏起來的 YouTube 頁還留在文件裡：外框（core/ui/page-theme.tsx）藏起來時標上 data-activity-hidden，這裡排除它，看過 YouTube 再換到別頁時底色不會漏過去 */
+/* YouTube 頁連底色與導覽列也換 整頁看起來才像 YouTube */
+/* 排除 Activity 藏起來的頁面 看過 YouTube 再換頁時底色才不會漏過去 */
 :root:has(.theme-youtube:not([data-activity-hidden])) {
   --bg-base: #ffffff;
   --header-bg: rgb(255 255 255 / 0.95);
@@ -452,10 +479,10 @@
 
 @layer base {
   html {
-    /* 導覽列固定在頂部，跳到錨點時不要被它蓋住 */
+    /* 導覽列固定在頂部 跳到錨點時不要被它蓋住 */
     scroll-padding-top: 6rem;
     -webkit-tap-highlight-color: transparent;
-    /* 一律保留捲軸的位置：有捲軸的系統上，頁面長短不同、打開視窗鎖住捲動時，版面都不會左右跳 */
+    /* 一律保留捲軸的位置 頁面長短不同或視窗鎖住捲動時版面都不會左右跳 */
     scrollbar-gutter: stable;
   }
 
@@ -501,7 +528,7 @@
     mask: var(--icon-url) center / contain no-repeat;
   }
 
-  /* 底色維持中性，只有圖示本身用模組的品牌色 */
+  /* 底色維持中性 只有圖示本身用模組的品牌色 */
   .icon-tile {
     display: inline-grid;
     flex-shrink: 0;
@@ -534,6 +561,18 @@
     display: none;
   }
 
+  /* 768px 以下模組按鈕可能放不下 右緣淡出提示還能往右滑 */
+  /* 末端留同樣寬的空白 捲到最後一顆時不會被淡出蓋住 */
+  @media (width < 48rem) {
+    .nav-scroll {
+      scroll-padding-inline-end: 1.25rem;
+      mask-image: linear-gradient(to right, #000 calc(100% - 1.25rem), transparent);
+    }
+    .nav-scroll > ul {
+      padding-inline-end: 1.25rem;
+    }
+  }
+
   .card {
     @apply rounded-2xl p-5 sm:p-6;
     border: 1px solid var(--line);
@@ -541,27 +580,27 @@
     box-shadow: var(--elevation-card);
   }
 
-  /* ---------- 版面的間距：尺度固定（規則寫在 CLAUDE.md〈程式碼慣例〉的「間距與對齊」），距離交給父層的 gap，子元素不另外加 margin ---------- */
-  /* 頁面上的區塊（卡片、區段）之間 */
+  /* 版面的間距 規則見 CLAUDE.md 的間距與對齊 距離交給父層的 gap 子元素不加 margin */
+  /* 頁面上的卡片與區段之間 */
   .page-stack {
     @apply flex flex-col gap-8;
   }
-  /* 卡片與區段裡的元素之間、表單的欄位之間 */
+  /* 卡片與區段裡的元素之間 表單的欄位之間 */
   .stack {
     @apply flex flex-col gap-4;
   }
-  /* 一個欄位：標籤在上、輸入框在下 */
+  /* 一個欄位 標籤在上 輸入框在下 */
   .field {
     @apply flex flex-col gap-1.5;
   }
   .field-label {
     @apply text-sm font-medium text-ink-soft;
   }
-  /* 一排按鈕：同一排一樣高，放不下時換行 */
+  /* 一排按鈕 同一排一樣高 放不下時換行 */
   .button-row {
     @apply flex flex-wrap items-center gap-2;
   }
-  /* 卡片裡撐滿左右的清單：抵掉卡片的內距，每一列再補回同樣的左右內距，列裡的文字跟卡片其他內容對齊同一條線 */
+  /* 卡片裡撐滿左右的清單 抵掉卡片的內距再由每一列補回 文字跟卡片內容對齊 */
   .card-list {
     @apply -mx-5 flex flex-col divide-y divide-line border-t border-line sm:-mx-6;
   }
@@ -574,7 +613,7 @@
   .card-row {
     @apply px-5 py-3 sm:px-6;
   }
-  /* 卡片裡再小一級的區塊（展開的輸入區、統計面板、數字方塊） */
+  /* 卡片裡再小一級的區塊 例如統計面板與數字方塊 */
   .panel {
     @apply rounded-xl p-4;
     background-color: var(--surface-muted);
@@ -632,11 +671,11 @@
     color: var(--ink);
     background-color: var(--surface-muted);
   }
-  /* 清單列、工具列裡的次要按鈕：寬螢幕 36px，觸控裝置跟主要按鈕一樣 44px（見檔案最後的 pointer: coarse） */
+  /* 清單列與工具列裡的次要按鈕 寬螢幕 36px 觸控裝置在檔案最後放大到 44px */
   .btn-sm {
     @apply min-h-9 gap-1 px-3 text-[0.8125rem];
   }
-  /* 只有圖示的按鈕：寬度等於高度（正方形），一排放不下時也不會被擠扁 */
+  /* 只有圖示的按鈕是正方形 一排放不下時也不會被擠扁 */
   .btn-icon {
     @apply w-11 shrink-0 px-0;
   }
@@ -644,7 +683,7 @@
     @apply w-9;
   }
 
-  /* 高度固定 44px，跟按鈕一樣：行高寫死成 24px，字級不同的輸入框也不會多出 1px */
+  /* 跟按鈕一樣 44px 高 行高寫死 24px 字級不同時也不會多出 1px */
   .input {
     @apply min-h-11 w-full min-w-0 rounded-lg px-3.5 py-2 text-[0.9375rem] leading-6;
     border: 1px solid var(--line-strong);
@@ -691,12 +730,12 @@
   .link:hover {
     text-decoration-color: currentColor;
   }
-  /* 自己一行的文字連結（「還有 3 支影片」這類）：觸控裝置上點擊範圍放大到 44px */
+  /* 自己一行的文字連結 觸控裝置上點擊範圍放大到 44px */
   .link-block {
     @apply inline-flex items-center self-start;
   }
 
-  /* 左邊用負邊距抵掉內距：箭頭對齊頁面的左邊線，滑過時的底色往外多出一點 */
+  /* 左邊用負邊距抵掉內距 箭頭對齊頁面左邊線 滑過時底色往外多一點 */
   .back-link {
     @apply -ml-2.5 inline-flex min-h-9 items-center gap-1 self-start rounded-lg px-2.5 text-sm font-medium;
     color: var(--ink-soft);
@@ -706,7 +745,7 @@
     background-color: var(--surface-muted);
   }
 
-  /* 行高寫死成 16px：裡面放了字級較大的數字也一樣高（22px） */
+  /* 行高寫死 16px 放了字級較大的數字也一樣是 22px 高 */
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap;
     border: 1px solid var(--line);
@@ -763,7 +802,7 @@
   .form-message > .icon {
     @apply mt-0.5 size-4;
   }
-  /* 跟按鈕排在同一列時（視窗關掉後接在按鈕後面的 DialogMessage、邀請的「再看一次連結」）跟按鈕垂直置中 */
+  /* 跟按鈕排在同一列的訊息 例如 DialogMessage 要跟按鈕垂直置中 */
   .button-row > .form-message {
     align-self: center;
   }
@@ -775,7 +814,7 @@
     color: var(--success);
     background-color: var(--success-soft);
   }
-  /* core/ui/form-message.tsx 的 ResultBanner：點了之後要一眼看到的結果，圖示與標題用狀態色、說明維持深色字 */
+  /* ResultBanner 是點了要一眼看到的結果 圖示與標題用狀態色 說明維持深色字 */
   .result-banner {
     @apply flex items-start gap-3 rounded-xl p-4;
     border: 1px solid var(--line);
@@ -877,14 +916,14 @@
     border: 1px dashed var(--line-strong);
     background-color: var(--surface-muted);
   }
-  /* 卡片裡的空狀態：圖示、文字、按鈕排成一列，按鈕放不下時換到下一行 */
+  /* 卡片裡的空狀態排成一列 按鈕放不下時換到下一行 */
   .empty-state-compact {
     @apply flex flex-wrap items-center gap-4 rounded-xl p-4;
     border: 1px dashed var(--line-strong);
     background-color: var(--surface-muted);
   }
 
-  /* 卡片標題列右邊「前往模組頁」的連結；右邊用負邊距抵掉內距，箭頭對齊卡片內容的右邊線 */
+  /* 卡片標題列右邊前往模組頁的連結 負邊距讓箭頭對齊卡片內容的右邊線 */
   .card-header-link {
     @apply -mr-1.5 inline-flex min-h-9 shrink-0 items-center gap-0.5 rounded-lg pr-1.5 pl-2.5 text-sm font-medium;
     color: var(--brand-ink);
@@ -894,7 +933,7 @@
     background-color: var(--surface-muted);
   }
 
-  /* 首頁上方的模組入口：手機上四格並排、圖示在上；寬螢幕是一排膠囊 */
+  /* 首頁上方的模組入口 手機上四格並排圖示在上 寬螢幕是一排膠囊 */
   .home-module-link {
     @apply flex min-h-11 w-full flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[0.8125rem] font-medium sm:flex-row sm:gap-2 sm:px-3.5 sm:py-0 sm:text-sm;
     border: 1px solid var(--line);
@@ -912,7 +951,7 @@
     background-color: var(--surface-muted);
   }
 
-  /* 卡片裡可以點的一列（首頁的未讀通知）：滑過時整列淡灰底，左右內距由外層的負邊距抵掉，文字跟卡片內容對齊 */
+  /* 卡片裡可以點的一列 左右內距由外層的負邊距抵掉 文字跟卡片內容對齊 */
   .home-row {
     @apply flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2 text-left;
     transition: background-color 150ms ease;
@@ -946,12 +985,12 @@
     text-decoration: underline;
     text-underline-offset: 3px;
   }
-  /* details 不吃父層的 gap：展開的內容跟 summary 的距離統一寫在這裡 */
+  /* details 不吃父層的 gap 展開內容跟 summary 的距離統一寫在這裡 */
   .disclosure > summary + * {
     margin-top: 0.75rem;
   }
 
-  /* 跟輸入框、按鈕一樣高（44px）；選項本身矮一點，用透明的偽元素把點擊範圍撐到整個外框的高度 */
+  /* 跟輸入框一樣 44px 高 選項矮一點 用透明偽元素把點擊範圍撐到外框高度 */
   .segmented {
     @apply inline-flex min-h-11 items-stretch gap-0.5 rounded-lg p-1;
     border: 1px solid var(--line);
@@ -1009,7 +1048,7 @@
     backdrop-filter: blur(16px) saturate(1.2);
   }
 
-  /* 導覽列與通知頁的篩選膠囊：跟次要按鈕同一個高度（寬螢幕 36px、觸控 44px） */
+  /* 導覽列與通知頁的篩選膠囊 跟次要按鈕一樣高 */
   .nav-pill {
     @apply inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-medium whitespace-nowrap;
     border: 1px solid transparent;
@@ -1033,7 +1072,7 @@
     background-color: var(--surface-muted);
   }
 
-  /* 未讀數：鈴鐺右上角、導覽與通知頁篩選膠囊裡的小圓角數字 */
+  /* 未讀數 鈴鐺右上角與篩選膠囊裡的小圓角數字 */
   .count-badge {
     @apply inline-flex h-[1.125rem] min-w-[1.125rem] shrink-0 items-center justify-center rounded-full px-1 text-[0.6875rem] leading-none font-bold tabular-nums;
     color: var(--on-brand);
@@ -1047,7 +1086,8 @@
     box-shadow: 0 0 0 3px var(--brand-soft);
   }
 
-  /* 放在 header 裡要用 absolute：header 有 backdrop-filter，fixed 的子元素會被它框住；手機上撐滿整列（左右留跟頁面一樣的 16px），大螢幕對齊鈴鐺 */
+  /* header 有 backdrop-filter 會框住 fixed 的子元素 所以用 absolute */
+  /* 手機上撐滿整列左右留 16px 大螢幕對齊鈴鐺 */
   .notification-panel {
     @apply absolute inset-x-4 top-full mt-2 flex max-h-[min(34rem,calc(100dvh-5rem))] flex-col overflow-hidden rounded-2xl sm:inset-x-auto sm:right-0 sm:w-96;
     z-index: 50;
@@ -1067,7 +1107,8 @@
     background-color: var(--surface-muted);
   }
 
-  /* 跟鈴鐺面板一樣放在 header 裡用 absolute：手機上靠整列右緣（留跟頁面一樣的 16px），大螢幕對齊人像按鈕；max-w 讓很窄的螢幕也不超出 */
+  /* 跟鈴鐺面板一樣用 absolute 手機上靠右留 16px 大螢幕對齊人像按鈕 */
+  /* max-w 讓很窄的螢幕也不超出 */
   .menu-panel {
     @apply absolute top-full right-4 mt-2 flex w-60 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-2xl p-1.5 sm:right-0;
     z-index: 50;
@@ -1088,11 +1129,11 @@
     color: var(--ink);
     background-color: var(--surface-muted);
   }
-  /* 項目之間只隔一點點，外框往內畫才不會壓到隔壁項目 */
+  /* 項目之間只隔一點點 外框往內畫才不會壓到隔壁 */
   .menu-item:focus-visible {
     outline-offset: -2px;
   }
-  /* 登出是離開的動作，平常就用紅色跟一般項目區分 */
+  /* 登出是離開的動作 平常就用紅色跟一般項目區分 */
   .menu-item-danger,
   .menu-item-danger:hover,
   .menu-item-danger:focus-visible {
@@ -1103,7 +1144,7 @@
     background-color: var(--danger-soft);
   }
 
-  /* 人像選單裡的外觀：三個並排的選項，選中的用主色框起來 */
+  /* 人像選單裡的外觀 三個選項並排 選中的用主色框起來 */
   .theme-option {
     @apply flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg px-1 text-[0.8125rem] font-medium whitespace-nowrap;
     border: 1px solid var(--line);
@@ -1179,8 +1220,8 @@
     opacity: 0.55;
   }
 
-  /* ---------- 共用的 ⋮ 選單（core/ui/more-menu.tsx） ---------- */
-  /* 手機是從底部升起的面板；寬螢幕改成貼著按鈕的小選單，位置由元件算好放在 --menu-top／--menu-left */
+  /* 共用的 ⋮ 選單 core/ui/more-menu.tsx */
+  /* 手機從底部升起 寬螢幕貼著按鈕 位置由元件算好放在 --menu-top 與 --menu-left */
   .more-menu {
     @apply fixed inset-x-0 bottom-0 flex max-h-[80dvh] flex-col gap-0.5 overflow-y-auto rounded-t-2xl p-2 pb-[max(0.75rem,env(safe-area-inset-bottom))];
     z-index: 70;
@@ -1210,8 +1251,8 @@
     }
   }
 
-  /* ---------- 共用的彈出視窗（core/ui/dialog.tsx） ---------- */
-  /* 手機從底部升起、撐滿寬度；寬螢幕是置中的卡片。標題列固定，只有本文捲動 */
+  /* 共用的彈出視窗 core/ui/dialog.tsx */
+  /* 手機從底部升起撐滿寬度 寬螢幕置中 標題列固定只有本文捲動 */
   .dialog {
     @apply m-0 mt-auto flex max-h-[90dvh] w-full max-w-none flex-col overflow-hidden rounded-t-2xl p-0;
     border: 1px solid var(--line);
@@ -1225,7 +1266,7 @@
   .dialog::backdrop {
     background-color: rgb(0 0 0 / 0.5);
   }
-  /* 裡面是 CardHeader（圖示方塊、標題、關閉鈕），這層只管內距與分隔線 */
+  /* 裡面是 CardHeader 這層只管內距與分隔線 */
   .dialog-header {
     @apply shrink-0 px-4 pt-4 pb-3;
     border-bottom: 1px solid var(--line);
@@ -1233,11 +1274,11 @@
   .dialog-body {
     @apply flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))];
   }
-  /* 內容自己帶標題列與內距（角色詳情）；底部仍讓開手機的 Home 指示條 */
+  /* 角色詳情這類內容自己帶標題列與內距 底部仍讓開手機的 Home 指示條 */
   .dialog-body-bare {
     @apply block p-0 pb-[env(safe-area-inset-bottom)];
   }
-  /* size="full"：滿版的大面板（角色詳情、主播詳情），手機是整個螢幕；高度固定，內容可以依面板高度排版 */
+  /* 滿版的大面板 手機是整個螢幕 高度固定讓內容依面板高度排版 */
   .dialog-full {
     height: 100dvh;
     max-height: none;
@@ -1261,7 +1302,7 @@
     .dialog-lg {
       max-width: 44rem;
     }
-    /* 四周只留 1rem，寬高跟著視窗、不設上限；用 inset 撐開而不是 100vw，Windows 的捲軸不會把右邊吃掉 */
+    /* 四周只留 1rem 不設上限 用 inset 撐開而不是 100vw 捲軸才不會吃掉右邊 */
     .dialog-full {
       inset: 1rem;
       width: auto;
@@ -1292,12 +1333,12 @@
       }
     }
   }
-  /* 視窗開著時背後的頁面不跟著捲（捲軸的位置在 html 一律保留，鎖住時不會左右跳） */
+  /* 視窗開著時背後的頁面不捲 捲軸位置在 html 一律保留 鎖住時不會跳 */
   html:has(.dialog[open]) {
     overflow: hidden;
   }
 
-  /* 只有圖示的圓形按鈕（⋮、關閉這類）：一律正方形，寬螢幕 36px、觸控 44px */
+  /* ⋮ 與關閉這類只有圖示的圓形按鈕 寬螢幕 36px 觸控 44px */
   .icon-button {
     @apply inline-grid size-9 shrink-0 cursor-pointer place-items-center rounded-full;
     color: var(--ink);
@@ -1310,7 +1351,7 @@
     background-color: var(--surface-muted);
   }
 
-  /* 選單項目裡的開關圖示，跟著外層按鈕的 aria-checked 切換 */
+  /* 選單項目裡的開關圖示 跟著外層按鈕的 aria-checked 切換 */
   .switch-visual {
     position: relative;
     display: inline-block;
@@ -1341,11 +1382,11 @@
     transform: translate(1rem, -50%);
   }
 
-  /* ---------- 標題旁的 i 圓圈（core/ui/info-tip.tsx） ---------- */
+  /* 標題旁的 i 圓圈 core/ui/info-tip.tsx */
   .info-tip {
     display: inline-flex;
   }
-  /* 圖示平常用次要的字色，不搶標題的視線 */
+  /* 圖示平常用次要的字色 不搶標題的視線 */
   .info-tip-button {
     color: var(--ink-soft);
   }
@@ -1353,11 +1394,12 @@
   .info-tip-button[aria-expanded="true"] {
     color: var(--ink);
   }
-  /* 緊貼著標題文字：焦點框畫在圓圈裡面，才不會壓到字 */
+  /* 緊貼著標題文字 焦點框畫在圓圈裡面才不會壓到字 */
   .info-tip-button:focus-visible {
     outline-offset: -2px;
   }
-  /* fixed 定位，位置由元件算好放在 --tip-top／--tip-left（左右夾在畫面內留 16px）；放在標題裡，字級與粗細要自己寫回一般內文 */
+  /* fixed 定位 位置由元件算好放在 --tip-top 與 --tip-left */
+  /* 放在標題裡 字級與粗細要自己寫回一般內文 */
   .info-tip-bubble {
     @apply fixed w-max rounded-xl px-3.5 py-2.5 text-left text-sm leading-relaxed font-normal whitespace-normal;
     top: var(--tip-top, 0);
@@ -1369,19 +1411,488 @@
     background-color: var(--surface-solid);
     box-shadow: var(--elevation-lift);
   }
-  /* 上下各多 8px 透明的範圍：滑鼠從按鈕移到說明框時，經過中間的空隙不算移開 */
+  /* 上下各多 8px 透明範圍 滑鼠從按鈕移到說明框時經過空隙不算移開 */
   .info-tip-bubble::before {
     content: "";
     position: absolute;
     inset: -0.5rem 0;
   }
 
-  /* ---------- YouTube 頁 ---------- */
+  /* 理財的總覽 savings 的 dashboard 與 motion 元件 */
+  /* 動態只在沒要求減少動態時加上 要求減少時圖表與數字直接是完成的樣子 */
+
+  /* 帳戶卡片用 auto-fit 收掉沒用到的欄 每欄至少 17rem */
+  /* 也至少是 --fin-cols 欄平分的寬度 欄數上限由頁面照帳戶數算好 */
+  .fin-account-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(max(min(100%, 17rem), calc((100% - var(--fin-cols, 6) * 1rem) / var(--fin-cols, 6))), 1fr));
+  }
+
+  /* AnimatedNumber 的金額往上數 報讀器讀最後的數字 */
+  /* 畫面數字疊在看不見的最後數字上 先撐好寬度 數的時候旁邊不會跳 */
+  .fin-count {
+    display: inline-flex;
+  }
+  .fin-count-final {
+    @apply sr-only;
+  }
+  .fin-count-box {
+    display: inline-grid;
+    white-space: nowrap;
+  }
+  .fin-count-box > span {
+    grid-area: 1 / 1;
+  }
+  .fin-count-ghost {
+    visibility: hidden;
+  }
+  /* 數字像里程表靠右長 等寬數字位數一樣時寬度也一樣 */
+  .fin-count-value {
+    text-align: end;
+  }
+  /* 伺服器算繪的已經是最後的數字 開始數之前藏著 不先露出也不顯示誤導的 0 元 */
+  /* JS 一直沒跑起來時 1.5 秒後自己出現 */
+  @media (prefers-reduced-motion: no-preference) {
+    .fin-count-value:not([data-started]) {
+      visibility: hidden;
+      animation: fin-count-reveal 1ms linear 1.5s forwards;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fin-count-final {
+      @apply not-sr-only;
+      white-space: nowrap;
+    }
+    .fin-count-box {
+      display: none;
+    }
+  }
+  /* Windows 高對比的強制色彩會蓋掉顏色 看不見的那份可能露出來 直接顯示最後的數字 */
+  @media (forced-colors: active) {
+    .fin-count-final {
+      @apply not-sr-only;
+    }
+    .fin-count-box {
+      display: none;
+    }
+  }
+
+  /* 甜甜圈的圓周正規化成 100 半徑是 100 除以 2π 每片是一段 stroke-dasharray */
+  /* 片與片之間留表面色的縫 不另外描邊 */
+  .fin-donut-figure {
+    position: relative;
+    width: 12rem;
+    height: 12rem;
+    flex-shrink: 0;
+  }
+  .fin-donut-ring {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .fin-donut-arc {
+    fill: none;
+    stroke: var(--fin-color);
+    cursor: pointer;
+  }
+  /* 滑過或選到一片時其他片淡下去 減少動態時也看得出是哪一片 */
+  .fin-donut-figure[data-active] .fin-donut-arc:not([data-active]) {
+    opacity: 0.38;
+  }
+  .fin-donut-center {
+    position: absolute;
+    inset: 19%;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    pointer-events: none;
+  }
+  .fin-donut-center-total,
+  .fin-donut-center-slice {
+    display: flex;
+    max-width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+  }
+  /* 上面的 display 會蓋掉瀏覽器預設的 hidden 屬性 */
+  .fin-donut-center-total[hidden] {
+    display: none;
+  }
+  .fin-donut-center-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+  .fin-donut-center-amount {
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .fin-donut-center-percent {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  /* 圖例是 44px 高的按鈕 負邊距抵掉內距 色點對齊卡片內容的左邊線 */
+  .fin-legend {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 0.125rem;
+    justify-self: stretch;
+    margin-inline: -0.75rem;
+  }
+  .fin-legend-item {
+    display: grid;
+    width: 100%;
+    min-height: 2.75rem;
+    grid-template-columns: auto minmax(0, 1fr) auto 3.25rem;
+    align-items: center;
+    column-gap: 0.625rem;
+    border-radius: 0.625rem;
+    padding: 0.375rem 0.75rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+  .fin-legend-item:hover,
+  .fin-legend-item[data-active] {
+    background-color: var(--surface-muted);
+  }
+  .fin-legend-item[aria-pressed="true"] {
+    background-color: var(--surface-muted);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+  .fin-legend-item:focus-visible {
+    outline-offset: -2px;
+  }
+  .fin-legend-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .fin-legend-amount {
+    text-align: right;
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .fin-legend-percent {
+    text-align: right;
+    font-size: 0.875rem;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* 進度條預算狀態用 --warning-dot 與 --danger-dot 其他用模組的綠色 */
+  .fin-progress {
+    @apply h-2 w-full rounded-full;
+    background-color: var(--surface-sunken);
+  }
+  .fin-progress-fill {
+    position: relative;
+    height: 100%;
+    border-radius: inherit;
+    background-color: var(--accent);
+    transform-origin: left center;
+  }
+  .fin-progress-fill[data-tone="warning"] {
+    background-color: var(--warning-dot);
+  }
+  .fin-progress-fill[data-tone="danger"] {
+    background-color: var(--danger-dot);
+  }
+
+  /* 趨勢圖的高度固定 月份那一列另外算 卡片才不會出現自己的捲軸 */
+  .fin-readout {
+    @apply flex min-h-7 flex-wrap items-center gap-x-4 gap-y-1 text-sm;
+    color: var(--ink-soft);
+  }
+  .fin-readout-month {
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .fin-readout-item {
+    @apply inline-flex items-center gap-1.5;
+  }
+  .fin-readout-item > strong {
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .fin-key {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    flex-shrink: 0;
+    border-radius: 0.1875rem;
+  }
+  .fin-key-income {
+    background-color: var(--fin-income);
+  }
+  .fin-key-expense {
+    background-color: var(--fin-expense);
+  }
+  .fin-chart {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 0.625rem;
+    row-gap: 0.5rem;
+  }
+  .fin-chart-ticks {
+    position: relative;
+    grid-column: 1;
+    grid-row: 1;
+    width: 2.75rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .fin-chart-ticks > li {
+    position: absolute;
+    right: 0;
+    line-height: 1;
+    white-space: nowrap;
+    transform: translateY(50%);
+  }
+  .fin-chart-plot {
+    position: relative;
+    grid-column: 2;
+    grid-row: 1;
+    height: 13rem;
+  }
+  .fin-chart-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .fin-chart-grid > span {
+    position: absolute;
+    right: 0;
+    left: 0;
+    height: 1px;
+    background-color: var(--line);
+  }
+  .fin-chart-grid > span[data-zero] {
+    background-color: var(--line-strong);
+  }
+  /* 讀數顯示的那個月的底色 */
+  .fin-chart-band {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 0.5rem;
+    background-color: var(--surface-muted);
+  }
+  .fin-chart-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    text-align: center;
+    color: var(--ink-soft);
+  }
+  .fin-bars {
+    position: absolute;
+    inset: 0;
+    display: grid;
+  }
+  /* 每個月的連結疊在圖與月份上 整欄都點得到 */
+  .fin-chart-hits {
+    position: relative;
+    z-index: 1;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: grid;
+  }
+  /* 兩根長條之間 2px 的縫 長條最粗 18px 多的寬度留白 */
+  .fin-bar-group {
+    display: flex;
+    height: 100%;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 2px;
+  }
+  .fin-bar {
+    width: min(34%, 1.125rem);
+    border-radius: 4px 4px 0 0;
+    transform-origin: bottom center;
+  }
+  .fin-bar-income {
+    background-color: var(--fin-income);
+  }
+  .fin-bar-expense {
+    background-color: var(--fin-expense);
+  }
+  .fin-line {
+    position: absolute;
+    inset: 0;
+  }
+  .fin-line-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .fin-line-area {
+    fill: var(--fin-assets);
+    opacity: 0.1;
+  }
+  .fin-line-path {
+    fill: none;
+    stroke: var(--fin-assets);
+    stroke-width: 2px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .fin-crosshair {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: var(--line-strong);
+    transform: translateX(-0.5px);
+  }
+  /* 點外面一圈表面色 壓在線上也看得清楚 */
+  .fin-line-dot {
+    position: absolute;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 9999px;
+    background-color: var(--fin-assets);
+    box-shadow: 0 0 0 2px var(--surface);
+    transform: translate(-50%, 50%);
+  }
+  .fin-chart-hit {
+    flex: 1;
+    border-radius: 0.5rem;
+  }
+  .fin-chart-hit:focus-visible {
+    outline-offset: -2px;
+  }
+  .fin-chart-months {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    text-align: center;
+    font-size: 0.75rem;
+    line-height: 1.25;
+    color: var(--ink-soft);
+  }
+  .fin-chart-months > [data-current] {
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .fin-table {
+    @apply mt-3 w-full;
+    font-variant-numeric: tabular-nums;
+  }
+  .fin-table th,
+  .fin-table td {
+    padding: 0.375rem 0 0.375rem 0.75rem;
+    text-align: right;
+    font-weight: 400;
+    color: var(--ink);
+  }
+  .fin-table thead th {
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+  .fin-table tbody tr {
+    border-top: 1px solid var(--line);
+  }
+  .fin-table .fin-table-label {
+    padding-left: 0;
+    text-align: left;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    /* 卡片依序淡入 --i 寫在每張卡片上 不從外框挑第幾個 */
+    /* backwards 讓等待時先透明 播完就不再作用 不會一直留著 transform */
+    .fin-rise {
+      animation: fin-rise 460ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+      animation-delay: calc(var(--i, 0) * 60ms);
+    }
+    .fin-reveal {
+      animation: fin-rise 260ms ease-out backwards;
+    }
+    /* 圓弧從各自的起點畫出來 切換分組時同一段換長度 位置與顏色 */
+    .fin-donut-arc {
+      animation: fin-donut-draw 760ms cubic-bezier(0.3, 0.7, 0.2, 1) backwards;
+      animation-delay: calc(120ms + var(--i, 0) * 80ms);
+      transition:
+        stroke-dasharray 520ms cubic-bezier(0.4, 0, 0.2, 1),
+        stroke-dashoffset 520ms cubic-bezier(0.4, 0, 0.2, 1),
+        stroke 320ms ease,
+        opacity 200ms ease,
+        transform 200ms ease;
+    }
+    /* 選到的那一片往外浮起一點 方向寫在 --lift-x 與 --lift-y */
+    .fin-donut-arc[data-active] {
+      transform: translate(var(--lift-x), var(--lift-y));
+    }
+    /* 記一筆後長度或狀態變了 從原本的長度滑過去 不重新從 0 長 */
+    .fin-progress-fill {
+      animation: fin-grow-x 720ms cubic-bezier(0.3, 0.7, 0.2, 1) backwards;
+      animation-delay: calc(160ms + var(--i, 0) * 70ms);
+      transition:
+        width 600ms cubic-bezier(0.4, 0, 0.2, 1),
+        background-color 300ms ease;
+    }
+    /* 達到目標時長滿後亮一下 只播一次 */
+    /* 畫在 ::after 記一筆才達標時加上 data-reached 也不會讓長條從 0 重長 */
+    .fin-progress-fill[data-reached]::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      animation: fin-glow 1200ms ease-out 1;
+      animation-delay: calc(900ms + var(--i, 0) * 70ms);
+    }
+    .fin-bar {
+      animation: fin-grow-y 620ms cubic-bezier(0.3, 0.7, 0.2, 1) backwards;
+      animation-delay: calc(var(--i, 0) * 35ms);
+      transition: height 500ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* 折線用裁切由左往右露出來 線寬才不跟著變形 四周多留一點 端點不會被切掉 */
+    .fin-line {
+      animation: fin-draw-x 900ms cubic-bezier(0.4, 0, 0.2, 1) backwards;
+    }
+    .fin-chart-band,
+    .fin-crosshair,
+    .fin-line-dot {
+      transition:
+        left 160ms ease,
+        bottom 160ms ease;
+    }
+    /* 進場動畫只播第一次 Activity 藏起頁面時標上 data-entered 回來時不重播 */
+    :is(.fin-rise, .fin-reveal, .fin-donut-arc, .fin-progress-fill, .fin-bar, .fin-line)[data-entered] {
+      animation: none;
+    }
+    .fin-progress-fill[data-glowed]::after {
+      animation: none;
+    }
+  }
+
+  /* YouTube 頁 */
   .yt-logo {
     @apply flex min-h-11 shrink-0 items-center gap-1 text-[1.375rem] font-bold tracking-tighter;
     color: var(--ink);
   }
-  /* 標誌是單色遮罩，中間的三角形是挖空的；墊一塊白色，深色模式下三角形才會是白的 */
+  /* 標誌是單色遮罩 中間三角形是挖空的 墊一塊白色深色模式下才是白的 */
   .yt-logo-mark {
     position: relative;
     display: inline-grid;
@@ -1397,7 +1908,7 @@
     position: relative;
   }
 
-  /* 像 YouTube 的搜尋列：圓角輸入框接一個灰色按鈕 */
+  /* 像 YouTube 的搜尋列 圓角輸入框接一個灰色按鈕 */
   .yt-search {
     @apply flex min-w-0 items-stretch;
   }
@@ -1429,7 +1940,7 @@
     cursor: wait;
   }
 
-  /* 膠囊按鈕（翻譯設定、觀看頁的翻譯按鈕，像 YouTube 的按讚、分享）：跟站內的按鈕一樣高（44px） */
+  /* 像 YouTube 按讚與分享的膠囊按鈕 跟站內的按鈕一樣 44px 高 */
   .yt-pill {
     @apply inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium whitespace-nowrap select-none;
     color: var(--ink);
@@ -1444,11 +1955,11 @@
     cursor: not-allowed;
     opacity: 0.55;
   }
-  /* 標題旁的小動作（續訂）：跟次要按鈕一樣，寬螢幕 36px、觸控 44px */
+  /* 標題旁的續訂這類小動作 跟次要按鈕一樣高 */
   .yt-pill-sm {
     @apply min-h-9 px-3;
   }
-  /* 主要動作：跟 YouTube 的「訂閱」一樣，淺色時黑底白字、深色時白底黑字 */
+  /* 主要動作跟 YouTube 的訂閱一樣 淺色時黑底白字 深色時白底黑字 */
   .yt-pill-primary {
     color: var(--on-brand);
     background-color: var(--brand);
@@ -1457,7 +1968,8 @@
     background-color: var(--brand-hover);
   }
 
-  /* 一組互斥的選項（字幕語言、字幕大小）收在同一顆膠囊裡；外框 44px，選項用透明的偽元素把點擊範圍撐到外框的高度 */
+  /* 字幕語言這類互斥的選項收在同一顆膠囊裡 */
+  /* 外框 44px 選項用透明偽元素把點擊範圍撐到外框高度 */
   .yt-segmented {
     @apply inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-full p-1 pl-3 text-sm font-medium whitespace-nowrap;
     color: var(--ink);
@@ -1483,7 +1995,7 @@
     background-color: var(--brand);
   }
 
-  /* 篩選膠囊：選中的跟 YouTube 一樣反白；跟次要按鈕同一個高度（寬螢幕 36px、觸控 44px） */
+  /* 篩選膠囊選中的跟 YouTube 一樣反白 跟次要按鈕一樣高 */
   .yt-chip {
     @apply inline-flex min-h-9 shrink-0 cursor-pointer items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap;
     color: var(--ink);
@@ -1504,7 +2016,7 @@
     @apply relative block aspect-video overflow-hidden rounded-xl;
     background-color: var(--surface-muted);
   }
-  /* 像縮圖右下角的時間長度：白字黑底，字小但對比很高 */
+  /* 像縮圖右下角的時間長度 白字黑底 字小但對比很高 */
   .yt-badge {
     @apply absolute right-1.5 bottom-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold;
     color: #ffffff;
@@ -1514,7 +2026,7 @@
     background-color: #cc0000;
   }
 
-  /* 滑鼠移過卡片才出現 ⋮，卡片平常保持乾淨；觸控裝置沒有滑過，一直顯示 */
+  /* 滑過卡片才出現 ⋮ 卡片平常保持乾淨 觸控裝置沒有滑過所以一直顯示 */
   @media (hover: hover) {
     .yt-card-more {
       opacity: 0;
@@ -1526,7 +2038,7 @@
     }
   }
 
-  /* 訂閱內容：手機是可以橫向捲動的頭像列，寬螢幕是側欄的一列列頻道 */
+  /* 訂閱內容在手機是橫向捲動的頭像列 寬螢幕是側欄的頻道列 */
   .yt-channel {
     @apply flex w-16 cursor-pointer flex-col items-center gap-1.5 rounded-xl text-center;
     color: var(--ink);
@@ -1560,7 +2072,7 @@
     }
   }
 
-  /* 觀看頁標題下方像 YouTube 說明欄的灰色區塊：放翻譯進度與訊息 */
+  /* 觀看頁標題下方像 YouTube 說明欄的灰色區塊 放翻譯進度與訊息 */
   .yt-box {
     @apply rounded-xl p-4 text-[0.9375rem];
     color: var(--ink);
@@ -1569,7 +2081,7 @@
   .theme-youtube .switch:checked {
     background-color: var(--brand-ink);
   }
-  /* 手機上播放器撐滿螢幕寬度、不留圓角，跟 YouTube App 一樣 */
+  /* 手機上播放器撐滿螢幕寬度不留圓角 跟 YouTube App 一樣 */
   @media (max-width: 39.99rem) {
     .theme-youtube .player-slot {
       width: calc(100% + 2rem);
@@ -1581,8 +2093,8 @@
     }
   }
 
-  /* ---------- Twitch 頁 ---------- */
-  /* 預覽圖與卡片照 Twitch 的「追蹤中」頁：方角小圓角、懸停時往右上浮起並露出紫色陰影 */
+  /* Twitch 頁 */
+  /* 預覽圖與卡片照 Twitch 的追蹤中頁 懸停時往右上浮起露出紫色陰影 */
   .tw-preview {
     position: relative;
     display: block;
@@ -1605,12 +2117,12 @@
     background-color: rgb(0 0 0 / 0.68);
   }
 
-  /* ---------- 星穹鐵道頁 ---------- */
-  /* 半透明的切角面板：右上與左下切掉一角，上緣一條淡金色的細線 */
+  /* 星穹鐵道頁 */
+  /* 半透明的切角面板 右上與左下切掉一角 上緣一條淡金色細線 */
   .sr-panel {
     position: relative;
     border: 1px solid var(--line);
-    /* 幾乎不透明：背景的軌道線只在面板之間露出來，不會穿過文字 */
+    /* 幾乎不透明 背景的軌道線只在面板之間露出來 不會穿過文字 */
     background: linear-gradient(180deg, rgb(27 35 80 / 0.94), rgb(15 20 54 / 0.94));
     clip-path: polygon(0 0, calc(100% - var(--sr-cut, 16px)) 0, 100% var(--sr-cut, 16px), 100% 100%, var(--sr-cut, 16px) 100%, 0 calc(100% - var(--sr-cut, 16px)));
   }
@@ -1624,7 +2136,8 @@
     background: linear-gradient(90deg, var(--sr-gold), transparent);
     pointer-events: none;
   }
-  /* 星穹鐵道的彈出視窗（Dialog 的 className 加上 sr-dialog）：自己畫星空底（theme-starrail 是整頁主題，只能放在 PageTheme 上）；背景暗一點並模糊，寬螢幕跟面板一樣切掉右上與左下角 */
+  /* 星穹鐵道的彈出視窗自己畫星空底 主題 class 只能放在 PageTheme 上 */
+  /* 背景暗一點並模糊 寬螢幕跟面板一樣切角 */
   .sr-dialog {
     background-color: #090d26;
     background-image: var(--sr-sky);
@@ -1641,7 +2154,7 @@
       clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
     }
   }
-  /* 角色詳情的立繪舞台：大面積用深藍底加一圈稀有度色的光暈（五星金、四星紫），不用整片亮色的稀有度底色 */
+  /* 立繪舞台用深藍底加一圈稀有度色的光暈 不用整片亮色的稀有度底色 */
   .sr-stage {
     --sr-stage-glow: rgb(148 163 184 / 0.3);
     background:
@@ -1654,7 +2167,7 @@
   .sr-stage[data-rarity="4"] {
     --sr-stage-glow: rgb(156 118 236 / 0.5);
   }
-  /* 區塊標題：左邊一條金色短線，字距拉開 */
+  /* 區塊標題左邊一條金色短線 字距拉開 */
   .sr-title {
     @apply flex items-center gap-2.5 text-base font-semibold tracking-[0.12em];
     color: var(--ink);
@@ -1667,7 +2180,7 @@
     transform: skewX(-18deg);
   }
   .sr-num {
-    /* @theme inline 的變數不會輸出到 :root，這裡直接寫字型變數（next/font 掛在星穹鐵道頁的外框上） */
+    /* @theme inline 的變數不會輸出到 :root 直接寫 next/font 掛在外框上的字型變數 */
     font-family: var(--font-rajdhani), var(--font-geist-sans), sans-serif;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;
@@ -1693,7 +2206,7 @@
     color: var(--sr-gold);
     border-bottom-color: var(--sr-gold);
   }
-  /* 帳號（伺服器）分頁：切角的小面板，選到的是金框 */
+  /* 帳號分頁是切角的小面板 選到的是金框 */
   .sr-account-tab {
     @apply inline-flex min-h-11 shrink-0 items-center gap-1.5 px-4 text-sm font-medium whitespace-nowrap;
     border: 1px solid var(--line);
@@ -1715,15 +2228,15 @@
     background-color: var(--sr-gold-soft);
   }
 
-  /* ---------- YouTube 觀看頁的播放器（web/components/youtube-player.tsx） ---------- */
-  /* 外框先佔好位置（一般 16:9），播放器疊在裡面：進出全螢幕時頁面不會跳 */
+  /* YouTube 觀看頁的播放器 web/components/youtube-player.tsx */
+  /* 外框先佔好 16:9 的位置 播放器疊在裡面 進出全螢幕時頁面不會跳 */
   .player-slot {
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 9;
   }
-  /* 劇院模式撐滿內容寬度，高度封頂到整個播放器留在畫面裡（扣掉導覽列、上方留白與返回連結），影片置中、兩側留黑 */
-  /* html[data-youtube-theater]：整頁載入時 React 接手前元件還是一般大小（伺服器讀不到存在瀏覽器的偏好），觀看頁的同步腳本先標上，播放器與骨架照樣排成劇院模式（web/components/player-size-sync.tsx） */
+  /* 劇院模式撐滿內容寬度 高度封頂讓整個播放器留在畫面裡 */
+  /* 伺服器讀不到瀏覽器的偏好 整頁載入時由同步腳本先標上 data-youtube-theater */
   @media (min-width: 64rem) {
     .player-slot[data-size="theater"],
     html[data-youtube-theater] .player-slot {
@@ -1755,11 +2268,12 @@
     border-radius: 0;
     box-shadow: none;
   }
-  /* 全螢幕時不保留 html 的捲軸位置：Windows 這類占寬度的捲軸會讓外框右邊留一條黑邊；只在真的全螢幕時成立，藏起來的頁面不會比對到 */
+  /* 全螢幕時不保留捲軸位置 占寬度的捲軸會讓外框右邊留一條黑邊 */
+  /* 只在真的全螢幕時成立 藏起來的頁面不會比對到 */
   html:has(.player-frame:fullscreen) {
     scrollbar-gutter: auto;
   }
-  /* 頁內全螢幕（iPhone 不能讓一般元素全螢幕）：蓋滿整個視窗，高度跟著網址列伸縮 */
+  /* iPhone 不能讓一般元素全螢幕 頁內全螢幕蓋滿視窗 高度跟著網址列伸縮 */
   .player-frame[data-fullscreen="pseudo"] {
     position: fixed;
     z-index: 65;
@@ -1768,11 +2282,12 @@
     border-radius: 0;
     box-shadow: none;
   }
-  /* 背後的頁面不捲動：鎖由元件寫在 html 的屬性上（player-fullscreen.ts 的 lockPageScroll），不用 :has 比對播放器的 data-fullscreen，Activity 藏起來的頁面才不會把下一頁也鎖住 */
+  /* 捲動鎖由 lockPageScroll 寫在 html 的屬性上 不比對播放器的屬性 */
+  /* Activity 藏起來的頁面才不會把下一頁也鎖住 */
   html[data-player-fullscreen] {
     overflow: hidden;
   }
-  /* 影片、字幕與按鈕都在這層：全螢幕時讓開瀏海與 Home 指示條 */
+  /* 影片 字幕與按鈕都在這層 全螢幕時讓開瀏海與 Home 指示條 */
   .player-stage {
     position: absolute;
     inset: 0;
@@ -1782,7 +2297,7 @@
   .player-frame[data-fullscreen="pseudo"] .player-stage {
     inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
-  /* 影片畫面實際的範圍（置中的 16:9）：劇院模式、直向的全螢幕兩側或上下留黑時，字幕仍依畫面定位與縮放 */
+  /* 影片畫面實際的範圍 兩側或上下留黑時字幕仍依畫面定位與縮放 */
   .subtitle-area {
     pointer-events: none;
     position: absolute;
@@ -1792,7 +2307,7 @@
     height: min(100%, 100cqw * 9 / 16);
     container-type: inline-size;
   }
-  /* 字幕依畫面寬度（cqi）縮放，全螢幕時跟著放大；平常讓開 YouTube 的控制列與進度條 */
+  /* 字幕依畫面寬度縮放 全螢幕時跟著放大 平常讓開 YouTube 的控制列 */
   .subtitle-overlay {
     position: absolute;
     inset-inline: 0;
@@ -1806,7 +2321,8 @@
     font-size: calc(clamp(1.05rem, 2.9cqi, 3.5rem) * var(--subtitle-scale));
     line-height: 1.35;
   }
-  /* 播放中、滑鼠不在播放器上時 YouTube 會收起控制列，字幕跟著往下（跟 YouTube 自己的字幕一樣）；觸控裝置看不出控制列在不在，一律讓開 */
+  /* 播放中滑鼠不在播放器上時控制列會收起 字幕跟著往下 */
+  /* 觸控裝置看不出控制列在不在 一律讓開 */
   @media (hover: hover) {
     .player-frame[data-playing]:not(:hover) .subtitle-overlay {
       bottom: clamp(0.75rem, 4%, 2.5rem);
@@ -1817,7 +2333,8 @@
       transition: bottom 200ms ease;
     }
   }
-  /* 長句最多到畫面寬度的七成多（窄的播放器再讓開右側的按鈕），換行時兩行一樣長；韓文從空白處換行，不從一個詞的中間斷開 */
+  /* 長句最多到畫面寬度的七成多 換行時兩行一樣長 */
+  /* 韓文從空白處換行 不從一個詞的中間斷開 */
   .subtitle-line {
     max-width: min(80%, 100cqw - 8rem);
     border-radius: 0.3em;
@@ -1841,7 +2358,7 @@
     font-weight: 500;
     color: #e4e6ea;
   }
-  /* 還沒翻好的句子後面的小標示：小字、半透明，不搶字幕本身的視線 */
+  /* 還沒翻好的句子後面的小標示 小字半透明 不搶字幕的視線 */
   .subtitle-badge {
     display: inline-block;
     margin-inline-start: 0.5em;
@@ -1855,7 +2372,7 @@
     color: rgb(255 255 255 / 0.75);
     background-color: rgb(255 255 255 / 0.15);
   }
-  /* 劇院模式與全螢幕的按鈕放在右側中間：避開 YouTube 上方的稍後觀看、分享，下方的控制列與「略過廣告」 */
+  /* 按鈕放在右側中間 避開 YouTube 上方的分享與下方的控制列和略過廣告 */
   .player-controls {
     position: absolute;
     top: 50%;
@@ -1881,17 +2398,17 @@
     outline: 2px solid #fff;
     outline-offset: 2px;
   }
-  /* 全螢幕時寫出「離開全螢幕」：iPhone 的頁內全螢幕沒有 Esc 可按 */
+  /* 全螢幕時寫出離開全螢幕 iPhone 的頁內全螢幕沒有 Esc 可按 */
   .player-control-labeled {
     @apply inline-flex w-auto gap-1.5 px-4 text-sm font-semibold;
   }
-  /* 直拿手機全螢幕時影片在畫面中間、上下留黑：按鈕移到影片上方的黑色區域，不壓在字幕上 */
+  /* 直拿手機全螢幕時上下留黑 按鈕移到影片上方的黑色區域 不壓在字幕上 */
   @container (orientation: portrait) {
     .player-controls {
       top: 25%;
     }
   }
-  /* 滑鼠移到播放器上、暫停或用鍵盤移到按鈕上才出現；觸控裝置沒有滑過，一直顯示 */
+  /* 滑過播放器 暫停或鍵盤移到按鈕上才出現 觸控裝置沒有滑過所以一直顯示 */
   @media (hover: hover) {
     .player-controls {
       opacity: 0;
@@ -1903,7 +2420,7 @@
     }
   }
 
-  /* 只有使用者沒要求減少動態時才加上閃動、滑入、搖動與浮起 */
+  /* 只有沒要求減少動態時才加上閃動 滑入 搖動與浮起 */
   @media (prefers-reduced-motion: no-preference) {
     .skeleton::after {
       content: "";
@@ -1926,7 +2443,7 @@
     }
   }
 
-  /* 觸控裝置的手指比滑鼠粗：次要的小按鈕、膠囊、選單項目的點擊範圍一律放大到 44px */
+  /* 手指比滑鼠粗 小按鈕 膠囊與選單項目的點擊範圍一律放大到 44px */
   @media (pointer: coarse) {
     .btn-sm,
     .nav-pill,
@@ -1945,6 +2462,56 @@
       width: 2.75rem;
       height: 2.75rem;
     }
+  }
+}
+
+/* 理財的總覽 見上面理財的總覽那一段 */
+@keyframes fin-count-reveal {
+  to {
+    visibility: visible;
+  }
+}
+
+@keyframes fin-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+@keyframes fin-donut-draw {
+  from {
+    stroke-dasharray: 0 100;
+  }
+}
+
+@keyframes fin-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes fin-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes fin-draw-x {
+  from {
+    clip-path: inset(-1rem 100% -1rem -1rem);
+  }
+  to {
+    clip-path: inset(-1rem -1rem -1rem -1rem);
+  }
+}
+
+@keyframes fin-glow {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0.5rem transparent;
   }
 }
 

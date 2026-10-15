@@ -14,14 +14,14 @@ type HeaderMenusValue = {
 
 const HeaderMenusContext = createContext<HeaderMenusValue | null>(null);
 
-/** 導覽列右上角的下拉面板（鈴鐺、帳號選單）共用開關：同時只開一個，換頁時一起收起 */
+/** 鈴鐺與帳號選單共用開關 同時只開一個 換頁時一起收起 */
 export function HeaderMenus({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState<HeaderMenuId | null>(null);
   const toggle = useCallback((id: HeaderMenuId) => setOpen((current) => toggleMenu(current, id)), []);
   const close = useCallback((id: HeaderMenuId) => setOpen((current) => closeMenu(current, id)), []);
   const closeAll = useCallback(() => setOpen(null), []);
 
-  // 換到別的版面（例如被導到登入頁）時 Next 用 Activity 把導覽列藏起來而不卸載，回來時面板不該還開著
+  // 換到別的版面時 Next 用 Activity 藏起導覽列而不卸載 回來時面板不該還開著
   useLayoutEffect(() => closeAll, [closeAll]);
 
   const value = useMemo<HeaderMenusValue>(() => ({ open, toggle, close }), [open, toggle, close]);
@@ -29,7 +29,7 @@ export function HeaderMenus({ children }: { children: ReactNode }) {
   return (
     <HeaderMenusContext value={value}>
       {children}
-      {/* 觀看頁是動態路由，預先算繪時還不知道網址，usePathname 要包在 Suspense 裡 */}
+      {/* 觀看頁是動態路由 預先算繪時不知道網址 usePathname 要包在 Suspense 裡 */}
       <Suspense fallback={null}>
         <CloseOnNavigate onNavigate={closeAll} />
       </Suspense>
@@ -37,7 +37,10 @@ export function HeaderMenus({ children }: { children: ReactNode }) {
   );
 }
 
-/** 上一頁、下一頁或程式換頁時收起面板；第一次算繪不算換頁，Suspense 晚一點完成時才不會關掉剛打開的面板 */
+/**
+ * 上一頁 下一頁或程式換頁時收起面板
+ * 第一次算繪不算換頁 Suspense 晚點完成時才不會關掉剛打開的面板
+ */
 function CloseOnNavigate({ onNavigate }: { onNavigate: () => void }) {
   const pathname = usePathname();
   const previous = useRef(pathname);
@@ -51,7 +54,7 @@ function CloseOnNavigate({ onNavigate }: { onNavigate: () => void }) {
   return null;
 }
 
-/** 單一面板的開關狀態，不掛任何監聽：面板裡的項目（例如選單裡的連結）要收起面板時用這個 */
+/** 只有開關狀態不掛監聽 面板裡的項目要收起面板時用這個 */
 export function useHeaderMenu(id: HeaderMenuId) {
   const menus = use(HeaderMenusContext);
   if (!menus) throw new Error("useHeaderMenu 要放在 <HeaderMenus> 裡面");
@@ -61,7 +64,10 @@ export function useHeaderMenu(id: HeaderMenuId) {
   return { expanded: open === id, toggle, close };
 }
 
-/** 包住按鈕與面板的外框才用（每個面板只有一個）：點面板外面或按 Esc 就收起，Esc 收起後焦點回到按鈕；rootRef 要接在外框上，沒接上的話按哪裡都算外面，面板一按就收起 */
+/**
+ * 只給包住按鈕與面板的外框用 點外面或按 Esc 收起 Esc 後焦點回到按鈕
+ * rootRef 要接在外框上 沒接上的話按哪裡都算外面 面板一按就收起
+ */
 export function useHeaderMenuRoot(id: HeaderMenuId) {
   const { expanded, toggle, close } = useHeaderMenu(id);
   const rootRef = useRef<HTMLDivElement>(null);

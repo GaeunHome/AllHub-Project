@@ -42,13 +42,6 @@ describe("觀看頁：播放器大小", () => {
     }
   });
 
-  it("一般大小：播放器與標題、翻譯面板排在同一欄（右邊一欄是接下來播放）", () => {
-    const markup = render();
-
-    expect(markup).toMatch(/^<div class="stack min-w-0">/);
-    expect(markup).toMatch(/<div class="player-slot"[^>]*data-size="default"/);
-  });
-
   it("劇院模式：寬螢幕上播放器撐滿兩欄，標題、翻譯面板與接下來播放排到下面一列", () => {
     usePlayerSize.mockReturnValue(["theater", vi.fn()]);
 

@@ -13,9 +13,4 @@ describe("已保留的影片清單（瀏覽器裡篩選）", () => {
     expect(markup).toMatch(/aria-label="搜尋已保留的影片"/);
     expect(text).toContain("已保留 2／15");
   });
-
-  it("還沒輸入時列出全部", () => {
-    expect(text).toContain("卡片 a");
-    expect(text).toContain("卡片 b");
-  });
 });

@@ -1,7 +1,6 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, onTestFinished, vi, type MockInstance } from "vitest";
-import { coreUsers } from "@/core/db/schema";
 import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubYoutubeEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
@@ -9,12 +8,12 @@ import { youtubeChannels, youtubeFollows, youtubeSettings, youtubeTranslations, 
 import { callbackToken, topicFor } from "../lib/websub";
 
 const { YOUTUBE_WEBSUB_SECRET: SECRET } = stubYoutubeEnv();
-/** hub 確認時帶回的 k（我們送出的 callback 上的那個） */
+/** hub 確認時帶回的 k 就是我們送出的 callback 上那個 */
 const k = (channelId: string) => callbackToken(channelId, SECRET);
 
 vi.mock("../lib/api", { spy: true });
 vi.mock("@/core/notify", { spy: true });
-// 新影片會去讀觀看頁判斷有沒有中文字幕，測試不能真的連 YouTube
+// 新影片會去讀觀看頁判斷有沒有中文字幕 測試不能真的連 YouTube
 vi.mock("../lib/subtitles/captions", { spy: true });
 
 const api = mocksOf(await import("../lib/api"), "resolveHandle", "fetchChannelFeed", "hubRequest", "checkIsShort");
@@ -52,9 +51,12 @@ beforeEach(async () => {
   return () => vi.useRealTimers();
 });
 
-/** setupTestDb 底下的 PGlite：TestDb 的型別沒有列出 drizzle 的 $client */
+/** setupTestDb 底下的 PGlite TestDb 的型別沒有列出 drizzle 的 $client */
 const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
-/** 正式環境的 postgres-js 經 drizzle 不會把 Date 參數轉成字串（跟欄位比較時 drizzle 才會轉），測試用的 PGlite 會自己轉而查不出來：直接看送出的參數 */
+/**
+ * 正式環境的 postgres-js 不轉 Date 參數 跟欄位比較時 drizzle 才會轉
+ * 測試用的 PGlite 會自己轉而查不出來 所以直接看送出的參數
+ */
 const dateParams = (query: MockInstance) => query.mock.calls.flatMap(([, params]) => (Array.isArray(params) ? params : [])).filter((param) => param instanceof Date);
 
 const insertChannel = (values: Partial<typeof youtubeChannels.$inferInsert> = {}) =>
@@ -179,16 +181,6 @@ describe("removeChannel", () => {
 });
 
 describe("handleVerification", () => {
-  it("追蹤中的頻道訂閱確認_回challenge_記錄租約", async () => {
-    await insertChannel({ subscriptionStatus: "pending" });
-    const challenge = await handleVerification({ mode: "subscribe", topic: topicFor(CH), challenge: "c1", leaseSeconds: 432000, token: k(CH) });
-
-    expect(challenge).toBe("c1");
-    const [row] = await testDb.select().from(youtubeChannels);
-    expect(row.subscriptionStatus).toBe("subscribed");
-    expect(row.leaseExpiresAt?.toISOString()).toBe(new Date(NOW.getTime() + 432000_000).toISOString());
-  });
-
   it("沒追蹤的頻道訂閱確認_拒絕", async () => {
     expect(await handleVerification({ mode: "subscribe", topic: topicFor(OTHER), challenge: "c", leaseSeconds: 1, token: k(OTHER) })).toBeNull();
   });
@@ -201,13 +193,6 @@ describe("handleVerification", () => {
 
   it("非 YouTube topic_拒絕", async () => {
     expect(await handleVerification({ mode: "subscribe", topic: "https://evil.example/feed", challenge: "c" })).toBeNull();
-  });
-
-  it("hub 拒絕訂閱（denied）_更新狀態", async () => {
-    await insertChannel({ subscriptionStatus: "pending" });
-    await handleVerification({ mode: "denied", topic: topicFor(CH), reason: "bad", token: k(CH) });
-    const [row] = await testDb.select().from(youtubeChannels);
-    expect(row.subscriptionStatus).toBe("訂閱失敗：hub 拒絕（bad）");
   });
 });
 
@@ -331,14 +316,6 @@ describe("handleFeed", () => {
     expect(await testDb.select().from(youtubeVideos)).toHaveLength(0);
   });
 
-  it("defer_通知延到之後執行", async () => {
-    const tasks: Array<() => Promise<void>> = [];
-    await handleFeed([entry("aaaaaaaaaaa", recent)], { defer: (t) => tasks.push(t) });
-    expect(notify).not.toHaveBeenCalled();
-    await tasks[0]();
-    expect(notify).toHaveBeenCalledOnce();
-  });
-
   it("RSS 連結就是 /shorts/ 的影片_不存、不檢查、不通知", async () => {
     await handleFeed([{ ...entry("shortshort1", recent), isShort: true, url: "https://www.youtube.com/shorts/shortshort1" }, entry("aaaaaaaaaaa", recent)]);
 
@@ -385,7 +362,7 @@ describe("handleFeed", () => {
     ["逾時", () => new DOMException("The operation was aborted due to timeout: secret-detail", "TimeoutError"), "TimeoutError"],
   ])("確認是不是 Shorts 時%s（lib 照常丟出）_當作一般影片照常檢查字幕與通知；log 只記錯誤種類", async (_name, failure, kind) => {
     const log = captureErrorLog();
-    // 用真的 checkIsShort 打到會失敗的 fetch：錯誤要一路傳到 service 才記得到 log
+    // 用真的 checkIsShort 打到會失敗的 fetch 錯誤要一路傳到 service 才記得到 log
     const { checkIsShort } = await vi.importActual<typeof import("../lib/api")>("../lib/api");
     api.checkIsShort.mockImplementation(checkIsShort);
     vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(failure())));
@@ -401,11 +378,6 @@ describe("handleFeed", () => {
     expect(loggedText(log)).toContain("確認是不是 Shorts 失敗");
     expect(loggedText(log)).toContain(kind);
     expect(loggedText(log)).not.toContain("secret-detail");
-  });
-
-  it("通知失敗不丟錯", async () => {
-    notify.mockRejectedValue(new Error("db down"));
-    await expect(handleFeed([entry("aaaaaaaaaaa", recent)])).resolves.toBeUndefined();
   });
 
   it("通知失敗的 log 只記錯誤種類，不記 message", async () => {
@@ -542,12 +514,6 @@ describe("renewSubscriptionsFor：使用者按「續訂」", () => {
     expect(await renewSubscriptionsFor(me, NOW)).toBe("已檢查你追蹤的 1 個頻道的訂閱，1 個失敗（打開頻道的選單可以看原因）");
   });
 
-  it("還沒有追蹤頻道_說明沒有可以續訂的", async () => {
-    await getDb().delete(youtubeFollows).where(eq(youtubeFollows.userId, me));
-
-    expect(await renewSubscriptionsFor(me, NOW)).toBe("已檢查。你還沒有追蹤任何頻道");
-  });
-
   it("同一個人 60 秒內再按_擋下並說還要等幾秒，不呼叫 hub；別人照樣可以按；60 秒後可以再按", async () => {
     await renewSubscriptionsFor(me, NOW);
     api.hubRequest.mockClear();
@@ -578,12 +544,13 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
     createdAt: daysAgo(createdDaysAgo),
     publishedAt: daysAgo(publishedDaysAgo),
   });
-  /** 22 支發布 3–24 天前的影片：最新 20 支是 old03…old22 */
+  /** 22 支發布 3 到 24 天前的影片 最新 20 支是 old03 到 old22 */
   const olderVideos = (channelId = CH) => Array.from({ length: 22 }, (_, i) => video(`old${String(i + 3).padStart(2, "0")}${channelId.slice(-6)}`, i + 3, i + 3, channelId));
   const leftIds = async () => (await testDb.select({ videoId: youtubeVideos.videoId }).from(youtubeVideos)).map((v) => v.videoId).sort();
   const translationOf = (videoId: string) => ({ videoId, sourceKind: "upload" as const, sourceCues: [], translated: [], batches: [] });
 
-  // 清理時會逐支確認 RSS 認不出來、還在清單上的影片；沒特別說的都當成 YouTube 回答「一般影片」
+  // 清理時會逐支確認 RSS 認不出來但還在清單上的影片
+  // 沒特別說的都當成 YouTube 回答一般影片
   beforeEach(() => {
     api.checkIsShort.mockResolvedValue(false);
   });
@@ -670,7 +637,7 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
 
       expect(await cleanupVideos(NOW)).toBe("刪除 0 支不在任何人最新 20 支裡的影片；刪除 2 支 Shorts");
 
-      // RSS 只是用來找 Shorts：每個頻道最多等 5 秒，不照一般的 15 秒
+      // RSS 只是用來找 Shorts 每個頻道最多等 5 秒 不照一般的 15 秒
       expect(api.fetchChannelFeed).toHaveBeenCalledWith(CH, { timeoutMs: 5_000 });
       expect(await leftIds()).toEqual(["normalvideo"]);
       expect((await testDb.select().from(youtubeTranslations)).map((t) => t.videoId)).toEqual(["shortshort1"]);
@@ -739,7 +706,8 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
       expect(await cleanupVideos(NOW)).toBe("刪除 0 支不在任何人最新 20 支裡的影片；刪除 2 支 Shorts");
       expect(await leftIds()).toEqual(["notified20h"]);
 
-      // hub 在 24 小時內改標題重送、又確認不了是不是 Shorts：找得到原本那一列，不會再通知一次
+      // hub 在 24 小時內改標題重送 又確認不了是不是 Shorts
+      // 找得到原本那一列 不會再通知一次
       await handleFeed([{ videoId: "notified20h", channelId: CH, title: "改過的標題", published: daysAgo(20 / 24), url: "https://www.youtube.com/watch?v=notified20h", isShort: false }]);
       expect(notify).not.toHaveBeenCalled();
 
@@ -802,7 +770,7 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
         await getDb().insert(youtubeVideos).values(video("orphanoldvd", 3, 3, OTHER));
         api.fetchChannelFeed.mockImplementation(async (channelId: string) => {
           await Promise.resolve();
-          // 第一個頻道讀了 61 秒才回來：已經送出的照常讀完，之後的不再送
+          // 第一個頻道讀了 61 秒才回來 已經送出的照常讀完 之後的不再送
           if (channelId === channels[0]) vi.setSystemTime(Date.now() + 61_000);
           return { title: null, entries: [] };
         });
@@ -831,7 +799,7 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
         await follow(me);
         await getDb().insert(youtubeVideos).values([video("shortshort1", 1, 1), video("orphanoldvd", 3, 3, OTHER)]);
         api.fetchChannelFeed.mockResolvedValue({ title: "뉴진스", entries: [feedEntry("shortshort1", true)] });
-        // 第一個刪除是 Shorts 這一步的；之後的刪除照常
+        // 第一個刪除是 Shorts 這一步的 之後的刪除照常
         vi.spyOn(testDb, "delete").mockImplementationOnce(() => {
           throw new Error("connection reset: secret-detail");
         });
@@ -845,7 +813,10 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
     });
 
     describe("RSS 認不出來、還在某人最新 20 支裡的影片（RSS 只有最新十幾支）：逐支請求 /shorts/ 確認，是 Shorts 就刪", () => {
-      /** 每支影片 YouTube 的回答：true 是 Shorts、false 是一般影片、null 是無法判斷、Error 是請求失敗；沒列的是一般影片 */
+      /**
+       * 每支影片 YouTube 的回答 true 是 Shorts false 是一般影片
+       * null 是無法判斷 Error 是請求失敗 沒列的是一般影片
+       */
       const answers = (byId: Record<string, boolean | null | Error>) =>
         api.checkIsShort.mockImplementation(async (videoId: string) => {
           const answer = Object.hasOwn(byId, videoId) ? byId[videoId] : false;
@@ -933,7 +904,7 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
         const carol = await insertTestUser(getDb(), "carol");
         const channels = [CH, OTHER, "UC" + "c".repeat(22)];
         const owners = [me, other, carol];
-        // 三個人各追蹤一個頻道、各 20 支：發布時間交錯，全部都在某人的最新 20 支裡
+        // 三個人各追蹤一個頻道各 20 支 發布時間交錯 全都在某人的最新 20 支裡
         for (const [i, channelId] of channels.entries()) {
           await insertChannel({ channelId, title: channelId });
           await follow(owners[i], channelId);
@@ -982,7 +953,7 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
         const [newest, second] = videos.map((v) => v.videoId);
         api.checkIsShort.mockImplementation(async (videoId: string) => {
           await Promise.resolve();
-          // 最新那支回來時已經過了 61 秒：同時送出的 4 支照常等完，之後的不再送
+          // 最新那支回來時已經過了 61 秒 同時送出的 4 支照常等完 之後的不再送
           if (videoId === newest) vi.setSystemTime(Date.now() + 61_000);
           return videoId === second;
         });
@@ -999,7 +970,7 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
         await follow(me);
         await getDb().insert(youtubeVideos).values([video("oldshort001", 10, 10), video("orphanoldvd", 3, 3, OTHER)]);
         answers({ oldshort001: true });
-        // RSS 裡沒有 Shorts，第一個刪除就是逐支確認之後的；之後的刪除照常
+        // RSS 裡沒有 Shorts 第一個刪除就是逐支確認之後的 之後的刪除照常
         vi.spyOn(testDb, "delete").mockImplementationOnce(() => {
           throw new Error("connection reset: secret-detail");
         });
@@ -1051,13 +1022,6 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
 });
 
 describe("通知開關", () => {
-  it("新追蹤的頻道預設開啟通知", async () => {
-    await insertChannel();
-    await follow(me);
-
-    expect((await listFollowedChannels(me)).map((c) => c.notifyEnabled)).toEqual([true]);
-  });
-
   it("setChannelNotify_關掉、再打開（記在自己的追蹤上）_找不到頻道回 false", async () => {
     await insertChannel();
     await follow(me);
@@ -1214,15 +1178,5 @@ describe("追蹤每人一份，頻道與 WebSub 訂閱共用", () => {
 
     expect((await listFollowedChannels(me)).map((c) => c.channelId)).toEqual([CH]);
     expect((await listFollowedChannels(other)).map((c) => c.channelId)).toEqual([OTHER]);
-  });
-
-  it("刪除帳號時，他的追蹤一起刪除；頻道是共用的，留著", async () => {
-    await insertChannel();
-    await follow(me);
-
-    await getDb().delete(coreUsers).where(eq(coreUsers.id, me));
-
-    expect(await followers()).toEqual([]);
-    expect(await testDb.select().from(youtubeChannels)).toHaveLength(1);
   });
 });

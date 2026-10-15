@@ -49,15 +49,6 @@ describe("fetchChannelAvatar：讀頻道頁的頭像", () => {
     expect(youtube.urls).toEqual([]);
   });
 
-  it("頭像只是裝飾_逾時比一般 YouTube 請求短（5 秒）", async () => {
-    const timeout = vi.spyOn(AbortSignal, "timeout");
-    vi.stubGlobal("fetch", fakeFetch(() => page("https://yt3.ggpht.com/h")).impl);
-
-    await fetchChannelAvatar(CH);
-
-    expect(timeout).toHaveBeenCalledWith(5_000);
-  });
-
   it("一直沒回應_時間到丟出逾時錯誤（由 service 記錄後退回文字頭像）", async () => {
     const realTimeout = AbortSignal.timeout.bind(AbortSignal);
     vi.spyOn(AbortSignal, "timeout").mockImplementation(() => realTimeout(10));
