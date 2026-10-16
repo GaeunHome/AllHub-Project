@@ -1,28 +1,43 @@
 import { requireSession } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
-import { resolveMonth, taipeiMonth } from "../../lib/month";
 import { cachedAccounts, cachedCategories, cachedPurposes } from "../../service/cached";
-import { BUDGET_TREND_ROW, DONUT_ROW } from "../components/dashboard/layout";
-import { AccountsSection, AssetSection, BudgetSection, DashboardToolbar, ExpenseSection, KpiSection, QuickAddFabSection, TrendSection } from "../components/dashboard/sections";
-import { AccountsSkeleton, BudgetSkeleton, DonutCardSkeleton, KpiSkeleton, OverviewSkeleton, ToolbarSkeleton, TrendSkeleton } from "../components/dashboard/skeletons";
+import { OVERVIEW_COLUMNS, OVERVIEW_LEFT, OVERVIEW_RIGHT } from "../components/dashboard/layout";
+import { OverviewNotice } from "../components/dashboard/overview-notice";
+import { AccountsSection, ExpenseSection, OverviewQuickAdd, OverviewSalaryMenu, PendingSection, SummarySection, TrendSection } from "../components/dashboard/sections";
+import { AccountsSkeleton, ButtonSkeleton, ExpenseSkeleton, OverviewSkeleton, SummarySkeleton, TrendSkeleton } from "../components/dashboard/skeletons";
 import { WelcomeCard } from "../components/dashboard/welcome";
 import { SetupResultSlot } from "../components/forms/setup-button";
-import type { SearchParams } from "../components/month-href";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 
-// web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
-export function SavingsPage({ info, searchParams }: { info: ModuleInfo; searchParams: SearchParams }) {
+/**
+ * 只看現在 月份切換在紀錄頁
+ * web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
+ */
+export function SavingsPage({ info }: { info: ModuleInfo }) {
   return (
-    <SavingsPageFrame info={info} current="overview">
+    <SavingsPageFrame
+      info={info}
+      current="overview"
+      actions={
+        <>
+          <StreamSection fallback={<ButtonSkeleton />}>
+            <OverviewQuickAdd />
+          </StreamSection>
+          <StreamSection fallback={<ButtonSkeleton icon />}>
+            <OverviewSalaryMenu />
+          </StreamSection>
+        </>
+      }
+    >
       <StreamSection fallback={<OverviewSkeleton />}>
-        <SavingsOverview searchParams={searchParams} />
+        <SavingsOverview />
       </StreamSection>
     </SavingsPageFrame>
   );
 }
 
 /** 還沒有帳戶時整個總覽換成歡迎卡 */
-export async function SavingsOverview({ searchParams }: { searchParams: SearchParams }) {
+export async function SavingsOverview() {
   const user = await requireSession();
   const [accounts, purposes, categories] = await Promise.all([cachedAccounts(user.id), cachedPurposes(user.id), cachedCategories(user.id)]);
   if (accounts.length === 0) {
@@ -34,43 +49,33 @@ export async function SavingsOverview({ searchParams }: { searchParams: SearchPa
     );
   }
 
-  const current = taipeiMonth(new Date());
-  const props = { month: resolveMonth((await searchParams).month, current), current };
-  // 過去的月份有月底標籤 總資產另外有投資賺賠
-  // 骨架先留好位置 載入完下面才不會往下跳
-  const past = props.month !== current;
-  const notes = { assets: past || accounts.some((account) => account.active && account.kind === "investment"), owed: past };
   return (
     <>
-      <StreamSection fallback={<ToolbarSkeleton />}>
-        <DashboardToolbar {...props} />
+      <StreamSection fallback={<SummarySkeleton />}>
+        <SummarySection />
       </StreamSection>
-      <StreamSection fallback={<KpiSkeleton notes={notes} />}>
-        <KpiSection {...props} />
-      </StreamSection>
-      <div className={DONUT_ROW}>
-        <StreamSection fallback={<DonutCardSkeleton label="載入資產分布…" />}>
-          <AssetSection {...props} />
-        </StreamSection>
-        <StreamSection fallback={<DonutCardSkeleton label="載入支出分類…" />}>
-          <ExpenseSection {...props} />
-        </StreamSection>
-      </div>
-      <StreamSection fallback={<AccountsSkeleton />}>
-        <AccountsSection {...props} />
-      </StreamSection>
-      <div className={BUDGET_TREND_ROW}>
-        <StreamSection fallback={<BudgetSkeleton />}>
-          <BudgetSection {...props} />
-        </StreamSection>
-        <StreamSection fallback={<TrendSkeleton />}>
-          <TrendSection {...props} />
-        </StreamSection>
-      </div>
-      {/* 手機右下角的加號按鈕 讀不到時也只影響它自己 */}
-      <StreamSection fallback={null}>
-        <QuickAddFabSection />
-      </StreamSection>
+      {/* 確認或略過後那一列會不見 訊息放在兩欄上面 撐滿整頁寬 */}
+      <OverviewNotice>
+        <div className={OVERVIEW_COLUMNS}>
+          <div className={OVERVIEW_LEFT}>
+            {/* 待處理常常沒有 不先佔位置 跟帳戶讀同一份資料 會一起出現 */}
+            <StreamSection fallback={null}>
+              <PendingSection />
+            </StreamSection>
+            <StreamSection fallback={<AccountsSkeleton />}>
+              <AccountsSection />
+            </StreamSection>
+          </div>
+          <div className={OVERVIEW_RIGHT}>
+            <StreamSection fallback={<ExpenseSkeleton />}>
+              <ExpenseSection />
+            </StreamSection>
+            <StreamSection fallback={<TrendSkeleton />}>
+              <TrendSection />
+            </StreamSection>
+          </div>
+        </div>
+      </OverviewNotice>
     </>
   );
 }

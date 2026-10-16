@@ -28,8 +28,9 @@ export const coreEnv = defineEnv(
 
 // Twitch 模組
 const twitchSchema = z.object({
-  TWITCH_CLIENT_ID: z.string().min(1),
-  TWITCH_CLIENT_SECRET: z.string().min(1),
+  // 從 Twitch 後台複製時常多帶空白或換行 原樣送出會換不到 token
+  TWITCH_CLIENT_ID: z.string().trim().min(1),
+  TWITCH_CLIENT_SECRET: z.string().trim().min(1),
   // Twitch 規定 EventSub secret 長度 10 到 100
   TWITCH_EVENTSUB_SECRET: z.string().min(10).max(100),
   PUBLIC_BASE_URL: publicBaseUrl,

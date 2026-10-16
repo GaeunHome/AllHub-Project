@@ -58,7 +58,7 @@ export function LinkResultBanner({ accountId }: { accountId: number }) {
   );
 }
 
-/** 成功與提醒分成兩個橫幅 少了 ltmid_v2 的提醒用警告樣式 */
+/** 成功與提醒分成兩個橫幅 cookie 少了建議的鍵時的提醒用警告樣式 */
 export function LinkResultView({ result }: { result: LinkResult }) {
   return (
     <>

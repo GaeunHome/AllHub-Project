@@ -5,42 +5,56 @@ import { useId, useReducer } from "react";
 import { Dialog, DialogMessage, useDialog, useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
+import { MoreMenu } from "@/core/ui/more-menu";
 import { formatTwd } from "../../../lib/money";
 import { allocateSalaryAction } from "../../actions";
+import { confirmDate, type SalaryPrefill } from "../../dashboard-view";
+import { UNCATEGORIZED_LABEL } from "../../entry-display";
 import { defaultIncomeCategory, salaryFormReducer, salaryPreview, salaryStartDate, type SalaryLine } from "../../form-math";
 import { lastSalaryAccountPref, pickAccount } from "../../last-used";
 import { SAVINGS_PATHS } from "../../paths";
-import { UNCATEGORIZED_LABEL } from "../../entry-display";
 import { AccountSelect, AmountField, DateField, FormButtons, NoteField, ROW_MESSAGE_CLASS } from "./fields";
 import type { CategoryOption, SalaryAccountOption } from "./options";
 
-export type SalaryButtonProps = { accounts: SalaryAccountOption[]; categories: CategoryOption[]; today: string };
+export type SalaryProps = { accounts: SalaryAccountOption[]; categories: CategoryOption[]; today: string };
 
-/** 薪水只能進存款或投資帳戶 一個都沒有時不顯示 */
-export function SalaryButton({ accounts, categories, today }: SalaryButtonProps) {
+/** 薪水只能進存款或投資帳戶 */
+export const canReceiveSalary = (accounts: readonly SalaryAccountOption[]) => accounts.some((account) => account.kind !== "credit");
+
+/**
+ * 頁首 ⋮ 裡的薪水入帳並分配 給臨時發的獎金這類不在固定收支裡的
+ * 成功訊息獨佔頁首那排按鈕的最後一整列
+ */
+export function SalaryMenu({ accounts, categories, today }: SalaryProps) {
   const dialog = useDialog();
-  if (!accounts.some((account) => account.kind !== "credit")) return null;
+  if (!canReceiveSalary(accounts)) return null;
 
   return (
     <>
-      <button {...dialog.triggerProps} className="btn-secondary">
-        <Icon name="banknote" className="size-4" />
-        發薪分配
-      </button>
+      <MoreMenu label="更多記帳方式">
+        <button {...dialog.triggerProps} className="menu-item">
+          <Icon name="banknote" className="size-4" />
+          薪水入帳並分配
+        </button>
+      </MoreMenu>
       <DialogMessage {...dialog.messageProps} className={ROW_MESSAGE_CLASS} />
-      <Dialog {...dialog.dialogProps} title="發薪分配" icon={<Icon name="banknote" />} size="lg">
+      <Dialog {...dialog.dialogProps} title="薪水入帳並分配" size="lg">
         <SalaryForm accounts={accounts} categories={categories} today={today} onDone={dialog.done} onCancel={dialog.close} />
       </Dialog>
     </>
   );
 }
 
-type SalaryFormProps = SalaryButtonProps & { onDone: (message: string | undefined) => void; onCancel: () => void };
+type SalaryFormProps = SalaryProps & { prefill?: SalaryPrefill; onDone: (message: string | undefined) => void; onCancel: () => void };
 
-function SalaryForm({ accounts, categories, today, onDone, onCancel }: SalaryFormProps) {
+export function SalaryForm({ accounts, categories, today, prefill, onDone, onCancel }: SalaryFormProps) {
   const receivers = accounts.filter((account) => account.kind !== "credit");
-  // 視窗打開才算繪 這時讀得到上次入帳的帳戶
-  const [form, dispatch] = useReducer(salaryFormReducer, undefined, () => ({ receivingId: pickAccount(receivers, lastSalaryAccountPref.read()) ?? receivers[0].id, salaryText: "", edits: {} }));
+  // 視窗打開才算繪 這時讀得到上次入帳的帳戶 待處理的薪水照固定收支的帳戶
+  const [form, dispatch] = useReducer(salaryFormReducer, undefined, () => ({
+    receivingId: (prefill && receivers.some((account) => account.id === prefill.accountId) ? prefill.accountId : pickAccount(receivers, lastSalaryAccountPref.read())) ?? receivers[0].id,
+    salaryText: prefill ? String(prefill.amount) : "",
+    edits: {},
+  }));
   const { state, pending, formProps } = useDialogForm(allocateSalaryAction, (message) => {
     lastSalaryAccountPref.save(form.receivingId);
     onDone(message);
@@ -52,14 +66,30 @@ function SalaryForm({ accounts, categories, today, onDone, onCancel }: SalaryFor
 
   return (
     <form {...formProps} className="stack">
+      {prefill && (
+        <>
+          <input type="hidden" name="ruleId" value={prefill.ruleId} />
+          <input type="hidden" name="period" value={prefill.period} />
+        </>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
-        <AmountField name="amount" label="薪水（元）" value={form.salaryText} onValueChange={(text) => dispatch({ type: "salary", text })} required autoFocus large placeholder="0" />
+        <AmountField
+          name="amount"
+          label="薪水（元）"
+          value={form.salaryText}
+          onValueChange={(text) => dispatch({ type: "salary", text })}
+          required
+          autoFocus
+          large
+          placeholder="0"
+          hint={prefill ? `預計 ${formatTwd(prefill.amount)}，有請假扣薪就改成實際入帳的金額` : undefined}
+        />
         <AccountSelect name="accountId" label="入帳帳戶" accounts={receivers} value={form.receivingId} onChange={(id) => dispatch({ type: "receiving", id })} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="field">
           <span className="field-label">分類</span>
-          <select name="categoryId" defaultValue={defaultIncomeCategory(categories) ?? ""} className="input">
+          <select name="categoryId" defaultValue={(prefill ? prefill.categoryId : defaultIncomeCategory(categories)) ?? ""} className="input">
             {incomeCategories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -68,7 +98,7 @@ function SalaryForm({ accounts, categories, today, onDone, onCancel }: SalaryFor
             <option value="">{UNCATEGORIZED_LABEL}</option>
           </select>
         </label>
-        <DateField defaultValue={today} today={today} min={salaryStartDate(accounts, form.receivingId, preview.lines)} />
+        <DateField defaultValue={prefill ? confirmDate(prefill.date, today) : today} today={today} min={salaryStartDate(accounts, form.receivingId, preview.lines)} />
       </div>
       <NoteField placeholder="例如：10 月薪水" />
 
@@ -101,7 +131,7 @@ function SalaryForm({ accounts, categories, today, onDone, onCancel }: SalaryFor
 
       <Remainder receiving={receiving} remainder={preview.remainder} />
       {!pending && <FormFeedback state={{ error: state.error }} />}
-      <FormButtons pending={pending} onCancel={onCancel} label="記錄並分配" pendingLabel="分配中…" disabled={preview.blocked} />
+      <FormButtons pending={pending} onCancel={onCancel} label="入帳並分配" pendingLabel="分配中…" disabled={preview.blocked} />
     </form>
   );
 }
@@ -122,8 +152,8 @@ function AllocationRow({ line, account, onChange }: { line: SalaryLine; account:
       <div className="flex items-center gap-3">
         <input type="hidden" name="transferAccountId" value={line.accountId} />
         <label htmlFor={id} className="flex min-w-0 flex-1 flex-col">
-          <span className="font-semibold break-words text-ink">{name}</span>
-          <span className={`text-sm ${line.reason === "plan" ? "text-ink-soft" : "text-success"}`}>{reasonOf(line, account)}</span>
+          <span className="font-medium break-words text-ink">{name}</span>
+          <span className="text-sm text-ink-soft">{reasonOf(line, account)}</span>
         </label>
         <div className="relative flex w-32 shrink-0 items-center">
           <span aria-hidden className="pointer-events-none absolute left-3 font-semibold text-ink-soft">

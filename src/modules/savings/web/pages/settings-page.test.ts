@@ -18,7 +18,10 @@ vi.mock("../components/forms/setup-button", () => ({
   SetupResultSlot: ({ children }: { children?: ReactNode }) => createElement("div", { "data-slot": "setup-result" }, children),
 }));
 
-const cached = mocksOf(await import("../../service/cached"), "cachedAccounts", "cachedPurposes", "cachedCategories", "cachedRecurring", "cachedAccountFlows");
+// 固定在台北時間 2026-10-14 中午 下一期的日期才不會跟著跑測試的日子變
+vi.useFakeTimers({ now: new Date("2026-10-14T04:00:00Z"), toFake: ["Date"] });
+
+const cached = mocksOf(await import("../../service/cached"), "cachedAccounts", "cachedPurposes", "cachedCategories", "cachedRecurring", "cachedAccountFlows", "cachedHoldings");
 const cards = {
   accounts: vi.mocked((await import("../components/settings/accounts-card")).AccountsCard),
   purposes: vi.mocked((await import("../components/settings/purposes-card")).PurposesCard),
@@ -28,7 +31,7 @@ const cards = {
 const dialog = await import("@/core/ui/dialog");
 const { SettingsPage, SetupNotice, AccountsLoader, PurposesLoader, CategoriesLoader, RecurringLoader } = await import("./settings-page");
 
-const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: false };
+const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: true };
 const CREATED = new Date("2026-09-01T02:00:00Z");
 const account = (id: number, name: string, fields: Record<string, unknown> = {}) => ({
   id,
@@ -41,40 +44,68 @@ const account = (id: number, name: string, fields: Record<string, unknown> = {})
   monthlyPlan: null,
   targetAmount: null,
   dueDay: null,
+  statementDay: null,
   payFromAccountId: null,
+  autopay: false,
+  cardNotifiedOn: null,
   active: true,
   sortOrder: id,
   createdAt: CREATED,
   ...fields,
 });
 const ACCOUNTS = [
-  account(1, "國泰", { purposeId: 5, monthlyPlan: 5000 }),
+  account(1, "生活費帳戶", { purposeId: 5, monthlyPlan: 5000 }),
   account(2, "郵局", { active: false }),
-  account(3, "國泰信用卡", { kind: "credit", openingBalance: -3500, dueDay: 6, payFromAccountId: 1 }),
+  account(3, "國泰卡", { kind: "credit", openingBalance: -3500, statementDay: 5, dueDay: 20, payFromAccountId: 1, autopay: true }),
+  account(4, "臺銀證券", { kind: "investment" }),
+  account(6, "舊證券", { kind: "investment", active: false }),
 ];
 const PURPOSES = [
   { id: 5, userId: "u", name: "生活費", color: "blue", sortOrder: 1, createdAt: CREATED },
   { id: 6, userId: "u", name: "投資", color: "violet", sortOrder: 2, createdAt: CREATED },
 ];
-const CATEGORIES = [{ id: 11, userId: "u", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: 6000, sortOrder: 1, createdAt: CREATED }];
+const CATEGORIES = [
+  { id: 11, userId: "u", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: 6000, sortOrder: 1, createdAt: CREATED },
+  { id: 21, userId: "u", kind: "income", name: "薪水", color: "green", monthlyBudget: null, sortOrder: 2, createdAt: CREATED },
+];
+const HOLDINGS = [
+  { id: 50, userId: "u", accountId: 4, symbol: "006208", name: "富邦台灣50", shares: 120, cost: 12000, sortOrder: 0, createdAt: CREATED },
+  { id: 51, userId: "u", accountId: 6, symbol: "0050", name: "元大台灣50", shares: 10, cost: 1500, sortOrder: 0, createdAt: CREATED },
+];
 const rule = (id: number, fields: Record<string, unknown>) => ({
   id,
   userId: "u",
   kind: "expense",
+  name: null,
   accountId: 1,
   counterAccountId: null,
   categoryId: 11,
   amount: 15000,
   dayOfMonth: 6,
+  intervalMonths: 1,
+  startMonth: null,
+  holidayRule: "none",
+  mode: "confirm",
+  holdingId: null,
+  allocate: false,
   note: null,
   active: true,
-  lastPostedMonth: null,
+  lastPostedMonth: "2026-10-01",
+  lastNotifiedOn: null,
   createdAt: CREATED,
   ...fields,
 });
-const RULES = [rule(30, {}), rule(31, { kind: "transfer", counterAccountId: 2, categoryId: null }), rule(32, { active: false })];
+// 10 月都處理過了 下一期都在 11 月
+const RULES = [
+  rule(30, { kind: "income", name: "薪水", categoryId: 21, amount: 52000, dayOfMonth: 10, holidayRule: "before", allocate: true }),
+  rule(31, { name: "Netflix", amount: 390, dayOfMonth: 12, mode: "auto", accountId: 3 }),
+  rule(32, { kind: "transfer", counterAccountId: 4, categoryId: null, holdingId: 50, amount: 3000, dayOfMonth: 5, holidayRule: "after" }),
+  rule(33, { name: "電費", amount: 1200, dayOfMonth: 20, intervalMonths: 2, startMonth: "2026-09-01", lastPostedMonth: "2026-09-01" }),
+  rule(34, { name: "健身房", active: false }),
+  rule(35, { kind: "transfer", counterAccountId: 2, categoryId: null, note: "存到郵局" }),
+];
 const flow = (accountId: number, fields: Record<string, number>) => ({ accountId, month: "2026-09", income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...fields });
-// 國泰有支出也轉出到郵局 郵局那邊是轉入 信用卡還沒有紀錄
+// 生活費帳戶有支出也轉出到郵局 郵局那邊是轉入 信用卡還沒有紀錄
 const FLOWS = [flow(1, { expense: 120 }), flow(1, { transferOut: 5000 }), flow(2, { transferIn: 5000 })];
 
 const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
@@ -88,6 +119,7 @@ beforeEach(() => {
   cached.cachedCategories.mockReset().mockResolvedValue(CATEGORIES);
   cached.cachedRecurring.mockReset().mockResolvedValue(RULES);
   cached.cachedAccountFlows.mockReset().mockResolvedValue(FLOWS);
+  cached.cachedHoldings.mockReset().mockResolvedValue(HOLDINGS);
   for (const card of Object.values(cards)) card.mockClear();
 });
 
@@ -98,11 +130,18 @@ describe("理財的設定頁", () => {
     expect(markup).toMatch(/^<div data-accent="green" class="page-stack">/);
     expect(markup).toMatch(/<h1[^>]*>理財<\/h1>/);
     expect(markup).toMatch(/<a [^>]*aria-current="page"[^>]*href="\/savings\/settings"|<a [^>]*href="\/savings\/settings"[^>]*aria-current="page"/);
-    for (const id of ["accounts", "purposes", "categories", "recurring"]) expect(markup).toContain(`id="${id}"`);
     expect(textOf(markup)).toContain("載入帳戶…");
   });
 
-  it("寬螢幕排成兩欄（帳戶與用途一欄、分類與固定收支一欄），不靠第幾個子元素排", () => {
+  it("區段的順序：帳戶、固定收支、分類與預算，用途在最後", () => {
+    const markup = renderToStaticMarkup(createElement(SettingsPage, { info: INFO }));
+    const order = ["accounts", "recurring", "categories", "purposes"].map((id) => markup.indexOf(`id="${id}"`));
+
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  it("寬螢幕排成兩欄，不靠第幾個子元素排", () => {
     const markup = renderToStaticMarkup(createElement(SettingsPage, { info: INFO }));
 
     expect(markup).toContain('class="page-stack xl:grid xl:grid-cols-2 xl:items-start"');
@@ -149,7 +188,7 @@ describe("每張卡片讀登入者自己的資料", () => {
     ["帳戶", AccountsLoader, ["cachedAccounts", "cachedPurposes", "cachedRecurring", "cachedAccountFlows"]],
     ["用途", PurposesLoader, ["cachedPurposes", "cachedAccounts"]],
     ["分類", CategoriesLoader, ["cachedCategories"]],
-    ["固定收支", RecurringLoader, ["cachedRecurring", "cachedAccounts", "cachedCategories"]],
+    ["固定收支", RecurringLoader, ["cachedRecurring", "cachedAccounts", "cachedCategories", "cachedHoldings"]],
   ] as const)("%s_用 bob 的 id 讀", async (_name, loader, reads) => {
     requireSession.mockResolvedValue(OTHER_SESSION);
 
@@ -160,16 +199,18 @@ describe("每張卡片讀登入者自己的資料", () => {
 });
 
 describe("交給卡片的資料", () => {
-  it("帳戶：用途的名稱與顏色、扣款帳戶的名稱、刪除時會一起刪的固定收支數量（轉出或轉入是它的都算）、有沒有紀錄與轉帳", async () => {
+  it("帳戶：用途與扣款帳戶的名稱、信用卡的結帳日與自動扣繳、刪除時會一起刪的固定收支數量（轉出或轉入是它的都算）、有沒有紀錄與轉帳", async () => {
     await render(AccountsLoader);
     const { accounts, purposes } = propsOf<{ accounts: Record<string, unknown>[]; purposes: unknown[] }>(cards.accounts);
 
-    expect(accounts.map((item) => [item.name, item.purposeName, item.purposeColor, item.payFromName, item.recurringCount, item.hasRecords, item.hasTransfers])).toEqual([
-      ["國泰", "生活費", "blue", null, 3, true, true],
-      ["郵局", null, null, null, 1, true, true],
-      ["國泰信用卡", null, null, "國泰", 0, false, false],
+    expect(accounts.map((item) => [item.name, item.purposeName, item.payFromName, item.recurringCount, item.hasRecords, item.hasTransfers])).toEqual([
+      ["生活費帳戶", "生活費", null, 5, true, true],
+      ["郵局", null, null, 1, true, true],
+      ["國泰卡", null, "生活費帳戶", 1, false, false],
+      ["臺銀證券", null, null, 1, false, false],
+      ["舊證券", null, null, 0, false, false],
     ]);
-    expect(accounts[2]).toMatchObject({ kind: "credit", openingBalance: -3500, dueDay: 6, active: true });
+    expect(accounts[2]).toMatchObject({ kind: "credit", openingBalance: -3500, statementDay: 5, dueDay: 20, autopay: true, active: true });
     expect(accounts[0]).not.toHaveProperty("userId");
     expect(purposes).toEqual([
       { id: 5, name: "生活費" },
@@ -205,23 +246,56 @@ describe("交給卡片的資料", () => {
     ]);
   });
 
-  it("固定收支：名稱 join 好；啟用中的寫出下次日期，停用的沒有；帳戶（或轉入的帳戶）停用了標出來", async () => {
+  it("固定收支：照下一期的日期排（含假日調整），停用的與帳戶停用的排在最後", async () => {
     await render(RecurringLoader);
-    const { rules, accounts, today } = propsOf<{ rules: Record<string, unknown>[]; accounts: unknown[]; today: string }>(cards.recurring);
+    const { rules } = propsOf<{ rules: Record<string, unknown>[] }>(cards.recurring);
 
-    expect(rules.map((item) => [item.id, item.accountName, item.counterAccountName, item.categoryName, item.accountPaused])).toEqual([
-      [30, "國泰", null, "餐飲", false],
-      [31, "國泰", "郵局", null, true],
-      [32, "國泰", null, "餐飲", false],
+    // 11 月 5 日 10 日 12 日都是平日 每 2 個月的電費 9 月記過 下一期是 11 月 20 日
+    expect(rules.map((item) => [item.id, item.nextDate, item.accountPaused])).toEqual([
+      [32, "2026-11-05", false],
+      [30, "2026-11-10", false],
+      [31, "2026-11-12", false],
+      [33, "2026-11-20", false],
+      [34, null, false],
+      [35, "2026-11-06", true],
     ]);
-    expect(rules[0].nextDate).toMatch(/^\d{4}-\d{2}-06$/);
-    expect(rules[2].nextDate).toBeNull();
-    expect(rules[0].createdAt).toBe(CREATED.toISOString());
-    expect(accounts).toEqual([
-      { id: 1, name: "國泰", kind: "deposit", active: true, payFromAccountId: null },
-      { id: 2, name: "郵局", kind: "deposit", active: false, payFromAccountId: null },
-      { id: 3, name: "國泰信用卡", kind: "credit", active: true, payFromAccountId: 1 },
+  });
+
+  it("固定收支：有名稱的寫名稱，舊資料沒有名稱時照紀錄的寫法，定期定額寫哪一檔；排程文字寫間隔、假日與記帳方式", async () => {
+    await render(RecurringLoader);
+    const { rules } = propsOf<{ rules: Record<string, unknown>[] }>(cards.recurring);
+    const byId = new Map(rules.map((item) => [item.id, item]));
+
+    expect([30, 32, 33, 35].map((id) => byId.get(id)?.title)).toEqual(["薪水", "006208 定期定額", "電費", "生活費帳戶 → 郵局"]);
+    expect(byId.get(30)?.schedule).toBe("每月 10 日 · 遇假日提前 · 到期請我確認");
+    expect(byId.get(33)?.schedule).toBe("每 2 個月 20 日 · 到期請我確認");
+    expect(byId.get(30)?.createdAt).toBe(CREATED.toISOString());
+    expect(byId.get(30)).not.toHaveProperty("userId");
+  });
+
+  it.each([
+    [{ recurring: "33" }, 33],
+    [{}, null],
+    [{ recurring: "999" }, null],
+    [{ recurring: "abc" }, null],
+    [{ recurring: ["33", "33"] }, null],
+  ])("網址 %j（待處理的選單連過來）_自己打開哪一條的修改視窗：%s（別人的或不存在的不打開）", async (search, openId) => {
+    await render(() => RecurringLoader({ searchParams: Promise.resolve(search) }));
+
+    expect(propsOf<{ openId: number | null }>(cards.recurring).openId).toBe(openId);
+  });
+
+  it("定期定額的持股：投資帳戶裡的每一檔，帶帳戶名稱與帳戶是否還在用（停用的只在修改原本選它的規則時列出）", async () => {
+    await render(RecurringLoader);
+    const { holdings, accounts, today } = propsOf<{ holdings: unknown[]; accounts: unknown[]; today: string }>(cards.recurring);
+
+    expect(holdings).toEqual([
+      { id: 50, symbol: "006208", name: "富邦台灣50", accountId: 4, accountName: "臺銀證券", active: true },
+      { id: 51, symbol: "0050", name: "元大台灣50", accountId: 6, accountName: "舊證券", active: false },
     ]);
-    expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(accounts).toContainEqual({ id: 3, name: "國泰卡", kind: "credit", active: true, payFromAccountId: 1, withHoldings: false });
+    // 有持股的投資帳戶不能一般轉帳 固定收支的轉帳選單不列它
+    expect(accounts).toContainEqual(expect.objectContaining({ id: 4, withHoldings: true }));
+    expect(today).toBe("2026-10-14");
   });
 });

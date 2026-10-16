@@ -5,13 +5,12 @@ import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback, type FormState } from "@/core/ui/form-message";
 import { ENTRY_KINDS, TRANSACTION_KIND_LABELS, type EntryKind } from "../../../lib/kinds";
 import { lastAccountPref, lastTransferToPref, pickAccount, pickOtherAccount } from "../../last-used";
-import { TRANSACTION_KIND_ICONS } from "../kind-icon";
 import { Segmented } from "../segmented";
-import { cannotTransfer, entryChoiceReducer, entryStartDate, initialEntryChoice, type ChoiceStart } from "./entry-choice";
+import { cannotTransfer, entryChoiceReducer, entryStartDate, initialEntryChoice, transferOptions, type ChoiceStart } from "./entry-choice";
 import { AccountSelect, AmountField, CategoryChips, DateField, FormButtons, NoteField, type SelectableAccount } from "./fields";
 import type { CategoryOption, EntryDraft } from "./options";
 
-const ENTRY_KIND_OPTIONS = ENTRY_KINDS.map((kind) => ({ id: kind, label: TRANSACTION_KIND_LABELS[kind], icon: TRANSACTION_KIND_ICONS[kind] }));
+const ENTRY_KIND_OPTIONS = ENTRY_KINDS.map((kind) => ({ id: kind, label: TRANSACTION_KIND_LABELS[kind] }));
 
 /** 記帳與固定收支共用 連動的規則在 entry-choice.ts */
 export function useEntryChoice(accounts: readonly SelectableAccount[], categories: readonly CategoryOption[], start: () => ChoiceStart, arrange: boolean) {
@@ -31,8 +30,8 @@ export function useEntryChoice(accounts: readonly SelectableAccount[], categorie
 
 type EntryChoiceControls = ReturnType<typeof useEntryChoice>;
 
-/** when 是帳戶旁邊的日期欄位 記帳是日期 固定收支是每月幾日 */
-export function EntryFields({ choice, accounts, categories, amount, when }: { choice: EntryChoiceControls; accounts: readonly SelectableAccount[]; categories: readonly CategoryOption[]; amount?: number; when: ReactNode }) {
+/** when 是帳戶旁邊的日期欄位 */
+function EntryFields({ choice, accounts, categories, amount, when }: { choice: EntryChoiceControls; accounts: readonly SelectableAccount[]; categories: readonly CategoryOption[]; amount?: number; when: ReactNode }) {
   const isTransfer = choice.kind === "transfer";
   return (
     <>
@@ -42,10 +41,7 @@ export function EntryFields({ choice, accounts, categories, amount, when }: { ch
         choice.cannotTransfer ? (
           <p className="notice">要有兩個以上的帳戶才能轉帳，請先到設定新增帳戶。</p>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <AccountSelect name="accountId" label="從（轉出）" accounts={accounts} value={choice.accountId} onChange={choice.changeAccount} />
-            <AccountSelect name="counterAccountId" label="到（轉入）" accounts={accounts} value={choice.counterId} onChange={choice.changeCounter} />
-          </div>
+          <TransferAccounts choice={choice} accounts={accounts} />
         )
       ) : (
         <CategoryChips categories={categories.filter((category) => category.kind === choice.kind)} value={choice.categoryId} onChange={choice.setCategoryId} />
@@ -55,6 +51,17 @@ export function EntryFields({ choice, accounts, categories, amount, when }: { ch
         {when}
       </div>
     </>
+  );
+}
+
+/** 記帳與固定收支的轉帳共用 有持股的投資帳戶不列 */
+export function TransferAccounts({ choice, accounts }: { choice: EntryChoiceControls; accounts: readonly SelectableAccount[] }) {
+  const options = transferOptions(accounts, [choice.accountId, choice.counterId]);
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <AccountSelect name="accountId" label="從（轉出）" accounts={options} value={choice.accountId} onChange={choice.changeAccount} />
+      <AccountSelect name="counterAccountId" label="到（轉入）" accounts={options} value={choice.counterId} onChange={choice.changeCounter} />
+    </div>
   );
 }
 

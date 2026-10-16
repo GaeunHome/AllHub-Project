@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupTestDb, insertTestUser } from "@/dev/test-db";
 import { expiredTags } from "@/dev/test-helpers";
 import { coreNotifications, coreUsers } from "./db/schema";
-import { notify } from "./notify";
+import { notifiedSince, notify } from "./notify";
 
 const getDb = setupTestDb();
 const rows = () => getDb().select().from(coreNotifications);
@@ -120,5 +120,42 @@ describe("notify（PGlite 整合）", () => {
     await notify({ recipients: [alice], module: "twitch", kind: "stream_online", title: "Alice 開台了" });
 
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("notifiedSince：模組決定要不要再寄之前，查這個人某個時間之後有沒有收過同一種通知（PGlite 整合）", () => {
+  const AT = new Date("2026-10-08T04:00:00Z");
+  const query = { module: "starrail", kind: "redeem_cookie", since: new Date("2026-10-01T04:00:00Z") };
+  async function sentTo(userId: string, overrides: { module?: string; kind?: string; url?: string } = {}) {
+    await notify({ recipients: [userId], module: overrides.module ?? "starrail", kind: overrides.kind ?? "redeem_cookie", title: "自動兌換失敗", url: overrides.url ?? "/starrail?account=1" });
+    await getDb().update(coreNotifications).set({ createdAt: AT });
+  }
+
+  it("只算這個人自己的通知：別人收過的不算", async () => {
+    await sentTo(bob);
+
+    expect(await notifiedSince({ userId: alice, ...query })).toBe(false);
+    expect(await notifiedSince({ userId: bob, ...query })).toBe(true);
+  });
+
+  it("模組與種類都要一樣才算", async () => {
+    await sentTo(alice, { kind: "redeem" });
+    await sentTo(alice, { module: "twitch" });
+
+    expect(await notifiedSince({ userId: alice, ...query })).toBe(false);
+  });
+
+  it("since 之後收到的才算（剛好在 since 那一刻的不算）", async () => {
+    await sentTo(alice);
+
+    expect(await notifiedSince({ userId: alice, ...query, since: new Date(AT.getTime() - 1) })).toBe(true);
+    expect(await notifiedSince({ userId: alice, ...query, since: AT })).toBe(false);
+  });
+
+  it("給了 url 時只算連到同一個地方的（例如同一個遊戲帳號）", async () => {
+    await sentTo(alice, { url: "/starrail?account=1" });
+
+    expect(await notifiedSince({ userId: alice, ...query, url: "/starrail?account=2" })).toBe(false);
+    expect(await notifiedSince({ userId: alice, ...query, url: "/starrail?account=1" })).toBe(true);
   });
 });

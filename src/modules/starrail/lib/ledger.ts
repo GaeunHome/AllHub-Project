@@ -12,11 +12,8 @@ export type Ledger = {
   month: string;
   /** HoYoLAB 給得到的月份 YYYYMM 由舊到新 */
   months: string[];
-  /** 星瓊與車票 這個月 上個月以及跟上個月比增減幾 % */
+  /** 這個月的星瓊與車票 */
   current: LedgerTotals;
-  last: LedgerTotals;
-  jadeRate: number | null;
-  passRate: number | null;
   /** 今天拿到的 只有本月有意義 */
   today: LedgerTotals;
   /** 星瓊的來源 依數量由多到少 */
@@ -27,6 +24,22 @@ export type LedgerResult = { ledger: Ledger; missing: string[] };
 
 export function interpretLedger(json: unknown, requestedMonth: string): HoyolabResult<LedgerResult> {
   return interpretWith(json, (data) => parseLedger(data, requestedMonth));
+}
+
+/** 只有 lt 開頭的鍵時開拓月曆回 -100 genshin.py issue 151 補上這兩個就好 */
+const LEDGER_KEYS = ["cookie_token_v2", "account_mid_v2"];
+
+/**
+ * 開拓月曆回 -100 或 10001 不代表整個 cookie 失效 便箋與簽到照樣能用
+ * 只看送出的鍵名 訊息不帶 cookie 的值
+ */
+export function explainLedgerLogin<T>(result: HoyolabResult<T>, sentKeys: ReadonlySet<string>): HoyolabResult<T> {
+  if (result.ok || !result.cookieInvalid) return result;
+  const original = text(asRecord(result.raw)?.message);
+  const message = LEDGER_KEYS.every((key) => sentKeys.has(key))
+    ? `開拓月曆讀不到（${original ? `${result.retcode}：${original}` : result.retcode}），請重新貼上最新的 cookie`
+    : "開拓月曆需要 cookie 裡的 cookie_token_v2 與 account_mid_v2：請用「新增帳號或更新 cookie」重新貼上包含這兩個欄位的 cookie";
+  return { ...result, message, cookieInvalid: false };
 }
 
 export function parseLedger(data: unknown, requestedMonth: string): LedgerResult {
@@ -61,9 +74,6 @@ export function parseLedger(data: unknown, requestedMonth: string): LedgerResult
       month,
       months,
       current: { jade: field(monthData, "current_hcoin", at("current_hcoin")), passes: field(monthData, "current_rails_pass", at("current_rails_pass")) },
-      last: { jade: field(monthData, "last_hcoin", at("last_hcoin")), passes: field(monthData, "last_rails_pass", at("last_rails_pass")) },
-      jadeRate: field(monthData, "hcoin_rate", at("hcoin_rate")),
-      passRate: field(monthData, "rails_rate", at("rails_rate")),
       today: { jade: number(dayData?.current_hcoin), passes: number(dayData?.current_rails_pass) },
       sources: sources.sort((a, b) => (b.amount ?? -1) - (a.amount ?? -1)),
     },

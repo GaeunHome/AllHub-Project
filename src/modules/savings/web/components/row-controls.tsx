@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type ComponentProps } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ActionButton } from "@/core/ui/action-button";
 import { useDialog } from "@/core/ui/dialog";
 import type { FormState } from "@/core/ui/form-message";
@@ -8,49 +8,109 @@ import { Icon } from "@/core/ui/icon";
 
 type RowAction = (previous: FormState, formData: FormData) => Promise<FormState>;
 
-type MoveProps = { action: RowAction; id: number; name: string; isFirst: boolean; isLast: boolean };
+type DialogTrigger = ReturnType<typeof useDialog>["triggerProps"];
 
-/** 手機上改用選單裡的 MoveMenuItems 整列才放得進一行 */
-export function MoveButtons({ action, id, name, isFirst, isLast }: MoveProps) {
+type ListRowProps = {
+  title: ReactNode;
+  detail?: ReactNode;
+  /** 每一列都有 ⋮ 所以同一組的金額會對齊 */
+  amount?: ReactNode;
+  /** 只給要處理的狀態 例如已停用 */
+  badge?: ReactNode;
+  /** 停用的不用處理 名稱淡一點 */
+  muted?: boolean;
+  /** useDialog 的 triggerProps 給了整列就是打開視窗的按鈕 */
+  trigger?: DialogTrigger;
+  /** 報讀器先念的動作 例如修改 */
+  actionLabel?: string;
+  menu?: ReactNode;
+  /** 成功訊息與視窗 放在按鈕外面 按鈕裡不能再放按鈕 */
+  children?: ReactNode;
+};
+
+/**
+ * 清單的一列 點一下打開修改或詳情 其他動作收在 ⋮
+ * 選單是按鈕的兄弟 按鈕裡不能再放按鈕
+ */
+export function ListRow({ title, detail, amount, badge, muted = false, trigger, actionLabel, menu, children }: ListRowProps) {
+  const content = (
+    <>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className={`font-medium break-words ${muted ? "text-ink-soft" : "text-ink"}`}>{title}</span>
+          {badge}
+        </span>
+        {detail && <span className="text-sm break-words text-ink-soft">{detail}</span>}
+      </span>
+      {amount !== undefined && amount !== null && <span className="shrink-0 text-right font-medium text-ink tabular-nums">{amount}</span>}
+    </>
+  );
+  // 有 ⋮ 時右邊的內距交給選單 圖示才跟卡片內容的右緣對齊
+  const padding = `py-3 pl-5 sm:pl-6 ${menu ? "pr-2" : "pr-5 sm:pr-6"}`;
+
   return (
-    <span className="hidden items-center gap-1 sm:flex">
-      <ActionButton action={action} fields={{ id, direction: "up" }} disabled={isFirst} aria-label={`把「${name}」往上移`} title="往上移" className="btn-ghost btn-sm btn-icon">
-        <Icon name="arrow-up" className="size-4" />
-      </ActionButton>
-      <ActionButton action={action} fields={{ id, direction: "down" }} disabled={isLast} aria-label={`把「${name}」往下移`} title="往下移" className="btn-ghost btn-sm btn-icon">
-        <Icon name="arrow-down" className="size-4" />
-      </ActionButton>
-    </span>
+    <li className={`flex flex-col ${trigger ? "transition-colors hover:bg-surface-muted" : ""}`}>
+      <div className="flex items-center">
+        {trigger ? (
+          <button {...trigger} className={`flex min-h-14 min-w-0 flex-1 cursor-pointer items-center gap-3 text-left focus-visible:-outline-offset-2 ${padding}`}>
+            {actionLabel && <span className="sr-only">{actionLabel}：</span>}
+            {content}
+          </button>
+        ) : (
+          <div className={`flex min-h-14 min-w-0 flex-1 items-center gap-3 ${padding}`}>{content}</div>
+        )}
+        {menu && <div className="shrink-0 pr-3 sm:pr-4">{menu}</div>}
+      </div>
+      {children}
+    </li>
+  );
+}
+
+/** 修改成功的訊息接在那一列下面 左右跟列的文字對齊 */
+export const LIST_ROW_MESSAGE = "px-5 pb-3 sm:px-6";
+
+type ListGroupProps = {
+  id: string;
+  /** 上面沒有區段標題時用 h2 例如紀錄頁的日期 */
+  as?: "h2" | "h3";
+  title: ReactNode;
+  /** 標題列右邊 例如小計 跟列的金額對齊 */
+  aside?: ReactNode;
+  /** 列尾有 ⋮ 時右邊讓出選單的寬度 金額才對得齊 */
+  withMenu?: boolean;
+  children: ReactNode;
+};
+
+/** 卡片清單裡的一組 例如帳戶的存款 紀錄頁的一天 */
+export function ListGroup({ id, as: Heading = "h3", title, aside, withMenu = false, children }: ListGroupProps) {
+  return (
+    <section aria-labelledby={id}>
+      <Heading id={id} className="card-row flex items-center justify-between gap-3 border-b border-line bg-surface-muted py-2 text-sm font-semibold text-ink">
+        {title}
+        {aside && <span className={withMenu ? "pr-9 pointer-coarse:pr-11" : undefined}>{aside}</span>}
+      </Heading>
+      <ul className="divide-y divide-line">{children}</ul>
+    </section>
   );
 }
 
 /** 選單送出後不會收起 連按幾次就能移好幾格 */
-export function MoveMenuItems({ action, id, isFirst, isLast }: Omit<MoveProps, "name">) {
+export function MoveMenuItems({ action, id, isFirst, isLast }: { action: RowAction; id: number; isFirst: boolean; isLast: boolean }) {
   return (
     <>
       {!isFirst && (
-        <ActionButton action={action} fields={{ id, direction: "up" }} formClassName="flex flex-col gap-1 sm:hidden" className="menu-item">
+        <ActionButton action={action} fields={{ id, direction: "up" }} formClassName="flex flex-col gap-1" className="menu-item">
           <Icon name="arrow-up" className="size-4" />
-          往上移
+          上移
         </ActionButton>
       )}
       {!isLast && (
-        <ActionButton action={action} fields={{ id, direction: "down" }} formClassName="flex flex-col gap-1 sm:hidden" className="menu-item">
+        <ActionButton action={action} fields={{ id, direction: "down" }} formClassName="flex flex-col gap-1" className="menu-item">
           <Icon name="arrow-down" className="size-4" />
-          往下移
+          下移
         </ActionButton>
       )}
     </>
-  );
-}
-
-/** 手機上只留圖示 整排按鈕才放得進一行 */
-export function EditButton({ name, ...triggerProps }: { name: string } & ComponentProps<"button">) {
-  return (
-    <button {...triggerProps} aria-label={`修改「${name}」`} className="btn-ghost btn-sm btn-icon sm:w-auto sm:px-3">
-      <Icon name="pencil" className="size-4" />
-      <span className="hidden sm:inline">修改</span>
-    </button>
   );
 }
 

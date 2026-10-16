@@ -11,6 +11,8 @@ vi.mock("../service/categories", { spy: true });
 vi.mock("../service/setup", { spy: true });
 vi.mock("../service/transactions", { spy: true });
 vi.mock("../service/recurring", { spy: true });
+vi.mock("../service/holdings", { spy: true });
+vi.mock("../service/cards", { spy: true });
 
 const { SavingsUserError } = await import("../service/errors");
 const accounts = mocksOf(await import("../service/accounts"), "listAccounts", "createAccount", "updateAccount", "setAccountActive", "moveAccount", "deleteAccount");
@@ -18,8 +20,10 @@ const purposes = mocksOf(await import("../service/purposes"), "createPurpose", "
 const categories = mocksOf(await import("../service/categories"), "listCategories", "createCategory", "updateCategory", "moveCategory", "deleteCategory");
 const setup = mocksOf(await import("../service/setup"), "setupDefaults");
 const transactions = mocksOf(await import("../service/transactions"), "addTransaction", "updateTransaction", "deleteTransaction", "updateBalance", "allocateSalary");
-const recurring = mocksOf(await import("../service/recurring"), "createRecurring", "updateRecurring", "setRecurringActive", "deleteRecurring");
-const services = [accounts, purposes, categories, setup, transactions, recurring];
+const recurring = mocksOf(await import("../service/recurring"), "createRecurring", "updateRecurring", "setRecurringActive", "deleteRecurring", "confirmOccurrence", "skipOccurrence");
+const holdings = mocksOf(await import("../service/holdings"), "listHoldings", "addHolding", "updateHolding", "deleteHolding", "buyHolding", "sellHolding");
+const cards = mocksOf(await import("../service/cards"), "payCard", "enterCardBill");
+const services = [accounts, purposes, categories, setup, transactions, recurring, holdings, cards];
 const allMocks = () => services.flatMap((service) => Object.values(service));
 const actions = await import("./actions");
 
@@ -53,6 +57,10 @@ const tx = (fields: Record<string, unknown>) => ({
   note: null,
   recurringId: null,
   createdAt: NOW,
+  holdingId: null,
+  shares: null,
+  costChange: null,
+  recurringPeriod: null,
   ...fields,
 });
 const rule = (fields: Record<string, unknown>) => ({
@@ -68,8 +76,17 @@ const rule = (fields: Record<string, unknown>) => ({
   active: true,
   lastPostedMonth: null,
   createdAt: NOW,
+  name: null,
+  intervalMonths: 1,
+  startMonth: null,
+  holidayRule: "none",
+  mode: "auto",
+  holdingId: null,
+  allocate: false,
+  lastNotifiedOn: null,
   ...fields,
 });
+const holding = (fields: Record<string, unknown> = {}) => ({ id: 21, userId: TEST_SESSION.id, accountId: 4, symbol: "006208", name: "富邦台50", shares: 31, cost: 7916, sortOrder: 0, createdAt: NOW, ...fields });
 
 const CATHAY = account(1, "國泰");
 const ACCOUNTS = [CATHAY, account(2, "郵局"), account(3, "國泰信用卡", "credit"), account(4, "元大證券", "investment")];
@@ -85,11 +102,35 @@ const ACCOUNT_FIELDS = {
   targetAmount: "100000",
   dueDay: "",
   payFromAccountId: "",
+  statementDay: "",
+  autopay: "",
 };
 const ENTRY_FIELDS = { kind: "expense", accountId: "1", counterAccountId: "", categoryId: "11", amount: "120", date: "2026-10-14", note: "午餐" };
-const RULE_FIELDS = { kind: "expense", accountId: "1", counterAccountId: "", categoryId: "13", amount: "15000", dayOfMonth: "6", note: "" };
+const RULE_FIELDS = {
+  kind: "expense",
+  accountId: "1",
+  counterAccountId: "",
+  categoryId: "13",
+  amount: "15000",
+  dayOfMonth: "6",
+  note: "",
+  name: "房租",
+  intervalMonths: "1",
+  startMonth: "",
+  holidayRule: "none",
+  mode: "confirm",
+  holdingId: "",
+  allocate: "",
+};
+const HOLDING_FIELDS = { accountId: "4", symbol: "006208", shares: "12", cost: "3,000" };
+const BUY_FIELDS = { holdingId: "21", fromAccountId: "1", shares: "19", amount: "4,916", date: "2026-10-05", note: "" };
+const SELL_FIELDS = { holdingId: "21", toAccountId: "1", shares: "5", amount: "1,300", date: "2026-10-14", note: "" };
+const CONFIRM_FIELDS = { ruleId: "30", period: "2026-10", amount: "15,000", date: "2026-10-06", note: "", shares: "" };
+const PAY_CARD_FIELDS = { cardId: "3", fromAccountId: "1", amount: "12,480", date: "2026-10-14", billAmount: "", categoryId: "" };
+const CARD_BILL_FIELDS = { cardId: "3", amount: "12,480", statementDate: "", categoryId: "" };
+const BILL = { id: 40, userId: TEST_SESSION.id, accountId: 3, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 12_480, createdAt: NOW };
 
-/** 發薪分配的轉出是同一個名稱重複出現的成對欄位 form() 只能放一個值 */
+/** 發薪分配的轉出是同一個名稱重複出現的成對欄位 form 只能放一個值 */
 function salaryForm(fields: Record<string, string>, lines: [string, string][]): FormData {
   const data = form(fields);
   for (const [accountId, amount] of lines) {
@@ -98,7 +139,7 @@ function salaryForm(fields: Record<string, string>, lines: [string, string][]): 
   }
   return data;
 }
-const SALARY_FIELDS = { accountId: "1", categoryId: "12", amount: "43,000", date: "2026-10-05", note: "" };
+const SALARY_FIELDS = { accountId: "1", categoryId: "12", amount: "43,000", date: "2026-10-05", note: "", ruleId: "", period: "" };
 const SALARY_RESULT = {
   income: tx({ id: 80, kind: "income", categoryId: 12, amount: 43000 }),
   transfers: [tx({ id: 81, kind: "transfer", counterAccountId: 2, categoryId: null, amount: 5000 }), tx({ id: 82, kind: "transfer", counterAccountId: 4, categoryId: null, amount: 3000 }), tx({ id: 83, kind: "transfer", counterAccountId: 2, categoryId: null, amount: 3000 })],
@@ -133,6 +174,16 @@ beforeEach(() => {
   recurring.updateRecurring.mockResolvedValue(rule({}));
   recurring.setRecurringActive.mockResolvedValue(undefined);
   recurring.deleteRecurring.mockResolvedValue(true);
+  recurring.confirmOccurrence.mockResolvedValue({ rule: rule({ mode: "confirm" }), transaction: tx({ categoryId: 13, amount: 15000, recurringId: 30, recurringPeriod: "2026-10-01" }) });
+  recurring.skipOccurrence.mockResolvedValue(rule({ mode: "confirm" }));
+  holdings.listHoldings.mockResolvedValue([holding()]);
+  holdings.addHolding.mockResolvedValue(holding({ shares: 12, cost: 3000 }));
+  holdings.updateHolding.mockResolvedValue(holding());
+  holdings.deleteHolding.mockResolvedValue("006208 富邦台50");
+  holdings.buyHolding.mockResolvedValue({ holding: holding(), transaction: tx({ kind: "transfer", counterAccountId: 4, categoryId: null, amount: 4916, holdingId: 21, shares: 19, costChange: 4916 }) });
+  holdings.sellHolding.mockResolvedValue({ holding: holding(), transaction: tx({ kind: "transfer", accountId: 4, counterAccountId: 1, categoryId: null, amount: 1300, holdingId: 21, shares: -5, costChange: -1250 }) });
+  cards.payCard.mockResolvedValue({ transaction: tx({ kind: "transfer", counterAccountId: 3, categoryId: null, amount: 12480, note: "繳卡費" }), card: ACCOUNTS[2], from: CATHAY, bill: null, difference: 0 });
+  cards.enterCardBill.mockResolvedValue({ bill: BILL, card: ACCOUNTS[2], difference: 9480 });
 });
 
 type Action = (prev: object, data: FormData) => Promise<{ error?: string; message?: string }>;
@@ -162,6 +213,15 @@ const CASES: [string, Action, () => FormData, Mock][] = [
   ["updateRecurringAction", actions.updateRecurringAction, () => form({ id: "30", ...RULE_FIELDS }), recurring.updateRecurring],
   ["setRecurringActiveAction", actions.setRecurringActiveAction, () => form({ id: "30", active: "true" }), recurring.setRecurringActive],
   ["deleteRecurringAction", actions.deleteRecurringAction, () => form({ id: "30" }), recurring.deleteRecurring],
+  ["confirmOccurrenceAction", actions.confirmOccurrenceAction, () => form(CONFIRM_FIELDS), recurring.confirmOccurrence],
+  ["skipOccurrenceAction", actions.skipOccurrenceAction, () => form({ ruleId: "30", period: "2026-10" }), recurring.skipOccurrence],
+  ["createHoldingAction", actions.createHoldingAction, () => form(HOLDING_FIELDS), holdings.addHolding],
+  ["updateHoldingAction", actions.updateHoldingAction, () => form({ id: "21", shares: "31", cost: "7,916" }), holdings.updateHolding],
+  ["deleteHoldingAction", actions.deleteHoldingAction, () => form({ id: "21" }), holdings.deleteHolding],
+  ["buyHoldingAction", actions.buyHoldingAction, () => form(BUY_FIELDS), holdings.buyHolding],
+  ["sellHoldingAction", actions.sellHoldingAction, () => form(SELL_FIELDS), holdings.sellHolding],
+  ["payCardAction", actions.payCardAction, () => form(PAY_CARD_FIELDS), cards.payCard],
+  ["enterCardBillAction", actions.enterCardBillAction, () => form(CARD_BILL_FIELDS), cards.enterCardBill],
 ];
 
 describe("登入檢查", () => {
@@ -193,6 +253,14 @@ describe("擁有權：一律用登入者的 id 呼叫 service，表單送來的 
     expect(accounts.listAccounts).toHaveBeenCalledWith(OTHER_SESSION.id);
     expect(categories.listCategories).toHaveBeenCalledWith(OTHER_SESSION.id);
   });
+
+  it("確認待處理時查持股代號組訊息_也只讀登入者自己的", async () => {
+    requireSession.mockResolvedValue(OTHER_SESSION);
+
+    await actions.confirmOccurrenceAction({}, form(CONFIRM_FIELDS));
+
+    expect(holdings.listHoldings).toHaveBeenCalledWith(OTHER_SESSION.id);
+  });
 });
 
 describe("id 與旗標的檢查：Server Action 可以被直接 POST", () => {
@@ -212,6 +280,8 @@ describe("id 與旗標的檢查：Server Action 可以被直接 POST", () => {
     ["updateRecurringAction", actions.updateRecurringAction, (id) => form({ id, ...RULE_FIELDS })],
     ["setRecurringActiveAction", actions.setRecurringActiveAction, (id) => form({ id, active: "true" })],
     ["deleteRecurringAction", actions.deleteRecurringAction, (id) => form({ id })],
+    ["updateHoldingAction", actions.updateHoldingAction, (id) => form({ id, shares: "1", cost: "1" })],
+    ["deleteHoldingAction", actions.deleteHoldingAction, (id) => form({ id })],
   ];
 
   it.each(withId)("%s_id 不是正整數（abc、0、-1、1.5、空白）_回「資料不正確」、不呼叫 service", async (_name, action, data) => {
@@ -321,28 +391,6 @@ describe("更新餘額", () => {
     expect(updateTag).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
   });
-
-  describe("信用卡：輸入的是未繳，訊息也用未繳的角度寫（「調整 +$480」會讀成欠更多）", () => {
-    const CARD = ACCOUNTS[2];
-
-    it("未繳從 4,480 改成 4,000_未繳少了 $480，寫出前後的數字", async () => {
-      transactions.updateBalance.mockResolvedValue({ account: CARD, delta: 480 });
-
-      expect(await actions.updateBalanceAction({}, form({ accountId: "3", actual: "4,000" }))).toEqual({ message: "已更新「國泰信用卡」：未繳少了 $480（$4,480 → $4,000）" });
-    });
-
-    it("未繳變多_未繳多了", async () => {
-      transactions.updateBalance.mockResolvedValue({ account: CARD, delta: -500 });
-
-      expect(await actions.updateBalanceAction({}, form({ accountId: "3", actual: "4000" }))).toEqual({ message: "已更新「國泰信用卡」：未繳多了 $500（$3,500 → $4,000）" });
-    });
-
-    it("多繳了（負數是溢繳）_寫成溢繳", async () => {
-      transactions.updateBalance.mockResolvedValue({ account: CARD, delta: 4680 });
-
-      expect(await actions.updateBalanceAction({}, form({ accountId: "3", actual: "-200" }))).toEqual({ message: "已更新「國泰信用卡」：未繳少了 $4,680（$4,480 → 溢繳 $200）" });
-    });
-  });
 });
 
 describe("發薪分配", () => {
@@ -364,7 +412,7 @@ describe("發薪分配", () => {
         { accountId: "2", amount: "3000" },
       ],
     });
-    expect(state).toEqual({ message: "已記錄薪水 $43,000，轉出 3 筆，「國泰」留下 $32,000" });
+    expect(state).toEqual({ message: "已入帳並分配薪水 $43,000，轉出 3 筆，「國泰」留下 $32,000" });
   });
 
   it("分配的金額留空_當成 0（不轉），不讓整張表單失敗", async () => {
@@ -388,6 +436,38 @@ describe("發薪分配", () => {
 
     expect(await actions.allocateSalaryAction({}, data)).toEqual({ error: INVALID_FORM_MESSAGE });
     expect(transactions.allocateSalary).not.toHaveBeenCalled();
+  });
+});
+
+describe("持股、買賣、待處理與繳卡費：FormData 的欄位名稱照 SPEC，原樣交給 service 驗證", () => {
+  it.each([
+    ["createHoldingAction", () => actions.createHoldingAction({}, form(HOLDING_FIELDS)), () => holdings.addHolding, [HOLDING_FIELDS]],
+    ["updateHoldingAction", () => actions.updateHoldingAction({}, form({ id: "21", shares: "31", cost: "7,916" })), () => holdings.updateHolding, [21, { shares: "31", cost: "7,916" }]],
+    ["buyHoldingAction", () => actions.buyHoldingAction({}, form(BUY_FIELDS)), () => holdings.buyHolding, [BUY_FIELDS]],
+    ["sellHoldingAction", () => actions.sellHoldingAction({}, form(SELL_FIELDS)), () => holdings.sellHolding, [SELL_FIELDS]],
+    ["confirmOccurrenceAction", () => actions.confirmOccurrenceAction({}, form(CONFIRM_FIELDS)), () => recurring.confirmOccurrence, [CONFIRM_FIELDS]],
+    ["skipOccurrenceAction", () => actions.skipOccurrenceAction({}, form({ ruleId: "30", period: "2026-10" })), () => recurring.skipOccurrence, [{ ruleId: "30", period: "2026-10" }]],
+    ["payCardAction", () => actions.payCardAction({}, form(PAY_CARD_FIELDS)), () => cards.payCard, [PAY_CARD_FIELDS]],
+    ["payCardAction（一起填帳單）", () => actions.payCardAction({}, form({ ...PAY_CARD_FIELDS, billAmount: "12,480" })), () => cards.payCard, [{ ...PAY_CARD_FIELDS, billAmount: "12,480" }]],
+    ["enterCardBillAction", () => actions.enterCardBillAction({}, form({ ...CARD_BILL_FIELDS, statementDate: "2026-10-05", categoryId: "11" })), () => cards.enterCardBill, [{ ...CARD_BILL_FIELDS, statementDate: "2026-10-05", categoryId: "11" }]],
+    ["createRecurringAction", () => actions.createRecurringAction({}, form(RULE_FIELDS)), () => recurring.createRecurring, [RULE_FIELDS]],
+    ["createAccountAction", () => actions.createAccountAction({}, form({ ...ACCOUNT_FIELDS, kind: "credit", dueDay: "20", statementDay: "5", autopay: "on" })), () => accounts.createAccount, [{ ...ACCOUNT_FIELDS, kind: "credit", dueDay: "20", statementDay: "5", autopay: "on" }]],
+  ] as const)("%s", async (_name, run, service, args) => {
+    expect(await run()).not.toHaveProperty("error");
+
+    expect(service()).toHaveBeenCalledWith(TEST_SESSION.id, ...args);
+  });
+
+  it("繳卡費的訊息跟按鈕一樣寫已繳，寫出繳了哪張卡多少錢（協調者定的寫法：已繳國泰卡 $12,480）", async () => {
+    cards.payCard.mockResolvedValue({ transaction: tx({ kind: "transfer", counterAccountId: 3, categoryId: null, amount: 12480 }), card: account(3, "國泰卡", "credit"), from: CATHAY, bill: null, difference: 0 });
+
+    expect(await actions.payCardAction({}, form(PAY_CARD_FIELDS))).toEqual({ message: "已繳國泰卡 $12,480" });
+  });
+
+  it("發薪分配從待處理確認_帶上 ruleId 與 period 給 service", async () => {
+    await actions.allocateSalaryAction({}, salaryForm({ ...SALARY_FIELDS, ruleId: "30", period: "2026-10" }, [["2", "5000"]]));
+
+    expect(transactions.allocateSalary.mock.calls[0][1]).toMatchObject({ ruleId: "30", period: "2026-10" });
   });
 });
 

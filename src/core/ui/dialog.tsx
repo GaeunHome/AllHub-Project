@@ -274,6 +274,8 @@ type DialogButtonProps = {
   icon?: ReactNode;
   size?: DialogSize;
   className?: string;
+  /** 給成功訊息外面那一層 例如在一排按鈕裡獨佔最後一整列 */
+  messageClassName?: string;
   /** 傳函式就拿得到 done 與 close 成功時訊息接在按鈕後面 */
   children: ReactNode | ((controls: DialogControls) => ReactNode);
 };
@@ -282,7 +284,7 @@ type DialogButtonProps = {
  * 一個按鈕加上它打開的視窗 成功訊息接在按鈕後面
  * 清單列裡的表單與詳情用這個 不要展開在列裡
  */
-export function DialogButton({ label, buttonClassName = "btn-secondary", title, icon, size, className, children }: DialogButtonProps) {
+export function DialogButton({ label, buttonClassName = "btn-secondary", title, icon, size, className, messageClassName, children }: DialogButtonProps) {
   const dialog = useDialog();
 
   return (
@@ -290,7 +292,7 @@ export function DialogButton({ label, buttonClassName = "btn-secondary", title, 
       <button {...dialog.triggerProps} className={buttonClassName}>
         {label}
       </button>
-      <DialogMessage {...dialog.messageProps} />
+      <DialogMessage {...dialog.messageProps} className={messageClassName} />
       <Dialog {...dialog.dialogProps} title={title} icon={icon} size={size} className={className}>
         {dialog.open && (typeof children === "function" ? children({ done: dialog.done, close: dialog.close }) : children)}
       </Dialog>

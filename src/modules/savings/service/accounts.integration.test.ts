@@ -51,6 +51,8 @@ const fields = (values: Partial<AccountFields> = {}): AccountFields => ({
   targetAmount: "",
   dueDay: "",
   payFromAccountId: "",
+  statementDay: "",
+  autopay: "",
   ...values,
 });
 
@@ -225,6 +227,19 @@ describe("updateAccount", () => {
     expect((await rowsOf(me)).map((a) => a.openingBalance)).toEqual([100, -100]);
   });
 
+  it("信用卡的結帳日與自動扣繳_存起來，取消勾選就關掉", async () => {
+    const card = await insertAccount({ name: "國泰卡", kind: "credit" });
+
+    expect(await updateAccount(me, card.id, fields({ name: "國泰卡", dueDay: "20", statementDay: "5", autopay: "on" }))).toMatchObject({ dueDay: 20, statementDay: 5, autopay: true });
+    expect(await updateAccount(me, card.id, fields({ name: "國泰卡", dueDay: "20" }))).toMatchObject({ statementDay: null, autopay: false });
+  });
+
+  it("存款帳戶送來結帳日與自動扣繳_忽略", async () => {
+    const created = await createAccount(me, fields({ statementDay: "5", autopay: "on" }));
+
+    expect(created).toMatchObject({ statementDay: null, autopay: false });
+  });
+
   it("信用卡改成溢繳_起始未繳填負數", async () => {
     const card = await insertAccount({ name: "卡", kind: "credit", openingBalance: -100 });
 
@@ -257,6 +272,27 @@ describe("moveAccount", () => {
     await moveAccount(me, a.id, "down");
 
     expect(await namesOf(me)).toEqual(["B", "A", "C"]);
+  });
+
+  it("只在同一類型裡移：存款往上移跳過中間的信用卡，跟前一個存款交換；信用卡的排序不動", async () => {
+    await insertAccount({ name: "A", sortOrder: 0 });
+    const card = await insertAccount({ name: "卡", kind: "credit", sortOrder: 1 });
+    const b = await insertAccount({ name: "B", sortOrder: 2 });
+
+    await moveAccount(me, b.id, "up");
+
+    const rows = await rowsOf(me);
+    expect(rows.filter((a) => a.kind === "deposit").map((a) => a.name)).toEqual(["B", "A"]);
+    expect(rows.find((a) => a.id === card.id)?.sortOrder).toBe(1);
+  });
+
+  it("已經是那一類的第一個_往上移沒有效果（不會跟別的類型交換）", async () => {
+    await insertAccount({ name: "A", sortOrder: 0 });
+    const card = await insertAccount({ name: "卡", kind: "credit", sortOrder: 1 });
+
+    await moveAccount(me, card.id, "up");
+
+    expect(await namesOf(me)).toEqual(["A", "卡"]);
   });
 
   it("排序值重複_依畫面上的順序移動並重新編號", async () => {

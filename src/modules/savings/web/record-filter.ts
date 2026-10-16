@@ -2,11 +2,29 @@ import { UNCATEGORIZED_KEY } from "../lib/ledger";
 import { parseRowId } from "../lib/validation";
 import type { TransactionView } from "../service/transactions";
 
-/** 伺服器整理好的純資料 瀏覽器只在這上面篩選 不帶 userId 與 createdAt */
+/**
+ * 伺服器整理好的純資料 瀏覽器只在這上面篩選 不帶 userId 與 createdAt
+ * backToPending 是刪掉後那一期會回到總覽的待處理 cardBillId 是填帳單時補的
+ */
 export type RecordItem = Pick<
   TransactionView,
-  "id" | "kind" | "accountId" | "accountName" | "counterAccountId" | "counterAccountName" | "categoryId" | "categoryName" | "categoryColor" | "amount" | "date" | "note" | "recurring"
->;
+  | "id"
+  | "kind"
+  | "accountId"
+  | "accountName"
+  | "counterAccountId"
+  | "counterAccountName"
+  | "categoryId"
+  | "categoryName"
+  | "amount"
+  | "date"
+  | "note"
+  | "recurring"
+  | "recurringName"
+  | "shares"
+  | "holdingSymbol"
+  | "cardBillId"
+> & { backToPending: boolean };
 
 /** 下拉選單的值 空字串是不篩選 category 也可以是 UNCATEGORIZED_KEY */
 export type RecordFilters = { account: string; category: string; kind: string };
@@ -17,11 +35,19 @@ export function hasFilters(filters: RecordFilters): boolean {
   return filters.account !== "" || filters.category !== "" || filters.kind !== "";
 }
 
+type Raw = string | string[] | undefined;
+
 /** 網址的 category 參數只認自己的分類 id 或未分類 其他一律不篩選 */
-export function categoryFilterFrom(raw: string | string[] | undefined, categories: readonly { id: number }[]): string {
+export function categoryFilterFrom(raw: Raw, categories: readonly { id: number }[]): string {
   if (raw === UNCATEGORIZED_KEY) return UNCATEGORIZED_KEY;
   const id = parseRowId(raw);
   return id !== null && categories.some((category) => category.id === id) ? String(id) : "";
+}
+
+/** 網址的 account 參數 總覽的帳戶詳情連過來 只認自己的帳戶 */
+export function accountFilterFrom(raw: Raw, accounts: readonly { id: number }[]): string {
+  const id = parseRowId(raw);
+  return id !== null && accounts.some((account) => account.id === id) ? String(id) : "";
 }
 
 function matches(record: RecordItem, { account, category, kind }: RecordFilters): boolean {

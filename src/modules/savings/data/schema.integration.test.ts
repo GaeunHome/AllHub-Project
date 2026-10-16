@@ -1,6 +1,7 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { insertTestUser, setupTestDb } from "@/dev/test-db";
-import { savingsAccounts, savingsCategories, savingsPurposes, savingsRecurring, savingsTransactions } from "./schema";
+import { savingsAccounts, savingsCardBills, savingsCategories, savingsHoldings, savingsPurposes, savingsRecurring, savingsTransactions } from "./schema";
 
 // 程式漏檢查時資料庫也會擋 約束跟 lib 的驗證是同一套規則
 
@@ -106,6 +107,73 @@ describe("帳戶（savings_accounts）", () => {
   it("類型只能是存款、投資、信用卡", async () => {
     expect(await failureOf(account({ kind: "loan" as "deposit" }))).toContain("savings_accounts_kind");
   });
+
+  it("結帳日（1–31）與自動扣繳只有信用卡能設", async () => {
+    expect(await failureOf(account({ statementDay: 5 }))).toContain("savings_accounts_statement_day");
+    expect(await failureOf(account({ kind: "credit", statementDay: 0 }))).toContain("savings_accounts_statement_day");
+    expect(await failureOf(account({ autopay: true }))).toContain("savings_accounts_autopay");
+    await account({ kind: "credit", statementDay: 31, dueDay: 20, autopay: true });
+  });
+});
+
+describe("持股（savings_holdings）", () => {
+  const holding = async (values: Partial<typeof savingsHoldings.$inferInsert> = {}) => {
+    const [broker] = await getDb().select({ id: savingsAccounts.id }).from(savingsAccounts).where(eq(savingsAccounts.name, "證券"));
+    return getDb()
+      .insert(savingsHoldings)
+      .values({ userId: me, accountId: broker.id, symbol: "006208", name: "富邦台50", shares: 12, cost: 3000, ...values });
+  };
+
+  beforeEach(async () => {
+    await account({ name: "證券", kind: "investment" });
+  });
+
+  it("代號是 4 到 6 碼的大寫英數", async () => {
+    for (const symbol of ["00679b", "123", "1234567", "2330.TW", ""]) expect(await failureOf(holding({ symbol })), symbol).toContain("savings_holdings_symbol");
+    await holding({ symbol: "00679B" });
+  });
+
+  it("股數 0 到 10 億、總成本 0 到 1 億", async () => {
+    expect(await failureOf(holding({ shares: -1 }))).toContain("savings_holdings_shares");
+    expect(await failureOf(holding({ shares: 1_000_000_001 }))).toContain("savings_holdings_shares");
+    expect(await failureOf(holding({ cost: -1 }))).toContain("savings_holdings_cost");
+    expect(await failureOf(holding({ cost: 100_000_001 }))).toContain("savings_holdings_cost");
+    await holding({ shares: 0, cost: 0 });
+  });
+
+  it("同一個帳戶同一個代號只能一筆", async () => {
+    await holding();
+    expect(await failureOf(holding({ shares: 1 }))).toContain("savings_holdings_account_symbol_idx");
+  });
+});
+
+describe("信用卡帳單（savings_card_bills）", () => {
+  const bill = (cardId: number, values: Partial<typeof savingsCardBills.$inferInsert> = {}) =>
+    getDb()
+      .insert(savingsCardBills)
+      .values({ userId: me, accountId: cardId, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 12_480, ...values });
+
+  it("金額 0 到 1 億（繳清或沒消費的帳單是 0）；同一張卡同一個結帳日只有一張", async () => {
+    const [card] = await account({ name: "國泰卡", kind: "credit" }).returning();
+
+    expect(await failureOf(bill(card.id, { amount: -1 }))).toContain("savings_card_bills_amount");
+    expect(await failureOf(bill(card.id, { amount: 100_000_001 }))).toContain("savings_card_bills_amount");
+    await bill(card.id, { amount: 0 });
+    expect(await failureOf(bill(card.id))).toContain("savings_card_bills_account_statement_idx");
+  });
+
+  it("刪掉帳單時補的那一筆紀錄留著（card_bill_id 改成 null）；刪掉卡時帳單一起刪", async () => {
+    const [card] = await account({ name: "國泰卡", kind: "credit" }).returning();
+    const [row] = await bill(card.id).returning();
+    const [reconcile] = await transaction({ accountId: card.id, cardBillId: row.id }).returning();
+
+    await getDb().delete(savingsCardBills).where(eq(savingsCardBills.id, row.id));
+    expect((await getDb().select().from(savingsTransactions).where(eq(savingsTransactions.id, reconcile.id)))[0].cardBillId).toBeNull();
+
+    await bill(card.id);
+    await getDb().delete(savingsAccounts).where(eq(savingsAccounts.id, card.id));
+    expect(await getDb().select().from(savingsCardBills)).toEqual([]);
+  });
 });
 
 describe("用途與分類", () => {
@@ -162,5 +230,35 @@ describe("固定收支（savings_recurring）", () => {
   it("記到的月份一定是那個月的 1 號", async () => {
     expect(await failureOf(rule({ lastPostedMonth: "2026-10-06" }))).toContain("savings_recurring_last_posted_first_day");
     await rule({ lastPostedMonth: "2026-10-01" });
+  });
+
+  it("每 1、2、3、6、12 個月一次；起始月份是 1 號；假日規則與記帳方式只能是定義的值", async () => {
+    expect(await failureOf(rule({ intervalMonths: 4 }))).toContain("savings_recurring_interval_months");
+    expect(await failureOf(rule({ startMonth: "2026-08-15" }))).toContain("savings_recurring_start_month_first_day");
+    expect(await failureOf(rule({ holidayRule: "skip" as "none" }))).toContain("savings_recurring_holiday_rule");
+    expect(await failureOf(rule({ mode: "manual" as "auto" }))).toContain("savings_recurring_mode");
+    await rule({ intervalMonths: 12, startMonth: "2026-03-01", holidayRule: "before", mode: "confirm" });
+  });
+
+  it("定期定額（有持股）一定是到期確認的轉帳；薪水（分配）一定是到期確認的收入：排程不會自動記沒有股數或實際金額的", async () => {
+    const [broker] = await getDb().insert(savingsAccounts).values({ userId: me, name: "證券", kind: "investment" }).returning();
+    const [etf] = await getDb().insert(savingsHoldings).values({ userId: me, accountId: broker.id, symbol: "006208", name: "富邦台50", shares: 0, cost: 0 }).returning();
+
+    expect(await failureOf(rule({ kind: "transfer", counterAccountId: broker.id, holdingId: etf.id, mode: "auto" }))).toContain("savings_recurring_holding");
+    expect(await failureOf(rule({ holdingId: etf.id, mode: "confirm" }))).toContain("savings_recurring_holding");
+    expect(await failureOf(rule({ kind: "income", allocate: true, mode: "auto" }))).toContain("savings_recurring_allocate");
+    expect(await failureOf(rule({ allocate: true, mode: "confirm" }))).toContain("savings_recurring_allocate");
+    await rule({ kind: "transfer", counterAccountId: broker.id, holdingId: etf.id, mode: "confirm" });
+    await rule({ kind: "income", allocate: true, mode: "confirm" });
+  });
+});
+
+describe("紀錄的買賣與期別欄位", () => {
+  it("股數只有轉帳能帶、不能是 0；成本變動在正負 1 億之間；期別是 1 號", async () => {
+    expect(await failureOf(transaction({ shares: 5 }))).toContain("savings_transactions_shares");
+    expect(await failureOf(transaction({ kind: "transfer", counterAccountId: post, shares: 0 }))).toContain("savings_transactions_shares");
+    expect(await failureOf(transaction({ kind: "transfer", counterAccountId: post, costChange: -100_000_001 }))).toContain("savings_transactions_cost_change");
+    expect(await failureOf(transaction({ recurringPeriod: "2026-10-05" }))).toContain("savings_transactions_recurring_period_first_day");
+    await transaction({ kind: "transfer", counterAccountId: post, shares: -5, costChange: -1250, recurringPeriod: "2026-10-01" });
   });
 });

@@ -45,3 +45,33 @@ describe("Twitch API 的逾時", () => {
     await expect(getUsersByLogin(["alice"])).rejects.toMatchObject({ name: "TimeoutError" });
   });
 });
+
+describe("換 App Access Token 被拒：看得出是哪個值填錯時，直接說要改哪個環境變數", () => {
+  // Twitch 實際的回應 Client ID 不存在是 400 Client ID 對但 Secret 錯是 403
+  const tokenRejected = (status: number, body: string) =>
+    fakeFetch(({ url }) => (url.includes("/oauth2/token") ? new Response(body, { status, headers: { "Content-Type": "application/json" } }) : Response.json({ data: [] })));
+
+  it("400 invalid client_說 Client ID 不對，要改的是 TWITCH_CLIENT_ID", async () => {
+    vi.stubGlobal("fetch", tokenRejected(400, '{"status":400,"message":"invalid client"}').impl);
+    const { getUsersByLogin } = await loadApi();
+
+    const error = (await getUsersByLogin(["alice"]).catch((e: unknown) => e)) as Error;
+
+    expect(error).toMatchObject({ name: "TwitchApiError", status: 400 });
+    expect(error.message).toContain("Client ID 不對");
+    expect(error.message).toContain("TWITCH_CLIENT_ID");
+    expect(error.message).not.toContain("TWITCH_CLIENT_SECRET");
+  });
+
+  it("403 invalid client secret_說 Client Secret 不對，要改的是 TWITCH_CLIENT_SECRET", async () => {
+    vi.stubGlobal("fetch", tokenRejected(403, '{"status":403,"message":"invalid client secret"}').impl);
+    const { listSubscriptions } = await loadApi();
+
+    const error = (await listSubscriptions().catch((e: unknown) => e)) as Error;
+
+    expect(error).toMatchObject({ name: "TwitchApiError", status: 403 });
+    expect(error.message).toContain("Client Secret 不對");
+    expect(error.message).toContain("TWITCH_CLIENT_SECRET");
+    expect(error.message).not.toContain("TWITCH_CLIENT_ID");
+  });
+});

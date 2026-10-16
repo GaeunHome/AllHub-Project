@@ -5,31 +5,56 @@ import { requireSession } from "@/core/auth";
 import { updateTags, type CacheTag } from "@/core/cache";
 import { INVALID_FORM_MESSAGE, formFlag, formId, formText, runAction } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
-import { TRANSACTION_KIND_LABELS, type AccountKind, type TransactionKind } from "../lib/kinds";
-import { balanceFromFigure } from "../lib/ledger";
-import { formatSignedTwd, formatTwd } from "../lib/money";
+import { formatSlashDate } from "../lib/dates";
+import { TRANSACTION_KIND_LABELS, type TransactionKind } from "../lib/kinds";
+import { formatNumber, formatSignedTwd, formatTwd } from "../lib/money";
+import { formatMonthShort } from "../lib/month";
 import type { Direction } from "../lib/order";
-import { amountFromText } from "../lib/validation";
+import { recurringTitle, scheduleText } from "../lib/recurring";
+import { parsePeriod } from "../lib/validation";
 import { createAccount, deleteAccount, listAccounts, moveAccount, setAccountActive, updateAccount } from "../service/accounts";
 import { savingsTags } from "../service/cache-tags";
+import { enterCardBill, payCard } from "../service/cards";
 import { createCategory, deleteCategory, listCategories, moveCategory, updateCategory } from "../service/categories";
 import { SavingsUserError } from "../service/errors";
+import { addHolding, buyHolding, deleteHolding, listHoldings, sellHolding, updateHolding } from "../service/holdings";
 import { createPurpose, deletePurpose, movePurpose, updatePurpose } from "../service/purposes";
-import { createRecurring, deleteRecurring, setRecurringActive, updateRecurring } from "../service/recurring";
+import { confirmOccurrence, createRecurring, deleteRecurring, setRecurringActive, skipOccurrence, updateRecurring } from "../service/recurring";
 import { setupDefaults } from "../service/setup";
 import { addTransaction, allocateSalary, deleteTransaction, updateBalance, updateTransaction } from "../service/transactions";
-import { scheduleLabel } from "./entry-display";
-import { balanceChangeText } from "./form-math";
 
 // 表單的 id 只決定操作哪一筆 一律用登入者的 id 呼叫 service
 // 欄位名稱跟 service 一樣 原樣交給 service 驗證
 
-const ACCOUNT_FIELDS = ["name", "kind", "purposeId", "openingBalance", "openingCost", "monthlyPlan", "targetAmount", "dueDay", "payFromAccountId"] as const;
+const ACCOUNT_FIELDS = ["name", "kind", "purposeId", "openingBalance", "openingCost", "monthlyPlan", "targetAmount", "dueDay", "payFromAccountId", "statementDay", "autopay"] as const;
 const PURPOSE_FIELDS = ["name", "color"] as const;
 const CATEGORY_FIELDS = ["kind", "name", "color", "monthlyBudget"] as const;
 const ENTRY_FIELDS = ["kind", "accountId", "counterAccountId", "categoryId", "amount", "date", "note"] as const;
-const RECURRING_FIELDS = ["kind", "accountId", "counterAccountId", "categoryId", "amount", "dayOfMonth", "note"] as const;
-const SALARY_FIELDS = ["accountId", "categoryId", "amount", "date", "note"] as const;
+const RECURRING_FIELDS = [
+  "kind",
+  "accountId",
+  "counterAccountId",
+  "categoryId",
+  "amount",
+  "dayOfMonth",
+  "note",
+  "name",
+  "intervalMonths",
+  "startMonth",
+  "holidayRule",
+  "mode",
+  "holdingId",
+  "allocate",
+] as const;
+const SALARY_FIELDS = ["accountId", "categoryId", "amount", "date", "note", "ruleId", "period"] as const;
+const HOLDING_FIELDS = ["accountId", "symbol", "shares", "cost"] as const;
+const HOLDING_UPDATE_FIELDS = ["shares", "cost"] as const;
+const BUY_FIELDS = ["holdingId", "fromAccountId", "shares", "amount", "date", "note"] as const;
+const SELL_FIELDS = ["holdingId", "toAccountId", "shares", "amount", "date", "note"] as const;
+const CONFIRM_FIELDS = ["ruleId", "period", "amount", "date", "note", "shares"] as const;
+const SKIP_FIELDS = ["ruleId", "period"] as const;
+const PAY_CARD_FIELDS = ["cardId", "fromAccountId", "amount", "date", "billAmount", "categoryId"] as const;
+const CARD_BILL_FIELDS = ["cardId", "amount", "statementDate", "categoryId"] as const;
 
 function readFields<K extends string>(formData: FormData, names: readonly K[]): Record<K, string> {
   return Object.fromEntries(names.map((name) => [name, formText(formData, name)])) as Record<K, string>;
@@ -44,16 +69,21 @@ function formDirection(formData: FormData): Direction | null {
 const attempt = (action: string, work: () => Promise<FormState | string | void>) =>
   runAction({ module: "savings", action }, (error) => error instanceof SavingsUserError, work);
 
-type Names = { account: (id: number | null) => string; category: (id: number | null) => string | null };
+type Names = {
+  account: (id: number | null) => string;
+  category: (id: number | null) => string | null;
+  maps: { accounts: Map<number, string>; categories: Map<number, string>; holdingSymbols: Map<number, string> };
+};
 
 // 寫入前先讀好 寫入後才讀又讀不到的話 已經記好的帳會被說成失敗
-async function readNames(userId: string, withCategories = true): Promise<Names> {
-  const [accounts, categories] = await Promise.all([listAccounts(userId), withCategories ? listCategories(userId) : []]);
+async function readNames(userId: string, { categories: withCategories = true, holdings: withHoldings = false } = {}): Promise<Names> {
+  const [accounts, categories, holdings] = await Promise.all([listAccounts(userId), withCategories ? listCategories(userId) : [], withHoldings ? listHoldings(userId) : []]);
   const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
   const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
   return {
     account: (id) => (id === null ? undefined : accountNames.get(id)) ?? "帳戶",
     category: (id) => (id === null ? null : (categoryNames.get(id) ?? null)),
+    maps: { accounts: accountNames, categories: categoryNames, holdingSymbols: new Map(holdings.map((holding) => [holding.id, holding.symbol])) },
   };
 }
 
@@ -152,8 +182,8 @@ export async function moveAccountAction(_prev: FormState, formData: FormData): P
 
 export async function deleteAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { id: userId } = await requireSession();
-  // 紀錄與固定收支跟著刪 轉帳的另一邊也是
-  return remove(formData, "刪除帳戶", (id) => deleteAccount(userId, id), [savingsTags.accounts, savingsTags.transactions, savingsTags.recurring]);
+  // 紀錄 固定收支 持股與帳單跟著刪 轉帳的另一邊也是
+  return remove(formData, "刪除帳戶", (id) => deleteAccount(userId, id), [savingsTags.accounts, savingsTags.transactions, savingsTags.recurring, savingsTags.holdings, savingsTags.bills]);
 }
 
 export async function createPurposeAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -242,24 +272,19 @@ export async function updateTransactionAction(_prev: FormState, formData: FormDa
 
 export async function deleteTransactionAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { id: userId } = await requireSession();
-  return remove(formData, "刪除紀錄", (id) => deleteTransaction(userId, id), [savingsTags.transactions]);
+  // 買賣紀錄會還原持股 確認來的紀錄會把待處理退回去 帳單補的那一筆連帳單一起刪
+  return remove(formData, "刪除紀錄", (id) => deleteTransaction(userId, id), [savingsTags.transactions, savingsTags.holdings, savingsTags.recurring, savingsTags.bills]);
 }
 
-const FIGURE_NAMES: Record<AccountKind, string> = { deposit: "餘額", investment: "市值", credit: "未繳" };
-
+/** 信用卡與有持股的投資帳戶 service 會擋下 只剩存款的餘額與投資的市值 */
 export async function updateBalanceAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { id: userId } = await requireSession();
   return attempt("更新餘額", async () => {
-    const actual = formText(formData, "actual");
-    const { account, delta } = await updateBalance(userId, { accountId: formText(formData, "accountId"), actual });
+    const { account, delta } = await updateBalance(userId, { accountId: formText(formData, "accountId"), actual: formText(formData, "actual") });
     // 跟記錄的一樣時 service 不寫入 畫面也不必重算
-    if (delta === 0) return `「${account.name}」的${FIGURE_NAMES[account.kind]}沒有變`;
+    if (delta === 0) return `「${account.name}」的${account.kind === "investment" ? "市值" : "餘額"}沒有變`;
     updateTags(savingsTags.transactions);
-    // service 已經用同一套規則接受這個數字
-    // 信用卡的訊息要寫出前後的未繳 所以從輸入與差額倒算原本的餘額
-    const figure = amountFromText(actual, { allowNegative: account.kind === "credit" });
-    const change = figure === null ? null : balanceChangeText(account.kind, balanceFromFigure(account.kind, figure) - delta, figure);
-    return `已更新「${account.name}」：${change ?? `調整 ${formatSignedTwd(delta)}`}`;
+    return `已更新「${account.name}」：調整 ${formatSignedTwd(delta)}`;
   });
 }
 
@@ -271,24 +296,35 @@ export async function allocateSalaryAction(_prev: FormState, formData: FormData)
   if (accountIds.length !== amounts.length) return { error: INVALID_FORM_MESSAGE };
   // 清空的分配欄位當成不轉 不讓整張表單因為請輸入金額而失敗
   const transfers = accountIds.map((accountId, i) => ({ accountId, amount: amounts[i].trim() === "" ? "0" : amounts[i] }));
-  return attempt("發薪分配", async () => {
-    const names = await readNames(userId, false);
-    const result = await allocateSalary(userId, { ...readFields(formData, SALARY_FIELDS), transfers });
-    updateTags(savingsTags.transactions);
-    const salary = formatTwd(result.income.amount);
+  return attempt("入帳並分配", async () => {
+    const names = await readNames(userId, { categories: false });
+    const fields = readFields(formData, SALARY_FIELDS);
+    const result = await allocateSalary(userId, { ...fields, transfers });
+    // 從待處理確認時也推了固定收支的游標
+    updateTags(...(fields.ruleId.trim() === "" ? [savingsTags.transactions] : [savingsTags.transactions, savingsTags.recurring]));
+    // 跟按鈕一樣寫入帳並分配
+    const done = `已入帳並分配薪水 ${formatTwd(result.income.amount)}`;
     const receiving = names.account(result.income.accountId);
-    if (result.transfers.length === 0) return `已記錄薪水 ${salary}，全部留在「${receiving}」`;
-    return `已記錄薪水 ${salary}，轉出 ${result.transfers.length} 筆，「${receiving}」留下 ${formatTwd(result.remainder)}`;
+    if (result.transfers.length === 0) return `${done}，全部留在「${receiving}」`;
+    return `${done}，轉出 ${result.transfers.length} 筆，「${receiving}」留下 ${formatTwd(result.remainder)}`;
   });
+}
+
+type RuleShape = Parameters<typeof recurringTitle>[0] & Parameters<typeof scheduleText>[0] & { amount: number };
+
+/** 成功訊息寫出名稱 排程與金額 看得出存的是哪一條 */
+function describeRule(rule: RuleShape, names: Names): string {
+  const amount = rule.kind === "income" ? formatSignedTwd(rule.amount) : formatTwd(rule.amount);
+  return `「${recurringTitle(rule, names.maps)}」${scheduleText(rule)} ${amount}`;
 }
 
 export async function createRecurringAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { id: userId } = await requireSession();
   return attempt("新增固定收支", async () => {
-    const names = await readNames(userId);
+    const names = await readNames(userId, { holdings: true });
     const rule = await createRecurring(userId, readFields(formData, RECURRING_FIELDS));
     updateTags(savingsTags.recurring);
-    return `已新增固定收支：${scheduleLabel(rule.dayOfMonth)} ${describeEntry(rule, names)}`;
+    return `已新增固定收支${describeRule(rule, names)}`;
   });
 }
 
@@ -297,10 +333,10 @@ export async function updateRecurringAction(_prev: FormState, formData: FormData
   const id = formId(formData, "id");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return attempt("儲存固定收支", async () => {
-    const names = await readNames(userId);
+    const names = await readNames(userId, { holdings: true });
     const rule = await updateRecurring(userId, id, readFields(formData, RECURRING_FIELDS));
     updateTags(savingsTags.recurring);
-    return `已儲存固定收支：${scheduleLabel(rule.dayOfMonth)} ${describeEntry(rule, names)}`;
+    return `已儲存固定收支${describeRule(rule, names)}`;
   });
 }
 
@@ -313,4 +349,106 @@ export async function deleteRecurringAction(_prev: FormState, formData: FormData
   const { id: userId } = await requireSession();
   // 自動記的紀錄留著 但 recurring_id 改成 null 紀錄上的自動標籤跟著拿掉
   return remove(formData, "刪除固定收支", (id) => deleteRecurring(userId, id), [savingsTags.recurring, savingsTags.transactions]);
+}
+
+export async function createHoldingAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  return attempt("新增持股", async () => {
+    const holding = await addHolding(userId, readFields(formData, HOLDING_FIELDS));
+    updateTags(savingsTags.holdings);
+    return `已新增持股「${holding.symbol} ${holding.name}」`;
+  });
+}
+
+export async function updateHoldingAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  const id = formId(formData, "id");
+  if (id === null) return { error: INVALID_FORM_MESSAGE };
+  return attempt("儲存持股", async () => {
+    const holding = await updateHolding(userId, id, readFields(formData, HOLDING_UPDATE_FIELDS));
+    updateTags(savingsTags.holdings);
+    return `已儲存「${holding.symbol} ${holding.name}」：${formatNumber(holding.shares)} 股，總成本 ${formatTwd(holding.cost)}`;
+  });
+}
+
+export async function deleteHoldingAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  // 定期定額跟著刪 買賣紀錄留著但沒有代號了
+  return remove(formData, "刪除持股", (id) => deleteHolding(userId, id), [savingsTags.holdings, savingsTags.recurring, savingsTags.transactions]);
+}
+
+export async function buyHoldingAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  return attempt("記下買進", async () => {
+    const { holding, transaction } = await buyHolding(userId, readFields(formData, BUY_FIELDS));
+    updateTags(savingsTags.holdings, savingsTags.transactions);
+    return `已記下買進 ${holding.symbol} ${formatNumber(transaction.shares ?? 0)} 股 ${formatTwd(transaction.amount)}`;
+  });
+}
+
+export async function sellHoldingAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  return attempt("記下賣出", async () => {
+    const { holding, transaction } = await sellHolding(userId, readFields(formData, SELL_FIELDS));
+    updateTags(savingsTags.holdings, savingsTags.transactions);
+    return `已記下賣出 ${holding.symbol} ${formatNumber(Math.abs(transaction.shares ?? 0))} 股 ${formatTwd(transaction.amount)}`;
+  });
+}
+
+export async function confirmOccurrenceAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  return attempt("確認固定收支", async () => {
+    const names = await readNames(userId, { holdings: true });
+    const { rule, transaction } = await confirmOccurrence(userId, readFields(formData, CONFIRM_FIELDS));
+    // 定期定額走買進 持股也變了
+    updateTags(...(transaction.holdingId === null ? [savingsTags.transactions, savingsTags.recurring] : [savingsTags.transactions, savingsTags.recurring, savingsTags.holdings]));
+    if (transaction.holdingId !== null) {
+      const symbol = names.maps.holdingSymbols.get(transaction.holdingId);
+      return `已記下買進${symbol ? ` ${symbol}` : ""} ${formatNumber(transaction.shares ?? 0)} 股 ${formatTwd(transaction.amount)}`;
+    }
+    const title = `已記下「${recurringTitle(rule, names.maps)}」`;
+    if (transaction.kind === "transfer") return `${title}${names.account(transaction.accountId)} → ${names.account(transaction.counterAccountId)} ${formatTwd(transaction.amount)}`;
+    const amount = transaction.kind === "income" ? formatSignedTwd(transaction.amount) : formatTwd(transaction.amount);
+    return `${title}${amount}（${names.account(transaction.accountId)}）`;
+  });
+}
+
+export async function skipOccurrenceAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  return attempt("略過這一期", async () => {
+    const names = await readNames(userId, { holdings: true });
+    const fields = readFields(formData, SKIP_FIELDS);
+    const rule = await skipOccurrence(userId, fields);
+    updateTags(savingsTags.recurring);
+    const period = parsePeriod(fields.period);
+    return `已略過「${recurringTitle(rule, names.maps)}」${period === null ? "" : `${formatMonthShort(period)}`}這一期`;
+  });
+}
+
+/** 帳單跟紀錄差多少 補了什麼要寫出來 不然紀錄頁多一筆會看不懂 */
+function billDifferenceText(difference: number): string {
+  if (difference > 0) return `，補記未記錄的刷卡 ${formatTwd(difference)}`;
+  if (difference < 0) return `，帳上多記的 ${formatTwd(0 - difference)} 已調整`;
+  return "，跟紀錄一樣";
+}
+
+export async function enterCardBillAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  return attempt("填帳單", async () => {
+    const { bill, card, difference } = await enterCardBill(userId, readFields(formData, CARD_BILL_FIELDS));
+    updateTags(savingsTags.bills, savingsTags.transactions);
+    return `已記下${card.name} ${formatSlashDate(bill.statementDate)} 結帳的帳單 ${formatTwd(bill.amount)}${billDifferenceText(difference)}`;
+  });
+}
+
+export async function payCardAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  return attempt("記下繳卡費", async () => {
+    const { transaction, card, bill, difference } = await payCard(userId, readFields(formData, PAY_CARD_FIELDS));
+    // 一起填了帳單時帳單也變了
+    updateTags(...(bill === null ? [savingsTags.transactions] : [savingsTags.bills, savingsTags.transactions]));
+    // 跟按鈕一樣寫已繳
+    const billed = bill === null ? "" : `，帳單 ${formatTwd(bill.amount)}${billDifferenceText(difference)}`;
+    return `已繳${card.name} ${formatTwd(transaction.amount)}${billed}`;
+  });
 }

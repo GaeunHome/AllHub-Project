@@ -1,4 +1,4 @@
-import { boolean, index, integer, pgTable, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, pgTable, serial, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { coreUsers } from "@/core/db/schema";
 
 /**
@@ -25,6 +25,10 @@ export const starrailAccounts = pgTable(
     /** 有值代表這一輪快滿已經通知過 降回門檻以下時清空 */
     lastStaminaAlertAt: timestamp("last_stamina_alert_at", { withTimezone: true }),
     cookieInvalid: boolean("cookie_invalid").notNull().default(false),
+    /** 每天自動兌換社群整理的新兌換碼 使用者在帳號設定打開 */
+    autoRedeem: boolean("auto_redeem").notNull().default(false),
+    /** 每日實訓 每週內容與終局挑戰的提醒 使用者在帳號設定關掉 開拓力提醒另外看門檻 */
+    gameReminders: boolean("game_reminders").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -42,5 +46,24 @@ export const starrailCheckinLogs = pgTable("starrail_checkin_logs", {
   totalSignDay: integer("total_sign_day"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
+
+/**
+ * 自動兌換試過的兌換碼 每個遊戲帳號一碼一列 試過的不再送出
+ * 兌換碼是社群公開的 跟著帳號刪除
+ */
+export const starrailRedeemCodes = pgTable(
+  "starrail_redeem_codes",
+  {
+    id: serial("id").primaryKey(),
+    accountId: integer("account_id")
+      .notNull()
+      .references(() => starrailAccounts.id, { onDelete: "cascade" }),
+    code: text("code").notNull(),
+    /** 只記答案不會變的 success already expired 或 invalid 見 lib/redeem.ts */
+    result: text("result").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("starrail_redeem_codes_account_code").on(t.accountId, t.code)],
+).enableRLS();
 
 export type StarrailAccount = typeof starrailAccounts.$inferSelect;

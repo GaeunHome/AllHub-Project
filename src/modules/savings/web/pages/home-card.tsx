@@ -1,38 +1,35 @@
 import Link from "next/link";
-import type { CSSProperties } from "react";
 import { requireSession } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { EmptyState } from "@/core/ui/empty-state";
 import { HomeCard } from "@/core/ui/home-card";
-import { Icon, type UiIconName } from "@/core/ui/icon";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
-import { accountBalances, assetSummary, monthTotals } from "../../lib/ledger";
+import { StatusChip } from "@/core/ui/status-chip";
+import { monthTotals } from "../../lib/ledger";
+import { formatTwd } from "../../lib/money";
 import { taipeiMonth } from "../../lib/month";
-import { cachedAccountFlows, cachedAccounts, cachedCategoryTotals } from "../../service/cached";
-import { AnimatedNumber } from "../components/motion/animated-number";
-import { EntranceScope } from "../components/motion/entrance-scope";
+import type { PendingItem } from "../../lib/pending";
+import { cachedCategoryTotals } from "../../service/cached";
+import { Fact, FactList } from "../components/fact-list";
+import { overdueBadge, pendingDate } from "../dashboard-view";
+import { loadPending } from "../overview-data";
 import { SAVINGS_PATHS } from "../paths";
-
-// 看卡片寬度排 窄時一列一個 夠寬時兩個並排 骨架用同一個排法
-const AMOUNT_GRID = "grid gap-3 @md:grid-cols-2";
 
 // web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
 export function SavingsHomeCard({ info }: { info: ModuleInfo }) {
   return (
-    <HomeCard info={info} title="支出與資產" skeleton={<FinanceSnapshotSkeleton />}>
-      {/* 從別頁回到首頁時金額與淡入不重播 contents 不影響卡片的排版 */}
-      <EntranceScope className="contents">
-        <FinanceSnapshot />
-      </EntranceScope>
+    <HomeCard info={info} title="資產與待處理" skeleton={<FinanceSnapshotSkeleton />}>
+      <FinanceSnapshot />
     </HomeCard>
   );
 }
 
-/** 跟總覽用同一套 lib/ledger 計算 數字才一致 */
+/** 跟總覽用同一套計算 總資產含持股的市值 數字才一致 */
 export async function FinanceSnapshot() {
   const user = await requireSession();
-  const [accounts, flows, totals] = await Promise.all([cachedAccounts(user.id), cachedAccountFlows(user.id), cachedCategoryTotals(user.id)]);
-  if (accounts.length === 0) {
+  const now = new Date();
+  const [{ input, state, items }, totals] = await Promise.all([loadPending(user.id, now), cachedCategoryTotals(user.id)]);
+  if (input.accounts.length === 0) {
     return (
       <EmptyState
         compact
@@ -47,35 +44,42 @@ export async function FinanceSnapshot() {
     );
   }
 
-  const { expense } = monthTotals(totals, taipeiMonth(new Date()));
-  const { assets } = assetSummary(accounts, accountBalances(accounts, flows));
+  const { expense } = monthTotals(totals, taipeiMonth(now));
   return (
-    <dl className={AMOUNT_GRID}>
-      <AmountRow icon="trending-down" label="本月支出" value={expense} index={0} />
-      <AmountRow icon="landmark" label="總資產" value={assets} index={1} />
-    </dl>
+    <FactList>
+      <Fact label="總資產">
+        <span className="text-xl font-bold tracking-tight">{formatTwd(state.totalAssets)}</span>
+      </Fact>
+      <Fact label="本月支出">
+        <span className="font-medium">{formatTwd(expense)}</span>
+      </Fact>
+      <Fact label="待處理">{items.length === 0 ? <span className="text-ink-soft">沒有</span> : <PendingSummary count={items.length} first={items[0]} />}</Fact>
+    </FactList>
   );
 }
 
-function AmountRow({ icon, label, value, index }: { icon: UiIconName; label: string; value: number; index: number }) {
+/** 幾筆 加上最早的那一筆的名稱與日期 逾期的用標籤 */
+function PendingSummary({ count, first }: { count: number; first: PendingItem }) {
   return (
-    <div className="fin-rise flex min-h-14 items-center justify-between gap-3 rounded-xl bg-surface-muted px-4 py-2" style={{ "--i": index } as CSSProperties}>
-      <dt className="flex items-center gap-2 text-ink">
-        <Icon name={icon} className="size-4 text-accent" />
-        {label}
-      </dt>
-      <dd className="text-xl font-bold tracking-tight text-ink tabular-nums">
-        <AnimatedNumber value={value} />
-      </dd>
-    </div>
+    <>
+      <span>
+        <span className="font-medium">{count} 筆</span> · {first.name} {pendingDate(first)}
+      </span>
+      {first.status === "overdue" && <StatusChip badge={overdueBadge(first.daysLeft)} />}
+    </>
   );
 }
 
+/** 跟內容一樣三列 載入完不會跳 */
 export function FinanceSnapshotSkeleton() {
   return (
-    <LoadingState label="載入支出與資產…" className={AMOUNT_GRID}>
-      <Skeleton className="h-14 rounded-xl" />
-      <Skeleton className="h-14 rounded-xl" />
+    <LoadingState label="載入資產與待處理…" className="flex flex-col divide-y divide-line">
+      {["w-32", "w-20", "w-40"].map((width) => (
+        <div key={width} className="flex min-h-11 items-center justify-between gap-4 py-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className={`h-5 ${width}`} />
+        </div>
+      ))}
     </LoadingState>
   );
 }

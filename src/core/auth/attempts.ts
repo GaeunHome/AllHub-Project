@@ -64,6 +64,16 @@ export async function claimOnce(scope: string, key: string, now = new Date()): P
 }
 
 /**
+ * 認領之後要做的事沒做成時放掉 下次才認領得到 例如通知寄不出去
+ * key 要跟 claimOnce 時一樣 是呼叫端算好的雜湊
+ */
+export async function releaseOnce(scope: string, key: string): Promise<void> {
+  await db()
+    .delete(coreRateLimits)
+    .where(and(eq(coreRateLimits.scope, scope), eq(coreRateLimits.keyHash, key)));
+}
+
+/**
  * 單一 upsert 在資料庫裡加一 同時送出很多次也不會少算
  * 時間窗過了就從 1 重新算
  */

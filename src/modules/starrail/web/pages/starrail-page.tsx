@@ -7,6 +7,7 @@ import { serverLabel } from "../../lib/roles";
 import { cachedAccounts, cachedRecentCheckins } from "../../service/cached";
 import { pickAccount } from "../account-tabs";
 import { AccountHeader, AccountSkeleton, AccountTabs, DailyNotePanel, DailyNoteSkeleton } from "../components/account-card";
+import { CalendarPanel, CalendarSkeleton } from "../components/calendar-panel";
 import { CharacterPanel, CharacterPanelSkeleton } from "../components/character-panel";
 import { CheckinLogList } from "../components/checkin-log-list";
 import { EndgamePanel, EndgameSkeleton } from "../components/endgame-panel";
@@ -65,6 +66,9 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
       {/* 每塊各自查各自串流不互相等 key 讓切換帳號時重新顯示骨架 */}
       <Suspense key={`note-${account.id}`} fallback={<DailyNoteSkeleton />}>
         <DailyNotePanel account={account} />
+      </Suspense>
+      <Suspense key={`calendar-${account.id}`} fallback={<CalendarSkeleton />}>
+        <CalendarPanel account={account} />
       </Suspense>
       <Suspense key={`characters-${account.id}`} fallback={<CharacterPanelSkeleton />}>
         <CharacterPanel account={account} />

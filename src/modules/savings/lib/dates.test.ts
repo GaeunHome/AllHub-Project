@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
-import { MIN_DATE, formatDay, formatDayShort, lastDayOfMonth, parseDate, taipeiToday } from "./dates";
+import { MIN_DATE, addDays, daysBetween, dueStatus, dueText, formatDay, formatSlashDate, lastDayOfMonth, parseDate, taipeiToday, weekdayOfDate } from "./dates";
 
 describe("taipeiToday（台北時間的今天）", () => {
   it("UTC 10/13 16:00 是台北 10/14 零點_算 10/14", () => {
@@ -63,7 +63,7 @@ describe("parseDate（YYYY-MM-DD）", () => {
   });
 });
 
-describe("formatDay 與 formatDayShort", () => {
+describe("formatDay", () => {
   it.each([
     ["2026-10-14", "10 月 14 日（三）"],
     ["2026-10-18", "10 月 18 日（日）"],
@@ -71,14 +71,43 @@ describe("formatDay 與 formatDayShort", () => {
   ])("%s_顯示成 %s", (date, expected) => {
     expect(formatDay(date)).toBe(expected);
   });
+});
 
+describe("addDays 與 daysBetween（日期字串的加減，跨月、跨年、閏年）", () => {
   it.each([
-    ["2026-10-13", "13 日（二）"],
-    ["2026-10-04", "4 日（日）"],
-    ["2026-11-01", "1 日（日）"],
-    ["2027-01-01", "1 日（五）"],
-    ["2028-02-29", "29 日（二）"],
-  ])("短的只有日與星期（同一個月裡用）_%s 顯示成 %s", (date, expected) => {
-    expect(formatDayShort(date)).toBe(expected);
+    ["2026-10-15", 7, "2026-10-22"],
+    ["2026-10-15", -70, "2026-08-06"],
+    ["2026-12-31", 1, "2027-01-01"],
+    ["2028-02-28", 1, "2028-02-29"],
+    ["2027-02-28", 1, "2027-03-01"],
+  ])("%s 加 %i 天_是 %s", (date, days, expected) => {
+    expect(addDays(date, days)).toBe(expected);
+    expect(daysBetween(date, expected)).toBe(days);
+  });
+
+  it("比較早的日期_是負的天數（逾期幾天）", () => {
+    expect(daysBetween("2026-10-15", "2026-10-05")).toBe(-10);
+  });
+});
+
+describe("weekdayOfDate 與 formatSlashDate", () => {
+  it("2026-10-10 是星期六、2026-10-11 是星期日（0）", () => {
+    expect(weekdayOfDate("2026-10-10")).toBe(6);
+    expect(weekdayOfDate("2026-10-11")).toBe(0);
+  });
+
+  it("到期的短寫法不補零_10/20、1/5", () => {
+    expect(formatSlashDate("2026-10-20")).toBe("10/20");
+    expect(formatSlashDate("2027-01-05")).toBe("1/5");
+  });
+});
+
+describe("dueStatus 與 dueText（到期的狀態與寫法）", () => {
+  it("日期過了是 overdue、當天是 today、還沒到是 upcoming", () => {
+    expect([dueStatus("2026-10-14", "2026-10-15"), dueStatus("2026-10-15", "2026-10-15"), dueStatus("2026-10-20", "2026-10-15")]).toEqual(["overdue", "today", "upcoming"]);
+  });
+
+  it("SPEC 的寫法：還有 5 天、今天、逾期 2 天", () => {
+    expect([dueText(5), dueText(0), dueText(-2)]).toEqual(["還有 5 天", "今天", "逾期 2 天"]);
   });
 });

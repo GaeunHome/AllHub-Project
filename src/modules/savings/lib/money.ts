@@ -12,3 +12,10 @@ export function formatTwd(amount: number): string {
 export function formatSignedTwd(amount: number): string {
   return signedTwd.format(amount);
 }
+
+const plain = new Intl.NumberFormat("zh-TW", { maximumFractionDigits: 0 });
+
+/** 股數這類不是錢的整數 加千分位 */
+export function formatNumber(value: number): string {
+  return plain.format(value);
+}

@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { monthHref, type MonthBasePath } from "./month-href";
+import { monthHref } from "./month-href";
 
 /** 用 key 重新掛載而不是受控 換頁還沒完成時選單才不會跳回舊值 */
-export function MonthSelect({ value, options, basePath }: { value: string; options: { value: string; label: string }[]; basePath: MonthBasePath }) {
+export function MonthSelect({ value, options }: { value: string; options: { value: string; label: string }[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -17,7 +17,7 @@ export function MonthSelect({ value, options, basePath }: { value: string; optio
       disabled={pending}
       onChange={(e) => {
         const month = e.target.value;
-        startTransition(() => router.push(monthHref(month, basePath), { scroll: false }));
+        startTransition(() => router.push(monthHref(month), { scroll: false }));
       }}
       className="input w-auto font-medium"
     >

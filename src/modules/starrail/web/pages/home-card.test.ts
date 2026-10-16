@@ -10,13 +10,13 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("../../service/cached", { spy: true });
 vi.mock("../../service/accounts", { spy: true });
 
-const cached = mocksOf(await import("../../service/cached"), "cachedAccounts", "cachedDailyNote");
+const cached = mocksOf(await import("../../service/cached"), "cachedAccounts", "cachedDailyNote", "cachedProfile");
 const accounts = mocksOf(await import("../../service/accounts"), "syncCookieInvalid");
 const { after } = await import("next/server");
 const { AccountNote, StarrailNotes } = await import("./home-card");
 
 const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
-const view = (id: number, nickname: string, region = "prod_official_cht", cookieInvalid = false) => ({ id, uid: `80000000${id}`, nickname, region, level: 70, staminaAlertThreshold: null, cookieInvalid });
+const view = (id: number, nickname: string, region = "prod_official_cht", cookieInvalid = false) => ({ id, uid: `80000000${id}`, nickname, region, level: 70, staminaAlertThreshold: null, cookieInvalid, autoRedeem: false, canAutoRedeem: false, gameReminders: true });
 const IMG = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/mock/avatar";
 
 const fetchedAt = new Date();
@@ -55,6 +55,7 @@ beforeEach(() => {
   vi.mocked(after).mockReset();
   cached.cachedAccounts.mockReset().mockResolvedValue([]);
   cached.cachedDailyNote.mockReset().mockResolvedValue(okNote);
+  cached.cachedProfile.mockReset().mockResolvedValue(null);
   accounts.syncCookieInvalid.mockReset().mockResolvedValue(true);
 });
 

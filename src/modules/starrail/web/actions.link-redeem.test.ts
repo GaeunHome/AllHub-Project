@@ -6,13 +6,13 @@ import { captureErrorLog, form, loggedText, mocksOf, updated } from "@/dev/test-
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/accounts", { spy: true });
 
-const service = mocksOf(await import("../service/accounts"), "linkAccount", "redeemCodeFor");
-const { linkAccountAction, redeemCodeAction } = await import("./actions");
+const service = mocksOf(await import("../service/accounts"), "linkAccount", "redeemCodeFor", "setAutoRedeem");
+const { linkAccountAction, redeemCodeAction, setAutoRedeemAction } = await import("./actions");
 
 const COOKIE = "ltoken_v2=secret-token; ltuid_v2=1";
 const ROLES = [
-  { uid: "900000001", nickname: "開拓者", server: "台港澳服", level: 70, likelyUnused: false, selected: true },
-  { uid: "800000002", nickname: "小號", server: "亞服", level: 4, likelyUnused: true, selected: false },
+  { uid: "900000001", nickname: "開拓者", server: "台港澳服", level: 70, selected: true },
+  { uid: "800000002", nickname: "小號", server: "亞服", level: 4, selected: false },
 ];
 
 /** 同一個欄位送好幾個值 例如勾選多個 UID */
@@ -25,7 +25,8 @@ function multi(fields: [string, string][]): FormData {
 beforeEach(() => {
   requireSession.mockReset();
   service.linkAccount.mockReset().mockResolvedValue({ ok: true, message: "已連結 開拓者（台港澳服，900000001）", accountId: 9 });
-  service.redeemCodeFor.mockReset().mockResolvedValue({ ok: true, message: "獎勵會寄到遊戲內信箱", cookieFlagChanged: false });
+  service.redeemCodeFor.mockReset().mockResolvedValue({ ok: true, message: "獎勵會寄到遊戲內信箱" });
+  service.setAutoRedeem.mockReset().mockResolvedValue({ ok: true });
 });
 
 describe("linkAccountAction：先查角色，好幾個時讓使用者選伺服器", () => {
@@ -96,11 +97,11 @@ describe("redeemCodeAction：兌換碼", () => {
     expect(updateTag).not.toHaveBeenCalled();
   });
 
-  it("cookie 失效（寫了失效標記）_顯示錯誤並讓帳號失效", async () => {
-    service.redeemCodeFor.mockResolvedValue({ ok: false, error: "HoYoLAB cookie 已失效", cookieFlagChanged: true });
+  it("cookie 失效_只顯示兌換的錯誤；帳號的失效標記只由即時便箋與簽到決定，兌換不寫資料庫、不讓快取失效", async () => {
+    service.redeemCodeFor.mockResolvedValue({ ok: false, error: "HoYoLAB cookie 已失效" });
 
     expect(await redeemCodeAction({}, form({ accountId: "1", code: "STARRAILGIFT" }))).toEqual({ error: "HoYoLAB cookie 已失效" });
-    expect(updated()).toEqual(["starrail:accounts"]);
+    expect(updateTag).not.toHaveBeenCalled();
   });
 
   it("非預期錯誤_結果框的標題已經寫「兌換失敗」，說明只寫原因不明；log 照樣記兌換失敗", async () => {
@@ -109,5 +110,33 @@ describe("redeemCodeAction：兌換碼", () => {
 
     expect(await redeemCodeAction({}, form({ accountId: "1", code: "STARRAILGIFT" }))).toEqual({ error: "原因不明（詳見伺服器 log）" });
     expect(loggedText(log)).toContain("[starrail] 兌換失敗");
+  });
+});
+
+describe("setAutoRedeemAction：自動兌換的開關", () => {
+  it("用登入者的 id 呼叫 service，表單的帳號 id 只決定是哪個帳號；成功後讓帳號的快取失效", async () => {
+    expect(await setAutoRedeemAction({}, form({ accountId: "7", enabled: "true" }))).toEqual({ message: "已打開自動兌換" });
+    expect(service.setAutoRedeem).toHaveBeenCalledWith(TEST_SESSION.id, 7, true);
+    expect(updated()).toEqual(["starrail:accounts"]);
+  });
+
+  it("cookie 少了欄位這類被拒絕_顯示原因，沒寫入就不失效", async () => {
+    service.setAutoRedeem.mockResolvedValue({ ok: false, error: "兌換需要 cookie 裡的 cookie_token_v2" });
+
+    expect(await setAutoRedeemAction({}, form({ accountId: "7", enabled: "true" }))).toEqual({ error: "兌換需要 cookie 裡的 cookie_token_v2" });
+    expect(updateTag).not.toHaveBeenCalled();
+  });
+
+  it("欄位被改過（帳號 id 或開關不是 true／false）_不呼叫 service", async () => {
+    expect((await setAutoRedeemAction({}, form({ accountId: "abc", enabled: "true" }))).error).toContain("重新整理頁面");
+    expect((await setAutoRedeemAction({}, form({ accountId: "7", enabled: "yes" }))).error).toContain("重新整理頁面");
+    expect(service.setAutoRedeem).not.toHaveBeenCalled();
+  });
+
+  it("先檢查登入_沒登入時不改", async () => {
+    requireSession.mockRejectedValue(new Error("NEXT_REDIRECT:/login"));
+
+    await expect(setAutoRedeemAction({}, form({ accountId: "7", enabled: "false" }))).rejects.toThrow("NEXT_REDIRECT");
+    expect(service.setAutoRedeem).not.toHaveBeenCalled();
   });
 });

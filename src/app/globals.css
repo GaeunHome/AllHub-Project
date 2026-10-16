@@ -85,20 +85,9 @@
   --accent-green-soft: #ecfdf5;
   --accent-green-line: #a7f3d0;
 
-  /* 理財的分類與圖表色 照 lib/kinds 的 PALETTE 順序相鄰的兩色色盲也分得開 */
-  /* 對白底有 3:1 黃色例外 旁邊一定有名稱與金額 */
-  --fin-blue: #2677da;
-  --fin-teal: #06a2ae;
-  --fin-green: #2c9934;
-  --fin-amber: #dfa11a;
-  --fin-orange: #e95c12;
-  --fin-rose: #da327d;
-  --fin-violet: #6251d1;
-  --fin-slate: #7c8493;
-  /* 趨勢圖的收入與支出用青與橘 色盲也分得開 資產自己一張圖用藍 */
-  --fin-income: var(--fin-teal);
-  --fin-expense: var(--fin-orange);
-  --fin-assets: var(--fin-blue);
+  /* 每月收支的收入與支出用青與橘 色盲也分得開 */
+  --fin-income: #06a2ae;
+  --fin-expense: #e95c12;
 }
 
 :root {
@@ -170,15 +159,9 @@
     --accent-green-soft: rgb(52 211 153 / 0.12);
     --accent-green-line: rgb(52 211 153 / 0.34);
 
-    /* 同一組色相換成深色底用的亮度 一樣照 PALETTE 的順序驗證過 */
-    --fin-blue: #357cf1;
-    --fin-teal: #18a2b8;
-    --fin-green: #40844d;
-    --fin-amber: #b28b11;
-    --fin-orange: #c14315;
-    --fin-rose: #df5c8e;
-    --fin-violet: #8e7fe6;
-    --fin-slate: #858c99;
+    /* 同樣的色相換成深色底用的亮度 */
+    --fin-income: #18a2b8;
+    --fin-expense: #c14315;
   }
 }
 
@@ -617,10 +600,6 @@
   .panel {
     @apply rounded-xl p-4;
     background-color: var(--surface-muted);
-  }
-  .panel-outline {
-    @apply rounded-xl p-4;
-    border: 1px solid var(--line);
   }
 
   .btn-primary,
@@ -1249,6 +1228,11 @@
     .more-menu-backdrop {
       display: none;
     }
+    /* 視窗裡點選單外面要先落在這層 落到視窗的背景會連視窗一起關掉 */
+    dialog .more-menu-backdrop {
+      display: block;
+      background-color: transparent;
+    }
   }
 
   /* 共用的彈出視窗 core/ui/dialog.tsx */
@@ -1418,203 +1402,24 @@
     inset: -0.5rem 0;
   }
 
-  /* 理財的總覽 savings 的 dashboard 與 motion 元件 */
-  /* 動態只在沒要求減少動態時加上 要求減少時圖表與數字直接是完成的樣子 */
+  /* 理財的總覽 數字一出現就是最後的值 不加進場動畫 */
 
-  /* 帳戶卡片用 auto-fit 收掉沒用到的欄 每欄至少 17rem */
-  /* 也至少是 --fin-cols 欄平分的寬度 欄數上限由頁面照帳戶數算好 */
-  .fin-account-grid {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(auto-fit, minmax(max(min(100%, 17rem), calc((100% - var(--fin-cols, 6) * 1rem) / var(--fin-cols, 6))), 1fr));
-  }
-
-  /* AnimatedNumber 的金額往上數 報讀器讀最後的數字 */
-  /* 畫面數字疊在看不見的最後數字上 先撐好寬度 數的時候旁邊不會跳 */
-  .fin-count {
-    display: inline-flex;
-  }
-  .fin-count-final {
-    @apply sr-only;
-  }
-  .fin-count-box {
-    display: inline-grid;
-    white-space: nowrap;
-  }
-  .fin-count-box > span {
-    grid-area: 1 / 1;
-  }
-  .fin-count-ghost {
-    visibility: hidden;
-  }
-  /* 數字像里程表靠右長 等寬數字位數一樣時寬度也一樣 */
-  .fin-count-value {
-    text-align: end;
-  }
-  /* 伺服器算繪的已經是最後的數字 開始數之前藏著 不先露出也不顯示誤導的 0 元 */
-  /* JS 一直沒跑起來時 1.5 秒後自己出現 */
-  @media (prefers-reduced-motion: no-preference) {
-    .fin-count-value:not([data-started]) {
-      visibility: hidden;
-      animation: fin-count-reveal 1ms linear 1.5s forwards;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .fin-count-final {
-      @apply not-sr-only;
-      white-space: nowrap;
-    }
-    .fin-count-box {
-      display: none;
-    }
-  }
-  /* Windows 高對比的強制色彩會蓋掉顏色 看不見的那份可能露出來 直接顯示最後的數字 */
-  @media (forced-colors: active) {
-    .fin-count-final {
-      @apply not-sr-only;
-    }
-    .fin-count-box {
-      display: none;
-    }
-  }
-
-  /* 甜甜圈的圓周正規化成 100 半徑是 100 除以 2π 每片是一段 stroke-dasharray */
-  /* 片與片之間留表面色的縫 不另外描邊 */
-  .fin-donut-figure {
-    position: relative;
-    width: 12rem;
-    height: 12rem;
-    flex-shrink: 0;
-  }
-  .fin-donut-ring {
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-  }
-  .fin-donut-arc {
-    fill: none;
-    stroke: var(--fin-color);
-    cursor: pointer;
-  }
-  /* 滑過或選到一片時其他片淡下去 減少動態時也看得出是哪一片 */
-  .fin-donut-figure[data-active] .fin-donut-arc:not([data-active]) {
-    opacity: 0.38;
-  }
-  .fin-donut-center {
-    position: absolute;
-    inset: 19%;
-    display: grid;
-    place-items: center;
-    text-align: center;
-    pointer-events: none;
-  }
-  .fin-donut-center-total,
-  .fin-donut-center-slice {
-    display: flex;
-    max-width: 100%;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.125rem;
-  }
-  /* 上面的 display 會蓋掉瀏覽器預設的 hidden 屬性 */
-  .fin-donut-center-total[hidden] {
-    display: none;
-  }
-  .fin-donut-center-label {
-    max-width: 100%;
+  /* 預算與目標的細長條 顏色一律中性 狀態寫在旁邊的字 */
+  .fin-meter {
+    display: block;
+    height: 0.375rem;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--ink-soft);
-  }
-  .fin-donut-center-amount {
-    font-size: 1.125rem;
-    font-weight: 700;
-    line-height: 1.35;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
-  }
-  .fin-donut-center-percent {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: var(--ink-soft);
-    font-variant-numeric: tabular-nums;
-  }
-  /* 圖例是 44px 高的按鈕 負邊距抵掉內距 色點對齊卡片內容的左邊線 */
-  .fin-legend {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 0.125rem;
-    justify-self: stretch;
-    margin-inline: -0.75rem;
-  }
-  .fin-legend-item {
-    display: grid;
-    width: 100%;
-    min-height: 2.75rem;
-    grid-template-columns: auto minmax(0, 1fr) auto 3.25rem;
-    align-items: center;
-    column-gap: 0.625rem;
-    border-radius: 0.625rem;
-    padding: 0.375rem 0.75rem;
-    text-align: left;
-    cursor: pointer;
-    transition: background-color 150ms ease;
-  }
-  .fin-legend-item:hover,
-  .fin-legend-item[data-active] {
-    background-color: var(--surface-muted);
-  }
-  .fin-legend-item[aria-pressed="true"] {
-    background-color: var(--surface-muted);
-    box-shadow: inset 0 0 0 1px var(--line-strong);
-  }
-  .fin-legend-item:focus-visible {
-    outline-offset: -2px;
-  }
-  .fin-legend-label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 500;
-    color: var(--ink);
-  }
-  .fin-legend-amount {
-    text-align: right;
-    font-weight: 600;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
-  }
-  .fin-legend-percent {
-    text-align: right;
-    font-size: 0.875rem;
-    color: var(--ink-soft);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* 進度條預算狀態用 --warning-dot 與 --danger-dot 其他用模組的綠色 */
-  .fin-progress {
-    @apply h-2 w-full rounded-full;
+    border-radius: 9999px;
     background-color: var(--surface-sunken);
   }
-  .fin-progress-fill {
-    position: relative;
+  .fin-meter > span {
+    display: block;
     height: 100%;
     border-radius: inherit;
-    background-color: var(--accent);
-    transform-origin: left center;
-  }
-  .fin-progress-fill[data-tone="warning"] {
-    background-color: var(--warning-dot);
-  }
-  .fin-progress-fill[data-tone="danger"] {
-    background-color: var(--danger-dot);
+    background-color: var(--muted);
   }
 
-  /* 趨勢圖的高度固定 月份那一列另外算 卡片才不會出現自己的捲軸 */
+  /* 每月收支的圖高度固定 月份那一列另外算 卡片才不會出現自己的捲軸 */
   .fin-readout {
     @apply flex min-h-7 flex-wrap items-center gap-x-4 gap-y-1 text-sm;
     color: var(--ink-soft);
@@ -1687,7 +1492,7 @@
   .fin-chart-grid > span[data-zero] {
     background-color: var(--line-strong);
   }
-  /* 讀數顯示的那個月的底色 */
+  /* 滑過或鍵盤移到的那個月的底色 */
   .fin-chart-band {
     position: absolute;
     top: 0;
@@ -1728,53 +1533,12 @@
   .fin-bar {
     width: min(34%, 1.125rem);
     border-radius: 4px 4px 0 0;
-    transform-origin: bottom center;
   }
   .fin-bar-income {
     background-color: var(--fin-income);
   }
   .fin-bar-expense {
     background-color: var(--fin-expense);
-  }
-  .fin-line {
-    position: absolute;
-    inset: 0;
-  }
-  .fin-line-svg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    overflow: visible;
-  }
-  .fin-line-area {
-    fill: var(--fin-assets);
-    opacity: 0.1;
-  }
-  .fin-line-path {
-    fill: none;
-    stroke: var(--fin-assets);
-    stroke-width: 2px;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .fin-crosshair {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 1px;
-    background-color: var(--line-strong);
-    transform: translateX(-0.5px);
-  }
-  /* 點外面一圈表面色 壓在線上也看得清楚 */
-  .fin-line-dot {
-    position: absolute;
-    width: 0.75rem;
-    height: 0.75rem;
-    border-radius: 9999px;
-    background-color: var(--fin-assets);
-    box-shadow: 0 0 0 2px var(--surface);
-    transform: translate(-50%, 50%);
   }
   .fin-chart-hit {
     flex: 1;
@@ -1817,74 +1581,6 @@
   .fin-table .fin-table-label {
     padding-left: 0;
     text-align: left;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    /* 卡片依序淡入 --i 寫在每張卡片上 不從外框挑第幾個 */
-    /* backwards 讓等待時先透明 播完就不再作用 不會一直留著 transform */
-    .fin-rise {
-      animation: fin-rise 460ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
-      animation-delay: calc(var(--i, 0) * 60ms);
-    }
-    .fin-reveal {
-      animation: fin-rise 260ms ease-out backwards;
-    }
-    /* 圓弧從各自的起點畫出來 切換分組時同一段換長度 位置與顏色 */
-    .fin-donut-arc {
-      animation: fin-donut-draw 760ms cubic-bezier(0.3, 0.7, 0.2, 1) backwards;
-      animation-delay: calc(120ms + var(--i, 0) * 80ms);
-      transition:
-        stroke-dasharray 520ms cubic-bezier(0.4, 0, 0.2, 1),
-        stroke-dashoffset 520ms cubic-bezier(0.4, 0, 0.2, 1),
-        stroke 320ms ease,
-        opacity 200ms ease,
-        transform 200ms ease;
-    }
-    /* 選到的那一片往外浮起一點 方向寫在 --lift-x 與 --lift-y */
-    .fin-donut-arc[data-active] {
-      transform: translate(var(--lift-x), var(--lift-y));
-    }
-    /* 記一筆後長度或狀態變了 從原本的長度滑過去 不重新從 0 長 */
-    .fin-progress-fill {
-      animation: fin-grow-x 720ms cubic-bezier(0.3, 0.7, 0.2, 1) backwards;
-      animation-delay: calc(160ms + var(--i, 0) * 70ms);
-      transition:
-        width 600ms cubic-bezier(0.4, 0, 0.2, 1),
-        background-color 300ms ease;
-    }
-    /* 達到目標時長滿後亮一下 只播一次 */
-    /* 畫在 ::after 記一筆才達標時加上 data-reached 也不會讓長條從 0 重長 */
-    .fin-progress-fill[data-reached]::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      animation: fin-glow 1200ms ease-out 1;
-      animation-delay: calc(900ms + var(--i, 0) * 70ms);
-    }
-    .fin-bar {
-      animation: fin-grow-y 620ms cubic-bezier(0.3, 0.7, 0.2, 1) backwards;
-      animation-delay: calc(var(--i, 0) * 35ms);
-      transition: height 500ms cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    /* 折線用裁切由左往右露出來 線寬才不跟著變形 四周多留一點 端點不會被切掉 */
-    .fin-line {
-      animation: fin-draw-x 900ms cubic-bezier(0.4, 0, 0.2, 1) backwards;
-    }
-    .fin-chart-band,
-    .fin-crosshair,
-    .fin-line-dot {
-      transition:
-        left 160ms ease,
-        bottom 160ms ease;
-    }
-    /* 進場動畫只播第一次 Activity 藏起頁面時標上 data-entered 回來時不重播 */
-    :is(.fin-rise, .fin-reveal, .fin-donut-arc, .fin-progress-fill, .fin-bar, .fin-line)[data-entered] {
-      animation: none;
-    }
-    .fin-progress-fill[data-glowed]::after {
-      animation: none;
-    }
   }
 
   /* YouTube 頁 */
@@ -2462,56 +2158,6 @@
       width: 2.75rem;
       height: 2.75rem;
     }
-  }
-}
-
-/* 理財的總覽 見上面理財的總覽那一段 */
-@keyframes fin-count-reveal {
-  to {
-    visibility: visible;
-  }
-}
-
-@keyframes fin-rise {
-  from {
-    opacity: 0;
-    transform: translateY(0.5rem);
-  }
-}
-
-@keyframes fin-donut-draw {
-  from {
-    stroke-dasharray: 0 100;
-  }
-}
-
-@keyframes fin-grow-x {
-  from {
-    transform: scaleX(0);
-  }
-}
-
-@keyframes fin-grow-y {
-  from {
-    transform: scaleY(0);
-  }
-}
-
-@keyframes fin-draw-x {
-  from {
-    clip-path: inset(-1rem 100% -1rem -1rem);
-  }
-  to {
-    clip-path: inset(-1rem -1rem -1rem -1rem);
-  }
-}
-
-@keyframes fin-glow {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 0.5rem transparent;
   }
 }
 

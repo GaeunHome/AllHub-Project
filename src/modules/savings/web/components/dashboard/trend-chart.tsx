@@ -2,95 +2,64 @@
 
 import Link from "next/link";
 import { useId, useState, type CSSProperties, type PointerEvent } from "react";
-import { Icon } from "@/core/ui/icon";
 import { CardHeader } from "@/core/ui/page-header";
-import type { TrendPoint } from "../../../lib/ledger";
-import { formatSignedTwd, formatTwd } from "../../../lib/money";
+import { formatTwd } from "../../../lib/money";
 import { formatMonth, formatMonthShort, type MonthKey } from "../../../lib/month";
 import { scalePercent, type NiceScale } from "../../chart-geometry";
-import { monthHref } from "../month-href";
-import { Segmented } from "../segmented";
-import { TREND_TITLE, assetChart, axisLabels, flowChart, readoutIndex, type TrendMode } from "./trend-model";
-
-const MODES = [
-  { id: "flow", label: "收支" },
-  { id: "assets", label: "資產" },
-] as const satisfies readonly { id: TrendMode; label: string }[];
+import { monthRecordsHref } from "../../dashboard-view";
+import { axisLabels, flowChart, readoutIndex, type FlowPoint } from "./trend-model";
 
 type TrendChartProps = {
   /** 由舊到新最多 12 個月 剛開始用時比較少 */
-  points: TrendPoint[];
-  /** 總覽選到的月份 上方讀數預設顯示它 連結標成目前 */
-  selected: MonthKey;
-  initialMode?: TrendMode;
+  points: FlowPoint[];
+  /** 台北時間的這個月 連到紀錄頁時不帶月份 */
+  current: MonthKey;
 };
 
 const onlyMouse = (handler: () => void) => (event: PointerEvent) => {
   if (event.pointerType === "mouse") handler();
 };
 
-/**
- * 收支與資產單位差很多 分成兩張圖切換 不用雙 y 軸
- * 每個月是一個連結 點了切換總覽的月份
- */
-export function TrendChart({ points, selected, initialMode = "flow" }: TrendChartProps) {
-  const [mode, setMode] = useState<TrendMode>(initialMode);
+/** 只有收入與支出 每個月是一個連結 點了到紀錄頁看那個月 */
+export function TrendChart({ points, current }: TrendChartProps) {
   const [hover, setHover] = useState<number | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const headingId = useId();
-  const active = readoutIndex(points, { hover, focus }, selected);
-  const flow = flowChart(points);
-  const assets = assetChart(points);
-  const scale = mode === "flow" ? flow.scale : assets.scale;
+  const active = readoutIndex(points, { hover, focus });
+  const chart = flowChart(points);
   const columns = { gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` } as CSSProperties;
-  const band = { left: `${(active / points.length) * 100}%`, width: `${100 / points.length}%` } as CSSProperties;
 
   return (
     <section aria-labelledby={headingId} className="card stack @container min-w-0">
-      <CardHeader id={headingId} icon={<Icon name="chart-column" />} actions={<Segmented label="趨勢的內容" options={MODES} value={mode} onChange={setMode} fill={false} />}>
-        {TREND_TITLE}
-      </CardHeader>
+      <CardHeader id={headingId}>每月收支</CardHeader>
 
-      <Readout points={points} index={active} mode={mode} />
+      <Readout point={active === null ? null : points[active]} />
 
       <div className="fin-chart">
-        <Ticks scale={scale} />
+        <Ticks scale={chart.scale} />
         <div className="fin-chart-plot">
           <div className="fin-chart-grid" aria-hidden="true">
-            {scale.ticks.map((tick) => (
-              <span key={tick} data-zero={tick === 0 ? "" : undefined} style={{ bottom: `${scalePercent(tick, scale)}%` }} />
+            {chart.scale.ticks.map((tick) => (
+              <span key={tick} data-zero={tick === 0 ? "" : undefined} style={{ bottom: `${scalePercent(tick, chart.scale)}%` }} />
             ))}
           </div>
-          <span className="fin-chart-band" aria-hidden="true" style={band} />
-          {/* 換圖時重新掛載 讓進場動畫再播一次 */}
-          {mode === "flow" ? (
-            flow.empty ? (
-              <p className="fin-chart-empty">還沒有收入或支出</p>
-            ) : (
-              <div key="flow" className="fin-bars" aria-hidden="true" style={columns}>
-                {flow.columns.map((column, i) => (
-                  <div key={column.month} className="fin-bar-group">
-                    <span className="fin-bar fin-bar-income" style={{ height: `${column.incomeHeight}%`, "--i": i } as CSSProperties} />
-                    <span className="fin-bar fin-bar-expense" style={{ height: `${column.expenseHeight}%`, "--i": i } as CSSProperties} />
-                  </div>
-                ))}
-              </div>
-            )
+          {active !== null && <span className="fin-chart-band" aria-hidden="true" style={{ left: `${(active / points.length) * 100}%`, width: `${100 / points.length}%` }} />}
+          {chart.empty ? (
+            <p className="fin-chart-empty">還沒有收入或支出</p>
           ) : (
-            <div key="assets" className="fin-line" aria-hidden="true">
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="fin-line-svg">
-                {assets.area && <path className="fin-line-area" d={assets.area} />}
-                {/* 圖會被拉成卡片的寬高 線寬維持 2px 不跟著變形 */}
-                {assets.line && <path className="fin-line-path" d={assets.line} vectorEffect="non-scaling-stroke" />}
-              </svg>
-              <span className="fin-crosshair" style={{ left: `${assets.points[active].x}%` }} />
-              <span className="fin-line-dot" style={{ left: `${assets.points[active].x}%`, bottom: `${assets.points[active].y}%` }} />
+            <div className="fin-bars" aria-hidden="true" style={columns}>
+              {chart.columns.map((column) => (
+                <div key={column.month} className="fin-bar-group">
+                  <span className="fin-bar fin-bar-income" style={{ height: `${column.incomeHeight}%` }} />
+                  <span className="fin-bar fin-bar-expense" style={{ height: `${column.expenseHeight}%` }} />
+                </div>
+              ))}
             </div>
           )}
         </div>
         <ol className="fin-chart-months" aria-hidden="true" style={columns}>
           {points.map((point, i) => (
-            <li key={point.month} data-current={point.month === selected ? "" : undefined}>
+            <li key={point.month} data-current={point.month === current ? "" : undefined}>
               {/* 卡片太窄時只寫數字 才不會擠成兩行 */}
               <span className="@sm:hidden">{Number(point.month.slice(5, 7))}</span>
               <span className="hidden @sm:inline">{formatMonthShort(point.month)}</span>
@@ -103,15 +72,13 @@ export function TrendChart({ points, selected, initialMode = "flow" }: TrendChar
           {points.map((point, i) => (
             <li key={point.month} className="flex">
               <Link
-                href={monthHref(point.month)}
-                scroll={false}
-                aria-label={`${linkLabel(point, mode)}，查看這個月`}
-                aria-current={point.month === selected ? "true" : undefined}
+                href={monthRecordsHref(point.month, current)}
+                aria-label={`${formatMonth(point.month)}：收入 ${formatTwd(point.income)}，支出 ${formatTwd(point.expense)}，查看這個月的紀錄`}
                 className="fin-chart-hit"
                 onPointerEnter={onlyMouse(() => setHover(i))}
-                onPointerLeave={onlyMouse(() => setHover((current) => (current === i ? null : current)))}
+                onPointerLeave={onlyMouse(() => setHover((value) => (value === i ? null : value)))}
                 onFocus={() => setFocus(i)}
-                onBlur={() => setFocus((current) => (current === i ? null : current))}
+                onBlur={() => setFocus((value) => (value === i ? null : value))}
               />
             </li>
           ))}
@@ -128,7 +95,6 @@ export function TrendChart({ points, selected, initialMode = "flow" }: TrendChar
               </th>
               <th scope="col">收入</th>
               <th scope="col">支出</th>
-              <th scope="col">月底資產</th>
             </tr>
           </thead>
           <tbody>
@@ -139,7 +105,6 @@ export function TrendChart({ points, selected, initialMode = "flow" }: TrendChar
                 </th>
                 <td>{formatTwd(point.income)}</td>
                 <td>{formatTwd(point.expense)}</td>
-                <td>{formatTwd(point.assets)}</td>
               </tr>
             ))}
           </tbody>
@@ -147,12 +112,6 @@ export function TrendChart({ points, selected, initialMode = "flow" }: TrendChar
       </details>
     </section>
   );
-}
-
-function linkLabel(point: TrendPoint, mode: TrendMode): string {
-  return mode === "flow"
-    ? `${formatMonth(point.month)}：收入 ${formatTwd(point.income)}，支出 ${formatTwd(point.expense)}`
-    : `${formatMonth(point.month)}底總資產 ${formatTwd(point.assets)}`;
 }
 
 /** 刻度由上到下 位置從底部算起 才跟格線對齊 */
@@ -172,39 +131,22 @@ function Ticks({ scale }: { scale: NiceScale }) {
   );
 }
 
-/** 平常是選到的月份 滑過或鍵盤移到哪個月就換成那個月 色塊兼當圖例 */
-function Readout({ points, index, mode }: { points: TrendPoint[]; index: number; mode: TrendMode }) {
-  const point = points[index];
-  if (mode === "flow") {
-    return (
-      <p className="fin-readout">
-        <span className="fin-readout-month">{formatMonth(point.month)}</span>
-        <span className="fin-readout-item">
-          <span className="fin-key fin-key-income" aria-hidden="true" />
-          收入<strong>{formatTwd(point.income)}</strong>
-        </span>
-        <span className="fin-readout-item">
-          <span className="fin-key fin-key-expense" aria-hidden="true" />
-          支出<strong>{formatTwd(point.expense)}</strong>
-        </span>
-        <span className="fin-readout-item">
-          存下<strong>{formatTwd(point.income - point.expense)}</strong>
-        </span>
-      </p>
-    );
-  }
-  const previous = index > 0 ? points[index - 1] : null;
+/**
+ * 平常只是圖例 本月的數字頁首已經寫了 不重複
+ * 滑過或鍵盤移到哪個月才寫出那個月的金額
+ */
+function Readout({ point }: { point: FlowPoint | null }) {
   return (
     <p className="fin-readout">
-      <span className="fin-readout-month">{formatMonth(point.month)}底</span>
+      {point && <span className="fin-readout-month">{formatMonth(point.month)}</span>}
       <span className="fin-readout-item">
-        總資產<strong>{formatTwd(point.assets)}</strong>
+        <span className="fin-key fin-key-income" aria-hidden="true" />
+        收入{point && <strong>{formatTwd(point.income)}</strong>}
       </span>
-      {previous && (
-        <span className="fin-readout-item">
-          比上個月<strong>{formatSignedTwd(point.assets - previous.assets)}</strong>
-        </span>
-      )}
+      <span className="fin-readout-item">
+        <span className="fin-key fin-key-expense" aria-hidden="true" />
+        支出{point && <strong>{formatTwd(point.expense)}</strong>}
+      </span>
     </p>
   );
 }

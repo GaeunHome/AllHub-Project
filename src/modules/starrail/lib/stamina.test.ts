@@ -19,24 +19,43 @@ describe("alertThreshold", () => {
   });
 });
 
-describe("staminaAlertAction", () => {
-  it("alerts when reaching the threshold for the first time", () => {
+// Vercel Hobby 的排程只保證在那個小時內執行 每小時一次的兩次之間最長將近兩小時
+// 遊戲規則每 6 分鐘回 1 點 兩小時 20 點
+describe("staminaAlertAction：兩次排程之間最長將近兩小時，兩小時內會達到門檻就先通知", () => {
+  it("門檻 220（上限 240 減 20）：開拓力 200 再兩小時就到門檻_通知", () => {
+    expect(staminaAlertAction(note(200), null, false)).toBe("alert");
+  });
+
+  it("門檻 220：開拓力 199 兩小時後只有 219_不通知", () => {
+    expect(staminaAlertAction(note(199), null, false)).toBe("none");
+  });
+
+  it("已經到門檻_第一次通知", () => {
     expect(staminaAlertAction(note(220), null, false)).toBe("alert");
   });
 
-  it("stays quiet while still above the threshold after alerting", () => {
+  it("這一輪通知過了_還差一點或已經滿了都不再通知", () => {
+    expect(staminaAlertAction(note(215), null, true)).toBe("none");
     expect(staminaAlertAction(note(240), null, true)).toBe("none");
   });
 
-  it("resets once stamina drops below the threshold", () => {
+  it("通知過後用掉開拓力_降到兩小時內到不了門檻才重設（200 不重設、199 重設）", () => {
+    expect(staminaAlertAction(note(200), null, true)).toBe("none");
+    expect(staminaAlertAction(note(199), null, true)).toBe("reset");
     expect(staminaAlertAction(note(100), null, true)).toBe("reset");
   });
 
-  it("does nothing below the threshold when not alerted", () => {
-    expect(staminaAlertAction(note(219), null, false)).toBe("none");
+  it("門檻等於上限 240：開拓力 220 兩小時內會回滿_通知；219 只回到 239_不通知", () => {
+    expect(staminaAlertAction(note(220), 240, false)).toBe("alert");
+    expect(staminaAlertAction(note(219), 240, false)).toBe("none");
   });
 
-  it("does nothing when stamina is unknown", () => {
+  it("自然回復只到上限：門檻設得比上限高_滿了也不通知（等於關閉提醒）", () => {
+    expect(staminaAlertAction(note(240), 245, false)).toBe("none");
+    expect(staminaAlertAction(note(225), 241, false)).toBe("none");
+  });
+
+  it("讀不到開拓力_不動作", () => {
     expect(staminaAlertAction(note(null), null, false)).toBe("none");
   });
 });

@@ -98,9 +98,9 @@ describe("送出兌換碼（redeemFormAction）", () => {
   });
 
   it("碼本身就不合格（伺服器回規則說明）：不標碼，只顯示原因", async () => {
-    const action = vi.fn(async () => ({ error: "兌換碼是 6–20 個英文字母或數字" }));
+    const action = vi.fn(async () => ({ error: "兌換碼是 4–20 個英文字母或數字" }));
 
-    expect(await redeemFormAction(action, vi.fn())({}, form({ accountId: "7", code: "ab!" }))).toEqual({ error: "兌換碼是 6–20 個英文字母或數字", seq: 1 });
+    expect(await redeemFormAction(action, vi.fn())({}, form({ accountId: "7", code: "ab!" }))).toEqual({ error: "兌換碼是 4–20 個英文字母或數字", seq: 1 });
   });
 
   it("每次的結果都編上新的序號：同樣的結果再出現一次，畫面換上新的結果框，報讀器也會再念一次", async () => {

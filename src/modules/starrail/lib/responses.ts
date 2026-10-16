@@ -1,7 +1,7 @@
 // 介面沒有公開文件也還沒驗證 讀不到的欄位給 null 原始 JSON 留著除錯
 
 import { formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDateKey } from "@/core/time";
-import { asRecord, image, number } from "./json";
+import { asRecord, createMissing, image, number } from "./json";
 
 export type HoyolabResult<T> =
   | { ok: true; data: T; raw: unknown }
@@ -149,10 +149,13 @@ export function expeditionStates(expeditions: Expedition[], fetchedAt: Date, now
   });
 }
 
-/** 例如剩 2 小時 1 分 */
+/**
+ * 還剩多久 委託與活動日曆共用 一天以上寫天 一天內寫到分
+ * 時間到了回 null 已完成或已結束由畫面依情況寫
+ */
 export function formatRemaining(seconds: number | null): string | null {
-  if (seconds === null) return null;
-  if (seconds <= 0) return "已完成";
+  if (seconds === null || seconds <= 0) return null;
+  if (seconds >= 86_400) return `剩 ${Math.floor(seconds / 86_400)} 天`;
   const minutes = Math.floor(seconds / 60);
   if (minutes < 1) return "剩不到 1 分鐘";
   if (minutes < 60) return `剩 ${minutes} 分鐘`;
@@ -174,6 +177,15 @@ export function formatTaipeiTime(date: Date, now: Date): string {
   if (days === 0) return `今天 ${time}`;
   if (days === 1) return `明天 ${time}`;
   return `${formatTaipeiMonthDay(date)} ${time}`;
+}
+
+/** 戰績首頁只用遊戲頭像 genshin.py 的 in_game_avatar 就是 cur_head_icon_url */
+export type Profile = { avatar: string | null; missing: string[] };
+
+export function parseProfile(data: unknown): Profile {
+  const missing = createMissing();
+  const avatar = missing.need(image(asRecord(data)?.cur_head_icon_url), "cur_head_icon_url");
+  return { avatar, missing: missing.sorted() };
 }
 
 export type CheckinInfo = { isSigned: boolean | null; totalSignDay: number | null };

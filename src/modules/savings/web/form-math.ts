@@ -1,35 +1,20 @@
-import { SELECTABLE_COLORS, type AccountKind, type CategoryKind, type PaletteColor } from "../lib/kinds";
-import { balanceAdjustment, shownFigure, suggestAllocation, type AccountBalance, type AllocationLine } from "../lib/ledger";
-import { formatSignedTwd, formatTwd } from "../lib/money";
+import { formatSlashDate, type DateKey } from "../lib/dates";
+import { SELECTABLE_COLORS, type CategoryKind, type PaletteColor, type RecurringMode } from "../lib/kinds";
+import { suggestAllocation, type AccountBalance, type AllocationLine } from "../lib/ledger";
+import { formatSignedTwd } from "../lib/money";
+import { addMonths, dateToMonth, monthIndex } from "../lib/month";
+import { firstPeriod, nextRunDate, occurrenceDate, scheduledDate, type RecurringLike } from "../lib/recurring";
 import { amountFromText } from "../lib/validation";
 import type { SalaryAccountOption } from "./components/forms/options";
 
 // 視窗裡的即時試算與預設值 送出後一律以伺服器的驗證與計算為準
 
-/** 照銀行 App 的寫法 信用卡的負數是溢繳 */
-export function figureText(kind: AccountKind, figure: number): string {
-  return kind === "credit" && figure < 0 ? `溢繳 ${formatTwd(0 - figure)}` : formatTwd(figure);
-}
-
-/**
- * 信用卡改用未繳的角度寫 寫成調整加 480 會被讀成欠更多
- * 沒有差額回 null
- */
-export function balanceChangeText(kind: AccountKind, balance: number, figure: number): string | null {
-  const delta = balanceAdjustment(kind, balance, figure);
-  if (delta === 0) return null;
-  if (kind !== "credit") return `調整 ${formatSignedTwd(delta)}`;
-  const before = shownFigure(kind, balance);
-  return `未繳${figure < before ? "少" : "多"}了 ${formatTwd(Math.abs(figure - before))}（${figureText(kind, before)} → ${figureText(kind, figure)}）`;
-}
-
-/** 更新餘額輸入框下的說明 text 看不懂時當成還沒填 存款打負數也是 */
-export function balanceHint(kind: AccountKind, balance: number, text: string): string {
-  const figure = amountFromText(text, { allowNegative: kind === "credit" });
+/** 更新餘額輸入框下的說明 text 看不懂或是負數時當成還沒填 伺服器也不收 */
+export function balanceHint(balance: number, text: string): string {
+  const figure = amountFromText(text);
   if (figure === null) return "差額會記成一筆今天的「調整」，不算收入也不算支出。";
-  const change = balanceChangeText(kind, balance, figure);
-  if (change === null) return "跟記錄的一樣，不會多記一筆。";
-  return kind === "credit" ? `${change}，會記一筆今天的調整。` : `會記一筆今天的調整：${formatSignedTwd(balanceAdjustment(kind, balance, figure))}`;
+  if (figure === balance) return "跟記錄的一樣，不會多記一筆。";
+  return `會記一筆今天的調整：${formatSignedTwd(figure - balance)}`;
 }
 
 /** 選項都是啟用中的帳戶 薪水還沒填時用 0 試算 */
@@ -116,4 +101,26 @@ export function defaultIncomeCategory(categories: readonly { id: number; name: s
 /** keep 是修改時原本的帳戶 停用了也留著 儲存時才不會默默換掉 */
 export function choosableAccounts<T extends { id: number; active: boolean }>(accounts: readonly T[], ...keep: (number | null | undefined)[]): T[] {
   return accounts.filter((account) => account.active || keep.includes(account.id));
+}
+
+/** 下一期原本的日子 假日提前或延後可能跨月 所以前後一個月都看 只認排得到的期別 */
+function unshiftedDate(rule: RecurringLike, next: DateKey): DateKey | null {
+  const first = monthIndex(firstPeriod(rule));
+  for (const month of [-1, 0, 1].map((delta) => addMonths(dateToMonth(next), delta))) {
+    const offset = monthIndex(month) - first;
+    if (offset >= 0 && offset % rule.intervalMonths === 0 && occurrenceDate(rule, month) === next) return scheduledDate(month, rule.dayOfMonth);
+  }
+  return null;
+}
+
+/**
+ * 固定收支表單下面那一行 遇假日調整過時寫出原本的日子
+ * 要確認的那一期到期了還沒處理 它在總覽的待處理 不寫成下一期 新的規則寫第一期
+ */
+export function nextRunText(rule: RecurringLike & { mode: RecurringMode }, today: DateKey, fresh: boolean): string {
+  const next = nextRunDate(rule, today);
+  const original = unshiftedDate(rule, next);
+  const shifted = original !== null && original !== next ? `，${formatSlashDate(original)} 遇假日${original > next ? "提前" : "延後"}` : "";
+  const label = fresh ? "第一期" : rule.mode === "confirm" && next <= today ? "待處理" : rule.lastPostedMonth === null ? "第一期" : "下一期";
+  return `${label} ${formatSlashDate(next)}${shifted}`;
 }

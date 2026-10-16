@@ -17,7 +17,8 @@ export function parseMonth(raw: unknown): MonthKey | null {
   return typeof raw === "string" && MONTH_PATTERN.test(raw) && raw >= MIN_MONTH ? raw : null;
 }
 
-function toIndex(month: MonthKey): number {
+/** 從西元 0 年 1 月起算第幾個月 兩個月份相減就是差幾個月 */
+export function monthIndex(month: MonthKey): number {
   const [year, m] = month.split("-").map(Number);
   return year * 12 + m - 1;
 }
@@ -28,7 +29,7 @@ function fromIndex(index: number): MonthKey {
 }
 
 export function addMonths(month: MonthKey, delta: number): MonthKey {
-  return fromIndex(toIndex(month) + delta);
+  return fromIndex(monthIndex(month) + delta);
 }
 
 export function recentMonths(end: MonthKey, count: number): MonthKey[] {
@@ -50,7 +51,7 @@ export function resolveMonth(raw: string | string[] | undefined, current: MonthK
 
 export function selectableMonths(current: MonthKey, earliest: MonthKey | null, selected: MonthKey): MonthKey[] {
   const oldest = [addMonths(current, -11), selected, earliest ?? current].reduce((a, b) => (b < a ? b : a));
-  return Array.from({ length: toIndex(current) - toIndex(oldest) + 1 }, (_, i) => addMonths(current, -i));
+  return Array.from({ length: monthIndex(current) - monthIndex(oldest) + 1 }, (_, i) => addMonths(current, -i));
 }
 
 export function formatMonth(month: MonthKey): string {

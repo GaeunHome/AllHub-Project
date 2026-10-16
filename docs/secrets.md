@@ -27,7 +27,7 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 | `SESSION_SECRET` | 登入 cookie 的簽章密鑰；也用來替註冊次數限制的 IP 雜湊加料，並衍生圖形驗證碼的 HMAC 金鑰。用上面的指令產生 | Vercel |
 | `ENCRYPTION_KEY` | 加密 HoYoLAB cookie 與 AI API Key 的金鑰，用上面的指令產生 | Vercel（不要勾 Sensitive，見下方） |
 | `ENCRYPTION_KEY_PREVIOUS` | 選填，只在更換 `ENCRYPTION_KEY` 的期間放舊金鑰，多把用逗號分隔 | Vercel（平常不用建立） |
-| `CRON_SECRET` | 排程端點的密鑰，用上面的指令產生 | Vercel 與 GitHub Secrets（兩邊要一樣） |
+| `CRON_SECRET` | 排程端點的密鑰，用上面的指令產生。Vercel Cron 呼叫排程時會自動帶上 | Vercel 與 GitHub Secrets（兩邊要一樣；GitHub 的只在手動執行排程時用） |
 | `PUBLIC_BASE_URL` | 網站網址，例如 `https://allhub-project.vercel.app` | Vercel；GitHub Secrets 的 `HUB_URL` 填同一個網址 |
 | `TWITCH_CLIENT_ID`、`TWITCH_CLIENT_SECRET` | Twitch 開發者後台（見 [模組設定與使用](modules.md#twitch)） | Vercel |
 | `TWITCH_EVENTSUB_SECRET`、`YOUTUBE_WEBSUB_SECRET` | 兩個 webhook 的簽章密鑰，用上面的指令產生 | Vercel |
@@ -49,17 +49,18 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 | 名稱 | 值 | 用途 |
 |---|---|---|
 | `MIGRATION_DATABASE_URL` | Session pooler（5432）的連線字串 | db-migrate 套用 migration |
-| `CRON_SECRET` | 跟 Vercel 的 `CRON_SECRET` 一樣 | cron workflow 每 30 分鐘呼叫 `starrail:stamina` |
-| `HUB_URL` | 網站網址，就是 `PUBLIC_BASE_URL` 的值 | cron workflow 要呼叫的網址 |
+| `CRON_SECRET` | 跟 Vercel 的 `CRON_SECRET` 一樣 | 在 Actions 頁面手動執行 cron workflow 時帶上 |
+| `HUB_URL` | 網站網址，就是 `PUBLIC_BASE_URL` 的值 | 手動執行 cron workflow 時要呼叫的網址 |
 
-GitHub Secrets 存好後也看不到原文，要改就整個重新填。
+- 平常的排程（含每小時的開拓力提醒）都由 Vercel Cron 呼叫，不經過 GitHub；`CRON_SECRET`、`HUB_URL` 只給手動執行排程用，例如補跑錯過的排程、換金鑰後立刻重新加密。
+- GitHub Secrets 存好後也看不到原文，要改就整個重新填。
 
 ## 常見錯誤
 
 - **兩個連線字串放反**：`DATABASE_URL` 要用 Transaction pooler（6543），`MIGRATION_DATABASE_URL` 要用 Session pooler（5432）。
 - **用了 Direct connection**：主機是 `db.<專案>.supabase.co` 的是 Direct connection（IPv6）。GitHub Actions 只有 IPv4 連不到，`MIGRATION_DATABASE_URL` 要改用 Session pooler。
 - **連線字串格式不對**：要用 `postgresql://` 開頭。密碼裡的 `@`、`#`、`?`、`/`、`:`、`$` 等特殊字元要先做百分比編碼，例如 `@` 寫成 `%40`。
-- **混進奇怪的字元**：這些值都只有英數與半形符號。出現全形符號、中文，或前後多了空白、換行，多半是複製時多帶了東西。
+- **混進奇怪的字元**：這些值都只有英數與半形符號。出現全形符號、中文，或前後多了空白、換行，多半是複製時多帶了東西。網站只會自動去掉 `TWITCH_CLIENT_ID`、`TWITCH_CLIENT_SECRET` 前後的空白與換行，其他的要自己刪掉。
 - **`PUBLIC_BASE_URL` 的寫法**：要用 `https://` 開頭，結尾不要 `/`。GitHub 的 `HUB_URL` 也一樣。
 - **長度不對**：網站用到時會檢查，不符合會報錯（訊息只列名稱與原因，不含值）。用上面的指令產生的值都符合：
   - `SESSION_SECRET` 至少 32 個字元。
@@ -100,7 +101,7 @@ HoYoLAB cookie 與 AI API Key 是用 `ENCRYPTION_KEY` 加密的。密文會記�
 | 密鑰 | 換新的影響 |
 |---|---|
 | `SESSION_SECRET` | 所有裝置都要重新登入，註冊與邀請碼的嘗試次數也會重新計算；正在填的登入、註冊表單上的驗證碼也會失效，按「換一張」或重新整理頁面就好。懷疑 cookie 外洩時換這個；只想登出其他裝置的話，改密碼就好 |
-| `CRON_SECRET` | GitHub Secrets 的 `CRON_SECRET` 也要改成同一個值。兩邊都換好、Vercel 重新部署完成之前，GitHub 呼叫的 `starrail:stamina` 會被拒絕（401），需要的話手動補跑 |
+| `CRON_SECRET` | GitHub Secrets 的 `CRON_SECRET` 也要改成同一個值，手動執行排程才不會被拒絕（401）。改完到 Vercel 重新部署完成之前，排程可能被拒絕，需要的話手動補跑 |
 | `TWITCH_EVENTSUB_SECRET` | Twitch 上既有的訂閱一直用建立時的舊密鑰簽章（訂閱建立後不能改），換掉之後送來的開台、關台通知都會被網站拒絕；Twitch 那邊仍顯示正常，「同步訂閱」看不出問題。要用新密鑰重建訂閱，步驟見下方〈[換 `TWITCH_EVENTSUB_SECRET`](#換-twitch_eventsub_secret)〉 |
 | `YOUTUBE_WEBSUB_SECRET` | 舊訂閱的推送會被忽略。要等 `youtube:renew` 在租約剩不到 2 天時用新密鑰續訂才會恢復，最多約 3–4 天。想立刻恢復的話，在重新部署後請追蹤這個頻道的每個人都取消追蹤（最後一個人取消時才會取消舊的訂閱），再重新追蹤 |
 | 資料庫密碼 | 在 Supabase 改密碼後，Vercel 的 `DATABASE_URL` 與 GitHub Secrets 的 `MIGRATION_DATABASE_URL` 都要換新 |

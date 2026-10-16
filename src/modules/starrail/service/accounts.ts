@@ -7,17 +7,20 @@ import { coreUsers } from "@/core/db/schema";
 import { logError } from "@/core/errors";
 import { notify } from "@/core/notify";
 import { RETENTION_DAYS, retentionCutoff } from "@/core/retention";
+import type { ActCalendar } from "../lib/calendar";
 import type { StarrailCharacter } from "../lib/characters";
-import { parseHoyolabCookie } from "../lib/cookie";
+import { missingKeysWarning, parseHoyolabCookie, withAccountIds } from "../lib/cookie";
 import type { Endgame, EndgameMode, EndgameSchedule } from "../lib/endgame";
-import { fetchCharacters, fetchCheckinInfo, fetchDailyNote, fetchEndgame, fetchGameRoles, fetchLedger, redeemCode, signIn } from "../lib/hoyolab";
+import { fetchActCalendar, fetchCharacters, fetchCheckinInfo, fetchDailyNote, fetchEndgame, fetchGameRoles, fetchLedger, fetchProfile, redeemCode, signIn } from "../lib/hoyolab";
 import type { Ledger } from "../lib/ledger";
 import { normalizeRedeemCode, redeemCookieProblem } from "../lib/redeem";
-import { defaultRoleSelection, likelyUnused, serverLabel } from "../lib/roles";
+import { endgameCheckDue } from "../lib/reminders";
+import { defaultRoleSelection, serverLabel } from "../lib/roles";
 import { formatTaipeiTime, retcodeOf, staminaFullAt, type DailyNote, type Expedition, type HoyolabResult } from "../lib/responses";
 import { starrailAccounts, starrailCheckinLogs, type StarrailAccount } from "../data/schema";
 import { alertThreshold, staminaAlertAction } from "../lib/stamina";
 import { starrailTags } from "./cache-tags";
+import { sendEndgameReminders, sendNoteReminders } from "./reminders";
 
 /** already 是今天已經簽過 排程不為這種結果發通知 */
 export type ActionResult = { ok: true; message: string; already?: boolean } | { ok: false; error: string };
@@ -28,12 +31,18 @@ const ACCOUNT_NOT_FOUND = "找不到這個帳號，請重新整理頁面";
 const MODULE_ID = "starrail";
 const CHECKIN_URL = "https://act.hoyolab.com/bbs/event/signin/hkrpg/index.html?act_id=e202303301540311";
 
+/**
+ * 排程與立即簽到記下有沒有真的改到帳號那一列
+ * HoYoLAB 的快取都標著帳號的 tag 有改才讓它失效 頁面才不會每小時重查十幾個端點
+ */
+export type AccountChanges = { changed: boolean };
+
 /** 換了 ENCRYPTION_KEY 這類解密失敗時回 null 並標記失效 頁面仍能移除或重新連結 */
-async function cookieOf(account: StarrailAccount): Promise<string | null> {
+export async function cookieOf(account: StarrailAccount, changes?: AccountChanges): Promise<string | null> {
   try {
     return decryptSecret(account.cookieEncrypted);
   } catch {
-    await setCookieInvalid(account.id, true);
+    await setCookieInvalid(account.id, true, changes);
     return null;
   }
 }
@@ -45,7 +54,7 @@ const ownAccount = (userId: string, accountId: number) => and(eq(starrailAccount
  * 沒有擁有者的列不知道通知給誰所以略過 重新連結就會歸給連結的人
  * 擁有者被停用時凍結 不用他的 cookie 簽到或查便箋
  */
-async function listAccounts(): Promise<(StarrailAccount & { userId: string })[]> {
+export async function listAccounts(): Promise<(StarrailAccount & { userId: string })[]> {
   const rows = await db()
     .select(getTableColumns(starrailAccounts))
     .from(starrailAccounts)
@@ -54,11 +63,16 @@ async function listAccounts(): Promise<(StarrailAccount & { userId: string })[]>
   return rows.filter((row): row is StarrailAccount & { userId: string } => row.userId !== null);
 }
 
-/** 頁面顯示用的欄位 不含 cookie 連密文也不讀 才能放進快取 */
-export type StarrailAccountView = Pick<StarrailAccount, "id" | "uid" | "nickname" | "region" | "level" | "staminaAlertThreshold" | "cookieInvalid">;
+/**
+ * 頁面顯示用的欄位 不含 cookie 連密文也不回傳 才能放進快取
+ * canAutoRedeem 是 cookie 有沒有兌換要用的鍵 只是是或否
+ */
+export type StarrailAccountView = Pick<StarrailAccount, "id" | "uid" | "nickname" | "region" | "level" | "staminaAlertThreshold" | "cookieInvalid" | "autoRedeem" | "gameReminders"> & {
+  canAutoRedeem: boolean;
+};
 
 export async function listAccountViews(userId: string): Promise<StarrailAccountView[]> {
-  return db()
+  const rows = await db()
     .select({
       id: starrailAccounts.id,
       uid: starrailAccounts.uid,
@@ -67,10 +81,23 @@ export async function listAccountViews(userId: string): Promise<StarrailAccountV
       level: starrailAccounts.level,
       staminaAlertThreshold: starrailAccounts.staminaAlertThreshold,
       cookieInvalid: starrailAccounts.cookieInvalid,
+      autoRedeem: starrailAccounts.autoRedeem,
+      gameReminders: starrailAccounts.gameReminders,
+      cookieEncrypted: starrailAccounts.cookieEncrypted,
     })
     .from(starrailAccounts)
     .where(eq(starrailAccounts.userId, userId))
     .orderBy(starrailAccounts.id);
+  return rows.map(({ cookieEncrypted, ...view }) => ({ ...view, canAutoRedeem: redeemKeysProblem(cookieEncrypted) === null }));
+}
+
+/** 兌換要 cookie_token_v2 與帳號 id 送出時會用 lt 開頭的值補上 account_ 開頭的鍵 */
+function redeemKeysProblem(cookieEncrypted: string): string | null {
+  try {
+    return redeemCookieProblem(withAccountIds(decryptSecret(cookieEncrypted)));
+  } catch {
+    return UNDECRYPTABLE;
+  }
 }
 
 /** 只列自己帳號的紀錄 頁面一次只看一個帳號 給了 id 就只列那個帳號的 */
@@ -84,8 +111,8 @@ export async function recentCheckins(userId: string, limit = 20, accountId?: num
     .limit(limit);
 }
 
-/** 連結時讓使用者選的角色 預設勾等級最高的 等級很低的標示可能沒在玩 */
-export type RoleChoice = { uid: string; nickname: string | null; server: string; level: number | null; likelyUnused: boolean; selected: boolean };
+/** 連結時讓使用者選的角色 預設勾等級最高的 */
+export type RoleChoice = { uid: string; nickname: string | null; server: string; level: number | null; selected: boolean };
 
 /**
  * ask 只有一個角色就直接連結 好幾個就回傳清單讓使用者選 還不寫入
@@ -127,7 +154,6 @@ export async function linkAccount(userId: string, rawCookie: string, selection: 
         nickname: role.nickname,
         server: serverLabel(role.region, role.regionName),
         level: role.level,
-        likelyUnused: likelyUnused(role, roles.data),
         selected: preselected.includes(role.uid),
       })),
     };
@@ -163,11 +189,32 @@ export async function linkAccount(userId: string, rawCookie: string, selection: 
     throw error;
   }
   const message = `已連結 ${chosen.map((r) => `${r.nickname ?? "?"}（${serverLabel(r.region, r.regionName)}，${r.uid}）`).join("、")}`;
-  return { ok: true, message, accountId: savedIds[0], ...(parsed.hasLtmid ? {} : { warning: "建議一併貼上 ltmid_v2，否則即時便箋可能失敗" }) };
+  // 只要 ltoken_v2 與 ltuid_v2 就能連結 少了其他建議的鍵時提醒哪些功能可能不能用
+  const warning = missingKeysWarning(parsed.missing);
+  return { ok: true, message, accountId: savedIds[0], ...(warning ? { warning } : {}) };
 }
 
 export async function removeAccount(userId: string, id: number): Promise<void> {
   await db().delete(starrailAccounts).where(ownAccount(userId, id));
+}
+
+/**
+ * 打開前先確認 cookie 有兌換要用的鍵 沒有的話說明要補哪些
+ * 關掉不用檢查 試過的兌換碼留著 再打開時不會重送
+ */
+export async function setAutoRedeem(userId: string, id: number, enabled: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
+  const [account] = await db().select({ cookieEncrypted: starrailAccounts.cookieEncrypted }).from(starrailAccounts).where(ownAccount(userId, id));
+  if (!account) return { ok: false, error: ACCOUNT_NOT_FOUND };
+  const problem = enabled ? redeemKeysProblem(account.cookieEncrypted) : null;
+  if (problem) return { ok: false, error: problem };
+  await db().update(starrailAccounts).set({ autoRedeem: enabled, updatedAt: new Date() }).where(ownAccount(userId, id));
+  return { ok: true };
+}
+
+/** 每日實訓 每週內容與終局挑戰的提醒 回傳有沒有找到自己的這個帳號 */
+export async function setGameReminders(userId: string, id: number, enabled: boolean): Promise<boolean> {
+  const updated = await db().update(starrailAccounts).set({ gameReminders: enabled, updatedAt: new Date() }).where(ownAccount(userId, id)).returning({ id: starrailAccounts.id });
+  return updated.length > 0;
 }
 
 /** 回傳有沒有找到自己的這個帳號 */
@@ -184,12 +231,13 @@ export async function setStaminaThreshold(userId: string, id: number, threshold:
  * cookie 失效標記只從這裡寫 比對資料庫的值而不是記憶體裡的帳號
  * 同一次簽到先清掉再設上時才不會讀到舊值而跳過 回傳有沒有改
  */
-async function setCookieInvalid(accountId: number, invalid: boolean): Promise<boolean> {
+async function setCookieInvalid(accountId: number, invalid: boolean, changes?: AccountChanges): Promise<boolean> {
   const updated = await db()
     .update(starrailAccounts)
     .set({ cookieInvalid: invalid, updatedAt: new Date() })
     .where(and(eq(starrailAccounts.id, accountId), ne(starrailAccounts.cookieInvalid, invalid)))
     .returning({ id: starrailAccounts.id });
+  if (updated.length > 0 && changes) changes.changed = true;
   return updated.length > 0;
 }
 
@@ -276,30 +324,48 @@ export async function endgameFor(userId: string, accountId: number, mode: Endgam
   return read.ok ? { ok: true, endgame: read.data.endgame, fetchedAt: read.fetchedAt, cookieInvalid: false } : read;
 }
 
+export type ActCalendarFetch = { ok: true; calendar: ActCalendar; fetchedAt: Date; cookieInvalid: false } | PageFailure;
+
+/** 活動日曆 終局挑戰 活動與躍遷 */
+export async function actCalendarFor(userId: string, accountId: number): Promise<ActCalendarFetch> {
+  const read = await readRecord(userId, accountId, "活動日曆", (cookie, account) => fetchActCalendar(cookie, account.uid, account.region));
+  return read.ok ? { ok: true, calendar: read.data.calendar, fetchedAt: read.fetchedAt, cookieInvalid: false } : read;
+}
+
+/**
+ * 戰績首頁的遊戲頭像 只回網址 讀不到或不是自己的帳號回 null
+ * 帳號的 cookie 失效標記只看即時便箋與簽到 這裡不回報
+ */
+export async function profileFor(userId: string, accountId: number): Promise<string | null> {
+  const read = await readRecord(userId, accountId, "遊戲頭像", (cookie, account) => fetchProfile(cookie, account.uid, account.region));
+  return read.ok ? read.data.avatar : null;
+}
+
 /**
  * 兌換碼與結果都不存 log 只記 retcode
- * cookieFlagChanged 讓 Server Action 只在寫了失效標記時讓快取失效
+ * 帳號的 cookie 失效標記只看即時便箋與簽到 兌換失敗只回自己的錯誤
  */
-export type RedeemResult = ({ ok: true; message: string } | { ok: false; error: string }) & { cookieFlagChanged: boolean };
+export type RedeemResult = { ok: true; message: string } | { ok: false; error: string };
 
 export async function redeemCodeFor(userId: string, accountId: number, input: string): Promise<RedeemResult> {
   const normalized = normalizeRedeemCode(input);
-  if (!normalized.ok) return { ok: false, error: normalized.error, cookieFlagChanged: false };
+  if (!normalized.ok) return { ok: false, error: normalized.error };
   const [account] = await db().select().from(starrailAccounts).where(ownAccount(userId, accountId));
-  if (!account) return { ok: false, error: ACCOUNT_NOT_FOUND, cookieFlagChanged: false };
+  if (!account) return { ok: false, error: ACCOUNT_NOT_FOUND };
   let cookie: string;
   try {
     cookie = decryptSecret(account.cookieEncrypted);
   } catch {
-    return { ok: false, error: UNDECRYPTABLE, cookieFlagChanged: await setCookieInvalid(account.id, true) };
+    return { ok: false, error: UNDECRYPTABLE };
   }
-  const problem = redeemCookieProblem(cookie);
-  if (problem) return { ok: false, error: problem, cookieFlagChanged: false };
+  // 送出時會用 lt 開頭的值補上 account_ 開頭的鍵 檢查也照補完的看
+  const problem = redeemCookieProblem(withAccountIds(cookie));
+  if (problem) return { ok: false, error: problem };
 
   const outcome = await redeemCode(cookie, account.uid, account.region, normalized.code);
-  if (outcome.ok) return { ok: true, message: outcome.message, cookieFlagChanged: false };
+  if (outcome.ok) return { ok: true, message: outcome.message };
   console.error("[starrail] 兌換失敗", accountId, `retcode ${outcome.retcode}`);
-  return { ok: false, error: outcome.message, cookieFlagChanged: outcome.cookieInvalid ? await setCookieInvalid(account.id, true) : false };
+  return { ok: false, error: outcome.message };
 }
 
 /**
@@ -314,23 +380,23 @@ export async function syncCookieInvalid(userId: string, accountId: number, inval
   return changed;
 }
 
-export async function getDailyNote(account: StarrailAccount): Promise<HoyolabResult<DailyNote>> {
-  const cookie = await cookieOf(account);
+export async function getDailyNote(account: StarrailAccount, changes?: AccountChanges): Promise<HoyolabResult<DailyNote>> {
+  const cookie = await cookieOf(account, changes);
   if (cookie === null) return { ok: false, retcode: null, message: UNDECRYPTABLE, cookieInvalid: true, raw: null };
   const result = await fetchDailyNote(cookie, account.uid, account.region);
-  await setCookieInvalid(account.id, !result.ok && result.cookieInvalid);
+  await setCookieInvalid(account.id, !result.ok && result.cookieInvalid, changes);
   return result;
 }
 
 /** 簽到以 HoYoLAB 帳號為單位 紀錄掛在觸發簽到的那個角色上 */
-export async function checkin(account: StarrailAccount): Promise<ActionResult> {
-  const cookie = await cookieOf(account);
+export async function checkin(account: StarrailAccount, changes?: AccountChanges): Promise<ActionResult> {
+  const cookie = await cookieOf(account, changes);
   if (cookie === null) {
     await db().insert(starrailCheckinLogs).values({ accountId: account.id, result: "failed", message: UNDECRYPTABLE });
     return { ok: false, error: UNDECRYPTABLE };
   }
   const info = await fetchCheckinInfo(cookie);
-  if (info.ok) await setCookieInvalid(account.id, false);
+  if (info.ok) await setCookieInvalid(account.id, false, changes);
 
   let result: "success" | "already" | "failed";
   let message: string;
@@ -345,18 +411,32 @@ export async function checkin(account: StarrailAccount): Promise<ActionResult> {
     if (outcome.result === "success" && totalSignDay !== null) totalSignDay += 1;
     // 原始回應可能帶有帳號資料 只記 retcode
     if (outcome.result === "failed") console.error("[starrail] 簽到失敗", account.uid, `retcode ${retcodeOf(outcome.raw)}`);
-    await setCookieInvalid(account.id, outcome.cookieInvalid);
+    await setCookieInvalid(account.id, outcome.cookieInvalid, changes);
   }
 
   await db().insert(starrailCheckinLogs).values({ accountId: account.id, result, message, totalSignDay });
   return result === "failed" ? { ok: false, error: message } : { ok: true, message, already: result === "already" };
 }
 
-/** 頁面上的立即簽到只帶帳號 id */
-export async function checkinAccount(userId: string, id: number): Promise<ActionResult> {
+/**
+ * 頁面上的立即簽到只帶帳號 id
+ * accountChanged 讓 Server Action 只在 cookie 失效標記改了時讓帳號的快取失效
+ */
+export async function checkinAccount(userId: string, id: number): Promise<ActionResult & { accountChanged: boolean }> {
   const [account] = await db().select().from(starrailAccounts).where(ownAccount(userId, id));
-  if (!account) return { ok: false, error: "找不到這個帳號" };
-  return checkin(account);
+  if (!account) return { ok: false, error: "找不到這個帳號", accountChanged: false };
+  const changes: AccountChanges = { changed: false };
+  return { ...(await checkin(account, changes)), accountChanged: changes.changed };
+}
+
+/** 排程結束時 有改到帳號才讓帳號的快取失效 中途出錯前改的也算 */
+export async function trackingAccountChanges<T>(work: (changes: AccountChanges) => Promise<T>): Promise<T> {
+  const changes: AccountChanges = { changed: false };
+  try {
+    return await work(changes);
+  } finally {
+    if (changes.changed) expireTags(starrailTags.accounts);
+  }
 }
 
 export async function checkinAll(): Promise<string> {
@@ -366,17 +446,19 @@ export async function checkinAll(): Promise<string> {
   const lines: string[] = [];
   const seenLtuid = new Map<string, ActionResult>();
   const byOwner = new Map<string, { lines: string[]; results: ActionResult[] }>();
-  for (const account of accounts) {
-    // 同一個 HoYoLAB 帳號只送一次簽到 其餘角色沿用結果
-    const result = seenLtuid.get(account.ltuid) ?? (await isolate(account, () => checkin(account)));
-    seenLtuid.set(account.ltuid, result);
-    const line = `${account.nickname ?? account.uid}：${result.ok ? result.message : `失敗 — ${result.error}`}`;
-    lines.push(line);
-    const owner = byOwner.get(account.userId) ?? { lines: [], results: [] };
-    owner.lines.push(line);
-    owner.results.push(result);
-    byOwner.set(account.userId, owner);
-  }
+  await trackingAccountChanges(async (changes) => {
+    for (const account of accounts) {
+      // 同一個 HoYoLAB 帳號只送一次簽到 其餘角色沿用結果
+      const result = seenLtuid.get(account.ltuid) ?? (await isolate(account, () => checkin(account, changes)));
+      seenLtuid.set(account.ltuid, result);
+      const line = `${account.nickname ?? account.uid}：${result.ok ? result.message : `失敗 — ${result.error}`}`;
+      lines.push(line);
+      const owner = byOwner.get(account.userId) ?? { lines: [], results: [] };
+      owner.lines.push(line);
+      owner.results.push(result);
+      byOwner.set(account.userId, owner);
+    }
+  });
 
   // 每個擁有者只收到自己帳號的結果 全都是今天已簽過的人不通知
   for (const [userId, owner] of byOwner) {
@@ -391,46 +473,81 @@ export async function checkinAll(): Promise<string> {
   return lines.join("；");
 }
 
-export async function checkStaminaAll(): Promise<string> {
+/** 每小時一次 開拓力快滿 每日實訓 每週內容與終局挑戰的提醒都在這裡 */
+export async function checkStaminaAll(now = new Date()): Promise<string> {
   const accounts = await listAccounts();
   const lines: string[] = [];
-  const now = new Date();
 
-  for (const account of accounts) {
-    const name = account.nickname ?? account.uid;
-    const result = await isolate(account, () => checkStamina(account, now));
-    lines.push(`${name}：${result.ok ? result.message : `查詢失敗 — ${result.error}`}`);
-  }
+  await trackingAccountChanges(async (changes) => {
+    for (const account of accounts) {
+      const name = account.nickname ?? account.uid;
+      const result = await isolate(account, () => checkStamina(account, now, changes));
+      lines.push(`${name}：${result.ok ? result.message : `查詢失敗 — ${result.error}`}`);
+    }
+  });
   return lines.join("；") || "沒有連結的帳號";
 }
 
-async function checkStamina(account: StarrailAccount & { userId: string }, now: Date): Promise<ActionResult> {
-  const name = account.nickname ?? account.uid;
-  const note = await getDailyNote(account);
+async function checkStamina(account: StarrailAccount & { userId: string }, now: Date, changes: AccountChanges): Promise<ActionResult> {
+  const note = await getDailyNote(account, changes);
   if (!note.ok) return { ok: false, error: note.message };
 
   const action = staminaAlertAction(note.data, account.staminaAlertThreshold, account.lastStaminaAlertAt !== null);
-  if (action === "alert") {
-    const fullAt = staminaFullAt(note.data, now);
+  const alerted = action === "alert" && (await alertStamina(account, note.data, now, changes));
+  if (action === "reset") {
+    await db().update(starrailAccounts).set({ lastStaminaAlertAt: null }).where(eq(starrailAccounts.id, account.id));
+    changes.changed = true;
+  }
+  const reminded = account.gameReminders ? await sendReminders(account, note.data, now, changes) : [];
+  return {
+    ok: true,
+    message: `${note.data.stamina}/${note.data.maxStamina}${alerted ? "（已通知）" : ""}${reminded.length > 0 ? `（提醒${reminded.join("、")}）` : ""}`,
+  };
+}
+
+/**
+ * 先用條件式 update 認領這一輪 同一小時重送的排程只有一個認領得到
+ * 通知寫不進去就退回認領 下一次排程再通知
+ */
+async function alertStamina(account: StarrailAccount & { userId: string }, note: DailyNote, now: Date, changes: AccountChanges): Promise<boolean> {
+  const claimed = await db()
+    .update(starrailAccounts)
+    .set({ lastStaminaAlertAt: now })
+    .where(and(eq(starrailAccounts.id, account.id), isNull(starrailAccounts.lastStaminaAlertAt)))
+    .returning({ id: starrailAccounts.id });
+  if (claimed.length === 0) return false;
+  changes.changed = true;
+  const fullAt = staminaFullAt(note, now);
+  try {
     await notify({
       recipients: [account.userId],
       module: MODULE_ID,
       kind: "stamina",
-      title: `${name} 的開拓力快滿了`,
-      body: [
-        `開拓力 ${note.data.stamina}/${note.data.maxStamina}（門檻 ${alertThreshold(note.data, account.staminaAlertThreshold)}）`,
-        fullAt ? `預計 ${formatTaipeiTime(fullAt, now)} 回滿` : "已經滿了",
-      ].join("\n"),
+      title: `${account.nickname ?? account.uid} 的開拓力快滿了`,
+      body: [`開拓力 ${note.stamina}/${note.maxStamina}（門檻 ${alertThreshold(note, account.staminaAlertThreshold)}）`, fullAt ? `預計 ${formatTaipeiTime(fullAt, now)} 回滿` : "已經滿了"].join("\n"),
       url: "/starrail",
     });
-  }
-  if (action !== "none") {
+  } catch (error) {
     await db()
       .update(starrailAccounts)
-      .set({ lastStaminaAlertAt: action === "alert" ? now : null })
-      .where(eq(starrailAccounts.id, account.id));
+      .set({ lastStaminaAlertAt: null })
+      .where(and(eq(starrailAccounts.id, account.id), eq(starrailAccounts.lastStaminaAlertAt, now)));
+    throw error;
   }
-  return { ok: true, message: `${note.data.stamina}/${note.data.maxStamina}${action === "alert" ? "（已通知）" : ""}` };
+  return true;
+}
+
+/** 提醒出錯不影響開拓力的結果 錯誤細節只進 log */
+async function sendReminders(account: StarrailAccount & { userId: string }, note: DailyNote, now: Date, changes: AccountChanges): Promise<string[]> {
+  try {
+    const sent = await sendNoteReminders(account, note, now);
+    if (!endgameCheckDue(account.region, now)) return sent;
+    const cookie = await cookieOf(account, changes);
+    return cookie === null ? sent : [...sent, ...(await sendEndgameReminders(account, cookie, now))];
+  } catch (error) {
+    logError("starrail", "發送提醒失敗", error, account.uid);
+    return [];
+  }
 }
 
 /** 簽到紀錄屬於通知紀錄 只留最近 RETENTION_DAYS 天 */
@@ -452,20 +569,25 @@ export async function reencryptCookies(): Promise<string> {
 
   let reencrypted = 0;
   let failed = 0;
-  for (const account of accounts.filter((a) => needsReencrypt(a.cookieEncrypted))) {
-    try {
-      // 只在密文沒變時寫回 期間重新連結的新 cookie 不能被舊的蓋掉
-      const [updated] = await db()
-        .update(starrailAccounts)
-        .set({ cookieEncrypted: encryptSecret(decryptSecret(account.cookieEncrypted)) })
-        .where(and(eq(starrailAccounts.id, account.id), eq(starrailAccounts.cookieEncrypted, account.cookieEncrypted)))
-        .returning({ id: starrailAccounts.id });
-      if (updated) reencrypted++;
-    } catch (error) {
-      failed++;
-      logError("starrail", "cookie 重新加密失敗", error, account.uid);
+  await trackingAccountChanges(async (changes) => {
+    for (const account of accounts.filter((a) => needsReencrypt(a.cookieEncrypted))) {
+      try {
+        // 只在密文沒變時寫回 期間重新連結的新 cookie 不能被舊的蓋掉
+        const [updated] = await db()
+          .update(starrailAccounts)
+          .set({ cookieEncrypted: encryptSecret(decryptSecret(account.cookieEncrypted)) })
+          .where(and(eq(starrailAccounts.id, account.id), eq(starrailAccounts.cookieEncrypted, account.cookieEncrypted)))
+          .returning({ id: starrailAccounts.id });
+        if (updated) {
+          reencrypted++;
+          changes.changed = true;
+        }
+      } catch (error) {
+        failed++;
+        logError("starrail", "cookie 重新加密失敗", error, account.uid);
+      }
     }
-  }
+  });
   return `${accounts.length} 筆 cookie，重新加密 ${reencrypted} 筆${failed ? `（${failed} 筆失敗，詳見伺服器 log）` : ""}`;
 }
 

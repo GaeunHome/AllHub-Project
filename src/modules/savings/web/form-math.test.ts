@@ -1,49 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { SELECTABLE_COLORS } from "../lib/kinds";
-import { balanceChangeText, balanceHint, choosableAccounts, defaultIncomeCategory, figureText, latestDate, nextFreeColor, salaryFormReducer, salaryPreview, salaryStartDate, selectableColor, suggestLines } from "./form-math";
+import { balanceHint, choosableAccounts, defaultIncomeCategory, latestDate, nextFreeColor, salaryFormReducer, salaryPreview, salaryStartDate, selectableColor, suggestLines } from "./form-math";
 
 describe("更新餘額的說明", () => {
-  it("balanceHint：還沒輸入或打錯_說明差額會怎麼記；跟記錄的一樣_不會多記", () => {
-    expect(balanceHint("deposit", 12000, "")).toBe("差額會記成一筆今天的「調整」，不算收入也不算支出。");
-    expect(balanceHint("deposit", 12000, "1.5")).toBe("差額會記成一筆今天的「調整」，不算收入也不算支出。");
-    expect(balanceHint("deposit", 12000, "12,000")).toBe("跟記錄的一樣，不會多記一筆。");
+  it("輸入銀行 App 上的餘額：寫出要記的調整是實際減記錄的（12,000 → 11,650 是 -$350）", () => {
+    expect(balanceHint(12000, "11650")).toContain("-$350");
+    expect(balanceHint(12000, "12,500")).toContain("+$500");
   });
 
-  it("balanceHint：存款與投資寫出要記的調整", () => {
-    expect(balanceHint("deposit", 12000, "11650")).toBe("會記一筆今天的調整：-$350");
-  });
-
-  it("balanceHint：信用卡用未繳的角度寫；負數是溢繳（存款不收負數，當成還沒填好）", () => {
-    expect(balanceHint("credit", -4480, "4,000")).toBe("未繳少了 $480（$4,480 → $4,000），會記一筆今天的調整。");
-    expect(balanceHint("credit", -4480, "-200")).toBe("未繳少了 $4,680（$4,480 → 溢繳 $200），會記一筆今天的調整。");
-    expect(balanceHint("deposit", 12000, "-200")).toBe("差額會記成一筆今天的「調整」，不算收入也不算支出。");
-  });
-
-  it("figureText：銀行 App 上的數字；信用卡的負數是溢繳", () => {
-    expect(figureText("credit", 4480)).toBe("$4,480");
-    expect(figureText("credit", -200)).toBe("溢繳 $200");
-    expect(figureText("credit", 0)).toBe("$0");
-    expect(figureText("deposit", -50)).toBe("-$50");
-  });
-
-  it("balanceChangeText：存款與投資寫調整多少（實際減記錄的）", () => {
-    expect(balanceChangeText("deposit", 12000, 11650)).toBe("調整 -$350");
-    expect(balanceChangeText("investment", 80000, 86500)).toBe("調整 +$6,500");
-  });
-
-  it("balanceChangeText：信用卡用未繳的角度寫，未繳變少不會讀成欠更多（餘額 -4,480 → 未繳 4,000）", () => {
-    expect(balanceChangeText("credit", -4480, 4000)).toBe("未繳少了 $480（$4,480 → $4,000）");
-    expect(balanceChangeText("credit", -3500, 4000)).toBe("未繳多了 $500（$3,500 → $4,000）");
-  });
-
-  it("balanceChangeText：信用卡多繳時（溢繳）寫成溢繳，不寫負的金額", () => {
-    expect(balanceChangeText("credit", -4480, -200)).toBe("未繳少了 $4,680（$4,480 → 溢繳 $200）");
-    expect(balanceChangeText("credit", 300, 0)).toBe("未繳多了 $300（溢繳 $300 → $0）");
-  });
-
-  it("balanceChangeText：跟記錄的一樣_沒有差額回 null", () => {
-    expect(balanceChangeText("deposit", 12000, 12000)).toBeNull();
-    expect(balanceChangeText("credit", -3500, 3500)).toBeNull();
+  it("跟記錄的一樣_不會多記一筆，沒有調整的金額；打錯或打負數（伺服器不收）_當成還沒填", () => {
+    expect(balanceHint(12000, "12,000")).not.toContain("$");
+    expect(balanceHint(12000, "1.5")).toBe(balanceHint(12000, ""));
+    expect(balanceHint(12000, "-200")).toBe(balanceHint(12000, ""));
   });
 });
 

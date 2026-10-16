@@ -4,24 +4,28 @@ import { CardErrorBoundary } from "@/core/ui/card-error-boundary";
 import { DialogMessageScope } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
 import { PageHeader } from "@/core/ui/page-header";
-import { EntranceScope } from "./motion/entrance-scope";
 import { SavingsNav, type SavingsSection } from "./savings-nav";
 
-/**
- * 視窗都會留下成功訊息 同一頁只留最新一則
- * 進場動畫只在第一次看到時播 上一頁回來不重播
- */
-export function SavingsPageFrame({ info, current, children }: { info: ModuleInfo; current: SavingsSection; children: ReactNode }) {
+type SavingsPageFrameProps = {
+  info: ModuleInfo;
+  current: SavingsSection;
+  /** 頁首右邊的按鈕 例如記一筆 手機上換到標題下一行 */
+  actions?: ReactNode;
+  children: ReactNode;
+};
+
+/** 視窗都會留下成功訊息 同一頁只留最新一則 */
+export function SavingsPageFrame({ info, current, actions, children }: SavingsPageFrameProps) {
   return (
     <DialogMessageScope>
-      <EntranceScope data-accent={info.accent} className="page-stack">
+      <div data-accent={info.accent} className="page-stack">
         {/* 分頁列跟頁首是一組 距離比區塊之間近 */}
         <div className="stack">
-          <PageHeader icon={info.icon && <Icon src={info.icon} />} title={info.name} />
+          <PageHeader icon={info.icon && <Icon src={info.icon} />} title={info.name} actions={actions} />
           <SavingsNav current={current} />
         </div>
         {children}
-      </EntranceScope>
+      </div>
     </DialogMessageScope>
   );
 }

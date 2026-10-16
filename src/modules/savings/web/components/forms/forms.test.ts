@@ -1,4 +1,4 @@
-import { Fragment, createElement, useReducer, type ReactNode } from "react";
+import { Fragment, createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FormState } from "@/core/ui/form-message";
@@ -7,15 +7,11 @@ import type { FormState } from "@/core/ui/form-message";
 vi.mock("@/core/ui/dialog", { spy: true });
 // 一個按鈕的表單 要拿到交給它的 action
 vi.mock("@/core/ui/action-button", { spy: true });
-// 發薪分配要從打錯一行或分太多的狀態開始
-// 只換掉那個 reducer 的初始狀態 其他照原本的實作
-vi.mock("react", { spy: true });
 // Server Action 換成假的 只看每個表單接到哪一個
 vi.mock("../../actions", () => ({
   addTransactionAction: vi.fn(),
   updateTransactionAction: vi.fn(),
   updateBalanceAction: vi.fn(),
-  allocateSalaryAction: vi.fn(),
   setupAction: vi.fn(),
   createAccountAction: vi.fn(),
   updateAccountAction: vi.fn(),
@@ -30,18 +26,17 @@ vi.mock("../../actions", () => ({
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
 const actions = await import("../../actions");
-const { lastAccountPref, lastSalaryAccountPref } = await import("../../last-used");
-const { salaryFormReducer } = await import("../../form-math");
+const { lastAccountPref } = await import("../../last-used");
 const { ROW_MESSAGE_CLASS } = await import("./fields");
-const { QuickAddButton, QuickAddFab } = await import("./quick-add");
+const { QuickAddButton } = await import("./quick-add");
 const { EntryForm } = await import("./entry-form");
 const { UpdateBalanceButton } = await import("./update-balance");
-const { SalaryButton } = await import("./salary-dialog");
 const { SetupButton, SetupResultSlot } = await import("./setup-button");
 const { AccountForm } = await import("./account-form");
 const { PurposeForm } = await import("./purpose-form");
 const { CategoryForm } = await import("./category-form");
 const { RecurringForm } = await import("./recurring-form");
+const { TradeForm } = await import("./trade-form");
 
 const TODAY = "2026-10-14";
 const ACCOUNTS = [
@@ -50,13 +45,12 @@ const ACCOUNTS = [
   { id: 3, name: "國泰信用卡", kind: "credit" as const },
 ];
 const CATEGORIES = [
-  { id: 11, name: "餐飲", kind: "expense" as const, color: "orange" as const },
-  { id: 12, name: "交通", kind: "expense" as const, color: "blue" as const },
-  { id: 21, name: "薪水", kind: "income" as const, color: "green" as const },
+  { id: 11, name: "餐飲", kind: "expense" as const },
+  { id: 12, name: "交通", kind: "expense" as const },
+  { id: 21, name: "薪水", kind: "income" as const },
 ];
 const OPTIONS = { accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY };
 const done = { onDone: vi.fn(), onCancel: vi.fn() };
-const { useReducer: realUseReducer } = await vi.importActual<typeof import("react")>("react");
 
 const render = (element: ReactNode) => renderToStaticMarkup(element as never);
 const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
@@ -81,19 +75,16 @@ beforeEach(() => {
   done.onDone.mockClear();
   vi.mocked(dialog.Dialog).mockImplementation(({ children }) => createElement(Fragment, null, children));
   lastAccountPref.save(0);
-  lastSalaryAccountPref.save(0);
 });
 
 afterEach(() => {
-  vi.mocked(useReducer).mockImplementation(realUseReducer as never);
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
 describe("記一筆（快速記帳）", () => {
-  it("還沒有任何帳戶_沒有地方可以記，按鈕與手機的＋都不顯示", () => {
+  it("還沒有任何帳戶_沒有地方可以記，按鈕不顯示", () => {
     expect(render(createElement(QuickAddButton, { ...OPTIONS, accounts: [] }))).toBe("");
-    expect(render(createElement(QuickAddFab, { ...OPTIONS, accounts: [] }))).toBe("");
   });
 
   it("視窗：支出／收入／轉帳的分段選擇（預設支出），金額是大的欄位、打開時先拿到焦點", () => {
@@ -108,7 +99,7 @@ describe("記一筆（快速記帳）", () => {
     expect(amount).toContain("text-2xl");
   });
 
-  it("分類是點一下就選的膠囊：只列這個類型的分類（含色點），最後是預設選好的「未分類」", () => {
+  it("分類是點一下就選的膠囊：只列這個類型的分類，最後是預設選好的「未分類」", () => {
     const markup = render(createElement(QuickAddButton, OPTIONS));
     const chips = inputsOf(markup, "categoryId");
 
@@ -217,18 +208,6 @@ describe("記一筆（快速記帳）", () => {
     expect(formActions()).toEqual([actions.addTransactionAction]);
     expect(markup).toMatch(/aria-label="記一筆：郵局"[^>]*class="btn-secondary btn-sm"/);
   });
-
-  it("手機右下角的＋：寬螢幕不顯示、56px（至少 44px）、讓開 safe area；頁尾多留一段，最後的內容不會被蓋住", () => {
-    const markup = render(createElement(QuickAddFab, OPTIONS));
-    const fab = markup.match(/<button[^>]*aria-label="記一筆"[^>]*>/)?.[0] ?? "";
-
-    expect(fab).toContain("fixed");
-    expect(fab).toContain("sm:hidden");
-    expect(fab).toContain("size-14");
-    expect(fab).toContain("safe-area-inset-bottom");
-    expect(markup).toMatch(/^<div aria-hidden="true" class="h-12 sm:hidden"><\/div>/);
-    expect(formActions()).toEqual([actions.addTransactionAction]);
-  });
 });
 
 describe("修改紀錄（紀錄頁的視窗）", () => {
@@ -268,12 +247,10 @@ describe("更新餘額", () => {
     expect(formActions()).toEqual([actions.updateBalanceAction]);
   });
 
-  it("投資問目前市值；信用卡問目前未繳，記錄上的未繳是正數", () => {
-    expect(textOf(render(createElement(UpdateBalanceButton, { account: { id: 4, name: "元大證券", kind: "investment", balance: 80000 } })))).toContain("銀行 App 上的目前市值（元）");
-
-    const card = textOf(render(createElement(UpdateBalanceButton, { account: { id: 3, name: "國泰信用卡", kind: "credit", balance: -3500 } })));
-    expect(card).toContain("記錄上的目前未繳$3,500");
-    expect(card).toContain("銀行 App 上的目前未繳（元）");
+  it("沒有持股的投資帳戶：按鈕是「更新市值」、問目前市值", () => {
+    const investment = render(createElement(UpdateBalanceButton, { account: { id: 4, name: "元大證券", kind: "investment", balance: 80000 } }));
+    expect(investment).toMatch(/aria-label="更新市值：元大證券"/);
+    expect(textOf(investment)).toContain("銀行 App 上的目前市值（元）");
   });
 
   it("按鈕預設是清單列裡的小按鈕；報讀器念得出是哪個帳戶", () => {
@@ -288,107 +265,11 @@ describe("更新餘額", () => {
     expect(messageClasses()).toEqual([ROW_MESSAGE_CLASS]);
   });
 
-  it("存款：只收數字，手機跳數字鍵盤", () => {
+  it("存款：只收數字，手機跳數字鍵盤；說明寫在欄位下面", () => {
     const markup = render(createElement(UpdateBalanceButton, { account: { id: 1, name: "國泰", kind: "deposit", balance: 12000 } }));
 
     expect(inputOf(markup, "actual")).toContain('inputMode="numeric"');
-  });
-
-  it("信用卡：多繳時填負數（溢繳）；iPhone 的數字鍵盤沒有負號，所以不限定數字鍵盤，說明寫在欄位下面", () => {
-    const markup = render(createElement(UpdateBalanceButton, { account: { id: 3, name: "國泰信用卡", kind: "credit", balance: -3500 } }));
-
-    expect(inputOf(markup, "actual")).not.toContain("inputMode");
-    expect(describedHint(markup, "actual")).toContain("多繳（溢繳）時填負數");
-  });
-
-  it("信用卡已經多繳（餘額是正的）：記錄上的數字寫成溢繳，不寫成 0", () => {
-    const text = textOf(render(createElement(UpdateBalanceButton, { account: { id: 3, name: "國泰信用卡", kind: "credit", balance: 200 } })));
-
-    expect(text).toContain("記錄上的目前未繳溢繳 $200");
-  });
-});
-
-describe("發薪分配", () => {
-  const salaryAccounts = [
-    { id: 1, name: "國泰", kind: "deposit" as const, balance: 20000, monthlyPlan: null, targetAmount: null, sortOrder: 1 },
-    { id: 2, name: "郵局", kind: "deposit" as const, balance: 95000, monthlyPlan: 10000, targetAmount: 100000, sortOrder: 2 },
-    { id: 4, name: "元大證券", kind: "investment" as const, balance: 0, monthlyPlan: 3000, targetAmount: null, sortOrder: 3 },
-    { id: 5, name: "急用金", kind: "deposit" as const, balance: 60000, monthlyPlan: 2000, targetAmount: 50000, sortOrder: 4 },
-    { id: 3, name: "國泰信用卡", kind: "credit" as const, balance: -3500, monthlyPlan: null, targetAmount: null, sortOrder: 5 },
-  ];
-  const salary = () => render(createElement(SalaryButton, { accounts: salaryAccounts, categories: CATEGORIES, today: TODAY }));
-
-  it("只有信用卡（薪水沒有地方入帳）_不顯示", () => {
-    expect(render(createElement(SalaryButton, { accounts: [salaryAccounts[4]], categories: CATEGORIES, today: TODAY }))).toBe("");
-  });
-
-  it("入帳帳戶只列存款與投資，預設是上次用的；分類預設「薪水」；送到 allocateSalaryAction", () => {
-    lastSalaryAccountPref.save(4);
-    const markup = salary();
-
-    expect(selectOf(markup, "accountId")).not.toContain("國泰信用卡");
-    expect(selectedOption(selectOf(markup, "accountId"))).toBe("元大證券");
-    expect(selectedOption(selectOf(markup, "categoryId"))).toBe("薪水");
-    expect(formActions()).toEqual([actions.allocateSalaryAction]);
-  });
-
-  it("每個有每月規劃的帳戶一行（帳戶 id 與金額成對送出），金額照建議、可以改；有目標的最多分到目標為止", () => {
-    const markup = salary();
-
-    expect(inputsOf(markup, "transferAccountId").map((input) => input.match(/value="(\d+)"/)?.[1])).toEqual(["2", "4", "5"]);
-    // 郵局離目標只差 5,000 比每月規劃 10,000 少 急用金已經超過目標
-    expect(inputsOf(markup, "transferAmount").map((input) => input.match(/value="(\d+)"/)?.[1])).toEqual(["5000", "3000", "0"]);
-    expect(textOf(markup)).toContain("離目標只差 $5,000（每月規劃 $10,000）");
-    expect(textOf(markup)).toContain("已達目標 $50,000，這次不用再轉");
-  });
-
-  it("成功訊息獨佔總覽工具列那排按鈕的最後一整列", () => {
-    salary();
-
-    expect(messageClasses()).toEqual([ROW_MESSAGE_CLASS]);
-  });
-
-  /** 從中間的狀態開始算繪 入帳帳戶是國泰 */
-  const salaryWith = (state: { salaryText: string; edits: Record<number, string> }) => {
-    vi.mocked(useReducer).mockImplementation(((reducer: unknown, ...rest: unknown[]) =>
-      reducer === salaryFormReducer ? [{ receivingId: 1, ...state }, vi.fn()] : (realUseReducer as (...args: unknown[]) => unknown)(reducer, ...rest)) as never);
-    return salary();
-  };
-  const submit = (markup: string) => markup.match(/<button(?:(?!<\/button>)[\s\S])*記錄並分配<\/button>/)?.[0] ?? "";
-
-  it("某一行打錯（例如 1.5、-500）：那一行標成錯誤、寫出原因（報讀器在欄位上會念），送出鈕停用；不再當成 0 悄悄送出", () => {
-    const markup = salaryWith({ salaryText: "43000", edits: { 4: "1.5" } });
-    const line = inputsOf(markup, "transferAmount").find((input) => input.includes('value="1.5"')) ?? "";
-
-    expect(line).toContain('aria-invalid="true"');
-    expect(describedHint(markup.replace(line, line.replace('name="transferAmount"', 'name="bad"')), "bad")).toContain("只能是整數");
-    expect(inputsOf(markup, "transferAmount").filter((input) => input.includes("aria-invalid"))).toHaveLength(1);
-    expect(submit(markup)).toMatch(/^<button disabled=""/);
-  });
-
-  it("分出去的比薪水多：寫出多了多少，送出鈕停用", () => {
-    const markup = salaryWith({ salaryText: "6000", edits: {} });
-
-    expect(textOf(markup)).toContain("分出去的比薪水多：$2,000");
-    expect(submit(markup)).toMatch(/^<button disabled=""/);
-  });
-
-  it("日期不能早於入帳帳戶與要轉進去的帳戶開始記帳的那天", () => {
-    vi.mocked(useReducer).mockImplementation(((reducer: unknown, ...rest: unknown[]) =>
-      reducer === salaryFormReducer ? [{ receivingId: 1, salaryText: "43000", edits: {} }, vi.fn()] : (realUseReducer as (...args: unknown[]) => unknown)(reducer, ...rest)) as never);
-    const accounts = salaryAccounts.map((account) => ({ ...account, startDate: account.id === 4 ? "2026-10-10" : "2026-09-01" }));
-
-    const markup = render(createElement(SalaryButton, { accounts, categories: CATEGORIES, today: TODAY }));
-
-    expect(inputOf(markup, "date")).toContain('min="2026-10-10"');
-  });
-
-  it("都沒問題：寫出留在入帳帳戶的錢，可以送出", () => {
-    const markup = salaryWith({ salaryText: "43,000", edits: { 2: "" } });
-
-    expect(textOf(markup)).toContain("留在「國泰」：$40,000");
-    expect(submit(markup)).not.toContain("disabled");
-    expect(markup).not.toContain("aria-invalid");
+    expect(describedHint(markup, "actual")).not.toBe("");
   });
 });
 
@@ -447,7 +328,20 @@ describe("帳戶表單", () => {
     { id: 6, name: "台新", active: true },
     { id: 7, name: "舊戶頭", active: false },
   ];
-  const card = { id: 3, name: "國泰信用卡", kind: "credit" as const, purposeId: null, openingBalance: -3500, openingCost: null, monthlyPlan: null, targetAmount: null, dueDay: 6, payFromAccountId: 2 };
+  const card = {
+    id: 3,
+    name: "國泰信用卡",
+    kind: "credit" as const,
+    purposeId: null,
+    openingBalance: -3500,
+    openingCost: null,
+    monthlyPlan: null,
+    targetAmount: null,
+    dueDay: 20,
+    statementDay: 5,
+    payFromAccountId: 2,
+    autopay: true,
+  };
 
   it("新增：先選類型（預設存款），存款有用途、起始餘額、每月規劃與目標；送到 createAccountAction", () => {
     const markup = render(createElement(AccountForm, { purposes: [{ id: 5, name: "生活費" }], payFromAccounts, ...done }));
@@ -458,25 +352,38 @@ describe("帳戶表單", () => {
     expect(formActions()).toEqual([actions.createAccountAction]);
   });
 
-  it("隱私：只有自己取的名稱與金額，沒有帳號、卡號這類欄位，也提醒不用填", () => {
-    const markup = render(createElement(AccountForm, { purposes: [], payFromAccounts, ...done }));
+  it("隱私：只有自己取的名稱與金額，沒有帳號、卡號這類欄位，名稱的範例提醒不用填", () => {
+    const deposit = render(createElement(AccountForm, { purposes: [], payFromAccounts, ...done }));
+    const credit = render(createElement(AccountForm, { account: card, purposes: [], payFromAccounts, ...done }));
 
-    expect(fieldNames(markup).join(" ")).not.toMatch(/number|card|holder|account(?!Id)/i);
-    expect(textOf(markup)).toContain("不用填帳號或卡號");
+    expect([...fieldNames(deposit), ...fieldNames(credit)].join(" ")).not.toMatch(/number|card|holder|account(?!Id)/i);
+    expect(inputOf(deposit, "name")).toContain("不用填帳號");
+    expect(inputOf(credit, "name")).toContain("不用填卡號");
   });
 
-  it("修改信用卡：類型不能改，未繳用正數帶入，有繳款日與扣款帳戶（只列存款、不列停用的，原本選的停用了也留著）", () => {
+  it("修改信用卡：類型不能改，未繳用正數帶入；繳款截止日、結帳日、扣款帳戶（只列存款、不列停用的，原本選的停用了也留著）與自動扣繳", () => {
     const markup = render(createElement(AccountForm, { account: card, purposes: [], payFromAccounts, ...done }));
 
     expect(markup).toMatch(/<input type="hidden" name="id" value="3"/);
     expect(inputOf(markup, "kind")).toBe("");
     expect(textOf(markup)).toContain("信用卡帳戶（類型建立後不能改）");
     expect(inputOf(markup, "openingBalance")).toContain('value="3500"');
-    expect(selectedOption(selectOf(markup, "dueDay"))).toBe("每月 6 日");
+    expect(textOf(markup)).toContain("繳款截止日");
+    expect(selectedOption(selectOf(markup, "dueDay"))).toBe("20 日");
+    expect(selectedOption(selectOf(markup, "statementDay"))).toBe("5 日");
     expect(selectedOption(selectOf(markup, "payFromAccountId"))).toBe("郵局（已停用）");
     expect(textOf(selectOf(markup, "payFromAccountId"))).toBe("未設定國泰郵局（已停用）台新");
-    expect(fieldNames(markup)).toEqual(["dueDay", "id", "name", "openingBalance", "payFromAccountId"]);
+    expect(inputOf(markup, "autopay")).toMatch(/type="checkbox"[^>]*checked=""/);
+    expect(fieldNames(markup)).toEqual(["autopay", "dueDay", "id", "name", "openingBalance", "payFromAccountId", "statementDay"]);
     expect(formActions()).toEqual([actions.updateAccountAction]);
+  });
+
+  it("信用卡的結帳日與截止日可以不設（沒有截止日的卡不提醒），自動扣繳預設不勾", () => {
+    const markup = render(createElement(AccountForm, { account: { ...card, dueDay: null, statementDay: null, autopay: false }, purposes: [], payFromAccounts, ...done }));
+
+    expect(selectedOption(selectOf(markup, "dueDay"))).toBe("未設定");
+    expect(selectedOption(selectOf(markup, "statementDay"))).toBe("未設定");
+    expect(inputOf(markup, "autopay")).not.toContain("checked");
   });
 
   it("新增信用卡：目前未繳可以填負數（溢繳），不限定數字鍵盤（iPhone 的數字鍵盤沒有負號），說明寫在欄位下面", () => {
@@ -495,7 +402,7 @@ describe("帳戶表單", () => {
   });
 
   it("修改投資帳戶：有市值與成本（成本留空當成跟市值一樣）", () => {
-    const markup = render(createElement(AccountForm, { account: { ...card, id: 4, kind: "investment", openingBalance: 80000, openingCost: 60000, dueDay: null, payFromAccountId: null }, purposes: [], payFromAccounts, ...done }));
+    const markup = render(createElement(AccountForm, { account: { ...card, id: 4, kind: "investment", openingBalance: 80000, openingCost: 60000, dueDay: null, statementDay: null, payFromAccountId: null, autopay: false }, purposes: [], payFromAccounts, ...done }));
 
     expect(inputOf(markup, "openingBalance")).toContain('value="80000"');
     expect(inputOf(markup, "openingCost")).toContain('value="60000"');
@@ -504,29 +411,20 @@ describe("帳戶表單", () => {
 });
 
 describe("用途與分類表單", () => {
-  it("新增用途：名稱與七個顏色（預設選還沒用過的；灰色留給未分類與未設定用途）；送到 createPurposeAction", () => {
-    const markup = render(createElement(PurposeForm, { defaultColor: "amber", ...done }));
-    const colors = inputsOf(markup, "color");
+  const colorOf = (markup: string) => markup.match(/<input type="hidden" name="color" value="(\w+)"/)?.[1];
 
-    expect(colors.map((input) => input.match(/value="(\w+)"/)?.[1])).toEqual(["blue", "teal", "green", "amber", "orange", "rose", "violet"]);
-    expect(colors.find((input) => input.includes('value="amber"'))).toContain("checked");
-    expect(textOf(markup)).toContain("黃");
+  it("不用選顏色（畫面上不再顯示）：新增時自動給還沒用過的顏色，資料表的顏色欄位才有值；送到 createPurposeAction", () => {
+    const markup = render(createElement(PurposeForm, { defaultColor: "amber", ...done }));
+
+    expect(inputsOf(markup, "color")).toHaveLength(1);
+    expect(colorOf(markup)).toBe("amber");
     expect(formActions()).toEqual([actions.createPurposeAction]);
   });
 
-  it("修改以前存成灰色的用途或分類：灰色不能再選（伺服器不收），預先選好還沒用過的顏色，儲存才不會失敗", () => {
-    const purpose = render(createElement(PurposeForm, { purpose: { id: 5, name: "生活費", color: "slate" }, defaultColor: "rose", ...done }));
-    const category = render(createElement(CategoryForm, { category: { id: 14, name: "提領現金", kind: "expense", color: "slate", monthlyBudget: null }, defaultKind: "expense", defaultColor: "amber", ...done }));
-    const checked = (markup: string) => inputsOf(markup, "color").filter((input) => input.includes("checked")).map((input) => input.match(/value="(\w+)"/)?.[1]);
-
-    expect(checked(purpose)).toEqual(["rose"]);
-    expect(checked(category)).toEqual(["amber"]);
-  });
-
-  it("修改：原本的顏色還能選就照原本的", () => {
-    const markup = render(createElement(PurposeForm, { purpose: { id: 5, name: "生活費", color: "teal" }, defaultColor: "rose", ...done }));
-
-    expect(inputsOf(markup, "color").find((input) => input.includes("checked"))).toContain('value="teal"');
+  it("修改時原本的顏色原樣送回；以前存成灰色的（伺服器不收）換成還沒用過的，儲存才不會失敗", () => {
+    expect(colorOf(render(createElement(PurposeForm, { purpose: { id: 5, name: "生活費", color: "teal" }, defaultColor: "rose", ...done })))).toBe("teal");
+    expect(colorOf(render(createElement(PurposeForm, { purpose: { id: 5, name: "生活費", color: "slate" }, defaultColor: "rose", ...done })))).toBe("rose");
+    expect(colorOf(render(createElement(CategoryForm, { category: { id: 14, name: "提領現金", kind: "expense", color: "slate", monthlyBudget: null }, defaultKind: "expense", defaultColor: "amber", ...done })))).toBe("amber");
   });
 
   it("修改用途：帶入名稱與顏色、送出時帶 id", () => {
@@ -548,14 +446,6 @@ describe("用途與分類表單", () => {
     expect(formActions()).toEqual([actions.createCategoryAction, actions.createCategoryAction]);
   });
 
-  it("新增成功時把新分類的類型交給外面（設定頁正在看支出時新增了收入的分類，要切到收入才看得到）", () => {
-    render(createElement(CategoryForm, { defaultKind: "income", defaultColor: "rose", ...done }));
-
-    formOnDone()("已新增分類「獎金」", {});
-
-    expect(done.onDone).toHaveBeenCalledWith("已新增分類「獎金」", "income");
-  });
-
   it("修改分類：類型不能改，預算帶入", () => {
     const markup = render(createElement(CategoryForm, { category: { id: 11, name: "餐飲", kind: "expense", color: "orange", monthlyBudget: 6000 }, defaultKind: "expense", defaultColor: "orange", ...done }));
 
@@ -566,33 +456,136 @@ describe("用途與分類表單", () => {
 });
 
 describe("固定收支表單", () => {
-  const rule = { id: 30, kind: "expense" as const, accountId: 1, counterAccountId: null, categoryId: 12, amount: 1280, dayOfMonth: 20, note: "月票", active: true, lastPostedMonth: "2026-10-01", createdAt: "2026-09-01T02:00:00.000Z" };
+  const HOLDINGS = [
+    { id: 50, symbol: "006208", name: "富邦台灣50", accountId: 4, accountName: "臺銀證券", active: true },
+    { id: 51, symbol: "0050", name: "元大台灣50", accountId: 4, accountName: "臺銀證券", active: true },
+  ];
+  const FORM = { ...OPTIONS, holdings: HOLDINGS, ...done };
+  const rule = {
+    id: 30,
+    kind: "expense" as const,
+    name: "月票",
+    accountId: 1,
+    counterAccountId: null,
+    categoryId: 12,
+    amount: 1280,
+    dayOfMonth: 20,
+    intervalMonths: 1,
+    startMonth: null,
+    holidayRule: "after" as const,
+    mode: "auto" as const,
+    holdingId: null,
+    allocate: false,
+    note: "舊備註",
+    active: true,
+    lastPostedMonth: "2026-10-01",
+    createdAt: "2026-09-01T02:00:00.000Z",
+  };
+  const typeOptions = (markup: string) => [...(markup.match(/<div role="group" aria-label="類型"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? "").matchAll(/<button[^>]*>([^<]*)<\/button>/g)].map((m) => m[1]);
+  const nextLine = (markup: string) => markup.match(/<p aria-live="polite"[^>]*>([^<]*)<\/p>/)?.[1];
+  const optionsOf = (select: string) => [...select.matchAll(/<option[^>]*>([^<]*)<\/option>/g)].map((m) => m[1]);
+  const hidden = (markup: string, name: string) => markup.match(new RegExp(`<input type="hidden" name="${name}" value="([^"]*)"`))?.[1];
 
-  it("新增：跟記帳一樣的類型、金額與分類，日期是每月幾日（預設今天的日期），下面寫出下次會記在哪天", () => {
-    // 下次日期以伺服器給的台北今天為準 不看裝置的時鐘
-    // 裝置已經是隔天或時區不同也要算得跟伺服器一樣
-    vi.useFakeTimers({ now: new Date("2026-10-15T04:00:00Z"), toFake: ["Date"] });
-    const markup = render(createElement(RecurringForm, { ...OPTIONS, ...done }));
+  it("新增：類型有支出、收入、轉帳、定期定額（預設支出）；每月一次、日期預設今天、記帳方式預設「到期請我確認」", () => {
+    const markup = render(createElement(RecurringForm, FORM));
 
-    expect(selectedOption(selectOf(markup, "dayOfMonth"))).toBe("每月 14 日");
-    expect(textOf(markup)).toContain("下次自動記：10 月 14 日（三）");
-    expect(fieldNames(markup)).toEqual(["accountId", "amount", "categoryId", "dayOfMonth", "kind", "note"]);
+    expect(typeOptions(markup)).toEqual(["支出", "收入", "轉帳", "定期定額"]);
+    expect(hidden(markup, "kind")).toBe("expense");
+    expect(selectedOption(selectOf(markup, "intervalMonths"))).toBe("每月");
+    expect(selectedOption(selectOf(markup, "dayOfMonth"))).toBe("14 日");
+    expect(selectedOption(selectOf(markup, "mode"))).toBe("到期請我確認");
+    expect(fieldNames(markup)).toEqual(["accountId", "amount", "categoryId", "dayOfMonth", "holidayRule", "intervalMonths", "kind", "mode", "name"]);
     expect(formActions()).toEqual([actions.createRecurringAction]);
   });
 
-  it("修改：帶入原本的內容；這個月已經記過，下次是下個月", () => {
-    const markup = render(createElement(RecurringForm, { ...OPTIONS, rule, ...done }));
+  it("新增：下一期以伺服器給的台北今天為準，不看裝置的時鐘（裝置已經是隔天也一樣）", () => {
+    vi.useFakeTimers({ now: new Date("2026-10-15T04:00:00Z"), toFake: ["Date"] });
+
+    // 新的規則還沒有任何一期 寫第一期 不寫待處理
+    expect(nextLine(render(createElement(RecurringForm, FORM)))).toBe("第一期 10/14");
+  });
+
+  it("下一期的那一行緊接在日期與遇假日下面，改了馬上念出新的日子（aria-live）", () => {
+    const markup = render(createElement(RecurringForm, FORM));
+    const order = [markup.indexOf('name="holidayRule"'), markup.indexOf('<p aria-live="polite"'), markup.indexOf('name="mode"')];
+
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order.every((index) => index >= 0)).toBe(true);
+  });
+
+  it("修改：帶入原本的名稱、金額、日期、遇假日與記帳方式；表單沒有備註欄位，原本的備註原樣送回", () => {
+    const markup = render(createElement(RecurringForm, { ...FORM, rule }));
 
     expect(markup).toMatch(/<input type="hidden" name="id" value="30"/);
+    expect(inputOf(markup, "name")).toContain('value="月票"');
     expect(inputOf(markup, "amount")).toContain('value="1280"');
-    expect(selectedOption(selectOf(markup, "dayOfMonth"))).toBe("每月 20 日");
-    expect(textOf(markup)).toContain("下次自動記：11 月 20 日（五）");
+    expect(selectedOption(selectOf(markup, "dayOfMonth"))).toBe("20 日");
+    expect(selectedOption(selectOf(markup, "holidayRule"))).toBe("延後到下一個工作日");
+    expect(selectedOption(selectOf(markup, "mode"))).toBe("自動記帳");
+    expect(hidden(markup, "note")).toBe("舊備註");
+    expect(markup).not.toMatch(/<input(?![^>]*type="hidden")[^>]*name="note"/);
+    // 10 月已經處理過 下一期是 11 月 20 日 週五照常上班
+    expect(nextLine(markup)).toBe("下一期 11/20");
     expect(formActions()).toEqual([actions.updateRecurringAction]);
   });
 
-  it("月底的日期：說明沒有這一天的月份記在月底；停用的不寫下次日期", () => {
-    expect(textOf(render(createElement(RecurringForm, { ...OPTIONS, rule: { ...rule, dayOfMonth: 31 }, ...done })))).toContain("沒有這一天的月份記在月底");
-    expect(textOf(render(createElement(RecurringForm, { ...OPTIONS, rule: { ...rule, active: false }, ...done })))).toContain("已停用：恢復後才會自動記");
+  it("每月的沒有「從哪個月開始」；間隔不是每月才問，選項從這個月起一年，原本的月份在範圍外也列出來", () => {
+    expect(selectOf(render(createElement(RecurringForm, { ...FORM, rule })), "startMonth")).toBe("");
+
+    const markup = render(createElement(RecurringForm, { ...FORM, rule: { ...rule, intervalMonths: 2, startMonth: "2026-09-01", lastPostedMonth: "2026-09-01" } }));
+    const months = optionsOf(selectOf(markup, "startMonth"));
+
+    expect(selectedOption(selectOf(markup, "intervalMonths"))).toBe("每 2 個月");
+    expect(selectedOption(selectOf(markup, "startMonth"))).toBe("2026 年 9 月");
+    expect(months).toHaveLength(13);
+    expect([months[1], months.at(-1)]).toEqual(["2026 年 10 月", "2027 年 9 月"]);
+    // 9 月處理過 每 2 個月一期 下一期在 11 月
+    expect(nextLine(markup)).toBe("下一期 11/20");
+  });
+
+  // 人事總處 2026 年辦公日曆表 10 月 10 日是週六 10 月 9 日週五放假 10 月 12 日週一上班
+  it.each([
+    ["none", "下一期 10/10"],
+    ["before", "下一期 10/8，10/10 遇假日提前"],
+    ["after", "下一期 10/12，10/10 遇假日延後"],
+  ] as const)("遇假日 %s：下一期照辦公日曆調整，寫出原本的日子", (holidayRule, expected) => {
+    const markup = render(createElement(RecurringForm, { ...FORM, today: "2026-10-01", rule: { ...rule, dayOfMonth: 10, holidayRule, lastPostedMonth: "2026-09-01" } }));
+
+    expect(nextLine(markup)).toBe(expected);
+  });
+
+  it("定期定額：扣款帳戶只列存款帳戶、哪一檔從持股選，轉入是那一檔所在的投資帳戶；記帳方式只能「到期請我確認」", () => {
+    const markup = render(createElement(RecurringForm, { ...FORM, rule: { ...rule, kind: "transfer", name: null, accountId: 2, counterAccountId: 4, categoryId: null, holdingId: 51, mode: "confirm", amount: 3000 } }));
+
+    expect(hidden(markup, "kind")).toBe("transfer");
+    expect(optionsOf(selectOf(markup, "accountId"))).toEqual(["國泰", "郵局"]);
+    expect(selectedOption(selectOf(markup, "accountId"))).toBe("郵局");
+    expect(selectedOption(selectOf(markup, "holdingId"))).toBe("0050 元大台灣50");
+    expect(hidden(markup, "counterAccountId")).toBe("4");
+    expect(inputsOf(markup, "categoryId")).toEqual([]);
+    expect(markup).toMatch(/<select[^>]*disabled=""[^>]*>[\s\S]*?<option value="confirm" selected="">到期請我確認/);
+    expect(textOf(markup)).toContain("定期定額要確認股數");
+    expect(hidden(markup, "mode")).toBe("confirm");
+    expect(textOf(markup)).toContain("約定金額（元）");
+  });
+
+  it("薪水是收入才有的勾選：勾了之後記帳方式只能「到期請我確認」；支出沒有這個勾選", () => {
+    const salary = render(createElement(RecurringForm, { ...FORM, rule: { ...rule, kind: "income", name: "薪水", categoryId: 21, allocate: true, mode: "confirm", holidayRule: "before" } }));
+
+    expect(inputOf(salary, "allocate")).toMatch(/type="checkbox"[^>]*checked=""/);
+    expect(hidden(salary, "mode")).toBe("confirm");
+    expect(selectOf(salary, "mode")).toBe("");
+    expect(inputOf(render(createElement(RecurringForm, { ...FORM, rule })), "allocate")).toBe("");
+  });
+
+  it("要確認的規則到期了還沒處理：那一期在總覽的待處理，寫「待處理」不寫成下一期", () => {
+    const markup = render(createElement(RecurringForm, { ...FORM, rule: { ...rule, dayOfMonth: 5, holidayRule: "none", mode: "confirm", lastPostedMonth: "2026-09-01" } }));
+
+    expect(nextLine(markup)).toBe("待處理 10/5");
+  });
+
+  it("停用的不寫下一期", () => {
+    expect(nextLine(render(createElement(RecurringForm, { ...FORM, rule: { ...rule, active: false } })))).toBe("已停用：恢復後才會記帳");
   });
 });
 
@@ -604,7 +597,8 @@ describe("視窗裡的表單不用 <form action>", () => {
       render(createElement(AccountForm, { purposes: [], payFromAccounts: [], ...done })),
       render(createElement(PurposeForm, { defaultColor: "blue", ...done })),
       render(createElement(CategoryForm, { defaultKind: "expense", defaultColor: "blue", ...done })),
-      render(createElement(RecurringForm, { ...OPTIONS, ...done })),
+      render(createElement(RecurringForm, { ...OPTIONS, holdings: [], ...done })),
+      render(createElement(TradeForm, { record: { id: 80, accountId: 1, counterAccountId: 4, amount: 1000, date: TODAY, note: null }, accounts: [], today: TODAY, ...done })),
     ];
 
     for (const markup of forms) expect(markup).toMatch(/<form(?![^>]*action=)[^>]*>/);

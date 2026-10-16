@@ -5,7 +5,7 @@ import { savingsAccounts, savingsPurposes, type SavingsAccount } from "../data/s
 import type { Direction } from "../lib/order";
 import { NOT_FOUND, isRowId, parseAccountFields, parseAccountKind, type AccountInput } from "../lib/validation";
 import { DUPLICATE_NAME, PAY_FROM_NOT_DEPOSIT, SavingsUserError } from "./errors";
-import { moveWithin, nextSortOrder, valid, withUniqueName } from "./shared";
+import { allOf, moveWithin, nextSortOrder, valid, withUniqueName } from "./shared";
 
 // userId 一律是登入者 別人的 id 當作不存在
 
@@ -24,10 +24,14 @@ export type AccountFields = {
   openingCost: string;
   monthlyPlan: string;
   targetAmount: string;
-  /** 只有信用卡有 每月繳款日 1 到 31 */
+  /** 只有信用卡有 每月的繳款截止日 1 到 31 */
   dueDay: string;
   /** 只有信用卡有 扣款的存款帳戶 */
   payFromAccountId: string;
+  /** 只有信用卡有 每月的結帳日 1 到 31 空字串是沒有 */
+  statementDay: string;
+  /** 只有信用卡有 勾選框 on 是自動扣繳 */
+  autopay: string;
 };
 
 const own = (userId: string, id: number) => and(eq(savingsAccounts.id, id), eq(savingsAccounts.userId, userId));
@@ -83,8 +87,11 @@ export async function setAccountActive(userId: string, id: number, active: boole
   if (updated.length === 0) throw new SavingsUserError(NOT_FOUND.account);
 }
 
+/** 只在同一類型裡移動 畫面照類型分組 跨類型交換看起來會像沒動 */
 export async function moveAccount(userId: string, id: number, direction: Direction): Promise<void> {
-  await moveWithin(savingsAccounts, eq(savingsAccounts.userId, userId), id, direction);
+  const [account] = isRowId(id) ? await db().select({ kind: savingsAccounts.kind }).from(savingsAccounts).where(own(userId, id)) : [];
+  if (!account) return;
+  await moveWithin(savingsAccounts, allOf(eq(savingsAccounts.userId, userId), eq(savingsAccounts.kind, account.kind)), id, direction);
 }
 
 /** 紀錄與固定收支靠外鍵 cascade 一起刪 回傳刪掉的名稱 找不到是 null */

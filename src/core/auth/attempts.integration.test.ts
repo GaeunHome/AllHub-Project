@@ -5,7 +5,7 @@ import { coreRateLimits } from "../db/schema";
 
 stubCoreEnv();
 
-const { INVITE_FAILURES, REGISTER_ATTEMPTS, checkAttempts, clientKey, recordAttempt } = await import("./attempts");
+const { INVITE_FAILURES, REGISTER_ATTEMPTS, checkAttempts, claimOnce, clientKey, recordAttempt, releaseOnce } = await import("./attempts");
 
 const getDb = setupTestDb();
 const NOW = new Date("2026-10-08T00:00:00Z");
@@ -107,5 +107,27 @@ describe("註冊用的上限", () => {
   it("註冊：同一個 IP 每小時最多 10 次；邀請碼錯誤：每小時最多 10 次", () => {
     expect(REGISTER_ATTEMPTS).toEqual({ scope: "register", max: 10, windowMs: 60 * MIN });
     expect(INVITE_FAILURES).toEqual({ scope: "invite", max: 10, windowMs: 60 * MIN });
+  });
+});
+
+describe("claimOnce 與 releaseOnce：同一件事只做一次，做不成時放掉認領", () => {
+  it("同一個用途與 key 只認領得到一次；releaseOnce 放掉之後可以再認領（例如通知寄不出去，下一輪再寄）", async () => {
+    expect(await claimOnce("demo-once", "key-1", NOW)).toBe(true);
+    expect(await claimOnce("demo-once", "key-1", NOW)).toBe(false);
+
+    await releaseOnce("demo-once", "key-1");
+
+    expect(await claimOnce("demo-once", "key-1", NOW)).toBe(true);
+  });
+
+  it("只放掉同一個用途與 key 的認領：別的 key、別的用途照樣是認領過的", async () => {
+    await claimOnce("demo-once", "key-1", NOW);
+    await claimOnce("demo-once", "key-2", NOW);
+    await claimOnce("other-once", "key-1", NOW);
+
+    await releaseOnce("demo-once", "key-1");
+
+    expect(await claimOnce("demo-once", "key-2", NOW)).toBe(false);
+    expect(await claimOnce("other-once", "key-1", NOW)).toBe(false);
   });
 });

@@ -10,6 +10,7 @@ import {
   parseDailyNote,
   parseExpeditions,
   parseGameRoles,
+  parseProfile,
   staminaFullAt,
 } from "./responses";
 
@@ -233,17 +234,22 @@ describe("parseExpeditions：委託的角色圖與剩餘時間", () => {
   });
 });
 
-describe("formatRemaining：委託剩下多久", () => {
-  it("小時與分鐘", () => {
-    expect(formatRemaining(7260)).toBe("剩 2 小時 1 分");
-    expect(formatRemaining(7200)).toBe("剩 2 小時");
-    expect(formatRemaining(2700)).toBe("剩 45 分鐘");
-    expect(formatRemaining(30)).toBe("剩不到 1 分鐘");
+describe("formatRemaining：還剩多久（委託與活動日曆共用）", () => {
+  it.each([
+    [3 * 86_400 + 5 * 3_600, "剩 3 天"],
+    [86_400, "剩 1 天"],
+    [86_400 - 1, "剩 23 小時 59 分"],
+    [7_260, "剩 2 小時 1 分"],
+    [7_200, "剩 2 小時"],
+    [2_700, "剩 45 分鐘"],
+    [30, "剩不到 1 分鐘"],
+  ])("%i 秒_%s", (seconds, text) => {
+    expect(formatRemaining(seconds)).toBe(text);
   });
 
-  it("時間到或已完成_已完成；讀不到_null", () => {
-    expect(formatRemaining(0)).toBe("已完成");
-    expect(formatRemaining(-5)).toBe("已完成");
+  it("時間到了或讀不到_null（已完成、已結束由畫面依情況寫）", () => {
+    expect(formatRemaining(0)).toBeNull();
+    expect(formatRemaining(-5)).toBeNull();
     expect(formatRemaining(null)).toBeNull();
   });
 });
@@ -267,5 +273,22 @@ describe("expeditionStates：委託現在完成了沒（星穹鐵道頁與首頁
 
   it("讀不到剩餘時間_沒完成，剩餘時間維持 null", () => {
     expect(expeditionStates([expedition("ongoing", null)], fetchedAt, now)).toEqual([{ ...expedition("ongoing", null), done: false }]);
+  });
+});
+
+describe("parseProfile：戰績首頁只取遊戲頭像（genshin.py 的 in_game_avatar = cur_head_icon_url）", () => {
+  it("讀 cur_head_icon_url", () => {
+    const data = { stats: { active_days: 300, avatar_num: 40 }, avatar_list: [], cur_head_icon_url: "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/head/201102.png" };
+
+    expect(parseProfile(data)).toEqual({ avatar: "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/head/201102.png", missing: [] });
+  });
+
+  it.each([
+    ["空字串", { cur_head_icon_url: "" }],
+    ["沒有這個欄位", { stats: {} }],
+    ["不是 http(s) 網址", { cur_head_icon_url: "javascript:alert(1)" }],
+    ["data 不是物件", null],
+  ])("%s_給 null 並記下欄位路徑", (_name, data) => {
+    expect(parseProfile(data)).toEqual({ avatar: null, missing: ["cur_head_icon_url"] });
   });
 });

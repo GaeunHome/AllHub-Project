@@ -2,12 +2,15 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { EndgameMode, EndgameSchedule } from "../lib/endgame";
 import {
+  actCalendarFor,
   charactersFor,
   dailyNoteFor,
   endgameFor,
   ledgerFor,
   listAccountViews,
+  profileFor,
   recentCheckins,
+  type ActCalendarFetch,
   type CharactersResult,
   type DailyNoteResult,
   type EndgameFetch,
@@ -45,6 +48,20 @@ export async function cachedDailyNote(userId: string, accountId: number): Promis
 }
 
 /**
+ * 遊戲頭像不存資料庫 只回網址 不含 cookie
+ * 讀不到時只快取幾分鐘 之後再試 不要一整天都是列車圖示
+ */
+export async function cachedProfile(userId: string, accountId: number): Promise<string | null> {
+  "use cache: remote";
+  // 讀了帳號的 cookie 與 UID 重新連結時跟著重查
+  cacheTag(starrailTags.accounts);
+  const avatar = await profileFor(userId, accountId);
+  if (avatar) cacheLife("avatar");
+  else cacheLife("external");
+  return avatar;
+}
+
+/**
  * 角色資料只放快取不存資料庫
  * 參數只有使用者與帳號 id cookie 在函式裡才解密
  */
@@ -74,6 +91,16 @@ export async function cachedEndgame(userId: string, accountId: number, mode: End
   "use cache: remote";
   cacheTag(starrailTags.accounts);
   const result = await endgameFor(userId, accountId, mode, schedule);
+  if (result.ok) cacheLife("records");
+  else cacheLife("external");
+  return result;
+}
+
+/** 活動日曆不存資料庫 參數是使用者與帳號 id 結束時間是絕對時間 剩幾天由頁面算 */
+export async function cachedActCalendar(userId: string, accountId: number): Promise<ActCalendarFetch> {
+  "use cache: remote";
+  cacheTag(starrailTags.accounts);
+  const result = await actCalendarFor(userId, accountId);
   if (result.ok) cacheLife("records");
   else cacheLife("external");
   return result;

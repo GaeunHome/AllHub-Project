@@ -16,6 +16,9 @@ const mainUidOf = (cookie) => {
 
 const ok = (data) => ({ retcode: 0, message: "OK", data });
 const expired = { retcode: -100, message: "Please login", data: null };
+/** 正式環境的開拓月曆只有 lt 開頭的鍵時回這個 genshin.py issue 151 */
+const ledgerLogin = { retcode: -100, message: "请先登录" };
+const hasCookieKey = (cookie, key) => new RegExp(`(?:^|;)\\s*${key}=[^;\\s]`).test(cookie);
 const notPublic = { retcode: 10102, message: "Data is not public for the user", data: null };
 
 const IMG = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/mock";
@@ -178,6 +181,69 @@ function detail({ id, name, element, base_type, rarity, level, rank, cone, sets 
 }
 
 /**
+ * 戰績首頁 依 genshin.py 的 StarRailUserStats 網站只用 cur_head_icon_url
+ * 頭像每個 UID 不同 看得出有沒有對應到正確的帳號
+ */
+function profile(uid) {
+  const roster = uid === SMALL_UID ? SMALL_ROSTER : CHARACTERS;
+  return {
+    stats: { active_days: uid === SMALL_UID ? 3 : 412, avatar_num: roster.length, achievement_num: 320, chest_num: 1880, abyss_process: "已通關混沌回憶", field_ext_map: {}, dream_paster_num: 12 },
+    avatar_list: roster.map((c) => ({ id: c.id, level: c.level, name: c.name, element: c.element, icon: `${IMG}/avatar/${c.id}.png`, rarity: c.rarity, rank: c.rank, is_chosen: false })),
+    cur_head_icon_url: `${IMG}/head/${uid}.png`,
+    phone_background_image_url: `${IMG}/background/${uid}.png`,
+  };
+}
+
+/**
+ * 活動日曆 欄位依 genshin.py 的 HSREventCalendar 時間跟著現在算
+ * 混沌回憶一天半後結束還沒拿滿 傍晚跑開拓力排程時會發終局提醒
+ */
+function actCalendar(uid) {
+  const now = Date.now();
+  const sec = (ms) => String(Math.floor(ms / 1000));
+  const time = (startDays, endDays) => ({ start_ts: sec(now + startDays * 86_400_000), end_ts: sec(now + endDays * 86_400_000), start_time: "", end_time: "", now: sec(now) });
+  const small = uid === SMALL_UID;
+  const challenge = (group_id, challenge_type, name_mi18n, status, current, total, [start, end]) => ({
+    group_id, name_mi18n, challenge_type, status, current_progress: current, total_progress: total, show_text: `${current}/${total}`, time_info: time(start, end), reward_list: [], special_reward: null,
+  });
+  const act = (id, act_type, name, act_status, current, total, timeInfo) => ({
+    id, version: "3.7", name, act_type, act_status, current_progress: current, total_progress: total, time_info: timeInfo, reward_list: [], special_reward: null, panel_desc: "", all_finished: false, show_text: "", act_time_type: "ActTimeTypeDefault", is_after_version: false,
+  });
+  const avatar = (id) => {
+    const c = CHARACTERS.find((x) => x.id === id);
+    return { item_id: String(id), item_name: c.name, icon_url: `${IMG}/avatar/${id}.png`, rarity: String(c.rarity), avatar_base_type: String(c.base_type), damage_type: "1", is_forward: c.rarity === 5, wiki_url: "", item_avatar_icon_path: `${IMG}/figure/${id}.png` };
+  };
+  const cone = (id) => {
+    const c = CHARACTERS.find((x) => x.cone?.[0] === id);
+    return { item_id: String(id), item_name: c.cone[1], item_url: `${IMG}/equip/${id}.png`, rarity: String(c.cone[2]), avatar_base_type: String(c.base_type), is_forward: c.cone[2] === 5, wiki_url: "" };
+  };
+  const pool = (id, name, type, avatars, equips) => ({ id, name, type, avatar_list: avatars, equip_list: equips, is_after_version: false, time_info: time(-9, 11.4), version: "3.7" });
+  return {
+    cur_game_version: "3.7",
+    now: sec(now),
+    challenge_list: [
+      challenge(1013, "ChallengeTypeChasm", "永恆的信條", "challengeStatusInProgress", small ? 0 : 24, 36, [-40.5, 1.5]),
+      challenge(2008, "ChallengeTypeStory", "飛光競逐", "challengeStatusInProgress", small ? 0 : 8, 12, [-28.5, 13.5]),
+      challenge(3005, "ChallengeTypeBoss", "毀滅之境", "challengeStatusFinish", 12, 12, [-14.5, 27.5]),
+      challenge(4002, "ChallengeTypePeak", "異相仲裁", "challengeStatusInProgress", 1, 3, [-8.5, 5.5]),
+      challenge(1014, "ChallengeTypeChasm", "下一期的混沌回憶", "challengeStatusUnopened", 0, 36, [1.5, 43.5]),
+    ],
+    act_list: [
+      act(31001, "ActivityTypeDouble", "花藏繁生", "DoubleRewardActStatusProgress", 1, 3, time(-5, 2.2)),
+      act(31002, "ActivityTypeSign", "星海巡航\\n登入獎勵", "SignStatusUnSignedToday", 3, 7, time(-3, 4.2)),
+      act(31003, "ActivityTypeOther", "以太戰線：限時挑戰", "OtherActStatusUnFinish", 2, 10, time(-6, 9.2)),
+      act(31004, "ActivityTypeOther", "常駐的模擬宇宙", "OtherActStatusUnFinish", 0, 0, { start_ts: "0", end_ts: "0", start_time: "", end_time: "", now: sec(now) }),
+      act(31005, "ActivityTypeOther", "下個版本的活動", "OtherActStatusUnopened", 0, 10, time(5, 20)),
+    ],
+    avatar_card_pool_list: [
+      pool("4001", "蝶立鋒鍔", "CardPoolRole", [avatar(1102), avatar(1001), avatar(1002), avatar(1105)], []),
+      pool("4002", "天殛之鎗", "CardPoolRole", [avatar(1005), avatar(1001), avatar(1002), avatar(1105)], []),
+    ],
+    equip_card_pool_list: [pool("5001", "流光定影", "CardPoolEquipment", [], [cone(23001), cone(21000), cone(21010), cone(21005)])],
+  };
+}
+
+/**
  * 開拓月曆 data_month 是查詢的月份 optional_month 給最近三個月
  * 數字依月份變化 看得出有沒有切換月份
  */
@@ -276,7 +342,19 @@ function endgame(kind, scheduleType) {
 }
 
 /**
- * GIFT 開頭或 STARRAILGIFT 成功 USED 已兌換 EXPIRED 過期 LEVEL 等級不足
+ * 社群的兌換碼清單 照 seriaati 的 hoyo-codes 格式 自動兌換讀這裡
+ * 兩個 GIFT 開頭的會成功 STARRAILGIFT 第二次是已兌換 OMEGA 在假伺服器是無效
+ */
+const PUBLIC_CODES = [
+  { id: 905, code: "GIFTAUTO2026", status: "OK", game: "hkrpg", rewards: "60 stellar jade" },
+  { id: 904, code: "GIFTLIVESTREAM", status: "OK", game: "hkrpg", rewards: "100 stellar jade and 50,000 credits" },
+  { id: 581, code: "OMEGA", status: "OK", game: "hkrpg", rewards: "60 stellar jade and one fuel" },
+  { id: 300, code: "EXPIREDCODE1", status: "OK", game: "hkrpg", rewards: "" },
+  { id: 13, code: "STARRAILGIFT", status: "OK", game: "hkrpg", rewards: "50 stellar jade, 10k credits, two traveler's guides, and five bottled soda" },
+];
+
+/**
+ * GIFT 開頭或 STARRAILGIFT 成功 USED 已兌換 EXPIRED 過期 LEVEL 等級不足 RISK 要求驗證
  * 其他無效 同一個 UID 第二次是已兌換 5 秒內再兌換是太頻繁
  */
 function redeem({ cdkey = "", uid = "" }, isExpired) {
@@ -288,6 +366,7 @@ function redeem({ cdkey = "", uid = "" }, isExpired) {
   if (cdkey.startsWith("USED") || used.has(cdkey)) return { retcode: -2017, message: "Redemption code has been used", data: null };
   if (cdkey.startsWith("EXPIRED")) return { retcode: -2001, message: "Redemption code has expired", data: null };
   if (cdkey.startsWith("LEVEL")) return { retcode: -2021, message: "Trailblaze Level too low", data: null };
+  if (cdkey.startsWith("RISK")) return { retcode: 10035, message: "Verification required", data: null };
   if (cdkey === "STARRAILGIFT" || cdkey.startsWith("GIFT")) {
     used.add(cdkey);
     redeemed.set(uid, used);
@@ -320,6 +399,14 @@ export function handle({ req, url, body, json, image }) {
       }),
     );
   }
+  if (url.pathname === "/game_record/hkrpg/api/index") {
+    if (isExpired) return json(200, expired);
+    return json(200, ok(profile(url.searchParams.get("role_id") ?? "")));
+  }
+  if (url.pathname === "/game_record/hkrpg/api/get_act_calender") {
+    if (isExpired) return json(200, expired);
+    return json(200, ok(actCalendar(url.searchParams.get("role_id") ?? "")));
+  }
   if (url.pathname === "/game_record/hkrpg/api/avatar/info") {
     if (isExpired) return json(200, expired);
     if (cookie.includes("ltoken_v2=private")) return json(200, notPublic);
@@ -328,6 +415,8 @@ export function handle({ req, url, body, json, image }) {
   }
   if (url.pathname === "/event/srledger/month_info") {
     if (isExpired) return json(200, expired);
+    // 網站沒貼 account_mid_v2 時會用 ltmid_v2 補上 cookie_token_v2 補不出來
+    if (!hasCookieKey(cookie, "cookie_token_v2") || !hasCookieKey(cookie, "account_mid_v2")) return json(200, ledgerLogin);
     return json(200, ok(ledger(url.searchParams.get("month"))));
   }
   const endgameKind = /^\/game_record\/hkrpg\/api\/(challenge|challenge_story|challenge_boss)$/.exec(url.pathname)?.[1];
@@ -337,6 +426,8 @@ export function handle({ req, url, body, json, image }) {
     return json(200, ok(endgame(endgameKind, url.searchParams.get("schedule_type") ?? "1")));
   }
   if (url.pathname === "/common/apicdkey/api/webExchangeCdkeyRisk" && req.method === "POST") return json(200, redeem(JSON.parse(body || "{}"), isExpired));
+  // hoyo-codes.seria.moe
+  if (url.pathname === "/codes" && url.searchParams.get("game") === "hkrpg") return json(200, { codes: PUBLIC_CODES, game: "hkrpg" });
   if (url.pathname === "/event/luna/os/info") {
     const uid = /ltuid_v2=(\d+)/.exec(cookie)?.[1] ?? "?";
     return json(200, ok({ total_sign_day: signedUids.has(uid) ? 8 : 7, is_sign: signedUids.has(uid) }));
@@ -354,6 +445,8 @@ export function handle({ req, url, body, json, image }) {
     const [kind, file = ""] = url.pathname.slice("/darkmatter/hkrpg/mock/".length).split("/");
     const key = file.replace(/\.png$/, "");
     if (kind === "avatar") return image(Array.from(NAME_OF.get(key) ?? "?")[0], { width: 128, height: 128 });
+    // 遊戲頭像會被裁成圓形 字放在正中間 每個 UID 的字與顏色不同
+    if (kind === "head") return image(`像${key.slice(-2)}`, { width: 128, height: 128 });
     if (kind === "figure") return image(NAME_OF.get(key) ?? "?", { width: 512, height: 512 });
     if (kind === "equip") return image((CONE_OF.get(key) ?? "光錐").slice(0, 4), { width: 128, height: 160 });
     if (kind === "relic") {

@@ -18,7 +18,7 @@ const { LinkResultBanner, LinkResultProvider } = await import("../components/lin
 const { StarrailBanner } = await import("../components/starrail-banner");
 const { PageTheme } = await import("@/core/ui/page-theme");
 
-const view = (id: number, uid: string) => ({ id, uid, nickname: `角色 ${id}`, region: "prod_official_asia", level: 70, staminaAlertThreshold: null, cookieInvalid: false });
+const view = (id: number, uid: string) => ({ id, uid, nickname: `角色 ${id}`, region: "prod_official_asia", level: 70, staminaAlertThreshold: null, cookieInvalid: false, autoRedeem: false, canAutoRedeem: false, gameReminders: true });
 const MINE = [view(1, "800000001"), view(2, "800000002")];
 
 /**

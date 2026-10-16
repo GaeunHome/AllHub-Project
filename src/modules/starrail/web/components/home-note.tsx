@@ -11,6 +11,7 @@ import { serverLabel } from "../../lib/roles";
 import { staminaGauge } from "../../lib/stamina";
 import type { DailyNoteResult, StarrailAccountView } from "../../service/accounts";
 import { accountHref } from "../account-tabs";
+import { AccountAvatar } from "./account-avatar";
 
 // web 層不能讀模組根目錄的 info.ts 網址寫在這裡 帳號的網址用 accountHref
 const STARRAIL_PAGE = "/starrail";
@@ -32,10 +33,21 @@ export function NoLinkedAccount() {
   );
 }
 
-/** 帳號的名牌 點了到星穹鐵道頁的這個帳號 便箋還在查時也先顯示 */
-function AccountTitle({ account }: { account: StarrailAccountView }) {
+/** 頭像還在讀或讀不到時的列車圖示 跟 sm 頭像一樣大 */
+const TRAIN_AVATAR = (
+  <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-ink">
+    <Icon name="train-front" className="size-4" />
+  </span>
+);
+
+/**
+ * 帳號的名牌 點了到星穹鐵道頁的這個帳號 便箋還在查時也先顯示
+ * 骨架只放列車圖示 頭像等便箋那一列才讀 同一個頭像不會同時讀兩次
+ */
+function AccountTitle({ account, skeleton = false }: { account: StarrailAccountView; skeleton?: boolean }) {
   return (
     <Link href={accountHref(account.id)} className="group flex min-w-0 items-center gap-2 pointer-coarse:min-h-11">
+      {skeleton ? TRAIN_AVATAR : <AccountAvatar account={account} size="sm" placeholder={TRAIN_AVATAR} />}
       <span className="chip chip-accent shrink-0">{serverLabel(account.region)}</span>
       <span className="truncate font-semibold text-ink group-hover:text-brand-ink">{account.nickname ?? "開拓者"}</span>
       {account.level !== null && <span className="shrink-0 text-sm text-ink-soft tabular-nums">Lv.{account.level}</span>}
@@ -172,7 +184,7 @@ function ExpeditionAvatars({ expeditions }: { expeditions: ExpeditionState[] }) 
 export function AccountNoteSkeleton({ account }: { account: StarrailAccountView }) {
   return (
     <LoadingState label="向 HoYoLAB 查詢即時便箋…" className="stack">
-      <AccountTitle account={account} />
+      <AccountTitle account={account} skeleton />
       <NoteBodySkeleton />
     </LoadingState>
   );

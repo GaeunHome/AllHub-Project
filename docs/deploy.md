@@ -9,9 +9,9 @@
 ├─ git push ──────▶ GitHub（AllHub-Project）
 │                    ├─ ci.yml：test → lint → build → typecheck
 │                    ├─ db-migrate.yml：套用 migration ──Session pooler 5432──▶ Supabase
-│                    ├─ cron.yml：每 30 分鐘呼叫 /api/cron/starrail:stamina ──▶ Vercel
+│                    ├─ cron.yml：手動執行排程（Run workflow）──▶ Vercel
 │                    └─ 自動部署 ──▶ Vercel（函式在 hnd1 東京）
-│                                     ├─ Vercel Cron：每天的排程（vercel.json）
+│                                     ├─ Vercel Cron：vercel.json 的排程（開拓力提醒每小時，其他每天）
 │                                     └─ DATABASE_URL ──Transaction pooler 6543──▶ Supabase（東京）
 └─ npm run account（建站長帳號，依提示貼上連線字串）──Session pooler 5432──▶ Supabase
 ```
@@ -61,7 +61,7 @@
    - 每個值是什麼、常見的錯誤，見 [密鑰管理](secrets.md)。
    - 按 Deploy。
 4. 部署完到專案 → **Settings** → **Environment Variables** 檢查：每個變數的 Environments 只勾 **Production**，`ENCRYPTION_KEY` 不要勾 Sensitive（原因見 [密鑰管理 › 填到 Vercel](secrets.md#填到-vercel)）。
-5. 函式區域（`hnd1` 東京）與每天的排程都寫在 `vercel.json` 裡，不用到後台設定。
+5. 函式區域（`hnd1` 東京）與所有排程（含每小時的開拓力提醒）都寫在 `vercel.json` 裡，不用到後台設定。順便到 **Settings** → **Functions** 確認 **Fluid Compute** 是開著的（新專案預設開啟）：排程沒有設 `maxDuration`，靠它的預設 300 秒跑完。
 6. **Settings** → **Deployment Protection** 維持預設的 Vercel Authentication（Standard Protection），這樣每次部署的專屬網址都要先登入 Vercel 才看得到（原因見 [Deployment Protection 要保持開啟](#deployment-protection-要保持開啟)）。
 
 ## 3. GitHub Secrets：填三個
@@ -71,6 +71,8 @@
 - `MIGRATION_DATABASE_URL`：Session pooler（5432）的連線字串。
 - `CRON_SECRET`：跟 Vercel 的 `CRON_SECRET` 一樣。
 - `HUB_URL`：網站網址，跟 `PUBLIC_BASE_URL` 一樣，結尾不要 `/`。
+
+後兩個只在 Actions 頁面手動執行排程（cron workflow）時用；平常的排程由 Vercel Cron 呼叫。
 
 ## 4. 重新部署
 
@@ -111,42 +113,52 @@ npm run account create
 - PR 的 Preview 部署沒有環境變數（密鑰只設在 Production），只用來確認能建置。
 - 一般的部署不會讓登入失效。只有換 `SESSION_SECRET`、改密碼或重建資料庫才會。
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
-- **從 v0.1.4 升級**：db-migrate 套用 `0009_finance`：新增理財的五張表（帳戶、用途、分類、紀錄、固定收支，都開啟 RLS），不動既有的資料。一開始一樣設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次。
-  - 「存錢記帳」換成「理財」，舊的項目與紀錄不搬到新的表。舊表（`savings_goals`、`savings_entries`）還留在資料庫，下一版才刪；要看舊資料可以到 Supabase 的 Table Editor 查。
+- **從 v0.1.5 升級**：db-migrate 套用 `0010_finance_v2`、`0011_starrail_auto_redeem`、`0012_starrail_game_reminders`、`0013_finance_card_bills`。四個一開始都設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次（整批在同一個交易裡，不會套用一半）。
+  - `0010_finance_v2`：理財的持股表（`savings_holdings`）與新欄位：信用卡的結帳日與自動扣繳；固定收支的間隔、起始月份、假日規則、記帳方式、定期定額與薪水；紀錄的持股與期別。既有的固定收支維持每月、照原日、自動記帳，跟以前一樣。
+  - **`0010` 會刪掉舊「存錢記帳」的 `savings_goals`、`savings_entries`**：v0.1.5 起程式就不讀寫，裡面是 v0.1.4 以前的資料。想留的話，升級前到 Supabase 的 SQL Editor 執行 `select * from savings_goals;` 與 `select * from savings_entries;`，把結果下載成 CSV。
+  - `0011_starrail_auto_redeem`：星穹鐵道帳號加「自動兌換」的開關（預設關），新增記下試過哪些兌換碼的表（`starrail_redeem_codes`）。
+  - `0012_starrail_game_reminders`：星穹鐵道帳號加「每日、每週與終局提醒」的開關（預設開）。
+  - `0013_finance_card_bills`：信用卡帳單的表（`savings_card_bills`）與紀錄的帳單欄位。
+  - **升級後不能回滾到 v0.1.5**：舊程式不認得新的欄位，每天的 `savings:recurring` 會把「到期請我確認」的固定收支（薪水、定期定額）照原日每個月自動記一筆，也看不到持股與信用卡帳單。出問題時修好程式再推上 main，不要用 Vercel 的 Instant Rollback 或重新部署舊的 commit。
+  - **部署當下不要手動執行 `savings:recurring`**：兩邊都完成之前，舊程式不認得新的記帳方式，新程式在 migration 完成前會失敗。每天 00:30 的排程照常跑就好。
+  - **排程**：`vercel.json` 多了 `starrail:redeem`（每天 12:00），`starrail:stamina` 改成每個 UTC 小時各一條（共 24 條）；GitHub Actions 的 `cron.yml` 拿掉了每 30 分鐘的定時排程，只留手動執行。都寫在設定檔裡，部署後到 Vercel → **Settings** → **Cron Jobs** 確認清單裡有它們。
+  - **確認 Fluid compute 開著**：到 Vercel → **Settings** → **Functions**，**Fluid Compute** 要是開的（2025 年 4 月之後建立的專案預設開啟）。排程的路徑沒有設 `maxDuration`，靠它的預設 300 秒；關著的話預設只有 10 秒，`youtube:cleanup` 與 `starrail:redeem` 會被中斷。
+  - **通知**：理財開始會發通知（固定收支到期當天、信用卡截止前 3 天），鈴鐺的「提醒方式」多了理財的開關。
+  - 部署比 migration 先完成的那一兩分鐘，理財頁、星穹鐵道頁與首頁的這兩張卡片讀不到新的欄位會出錯，其他頁面與登入照常。
+  - 環境變數沒有變（`TWITCH_CLIENT_ID`、`TWITCH_CLIENT_SECRET` 前後多的空白現在會自動去掉）。
+- **從 v0.1.4 升級**：db-migrate 套用 `0009_finance` 與 `0010` 到 `0013`（見上一條）。`0009_finance`：新增理財的五張表（帳戶、用途、分類、紀錄、固定收支，都開啟 RLS），不動既有的資料。一開始一樣設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次。
+  - 「存錢記帳」換成「理財」，舊的項目與紀錄不搬到新的表。舊表（`savings_goals`、`savings_entries`）會被 `0010` 刪掉；想留舊資料的話，升級前先匯出（見上一條）。
   - 部署比 migration 先完成的那一兩分鐘，理財的頁面與首頁卡片讀不到新的表會出錯，其他頁面照常。
-  - 新增排程 `savings:recurring`（每天 00:30，自動記固定收支），已經寫在 `vercel.json`，不用另外設定。環境變數沒有變。
-- **從 v0.1.3 升級**：db-migrate 套用 `0008_enable_rls` 與 `0009_finance`（見上一條）。`0008_enable_rls`：每張資料表開啟 RLS（沒有 policy），Supabase 的 Data API 就讀寫不到資料，安全通知「Table publicly accessible」（`rls_disabled_in_public`）也會消失。只改存取權限、不動資料；網站與 db-migrate 都用資料表的擁有者 `postgres` 連線，不受 RLS 限制，新舊程式都照常運作，沒有部署空窗期的問題。一開始一樣設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次。環境變數與排程沒有變。
-- **從 v0.1.2 升級**：db-migrate 套用 `0008_enable_rls` 與 `0009_finance`（見上兩條），環境變數沒有變，排程多了 `savings:recurring`。`youtube:cleanup` 開始逐支確認 RSS 裡已經沒有、還在某人最新 20 支裡的影片是不是 Shorts（每次最多 50 支，跟讀 RSS 共用 60 秒）：更新後的頭幾次執行會刪掉以前存進來、還在清單上的 Shorts（翻譯好的字幕不刪），排程結果寫出刪了幾支、還有幾支沒確認。
-- **從 v0.1.1 升級**：db-migrate 套用 `0007_youtube_saved_videos`（新增保留的影片的表，不動既有的資料，舊程式照樣能跑）、`0008_enable_rls`（每張表開啟 RLS，見〈從 v0.1.3 升級〉）與 `0009_finance`（理財的新表，見〈從 v0.1.4 升級〉）；三個一開始都設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次。部署比 migration 先完成的那一兩分鐘，YouTube 的列表頁、觀看頁與保留的影片頁讀不到新的表會出錯，其他頁面與登入照常。另外 `youtube:cleanup` 在 v0.1.1 的正式環境每次都失敗（排程回「失敗（詳見伺服器 log）」：時間參數沒先轉成字串），這一版修好了：更新後第一次執行會一次刪掉之前累積下來、不在任何人最新 20 支裡而且發布超過 48 小時的影片（翻譯好的字幕不刪），也會開始對照 RSS 刪掉 Shorts，排程結果寫出各刪了幾支。
-- **從單人版（v0.1.0）升級**：會一起套用 0005 到 0009 五個 migration。它們以新增資料表與欄位為主，舊程式照樣能跑，但有幾件事會改變既有的狀態：
+  - 新增排程 `savings:recurring`（每天 00:30，自動記固定收支），已經寫在 `vercel.json`，不用另外設定；其他排程的改變見上一條。環境變數沒有變。
+- **從 v0.1.3 升級**：db-migrate 套用 `0008_enable_rls`、`0009_finance` 與 `0010` 到 `0013`（見上面兩條）。`0008_enable_rls`：每張資料表開啟 RLS（沒有 policy），Supabase 的 Data API 就讀寫不到資料，安全通知「Table publicly accessible」（`rls_disabled_in_public`）也會消失。只改存取權限、不動資料；網站與 db-migrate 都用資料表的擁有者 `postgres` 連線，不受 RLS 限制，新舊程式都照常運作，沒有部署空窗期的問題。一開始一樣設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次。環境變數沒有變，排程見上面兩條。
+- **從 v0.1.2 升級**：db-migrate 套用 `0008_enable_rls`、`0009_finance` 與 `0010` 到 `0013`（見上面三條），環境變數沒有變，排程的改變見上面兩條。`youtube:cleanup` 開始逐支確認 RSS 裡已經沒有、還在某人最新 20 支裡的影片是不是 Shorts（每次最多 50 支，跟讀 RSS 共用 60 秒）：更新後的頭幾次執行會刪掉以前存進來、還在清單上的 Shorts（翻譯好的字幕不刪），排程結果寫出刪了幾支、還有幾支沒確認。
+- **從 v0.1.1 升級**：db-migrate 套用 `0007_youtube_saved_videos`（新增保留的影片的表，不動既有的資料，舊程式照樣能跑）、`0008_enable_rls`（每張表開啟 RLS，見〈從 v0.1.3 升級〉）、`0009_finance`（理財的新表，見〈從 v0.1.4 升級〉）與 `0010` 到 `0013`（見〈從 v0.1.5 升級〉）；每個一開始都設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次。部署比 migration 先完成的那一兩分鐘，YouTube 的列表頁、觀看頁與保留的影片頁讀不到新的表會出錯，其他頁面與登入照常。另外 `youtube:cleanup` 在 v0.1.1 的正式環境每次都失敗（排程回「失敗（詳見伺服器 log）」：時間參數沒先轉成字串），這一版修好了：更新後第一次執行會一次刪掉之前累積下來、不在任何人最新 20 支裡而且發布超過 48 小時的影片（翻譯好的字幕不刪），也會開始對照 RSS 刪掉 Shorts，排程結果寫出各刪了幾支。
+- **從單人版（v0.1.0）升級**：會一起套用 0005 到 0013 九個 migration。它們以新增資料表與欄位為主，舊程式照樣能跑，但有幾件事會改變既有的狀態：
   - `0005_multiuser`：帳號的角色、停用、登入鎖定與邀請。**資料庫裡既有的帳號全部設成站長**：單人版用 `npm run account create` 建過好幾個帳號的話，升級後每個都是站長，不需要的請在「管理」頁刪掉或停用。
   - `0006_per_user_data`：各模組的資料依使用者分開（追蹤名單、翻譯設定、星穹鐵道帳號、記帳、網站通知加上擁有者），並把單人版留下的資料都歸給站長（最早建立的站長；沒有站長時用最早建立的帳號）。翻譯的發起人也設成站長，專有名詞表用當時的翻譯設定。`youtube_settings.id` 改成從 2 開始自動編號（BY DEFAULT 的 identity），單人版那一列維持 1。
   - `0007_youtube_saved_videos`：新增保留的影片的表（`youtube_saved_videos`，依使用者，刪除帳號時一起刪），只加新表，不動既有的資料。
   - `0008_enable_rls`：每張資料表開啟 RLS（見〈從 v0.1.3 升級〉），不動資料。
   - `0009_finance`：理財的新表（見〈從 v0.1.4 升級〉），舊的存錢記帳資料不搬過去。
-  - 五個 migration 一開始都設 `lock_timeout = 5s`：等不到資料表的鎖（例如線上剛好有很久的查詢）就直接失敗，不讓網站的查詢排在後面卡住。失敗時到 Actions 重跑一次 db-migrate 就好，沒有套用一半的問題（整批在同一個交易裡）。
+  - `0010` 到 `0013`：理財的持股、信用卡帳單與固定收支的新設定，星穹鐵道的自動兌換與提醒（見〈從 v0.1.5 升級〉）。**`0010` 會刪掉舊「存錢記帳」的兩張表**，單人版記的存錢資料一起刪掉；想留的話升級前先匯出。
+  - 九個 migration 一開始都設 `lock_timeout = 5s`：等不到資料表的鎖（例如線上剛好有很久的查詢）就直接失敗，不讓網站的查詢排在後面卡住。失敗時到 Actions 重跑一次 db-migrate 就好，沒有套用一半的問題（整批在同一個交易裡）。
   - **清理規則改變**：`youtube:cleanup` 從「刪除超過 14 天的影片」改成「刪除不在任何人最新 20 支裡、發布超過 48 小時的影片」，也會對照 RSS 刪掉 Shorts；翻譯好的字幕跟以前一樣不刪。開台、簽到紀錄與網站通知仍是 14 天。
 - **部署的空窗期**：Vercel 部署與 db-migrate 同時進行，有一小段時間（通常一兩分鐘）程式與資料表的版本會對不上。建議部署當下先不要操作網站，兩邊都完成再用。
-  - **部署比 migration 先完成**：新程式讀不到新的欄位，頁面會出錯、登入也會失敗一下子，migration 跑完就恢復。
+  - **部署比 migration 先完成**：新程式讀不到新的欄位或表，用到它們的頁面會出錯（改到帳號的表時登入也會失敗一下子），migration 跑完就恢復。
     - **webhook 的通知可能遺失**：這段時間 Twitch 的開台、YouTube 的新影片推送照樣會記下開台紀錄與影片，但新程式要讀的追蹤表還沒建好，通知發不出去，之後也不會補發。部署完成後的開台、新影片照常通知。
   - **migration 比部署先完成**：舊程式照常運作，但它這時寫入的資料沒有擁有者（`user_id` 是 null），新程式不顯示也不處理這些列：
     - 新追蹤的主播、頻道：沒有人追蹤，畫面上看不到；重新追蹤一次就好（會沿用原本的訂閱）。一直沒人追蹤的會被每天的 `twitch:sync`、`youtube:renew` 刪掉。
     - 新連結的星穹鐵道帳號：不顯示，排程也不簽到；重新連結一次就會歸到你名下。
-    - 記帳：看不到。需要的話，到 Supabase 的 SQL Editor 執行下面這段，補給最早建立的站長。
+    - 記帳（舊的存錢記帳）：`0010` 會刪掉這兩張表，這段時間記的也一起刪掉。
     - 網站通知：看不到，14 天後清掉。
     - 開始的翻譯：照常共用，但沒有發起人，只有站長能重新翻譯。
     - 翻譯設定：舊程式固定寫 `id = 1` 那一列（0006 把 `id` 改成從 2 開始的 identity，舊程式明確給 1 照樣寫得進去），這一列已經歸給站長，不受影響。
-
-    ```sql
-    UPDATE savings_goals SET user_id = (SELECT id FROM core_users WHERE role = 'owner' ORDER BY created_at LIMIT 1) WHERE user_id IS NULL;
-    UPDATE savings_entries SET user_id = (SELECT id FROM core_users WHERE role = 'owner' ORDER BY created_at LIMIT 1) WHERE user_id IS NULL;
-    ```
-
   - 之後的版本要收斂（刪掉主播表、頻道表單人版的 `notify_enabled`，把 `user_id` 改成 NOT NULL）時，要先處理掉這些 `user_id` 是 null 的列。
 
 ## 回滾與部署保護
 
 ### 有成員之後只能往前修，不能回滾到多人化以前的版本
+
+> 升級到 v0.1.6 之後也不能回滾到 v0.1.5：舊程式會把「到期請我確認」的固定收支照原日自動記帳（見〈[之後的部署](#之後的部署)〉）。下面說的是多人化以前的版本（v0.1.0）。
 
 - 一旦有成員（邀請了別人註冊），就不能把網站還原到 v0.1.0 或任何多人化以前的版本：不論是 Vercel 的 Instant Rollback、Promote 舊的部署，還是重新部署舊的 commit。出問題時修好程式再推上 main。
 - 原因：舊程式只有一個使用者，讀資料時不分擁有者、也不認得角色與停用。登入 cookie 的格式沒變，成員手上的 cookie 在舊版照樣有效，登入後看得到、改得到所有人的資料（包括站長的追蹤名單、記帳與 HoYoLAB 帳號），被停用的人也一樣進得去。
@@ -230,8 +242,8 @@ Attack Mode（舊名 Attack Challenge Mode，所有方案都免費；[官方說�
 2. 在 **Attack Mode** 選 **Enable**。攻擊結束後回到同一個地方選 **Disable**。
 
 - Vercel 平常就會自動擋 DDoS，Attack Mode 只在被針對性攻擊時才開，不要一直開著。
-- 自己帳號的 Vercel Cron（每天的排程）會自動放行。
-- 不在 Vercel 已知機器人名單裡的請求可能會被擋，例如 GitHub Actions 每 30 分鐘呼叫的 `starrail:stamina`、Twitch 的開台通知。關掉之後到 Twitch 頁按「同步訂閱」確認訂閱狀態，需要的話手動補跑排程（見 [架構 › 排程](architecture.md#排程)）。
+- 自己帳號的 Vercel Cron（`vercel.json` 的排程，含每小時的開拓力提醒）會自動放行。
+- 不在 Vercel 已知機器人名單裡的請求可能會被擋，例如 Twitch 的開台通知、在 GitHub Actions 手動執行的排程。關掉之後到 Twitch 頁按「同步訂閱」確認訂閱狀態，需要的話手動補跑排程（見 [架構 › 排程](architecture.md#排程)）。
 
 **3. 三個帳號都開兩步驟驗證**
 
@@ -256,7 +268,7 @@ Vercel 與 GitHub 是密鑰的正本，Supabase 放著資料庫，帳號被盜�
 5. 回到「管理」頁可以看到新帳號，邀請的「已用」次數也會加一。
 
 - **撤銷**：還有效的邀請可以按「撤銷」，之後就不能再用它註冊；已經註冊的帳號不受影響。清單會列出有效、已用完、已過期與已撤銷的邀請。
-- **停用與恢復**：在「使用者」按「停用」等於把帳號凍結：對方會立刻被登出、不能再登入；排程不再用他的 HoYoLAB cookie 簽到、查便箋或發開拓力提醒，也不會寫網站通知給他。他的資料、追蹤名單與共用的訂閱都保留（他追蹤的主播與頻道不會被當成沒人追蹤而刪掉）。按「恢復」就照常運作，但他要重新登入：停用前的登入狀態不會恢復。站長不能停用或刪除自己。
+- **停用與恢復**：在「使用者」按「停用」等於把帳號凍結：對方會立刻被登出、不能再登入；排程不再用他的 HoYoLAB cookie 簽到、查便箋、發提醒或自動兌換，也不替他自動記固定收支、不寫網站通知給他。他的資料、追蹤名單與共用的訂閱都保留（他追蹤的主播與頻道不會被當成沒人追蹤而刪掉）。按「恢復」就照常運作，但他要重新登入：停用前的登入狀態不會恢復。站長不能停用或刪除自己。
 - **解除鎖定**：連錯密碼被暫時鎖定的帳號會顯示「鎖定中，到 HH:mm」，按「解除鎖定」只把失敗次數歸零，不改密碼、也不影響停用狀態。
 - **刪除帳號**：在「使用者」按「刪除」（會先確認）。成員也可以在「帳號設定」頁輸入密碼刪除自己的帳號；最後一個未停用的站長不能刪除自己。刪除時，他建立的邀請、網站通知、追蹤名單、保留的影片、加密的 API Key 與 HoYoLAB cookie、理財資料會一起刪除；他發起的翻譯留給其他人，但不再連到他。
 - **各自的資料**：每個人的追蹤名單、翻譯設定與 API Key、HoYoLAB 帳號、理財與通知都是分開的，站長在網站上也看不到成員的資料；只有 YouTube 翻譯好的字幕是共用的（見 [模組設定與使用 › 多人使用](modules.md#多人使用)）。
@@ -309,5 +321,5 @@ npm run account list            # 列出帳號、角色（站長／成員）與�
 6. **YouTube 頻道**，兩種做法：
    - **不動**：`youtube:renew` 會在租約剩不到 2 天時改用新網址續訂，最慢約 3–4 天全部換好。頻道列表上的到期日更新了，就代表那個頻道換好了。在那之前，舊訂閱仍然送到 vercel.app，所以這段期間不要讓 vercel.app 轉址。
    - **想立刻換**：追蹤這個頻道的每個人都取消追蹤再加回來（最後一個人取消時才會取消舊的訂閱）。通知開關會變回開啟，要再設定一次。
-7. **確認排程**：到 GitHub → Actions → **cron** → Run workflow，確認 log 裡有 `{"results":…}`。如果 `HUB_URL` 是會轉址的網址，這個 workflow 會顯示成功，但排程其實沒有執行。
+7. **確認手動執行排程**：到 GitHub → Actions → **cron** → Run workflow，確認 log 裡有 `{"results":…}`（GitHub Secrets 的 `HUB_URL` 只用在這裡）。如果 `HUB_URL` 是會轉址的網址，這個 workflow 會顯示成功，但排程其實沒有執行。
 8. **（選用）轉址舊網域**：確認全部換好之後，才在 Vercel 把 vercel.app 轉址到新網域。

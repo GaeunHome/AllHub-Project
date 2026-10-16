@@ -39,7 +39,7 @@ describe("連結 HoYoLAB 帳號的表單", () => {
 });
 
 describe("選伺服器的步驟", () => {
-  const role = (uid: string, selected: boolean) => ({ uid, server: "台港澳服", nickname: "開拓者", level: 70, selected, likelyUnused: false });
+  const role = (uid: string, selected: boolean) => ({ uid, server: "台港澳服", nickname: "開拓者", level: 70, selected });
 
   it("cookie 跟著勾選的 UID 再送一次；第一個角色標了 data-autofocus（換到這一步或出錯時焦點放回這裡）", () => {
     const markup = renderToStaticMarkup(createElement(RoleChooser, { cookie: "ltoken_v2=abc", choices: [role("900000001", true), role("800000002", false)], pending: false, onBack: vi.fn() }));
@@ -54,7 +54,7 @@ describe("選伺服器的步驟", () => {
 
 type Controls = { done: (message?: string) => void; close: () => void };
 type FormArgs = Parameters<typeof dialog.useDialogForm<import("../actions").LinkState>>;
-const ROLES = [{ uid: "900000001", server: "台港澳服", nickname: "開拓者", level: 70, selected: true, likelyUnused: false }];
+const ROLES = [{ uid: "900000001", server: "台港澳服", nickname: "開拓者", level: 70, selected: true }];
 const LINKED = { message: "已連結 開拓者（台港澳服，900000001）", warning: "建議一併貼上 ltmid_v2，否則即時便箋可能失敗", accountId: 9 };
 
 describe("連結帳號的表單送出後", () => {

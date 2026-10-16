@@ -2,7 +2,7 @@
 
 import { requireSession } from "@/core/auth";
 import { updateTags } from "@/core/cache";
-import { INVALID_FORM_MESSAGE, formId, formText, runAction } from "@/core/form";
+import { INVALID_FORM_MESSAGE, formFlag, formId, formText, runAction } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
 import * as service from "../service/accounts";
 import { starrailTags } from "../service/cache-tags";
@@ -54,11 +54,17 @@ export async function checkinAction(_prev: FormState, formData: FormData): Promi
   const { id: userId } = await requireSession();
   const id = formId(formData, "accountId");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
+  // 預期外的錯誤時不知道改了沒有 當作改了
+  let accountChanged = true;
   try {
-    return await runTitled("簽到", async () => done(await service.checkinAccount(userId, id)));
+    return await runTitled("簽到", async () => {
+      const result = await service.checkinAccount(userId, id);
+      accountChanged = result.accountChanged;
+      return done(result);
+    });
   } finally {
-    // 失敗也會寫一筆紀錄 也可能把 cookie 標成失效
-    updateTags(starrailTags.checkins, starrailTags.accounts);
+    // 失敗也會寫一筆紀錄 帳號的快取標著所有 HoYoLAB 的資料 只在 cookie 失效標記改了時失效
+    updateTags(starrailTags.checkins, ...(accountChanged ? [starrailTags.accounts] : []));
   }
 }
 
@@ -81,21 +87,42 @@ export async function setThresholdAction(_prev: FormState, formData: FormData): 
   }
 }
 
+/** 打開時 service 會先確認 cookie 有兌換要用的鍵 單一指令 成功後才讓帳號的快取失效 */
+export async function setAutoRedeemAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  const id = formId(formData, "accountId");
+  const enabled = formFlag(formData, "enabled");
+  if (id === null || enabled === null) return { error: INVALID_FORM_MESSAGE };
+  return run("設定自動兌換", async () => {
+    const result = await service.setAutoRedeem(userId, id, enabled);
+    if (!result.ok) return { error: result.error };
+    updateTags(starrailTags.accounts);
+    return enabled ? "已打開自動兌換" : "已關閉自動兌換";
+  });
+}
+
+/** 每日實訓 每週內容與終局挑戰的提醒 單一指令 成功後才讓帳號的快取失效 */
+export async function setGameRemindersAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  const id = formId(formData, "accountId");
+  const enabled = formFlag(formData, "enabled");
+  if (id === null || enabled === null) return { error: INVALID_FORM_MESSAGE };
+  return run("設定提醒", async () => {
+    if (!(await service.setGameReminders(userId, id, enabled))) return { error: "找不到這個帳號，請重新整理頁面" };
+    updateTags(starrailTags.accounts);
+    return enabled ? "已打開每日、每週與終局提醒" : "已關閉每日、每週與終局提醒";
+  });
+}
+
+// 兌換不寫資料庫 cookie 失效標記也不動 所以不用讓快取失效
 export async function redeemCodeAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { id: userId } = await requireSession();
   const id = formId(formData, "accountId");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
-  let cookieFlagChanged = false;
-  try {
-    return await runTitled("兌換", async () => {
-      const result = await service.redeemCodeFor(userId, id, formText(formData, "code"));
-      cookieFlagChanged = result.cookieFlagChanged;
-      return result.ok ? { message: result.message } : { error: result.error };
-    });
-  } finally {
-    // 兌換本身不寫資料庫 只有寫了 cookie 失效標記時才讓帳號的快取失效
-    if (cookieFlagChanged) updateTags(starrailTags.accounts);
-  }
+  return runTitled("兌換", async () => {
+    const result = await service.redeemCodeFor(userId, id, formText(formData, "code"));
+    return result.ok ? { message: result.message } : { error: result.error };
+  });
 }
 
 export async function removeAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {

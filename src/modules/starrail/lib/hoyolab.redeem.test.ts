@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeFetch } from "@/dev/fake-fetch";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { fakeFetch, hangUntilAborted } from "@/dev/fake-fetch";
+import { captureErrorLog } from "@/dev/test-helpers";
 
 const { redeemCode } = await import("./hoyolab");
 
@@ -32,6 +33,34 @@ describe("redeemCode：兌換碼（webExchangeCdkeyRisk）", () => {
     expect(headers.Origin).toBe("https://hsr.hoyoverse.com");
     expect(headers.Referer).toBe("https://hsr.hoyoverse.com/");
     expect(outcome).toMatchObject({ ok: true, retcode: 0 });
+  });
+
+  it("沒貼 account_id_v2、account_mid_v2_用 ltuid_v2、ltmid_v2 的值補上再送出", async () => {
+    const hoyolab = fakeFetch(() => Response.json({ retcode: 0, message: "OK", data: { msg: "兌換成功" } }));
+    vi.stubGlobal("fetch", hoyolab.impl);
+
+    await redeemCode("ltoken_v2=v2_top_secret; ltuid_v2=42; ltmid_v2=mid_x; cookie_token_v2=ct_secret", "900000001", "prod_official_cht", "STARRAILGIFT");
+
+    const sent = (hoyolab.calls[0].init.headers as Record<string, string>).Cookie.split(/;\s*/);
+    expect(sent).toEqual(expect.arrayContaining(["account_id_v2=42", "account_mid_v2=mid_x", "cookie_token_v2=ct_secret"]));
+  });
+
+  it("HoYoLAB 沒回應_每個請求最多等 10 秒就當作連不上（自動兌換的排程要在 60 秒內跑完）", async () => {
+    captureErrorLog();
+    const waited: number[] = [];
+    // 逾時直接發生 不用真的等
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+      waited.push(ms);
+      return AbortSignal.abort(new DOMException("timeout", "TimeoutError"));
+    });
+    onTestFinished(() => timeout.mockRestore());
+    vi.stubGlobal("fetch", fakeFetch(hangUntilAborted).impl);
+
+    const outcome = await redeemCode(COOKIE, "900000001", "prod_official_cht", "STARRAILGIFT");
+
+    expect(outcome).toMatchObject({ ok: false, retcode: null });
+    expect(waited.length).toBeGreaterThan(0);
+    expect(Math.max(...waited)).toBeLessThanOrEqual(10_000);
   });
 
   it("連線失敗_回失敗結果_訊息不含 cookie", async () => {

@@ -25,11 +25,16 @@
 | Twitch | 長度相同的兩個帳號 | 假 id 是依帳號長度產生的（`alice` 是 `1035`），所以長度相同的第二個會被當成已經在追蹤 |
 | Twitch | 帳號長度是奇數（例如 `alice`、`sakura7`） | 假 Helix 上正在直播，有預覽圖、觀看人數與遊戲封面；長度是偶數的離線，其中 id 是 4 的倍數的（例如 `mika`）有離線橫幅；預覽圖照網址要的大小回應（卡片 640x360、主播詳情 1920x1080） |
 | HoYoLAB | 含 `ltoken_v2`、`ltuid_v2` 的 cookie | 連結成功；`ltoken_v2=expired` 會得到「HoYoLAB cookie 已失效…」 |
+| HoYoLAB | 開拓月曆 | 跟正式環境一樣，Cookie 少了 `cookie_token_v2` 或 `account_mid_v2` 就回 -100「请先登录」（沒貼 `account_mid_v2` 時網站用 `ltmid_v2` 補上）。六個都貼的假 cookie：`ltoken_v2=v2_mock; ltuid_v2=1; ltmid_v2=mock_mid; cookie_token_v2=v2_mock_ct; account_id_v2=1; account_mid_v2=mock_mid` |
+| HoYoLAB | 遊戲頭像（戰績首頁 `index`） | 每個 UID 一張不同的佔位圖（「像」加 UID 的最後兩碼） |
+| HoYoLAB | 活動日曆（`get_act_calender`） | 時間跟著現在算：混沌回憶一天半後結束、還沒拿滿（傍晚 6 點後跑 `starrail:stamina` 會發終局提醒），虛構敘事、異相仲裁進行中，末日幻影已拿滿，下一期的混沌回憶還沒開放；活動有雙倍獎勵、登入獎勵、限時挑戰，常駐的沒有結束時間、還沒開始的都不列；角色與光錐各有卡池。`ltuid_v2` 以 2 開頭的亞服小號，混沌回憶與虛構敘事的進度是 0 |
 | HoYoLAB | `ltuid_v2` 的數字 | 主要角色的 UID 跟著它變（`ltuid_v2=123456` 是 `900123456`）：換一個數字就是另一個遊戲帳號；別的使用者用同一個數字連結時，會被拒絕（已經被其他使用者連結） |
 | HoYoLAB | `ltuid_v2` 以 2 開頭（例如 `ltuid_v2=223456`） | 台港澳服與亞服各有一個角色（亞服的是 4 級的小號），連結時會出現選伺服器的步驟 |
 | HoYoLAB | `ltoken_v2=private` | 角色詳情沒有公開（10102） |
 | HoYoLAB | 角色詳情的遺器副詞條 | 強化次數是固定的：+15 的遺器每件強化 5 次，最多的一條是連結繩的暴擊率 +5；頭部是暴擊率 +2、暴擊傷害 +1、攻擊力 +2；每件都有沒強化過的詞條（不顯示 +N）。等級低於 80 的角色（例如布洛妮婭、丹恆）腳部是 +12，只強化 4 次（暴擊率 +3、暴擊傷害 +1） |
-| HoYoLAB | 兌換碼 | `STARRAILGIFT` 或 `GIFT` 開頭成功（同一個 UID 第二次是已兌換）、`USED` 開頭已兌換、`EXPIRED` 開頭過期、`LEVEL` 開頭等級不足，其他無效；同一個 UID 5 秒內再兌換是太頻繁。cookie 要有 `cookie_token_v2` 與 `account_id_v2` |
+| HoYoLAB | 兌換碼 | `STARRAILGIFT` 或 `GIFT` 開頭成功（同一個 UID 第二次是已兌換）、`USED` 開頭已兌換、`EXPIRED` 開頭過期、`LEVEL` 開頭等級不足、`RISK` 開頭要求驗證（10035，自動兌換會整批停下），其他無效；同一個 UID 5 秒內再兌換是太頻繁。cookie 要有 `cookie_token_v2`（`account_id_v2` 沒貼時網站用 `ltuid_v2` 補上） |
+| HoYoLAB | 社群的兌換碼清單（hoyo-codes 的 `/codes?game=hkrpg`） | 自動兌換讀這份：`GIFTAUTO2026`、`GIFTLIVESTREAM`、`STARRAILGIFT` 第一次會成功（同一個 UID 第二次是已兌換），`OMEGA` 在假伺服器是無效，`EXPIREDCODE1` 過期。手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/starrail:redeem`，帳號要先在「帳號設定」打開自動兌換 |
+| 股價 | 證交所 `STOCK_DAY_ALL`、櫃買中心 `tpex_mainboard_quotes` | 收盤價照 2026-10-14 的真實回應（例如 `006208` 258.70、`0050` 113.00、`00679B` 25.05），日期是今天之前最近的平日；`00625K`、`00682U`、`00986B`、`2064` 沒有成交（畫面寫股價暫時讀不到）；另外補了各 120 檔示範股票（上市 `1101`～`1220`、上櫃 `3201`～`3320`），因為網站把不到 100 筆的清單當成讀不到；其他代號是找不到 |
 | YouTube | `@nobody` | 查無頻道；其他 `@帳號` 都會成功，hub 約 0.5 秒後回呼確認訂閱 |
 | YouTube | 頻道的 RSS feed | 每個頻道都有三支一般影片：3 小時前的 MV（影片 id `zhsubs` 開頭，有中文字幕）、30 小時前與 5 天前各一支，追蹤時會補進影片清單（別人已經追蹤的頻道只補超過 24 小時的），縮圖先標「檢查字幕中」，約 4 秒後自動換成檢查結果；另有 1 小時前與 2 天前的兩支 Shorts（影片 id `short` 開頭，連結是 `/shorts/`），不會列進清單，`youtube:cleanup` 也是讀這份 RSS 找 Shorts |
 | YouTube | `@noavatar` 開頭（例如 `@noavatar_studio`） | 頻道頁沒有頭像，畫面退回文字頭像 |
@@ -102,9 +107,10 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
 - **規則檢查**：`src/architecture.test.ts` 與 `src/cache-rules.test.ts` 檢查架構與快取規則（見 [架構](architecture.md)），包括 `process.env` 只出現在允許的地方。
 - **CI 的順序**：`ci.yml` 依序跑 test → lint → build → typecheck。`typecheck` 要用 build 產生的 `.next/types`，所以本機也要先 build。
 - **在瀏覽器裡測試**：一律用 `next dev` 加上 `npm run mock:external` 與 `DEV_EXTERNAL_ORIGIN`。
-  - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、記帳、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像與即時便箋，只有還沒追蹤、沒連結帳號的使用者才不會對外。
+  - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、沒有持股的理財、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像、即時便箋與股價，只有還沒追蹤、沒連結帳號、沒有持股的使用者才不會對外；新增持股、`starrail:stamina`、`starrail:redeem` 也都會對外。
   - 可見的分頁大約每 10 秒向 `/api/notifications` 輪詢一次（背景分頁每 60 秒），模擬開台或新影片後最多等 10 秒，提示卡片就會出現。
 - **自動化測試觀看頁**：要先注入假的 `window.YT.Player`，否則瀏覽器會向 youtube.com 載入播放器。細節見 CLAUDE.md〈測試與 E2E〉。
 - **自動化點按**：用 Chrome DevTools Protocol 的 `Input.dispatchMouseEvent`（手機用 `Input.dispatchTouchEvent`）模擬真的滑鼠與手指，不要用 `element.click()`：它不經過命中測試、也不發 pointerdown，測不出「按下就把選單收起來」這類問題。
-- **關閉自動化的 Chrome**：用 CDP 的 `Browser.close` 正常關閉，不要直接結束程序。macOS 上直接結束會在暫存資料夾留下 Chrome 複製出來的一份自己（`code_sign_clone`），跑多了會佔掉好幾 GB。
+- **自動化的分頁**：用 CDP 的 `Target.createTarget` 開新分頁、再 `Page.bringToFront`，不要用 Chrome 啟動時的 about:blank 分頁：它算是藏起來的分頁，`requestAnimationFrame` 不跑、彈出視窗關閉的事件也收不到。
+- **自動化的 Chrome**：啟動時加 `--disable-features=MacAppCodeSignClone`，結束時用 CDP 的 `Browser.close` 正常關閉。Chrome 每次啟動會在暫存資料夾複製一份自己（`code_sign_clone`），每一份都會在 macOS 的「隱私權與安全性 → 區域網路」多一個刪不掉的 Google Chrome，直接結束程序時也不會清掉，跑多了會佔掉好幾 GB。
 - **測試腳本直接查本機資料庫時**：PGlite 只有一條真正的連線，腳本的查詢跟網站的查詢同時送出偶爾會混在一起（例如 `bind message supplies 1 parameters`）。等頁面載入完、網站閒下來再查，出錯就重試。

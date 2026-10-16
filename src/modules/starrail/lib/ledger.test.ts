@@ -28,18 +28,17 @@ const sample = () => ({
 });
 
 describe("parseLedger：開拓月曆", () => {
-  it("本月與上個月的星瓊、車票，比上個月增減幾 %，今天拿到的數量", () => {
+  it("只讀這個月的星瓊、車票與今天拿到的數量", () => {
     const { ledger, missing } = parseLedger(sample(), "202610");
 
     expect(missing).toEqual([]);
-    expect(ledger).toMatchObject({
-      month: "202610",
-      current: { jade: 4250, passes: 12 },
-      last: { jade: 6120, passes: 9 },
-      jadeRate: -31,
-      passRate: 33,
-      today: { jade: 120, passes: 0 },
-    });
+    expect(ledger).toMatchObject({ month: "202610", current: { jade: 4250, passes: 12 }, today: { jade: 120, passes: 0 } });
+  });
+
+  it("不讀上個月的數字與增減比例_回應裡沒有也不記成格式不同", () => {
+    const data = { ...sample(), month_data: { current_hcoin: 4250, current_rails_pass: 12, group_by: [] } };
+
+    expect(parseLedger(data, "202610").missing).toEqual([]);
   });
 
   it("各來源：名稱、數量、比例，依數量由多到少", () => {
@@ -67,7 +66,7 @@ describe("parseLedger：開拓月曆", () => {
     expect(parseLedger(data, "202610").ledger.months).toEqual(["202610"]);
   });
 
-  it("讀不到的欄位給 null_missing 記下欄位路徑", () => {
+  it("讀不到的欄位給 null_missing 只記有在讀的欄位路徑（沒有上個月的數字與增減比例）", () => {
     const data = sample() as Record<string, unknown>;
     data.month_data = { current_hcoin: "4250", group_by: [{ action_name: "每日獎勵", num: "x" }] };
 
@@ -75,15 +74,7 @@ describe("parseLedger：開拓月曆", () => {
 
     expect(ledger.current).toEqual({ jade: 4250, passes: null });
     expect(ledger.sources).toEqual([{ id: null, name: "每日獎勵", amount: null, percent: null }]);
-    expect(missing).toEqual([
-      "month_data.current_rails_pass",
-      "month_data.group_by[].num",
-      "month_data.group_by[].percent",
-      "month_data.hcoin_rate",
-      "month_data.last_hcoin",
-      "month_data.last_rails_pass",
-      "month_data.rails_rate",
-    ]);
+    expect(missing).toEqual(["month_data.current_rails_pass", "month_data.group_by[].num", "month_data.group_by[].percent"]);
   });
 
   it("整個 data 不對_各欄位 null，月份用查詢的月份", () => {

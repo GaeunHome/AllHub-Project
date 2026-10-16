@@ -9,11 +9,14 @@ type MoreMenuProps = {
   /** 自訂按鈕內容 例如頻道頭像與名稱 預設是 ⋮ */
   trigger?: ReactNode;
   triggerClassName?: string;
+  /** 打開視窗的項目標上 aria-haspopup="dialog" 視窗放在選單外面 選單收起時才不會一起卸載 */
   children: ReactNode;
 };
 
 const GAP = 4;
 const EDGE = 8;
+
+const OPENS_DIALOG = '[aria-haspopup="dialog"]';
 
 /**
  * 卡片與頻道上的 ⋮ 選單 寬螢幕貼著按鈕 手機從底部升起
@@ -53,6 +56,8 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      // 選單在彈出視窗裡時 Esc 只收起選單 不讓瀏覽器連視窗一起關掉
+      event.preventDefault();
       close();
       buttonRef.current?.focus();
     };
@@ -79,8 +84,15 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
   };
 
   // 點了連結就收起 表單留著 結果才看得到
+  // 打開視窗的項目也收起 焦點先回到 ⋮ 視窗關掉後才回得來 不會留在視窗後面
   const onPanelClick = (event: MouseEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("a")) setOpen(false);
+    const target = event.target as HTMLElement;
+    if (target.closest(OPENS_DIALOG)) {
+      setOpen(false);
+      buttonRef.current?.focus();
+    } else if (target.closest("a")) {
+      setOpen(false);
+    }
   };
 
   return (

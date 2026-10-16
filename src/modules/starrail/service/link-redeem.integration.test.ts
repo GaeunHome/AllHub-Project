@@ -38,14 +38,14 @@ beforeEach(async () => {
 });
 
 describe("linkAccount：連結時先選伺服器", () => {
-  it("ask_有好幾個角色_回傳可以選的清單（伺服器中文名稱、預設勾最高等級、低等級標示），還沒寫入", async () => {
+  it("ask_有好幾個角色_回傳可以選的清單（伺服器中文名稱、預設勾最高等級），還沒寫入", async () => {
     const result = await linkAccount(COOKIE, "ask");
 
     expect(result).toEqual({
       ok: false,
       roles: [
-        { uid: "900000001", nickname: "開拓者", server: "台港澳服", level: 70, likelyUnused: false, selected: true },
-        { uid: "800000002", nickname: "小號", server: "亞服", level: 4, likelyUnused: true, selected: false },
+        { uid: "900000001", nickname: "開拓者", server: "台港澳服", level: 70, selected: true },
+        { uid: "800000002", nickname: "小號", server: "亞服", level: 4, selected: false },
       ],
     });
     expect(await uids()).toEqual([]);
@@ -90,7 +90,7 @@ describe("redeemCodeFor：兌換碼，參數是帳號 id", () => {
   it("整理兌換碼後送出_用這個帳號的 UID 與伺服器_成功訊息", async () => {
     const account = await linkWith(REDEEM_COOKIE);
 
-    expect(await redeemCodeFor(account.id, " starrail gift ")).toEqual({ ok: true, message: "獎勵會寄到遊戲內信箱", cookieFlagChanged: false });
+    expect(await redeemCodeFor(account.id, " starrail gift ")).toEqual({ ok: true, message: "獎勵會寄到遊戲內信箱" });
     // 連結時只留需要的鍵 照固定順序存
     expect(hoyolab.redeemCode).toHaveBeenCalledWith("ltoken_v2=v2_secret; ltuid_v2=42; account_id_v2=42; cookie_token_v2=ct_secret", "900000001", "prod_official_cht", "STARRAILGIFT");
   });
@@ -98,7 +98,7 @@ describe("redeemCodeFor：兌換碼，參數是帳號 id", () => {
   it("兌換碼格式不對_不送出", async () => {
     const account = await linkWith(REDEEM_COOKIE);
 
-    expect(await redeemCodeFor(account.id, "星穹")).toMatchObject({ ok: false, error: expect.stringContaining("6–20") });
+    expect(await redeemCodeFor(account.id, "星穹")).toMatchObject({ ok: false, error: expect.stringContaining("4–20") });
     expect(hoyolab.redeemCode).not.toHaveBeenCalled();
   });
 
@@ -111,12 +111,19 @@ describe("redeemCodeFor：兌換碼，參數是帳號 id", () => {
     expect(hoyolab.redeemCode).not.toHaveBeenCalled();
   });
 
-  it("cookie 失效_寫入失效標記並回報有改（讓帳號的快取失效）", async () => {
+  it("有 cookie_token_v2、沒貼 account_id_v2_用 ltuid_v2 補上，照樣送出（不要求重新連結）", async () => {
+    const account = await linkWith(`${COOKIE}; cookie_token_v2=ct_secret`);
+
+    expect(await redeemCodeFor(account.id, "STARRAILGIFT")).toEqual({ ok: true, message: "獎勵會寄到遊戲內信箱" });
+    expect(hoyolab.redeemCode).toHaveBeenCalledTimes(1);
+  });
+
+  it("兌換回報 cookie 失效_只回兌換的錯誤，不寫帳號的失效標記（只由即時便箋與簽到決定）", async () => {
     const account = await linkWith(REDEEM_COOKIE);
     hoyolab.redeemCode.mockResolvedValue({ ok: false, message: "HoYoLAB cookie 已失效", retcode: -1071, cookieInvalid: true });
 
-    expect(await redeemCodeFor(account.id, "STARRAILGIFT")).toEqual({ ok: false, error: "HoYoLAB cookie 已失效", cookieFlagChanged: true });
-    expect((await testDb.select().from(starrailAccounts).where(eq(starrailAccounts.id, account.id)))[0].cookieInvalid).toBe(true);
+    expect(await redeemCodeFor(account.id, "STARRAILGIFT")).toEqual({ ok: false, error: "HoYoLAB cookie 已失效" });
+    expect((await testDb.select().from(starrailAccounts).where(eq(starrailAccounts.id, account.id)))[0].cookieInvalid).toBe(false);
   });
 
   it("兌換失敗_log 只記 retcode，不記兌換碼與 cookie", async () => {
@@ -124,7 +131,7 @@ describe("redeemCodeFor：兌換碼，參數是帳號 id", () => {
     const account = await linkWith(REDEEM_COOKIE);
     hoyolab.redeemCode.mockResolvedValue({ ok: false, message: "兌換碼無效", retcode: -2004, cookieInvalid: false });
 
-    expect(await redeemCodeFor(account.id, "SECRETCODE99")).toEqual({ ok: false, error: "兌換碼無效", cookieFlagChanged: false });
+    expect(await redeemCodeFor(account.id, "SECRETCODE99")).toEqual({ ok: false, error: "兌換碼無效" });
     expect(loggedText(log)).toContain("-2004");
     expect(loggedText(log)).not.toContain("SECRETCODE99");
     expect(loggedText(log)).not.toContain("ct_secret");
@@ -142,7 +149,7 @@ describe("擁有權：別人的帳號 id 當作不存在", () => {
     await linkAccount(REDEEM_COOKIE, "all");
     const [mine] = await testDb.select().from(starrailAccounts);
 
-    expect(await service.redeemCodeFor(other, mine.id, "STARRAILGIFT")).toEqual({ ok: false, error: "找不到這個帳號，請重新整理頁面", cookieFlagChanged: false });
+    expect(await service.redeemCodeFor(other, mine.id, "STARRAILGIFT")).toEqual({ ok: false, error: "找不到這個帳號，請重新整理頁面" });
     expect(hoyolab.redeemCode).not.toHaveBeenCalled();
   });
 
@@ -153,5 +160,54 @@ describe("擁有權：別人的帳號 id 當作不存在", () => {
 
     expect(await linkAccount(COOKIE, ["900000001", "800000002"])).toMatchObject({ ok: false, error: expect.stringContaining("900000001") });
     expect((await testDb.select().from(starrailAccounts)).map((a) => a.userId)).toEqual([other]);
+  });
+});
+
+describe("setAutoRedeem：自動兌換的開關，參數是帳號 id", () => {
+  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [CHT], raw: {} }));
+  const autoRedeemOf = async () => (await testDb.select().from(starrailAccounts))[0].autoRedeem;
+
+  it("cookie 有 cookie_token_v2（帳號 id 用 ltuid_v2 補上）_可以打開，畫面讀到的也是打開；關掉也可以", async () => {
+    await linkAccount(`${COOKIE}; cookie_token_v2=ct_secret`, "all");
+    const [mine] = await testDb.select().from(starrailAccounts);
+
+    expect(await listAccountViews()).toMatchObject([{ id: mine.id, autoRedeem: false, canAutoRedeem: true }]);
+    expect(await service.setAutoRedeem(me, mine.id, true)).toEqual({ ok: true });
+    expect(await listAccountViews()).toMatchObject([{ autoRedeem: true }]);
+    expect(await service.setAutoRedeem(me, mine.id, false)).toEqual({ ok: true });
+    expect(await autoRedeemOf()).toBe(false);
+  });
+
+  it("cookie 沒有 cookie_token_v2_不能打開，說明要補哪個欄位；畫面上的開關也標成不能用；關掉照樣可以", async () => {
+    await linkAccount(COOKIE, "all");
+    const [mine] = await testDb.select().from(starrailAccounts);
+
+    expect(await listAccountViews()).toMatchObject([{ canAutoRedeem: false }]);
+    expect(await service.setAutoRedeem(me, mine.id, true)).toEqual({ ok: false, error: expect.stringContaining("cookie_token_v2") });
+    expect(await autoRedeemOf()).toBe(false);
+    expect(await service.setAutoRedeem(me, mine.id, false)).toEqual({ ok: true });
+  });
+
+  it("畫面讀到的帳號資料只有能不能打開，沒有 cookie 原文也沒有密文", async () => {
+    await linkAccount(REDEEM_COOKIE, "all");
+    const [mine] = await testDb.select().from(starrailAccounts);
+
+    const views = await listAccountViews();
+
+    expect(JSON.stringify(views)).not.toContain("ct_secret");
+    expect(JSON.stringify(views)).not.toContain(mine.cookieEncrypted);
+    expect(views[0]).not.toHaveProperty("cookieEncrypted");
+  });
+
+  it("用別人的帳號 id 打開或關掉_當作不存在，不改資料", async () => {
+    await linkAccount(REDEEM_COOKIE, "all");
+    const [mine] = await testDb.select().from(starrailAccounts);
+
+    expect(await service.setAutoRedeem(other, mine.id, true)).toEqual({ ok: false, error: "找不到這個帳號，請重新整理頁面" });
+    expect(await autoRedeemOf()).toBe(false);
+
+    await service.setAutoRedeem(me, mine.id, true);
+    expect(await service.setAutoRedeem(other, mine.id, false)).toMatchObject({ ok: false });
+    expect(await autoRedeemOf()).toBe(true);
   });
 });

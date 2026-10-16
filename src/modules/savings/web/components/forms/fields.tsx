@@ -3,9 +3,8 @@
 import { useId, type ChangeEvent, type ReactNode } from "react";
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { MIN_DATE } from "../../../lib/dates";
-import { NAME_MAX_LENGTH, NOTE_MAX_LENGTH, PALETTE_LABELS, SELECTABLE_COLORS, type PaletteColor } from "../../../lib/kinds";
-import { scheduleLabel, UNCATEGORIZED_LABEL } from "../../entry-display";
-import { ColorDot } from "../color-dot";
+import { NAME_MAX_LENGTH, NOTE_MAX_LENGTH } from "../../../lib/kinds";
+import { UNCATEGORIZED_LABEL } from "../../entry-display";
 import type { ChoiceAccount } from "./entry-choice";
 import type { CategoryOption } from "./options";
 
@@ -83,11 +82,11 @@ export function NameField({ defaultValue, placeholder }: { defaultValue?: string
  * 只能記到台北時間的今天 today 由伺服器算好傳進來
  * min 是帳戶開始記帳的日期 不知道時只擋太早的年份
  */
-export function DateField({ defaultValue, today, min }: { defaultValue: string; today: string; min?: string }) {
+export function DateField({ defaultValue, today, min, autoFocus = false }: { defaultValue: string; today: string; min?: string; autoFocus?: boolean }) {
   return (
     <label className="field">
       <span className="field-label">日期</span>
-      <input type="date" name="date" required defaultValue={defaultValue} min={min ?? MIN_DATE} max={today} className="input" />
+      <input type="date" name="date" required defaultValue={defaultValue} min={min ?? MIN_DATE} max={today} data-autofocus={autoFocus || undefined} className="input" />
     </label>
   );
 }
@@ -104,12 +103,21 @@ export function NoteField({ defaultValue, placeholder = "例如：午餐、高�
 /** kind 與扣款帳戶給繳卡費的連動用 選單本身只看名稱與停用 */
 export type SelectableAccount = ChoiceAccount & { name: string; active?: boolean };
 
-/** 受控才能讓轉帳即時避開同一個帳戶 停用的只在修改舊紀錄時出現 要標出來 */
-export function AccountSelect({ name, label, accounts, value, onChange }: { name: string; label: string; accounts: readonly SelectableAccount[]; value: number | undefined; onChange: (id: number) => void }) {
+type AccountSelectProps = { name: string; label: string; accounts: readonly SelectableAccount[] } & (
+  | { value: number | undefined; onChange: (id: number) => void }
+  | { defaultValue: number | undefined }
+);
+
+/**
+ * 轉帳要即時避開同一個帳戶時給 onChange 改成受控
+ * 停用的只在修改舊紀錄時出現 要標出來
+ */
+export function AccountSelect({ name, label, accounts, ...state }: AccountSelectProps) {
+  const controlled = "onChange" in state ? { value: state.value ?? "", onChange: (event: ChangeEvent<HTMLSelectElement>) => state.onChange(Number(event.target.value)) } : { defaultValue: state.defaultValue };
   return (
     <label className="field">
       <span className="field-label">{label}</span>
-      <select name={name} required value={value ?? ""} onChange={(event) => onChange(Number(event.target.value))} className="input">
+      <select name={name} required {...controlled} className="input">
         {accounts.map((account) => (
           <option key={account.id} value={account.id}>
             {account.active === false ? `${account.name}（已停用）` : account.name}
@@ -134,7 +142,6 @@ export function CategoryChips({ categories, value, onChange }: { categories: rea
         {categories.map((category) => (
           <label key={category.id} className={CHOICE_CHIP}>
             <input type="radio" name="categoryId" value={category.id} checked={value === category.id} onChange={() => onChange(category.id)} className="sr-only" />
-            <ColorDot color={category.color} />
             {category.name}
           </label>
         ))}
@@ -142,32 +149,6 @@ export function CategoryChips({ categories, value, onChange }: { categories: rea
           <input type="radio" name="categoryId" value="" checked={value === null} onChange={() => onChange(null)} className="sr-only" />
           {UNCATEGORIZED_LABEL}
         </label>
-      </div>
-    </fieldset>
-  );
-}
-
-/**
- * 選到的外圈加框 不只靠顏色分辨
- * 灰色留給未分類與未設定用途 不能選
- */
-export function ColorSwatches({ defaultValue }: { defaultValue: PaletteColor }) {
-  return (
-    <fieldset className="field min-w-0">
-      <legend className={LEGEND_CLASS}>顏色</legend>
-      {/* 七欄一列 手機的視窗也放得下 44px 更窄時每格跟著縮 */}
-      <div className="grid grid-cols-7 justify-items-center">
-        {SELECTABLE_COLORS.map((color) => (
-          <label
-            key={color}
-            title={PALETTE_LABELS[color]}
-            className="relative grid aspect-square w-full max-w-11 cursor-pointer place-items-center rounded-full outline-offset-1 hover:bg-surface-muted has-[:checked]:outline-2 has-[:checked]:outline-[var(--ink)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--focus)]"
-          >
-            <input type="radio" name="color" value={color} required defaultChecked={color === defaultValue} className="sr-only" />
-            <ColorDot color={color} className="size-7" />
-            <span className="sr-only">{PALETTE_LABELS[color]}</span>
-          </label>
-        ))}
       </div>
     </fieldset>
   );
@@ -182,12 +163,12 @@ type DayOfMonthSelectProps = {
   /** 要即時顯示下次日期時改成受控 */
   value?: number;
   onValueChange?: (day: number) => void;
-  /** 信用卡的繳款日可以不設 */
+  /** 信用卡的截止日與結帳日可以不設 */
   allowEmpty?: boolean;
   hint?: ReactNode;
 };
 
-/** 固定收支的日期與信用卡的繳款日 */
+/** 固定收支的日期與信用卡的截止日 結帳日 間隔不一定是每月 所以選項只寫幾日 */
 export function DayOfMonthSelect({ name, label, defaultValue, value, onValueChange, allowEmpty = false, hint }: DayOfMonthSelectProps) {
   const id = useId();
   const controlled = value !== undefined ? { value, onChange: (event: ChangeEvent<HTMLSelectElement>) => onValueChange?.(Number(event.target.value)) } : { defaultValue: defaultValue ?? "" };
@@ -200,7 +181,7 @@ export function DayOfMonthSelect({ name, label, defaultValue, value, onValueChan
         {allowEmpty && <option value="">未設定</option>}
         {DAYS.map((day) => (
           <option key={day} value={day}>
-            {scheduleLabel(day)}
+            {day} 日
           </option>
         ))}
       </select>
@@ -210,6 +191,26 @@ export function DayOfMonthSelect({ name, label, defaultValue, value, onValueChan
         </p>
       )}
     </div>
+  );
+}
+
+type CheckboxFieldProps = {
+  name: string;
+  label: ReactNode;
+  defaultChecked?: boolean;
+  /** 要連動別的欄位時改成受控 */
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+};
+
+/** 勾選時送出 on 整行都點得到 觸控裝置也有 44px 高 */
+export function CheckboxField({ name, label, defaultChecked, checked, onCheckedChange }: CheckboxFieldProps) {
+  const controlled = checked !== undefined ? { checked, onChange: (event: ChangeEvent<HTMLInputElement>) => onCheckedChange?.(event.target.checked) } : { defaultChecked };
+  return (
+    <label className="flex min-h-11 cursor-pointer items-center gap-2.5 self-start text-ink">
+      <input type="checkbox" name={name} {...controlled} className="size-4.5 shrink-0" />
+      {label}
+    </label>
   );
 }
 

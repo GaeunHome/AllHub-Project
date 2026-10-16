@@ -1,11 +1,11 @@
 import type { PGlite } from "@electric-sql/pglite";
 import { asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
-import { beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi, type MockInstance } from "vitest";
 import { coreUsers } from "@/core/db/schema";
 import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
-import { savingsAccounts, savingsCategories, savingsRecurring, savingsTransactions } from "../data/schema";
+import { savingsAccounts, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions } from "../data/schema";
 import { SavingsUserError } from "./errors";
 import { createRecurring, deleteRecurring, listRecurring, postDueRecurring, setRecurringActive, updateRecurring, type RecurringFields } from "./recurring";
 
@@ -63,6 +63,7 @@ const rules = () => getDb().select().from(savingsRecurring).orderBy(asc(savingsR
 const ruleOf = async (id: number) => (await getDb().select().from(savingsRecurring).where(eq(savingsRecurring.id, id)))[0];
 const transactions = () => getDb().select().from(savingsTransactions).orderBy(asc(savingsTransactions.id));
 
+/** 原本的測試都是自動記帳的固定收支 新欄位給舊資料的值 */
 const fields = (values: Partial<RecurringFields> = {}): RecurringFields => ({
   kind: "expense",
   accountId: "",
@@ -71,6 +72,13 @@ const fields = (values: Partial<RecurringFields> = {}): RecurringFields => ({
   amount: "390",
   dayOfMonth: "6",
   note: "",
+  name: "",
+  intervalMonths: "1",
+  startMonth: "",
+  holidayRule: "none",
+  mode: "auto",
+  holdingId: "",
+  allocate: "",
   ...values,
 });
 
@@ -643,5 +651,161 @@ describe("postDueRecurring（排程 savings:recurring）", () => {
 
     expect(query).toHaveBeenCalled();
     expect(dateParams(query)).toEqual([]);
+  });
+});
+
+async function insertHolding(values: Partial<typeof savingsHoldings.$inferInsert> & { accountId: number }) {
+  const [row] = await getDb().insert(savingsHoldings).values({ userId: me, symbol: "006208", name: "富邦台50", shares: 0, cost: 0, ...values }).returning();
+  return row;
+}
+
+describe("新增與修改：名稱、間隔、起始月份、假日規則、記帳方式", () => {
+  it("新增時沒選記帳方式_預設到期請我確認；其他新欄位照表單存", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+
+    const rule = await createRecurring(me, fields({ accountId: String(living.id), name: "電費", amount: "1800", dayOfMonth: "20", intervalMonths: "2", startMonth: "2026-08", holidayRule: "after", mode: "" }), NOW);
+
+    expect(rule).toMatchObject({ name: "電費", intervalMonths: 2, startMonth: "2026-08-01", holidayRule: "after", mode: "confirm", holdingId: null, allocate: false, lastPostedMonth: null });
+  });
+
+  it("定期定額：轉入帳戶照那一檔所在的投資帳戶（不看表單送來的），扣款帳戶要是存款帳戶", async () => {
+    const bank = await insertAccount({ name: "台銀" });
+    const broker = await insertAccount({ name: "臺銀證券", kind: "investment" });
+    const other = await insertAccount({ name: "別的證券", kind: "investment" });
+    const etf = await insertHolding({ accountId: broker.id });
+    const card = await insertAccount({ name: "國泰卡", kind: "credit" });
+
+    const rule = await createRecurring(me, fields({ kind: "transfer", accountId: String(bank.id), counterAccountId: String(other.id), holdingId: String(etf.id), amount: "5000", dayOfMonth: "5", holidayRule: "after", mode: "confirm" }), NOW);
+
+    expect(rule).toMatchObject({ kind: "transfer", accountId: bank.id, counterAccountId: broker.id, holdingId: etf.id, mode: "confirm" });
+    expect(await userError(createRecurring(me, fields({ kind: "regular", accountId: String(card.id), holdingId: String(etf.id), mode: "confirm" }), NOW))).toBe("扣款帳戶要選存款帳戶");
+  });
+
+  it("定期定額選別人的持股_當作找不到，沒有寫入", async () => {
+    const bank = await insertAccount({ name: "台銀" });
+    const theirBroker = await insertAccount({ name: "別人的證券", kind: "investment", userId: other });
+    const theirs = await insertHolding({ userId: other, accountId: theirBroker.id });
+
+    expect(await userError(createRecurring(me, fields({ kind: "regular", accountId: String(bank.id), holdingId: String(theirs.id), mode: "confirm" }), NOW))).toBe("找不到這一檔持股，可能已經刪除了");
+    expect(await rules()).toEqual([]);
+  });
+
+  it("把自己的定期定額改成買別人的持股_當作找不到，資料不變（轉入帳戶也不會變成別人的證券）", async () => {
+    const bank = await insertAccount({ name: "台銀" });
+    const broker = await insertAccount({ name: "臺銀證券", kind: "investment" });
+    const etf = await insertHolding({ accountId: broker.id });
+    const theirBroker = await insertAccount({ name: "別人的證券", kind: "investment", userId: other });
+    const theirs = await insertHolding({ userId: other, accountId: theirBroker.id, symbol: "0050", name: "元大台灣50" });
+    const rule = await insertRule({ kind: "transfer", accountId: bank.id, counterAccountId: broker.id, holdingId: etf.id, mode: "confirm", dayOfMonth: 5, amount: 5000 });
+
+    expect(await userError(updateRecurring(me, rule.id, fields({ kind: "regular", accountId: String(bank.id), holdingId: String(theirs.id), amount: "5000", dayOfMonth: "5", mode: "confirm" })))).toBe(
+      "找不到這一檔持股，可能已經刪除了",
+    );
+    expect(await ruleOf(rule.id)).toMatchObject({ holdingId: etf.id, counterAccountId: broker.id });
+  });
+
+  it("一般轉帳的固定收支_轉進或轉出有持股的投資帳戶都擋下（新增與修改）；定期定額（帶持股）照常", async () => {
+    const HELD = "這個投資帳戶有持股：轉進轉出請用買進或賣出";
+    const bank = await insertAccount({ name: "台銀" });
+    const post = await insertAccount({ name: "郵局" });
+    const broker = await insertAccount({ name: "臺銀證券", kind: "investment" });
+    const etf = await insertHolding({ accountId: broker.id });
+    const plain = await insertRule({ kind: "transfer", accountId: bank.id, counterAccountId: post.id, dayOfMonth: 5, amount: 5000 });
+
+    expect(await userError(createRecurring(me, fields({ kind: "transfer", accountId: String(bank.id), counterAccountId: String(broker.id), amount: "5000" }), NOW))).toBe(HELD);
+    expect(await userError(createRecurring(me, fields({ kind: "transfer", accountId: String(broker.id), counterAccountId: String(bank.id), amount: "5000" }), NOW))).toBe(HELD);
+    expect(await userError(updateRecurring(me, plain.id, fields({ kind: "transfer", accountId: String(bank.id), counterAccountId: String(broker.id), amount: "5000" })))).toBe(HELD);
+    expect((await rules()).map((r) => [r.id, r.counterAccountId])).toEqual([[plain.id, post.id]]);
+
+    expect(await createRecurring(me, fields({ kind: "regular", accountId: String(bank.id), holdingId: String(etf.id), amount: "5000", mode: "confirm" }), NOW)).toMatchObject({ counterAccountId: broker.id, holdingId: etf.id });
+  });
+
+  it("薪水（分配到各帳戶）不能入帳到信用卡", async () => {
+    const card = await insertAccount({ name: "國泰卡", kind: "credit" });
+
+    expect(await userError(createRecurring(me, fields({ kind: "income", accountId: String(card.id), allocate: "on", mode: "confirm" }), NOW))).toBe("薪水要入帳到存款或投資帳戶");
+  });
+
+  it("改間隔與日期_游標不動，處理過的期別不重來", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    const rule = await insertRule({ accountId: living.id, dayOfMonth: 20, mode: "confirm", lastPostedMonth: "2026-10-01" });
+
+    expect(await updateRecurring(me, rule.id, fields({ accountId: String(living.id), dayOfMonth: "5", intervalMonths: "3", startMonth: "2026-07", mode: "confirm" }))).toMatchObject({
+      intervalMonths: 3,
+      startMonth: "2026-07-01",
+      dayOfMonth: 5,
+      lastPostedMonth: "2026-10-01",
+    });
+  });
+});
+
+describe("postDueRecurring：假日規則、每幾個月一次、要確認的不自動記", () => {
+  it("遇假日提前：每月 10 日在 2026 年 10 月記在 10/8（10/9 補假、10/10 國慶日）", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    await insertRule({ kind: "income", accountId: living.id, dayOfMonth: 10, holidayRule: "before", createdAt: noonOf("2026-09-01"), lastPostedMonth: "2026-09-01" });
+
+    expect(await postDueRecurring(noonOf("2026-10-07"))).toBe("自動記帳 0 筆");
+    expect(await postDueRecurring(noonOf("2026-10-08"))).toBe("自動記帳 1 筆");
+    expect((await transactions()).map((t) => t.date)).toEqual(["2026-10-08"]);
+  });
+
+  it("遇假日延後：每月 5 日在 2026 年 9 月記在 9/7（9/5、9/6 是週末）", async () => {
+    const cathay = await insertAccount({ name: "國泰" });
+    await insertRule({ accountId: cathay.id, dayOfMonth: 5, holidayRule: "after", createdAt: noonOf("2026-08-15") });
+
+    expect(await postDueRecurring(noonOf("2026-09-06"))).toBe("自動記帳 0 筆");
+    expect(await postDueRecurring(noonOf("2026-09-07"))).toBe("自動記帳 1 筆");
+    expect((await transactions()).map((t) => t.date)).toEqual(["2026-09-07"]);
+  });
+
+  it("每 2 個月一次（從 8 月開始）_只記 8 月與 10 月，9 月不記", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    const rule = await insertRule({ accountId: living.id, dayOfMonth: 20, intervalMonths: 2, startMonth: "2026-08-01", createdAt: noonOf("2026-08-01") });
+
+    expect(await postDueRecurring(noonOf("2026-10-25"))).toBe("自動記帳 2 筆");
+    expect((await transactions()).map((t) => t.date)).toEqual(["2026-08-20", "2026-10-20"]);
+    expect((await ruleOf(rule.id)).lastPostedMonth).toBe("2026-10-01");
+  });
+
+  it("到期請我確認的不自動記，游標也不動（等使用者確認或略過）", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    const rule = await insertRule({ accountId: living.id, dayOfMonth: 6, mode: "confirm", createdAt: noonOf("2026-09-01") });
+
+    expect(await postDueRecurring(NOW)).toBe("自動記帳 0 筆");
+    expect(await transactions()).toEqual([]);
+    expect((await ruleOf(rule.id)).lastPostedMonth).toBeNull();
+  });
+
+  it("要確認的固定收支停用了_到期的期別略過往前推，恢復後不會一次跳出一堆待處理", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    const rule = await insertRule({ accountId: living.id, dayOfMonth: 6, mode: "confirm", active: false, createdAt: noonOf("2026-08-01") });
+
+    expect(await postDueRecurring(NOW)).toBe(`自動記帳 0 筆；${SKIPPED(3)}`);
+    expect(await transactions()).toEqual([]);
+    expect((await ruleOf(rule.id)).lastPostedMonth).toBe("2026-10-01");
+  });
+
+  it("自動記的一般轉帳碰到有持股的投資帳戶_那一期略過、游標往前推（不會每天失敗），log 只記固定收支的 id", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    onTestFinished(() => warn.mockRestore());
+    const cathay = await insertAccount({ name: "國泰" });
+    const broker = await insertAccount({ name: "證券", kind: "investment" });
+    await insertHolding({ accountId: broker.id });
+    const rule = await insertRule({ kind: "transfer", accountId: cathay.id, counterAccountId: broker.id, amount: 5000, dayOfMonth: 6, note: "秘密的備註", createdAt: noonOf("2026-09-01"), lastPostedMonth: "2026-09-01" });
+
+    expect(await postDueRecurring(NOW)).toBe("自動記帳 0 筆；略過 1 筆轉帳（投資帳戶有持股，請改用買進或賣出）");
+    expect(await transactions()).toEqual([]);
+    expect((await ruleOf(rule.id)).lastPostedMonth).toBe("2026-10-01");
+    expect(loggedText(warn)).toContain(String(rule.id));
+    expect(loggedText(warn)).not.toMatch(/秘密的備註|5000|5,000|國泰/);
+    expect(await postDueRecurring(NOW)).toBe("自動記帳 0 筆");
+  });
+
+  it("自動記的紀錄備註用規則的備註，沒有備註用名稱；不帶期別（只有確認來的才有）", async () => {
+    const card = await insertAccount({ name: "國泰卡", kind: "credit" });
+    await insertRule({ accountId: card.id, dayOfMonth: 12, name: "Netflix", createdAt: noonOf("2026-10-01") });
+
+    expect(await postDueRecurring(NOW)).toBe("自動記帳 1 筆");
+    expect((await transactions()).map((t) => [t.note, t.recurringPeriod])).toEqual([["Netflix", null]]);
   });
 });

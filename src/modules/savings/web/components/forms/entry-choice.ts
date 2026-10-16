@@ -4,7 +4,7 @@ import { latestDate } from "../../form-math";
 // 記帳與固定收支的欄位連動 不依賴 React 才能直接測
 
 /** 選填的欄位由頁面帶進來 沒帶就不做那一項 交給伺服器檢查 */
-export type ChoiceAccount = { id: number; kind?: AccountKind; payFromAccountId?: number | null; startDate?: string };
+export type ChoiceAccount = { id: number; kind?: AccountKind; payFromAccountId?: number | null; startDate?: string; withHoldings?: boolean };
 type ChoiceCategory = { id: number; kind: CategoryKind };
 
 /** cardPayment 是自動排成繳卡費的那張卡 自己改過轉出或轉入就清掉 */
@@ -20,6 +20,20 @@ function paymentSource(accounts: readonly ChoiceAccount[], card: ChoiceAccount):
   return deposits.find((account) => account.id === card.payFromAccountId)?.id ?? deposits[0]?.id;
 }
 
+/** 轉帳的選單 有持股的投資帳戶要用買進賣出 不列 已經選了的留著 修改舊紀錄才不會默默換掉 */
+export function transferOptions<T extends ChoiceAccount>(accounts: readonly T[], keep: readonly (number | undefined)[]): T[] {
+  return accounts.filter((account) => !account.withHoldings || keep.includes(account.id));
+}
+
+/** 換到轉帳時 有持股的投資帳戶換成能轉的帳戶 */
+function transferable(choice: EntryChoice, accounts: readonly ChoiceAccount[]): EntryChoice {
+  const allowed = transferOptions(accounts, []);
+  const has = (id: number | undefined) => allowed.some((account) => account.id === id);
+  const accountId = has(choice.accountId) ? choice.accountId : allowed[0]?.id;
+  const counterId = has(choice.counterId) && choice.counterId !== accountId ? choice.counterId : allowed.find((account) => account.id !== accountId)?.id;
+  return { ...choice, accountId, counterId };
+}
+
 /** 從信用卡轉帳多半是繳卡費 所以卡改當轉入 找不到扣款帳戶就不動 */
 function arrangeCardPayment(choice: EntryChoice, accounts: readonly ChoiceAccount[]): EntryChoice {
   const card = accounts.find((account) => account.id === choice.accountId && account.kind === "credit");
@@ -32,7 +46,7 @@ function changeKind(choice: EntryChoice, kind: EntryKind, accounts: readonly Cho
   // 清掉不符合新類型的分類 打好的金額 日期 備註都留著
   const categoryId = categories.some((category) => category.id === choice.categoryId && category.kind === kind) ? choice.categoryId : null;
   const next = { ...choice, kind, categoryId };
-  if (kind === "transfer" && choice.kind !== "transfer") return arrangeCardPayment(next, accounts);
+  if (kind === "transfer" && choice.kind !== "transfer") return arrangeCardPayment(transferable(next, accounts), accounts);
   // 自動排的繳卡費沒動過就換回收支 帳戶回到那張卡
   if (kind !== "transfer" && choice.kind === "transfer" && choice.cardPayment !== null && choice.counterId === choice.cardPayment) {
     return { ...next, accountId: choice.cardPayment, counterId: choice.accountId, cardPayment: null };
@@ -59,7 +73,7 @@ export function entryChoiceReducer(accounts: readonly ChoiceAccount[], categorie
 /** arrange 是新的紀錄 一開始就是轉帳又是卡時排成繳卡費 修改舊紀錄照原本的 */
 export function initialEntryChoice(start: ChoiceStart, accounts: readonly ChoiceAccount[], arrange: boolean): EntryChoice {
   const choice: EntryChoice = { kind: start.kind, accountId: start.accountId, counterId: start.counterAccountId, categoryId: start.categoryId, cardPayment: null };
-  return arrange && choice.kind === "transfer" ? arrangeCardPayment(choice, accounts) : choice;
+  return arrange && choice.kind === "transfer" ? arrangeCardPayment(transferable(choice, accounts), accounts) : choice;
 }
 
 /** 轉帳要有另一個帳戶可以轉入 */

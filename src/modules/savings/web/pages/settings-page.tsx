@@ -3,9 +3,12 @@ import { requireSession } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { taipeiToday } from "../../lib/dates";
-import { nextRunDate } from "../../lib/recurring";
-import { cachedAccountFlows, cachedAccounts, cachedCategories, cachedPurposes, cachedRecurring } from "../../service/cached";
+import { accountsWithHoldings } from "../../lib/holdings";
+import { parseRowId } from "../../lib/validation";
+import { nextRunDate, recurringTitle, scheduleText } from "../../lib/recurring";
+import { cachedAccountFlows, cachedAccounts, cachedCategories, cachedHoldings, cachedPurposes, cachedRecurring } from "../../service/cached";
 import { SetupResultSlot } from "../components/forms/setup-button";
+import type { HoldingOption } from "../components/forms/options";
 import type { SearchParams } from "../components/month-href";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { SetupCard } from "../components/setup-card";
@@ -13,6 +16,7 @@ import { AccountsCard, type AccountItem } from "../components/settings/accounts-
 import { CategoriesCard } from "../components/settings/categories-card";
 import { PurposesCard } from "../components/settings/purposes-card";
 import { RecurringCard, type RecurringItem } from "../components/settings/recurring-card";
+import { sortByNextDate } from "../settings-display";
 
 // 每張卡片各自讀資料各自串流 同一次請求重複讀同一份快取會自動合併
 
@@ -30,32 +34,30 @@ export async function SetupNotice() {
 export async function AccountsLoader({ searchParams }: { searchParams?: SearchParams } = {}) {
   const user = await requireSession();
   const [accounts, purposes, rules, flows, params] = await Promise.all([cachedAccounts(user.id), cachedPurposes(user.id), cachedRecurring(user.id), cachedAccountFlows(user.id), searchParams]);
-  const purposeById = new Map(purposes.map((purpose) => [purpose.id, purpose]));
-  const nameById = new Map(accounts.map((account) => [account.id, account.name]));
-  const items: AccountItem[] = accounts.map((account) => {
-    const purpose = account.purposeId === null ? undefined : purposeById.get(account.purposeId);
-    return {
-      id: account.id,
-      name: account.name,
-      kind: account.kind,
-      purposeId: account.purposeId,
-      openingBalance: account.openingBalance,
-      openingCost: account.openingCost,
-      monthlyPlan: account.monthlyPlan,
-      targetAmount: account.targetAmount,
-      dueDay: account.dueDay,
-      payFromAccountId: account.payFromAccountId,
-      active: account.active,
-      purposeName: purpose?.name ?? null,
-      purposeColor: purpose?.color ?? null,
-      payFromName: account.payFromAccountId === null ? null : (nameById.get(account.payFromAccountId) ?? null),
-      // 刪除帳戶會連紀錄與固定收支一起刪 確認時要說
-      // 筆數要另外查 這裡只看有沒有
-      recurringCount: rules.filter((rule) => rule.accountId === account.id || rule.counterAccountId === account.id).length,
-      hasRecords: flows.some((flow) => flow.accountId === account.id),
-      hasTransfers: flows.some((flow) => flow.accountId === account.id && (flow.transferIn > 0 || flow.transferOut > 0)),
-    };
-  });
+  const purposeNames = new Map(purposes.map((purpose) => [purpose.id, purpose.name]));
+  const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
+  const items: AccountItem[] = accounts.map((account) => ({
+    id: account.id,
+    name: account.name,
+    kind: account.kind,
+    purposeId: account.purposeId,
+    openingBalance: account.openingBalance,
+    openingCost: account.openingCost,
+    monthlyPlan: account.monthlyPlan,
+    targetAmount: account.targetAmount,
+    dueDay: account.dueDay,
+    statementDay: account.statementDay,
+    payFromAccountId: account.payFromAccountId,
+    autopay: account.autopay,
+    active: account.active,
+    purposeName: account.purposeId === null ? null : (purposeNames.get(account.purposeId) ?? null),
+    payFromName: account.payFromAccountId === null ? null : (accountNames.get(account.payFromAccountId) ?? null),
+    // 刪除帳戶會連紀錄與固定收支一起刪 確認時要說
+    // 筆數要另外查 這裡只看有沒有
+    recurringCount: rules.filter((rule) => rule.accountId === account.id || rule.counterAccountId === account.id).length,
+    hasRecords: flows.some((flow) => flow.accountId === account.id),
+    hasTransfers: flows.some((flow) => flow.accountId === account.id && (flow.transferIn > 0 || flow.transferOut > 0)),
+  }));
   return <AccountsCard accounts={items} purposes={purposes.map(({ id, name }) => ({ id, name }))} openAdd={params?.add === "account"} />;
 }
 
@@ -75,69 +77,84 @@ export async function CategoriesLoader() {
   return <CategoriesCard categories={categories.map(({ id, name, kind, color, monthlyBudget }) => ({ id, name, kind, color, monthlyBudget }))} />;
 }
 
-export async function RecurringLoader() {
+/** 待處理的選單連過來時帶 recurring 參數 只打開自己的那一條 */
+export async function RecurringLoader({ searchParams }: { searchParams?: SearchParams } = {}) {
   const user = await requireSession();
-  const [rules, accounts, categories] = await Promise.all([cachedRecurring(user.id), cachedAccounts(user.id), cachedCategories(user.id)]);
+  const [rules, accounts, categories, holdings, params] = await Promise.all([cachedRecurring(user.id), cachedAccounts(user.id), cachedCategories(user.id), cachedHoldings(user.id), searchParams]);
+  const linked = parseRowId(params?.recurring);
   const today = taipeiToday(new Date());
   const accountById = new Map(accounts.map((account) => [account.id, account]));
-  const categoryById = new Map(categories.map((category) => [category.id, category]));
+  const names = {
+    accounts: new Map(accounts.map((account) => [account.id, account.name])),
+    categories: new Map(categories.map((category) => [category.id, category.name])),
+    holdingSymbols: new Map(holdings.map((holding) => [holding.id, holding.symbol])),
+  };
   const items: RecurringItem[] = rules.map((rule) => {
     const account = accountById.get(rule.accountId);
     const counter = rule.counterAccountId === null ? undefined : accountById.get(rule.counterAccountId);
-    const category = rule.categoryId === null ? undefined : categoryById.get(rule.categoryId);
     return {
       id: rule.id,
       kind: rule.kind,
+      name: rule.name,
       accountId: rule.accountId,
       counterAccountId: rule.counterAccountId,
       categoryId: rule.categoryId,
       amount: rule.amount,
       dayOfMonth: rule.dayOfMonth,
+      intervalMonths: rule.intervalMonths,
+      startMonth: rule.startMonth,
+      holidayRule: rule.holidayRule,
+      mode: rule.mode,
+      holdingId: rule.holdingId,
+      allocate: rule.allocate,
       note: rule.note,
       active: rule.active,
       lastPostedMonth: rule.lastPostedMonth,
       createdAt: rule.createdAt.toISOString(),
-      accountName: account?.name ?? "",
-      counterAccountName: counter?.name ?? null,
-      categoryName: category?.name ?? null,
-      categoryColor: category?.color ?? null,
+      title: recurringTitle(rule, names),
+      schedule: scheduleText(rule),
       nextDate: rule.active ? nextRunDate(rule, today) : null,
-      // 帳戶或轉入的帳戶停用時排程會略過
+      // 帳戶或轉入的帳戶停用時不會記帳 也不會列進待處理
       accountPaused: account?.active === false || counter?.active === false,
     };
   });
+  // 停用的投資帳戶裡的持股只在修改原本選它的定期定額時列出來
+  const holdingOptions: HoldingOption[] = holdings.flatMap((holding) => {
+    const account = accountById.get(holding.accountId);
+    return account?.kind === "investment" ? [{ id: holding.id, symbol: holding.symbol, name: holding.name, accountId: holding.accountId, accountName: account.name, active: account.active }] : [];
+  });
+  const withHoldings = accountsWithHoldings(holdings);
   return (
     <RecurringCard
-      rules={items}
-      accounts={accounts.map(({ id, name, kind, active, payFromAccountId }) => ({ id, name, kind, active, payFromAccountId }))}
-      categories={categories.map(({ id, name, kind, color }) => ({ id, name, kind, color }))}
+      rules={sortByNextDate(items)}
+      openId={rules.some((rule) => rule.id === linked) ? linked : null}
+      accounts={accounts.map(({ id, name, kind, active, payFromAccountId }) => ({ id, name, kind, active, payFromAccountId, withHoldings: withHoldings.has(id) }))}
+      categories={categories.map(({ id, name, kind }) => ({ id, name, kind }))}
+      holdings={holdingOptions}
       today={today}
     />
   );
 }
 
 /**
- * 跟載入完成的卡片一樣高 每一列跟真的一樣是兩行字 70px
+ * 跟載入完成的卡片一樣高 每一列跟真的一樣是兩行字
  * 串流進來時下面的卡片才不會跳
  */
-function CardSkeleton({ label, rows, segmented = false }: { label: string; rows: number; segmented?: boolean }) {
+function CardSkeleton({ label, rows }: { label: string; rows: number }) {
   return (
     <LoadingState label={label} className="card stack">
-      <div className="flex items-center gap-3">
-        <Skeleton className="size-9 shrink-0 rounded-xl" />
+      <div className="flex min-h-9 items-center gap-3">
         <Skeleton className="h-5 w-24" />
-        <Skeleton className="ml-auto h-9 w-28 rounded-lg" />
+        <Skeleton className="ml-auto h-9 w-20 rounded-lg" />
       </div>
-      {segmented && <Skeleton className="h-11 w-full rounded-lg" />}
       <div className="card-list">
         {Array.from({ length: rows }, (_, i) => (
-          <div key={i} className="card-row flex items-center gap-3">
-            <Skeleton className="size-9 shrink-0 rounded-xl" />
-            <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-              <Skeleton className={`h-5 ${i % 2 === 0 ? "w-2/5" : "w-1/3"}`} />
-              <Skeleton className="h-4 w-1/2" />
+          <div key={i} className="card-row flex min-h-14 items-center gap-3">
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Skeleton className={`h-4 ${i % 2 === 0 ? "w-2/5" : "w-1/3"}`} />
+              <Skeleton className="h-3.5 w-1/2" />
             </div>
-            <Skeleton className="h-9 w-24 shrink-0 rounded-lg" />
+            <Skeleton className="size-9 shrink-0 rounded-lg" />
           </div>
         ))}
       </div>
@@ -161,22 +178,22 @@ export function SettingsPage({ info, searchParams }: { info: ModuleInfo; searchP
       <Suspense fallback={null}>
         <SetupNotice />
       </Suspense>
-      {/* 寬螢幕兩欄 左邊帳戶與用途 右邊分類與固定收支 */}
+      {/* 手機照帳戶 固定收支 分類 用途的順序 寬螢幕左邊是錢 右邊是分類與用途 */}
       <div className="page-stack xl:grid xl:grid-cols-2 xl:items-start">
         <div className="page-stack">
           <Card id="accounts" fallback={<CardSkeleton label="載入帳戶…" rows={4} />}>
             <AccountsLoader searchParams={searchParams} />
           </Card>
-          <Card id="purposes" fallback={<CardSkeleton label="載入用途…" rows={3} />}>
-            <PurposesLoader />
+          <Card id="recurring" fallback={<CardSkeleton label="載入固定收支…" rows={3} />}>
+            <RecurringLoader searchParams={searchParams} />
           </Card>
         </div>
         <div className="page-stack">
-          <Card id="categories" fallback={<CardSkeleton label="載入分類…" rows={4} segmented />}>
+          <Card id="categories" fallback={<CardSkeleton label="載入分類…" rows={4} />}>
             <CategoriesLoader />
           </Card>
-          <Card id="recurring" fallback={<CardSkeleton label="載入固定收支…" rows={3} />}>
-            <RecurringLoader />
+          <Card id="purposes" fallback={<CardSkeleton label="載入用途…" rows={3} />}>
+            <PurposesLoader />
           </Card>
         </div>
       </div>

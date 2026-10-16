@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { Icon } from "@/core/ui/icon";
 import { MIN_MONTH, addMonths, formatMonth, type MonthKey } from "../../lib/month";
-import { monthHref, type MonthBasePath } from "./month-href";
+import { SAVINGS_PATHS } from "../paths";
+import { monthHref } from "./month-href";
 import { MonthSelect } from "./month-select";
 
 /**
  * 不能看未來的月份 所以在本月時停用下一月
  * 回到本月放最後 出現時箭頭才不會被推開 連按同一個位置還是同一顆箭頭
  */
-export function MonthSwitcher({ month, current, options, basePath }: { month: MonthKey; current: MonthKey; options: MonthKey[]; basePath: MonthBasePath }) {
+export function MonthSwitcher({ month, current, options }: { month: MonthKey; current: MonthKey; options: MonthKey[] }) {
   const previous = addMonths(month, -1);
   const next = addMonths(month, 1);
   const arrow = "btn-secondary btn-icon";
@@ -17,7 +18,7 @@ export function MonthSwitcher({ month, current, options, basePath }: { month: Mo
   return (
     <nav aria-label="切換月份" className="button-row">
       {previous >= MIN_MONTH ? (
-        <Link href={monthHref(previous, basePath)} scroll={false} className={arrow} aria-label={`上一個月（${formatMonth(previous)}）`}>
+        <Link href={monthHref(previous)} scroll={false} className={arrow} aria-label={`上一個月（${formatMonth(previous)}）`}>
           <Icon name="chevron-left" className="size-4" />
         </Link>
       ) : (
@@ -26,9 +27,9 @@ export function MonthSwitcher({ month, current, options, basePath }: { month: Mo
           <span className="sr-only">上一個月</span>
         </span>
       )}
-      <MonthSelect value={month} options={options.map((m) => ({ value: m, label: formatMonth(m) }))} basePath={basePath} />
+      <MonthSelect value={month} options={options.map((m) => ({ value: m, label: formatMonth(m) }))} />
       {next <= current ? (
-        <Link href={monthHref(next, basePath)} scroll={false} className={arrow} aria-label={`下一個月（${formatMonth(next)}）`}>
+        <Link href={monthHref(next)} scroll={false} className={arrow} aria-label={`下一個月（${formatMonth(next)}）`}>
           <Icon name="chevron-right" className="size-4" />
         </Link>
       ) : (
@@ -38,7 +39,7 @@ export function MonthSwitcher({ month, current, options, basePath }: { month: Mo
         </span>
       )}
       {month !== current && (
-        <Link href={basePath} scroll={false} className="btn-ghost">
+        <Link href={SAVINGS_PATHS.records} scroll={false} className="btn-ghost">
           回到本月
         </Link>
       )}

@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
-import { captureErrorLog, mocksOf } from "@/dev/test-helpers";
+import { captureErrorLog, expiredTags, mocksOf } from "@/dev/test-helpers";
 import { starrailAccounts } from "../data/schema";
 
 vi.mock("../lib/hoyolab", { spy: true });
@@ -82,5 +82,15 @@ describe("reencryptCookies（PGlite 整合）", () => {
 
     expect(await reencryptCookies()).toBe("1 筆 cookie，重新加密 0 筆");
     expect(await storedCookie("1")).toBe(current);
+  });
+
+  it("帳號的快取（HoYoLAB 的資料都標著它）只在真的重新加密了才失效", async () => {
+    await insertAccount("1", encryptSecret(cookie("1")));
+    await reencryptCookies();
+    expect(expiredTags()).toEqual([]);
+
+    await insertAccount("2", encryptSecret(cookie("2"), createKeyring(OLD)));
+    await reencryptCookies();
+    expect(expiredTags()).toEqual(["starrail:accounts"]);
   });
 });

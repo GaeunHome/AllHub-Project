@@ -97,7 +97,7 @@ function LinkAccountFields({ onLinked }: { onLinked?: () => void }) {
             value={cookie}
             onChange={(event) => setCookie(event.target.value)}
             aria-label="HoYoLAB cookie"
-            placeholder="ltoken_v2=v2_…; ltuid_v2=…; ltmid_v2=…; cookie_token_v2=…; account_id_v2=…"
+            placeholder="ltoken_v2=v2_…; ltuid_v2=…; ltmid_v2=…; cookie_token_v2=v2_…; account_id_v2=…; account_mid_v2=…"
             className="input font-mono text-sm"
             autoComplete="off"
             spellCheck={false}
@@ -132,11 +132,11 @@ function CookieHelp() {
         </li>
         <li>按 F12（Mac：⌥⌘I）打開開發者工具 → Application（應用程式）→ 左側 Cookies → https://www.hoyolab.com。</li>
         <li>
-          複製 <code>ltoken_v2</code>、<code>ltuid_v2</code>（有 <code>ltmid_v2</code> 也一起），照 <code>名稱=值; 名稱=值</code> 的格式貼到下面；整段貼上也可以，系統只留下需要的部分。
+          複製這六個：<code>ltoken_v2</code>、<code>ltuid_v2</code>、<code>ltmid_v2</code>、<code>cookie_token_v2</code>、<code>account_id_v2</code>、
+          <code>account_mid_v2</code>，照 <code>名稱=值; 名稱=值</code> 的格式貼到下面；整段貼上也可以，系統只留下需要的部分。
         </li>
-        <li>
-          要用兌換碼的話，一併複製 <code>cookie_token_v2</code>、<code>account_id_v2</code>、<code>account_mid_v2</code>。
-        </li>
+        <li>值要整段複製：在值上點兩下選取時，遇到「-」就會停住，只選到一部分。</li>
+        <li>開拓月曆與兌換碼要用 <code>cookie_token_v2</code> 和 <code>account_</code> 開頭的兩個；找不到 <code>cookie_token_v2</code> 時，登出 HoYoLAB 再重新登入，然後重新複製。</li>
         <li>cookie 等同登入憑證，會加密後才存。登出 HoYoLAB 或改密碼後會失效，到時再貼一次。</li>
       </ol>
     </details>
@@ -163,7 +163,6 @@ export function RoleChooser({ cookie, choices, pending, onBack }: RoleChooserPro
             <span className="text-sm text-ink-soft">
               UID <span className="sr-num text-base">{role.uid}</span>
             </span>
-            {role.likelyUnused && <span className="chip chip-warning">可能是沒在玩的帳號</span>}
           </label>
         ))}
       </div>

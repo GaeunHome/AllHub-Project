@@ -41,15 +41,50 @@ export function formatDay(date: DateKey): string {
   return `${month} 月 ${day} 日（${weekdayOf(year, month, day)}）`;
 }
 
-/** 只有日與星期 同一個月的清單不必每列都寫月份 */
-export function formatDayShort(date: DateKey): string {
-  const [year, month, day] = date.split("-").map(Number);
-  return `${day} 日（${weekdayOf(year, month, day)}）`;
-}
-
 /** 跟 reference 不同年時寫出年份 才不會看錯是哪一年 */
 export function formatMonthDay(date: DateKey, reference?: DateKey): string {
   const [year, month, day] = date.split("-").map(Number);
   const sameYear = reference === undefined || reference.slice(0, 4) === date.slice(0, 4);
   return `${sameYear ? "" : `${year} 年 `}${month} 月 ${day} 日`;
+}
+
+const toUtc = (date: DateKey) => {
+  const [year, month, day] = date.split("-").map(Number);
+  return Date.UTC(year, month - 1, day);
+};
+const DAY_MS = 86_400_000;
+
+/** 日期字串加減天數 用 UTC 算才不會碰到時區與日光節約 */
+export function addDays(date: DateKey, days: number): DateKey {
+  return new Date(toUtc(date) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** to 比 from 晚幾天 早的話是負的 */
+export function daysBetween(from: DateKey, to: DateKey): number {
+  return Math.round((toUtc(to) - toUtc(from)) / DAY_MS);
+}
+
+/** 0 是星期日 6 是星期六 */
+export function weekdayOfDate(date: DateKey): number {
+  return new Date(toUtc(date)).getUTCDay();
+}
+
+/** 到期與截止的短寫法 例如 10/20 */
+export function formatSlashDate(date: DateKey): string {
+  const [, month, day] = date.split("-").map(Number);
+  return `${month}/${day}`;
+}
+
+/** overdue 已經過了 today 是今天 upcoming 還沒到 */
+export type DueStatus = "overdue" | "today" | "upcoming";
+
+/** 待處理與信用卡帳單共用 同一個日期不會一邊算逾期一邊算今天 */
+export function dueStatus(date: DateKey, today: DateKey): DueStatus {
+  return date < today ? "overdue" : date === today ? "today" : "upcoming";
+}
+
+/** 到期的相對寫法 例如 今天 還有 5 天 逾期 2 天 */
+export function dueText(daysLeft: number): string {
+  if (daysLeft === 0) return "今天";
+  return daysLeft > 0 ? `還有 ${daysLeft} 天` : `逾期 ${-daysLeft} 天`;
 }

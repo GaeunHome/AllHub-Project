@@ -24,12 +24,16 @@ const EXPECTED: Record<string, string[]> = {
   // 只刪影片 翻譯永久保留
   "youtube:cleanup": ["youtube:videos"],
   "youtube:reencrypt": ["youtube:settings"],
-  "starrail:checkin": ["starrail:accounts", "starrail:checkins"],
-  "starrail:stamina": ["starrail:accounts"],
+  // 星穹鐵道帳號的 tag 標著所有 HoYoLAB 的快取 只在帳號那一列真的改了才失效
+  // 這裡是空的資料庫 什麼都沒改
+  "starrail:checkin": ["starrail:checkins"],
+  "starrail:stamina": [],
   "starrail:cleanup": ["starrail:checkins"],
-  "starrail:reencrypt": ["starrail:accounts"],
+  "starrail:reencrypt": [],
+  "starrail:redeem": [],
   // 自動記的紀錄改了餘額與統計 固定收支記到的月份也往前推
-  "savings:recurring": ["savings:recurring", "savings:transactions"],
+  // 到期通知認領信用卡寄到哪一天
+  "savings:recurring": ["savings:accounts", "savings:bills", "savings:recurring", "savings:transactions"],
 };
 
 beforeEach(() => {

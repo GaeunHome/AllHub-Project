@@ -50,6 +50,15 @@ export class TwitchApiError extends Error {
   }
 }
 
+/**
+ * 換 token 被拒時看得出是哪個值填錯的回應 key 是狀態碼加 Twitch 的 message
+ * Client ID 不存在回 400 Client ID 對但 Secret 錯回 403
+ */
+const TOKEN_REJECTIONS: Record<string, string> = {
+  "400 invalid client": "Twitch 的 Client ID 不對：請到 Twitch 開發者後台複製應用程式的用戶端 ID，貼到 Vercel 的 TWITCH_CLIENT_ID（前後不要有空白），改完重新部署",
+  "403 invalid client secret": "Twitch 的 Client Secret 不對：請在 Twitch 開發者後台按「新密碼」，貼到 Vercel 的 TWITCH_CLIENT_SECRET，改完重新部署",
+};
+
 let token: { value: string; expiresAt: number } | undefined;
 // 頁面會同時查頭像與直播狀態 還沒有 token 時共用同一個請求
 let pendingToken: Promise<string> | undefined;
@@ -72,7 +81,7 @@ async function requestToken(): Promise<string> {
       grant_type: "client_credentials",
     }),
   });
-  if (!response.ok) throw await toError(response, "取得 App Access Token");
+  if (!response.ok) throw await toError(response, "取得 App Access Token", TOKEN_REJECTIONS);
 
   const data = (await response.json()) as { access_token: string; expires_in: number };
   token = { value: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
@@ -105,7 +114,8 @@ async function helix<T>(method: string, path: string, body?: object, { timeoutMs
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
 
-async function toError(response: Response, step: string): Promise<TwitchApiError> {
+/** known 把認得的回應換成給使用者看的說明 */
+async function toError(response: Response, step: string, known: Record<string, string> = {}): Promise<TwitchApiError> {
   const text = await response.text();
   let message = text;
   try {
@@ -113,7 +123,7 @@ async function toError(response: Response, step: string): Promise<TwitchApiError
   } catch {
     // 不是 JSON 就用原文
   }
-  return new TwitchApiError(response.status, `${step}失敗（${response.status}）：${message}`);
+  return new TwitchApiError(response.status, known[`${response.status} ${message}`] ?? `${step}失敗（${response.status}）：${message}`);
 }
 
 export async function getUsersByLogin(logins: string[]): Promise<TwitchUser[]> {

@@ -17,6 +17,8 @@ const nextConfig: NextConfig = {
     avatar: { stale: 30, revalidate: 43_200, expire: 86_400 },
     // HoYoLAB 的角色 開拓月曆 終局戰績 最多 30 分鐘前
     records: { stale: 30, revalidate: 900, expire: 1800 },
+    // 證交所與櫃買的收盤價一天更新一次 每小時看一次就能接到早上的更新
+    quotes: { stale: 30, revalidate: 3600, expire: 21_600 },
   },
   turbopack: {
     rules: {

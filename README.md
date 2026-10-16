@@ -2,13 +2,13 @@
 
 [![CI](https://github.com/GaeunHome/AllHub-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/GaeunHome/AllHub-Project/actions/workflows/ci.yml)
 
-AllHub 是個人製作、非商業的整合網站，把平常會用到的幾個小工具放在同一個地方：Twitch 開台通知、YouTube 新影片與韓文字幕即時翻譯、星穹鐵道的便箋與簽到、理財（帳戶、收支與預算）。第一個帳號（站長）在自己電腦上用命令列建立；其他人只能用站長發的邀請連結註冊，網站不開放自行註冊。
+AllHub 是個人製作、非商業的整合網站，把平常會用到的幾個小工具放在同一個地方：Twitch 開台通知、YouTube 新影片與韓文字幕即時翻譯、星穹鐵道的便箋、簽到與提醒、理財（帳戶、收支、信用卡帳單與持股）。第一個帳號（站長）在自己電腦上用命令列建立；其他人只能用站長發的邀請連結註冊，網站不開放自行註冊。
 
 ## 畫面
 
 截圖都是本機假資料（`npm run mock:external`），沒有真實帳號；觀看頁的播放器是測試用的假播放器。
 
-![首頁儀表板：正在直播的主播、追蹤頻道的最新影片、星穹鐵道的即時便箋、本月支出與總資產、未讀通知](docs/images/home.jpg)
+![首頁儀表板：正在直播的主播、追蹤頻道的最新影片、星穹鐵道的即時便箋、理財的總資產與待處理、未讀通知](docs/images/home.jpg)
 
 | 觀看頁（雙語字幕疊在影片上，深色模式） | 手機版：首頁、觀看頁、通知面板 |
 |---|---|
@@ -16,22 +16,24 @@ AllHub 是個人製作、非商業的整合網站，把平常會用到的幾個�
 
 ## 功能
 
-- **首頁**：正在直播的追蹤主播、追蹤頻道的最新影片、星穹鐵道的開拓力與委託、這個月的支出與總資產、最新的未讀通知，一進網站就看得到。
+- **首頁**：正在直播的追蹤主播、追蹤頻道的最新影片、星穹鐵道的開拓力與委託、總資產與待處理、最新的未讀通知，一進網站就看得到。
 - **Twitch**：追蹤主播，開台時收到通知（直播標題與分類）。整頁是 Twitch 的深色風格，點主播打開滿版的大面板，看放大的直播預覽。
 - **YouTube**：追蹤頻道的新影片（不含 Shorts），標出有沒有中文字幕。沒有中文字幕的影片可以邊播邊翻：用自己的 AI API Key（Claude、OpenAI 或 Gemini）把韓文字幕翻成中文，翻好的字幕所有人共用、永久保留；別人翻到一半的，要自己按了才會用你的 Key 接著翻。想之後再看的影片可以「保留」，翻譯過的也會自動加入（每人最多 15 部）。
-- **星穹鐵道**：連結自己的 HoYoLAB 帳號，提供即時便箋、角色與遺器、開拓月曆、終局戰績、兌換碼、每日自動簽到與開拓力快滿提醒（非官方介面）。整頁是遊戲風格的星空，角色詳情是放大立繪的大面板。
-- **理財**：自己新增帳戶（存款、投資、信用卡）、用途與收支分類，記下收入、支出與轉帳；總覽有總資產、本月收支、資產與支出的圓餅圖、預算進度與最近 12 個月的趨勢，也能更新餘額、發薪分配、設定每月自動記的固定收支。
+- **星穹鐵道**：連結自己的 HoYoLAB 帳號，提供即時便箋、活動日曆、角色與遺器、開拓月曆、終局戰績、兌換碼（也能每天自動兌換社群整理的新兌換碼）、每日自動簽到，以及開拓力快滿、每日實訓、每週內容與終局挑戰的提醒（非官方介面）。整頁是遊戲風格的星空，帳號名牌有遊戲裡的頭像，角色詳情是放大立繪的大面板。
+- **理財**：自己新增帳戶（存款、投資、信用卡）、用途與收支分類，記下收入、支出與轉帳。總覽是一張清單：總資產、本月收支、待處理、各帳戶、本月支出與預算、最近 12 個月的收支。
+  - 固定收支可以每幾個月一次、遇假日提前或延後，到期在待處理按一下確認（薪水確認時填實際金額再分配到各帳戶），也能設成自動記。
+  - 信用卡照銀行的帳單填，跟紀錄的差額自動補一筆；投資帳戶記持股，市值照證交所與櫃買中心的收盤價自動算。
 - **網站通知**：各模組的通知集中在導覽列的鈴鐺，提示音與瀏覽器通知可以依模組分開開關。
 - **帳號與邀請**：站長在「管理」頁建立有期限、限次數的邀請連結，也可以停用（凍結：不能登入、排程與通知暫停，資料保留）或刪除帳號。每個人的追蹤名單、API Key、HoYoLAB 帳號、理財與通知各自分開，只有 YouTube 翻好的字幕共用。登入與註冊要輸入圖形驗證碼，登入錯太多次會暫時鎖定；可以改密碼、登出或刪除自己的帳號（資料一起刪除）。使用聲明在 `/terms`。
-- **外觀與資料**：導覽列的人像選單可以選淺色、深色或跟隨系統；YouTube 頁照 YouTube 網站的版面。頭像、縮圖這類圖片由瀏覽器直接向各平台載入，即時讀的外部資料（即時便箋、戰績、直播畫面）只放快取、不存進資料庫。
+- **外觀與資料**：導覽列的人像選單可以選淺色、深色或跟隨系統；YouTube 頁照 YouTube 網站的版面。頭像、縮圖這類圖片由瀏覽器直接向各平台載入，即時讀的外部資料（即時便箋、戰績、直播畫面、股價）只放快取、不存進資料庫。
 
 ## 技術
 
-Next.js 16（App Router、Cache Components）、React 19、TypeScript、Tailwind CSS 4、Drizzle ORM 與 PostgreSQL（正式環境用 Supabase，本機用 PGlite）、Vitest。部署在 Vercel Hobby，排程用 Vercel Cron 與 GitHub Actions。
+Next.js 16（App Router、Cache Components）、React 19、TypeScript、Tailwind CSS 4、Drizzle ORM 與 PostgreSQL（正式環境用 Supabase，本機用 PGlite）、Vitest。部署在 Vercel Hobby，排程用 Vercel Cron。
 
 ## 快速開始（本機試用）
 
-只需要 Node.js 24.2 以上，不需要任何雲端帳號：資料庫用 PGlite，Twitch、YouTube、HoYoLAB、AI 都由假伺服器回應。Windows 請在 Git Bash 執行下面的指令（Git for Windows 內建 openssl）。
+只需要 Node.js 24.2 以上，不需要任何雲端帳號：資料庫用 PGlite，Twitch、YouTube、HoYoLAB、AI 與股價都由假伺服器回應。Windows 請在 Git Bash 執行下面的指令（Git for Windows 內建 openssl）。
 
 ```bash
 npm install
@@ -52,7 +54,7 @@ DEV_EXTERNAL_ORIGIN=http://127.0.0.1:4010
 EOF
 
 npm run db:local        # 終端機 1：本機資料庫（資料存在 .pglite/）
-npm run mock:external   # 終端機 2：假的 Twitch／YouTube／HoYoLAB／AI
+npm run mock:external   # 終端機 2：假的 Twitch／YouTube／HoYoLAB／AI／股價
 npm run db:migrate      # 終端機 3：建資料表
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/postgres npm run account create
 npm run dev             # 開 http://localhost:3000，用剛建立的帳號登入
@@ -64,7 +66,7 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 
 ## 部署
 
-- 網站、資料庫、排程都在雲端執行：Vercel（Hobby）、Supabase（免費方案），都在東京；排程用 Vercel Cron 加 GitHub Actions。部署之後電腦不用開著。
+- 網站、資料庫、排程都在雲端執行：Vercel（Hobby）、Supabase（免費方案），都在東京；排程用 Vercel Cron（GitHub Actions 只用來手動補跑）。部署之後電腦不用開著。
 - 正式環境的密鑰只放在 Vercel 的環境變數和 GitHub Secrets，電腦上不保存。
 - 第一次部署的順序（除了建帳號，都在網頁上操作）：
   1. 在 Supabase 建專案，取得兩個連線字串。
@@ -75,7 +77,7 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 - 完整步驟，以及換成自己網域的做法，見 [部署](docs/deploy.md)。
 - 升級前先看 [更新紀錄](CHANGELOG.md)（每一版改了什麼、有沒有 migration）與 [之後的部署](docs/deploy.md#之後的部署)（升級時要注意的事）。
 - 網站不讓搜尋引擎收錄；登入與註冊的次數限制、被攻擊時的處理與兩步驟驗證見 [防機器人與被攻擊時](docs/deploy.md#防機器人與被攻擊時)。
-- **有成員之後不能回滾**到多人化以前的版本（v0.1.0），只能往前修；Vercel 的 Deployment Protection 要保持開啟、Supabase 的 Data API 建議關閉，見 [回滾與部署保護](docs/deploy.md#回滾與部署保護)。
+- **有成員之後不能回滾**到多人化以前的版本（v0.1.0），升級到 v0.1.6 之後也不能回滾到 v0.1.5，只能往前修；Vercel 的 Deployment Protection 要保持開啟、Supabase 的 Data API 建議關閉，見 [回滾與部署保護](docs/deploy.md#回滾與部署保護)。
 
 ## 文件
 
@@ -92,7 +94,8 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 
 - **圖示與字型**：介面圖示來自 [Lucide](https://lucide.dev)（ISC），YouTube、Twitch 標誌來自 [Simple Icons](https://simpleicons.org)（CC0 1.0）；《崩壞：星穹鐵道》的標誌（`public/images/starrail-logo.png`）著作權與商標屬於 HoYoverse（COGNOSPHERE），只用來標示串接的服務，不在本專案的授權範圍內；星穹鐵道頁的元素、命途、屬性圖示（`public/icons/starrail/`）來自社群整理的 [StarRailRes](https://github.com/Mar-7th/StarRailRes)（從遊戲解出的素材），著作權屬於 HoYoverse（COGNOSPHERE），只用在本專案的非商業用途，不在本專案的授權範圍內。詳見 [public/icons/LICENSE.md](public/icons/LICENSE.md)。字型是 [Geist](https://vercel.com/font)、Geist Mono 與 [Rajdhani](https://fonts.google.com/specimen/Rajdhani)（星穹鐵道頁的數字，皆為 SIL Open Font License 1.1）。
 - **商標**：YouTube、Twitch、HoYoLAB、《崩壞：星穹鐵道》、Claude、OpenAI、Gemini 是各自公司的商標，本專案與這些公司沒有關係。
-- **非官方做法**：HoYoLAB 的資料讀取與簽到、YouTube 的字幕讀取、頻道頭像與 Shorts 判斷都不是官方 API，可能失效或違反服務條款，請只用在自己的帳號（見 [模組設定與使用](docs/modules.md)）。
+- **非官方做法**：HoYoLAB 的資料讀取、簽到與兌換，YouTube 的字幕讀取、頻道頭像與 Shorts 判斷都不是官方 API，可能失效或違反服務條款，請只用在自己的帳號（見 [模組設定與使用](docs/modules.md)）。
+- **資料來源**：股價是臺灣證券交易所與證券櫃檯買賣中心 OpenAPI 的每日收盤價；假日照行政院人事行政總處的辦公日曆表（政府資料開放平臺）；自動兌換用的兌換碼清單來自社群整理的 [hoyo-codes](https://github.com/seriaati/hoyo-codes)。
 
 ## 授權
 

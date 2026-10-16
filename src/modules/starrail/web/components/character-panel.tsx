@@ -6,14 +6,15 @@ import { formatTaipeiTime } from "../../lib/responses";
 import type { StarrailAccountView } from "../../service/accounts";
 import { cachedCharacters } from "../../service/cached";
 import { characterAssetUrls } from "../character-assets";
-import { syncCookieFlagAfter } from "../cookie-flag";
 import { CharacterBrowser } from "./character-browser";
 
-/** 角色列表每個帳號快取 30 分鐘 HoYoLAB 失敗時只在這一塊顯示錯誤 */
+/**
+ * 角色列表每個帳號快取 30 分鐘 HoYoLAB 失敗時只在這一塊顯示錯誤
+ * 帳號的 cookie 失效標記只由即時便箋決定 這裡不動
+ */
 export async function CharacterPanel({ account }: { account: StarrailAccountView }) {
   const user = await requireSession();
   const result = await cachedCharacters(user.id, account.id);
-  syncCookieFlagAfter(user.id, account, result.cookieInvalid);
 
   if (!result.ok || result.characters.length === 0) {
     return (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cannotTransfer, entryChoiceReducer, entryStartDate, initialEntryChoice, type EntryChoice } from "./entry-choice";
+import { cannotTransfer, entryChoiceReducer, entryStartDate, initialEntryChoice, transferOptions, type EntryChoice } from "./entry-choice";
 
 const ACCOUNTS = [
   { id: 1, kind: "deposit" as const },
@@ -120,5 +120,31 @@ describe("entryStartDate：日期欄位的下限（帳戶開始記帳之前的�
   it("不知道開始的日期（選項沒帶）_沒有下限，交給伺服器檢查", () => {
     expect(entryStartDate(choice({ accountId: 4 }), DATED)).toBeUndefined();
     expect(entryStartDate(choice({ kind: "transfer", accountId: 4, counterId: 1 }), DATED)).toBe("2026-09-01");
+  });
+});
+
+describe("有持股的投資帳戶不能一般轉帳（伺服器擋下，要用買進或賣出）", () => {
+  const HELD = [{ id: 1, kind: "deposit" as const }, { id: 4, kind: "investment" as const, withHoldings: true }, { id: 2, kind: "deposit" as const }, { id: 6, kind: "investment" as const }];
+  const reduceHeld = entryChoiceReducer(HELD, CATEGORIES);
+
+  it("轉帳的選單不列它；修改舊的轉帳時原本選的留著，儲存時才不會默默換掉", () => {
+    expect(transferOptions(HELD, []).map((account) => account.id)).toEqual([1, 2, 6]);
+    expect(transferOptions(HELD, [4, 2]).map((account) => account.id)).toEqual([1, 4, 2, 6]);
+  });
+
+  it("從它換成轉帳_轉出改成第一個能轉的帳戶，轉入避開同一個", () => {
+    expect(reduceHeld(choice({ accountId: 4, counterId: 1 }), { type: "kind", kind: "transfer" })).toMatchObject({ kind: "transfer", accountId: 1, counterId: 2 });
+    expect(reduceHeld(choice({ accountId: 1, counterId: 4 }), { type: "kind", kind: "transfer" })).toMatchObject({ accountId: 1, counterId: 2 });
+  });
+
+  it("新的紀錄一開始就是轉帳_一樣避開它；收支照樣可以記在它身上", () => {
+    expect(initialEntryChoice({ kind: "transfer", accountId: 4, counterAccountId: 1, categoryId: null }, HELD, true)).toMatchObject({ accountId: 1, counterId: 2 });
+    expect(initialEntryChoice({ kind: "expense", accountId: 4, counterAccountId: 1, categoryId: null }, HELD, true)).toMatchObject({ accountId: 4 });
+  });
+
+  it("能轉的帳戶不到兩個_不能轉帳", () => {
+    const next = entryChoiceReducer([{ id: 1, kind: "deposit" as const }, { id: 4, kind: "investment" as const, withHoldings: true }], CATEGORIES)(choice({ accountId: 1, counterId: 4 }), { type: "kind", kind: "transfer" });
+
+    expect(cannotTransfer(next)).toBe(true);
   });
 });

@@ -8,19 +8,27 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("../service/cached", { spy: true });
 vi.mock("../service/accounts", { spy: true });
 
-const cached = mocksOf(await import("../service/cached"), "cachedDailyNote", "cachedCharacters", "cachedEndgame");
+const cached = mocksOf(await import("../service/cached"), "cachedDailyNote", "cachedCharacters", "cachedEndgame", "cachedLedger", "cachedProfile");
 const accounts = mocksOf(await import("../service/accounts"), "syncCookieInvalid");
 const { after } = await import("next/server");
 const { syncCookieFlagAfter } = await import("./cookie-flag");
 const { DailyNotePanel } = await import("./components/account-card");
 const { CharacterPanel } = await import("./components/character-panel");
 const { EndgamePanel } = await import("./components/endgame-panel");
+const { LedgerPanel } = await import("./components/ledger-panel");
+const { LoadedAccountAvatar } = await import("./components/account-avatar");
 
 const fetchedAt = new Date();
-const account = (cookieInvalid: boolean) => ({ id: 3, uid: "900000003", nickname: "開拓者", region: "prod_official_cht", level: 70, staminaAlertThreshold: null, cookieInvalid });
+const account = (cookieInvalid: boolean) => ({ id: 3, uid: "900000003", nickname: "開拓者", region: "prod_official_cht", level: 70, staminaAlertThreshold: null, cookieInvalid, autoRedeem: false, canAutoRedeem: false, gameReminders: true });
 const failed = (cookieInvalid: boolean) => ({ ok: false as const, message: cookieInvalid ? "HoYoLAB cookie 已失效" : "HoYoLAB 說查詢太頻繁", fetchedAt, cookieInvalid });
 const empty: Endgame = { mode: "chaos", hasData: false, name: null, begin: null, end: null, stars: null, maxFloor: null, battles: null, floors: [] };
 const endgameOk = { ok: true as const, endgame: empty, fetchedAt, cookieInvalid: false as const };
+const ledgerOk = {
+  ok: true as const,
+  ledger: { month: "202610", months: ["202610"], current: { jade: 0, passes: 0 }, today: { jade: null, passes: null }, sources: [] },
+  fetchedAt,
+  cookieInvalid: false as const,
+};
 /** 執行排進 after() 的工作 正式環境要等回應送出後才跑 */
 const runAfter = async () => {
   for (const [task] of vi.mocked(after).mock.calls) await (task as () => Promise<unknown>)();
@@ -32,6 +40,8 @@ beforeEach(() => {
   cached.cachedDailyNote.mockReset().mockResolvedValue(failed(false));
   cached.cachedCharacters.mockReset().mockResolvedValue({ ok: true, characters: [], fetchedAt, cookieInvalid: false });
   cached.cachedEndgame.mockReset().mockResolvedValue(endgameOk);
+  cached.cachedLedger.mockReset().mockResolvedValue(ledgerOk);
+  cached.cachedProfile.mockReset().mockResolvedValue(null);
 });
 
 describe("syncCookieFlagAfter：HoYoLAB 回應的 cookie 狀態寫回帳號的標記", () => {
@@ -63,7 +73,7 @@ describe("syncCookieFlagAfter：HoYoLAB 回應的 cookie 狀態寫回帳號的�
   });
 });
 
-describe("星穹鐵道頁各區塊的 cookie 失效標記", () => {
+describe("帳號的 cookie 失效標記只由即時便箋決定（排程的簽到與開拓力另外寫）", () => {
   it("即時便箋讀到 cookie 失效、帳號還沒標記_回應後標上", async () => {
     cached.cachedDailyNote.mockResolvedValue(failed(true));
 
@@ -73,34 +83,47 @@ describe("星穹鐵道頁各區塊的 cookie 失效標記", () => {
     expect(accounts.syncCookieInvalid).toHaveBeenCalledWith(TEST_SESSION.id, 3, true);
   });
 
-  it("角色資料讀得到、帳號標著失效_回應後清掉（重新連結前就恢復的 cookie）", async () => {
-    await CharacterPanel({ account: account(true) });
+  it("即時便箋讀得到、帳號標著失效_回應後清掉（重新連結前就恢復的 cookie）", async () => {
+    cached.cachedDailyNote.mockResolvedValue({ ok: true, note: {}, expeditions: [], fetchedAt, cookieInvalid: false });
+
+    await DailyNotePanel({ account: account(true) });
     await runAfter();
 
     expect(accounts.syncCookieInvalid).toHaveBeenCalledWith(TEST_SESSION.id, 3, false);
   });
 
-  it("終局戰績有一種讀到 cookie 失效_回應後標上", async () => {
-    cached.cachedEndgame.mockResolvedValueOnce(endgameOk).mockResolvedValueOnce(failed(true));
+  // 各區塊各自設定或清掉的話 標記會在換頁之間來回跳 每跳一次帳號的快取就失效一次
+  // 每一塊各有讀得到與讀不到的回應 遊戲頭像讀不到時只拿到 null
+  const panels = [
+    [
+      "角色",
+      { ok: () => cached.cachedCharacters.mockResolvedValue({ ok: true, characters: [], fetchedAt, cookieInvalid: false }), fail: () => cached.cachedCharacters.mockResolvedValue(failed(true)) },
+      (a: ReturnType<typeof account>) => CharacterPanel({ account: a }),
+    ],
+    ["終局戰績", { ok: () => cached.cachedEndgame.mockResolvedValue(endgameOk), fail: () => cached.cachedEndgame.mockResolvedValue(failed(true)) }, (a: ReturnType<typeof account>) => EndgamePanel({ account: a })],
+    ["開拓月曆", { ok: () => cached.cachedLedger.mockResolvedValue(ledgerOk), fail: () => cached.cachedLedger.mockResolvedValue(failed(true)) }, (a: ReturnType<typeof account>) => LedgerPanel({ account: a })],
+    [
+      "遊戲頭像",
+      { ok: () => cached.cachedProfile.mockResolvedValue("https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/head/201102.png"), fail: () => cached.cachedProfile.mockResolvedValue(null) },
+      (a: ReturnType<typeof account>) => LoadedAccountAvatar({ account: a, size: "md", placeholder: null }),
+    ],
+  ] as const;
 
-    await EndgamePanel({ account: account(false) });
-    await runAfter();
+  it.each(panels)("%s讀到 cookie 失效_只在那一塊說明，不標帳號", async (_name, respond, render) => {
+    respond.fail();
 
-    expect(accounts.syncCookieInvalid).toHaveBeenCalledTimes(1);
-    expect(accounts.syncCookieInvalid).toHaveBeenCalledWith(TEST_SESSION.id, 3, true);
-  });
-
-  it("終局戰績只設不清：全部讀得到也不清掉帳號上的標記（其他戰績讀得到不代表 cookie 沒問題）", async () => {
-    await EndgamePanel({ account: account(true) });
+    await render(account(false));
 
     expect(after).not.toHaveBeenCalled();
+    expect(accounts.syncCookieInvalid).not.toHaveBeenCalled();
   });
 
-  it("終局戰績讀到 cookie 失效、帳號已經標著_不再寫一次", async () => {
-    cached.cachedEndgame.mockResolvedValue(failed(true));
+  it.each(panels)("%s讀得到、帳號標著失效_也不清掉", async (_name, respond, render) => {
+    respond.ok();
 
-    await EndgamePanel({ account: account(true) });
+    await render(account(true));
 
     expect(after).not.toHaveBeenCalled();
+    expect(accounts.syncCookieInvalid).not.toHaveBeenCalled();
   });
 });

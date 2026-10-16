@@ -188,6 +188,17 @@ describe("missingTwitchEnv：列出 Twitch 缺少或格式不對的變數名稱�
     expect(missing).toEqual(["TWITCH_CLIENT_SECRET", "PUBLIC_BASE_URL"]);
     expect(missing.join()).not.toContain("not-a-url");
   });
+
+  it("Client ID、Client Secret 複製時多帶的前後空白或換行_自動去掉，送給 Twitch 的是原本的值", async () => {
+    const env = await loadEnv({ ...TWITCH, TWITCH_CLIENT_ID: ` ${TWITCH.TWITCH_CLIENT_ID}\n`, TWITCH_CLIENT_SECRET: `${TWITCH.TWITCH_CLIENT_SECRET} \r\n` });
+
+    expect(env.missingTwitchEnv()).toEqual([]);
+    expect(env.twitchEnv()).toEqual(TWITCH);
+  });
+
+  it("Client ID 只有空白_當成沒填好列出名稱", async () => {
+    expect((await loadEnv({ ...TWITCH, TWITCH_CLIENT_ID: " \n" })).missingTwitchEnv()).toEqual(["TWITCH_CLIENT_ID"]);
+  });
 });
 
 describe("hasTwitchEnv：只回報 Twitch 設定齊不齊、不丟錯", () => {

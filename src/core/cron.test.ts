@@ -98,16 +98,18 @@ describe("core 自己的排程", () => {
     expect(impostor).not.toHaveBeenCalled();
   });
 
-  it("vercel.json 每天呼叫一次 notifications:cleanup_時段跟其他排程錯開", () => {
+  it("vercel.json 每天呼叫一次 notifications:cleanup_時段跟其他每天一次的排程錯開", () => {
     const { crons } = JSON.parse(readFileSync(new URL("../../vercel.json", import.meta.url), "utf8")) as { crons: { path: string; schedule: string }[] };
-    const cleanup = crons.find((c) => c.path === "/api/cron/notifications:cleanup");
+    // 每小時跑的排程是同一個路徑每個小時各一條 每個小時都有 錯不開
+    const daily = crons.filter((c) => crons.filter((other) => other.path === c.path).length === 1);
+    const cleanup = daily.find((c) => c.path === "/api/cron/notifications:cleanup");
 
     expect(cleanup).toBeDefined();
     const [minute, hour, ...rest] = cleanup!.schedule.split(" ");
     expect([minute, hour].every((v) => /^\d+$/.test(v))).toBe(true);
     expect(rest).toEqual(["*", "*", "*"]);
-    // Hobby 方案只保證在設定的那個小時內觸發 所以要排在沒有其他排程的小時
-    const otherHours = crons.filter((c) => c !== cleanup).map((c) => c.schedule.split(" ")[1]);
+    // Hobby 方案只保證在設定的那個小時內觸發 所以要排在沒有其他每天一次排程的小時
+    const otherHours = daily.filter((c) => c !== cleanup).map((c) => c.schedule.split(" ")[1]);
     expect(otherHours).not.toContain(hour);
   });
 });

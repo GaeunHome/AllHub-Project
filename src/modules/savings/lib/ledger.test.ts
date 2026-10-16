@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   accountBalances,
   accountStartDate,
-  assetSlices,
   assetSummary,
   balanceAdjustment,
   balanceFromFigure,
@@ -12,19 +11,15 @@ import {
   earliestFlowMonth,
   expenseSlices,
   monthTotals,
-  negativeAccounts,
-  roundedPercent,
   shownFigure,
   suggestAllocation,
   targetProgress,
-  trendSeries,
   type AccountBalance,
   type AccountLike,
   type AccountMonthFlow,
   type AllocationAccount,
   type CategoryLike,
   type CategoryMonthTotal,
-  type PurposeLike,
   type Slice,
 } from "./ledger";
 
@@ -68,7 +63,7 @@ const balancesOf = (entries: [number, number][]) => new Map(entries.map(([id, ba
 /** 浮點數相加會有誤差 百分比先換成千分之幾的整數再加總 畫面只顯示到小數一位 */
 const tenthsTotal = (slices: Slice[]) => slices.reduce((total, slice) => total + Math.round(slice.percent * 10), 0);
 
-describe("bySortOrder 與 roundedPercent（共用的小工具）", () => {
+describe("bySortOrder（共用的小工具）", () => {
   it("照排序值、同排序值再照 id_任何有這兩個欄位的資料都能用", () => {
     const rows = [
       { id: 3, sortOrder: 1, label: "c" },
@@ -77,13 +72,6 @@ describe("bySortOrder 與 roundedPercent（共用的小工具）", () => {
     ];
 
     expect([...rows].sort(bySortOrder).map((row) => row.id)).toEqual([2, 1, 3]);
-  });
-
-  it("百分比四捨五入到小數一位_先乘再除，0.57 這類數字不會差一點", () => {
-    expect(roundedPercent(1, 3)).toBe(33.3);
-    expect(roundedPercent(2, 3)).toBe(66.7);
-    expect(roundedPercent(57, 100)).toBe(57);
-    expect(roundedPercent(1, 1)).toBe(100);
   });
 });
 
@@ -171,45 +159,6 @@ describe("accountBalances（餘額＝起始＋收入−支出−轉出＋轉入�
     expect(accountBalances([card], [flow(5, "2026-02", { transferIn: 100 })]).get(5)).toMatchObject({ balance: 100, owed: 0 });
   });
 
-  it("指定月份_只算到那個月底_起始餘額從建立的月份（台北時間）才算；建立前的月份一律是 0，建立前補記的舊紀錄從建立的月份起算", () => {
-    // UTC 2/28 16:30 是台北 3/1 00:30
-    const deposit = account({ id: 6, openingBalance: 1000, createdAt: new Date("2026-02-28T16:30:00Z") });
-    const flows = [flow(6, "2026-02", { expense: 200 }), flow(6, "2026-04", { income: 500 })];
-
-    expect(accountBalances([deposit], flows, "2026-01").get(6)?.balance).toBe(0);
-    expect(accountBalances([deposit], flows, "2026-02").get(6)?.balance).toBe(0);
-    expect(accountBalances([deposit], flows, "2026-03").get(6)?.balance).toBe(800);
-    expect(accountBalances([deposit], flows, "2026-04").get(6)?.balance).toBe(1300);
-    expect(accountBalances([deposit], flows).get(6)?.balance).toBe(1300);
-  });
-
-  it("10/14 建立、起始餘額 52,000 的帳戶有一筆 9/20 的舊紀錄（現在不能再記）_9 月的餘額與總資產是 0、不是負的；10 月起照算", () => {
-    const cathay = account({ id: 41, name: "國泰", openingBalance: 52_000, createdAt: createdOn("2026-10-14") });
-    const card = account({ id: 42, kind: "credit", openingBalance: -2000, createdAt: createdOn("2026-10-14") });
-    const broker = account({ id: 43, kind: "investment", openingBalance: 80_000, openingCost: 75_000, createdAt: createdOn("2026-10-14") });
-    const flows = [flow(41, "2026-09", { expense: 350, transferOut: 1000 }), flow(42, "2026-09", { expense: 1000 }), flow(43, "2026-09", { transferIn: 1000 })];
-    const september = accountBalances([cathay, card, broker], flows, "2026-09");
-
-    expect(september.get(41)).toEqual({ balance: 0, cost: null, profit: null, owed: null });
-    expect(september.get(42)).toEqual({ balance: 0, cost: null, profit: null, owed: 0 });
-    expect(september.get(43)).toEqual({ balance: 0, cost: 0, profit: 0, owed: null });
-    expect(assetSummary([cathay, card, broker], september, "all")).toEqual({ assets: 0, owed: 0, investmentProfit: 0 });
-    expect(negativeAccounts([cathay, card, broker], september, "all")).toEqual([]);
-
-    const october = accountBalances([cathay, card, broker], flows, "2026-10");
-    expect(october.get(41)?.balance).toBe(50_650);
-    expect(october.get(42)).toMatchObject({ balance: -3000, owed: 3000 });
-    expect(october.get(43)).toEqual({ balance: 81_000, cost: 76_000, profit: 5000, owed: null });
-  });
-
-  it("指定月份的投資成本_起始成本與轉入轉出也只算到那個月", () => {
-    const investment = account({ id: 7, kind: "investment", openingBalance: 100, openingCost: 90, createdAt: createdOn("2026-03-01") });
-    const flows = [flow(7, "2026-03", { transferIn: 10 }), flow(7, "2026-05", { transferIn: 1000 })];
-
-    expect(accountBalances([investment], flows, "2026-02").get(7)).toEqual({ balance: 0, cost: 0, profit: 0, owed: null });
-    expect(accountBalances([investment], flows, "2026-04").get(7)).toEqual({ balance: 110, cost: 100, profit: 10, owed: null });
-  });
-
   it("每個帳戶都有一筆（沒有紀錄的是起始餘額）_清單外的帳戶的紀錄略過", () => {
     const balances = accountBalances([account({ id: 8, openingBalance: 300 }), account({ id: 9, active: false })], [flow(99, "2026-02", { income: 1 })]);
 
@@ -265,39 +214,17 @@ describe("assetSummary（總資產與信用卡未繳）", () => {
   it("什麼都沒有_全部是 0", () => {
     expect(assetSummary([], new Map())).toEqual({ assets: 0, owed: 0, investmentProfit: 0 });
   });
-});
 
-describe("negativeAccounts（餘額是負的存款與投資：資產圓餅圖只畫正的，負的另外寫出來）", () => {
-  const accounts = [
-    account({ id: 1, name: "透支", sortOrder: 2 }),
-    account({ id: 2, name: "國泰", sortOrder: 0 }),
-    account({ id: 3, name: "證券", kind: "investment", sortOrder: 1 }),
-    account({ id: 4, name: "信用卡", kind: "credit", sortOrder: 3 }),
-    account({ id: 5, name: "舊帳戶", active: false, sortOrder: 4 }),
-    account({ id: 6, name: "剛好 0", sortOrder: 5 }),
-  ];
-  const balances = balancesOf([
-    [1, -300],
-    [2, 5000],
-    [3, -20],
-    [4, -999],
-    [5, -50],
-    [6, 0],
-  ]);
-
-  it("只列啟用中、餘額小於 0 的存款與投資_照帳戶的順序_信用卡的欠款不算", () => {
-    expect(negativeAccounts(accounts, balances)).toEqual([
-      { accountId: 3, name: "證券", balance: -20 },
-      { accountId: 1, name: "透支", balance: -300 },
+  it("有持股的投資帳戶用持股的市值與賺賠，不看帳上的餘額；沒有持股的照帳上的餘額（更新市值填的數字）", () => {
+    const accounts = [account({ id: 1 }), account({ id: 2, kind: "investment" }), account({ id: 3, kind: "investment" })];
+    const balances = new Map<number, AccountBalance>([
+      [1, balanceOf(108_450)],
+      [2, balanceOf(11_868, { cost: 11_868, profit: 0 })],
+      [3, balanceOf(20_000, { cost: 18_000, profit: 2000 })],
     ]);
-  });
+    const holdings = new Map([[2, { value: 53_644, cost: 47_400, profit: 6244 }]]);
 
-  it("all（過去的月份）_停用的也列出", () => {
-    expect(negativeAccounts(accounts, balances, "all").map((row) => row.accountId)).toEqual([3, 1, 5]);
-  });
-
-  it("沒有負的_空清單；餘額不在清單裡的帳戶當成 0", () => {
-    expect(negativeAccounts([account({ id: 7 })], new Map())).toEqual([]);
+    expect(assetSummary(accounts, balances, "active", holdings)).toEqual({ assets: 108_450 + 53_644 + 20_000, owed: 0, investmentProfit: 6244 + 2000 });
   });
 });
 
@@ -332,12 +259,12 @@ const categories: CategoryLike[] = [
   { id: 4, name: "訂閱", kind: "expense", color: "violet", monthlyBudget: 500 },
 ];
 
-describe("expenseSlices（支出圓餅圖）", () => {
-  it("由大到小_未分類與找不到的分類合成灰色的「未分類」_沒花錢的分類不列_收入不算", () => {
+describe("expenseSlices（本月支出照分類，百分比是佔本月支出的比例）", () => {
+  it("由大到小_未分類與找不到的分類合成一列「未分類」_沒花錢的分類不列_收入不算", () => {
     expect(expenseSlices(categories, totals, "2026-10")).toEqual([
-      { key: "category:2", label: "餐飲", color: "orange", amount: 1200, percent: 60 },
-      { key: "uncategorized", label: "未分類", color: "slate", amount: 500, percent: 25 },
-      { key: "category:3", label: "交通", color: "blue", amount: 300, percent: 15 },
+      { key: "category:2", label: "餐飲", amount: 1200, percent: 60 },
+      { key: "uncategorized", label: "未分類", amount: 500, percent: 25 },
+      { key: "category:3", label: "交通", amount: 300, percent: 15 },
     ]);
   });
 
@@ -385,105 +312,6 @@ describe("expenseSlices（支出圓餅圖）", () => {
   });
 });
 
-describe("assetSlices（資產圓餅圖）", () => {
-  const purposes: PurposeLike[] = [
-    { id: 1, name: "生活費", color: "blue" },
-    { id: 2, name: "緊急預備金", color: "amber" },
-    { id: 3, name: "投資", color: "violet" },
-    { id: 4, name: "旅遊", color: "teal" },
-  ];
-  const accounts = [
-    account({ id: 11, name: "國泰", purposeId: 1, sortOrder: 0 }),
-    account({ id: 12, name: "郵局", purposeId: 2, sortOrder: 1 }),
-    account({ id: 13, name: "證券", kind: "investment", purposeId: 3, sortOrder: 2 }),
-    account({ id: 14, name: "零錢", purposeId: null, sortOrder: 3 }),
-    account({ id: 15, name: "台新", purposeId: 1, sortOrder: 4 }),
-    account({ id: 16, name: "信用卡", kind: "credit", purposeId: 1, sortOrder: 5 }),
-    account({ id: 17, name: "舊帳戶", purposeId: 2, active: false, sortOrder: 6 }),
-    account({ id: 18, name: "外幣", purposeId: 99, sortOrder: 7 }),
-    account({ id: 19, name: "透支", purposeId: 1, sortOrder: 8 }),
-  ];
-  const balances = balancesOf([
-    [11, 30_000],
-    [12, 50_000],
-    [13, 20_000],
-    [14, 0],
-    [15, 10_000],
-    [16, 5000],
-    [17, 7000],
-    [18, 5000],
-    [19, -100],
-  ]);
-
-  it("依用途_照用途的順序、同用途加總_沒設定或找不到用途的是灰色的「未設定用途」排最後_只算啟用中、餘額大於 0 的存款與投資", () => {
-    expect(assetSlices("purpose", accounts, purposes, balances)).toEqual([
-      { key: "purpose:1", label: "生活費", color: "blue", amount: 40_000, percent: 34.8 },
-      { key: "purpose:2", label: "緊急預備金", color: "amber", amount: 50_000, percent: 43.5 },
-      { key: "purpose:3", label: "投資", color: "violet", amount: 20_000, percent: 17.4 },
-      { key: "purpose:none", label: "未設定用途", color: "slate", amount: 5000, percent: 4.3 },
-    ]);
-  });
-
-  it("依帳戶_照帳戶的順序_顏色輪替可以選的顏色，用途沒用到的顏色先用（切換分組時不會跟用途的顏色搞混）", () => {
-    // 用途用了藍 黃 紫 青 先輪沒用到的綠 橘 紅 再照色盤的順序輪用到的
-    expect(assetSlices("account", accounts, purposes, balances)).toEqual([
-      { key: "account:11", label: "國泰", color: "green", amount: 30_000, percent: 26.1 },
-      { key: "account:12", label: "郵局", color: "orange", amount: 50_000, percent: 43.5 },
-      { key: "account:13", label: "證券", color: "rose", amount: 20_000, percent: 17.4 },
-      { key: "account:15", label: "台新", color: "blue", amount: 10_000, percent: 8.7 },
-      { key: "account:18", label: "外幣", color: "teal", amount: 5000, percent: 4.3 },
-    ]);
-  });
-
-  it("帳戶比可以選的 7 種顏色還多_從頭輪替；灰色留給「未設定用途」，依帳戶時不用", () => {
-    const many = Array.from({ length: 9 }, (_, i) => account({ id: 100 + i, sortOrder: i }));
-    const slices = assetSlices("account", many, [], balancesOf(many.map((a) => [a.id, 100])));
-
-    expect(slices.map((s) => s.color)).toEqual(["blue", "teal", "green", "amber", "orange", "rose", "violet", "blue", "teal"]);
-  });
-
-  it("傳進來的順序不對_仍照設定的順序排", () => {
-    const shuffled = [account({ id: 31, sortOrder: 2 }), account({ id: 32, sortOrder: 0 }), account({ id: 33, sortOrder: 1 })];
-
-    expect(assetSlices("account", shuffled, [], balancesOf([[31, 1], [32, 1], [33, 1]])).map((s) => s.key)).toEqual(["account:32", "account:33", "account:31"]);
-  });
-
-  it("沒有資產_沒有任何一片", () => {
-    expect(assetSlices("purpose", [account({ id: 41 })], purposes, balancesOf([[41, 0]]))).toEqual([]);
-  });
-
-  it("三個一樣大的帳戶_百分比合計剛好 100（33.4＋33.3＋33.3）", () => {
-    const three = [account({ id: 51, sortOrder: 0 }), account({ id: 52, sortOrder: 1 }), account({ id: 53, sortOrder: 2 })];
-    const slices = assetSlices("account", three, [], balancesOf(three.map((a) => [a.id, 1000])));
-
-    expect(slices.map((s) => s.percent)).toEqual([33.4, 33.3, 33.3]);
-    expect(tenthsTotal(slices)).toBe(1000);
-  });
-
-  it("六個用途一樣大_百分比合計剛好 100", () => {
-    const six: PurposeLike[] = Array.from({ length: 6 }, (_, i) => ({ id: 60 + i, name: `用途${i}`, color: "blue" }));
-    const holders = six.map((purpose, i) => account({ id: 70 + i, purposeId: purpose.id, sortOrder: i }));
-    const slices = assetSlices("purpose", holders, six, balancesOf(holders.map((a) => [a.id, 700])));
-
-    expect(slices.map((s) => s.percent)).toEqual([16.7, 16.7, 16.7, 16.7, 16.6, 16.6]);
-    expect(tenthsTotal(slices)).toBe(1000);
-  });
-
-  it("all（過去的月份）_停用的帳戶也畫進去；預設只畫啟用中的", () => {
-    const withClosed = [account({ id: 81, name: "國泰", sortOrder: 0 }), account({ id: 82, name: "舊帳戶", active: false, sortOrder: 1 })];
-    const balances = balancesOf([
-      [81, 300],
-      [82, 100],
-    ]);
-
-    expect(assetSlices("account", withClosed, [], balances, "all").map((s) => [s.label, s.amount, s.percent])).toEqual([
-      ["國泰", 300, 75],
-      ["舊帳戶", 100, 25],
-    ]);
-    expect(assetSlices("account", withClosed, [], balances).map((s) => s.label)).toEqual(["國泰"]);
-  });
-});
-
 describe("budgetRows（每月預算）", () => {
   const budgeted: CategoryLike[] = [
     ...categories,
@@ -498,113 +326,27 @@ describe("budgetRows（每月預算）", () => {
     { categoryId: 2, kind: "expense", month: "2026-09", amount: 99_999 },
   ];
 
-  it("只列有預算的支出分類_照分類的順序_80% 起是 warning、超過是 over_還剩可以是負的", () => {
+  it("只列有預算的支出分類_照分類的順序_還沒花的也列_超支時百分比超過 100", () => {
     expect(budgetRows(budgeted, spent, "2026-10")).toEqual([
-      { categoryId: 2, name: "餐飲", color: "orange", budget: 6000, spent: 4500, remaining: 1500, percent: 75, status: "ok" },
-      { categoryId: 3, name: "交通", color: "blue", budget: 2000, spent: 1600, remaining: 400, percent: 80, status: "warning" },
-      { categoryId: 4, name: "訂閱", color: "violet", budget: 500, spent: 600, remaining: -100, percent: 120, status: "over" },
-      { categoryId: 6, name: "保險", color: "teal", budget: 3000, spent: 0, remaining: 3000, percent: 0, status: "ok" },
+      { categoryId: 2, name: "餐飲", budget: 6000, spent: 4500, percent: 75 },
+      { categoryId: 3, name: "交通", budget: 2000, spent: 1600, percent: 80 },
+      { categoryId: 4, name: "訂閱", budget: 500, spent: 600, percent: 120 },
+      { categoryId: 6, name: "保險", budget: 3000, spent: 0, percent: 0 },
     ]);
   });
 
-  it("剛好花完是 warning_多 1 元才是 over", () => {
+  it("剛好花完是 100%_多 1 元是 100.1%", () => {
     const one: CategoryLike[] = [{ id: 7, name: "書", kind: "expense", color: "blue", monthlyBudget: 1000 }];
     const at = (amount: number) => budgetRows(one, [{ categoryId: 7, kind: "expense", month: "2026-10", amount }], "2026-10")[0];
 
-    expect(at(1000)).toMatchObject({ percent: 100, status: "warning" });
-    expect(at(1001)).toMatchObject({ percent: 100.1, status: "over" });
+    expect(at(1000)).toMatchObject({ percent: 100 });
+    expect(at(1001)).toMatchObject({ percent: 100.1 });
   });
 
-  it("還沒到 80% 的百分比不會進位成 80（顯示的數字跟顏色一致）", () => {
+  it("百分比無條件捨去：7,999／10,000 是 79.9 不會進位成 80", () => {
     const one: CategoryLike[] = [{ id: 8, name: "書", kind: "expense", color: "blue", monthlyBudget: 10_000 }];
 
-    expect(budgetRows(one, [{ categoryId: 8, kind: "expense", month: "2026-10", amount: 7999 }], "2026-10")[0]).toMatchObject({ percent: 79.9, status: "ok" });
-  });
-});
-
-describe("trendSeries（最近 12 個月的收入、支出與總資產）", () => {
-  const accounts = [
-    account({ id: 1, openingBalance: 10_000, createdAt: createdOn("2026-03-05") }),
-    account({ id: 2, kind: "investment", openingBalance: 50_000, createdAt: createdOn("2026-05-10") }),
-    account({ id: 3, kind: "credit", openingBalance: -2000, createdAt: createdOn("2026-03-05") }),
-    account({ id: 4, openingBalance: 7000, active: false, createdAt: createdOn("2026-03-05") }),
-  ];
-  const flows = [
-    flow(1, "2026-03", { income: 40_000, expense: 5000 }),
-    flow(3, "2026-04", { expense: 1000 }),
-    flow(1, "2026-05", { transferOut: 10_000 }),
-    flow(2, "2026-05", { transferIn: 10_000 }),
-  ];
-  const monthly: CategoryMonthTotal[] = [
-    { categoryId: 1, kind: "income", month: "2026-03", amount: 40_000 },
-    { categoryId: 2, kind: "expense", month: "2026-03", amount: 5000 },
-    { categoryId: null, kind: "expense", month: "2026-04", amount: 1000 },
-  ];
-
-  it("從最早有資料的月份開始_資產是每個月底的存款與投資（過去的月份連停用的帳戶也算，本月只算啟用中的）_還沒建立的帳戶不算起始餘額", () => {
-    expect(trendSeries(accounts, flows, monthly, "2026-06")).toEqual([
-      { month: "2026-03", income: 40_000, expense: 5000, assets: 52_000 },
-      { month: "2026-04", income: 0, expense: 1000, assets: 52_000 },
-      { month: "2026-05", income: 0, expense: 0, assets: 102_000 },
-      { month: "2026-06", income: 0, expense: 0, assets: 95_000 },
-    ]);
-  });
-
-  it("資料超過 12 個月_只取到 end 為止的最近 12 個月", () => {
-    const series = trendSeries(accounts, flows, monthly, "2027-12");
-
-    expect(series.map((p) => p.month)).toEqual(["2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06", "2027-07", "2027-08", "2027-09", "2027-10", "2027-11", "2027-12"]);
-    expect(series.slice(0, -1).every((p) => p.assets === 102_000)).toBe(true);
-    expect(series.at(-1)?.assets).toBe(95_000);
-  });
-
-  it("帳戶的錢在 5 月轉走、6 月停用_每個月的資產都一樣（停用前的月份照算，不會像突然多出一筆錢）", () => {
-    const old = account({ id: 31, name: "舊帳戶", openingBalance: 100_000, active: false, createdAt: createdOn("2026-01-10") });
-    const kept = account({ id: 32, name: "郵局", createdAt: createdOn("2026-01-10") });
-    const moved = [flow(31, "2026-05", { transferOut: 100_000 }), flow(32, "2026-05", { transferIn: 100_000 })];
-
-    expect(trendSeries([old, kept], moved, [], "2026-06").map((p) => [p.month, p.assets])).toEqual([
-      ["2026-01", 100_000],
-      ["2026-02", 100_000],
-      ["2026-03", 100_000],
-      ["2026-04", 100_000],
-      ["2026-05", 100_000],
-      ["2026-06", 100_000],
-    ]);
-  });
-
-  it("current 是這個月：看過去的月份時，end 之前與 end 都是過去，全部連停用的也算；current 之後（含）只算啟用中的", () => {
-    expect(trendSeries(accounts, flows, monthly, "2026-05", 12, "2026-10").map((p) => p.assets)).toEqual([52_000, 52_000, 102_000]);
-    expect(trendSeries(accounts, flows, monthly, "2026-06", 12, "2026-05").map((p) => p.assets)).toEqual([52_000, 52_000, 95_000, 95_000]);
-  });
-
-  it("可以指定月數", () => {
-    expect(trendSeries(accounts, flows, monthly, "2026-06", 2).map((p) => p.month)).toEqual(["2026-05", "2026-06"]);
-  });
-
-  it("紀錄比帳戶建立還早（現在不能再記的舊資料）_從最早的紀錄開始，建立前的月份資產是 0、不會是負的", () => {
-    const backdated = [flow(1, "2026-01", { expense: 100 })];
-
-    expect(trendSeries([accounts[0]], backdated, [], "2026-03")).toEqual([
-      { month: "2026-01", income: 0, expense: 0, assets: 0 },
-      { month: "2026-02", income: 0, expense: 0, assets: 0 },
-      { month: "2026-03", income: 0, expense: 0, assets: 9900 },
-    ]);
-  });
-
-  it("10/14 建立、起始餘額 52,000 的帳戶有一筆 9/20 的支出（舊資料）_9 月照樣算進支出，總資產是 0 不是 -350", () => {
-    const cathay = account({ id: 41, openingBalance: 52_000, createdAt: createdOn("2026-10-14") });
-    const expense: CategoryMonthTotal[] = [{ categoryId: null, kind: "expense", month: "2026-09", amount: 350 }];
-
-    expect(trendSeries([cathay], [flow(41, "2026-09", { expense: 350 })], expense, "2026-10")).toEqual([
-      { month: "2026-09", income: 0, expense: 350, assets: 0 },
-      { month: "2026-10", income: 0, expense: 0, assets: 51_650 },
-    ]);
-  });
-
-  it("看的月份比所有資料都早、或什麼都沒有_是空的", () => {
-    expect(trendSeries(accounts, flows, monthly, "2026-02")).toEqual([]);
-    expect(trendSeries([], [], [], "2026-10")).toEqual([]);
+    expect(budgetRows(one, [{ categoryId: 8, kind: "expense", month: "2026-10", amount: 7999 }], "2026-10")[0]).toMatchObject({ percent: 79.9 });
   });
 });
 
@@ -631,7 +373,7 @@ describe("targetProgress（目標金額）", () => {
   });
 });
 
-describe("creditCardStatuses（信用卡）", () => {
+describe("creditCardStatuses（扣款帳戶繳完卡費還剩多少）", () => {
   const accounts = [
     account({ id: 1, name: "國泰", sortOrder: 0 }),
     account({ id: 2, kind: "credit", dueDay: 6, payFromAccountId: 1, sortOrder: 2 }),
@@ -647,38 +389,18 @@ describe("creditCardStatuses（信用卡）", () => {
     [5, balanceOf(-999, { owed: 999 })],
   ]);
 
-  it("啟用中的卡照順序_下次繳款日_扣款帳戶繳完所有從它扣款的卡後還剩多少_不夠就是 short", () => {
-    expect(creditCardStatuses(accounts, balances, "2026-10-14")).toEqual([
-      { accountId: 3, owed: 2500, dueDay: 25, nextDueDate: "2026-10-25", payFromAccountId: 1, payFromRemaining: -500, short: true },
-      { accountId: 2, owed: 3000, dueDay: 6, nextDueDate: "2026-11-06", payFromAccountId: 1, payFromRemaining: -500, short: true },
-      { accountId: 4, owed: 0, dueDay: null, nextDueDate: null, payFromAccountId: null, payFromRemaining: null, short: false },
+  it("啟用中的卡照順序_扣款帳戶繳完所有從它扣款的卡後還剩多少（5,000 − 3,000 − 2,500）_不夠就是 short", () => {
+    expect(creditCardStatuses(accounts, balances)).toEqual([
+      { accountId: 3, payFromRemaining: -500, short: true },
+      { accountId: 2, payFromRemaining: -500, short: true },
+      { accountId: 4, payFromRemaining: null, short: false },
     ]);
   });
 
   it("扣款帳戶夠扣_不是 short", () => {
     const enough = new Map(balances).set(1, balanceOf(10_000));
 
-    expect(creditCardStatuses(accounts, enough, "2026-10-14")[0]).toMatchObject({ payFromRemaining: 4500, short: false });
-  });
-
-  it("今天就是繳款日_下次繳款日是今天", () => {
-    expect(creditCardStatuses(accounts, balances, "2026-10-06").find((s) => s.accountId === 2)?.nextDueDate).toBe("2026-10-06");
-  });
-
-  it("繳款日是 31 日_小月與 2 月算月底", () => {
-    const card = account({ id: 6, kind: "credit", dueDay: 31 });
-    const of = (today: string) => creditCardStatuses([card], new Map([[6, balanceOf(0, { owed: 0 })]]), today)[0].nextDueDate;
-
-    expect(of("2026-11-14")).toBe("2026-11-30");
-    expect(of("2026-12-31")).toBe("2026-12-31");
-    expect(of("2027-02-01")).toBe("2027-02-28");
-    expect(of("2028-02-01")).toBe("2028-02-29");
-  });
-
-  it("繳款日過了_下個月；跨年也對", () => {
-    const card = account({ id: 7, kind: "credit", dueDay: 10 });
-
-    expect(creditCardStatuses([card], new Map(), "2026-12-11")[0]).toMatchObject({ owed: 0, nextDueDate: "2027-01-10" });
+    expect(creditCardStatuses(accounts, enough)[0]).toEqual({ accountId: 3, payFromRemaining: 4500, short: false });
   });
 
   it("停用的卡還有未繳_不列出，也不算進扣款帳戶要繳的（停用的帳戶不算進總覽）", () => {
@@ -691,24 +413,32 @@ describe("creditCardStatuses（信用卡）", () => {
       [13, balanceOf(-600, { owed: 600 })],
     ]);
 
-    expect(creditCardStatuses([deposit, closedCard, card], owing, "2026-10-14")).toEqual([
-      { accountId: 13, owed: 600, dueDay: 6, nextDueDate: "2026-11-06", payFromAccountId: 11, payFromRemaining: 400, short: false },
-    ]);
+    expect(creditCardStatuses([deposit, closedCard, card], owing)).toEqual([{ accountId: 13, payFromRemaining: 400, short: false }]);
   });
 
-  it("扣款帳戶不在餘額清單裡_繳完剩多少是 null、不算不夠扣；卡自己的未繳照算", () => {
+  it("扣款帳戶不在餘額清單裡_繳完剩多少是 null、不算不夠扣", () => {
     const card = account({ id: 14, kind: "credit", dueDay: 6, payFromAccountId: 99 });
 
-    expect(creditCardStatuses([card], new Map([[14, balanceOf(-800, { owed: 800 })]]), "2026-10-14")).toEqual([
-      { accountId: 14, owed: 800, dueDay: 6, nextDueDate: "2026-11-06", payFromAccountId: 99, payFromRemaining: null, short: false },
-    ]);
+    expect(creditCardStatuses([card], new Map([[14, balanceOf(-800, { owed: 800 })]]))).toEqual([{ accountId: 14, payFromRemaining: null, short: false }]);
   });
 
   it("溢繳的卡（餘額是正的）_未繳是 0，不會讓扣款帳戶多出錢", () => {
     const deposit = account({ id: 15 });
     const overpaid = account({ id: 16, kind: "credit", payFromAccountId: 15 });
 
-    expect(creditCardStatuses([deposit, overpaid], balancesOf([[15, 1000], [16, 300]]), "2026-10-14")[0]).toMatchObject({ owed: 0, payFromRemaining: 1000, short: false });
+    expect(creditCardStatuses([deposit, overpaid], balancesOf([[15, 1000], [16, 300]]))[0]).toEqual({ accountId: 16, payFromRemaining: 1000, short: false });
+  });
+
+  it("有帳單時用本期還要繳的算扣款帳戶夠不夠（結帳後刷的下期才繳）：7,000 − 6,340", () => {
+    const deposit = account({ id: 21 });
+    const card = account({ id: 22, kind: "credit", dueDay: 20, payFromAccountId: 21 });
+    const balances = new Map<number, AccountBalance>([
+      [21, balanceOf(7000)],
+      [22, balanceOf(-12_250, { owed: 12_250 })],
+    ]);
+
+    expect(creditCardStatuses([deposit, card], balances, new Map([[22, { remainingDue: 6340 }]]))).toEqual([{ accountId: 22, payFromRemaining: 660, short: false }]);
+    expect(creditCardStatuses([deposit, card], balances)[0]).toEqual({ accountId: 22, payFromRemaining: -5250, short: true });
   });
 });
 
@@ -758,6 +488,10 @@ describe("suggestAllocation（發薪分配的建議）", () => {
     const shuffled = [account({ id: 21, monthlyPlan: 1, sortOrder: 2 }), account({ id: 22, monthlyPlan: 1, sortOrder: 0 })];
 
     expect(suggestAllocation(shuffled, new Map(), 99, 10).lines.map((line) => line.accountId)).toEqual([22, 21]);
+  });
+
+  it("有持股的投資帳戶不分配（市值照股價算，一般轉帳轉進去會從總資產消失）", () => {
+    expect(suggestAllocation(accounts, balances, 1, 43_000, new Set([4])).lines.map((line) => line.accountId)).toEqual([2, 3, 8, 9]);
   });
 
   it("只需要分配用得到的欄位（瀏覽器的選項不必湊齊整個帳戶）", () => {

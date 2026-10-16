@@ -3,7 +3,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
-import { savingsAccounts, savingsCategories, savingsRecurring, savingsTransactions } from "../data/schema";
+import { savingsAccounts, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions } from "../data/schema";
 import { SavingsUserError } from "./errors";
 import {
   accountMonthFlows,
@@ -440,7 +440,7 @@ describe("updateBalance（更新餘額）", () => {
     await insertTransaction({ kind: "expense", accountId: cathay.id, amount: 1200, date: "2026-10-02" });
     await insertTransaction({ kind: "transfer", accountId: cathay.id, counterAccountId: post.id, amount: 2000, date: "2026-10-03" });
     await insertTransaction({ kind: "transfer", accountId: post.id, counterAccountId: cathay.id, amount: 500, date: "2026-10-04" });
-    // 起始 10,000 + 收入 5,000 - 支出 1,200 - 轉出 2,000 + 轉入 500 = 12,300
+    // 起始 10,000 加收入 5,000 減支出 1,200 減轉出 2,000 加轉入 500 是 12,300
     return cathay;
   }
 
@@ -467,48 +467,29 @@ describe("updateBalance（更新餘額）", () => {
     expect((await updateBalance(me, { accountId: String(cathay.id), actual: "12000" }, NOW)).delta).toBe(0);
   });
 
-  it("信用卡_輸入目前未繳（餘額是負的）", async () => {
+  it("信用卡不能更新餘額（刷卡記一筆、繳款用繳卡費）_不寫入", async () => {
     const card = await insertAccount({ name: "卡", kind: "credit", openingBalance: -3500 });
-    const cathay = await insertAccount({ name: "國泰" });
-    await insertTransaction({ kind: "expense", accountId: card.id, amount: 1000, date: "2026-10-02" });
-    await insertTransaction({ kind: "transfer", accountId: cathay.id, counterAccountId: card.id, amount: 3500, date: "2026-10-06" });
 
-    // 記錄的未繳是 1,000 銀行說 1,800 再欠 800
-    expect((await updateBalance(me, { accountId: String(card.id), actual: "1,800" }, NOW)).delta).toBe(-800);
-    // 全部繳清
-    expect((await updateBalance(me, { accountId: String(card.id), actual: "0" }, NOW)).delta).toBe(1800);
-  });
-
-  it("信用卡溢繳_目前未繳輸入負數；溢繳的卡輸入 0_記一筆調整讓餘額回到 0", async () => {
-    const card = await insertAccount({ name: "卡", kind: "credit", openingBalance: -1000 });
-
-    // 欠 1,000 變成溢繳 200 餘額從 -1,000 變 200
-    expect((await updateBalance(me, { accountId: String(card.id), actual: "-200" }, NOW)).delta).toBe(1200);
-    // 溢繳 200 變成 0 餘額從 200 回到 0
-    expect((await updateBalance(me, { accountId: String(card.id), actual: "0" }, NOW)).delta).toBe(-200);
-    expect((await updateBalance(me, { accountId: String(card.id), actual: "0" }, NOW)).delta).toBe(0);
-    expect((await allRows()).map((t) => [t.kind, t.amount])).toEqual([
-      ["adjust", 1200],
-      ["adjust", -200],
-    ]);
-  });
-
-  it("信用卡溢繳已經記好（起始餘額是正的）_輸入一樣的負數沒有差額", async () => {
-    const card = await insertAccount({ name: "卡", kind: "credit", openingBalance: 300 });
-
-    expect((await updateBalance(me, { accountId: String(card.id), actual: "-300" }, NOW)).delta).toBe(0);
+    expect(await userError(updateBalance(me, { accountId: String(card.id), actual: "1,800" }, NOW))).toContain("信用卡");
     expect(await allRows()).toEqual([]);
   });
 
-  it("信用卡的金額錯誤_說明溢繳要輸入負數；存款與投資不能輸入負數_都不寫入", async () => {
-    const card = await insertAccount({ name: "卡", kind: "credit" });
+  it("有持股的投資帳戶不能更新市值（市值照股價算）_不寫入；沒有持股的照常", async () => {
+    const broker = await insertAccount({ name: "證券", kind: "investment", openingBalance: 80_000 });
+    const plain = await insertAccount({ name: "沒有持股的證券", kind: "investment", openingBalance: 80_000 });
+    await getDb().insert(savingsHoldings).values({ userId: me, accountId: broker.id, symbol: "006208", name: "富邦台50", shares: 10, cost: 2500 });
+
+    expect(await userError(updateBalance(me, { accountId: String(broker.id), actual: "95000" }, NOW))).toContain("持股");
+    expect(await allRows()).toEqual([]);
+    expect((await updateBalance(me, { accountId: String(plain.id), actual: "95000" }, NOW)).delta).toBe(15_000);
+  });
+
+  it("存款與投資不能輸入負數_不寫入", async () => {
     const cathay = await insertAccount({ name: "國泰" });
     const broker = await insertAccount({ name: "證券", kind: "investment" });
 
-    expect(await userError(updateBalance(me, { accountId: String(card.id), actual: "1.5" }, NOW))).toBe("金額只能是整數（單位：元，不能有小數；溢繳請輸入負數）");
-    expect(await userError(updateBalance(me, { accountId: String(card.id), actual: "-100000001" }, NOW))).toBe("溢繳不能超過 1 億元");
-    expect(await userError(updateBalance(me, { accountId: String(cathay.id), actual: "-5" }, NOW))).toBe("金額只能是整數（單位：元，不能有小數或負數）");
-    expect(await userError(updateBalance(me, { accountId: String(broker.id), actual: "-5" }, NOW))).toBe("金額只能是整數（單位：元，不能有小數或負數）");
+    expect(await userError(updateBalance(me, { accountId: String(cathay.id), actual: "-5" }, NOW))).toContain("負數");
+    expect(await userError(updateBalance(me, { accountId: String(broker.id), actual: "-5" }, NOW))).toContain("負數");
     expect(await allRows()).toEqual([]);
   });
 
@@ -913,6 +894,53 @@ describe("每個人只看得到、改得到自己的紀錄", () => {
 
     expect(await getDb().select().from(savingsTransactions).where(and(eq(savingsTransactions.userId, other)))).toEqual([]);
     expect(await rowsOf(me)).toHaveLength(4);
+  });
+});
+
+describe("投資帳戶有持股時一般轉帳轉進轉出都擋下（市值照股價算，轉帳的錢會從總資產消失）", () => {
+  const HELD = "這個投資帳戶有持股：轉進轉出請用買進或賣出";
+
+  /** 證券有一檔 0 股的持股 市值就照持股算了 */
+  async function heldBroker() {
+    const cathay = await insertAccount({ name: "國泰" });
+    const broker = await insertAccount({ name: "證券", kind: "investment" });
+    const plain = await insertAccount({ name: "沒有持股的證券", kind: "investment" });
+    await getDb().insert(savingsHoldings).values({ userId: me, accountId: broker.id, symbol: "006208", name: "富邦台50", shares: 0, cost: 0 });
+    return { cathay, broker, plain };
+  }
+  const salary = (accountId: number, transferTo: number): SalaryFields => ({ accountId: String(accountId), categoryId: "", amount: "1000", date: TODAY, note: "", transfers: [{ accountId: String(transferTo), amount: "100" }] });
+
+  it("記一筆轉帳_轉進或轉出有持股的投資帳戶都擋下，什麼都不寫；沒有持股的投資帳戶照常", async () => {
+    const { cathay, broker, plain } = await heldBroker();
+
+    expect(await userError(addTransaction(me, entry({ kind: "transfer", accountId: String(cathay.id), counterAccountId: String(broker.id) }), NOW))).toBe(HELD);
+    expect(await userError(addTransaction(me, entry({ kind: "transfer", accountId: String(broker.id), counterAccountId: String(cathay.id) }), NOW))).toBe(HELD);
+    expect(await allRows()).toEqual([]);
+    expect(await addTransaction(me, entry({ kind: "transfer", accountId: String(cathay.id), counterAccountId: String(plain.id) }), NOW)).toMatchObject({ counterAccountId: plain.id });
+  });
+
+  it("修改紀錄_改成轉到有持股的投資帳戶、或修改原本就轉到那裡的轉帳都擋下，資料不變；改成轉到別的帳戶可以", async () => {
+    const { cathay, broker } = await heldBroker();
+    const post = await insertAccount({ name: "郵局" });
+    const expense = await insertTransaction({ accountId: cathay.id, amount: 100, date: "2026-10-01" });
+    const old = await insertTransaction({ kind: "transfer", accountId: cathay.id, counterAccountId: broker.id, amount: 300, date: "2026-10-02" });
+
+    expect(await userError(updateTransaction(me, expense.id, entry({ kind: "transfer", accountId: String(cathay.id), counterAccountId: String(broker.id) }), NOW))).toBe(HELD);
+    expect(await userError(updateTransaction(me, old.id, entry({ kind: "transfer", accountId: String(cathay.id), counterAccountId: String(broker.id), amount: "500" }), NOW))).toBe(HELD);
+    expect((await allRows()).map((t) => [t.kind, t.counterAccountId, t.amount])).toEqual([
+      ["expense", null, 100],
+      ["transfer", broker.id, 300],
+    ]);
+    expect(await updateTransaction(me, old.id, entry({ kind: "transfer", accountId: String(cathay.id), counterAccountId: String(post.id), amount: "300" }), NOW)).toMatchObject({ counterAccountId: post.id });
+  });
+
+  it("發薪分配_分到有持股的投資帳戶、或從有持股的投資帳戶分出去都擋下，連收入也不寫", async () => {
+    const { cathay, broker, plain } = await heldBroker();
+
+    expect(await userError(allocateSalary(me, salary(cathay.id, broker.id), NOW))).toBe(HELD);
+    expect(await userError(allocateSalary(me, salary(broker.id, cathay.id), NOW))).toBe(HELD);
+    expect(await allRows()).toEqual([]);
+    expect((await allocateSalary(me, salary(cathay.id, plain.id), NOW)).transfers).toHaveLength(1);
   });
 });
 

@@ -6,5 +6,8 @@ export const SAVINGS_PATHS = {
   accounts: "/savings/settings#accounts",
   // 給總覽與紀錄頁的空狀態用 打開設定頁就跳出新增帳戶的視窗
   addAccount: "/savings/settings?add=account#accounts",
-  categories: "/savings/settings#categories",
+  recurring: "/savings/settings#recurring",
 } as const;
+
+/** 待處理的選單連過來 打開設定頁就跳出這條固定收支的修改視窗 */
+export const editRecurringPath = (id: number) => `${SAVINGS_PATHS.settings}?recurring=${id}#recurring`;

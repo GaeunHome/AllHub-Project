@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UNCATEGORIZED_KEY } from "../lib/ledger";
-import { NO_FILTERS, categoryFilterFrom, filterRecords, groupByDate, hasFilters, recordTotals, type RecordItem } from "./record-filter";
+import { NO_FILTERS, accountFilterFrom, categoryFilterFrom, filterRecords, groupByDate, hasFilters, recordTotals, type RecordItem } from "./record-filter";
 
 let nextId = 1;
 const record = (fields: Partial<RecordItem>): RecordItem => ({
@@ -12,19 +12,23 @@ const record = (fields: Partial<RecordItem>): RecordItem => ({
   counterAccountName: null,
   categoryId: 11,
   categoryName: "餐飲",
-  categoryColor: "orange",
   amount: 100,
   date: "2026-10-14",
   note: null,
   recurring: false,
+  recurringName: null,
+  shares: null,
+  holdingSymbol: null,
+  cardBillId: null,
+  backToPending: false,
   ...fields,
 });
 
 const LUNCH = record({ amount: 120 });
-const SALARY = record({ kind: "income", categoryId: 12, categoryName: "薪水", categoryColor: "green", amount: 43000, date: "2026-10-05" });
-const UNSORTED = record({ categoryId: null, categoryName: null, categoryColor: null, amount: 80, date: "2026-10-05" });
-const TO_POST = record({ kind: "transfer", counterAccountId: 2, counterAccountName: "郵局", categoryId: null, categoryName: null, categoryColor: null, amount: 2500, date: "2026-10-03" });
-const ADJUST = record({ kind: "adjust", accountId: 2, accountName: "郵局", categoryId: null, categoryName: null, categoryColor: null, amount: -350, date: "2026-10-03" });
+const SALARY = record({ kind: "income", categoryId: 12, categoryName: "薪水", amount: 43000, date: "2026-10-05" });
+const UNSORTED = record({ categoryId: null, categoryName: null, amount: 80, date: "2026-10-05" });
+const TO_POST = record({ kind: "transfer", counterAccountId: 2, counterAccountName: "郵局", categoryId: null, categoryName: null, amount: 2500, date: "2026-10-03" });
+const ADJUST = record({ kind: "adjust", accountId: 2, accountName: "郵局", categoryId: null, categoryName: null, amount: -350, date: "2026-10-03" });
 const ALL = [LUNCH, SALARY, UNSORTED, TO_POST, ADJUST];
 
 describe("filterRecords：紀錄頁在瀏覽器裡篩選這個月的紀錄", () => {
@@ -80,6 +84,18 @@ describe("categoryFilterFrom：網址的 ?category=（總覽點支出圓餅圖�
 
   it("同一個參數出現好幾次（陣列）_不篩選", () => {
     expect(categoryFilterFrom(["11", "12"], CATEGORIES)).toBe("");
+  });
+});
+
+describe("accountFilterFrom：網址的 ?account=（總覽的帳戶詳情連過來）", () => {
+  const ACCOUNTS = [{ id: 1 }, { id: 2 }];
+
+  it("自己的帳戶 id_篩選那個帳戶", () => {
+    expect(accountFilterFrom("2", ACCOUNTS)).toBe("2");
+  });
+
+  it.each([undefined, "", "99", "abc", "1.5", ["1", "2"]])("%j（沒給、不是自己的帳戶或認不得）_不篩選", (raw) => {
+    expect(accountFilterFrom(raw, ACCOUNTS)).toBe("");
   });
 });
 

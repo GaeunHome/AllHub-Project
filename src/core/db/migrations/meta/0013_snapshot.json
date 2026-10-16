@@ -1,0 +1,3018 @@
+{
+  "id": "f17f04c2-7fe5-43e2-be3b-71fd1d0569fe",
+  "prevId": "9c26894e-8cdd-4092-9ba5-9470fd1d300c",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.core_invites": {
+      "name": "core_invites",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_uses": {
+          "name": "max_uses",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "used_count": {
+          "name": "used_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "core_invites_created_by_idx": {
+          "name": "core_invites_created_by_idx",
+          "columns": [
+            {
+              "expression": "created_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "core_invites_created_by_core_users_id_fk": {
+          "name": "core_invites_created_by_core_users_id_fk",
+          "tableFrom": "core_invites",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "core_invites_token_hash_unique": {
+          "name": "core_invites_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "core_invites_used_count_range": {
+          "name": "core_invites_used_count_range",
+          "value": "\"core_invites\".\"used_count\" between 0 and \"core_invites\".\"max_uses\""
+        },
+        "core_invites_max_uses_range": {
+          "name": "core_invites_max_uses_range",
+          "value": "\"core_invites\".\"max_uses\" between 1 and 100"
+        },
+        "core_invites_note_length": {
+          "name": "core_invites_note_length",
+          "value": "char_length(\"core_invites\".\"note\") <= 50"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.core_notifications": {
+      "name": "core_notifications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "module": {
+          "name": "module",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "core_notifications_created_at_idx": {
+          "name": "core_notifications_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "core_notifications_unread_idx": {
+          "name": "core_notifications_unread_idx",
+          "columns": [
+            {
+              "expression": "module",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"core_notifications\".\"read_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "core_notifications_user_created_at_idx": {
+          "name": "core_notifications_user_created_at_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "core_notifications_user_unread_idx": {
+          "name": "core_notifications_user_unread_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "module",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"core_notifications\".\"read_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "core_notifications_user_id_core_users_id_fk": {
+          "name": "core_notifications_user_id_core_users_id_fk",
+          "tableFrom": "core_notifications",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.core_rate_limits": {
+      "name": "core_rate_limits",
+      "schema": "",
+      "columns": {
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key_hash": {
+          "name": "key_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "window_started_at": {
+          "name": "window_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "core_rate_limits_window_started_at_idx": {
+          "name": "core_rate_limits_window_started_at_idx",
+          "columns": [
+            {
+              "expression": "window_started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "core_rate_limits_scope_key_hash_pk": {
+          "name": "core_rate_limits_scope_key_hash_pk",
+          "columns": [
+            "scope",
+            "key_hash"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.core_users": {
+      "name": "core_users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_version": {
+          "name": "session_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'member'"
+        },
+        "disabled_at": {
+          "name": "disabled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "failed_logins": {
+          "name": "failed_logins",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "locked_until": {
+          "name": "locked_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "core_users_username_unique": {
+          "name": "core_users_username_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "username"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "core_users_username_format": {
+          "name": "core_users_username_format",
+          "value": "\"core_users\".\"username\" ~ '^[a-z0-9_.-]{3,32}$'"
+        },
+        "core_users_role_valid": {
+          "name": "core_users_role_valid",
+          "value": "\"core_users\".\"role\" in ('owner', 'member')"
+        },
+        "core_users_failed_logins_non_negative": {
+          "name": "core_users_failed_logins_non_negative",
+          "value": "\"core_users\".\"failed_logins\" >= 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.savings_accounts": {
+      "name": "savings_accounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose_id": {
+          "name": "purpose_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "opening_balance": {
+          "name": "opening_balance",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "opening_cost": {
+          "name": "opening_cost",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "monthly_plan": {
+          "name": "monthly_plan",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "target_amount": {
+          "name": "target_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "due_day": {
+          "name": "due_day",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pay_from_account_id": {
+          "name": "pay_from_account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "statement_day": {
+          "name": "statement_day",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "autopay": {
+          "name": "autopay",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "card_notified_on": {
+          "name": "card_notified_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "savings_accounts_user_name_idx": {
+          "name": "savings_accounts_user_name_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_accounts_purpose_id_idx": {
+          "name": "savings_accounts_purpose_id_idx",
+          "columns": [
+            {
+              "expression": "purpose_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_accounts_pay_from_account_id_idx": {
+          "name": "savings_accounts_pay_from_account_id_idx",
+          "columns": [
+            {
+              "expression": "pay_from_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "savings_accounts_user_id_core_users_id_fk": {
+          "name": "savings_accounts_user_id_core_users_id_fk",
+          "tableFrom": "savings_accounts",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "savings_accounts_purpose_id_savings_purposes_id_fk": {
+          "name": "savings_accounts_purpose_id_savings_purposes_id_fk",
+          "tableFrom": "savings_accounts",
+          "tableTo": "savings_purposes",
+          "columnsFrom": [
+            "purpose_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "savings_accounts_pay_from_account_id_savings_accounts_id_fk": {
+          "name": "savings_accounts_pay_from_account_id_savings_accounts_id_fk",
+          "tableFrom": "savings_accounts",
+          "tableTo": "savings_accounts",
+          "columnsFrom": [
+            "pay_from_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "savings_accounts_kind": {
+          "name": "savings_accounts_kind",
+          "value": "\"savings_accounts\".\"kind\" in ('deposit', 'investment', 'credit')"
+        },
+        "savings_accounts_opening_balance": {
+          "name": "savings_accounts_opening_balance",
+          "value": "\"savings_accounts\".\"opening_balance\" between -100000000 and 100000000"
+        },
+        "savings_accounts_opening_cost": {
+          "name": "savings_accounts_opening_cost",
+          "value": "\"savings_accounts\".\"opening_cost\" is null or (\"savings_accounts\".\"kind\" = 'investment' and \"savings_accounts\".\"opening_cost\" between 0 and 100000000)"
+        },
+        "savings_accounts_monthly_plan": {
+          "name": "savings_accounts_monthly_plan",
+          "value": "\"savings_accounts\".\"monthly_plan\" is null or (\"savings_accounts\".\"kind\" <> 'credit' and \"savings_accounts\".\"monthly_plan\" between 1 and 100000000)"
+        },
+        "savings_accounts_target_amount": {
+          "name": "savings_accounts_target_amount",
+          "value": "\"savings_accounts\".\"target_amount\" is null or (\"savings_accounts\".\"kind\" <> 'credit' and \"savings_accounts\".\"target_amount\" between 1 and 100000000)"
+        },
+        "savings_accounts_due_day": {
+          "name": "savings_accounts_due_day",
+          "value": "\"savings_accounts\".\"due_day\" is null or (\"savings_accounts\".\"kind\" = 'credit' and \"savings_accounts\".\"due_day\" between 1 and 31)"
+        },
+        "savings_accounts_pay_from": {
+          "name": "savings_accounts_pay_from",
+          "value": "\"savings_accounts\".\"pay_from_account_id\" is null or (\"savings_accounts\".\"kind\" = 'credit' and \"savings_accounts\".\"pay_from_account_id\" <> \"savings_accounts\".\"id\")"
+        },
+        "savings_accounts_statement_day": {
+          "name": "savings_accounts_statement_day",
+          "value": "\"savings_accounts\".\"statement_day\" is null or (\"savings_accounts\".\"kind\" = 'credit' and \"savings_accounts\".\"statement_day\" between 1 and 31)"
+        },
+        "savings_accounts_autopay": {
+          "name": "savings_accounts_autopay",
+          "value": "not \"savings_accounts\".\"autopay\" or \"savings_accounts\".\"kind\" = 'credit'"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.savings_card_bills": {
+      "name": "savings_card_bills",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "statement_date": {
+          "name": "statement_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "savings_card_bills_account_statement_idx": {
+          "name": "savings_card_bills_account_statement_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "statement_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_card_bills_user_id_idx": {
+          "name": "savings_card_bills_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "savings_card_bills_user_id_core_users_id_fk": {
+          "name": "savings_card_bills_user_id_core_users_id_fk",
+          "tableFrom": "savings_card_bills",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "savings_card_bills_account_id_savings_accounts_id_fk": {
+          "name": "savings_card_bills_account_id_savings_accounts_id_fk",
+          "tableFrom": "savings_card_bills",
+          "tableTo": "savings_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "savings_card_bills_amount": {
+          "name": "savings_card_bills_amount",
+          "value": "\"savings_card_bills\".\"amount\" between 0 and 100000000"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.savings_categories": {
+      "name": "savings_categories",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "monthly_budget": {
+          "name": "monthly_budget",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "savings_categories_user_kind_name_idx": {
+          "name": "savings_categories_user_kind_name_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "savings_categories_user_id_core_users_id_fk": {
+          "name": "savings_categories_user_id_core_users_id_fk",
+          "tableFrom": "savings_categories",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "savings_categories_kind": {
+          "name": "savings_categories_kind",
+          "value": "\"savings_categories\".\"kind\" in ('expense', 'income')"
+        },
+        "savings_categories_color": {
+          "name": "savings_categories_color",
+          "value": "\"savings_categories\".\"color\" in ('blue', 'teal', 'green', 'amber', 'orange', 'rose', 'violet', 'slate')"
+        },
+        "savings_categories_budget": {
+          "name": "savings_categories_budget",
+          "value": "\"savings_categories\".\"monthly_budget\" is null or (\"savings_categories\".\"kind\" = 'expense' and \"savings_categories\".\"monthly_budget\" between 1 and 100000000)"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.savings_holdings": {
+      "name": "savings_holdings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "symbol": {
+          "name": "symbol",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shares": {
+          "name": "shares",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cost": {
+          "name": "cost",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "savings_holdings_account_symbol_idx": {
+          "name": "savings_holdings_account_symbol_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "symbol",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_holdings_user_id_idx": {
+          "name": "savings_holdings_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "savings_holdings_user_id_core_users_id_fk": {
+          "name": "savings_holdings_user_id_core_users_id_fk",
+          "tableFrom": "savings_holdings",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "savings_holdings_account_id_savings_accounts_id_fk": {
+          "name": "savings_holdings_account_id_savings_accounts_id_fk",
+          "tableFrom": "savings_holdings",
+          "tableTo": "savings_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "savings_holdings_symbol": {
+          "name": "savings_holdings_symbol",
+          "value": "\"savings_holdings\".\"symbol\" ~ '^[0-9A-Z]{4,6}$'"
+        },
+        "savings_holdings_shares": {
+          "name": "savings_holdings_shares",
+          "value": "\"savings_holdings\".\"shares\" between 0 and 1000000000"
+        },
+        "savings_holdings_cost": {
+          "name": "savings_holdings_cost",
+          "value": "\"savings_holdings\".\"cost\" between 0 and 100000000"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.savings_purposes": {
+      "name": "savings_purposes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "savings_purposes_user_name_idx": {
+          "name": "savings_purposes_user_name_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "savings_purposes_user_id_core_users_id_fk": {
+          "name": "savings_purposes_user_id_core_users_id_fk",
+          "tableFrom": "savings_purposes",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "savings_purposes_color": {
+          "name": "savings_purposes_color",
+          "value": "\"savings_purposes\".\"color\" in ('blue', 'teal', 'green', 'amber', 'orange', 'rose', 'violet', 'slate')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.savings_recurring": {
+      "name": "savings_recurring",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "counter_account_id": {
+          "name": "counter_account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day_of_month": {
+          "name": "day_of_month",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "last_posted_month": {
+          "name": "last_posted_month",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "interval_months": {
+          "name": "interval_months",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "start_month": {
+          "name": "start_month",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "holiday_rule": {
+          "name": "holiday_rule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'none'"
+        },
+        "mode": {
+          "name": "mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'auto'"
+        },
+        "holding_id": {
+          "name": "holding_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "allocate": {
+          "name": "allocate",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "last_notified_on": {
+          "name": "last_notified_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "savings_recurring_user_id_idx": {
+          "name": "savings_recurring_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_recurring_account_id_idx": {
+          "name": "savings_recurring_account_id_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_recurring_counter_account_id_idx": {
+          "name": "savings_recurring_counter_account_id_idx",
+          "columns": [
+            {
+              "expression": "counter_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_recurring_category_id_idx": {
+          "name": "savings_recurring_category_id_idx",
+          "columns": [
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_recurring_holding_id_idx": {
+          "name": "savings_recurring_holding_id_idx",
+          "columns": [
+            {
+              "expression": "holding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "savings_recurring_user_id_core_users_id_fk": {
+          "name": "savings_recurring_user_id_core_users_id_fk",
+          "tableFrom": "savings_recurring",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "savings_recurring_account_id_savings_accounts_id_fk": {
+          "name": "savings_recurring_account_id_savings_accounts_id_fk",
+          "tableFrom": "savings_recurring",
+          "tableTo": "savings_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "savings_recurring_counter_account_id_savings_accounts_id_fk": {
+          "name": "savings_recurring_counter_account_id_savings_accounts_id_fk",
+          "tableFrom": "savings_recurring",
+          "tableTo": "savings_accounts",
+          "columnsFrom": [
+            "counter_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "savings_recurring_category_id_savings_categories_id_fk": {
+          "name": "savings_recurring_category_id_savings_categories_id_fk",
+          "tableFrom": "savings_recurring",
+          "tableTo": "savings_categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "savings_recurring_holding_id_savings_holdings_id_fk": {
+          "name": "savings_recurring_holding_id_savings_holdings_id_fk",
+          "tableFrom": "savings_recurring",
+          "tableTo": "savings_holdings",
+          "columnsFrom": [
+            "holding_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "savings_recurring_kind": {
+          "name": "savings_recurring_kind",
+          "value": "\"savings_recurring\".\"kind\" in ('expense', 'income', 'transfer')"
+        },
+        "savings_recurring_amount": {
+          "name": "savings_recurring_amount",
+          "value": "\"savings_recurring\".\"amount\" between 1 and 100000000"
+        },
+        "savings_recurring_day_of_month": {
+          "name": "savings_recurring_day_of_month",
+          "value": "\"savings_recurring\".\"day_of_month\" between 1 and 31"
+        },
+        "savings_recurring_counter": {
+          "name": "savings_recurring_counter",
+          "value": "(\"savings_recurring\".\"kind\" = 'transfer') = (\"savings_recurring\".\"counter_account_id\" is not null) and (\"savings_recurring\".\"counter_account_id\" is null or \"savings_recurring\".\"counter_account_id\" <> \"savings_recurring\".\"account_id\")"
+        },
+        "savings_recurring_category": {
+          "name": "savings_recurring_category",
+          "value": "\"savings_recurring\".\"category_id\" is null or \"savings_recurring\".\"kind\" <> 'transfer'"
+        },
+        "savings_recurring_last_posted_first_day": {
+          "name": "savings_recurring_last_posted_first_day",
+          "value": "\"savings_recurring\".\"last_posted_month\" is null or extract(day from \"savings_recurring\".\"last_posted_month\") = 1"
+        },
+        "savings_recurring_interval_months": {
+          "name": "savings_recurring_interval_months",
+          "value": "\"savings_recurring\".\"interval_months\" in (1, 2, 3, 6, 12)"
+        },
+        "savings_recurring_start_month_first_day": {
+          "name": "savings_recurring_start_month_first_day",
+          "value": "\"savings_recurring\".\"start_month\" is null or extract(day from \"savings_recurring\".\"start_month\") = 1"
+        },
+        "savings_recurring_holiday_rule": {
+          "name": "savings_recurring_holiday_rule",
+          "value": "\"savings_recurring\".\"holiday_rule\" in ('none', 'before', 'after')"
+        },
+        "savings_recurring_mode": {
+          "name": "savings_recurring_mode",
+          "value": "\"savings_recurring\".\"mode\" in ('confirm', 'auto')"
+        },
+        "savings_recurring_holding": {
+          "name": "savings_recurring_holding",
+          "value": "\"savings_recurring\".\"holding_id\" is null or (\"savings_recurring\".\"kind\" = 'transfer' and \"savings_recurring\".\"mode\" = 'confirm')"
+        },
+        "savings_recurring_allocate": {
+          "name": "savings_recurring_allocate",
+          "value": "not \"savings_recurring\".\"allocate\" or (\"savings_recurring\".\"kind\" = 'income' and \"savings_recurring\".\"mode\" = 'confirm')"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.savings_transactions": {
+      "name": "savings_transactions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "counter_account_id": {
+          "name": "counter_account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recurring_id": {
+          "name": "recurring_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "holding_id": {
+          "name": "holding_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "shares": {
+          "name": "shares",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cost_change": {
+          "name": "cost_change",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recurring_period": {
+          "name": "recurring_period",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "card_bill_id": {
+          "name": "card_bill_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "savings_transactions_user_id_date_idx": {
+          "name": "savings_transactions_user_id_date_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_transactions_account_id_idx": {
+          "name": "savings_transactions_account_id_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_transactions_counter_account_id_idx": {
+          "name": "savings_transactions_counter_account_id_idx",
+          "columns": [
+            {
+              "expression": "counter_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_transactions_category_id_idx": {
+          "name": "savings_transactions_category_id_idx",
+          "columns": [
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_transactions_recurring_id_idx": {
+          "name": "savings_transactions_recurring_id_idx",
+          "columns": [
+            {
+              "expression": "recurring_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_transactions_holding_id_idx": {
+          "name": "savings_transactions_holding_id_idx",
+          "columns": [
+            {
+              "expression": "holding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "savings_transactions_card_bill_id_idx": {
+          "name": "savings_transactions_card_bill_id_idx",
+          "columns": [
+            {
+              "expression": "card_bill_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "savings_transactions_user_id_core_users_id_fk": {
+          "name": "savings_transactions_user_id_core_users_id_fk",
+          "tableFrom": "savings_transactions",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "savings_transactions_account_id_savings_accounts_id_fk": {
+          "name": "savings_transactions_account_id_savings_accounts_id_fk",
+          "tableFrom": "savings_transactions",
+          "tableTo": "savings_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "savings_transactions_counter_account_id_savings_accounts_id_fk": {
+          "name": "savings_transactions_counter_account_id_savings_accounts_id_fk",
+          "tableFrom": "savings_transactions",
+          "tableTo": "savings_accounts",
+          "columnsFrom": [
+            "counter_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "savings_transactions_category_id_savings_categories_id_fk": {
+          "name": "savings_transactions_category_id_savings_categories_id_fk",
+          "tableFrom": "savings_transactions",
+          "tableTo": "savings_categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "savings_transactions_recurring_id_savings_recurring_id_fk": {
+          "name": "savings_transactions_recurring_id_savings_recurring_id_fk",
+          "tableFrom": "savings_transactions",
+          "tableTo": "savings_recurring",
+          "columnsFrom": [
+            "recurring_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "savings_transactions_holding_id_savings_holdings_id_fk": {
+          "name": "savings_transactions_holding_id_savings_holdings_id_fk",
+          "tableFrom": "savings_transactions",
+          "tableTo": "savings_holdings",
+          "columnsFrom": [
+            "holding_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "savings_transactions_card_bill_id_savings_card_bills_id_fk": {
+          "name": "savings_transactions_card_bill_id_savings_card_bills_id_fk",
+          "tableFrom": "savings_transactions",
+          "tableTo": "savings_card_bills",
+          "columnsFrom": [
+            "card_bill_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "savings_transactions_kind": {
+          "name": "savings_transactions_kind",
+          "value": "\"savings_transactions\".\"kind\" in ('expense', 'income', 'transfer', 'adjust')"
+        },
+        "savings_transactions_amount": {
+          "name": "savings_transactions_amount",
+          "value": "case when \"savings_transactions\".\"kind\" = 'adjust' then \"savings_transactions\".\"amount\" <> 0 and \"savings_transactions\".\"amount\" between -100000000 and 100000000 else \"savings_transactions\".\"amount\" between 1 and 100000000 end"
+        },
+        "savings_transactions_counter": {
+          "name": "savings_transactions_counter",
+          "value": "(\"savings_transactions\".\"kind\" = 'transfer') = (\"savings_transactions\".\"counter_account_id\" is not null) and (\"savings_transactions\".\"counter_account_id\" is null or \"savings_transactions\".\"counter_account_id\" <> \"savings_transactions\".\"account_id\")"
+        },
+        "savings_transactions_category": {
+          "name": "savings_transactions_category",
+          "value": "\"savings_transactions\".\"category_id\" is null or \"savings_transactions\".\"kind\" in ('income', 'expense')"
+        },
+        "savings_transactions_date": {
+          "name": "savings_transactions_date",
+          "value": "\"savings_transactions\".\"date\" >= '2000-01-01'"
+        },
+        "savings_transactions_shares": {
+          "name": "savings_transactions_shares",
+          "value": "\"savings_transactions\".\"shares\" is null or (\"savings_transactions\".\"kind\" = 'transfer' and \"savings_transactions\".\"shares\" <> 0)"
+        },
+        "savings_transactions_cost_change": {
+          "name": "savings_transactions_cost_change",
+          "value": "\"savings_transactions\".\"cost_change\" is null or \"savings_transactions\".\"cost_change\" between -100000000 and 100000000"
+        },
+        "savings_transactions_recurring_period_first_day": {
+          "name": "savings_transactions_recurring_period_first_day",
+          "value": "\"savings_transactions\".\"recurring_period\" is null or extract(day from \"savings_transactions\".\"recurring_period\") = 1"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.starrail_accounts": {
+      "name": "starrail_accounts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ltuid": {
+          "name": "ltuid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cookie_encrypted": {
+          "name": "cookie_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "uid": {
+          "name": "uid",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nickname": {
+          "name": "nickname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "region": {
+          "name": "region",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "name": "level",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stamina_alert_threshold": {
+          "name": "stamina_alert_threshold",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_stamina_alert_at": {
+          "name": "last_stamina_alert_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cookie_invalid": {
+          "name": "cookie_invalid",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "auto_redeem": {
+          "name": "auto_redeem",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "game_reminders": {
+          "name": "game_reminders",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "starrail_accounts_user_id_idx": {
+          "name": "starrail_accounts_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "starrail_accounts_user_id_core_users_id_fk": {
+          "name": "starrail_accounts_user_id_core_users_id_fk",
+          "tableFrom": "starrail_accounts",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "starrail_accounts_uid_unique": {
+          "name": "starrail_accounts_uid_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "uid"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.starrail_checkin_logs": {
+      "name": "starrail_checkin_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "total_sign_day": {
+          "name": "total_sign_day",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "starrail_checkin_logs_account_id_starrail_accounts_id_fk": {
+          "name": "starrail_checkin_logs_account_id_starrail_accounts_id_fk",
+          "tableFrom": "starrail_checkin_logs",
+          "tableTo": "starrail_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.starrail_redeem_codes": {
+      "name": "starrail_redeem_codes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "starrail_redeem_codes_account_code": {
+          "name": "starrail_redeem_codes_account_code",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "starrail_redeem_codes_account_id_starrail_accounts_id_fk": {
+          "name": "starrail_redeem_codes_account_id_starrail_accounts_id_fk",
+          "tableFrom": "starrail_redeem_codes",
+          "tableTo": "starrail_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.twitch_follows": {
+      "name": "twitch_follows",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "streamer_id": {
+          "name": "streamer_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notify_enabled": {
+          "name": "notify_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "twitch_follows_streamer_id_idx": {
+          "name": "twitch_follows_streamer_id_idx",
+          "columns": [
+            {
+              "expression": "streamer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "twitch_follows_user_id_core_users_id_fk": {
+          "name": "twitch_follows_user_id_core_users_id_fk",
+          "tableFrom": "twitch_follows",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "twitch_follows_streamer_id_twitch_streamers_id_fk": {
+          "name": "twitch_follows_streamer_id_twitch_streamers_id_fk",
+          "tableFrom": "twitch_follows",
+          "tableTo": "twitch_streamers",
+          "columnsFrom": [
+            "streamer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "twitch_follows_user_id_streamer_id_pk": {
+          "name": "twitch_follows_user_id_streamer_id_pk",
+          "columns": [
+            "user_id",
+            "streamer_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.twitch_stream_events": {
+      "name": "twitch_stream_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "broadcaster_id": {
+          "name": "broadcaster_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "twitch_stream_events_message_id_unique": {
+          "name": "twitch_stream_events_message_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "message_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.twitch_streamers": {
+      "name": "twitch_streamers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "broadcaster_id": {
+          "name": "broadcaster_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "login": {
+          "name": "login",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profile_image_url": {
+          "name": "profile_image_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "online_subscription_id": {
+          "name": "online_subscription_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "offline_subscription_id": {
+          "name": "offline_subscription_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subscription_status": {
+          "name": "subscription_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_live": {
+          "name": "is_live",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "notify_enabled": {
+          "name": "notify_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "twitch_streamers_broadcaster_id_unique": {
+          "name": "twitch_streamers_broadcaster_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "broadcaster_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.youtube_channels": {
+      "name": "youtube_channels",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "channel_id": {
+          "name": "channel_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "thumbnail": {
+          "name": "thumbnail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lease_expires_at": {
+          "name": "lease_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subscription_status": {
+          "name": "subscription_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notify_enabled": {
+          "name": "notify_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "youtube_channels_channel_id_unique": {
+          "name": "youtube_channels_channel_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "channel_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.youtube_follows": {
+      "name": "youtube_follows",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel_id": {
+          "name": "channel_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notify_enabled": {
+          "name": "notify_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "youtube_follows_channel_id_idx": {
+          "name": "youtube_follows_channel_id_idx",
+          "columns": [
+            {
+              "expression": "channel_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "youtube_follows_user_id_core_users_id_fk": {
+          "name": "youtube_follows_user_id_core_users_id_fk",
+          "tableFrom": "youtube_follows",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "youtube_follows_channel_id_youtube_channels_channel_id_fk": {
+          "name": "youtube_follows_channel_id_youtube_channels_channel_id_fk",
+          "tableFrom": "youtube_follows",
+          "tableTo": "youtube_channels",
+          "columnsFrom": [
+            "channel_id"
+          ],
+          "columnsTo": [
+            "channel_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "youtube_follows_user_id_channel_id_pk": {
+          "name": "youtube_follows_user_id_channel_id_pk",
+          "columns": [
+            "user_id",
+            "channel_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.youtube_saved_videos": {
+      "name": "youtube_saved_videos",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "channel_title": {
+          "name": "channel_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pinned": {
+          "name": "pinned",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "youtube_saved_videos_user_updated_at_idx": {
+          "name": "youtube_saved_videos_user_updated_at_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "youtube_saved_videos_user_id_core_users_id_fk": {
+          "name": "youtube_saved_videos_user_id_core_users_id_fk",
+          "tableFrom": "youtube_saved_videos",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "youtube_saved_videos_user_id_video_id_pk": {
+          "name": "youtube_saved_videos_user_id_video_id_pk",
+          "columns": [
+            "user_id",
+            "video_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.youtube_settings": {
+      "name": "youtube_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "youtube_settings_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "2",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'anthropic'"
+        },
+        "anthropic_key": {
+          "name": "anthropic_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anthropic_key_hint": {
+          "name": "anthropic_key_hint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anthropic_model": {
+          "name": "anthropic_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "openai_key": {
+          "name": "openai_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "openai_key_hint": {
+          "name": "openai_key_hint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "openai_model": {
+          "name": "openai_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gemini_key": {
+          "name": "gemini_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gemini_key_hint": {
+          "name": "gemini_key_hint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gemini_model": {
+          "name": "gemini_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "glossary": {
+          "name": "glossary",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "youtube_settings_user_id_core_users_id_fk": {
+          "name": "youtube_settings_user_id_core_users_id_fk",
+          "tableFrom": "youtube_settings",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "youtube_settings_user_id_unique": {
+          "name": "youtube_settings_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.youtube_translations": {
+      "name": "youtube_translations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "source_kind": {
+          "name": "source_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_cues": {
+          "name": "source_cues",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "translated": {
+          "name": "translated",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "batches": {
+          "name": "batches",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "next_batch": {
+          "name": "next_batch",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "lock_id": {
+          "name": "lock_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "requested_by": {
+          "name": "requested_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "glossary": {
+          "name": "glossary",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "youtube_translations_requested_by_core_users_id_fk": {
+          "name": "youtube_translations_requested_by_core_users_id_fk",
+          "tableFrom": "youtube_translations",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "requested_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "youtube_translations_video_id_unique": {
+          "name": "youtube_translations_video_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "video_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.youtube_videos": {
+      "name": "youtube_videos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "video_id": {
+          "name": "video_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel_id": {
+          "name": "channel_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notified_at": {
+          "name": "notified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "zh_captions": {
+          "name": "zh_captions",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'unknown'"
+        },
+        "zh_captions_checked_at": {
+          "name": "zh_captions_checked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "youtube_videos_video_id_unique": {
+          "name": "youtube_videos_video_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "video_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

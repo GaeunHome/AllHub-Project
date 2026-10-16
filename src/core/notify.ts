@@ -1,5 +1,5 @@
 import "server-only";
-import { and, inArray, isNull } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import { expireTags } from "./cache";
 import { db } from "./db";
 import { coreNotifications, coreUsers } from "./db/schema";
@@ -42,4 +42,26 @@ export async function notify({ recipients, module, kind, title, body = "", url }
   });
   // 只會在 webhook 排程與 after 裡呼叫 不是 Server Action 所以用 expireTags
   if (inserted > 0) expireTags(notificationsTag);
+}
+
+/**
+ * 模組決定要不要再寄之前查 這個人在 since 之後有沒有收過同一種通知 只看他自己的
+ * url 有給時只算連到同一個地方的 例如同一個遊戲帳號
+ */
+export async function notifiedSince({ userId, module, kind, since, url }: { userId: string; module: string; kind: string; since: Date; url?: string }): Promise<boolean> {
+  const href = url === undefined ? undefined : (linkTarget(url)?.href ?? null);
+  const [row] = await db()
+    .select({ id: coreNotifications.id })
+    .from(coreNotifications)
+    .where(
+      and(
+        eq(coreNotifications.userId, userId),
+        eq(coreNotifications.module, module),
+        eq(coreNotifications.kind, kind),
+        gt(coreNotifications.createdAt, since),
+        href === undefined ? undefined : href === null ? isNull(coreNotifications.url) : eq(coreNotifications.url, href),
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
 }

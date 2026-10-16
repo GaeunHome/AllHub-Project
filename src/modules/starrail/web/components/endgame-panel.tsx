@@ -4,7 +4,6 @@ import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { ENDGAME_MODES, type EndgameSchedule } from "../../lib/endgame";
 import type { StarrailAccountView } from "../../service/accounts";
 import { cachedCharacters, cachedEndgame } from "../../service/cached";
-import { syncCookieFlagAfter } from "../cookie-flag";
 import { endgameAssetUrls } from "../endgame-assets";
 import { EndgameView, type EndgameRecord } from "./endgame-view";
 
@@ -12,7 +11,7 @@ const SCHEDULES: EndgameSchedule[] = ["current", "previous"];
 
 /**
  * 三種模式的本期與上期一起查 各自快取 30 分鐘 切換時不用再等
- * 角色名字從同一份快取的角色資料對照
+ * 角色名字從同一份快取的角色資料對照 帳號的 cookie 失效標記只由即時便箋決定
  */
 export async function EndgamePanel({ account }: { account: StarrailAccountView }) {
   const user = await requireSession();
@@ -21,9 +20,6 @@ export async function EndgamePanel({ account }: { account: StarrailAccountView }
     Promise.all(requests.map(({ mode, schedule }) => cachedEndgame(user.id, account.id, mode, schedule))),
     cachedCharacters(user.id, account.id),
   ]);
-
-  // 只設不清 有一種讀到 cookie 失效就標上 其他讀得到不代表 cookie 沒問題
-  if (results.some((result) => result.cookieInvalid)) syncCookieFlagAfter(user.id, account, true);
 
   const records: EndgameRecord[] = requests.map(({ mode, schedule }, i) => {
     const result = results[i];
