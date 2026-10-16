@@ -12,13 +12,12 @@ import { formatMonthShort } from "../lib/month";
 import type { Direction } from "../lib/order";
 import { recurringTitle, scheduleText } from "../lib/recurring";
 import { parsePeriod } from "../lib/validation";
-import { createAccount, deleteAccount, listAccounts, moveAccount, setAccountActive, updateAccount } from "../service/accounts";
+import { createAccount, deleteAccount, listAccounts, moveAccount, setAccountActive, updateAccount, updateAllocation } from "../service/accounts";
 import { savingsTags } from "../service/cache-tags";
 import { enterCardBill, payCard } from "../service/cards";
 import { createCategory, deleteCategory, listCategories, moveCategory, updateCategory } from "../service/categories";
 import { SavingsUserError } from "../service/errors";
 import { addHolding, buyHolding, deleteHolding, listHoldings, sellHolding, updateHolding } from "../service/holdings";
-import { createPurpose, deletePurpose, movePurpose, updatePurpose } from "../service/purposes";
 import { confirmOccurrence, createRecurring, deleteRecurring, setRecurringActive, skipOccurrence, updateRecurring } from "../service/recurring";
 import { setupDefaults } from "../service/setup";
 import { addTransaction, allocateSalary, deleteTransaction, updateBalance, updateTransaction } from "../service/transactions";
@@ -26,9 +25,8 @@ import { addTransaction, allocateSalary, deleteTransaction, updateBalance, updat
 // 表單的 id 只決定操作哪一筆 一律用登入者的 id 呼叫 service
 // 欄位名稱跟 service 一樣 原樣交給 service 驗證
 
-const ACCOUNT_FIELDS = ["name", "kind", "purposeId", "openingBalance", "openingCost", "monthlyPlan", "targetAmount", "dueDay", "payFromAccountId", "statementDay", "autopay"] as const;
-const PURPOSE_FIELDS = ["name", "color"] as const;
-const CATEGORY_FIELDS = ["kind", "name", "color", "monthlyBudget"] as const;
+const ACCOUNT_FIELDS = ["name", "kind", "label", "cardStyle", "openingBalance", "openingCost", "monthlyPlan", "targetAmount", "payFromAccountId", "statementDay", "autopay"] as const;
+const CATEGORY_FIELDS = ["kind", "name", "color", "monthlyBudget", "icon"] as const;
 const ENTRY_FIELDS = ["kind", "accountId", "counterAccountId", "categoryId", "amount", "date", "note"] as const;
 const RECURRING_FIELDS = [
   "kind",
@@ -53,8 +51,8 @@ const BUY_FIELDS = ["holdingId", "fromAccountId", "shares", "amount", "date", "n
 const SELL_FIELDS = ["holdingId", "toAccountId", "shares", "amount", "date", "note"] as const;
 const CONFIRM_FIELDS = ["ruleId", "period", "amount", "date", "note", "shares"] as const;
 const SKIP_FIELDS = ["ruleId", "period"] as const;
-const PAY_CARD_FIELDS = ["cardId", "fromAccountId", "amount", "date", "billAmount", "categoryId"] as const;
-const CARD_BILL_FIELDS = ["cardId", "amount", "statementDate", "categoryId"] as const;
+const PAY_CARD_FIELDS = ["cardId", "fromAccountId", "amount", "date", "billAmount", "dueDate", "categoryId"] as const;
+const CARD_BILL_FIELDS = ["cardId", "amount", "statementDate", "dueDate", "categoryId"] as const;
 
 function readFields<K extends string>(formData: FormData, names: readonly K[]): Record<K, string> {
   return Object.fromEntries(names.map((name) => [name, formText(formData, name)])) as Record<K, string>;
@@ -137,16 +135,15 @@ async function remove(formData: FormData, action: string, run: (id: number) => P
 
 export async function setupAction(): Promise<FormState> {
   const { id: userId } = await requireSession();
-  return attempt("建立預設的用途與分類", async () => {
+  return attempt("建立預設的分類", async () => {
     const created = await setupDefaults(userId);
-    if (created.purposes === 0 && created.categories === 0) {
+    if (created.categories === 0) {
       // 沒有寫入就不失效 但別的分頁早就建好時這頁還留著開始使用 要重新算繪才會換掉
       refresh();
-      return "用途和分類都已經有了，沒有再新增";
+      return "分類已經有了，沒有再新增";
     }
-    updateTags(savingsTags.purposes, savingsTags.categories);
-    const parts = [created.purposes > 0 && `${created.purposes} 個用途`, created.categories > 0 && `${created.categories} 個分類`].filter(Boolean);
-    return `已建立 ${parts.join("、")}`;
+    updateTags(savingsTags.categories);
+    return `已建立 ${created.categories} 個分類`;
   });
 }
 
@@ -170,6 +167,21 @@ export async function updateAccountAction(_prev: FormState, formData: FormData):
   });
 }
 
+/** 每個帳戶一個 accountId 欄位 金額欄位的名稱帶上它 例如 monthlyPlan:3 */
+export async function updateAllocationAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const { id: userId } = await requireSession();
+  const lines = formData.getAll("accountId").map((raw) => {
+    const accountId = String(raw);
+    return { accountId, monthlyPlan: formText(formData, `monthlyPlan:${accountId}`), targetAmount: formText(formData, `targetAmount:${accountId}`) };
+  });
+  if (lines.length === 0) return { error: INVALID_FORM_MESSAGE };
+  return attempt("更新分配", async () => {
+    await updateAllocation(userId, lines);
+    updateTags(savingsTags.accounts);
+    return "已更新分配";
+  });
+}
+
 export async function setAccountActiveAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { id: userId } = await requireSession();
   return setActive(formData, (active) => (active ? "恢復帳戶" : "停用帳戶"), (id, active) => setAccountActive(userId, id, active), savingsTags.accounts);
@@ -184,37 +196,6 @@ export async function deleteAccountAction(_prev: FormState, formData: FormData):
   const { id: userId } = await requireSession();
   // 紀錄 固定收支 持股與帳單跟著刪 轉帳的另一邊也是
   return remove(formData, "刪除帳戶", (id) => deleteAccount(userId, id), [savingsTags.accounts, savingsTags.transactions, savingsTags.recurring, savingsTags.holdings, savingsTags.bills]);
-}
-
-export async function createPurposeAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
-  return attempt("新增用途", async () => {
-    const purpose = await createPurpose(userId, readFields(formData, PURPOSE_FIELDS));
-    updateTags(savingsTags.purposes);
-    return `已新增用途「${purpose.name}」`;
-  });
-}
-
-export async function updatePurposeAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
-  const id = formId(formData, "id");
-  if (id === null) return { error: INVALID_FORM_MESSAGE };
-  return attempt("儲存用途", async () => {
-    const purpose = await updatePurpose(userId, id, readFields(formData, PURPOSE_FIELDS));
-    updateTags(savingsTags.purposes);
-    return `已儲存「${purpose.name}」`;
-  });
-}
-
-export async function movePurposeAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
-  return move(formData, (id, direction) => movePurpose(userId, id, direction), savingsTags.purposes);
-}
-
-export async function deletePurposeAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
-  // 用了這個用途的帳戶改成未設定
-  return remove(formData, "刪除用途", (id) => deletePurpose(userId, id), [savingsTags.purposes, savingsTags.accounts]);
 }
 
 export async function createCategoryAction(_prev: FormState, formData: FormData): Promise<FormState> {

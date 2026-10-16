@@ -103,30 +103,43 @@ describe("pendingItems（待處理）", () => {
     ]);
   });
 
-  it("信用卡：還沒填帳單的要填帳單（金額是照紀錄的估計），填了之後還有要繳的才列；帶扣款帳戶與自動扣繳；停用的卡不列", () => {
+  it("信用卡：結帳後還沒填帳單是「填帳單」，日期是結帳日、沒有截止日也不算逾期，金額是照紀錄的估計；填了之後照帳單的截止日（遇假日順延）；帶扣款帳戶與自動扣繳", () => {
     // 國泰卡 10/5 結帳 結帳後 10/7 刷 5,910 結帳時的未繳是 12,250 減 5,910 是 6,340
-    const cathay = cardBill({ id: 3, statementDay: 5, dueDay: 20 }, -12_250, [{ accountId: 3, date: "2026-10-07", income: 0, expense: 5910, transferIn: 0, transferOut: 0, adjust: 0 }], TODAY);
-    // 10/23 是週五 不用順延 還有 8 天
-    const taishin = cardBill({ id: 4, statementDay: null, dueDay: 23 }, -3500, [], TODAY);
-    const billed = cardBill({ id: 3, statementDay: 5, dueDay: 20 }, -12_250, [], TODAY, [{ id: 9, accountId: 3, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 12_480 }]);
-    const paidOff = cardBill({ id: 3, statementDay: 5, dueDay: 20 }, 0, [{ accountId: 3, date: "2026-10-10", income: 0, expense: 0, transferIn: 6340, transferOut: 0, adjust: 0 }], TODAY, [
-      { id: 9, accountId: 3, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 6340 },
-    ]);
-    const inactive = { ...CONTEXT, accounts: CONTEXT.accounts.map((account) => (account.id === 4 ? { ...account, active: false } : account)) };
+    const cathay = cardBill({ id: 3, statementDay: 5 }, -12_250, [{ accountId: 3, date: "2026-10-07", income: 0, expense: 5910, transferIn: 0, transferOut: 0, adjust: 0 }], TODAY);
+    // 台新卡沒有結帳日 10/15 自己填了帳單 截止日 10/25 是週日 10/26 補假 順延到 10/27 還有 12 天
+    const taishin = cardBill({ id: 4, statementDay: null }, -3500, [], TODAY, [{ id: 8, accountId: 4, statementDate: "2026-10-15", dueDate: "2026-10-25", amount: 3500 }]);
 
     expect(pendingItems([], [cathay, taishin], TODAY, CONTEXT)).toEqual([
-      { type: "card", key: "card:3:2026-10-20", date: "2026-10-20", status: "upcoming", daysLeft: 5, name: "國泰卡", amount: 6340, accountId: 3, payFromAccountId: 2, autopay: false, statementDate: "2026-10-05", needsBill: true, estimate: 6340, billId: null },
-      { type: "card", key: "card:4:2026-10-23", date: "2026-10-23", status: "upcoming", daysLeft: 8, name: "台新卡", amount: 3500, accountId: 4, payFromAccountId: 2, autopay: true, statementDate: null, needsBill: true, estimate: 3500, billId: null },
+      { type: "card", key: "card:3:2026-10-05", date: "2026-10-05", status: "needs-bill", daysLeft: -10, name: "國泰卡", amount: 6340, accountId: 3, payFromAccountId: 2, autopay: false, statementDate: "2026-10-05", needsBill: true, estimate: 6340, billId: null },
+      { type: "card", key: "card:4:2026-10-15", date: "2026-10-27", status: "upcoming", daysLeft: 12, name: "台新卡", amount: 3500, accountId: 4, payFromAccountId: 2, autopay: true, statementDate: "2026-10-15", needsBill: false, estimate: 3500, billId: 8 },
     ]);
-    expect(pendingItems([], [billed], TODAY, CONTEXT)).toMatchObject([{ amount: 12_480, needsBill: false, billId: 9 }]);
-    expect(pendingItems([], [paidOff], TODAY, CONTEXT)).toEqual([]);
-    expect(pendingItems([], [taishin], TODAY, inactive)).toEqual([]);
   });
 
-  it("依日期排，同一天信用卡在前", () => {
-    const cathay = cardBill({ id: 3, statementDay: 5, dueDay: 20 }, -1000, [], TODAY);
-    const items = pendingItems([rule({ id: 9, dayOfMonth: 20 }), rule({ id: 8, dayOfMonth: 16 })], [cathay], TODAY, CONTEXT);
+  it("信用卡填了帳單之後：還有要繳的才列（金額是帳單減掉結帳後繳的），過了截止日是逾期；繳清了不列", () => {
+    const billed = cardBill({ id: 3, statementDay: 5 }, -12_250, [], TODAY, [{ id: 9, accountId: 3, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 12_480 }]);
+    const late = cardBill({ id: 3, statementDay: 5 }, -12_250, [], "2026-10-22", [{ id: 9, accountId: 3, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 12_480 }]);
+    const paidOff = cardBill({ id: 3, statementDay: 5 }, 0, [{ accountId: 3, date: "2026-10-10", income: 0, expense: 0, transferIn: 6340, transferOut: 0, adjust: 0 }], TODAY, [
+      { id: 9, accountId: 3, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 6340 },
+    ]);
 
-    expect(items.map((item) => item.key)).toEqual(["recurring:8:2026-10", "card:3:2026-10-20", "recurring:9:2026-10"]);
+    expect(pendingItems([], [billed], TODAY, CONTEXT)).toMatchObject([{ key: "card:3:2026-10-05", date: "2026-10-20", status: "upcoming", daysLeft: 5, amount: 12_480, needsBill: false, billId: 9 }]);
+    expect(pendingItems([], [late], "2026-10-22", CONTEXT)).toMatchObject([{ date: "2026-10-20", status: "overdue", daysLeft: -2 }]);
+    expect(pendingItems([], [paidOff], TODAY, CONTEXT)).toEqual([]);
+  });
+
+  it("沒有結帳日、還沒填過帳單的卡_不會自動列出填帳單；停用的卡不列", () => {
+    const noStatement = cardBill({ id: 4, statementDay: null }, -3500, [], TODAY);
+    const cathay = cardBill({ id: 3, statementDay: 5 }, -1000, [], TODAY);
+    const inactive = { ...CONTEXT, accounts: CONTEXT.accounts.map((account) => (account.id === 3 ? { ...account, active: false } : account)) };
+
+    expect(pendingItems([], [noStatement], TODAY, CONTEXT)).toEqual([]);
+    expect(pendingItems([], [cathay], TODAY, inactive)).toEqual([]);
+  });
+
+  it("依日期排，同一天信用卡在前；還沒填帳單的卡照結帳日排（10/5 結帳的排在 10/8 到期的固定收支前面）", () => {
+    const cathay = cardBill({ id: 3, statementDay: 5 }, -1000, [], TODAY);
+    const items = pendingItems([rule({ id: 9, dayOfMonth: 20 }), rule({ id: 7, dayOfMonth: 8 }), rule({ id: 8, dayOfMonth: 5 })], [cathay], TODAY, CONTEXT);
+
+    expect(items.map((item) => item.key)).toEqual(["card:3:2026-10-05", "recurring:8:2026-10", "recurring:7:2026-10", "recurring:9:2026-10"]);
   });
 });

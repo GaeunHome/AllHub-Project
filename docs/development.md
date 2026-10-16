@@ -89,7 +89,7 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
 | `npm test` / `npm run test:watch` | 單元與整合測試（不需要資料庫） |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | 型別檢查（要先 build；增量資訊寫在 `.next/cache/tsconfig.tsbuildinfo`） |
-| `npm run db:generate` | 改了資料表後產生 migration |
+| `npm run db:generate` | 改了資料表後產生 migration（一個版本一個，同一版再改就刪掉重新產生；見 [部署 › 之後的部署](deploy.md#之後的部署)） |
 | `npm run db:migrate` | 套用 migration（讀 `.env.local` 的 `DATABASE_URL`） |
 | `npm run db:studio` | 瀏覽資料庫 |
 | `npm run db:local` | 本機 PGlite 資料庫（port 5433） |

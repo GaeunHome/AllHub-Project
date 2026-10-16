@@ -5,32 +5,33 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
 import { mocksOf } from "@/dev/test-helpers";
-import type { SavingsAccount, SavingsCategory, SavingsHolding, SavingsPurpose, SavingsRecurring } from "../../data/schema";
+import type { SavingsAccount, SavingsCategory, SavingsHolding, SavingsRecurring } from "../../data/schema";
 import type { CardDailyFlow } from "../../lib/cards";
+import type { ChecklistItem } from "../../lib/checklist";
 import type { AccountMonthFlow, CategoryMonthTotal } from "../../lib/ledger";
 import type { Quote } from "../../lib/quotes";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }), usePathname: () => "/savings" }));
 vi.mock("../../service/cached", { spy: true });
+vi.mock("../overview-data", { spy: true });
 vi.mock("@/core/ui/dialog", { spy: true });
 // 只看總覽把什麼交給表單 表單送出另外測
 vi.mock("../actions", () =>
   Object.fromEntries(
     [
       "addTransactionAction",
-      "updateTransactionAction",
-      "updateBalanceAction",
       "allocateSalaryAction",
-      "setupAction",
-      "confirmOccurrenceAction",
-      "skipOccurrenceAction",
-      "payCardAction",
-      "createHoldingAction",
-      "updateHoldingAction",
-      "deleteHoldingAction",
       "buyHoldingAction",
+      "confirmOccurrenceAction",
+      "createHoldingAction",
+      "enterCardBillAction",
+      "payCardAction",
       "sellHoldingAction",
+      "setupAction",
+      "skipOccurrenceAction",
+      "updateBalanceAction",
+      "updateHoldingAction",
     ].map((name) => [name, vi.fn()]),
   ),
 );
@@ -38,7 +39,6 @@ vi.mock("../actions", () =>
 const cached = mocksOf(
   await import("../../service/cached"),
   "cachedAccounts",
-  "cachedPurposes",
   "cachedCategories",
   "cachedAccountFlows",
   "cachedCategoryTotals",
@@ -47,10 +47,12 @@ const cached = mocksOf(
   "cachedQuotes",
   "cachedCardFlows",
   "cachedCardBills",
+  "cachedRecurringRecords",
 );
+const overviewData = mocksOf(await import("../overview-data"), "loadAccounts", "loadChecklist");
 const dialog = await import("@/core/ui/dialog");
 const { SavingsPage, SavingsOverview } = await import("./savings-page");
-const sections = await import("../components/dashboard/sections");
+const sections = await import("../components/overview/sections");
 
 const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: true };
 // 台北時間 2026-10-15 中午
@@ -64,6 +66,8 @@ const render = async (node: Promise<ReactNode> | ReactNode) => renderToStaticMar
 const account = (fixture: Pick<SavingsAccount, "id" | "name" | "kind"> & Partial<SavingsAccount>): SavingsAccount => ({
   userId: "u",
   purposeId: null,
+  label: null,
+  cardStyle: null,
   openingBalance: 0,
   openingCost: null,
   monthlyPlan: null,
@@ -79,18 +83,24 @@ const account = (fixture: Pick<SavingsAccount, "id" | "name" | "kind"> & Partial
   ...fixture,
 });
 const ACCOUNTS = [
-  account({ id: 1, name: "台銀", kind: "deposit", purposeId: 1, openingBalance: 8300 }),
-  account({ id: 2, name: "生活費帳戶", kind: "deposit", purposeId: 2, openingBalance: 86000 }),
+  account({ id: 1, name: "台銀", kind: "deposit", label: "交割", openingBalance: 8300 }),
+  account({ id: 2, name: "生活費帳戶", kind: "deposit", openingBalance: 86000 }),
   account({ id: 4, name: "臺銀證券", kind: "investment", openingBalance: 100000, openingCost: 100000 }),
-  account({ id: 6, name: "國泰卡", kind: "credit", statementDay: 5, dueDay: 20, payFromAccountId: 2 }),
+  account({ id: 6, name: "國泰卡", kind: "credit", statementDay: 5, payFromAccountId: 2 }),
   account({ id: 8, name: "舊帳戶", kind: "deposit", openingBalance: 9000, active: false }),
 ];
-const PURPOSES: SavingsPurpose[] = [
-  { id: 1, userId: "u", name: "交割", color: "blue", sortOrder: 1, createdAt: CREATED },
-  { id: 2, userId: "u", name: "生活費", color: "teal", sortOrder: 2, createdAt: CREATED },
-];
-const category = (id: number, name: string, kind: "income" | "expense", monthlyBudget: number | null = null): SavingsCategory => ({ id, userId: "u", kind, name, color: "blue", monthlyBudget, sortOrder: id, createdAt: CREATED });
-const CATEGORIES = [category(1, "薪水", "income"), category(2, "餐飲", "expense", 6000), category(3, "交通", "expense")];
+const category = (id: number, name: string, kind: "income" | "expense", monthlyBudget: number | null = null, icon: string | null = null): SavingsCategory => ({
+  id,
+  userId: "u",
+  kind,
+  name,
+  color: "blue",
+  monthlyBudget,
+  sortOrder: id,
+  createdAt: CREATED,
+  icon,
+});
+const CATEGORIES = [category(1, "薪水", "income", null, "briefcase"), category(2, "餐飲", "expense", 6000, "utensils"), category(3, "交通", "expense", null, "bus")];
 const flow = (accountId: number, month: string, values: Partial<AccountMonthFlow>): AccountMonthFlow => ({ accountId, month, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
 const FLOWS = [flow(2, "2026-10", { income: 43000, expense: 5000 }), flow(6, "2026-09", { expense: 12480 }), flow(6, "2026-10", { expense: 7000 })];
 const total = (categoryId: number | null, kind: "income" | "expense", amount: number): CategoryMonthTotal => ({ categoryId, kind, month: "2026-10", amount });
@@ -136,7 +146,6 @@ afterAll(() => {
 beforeEach(() => {
   requireSession.mockReset();
   cached.cachedAccounts.mockReset().mockResolvedValue(ACCOUNTS);
-  cached.cachedPurposes.mockReset().mockResolvedValue(PURPOSES);
   cached.cachedCategories.mockReset().mockResolvedValue(CATEGORIES);
   cached.cachedAccountFlows.mockReset().mockResolvedValue(FLOWS);
   cached.cachedCategoryTotals.mockReset().mockResolvedValue(TOTALS);
@@ -145,23 +154,30 @@ beforeEach(() => {
   cached.cachedQuotes.mockReset().mockResolvedValue(QUOTES);
   cached.cachedCardFlows.mockReset().mockResolvedValue(CARD_FLOWS);
   cached.cachedCardBills.mockReset().mockResolvedValue([]);
+  cached.cachedRecurringRecords.mockReset().mockResolvedValue([]);
+  overviewData.loadAccounts.mockReset();
+  overviewData.loadChecklist.mockReset();
 });
 
-/** 頁首的按鈕加上每一區 跟整頁載入完的樣子一樣 */
+/** 每一區載入完的樣子 */
 const wholePage = async () =>
-  (
-    await Promise.all(
-      [sections.OverviewQuickAdd(), sections.OverviewSalaryMenu(), sections.SummarySection(), sections.PendingSection(), sections.AccountsSection(), sections.ExpenseSection(), sections.TrendSection()].map(render),
-    )
-  ).join("");
+  (await Promise.all([sections.HeroSection(), sections.QuickActionsSection(), sections.ChecklistSection(), sections.MonthSection(), sections.TrendSection()].map(render))).join("") +
+  (await render(SavingsOverview()));
 
 describe("理財的總覽頁", () => {
-  it("頁首是理財與分頁列（總覽是目前這一頁），頁首右邊的按鈕與下面的內容各自串流，先出現骨架", () => {
+  it("頁首是理財，分頁列照順序是總覽、紀錄、帳戶、投資、每月固定、設定，總覽是目前這一頁", () => {
     const markup = renderToStaticMarkup(createElement(SavingsPage, { info: INFO }));
+    const tabs = [...markup.slice(markup.indexOf('aria-label="理財的頁面"')).matchAll(/<a [^>]*>(.*?)<\/a>/g)].map((m) => [m[0].match(/href="([^"]*)"/)?.[1], textOf(m[1]), m[0].includes('aria-current="page"')]);
 
-    expect(markup).toMatch(/^<div data-accent="green" class="page-stack">/);
     expect(markup).toMatch(/<h1[^>]*>理財<\/h1>/);
-    expect(markup).toMatch(/<a [^>]*aria-current="page"[^>]*href="\/savings"|<a [^>]*href="\/savings"[^>]*aria-current="page"/);
+    expect(tabs).toEqual([
+      ["/savings", "總覽", true],
+      ["/savings/records", "紀錄", false],
+      ["/savings/accounts", "帳戶", false],
+      ["/savings/investments", "投資", false],
+      ["/savings/recurring", "每月固定", false],
+      ["/savings/settings", "設定", false],
+    ]);
     expect(textOf(markup)).toContain("載入總覽…");
   });
 
@@ -173,9 +189,12 @@ describe("理財的總覽頁", () => {
     expect(dialog.DialogMessageScope).toHaveBeenCalledOnce();
   });
 
-  it("由上而下：總資產、待處理、帳戶、本月支出、每月收支；待處理常常沒有，不先佔位置", async () => {
+  it("由上而下：開始設定、總資產、我要…、這個月要做的事、本月收支、每月收支、怎麼用", async () => {
+    // 還沒設定每月固定支出 開始設定才會出現
+    cached.cachedRecurring.mockResolvedValue(RULES.filter((item) => item.name !== "Netflix"));
+
     const markup = await render(SavingsOverview());
-    const order = ["載入總資產…", "載入帳戶…", "載入本月支出…", "載入每月收支…"].map((label) => markup.indexOf(label));
+    const order = ["開始設定", "載入總資產…", "載入常用的動作…", "載入這個月要做的事…", "載入本月收支…", "載入每月收支…", "花錢可以隨手記一筆"].map((label) => markup.indexOf(label));
 
     expect(order.every((index) => index >= 0)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
@@ -185,49 +204,124 @@ describe("理財的總覽頁", () => {
     requireSession.mockResolvedValue(OTHER_SESSION);
 
     await wholePage();
-    await SavingsOverview();
 
-    for (const fn of [cached.cachedAccounts, cached.cachedPurposes, cached.cachedCategories, cached.cachedAccountFlows, cached.cachedCategoryTotals, cached.cachedRecurring, cached.cachedHoldings]) {
+    for (const fn of [cached.cachedAccounts, cached.cachedCategories, cached.cachedAccountFlows, cached.cachedCategoryTotals, cached.cachedRecurring, cached.cachedHoldings, cached.cachedCardFlows, cached.cachedCardBills, cached.cachedRecurringRecords]) {
       expect(fn.mock.calls.length).toBeGreaterThan(0);
       for (const call of fn.mock.calls) expect(call[0]).toBe(OTHER_SESSION.id);
     }
-    for (const fn of [cached.cachedCardFlows, cached.cachedCardBills]) for (const call of fn.mock.calls) expect(call[0]).toBe(OTHER_SESSION.id);
+    for (const fn of [overviewData.loadAccounts, overviewData.loadChecklist]) for (const call of fn.mock.calls) expect(call[0]).toBe(OTHER_SESSION.id);
+  });
+});
+
+describe("開始設定", () => {
+  it("還沒有帳戶：整個總覽只有開始設定，五步都連到新增的視窗；也還沒有分類時上面先有「開始使用」", async () => {
+    cached.cachedAccounts.mockResolvedValue([]);
+    cached.cachedCategories.mockResolvedValue([]);
+    cached.cachedRecurring.mockResolvedValue([]);
+
+    const markup = await render(SavingsOverview());
+
+    expect(textOf(markup)).toContain("已完成 0/5");
+    expect(textOf(markup)).toContain("開始使用");
+    expect(markup).not.toContain("載入總資產…");
+    expect(markup).not.toContain("載入這個月要做的事…");
   });
 
-  describe("還沒有帳戶_歡迎卡取代整個總覽", () => {
-    it("第一次使用（也還沒有用途與分類）：說明先建立常用的用途和分類，有「開始使用」與「新增帳戶」", async () => {
-      cached.cachedAccounts.mockResolvedValue([]);
-      cached.cachedPurposes.mockResolvedValue([]);
-      cached.cachedCategories.mockResolvedValue([]);
+  it("五步都做完：不再出現", async () => {
+    cached.cachedAccounts.mockResolvedValue([...ACCOUNTS, account({ id: 9, name: "國泰證券", kind: "investment" })]);
+    cached.cachedRecurring.mockResolvedValue([...RULES, rule({ id: 4, name: "房租", kind: "expense", amount: 15000, accountId: 2, dayOfMonth: 5 })]);
 
-      const markup = await render(SavingsOverview());
+    expect(await render(SavingsOverview())).not.toContain("開始設定");
+  });
+});
 
-      expect(textOf(markup)).toContain("第一次使用？先建立常用的用途和分類（之後都能改），再新增帳戶。");
-      expect(textOf(markup)).toContain("開始使用");
-      expect(markup).toMatch(/<a [^>]*href="\/savings\/settings\?add=account#accounts"[^>]*>(?:(?!<\/a>).)*新增帳戶/);
-      expect(markup).not.toContain("載入總資產…");
+describe("總資產", () => {
+  it("總資產是啟用中的存款加投資市值（有持股時用股數 × 收盤價）；下面一行寫存款、投資與損益、收盤日期、信用卡未繳", async () => {
+    const text = textOf(await render(sections.HeroSection()));
+
+    // 8,300 + (86,000 + 43,000 - 5,000) + 1,000 × 106.50 + 100 × 195.00 停用的與信用卡不算
+    expect(text).toContain("總資產$258,300");
+    // 損益 126,000 - 113,000 國泰卡 12,480 + 7,000
+    expect(text).toContain("存款 $132,300·投資 $126,000（損益 +$13,000，10/14 收盤）·信用卡未繳 $19,480");
+  });
+
+  it("沒有持股時不查股價；有持股時用排序去重的代號查", async () => {
+    await render(sections.HeroSection());
+    expect(cached.cachedQuotes).toHaveBeenCalledWith(["0050", "006208"]);
+
+    cached.cachedQuotes.mockClear();
+    cached.cachedHoldings.mockResolvedValue([]);
+    await render(sections.HeroSection());
+    expect(cached.cachedQuotes).not.toHaveBeenCalled();
+  });
+});
+
+describe("這個月要做的事", () => {
+  it("沒有任何固定收支與信用卡：一句說明加上「設定薪水與每月固定」（連到每月固定頁）", async () => {
+    cached.cachedRecurring.mockResolvedValue([]);
+    cached.cachedAccounts.mockResolvedValue(ACCOUNTS.filter((item) => item.kind !== "credit"));
+
+    const markup = await render(sections.ChecklistSection());
+
+    expect(markup).toMatch(/<a [^>]*href="\/savings\/recurring"[^>]*>(?:(?!<\/a>).)*設定薪水與每月固定/);
+  });
+
+  it("照 loadChecklist 的資料一列一件，要處理的接上待處理的視窗；標題列寫還有幾件", async () => {
+    const item = (fixture: Pick<ChecklistItem, "key" | "title" | "date" | "state"> & Partial<ChecklistItem>): ChecklistItem => ({
+      kind: "recurring",
+      amount: 1000,
+      estimated: false,
+      doneOn: null,
+      carriedOver: false,
+      upcoming: false,
+      ruleId: null,
+      period: null,
+      cardId: null,
+      actionable: false,
+      cardStage: null,
+      ...fixture,
+    });
+    const view = await overviewData.loadChecklist(OTHER_SESSION.id, NOW);
+    overviewData.loadChecklist.mockResolvedValue({
+      ...view,
+      items: [
+        item({ key: "card:6:2026-10-05", title: "國泰卡", kind: "card", date: "2026-10-05", state: "todo", amount: 19480, estimated: true, cardId: 6, actionable: true, cardStage: "needs-bill" }),
+        item({ key: "recurring:3:2026-10", title: "Netflix", date: "2026-10-12", state: "auto-done", amount: 390, doneOn: "2026-10-12", ruleId: 3 }),
+      ],
     });
 
-    it("已經有用途或分類：一句話加上「新增帳戶」，頁首沒有記一筆與發薪分配", async () => {
-      cached.cachedAccounts.mockResolvedValue([]);
+    const markup = await render(sections.ChecklistSection());
 
-      const markup = await render(SavingsOverview());
-      const actions = (await Promise.all([sections.OverviewQuickAdd(), sections.OverviewSalaryMenu()].map(render))).join("");
+    expect(textOf(markup)).toContain("還有 1 件");
+    expect(markup).toMatch(/aria-label="填帳單：國泰卡"/);
+    expect(textOf(markup)).toContain("Netflix");
+  });
+});
 
-      expect(textOf(markup)).toContain("還沒有帳戶");
-      expect(markup).not.toContain("開始使用");
-      expect(markup).toMatch(/<a [^>]*href="\/savings\/settings\?add=account#accounts"[^>]*>(?:(?!<\/a>).)*新增帳戶/);
-      expect(actions).toBe("");
-    });
+describe("本月收支", () => {
+  it("一行寫收入、支出與存下；支出分類照金額排，有預算的寫已用與預算，點一列到紀錄頁篩好那個分類", async () => {
+    const markup = await render(sections.MonthSection());
+    const rows = [...markup.matchAll(/<li><a [^>]*href="([^"]*)"[^>]*>(.*?)<\/a><\/li>/g)].map((m) => [m[1], textOf(m[2])]);
+
+    expect(textOf(markup)).toContain("收入 +$43,000·支出 $12,000·存下 $31,000");
+    expect(rows).toEqual([
+      ["/savings/records?category=2", "餐飲超過 $500$6,500 / $6,000"],
+      ["/savings/records?category=3", "交通$5,500"],
+    ]);
+  });
+
+  it("這個月花的比賺的多：寫「多花」多少，不寫負的存下", async () => {
+    cached.cachedCategoryTotals.mockResolvedValue([total(1, "income", 3000), total(2, "expense", 12110)]);
+
+    expect(textOf(await render(sections.MonthSection()))).toContain("多花 $9,110");
   });
 });
 
 describe("介面原則", () => {
-  it("一頁只有一個主要按鈕（頁首的記一筆），手機也用它，沒有右下角的浮動加號", async () => {
+  it("主要按鈕最多一個（開始設定的下一步），沒有右下角的浮動加號", async () => {
     const markup = await wholePage();
 
-    expect(markup.match(/class="btn-primary[ "]/g)).toHaveLength(1);
-    expect(markup).toMatch(/<button[^>]*class="btn-primary"[^>]*>(?:(?!<\/button>).)*記一筆<\/button>/);
+    expect(markup.match(/class="btn-primary[ "]/g)?.length ?? 0).toBeLessThanOrEqual(1);
     expect(markup).not.toMatch(/fixed right-4/);
   });
 
@@ -238,89 +332,5 @@ describe("介面原則", () => {
 
   it("卡片標題不帶圖示，標題旁沒有裝飾用的圖示方塊", async () => {
     expect(await wholePage()).not.toContain("icon-tile");
-  });
-});
-
-describe("頁首的按鈕", () => {
-  it("發薪分配收進記一筆旁邊的 ⋮ 選單，不再是一顆按鈕", async () => {
-    const markup = await render(sections.OverviewSalaryMenu());
-
-    expect(markup).toMatch(/<button[^>]*aria-label="更多記帳方式"[^>]*data-popup-trigger=""/);
-    expect(textOf(markup)).not.toContain("發薪分配");
-  });
-});
-
-describe("總資產與本月", () => {
-  it("這個月花的比賺的多：寫「多花」多少，不寫負的存下", async () => {
-    cached.cachedCategoryTotals.mockResolvedValue([total(1, "income", 3000), total(2, "expense", 12110)]);
-
-    expect(textOf(await render(sections.SummarySection()))).toContain("多花 $9,110");
-  });
-
-  it("總資產是啟用中的存款加投資市值（有持股時用股數 × 收盤價）；本月一行寫收入、支出與存下", async () => {
-    const text = textOf(await render(sections.SummarySection()));
-
-    // 8,300 + (86,000 + 43,000 - 5,000) + 1,000 × 106.50 + 100 × 195.00 停用的與信用卡不算
-    expect(text).toContain("總資產$258,300");
-    expect(text).toContain("本月收入 $43,000·支出 $12,000·存下 $31,000");
-  });
-
-  it("沒有持股時不查股價；有持股時用排序去重的代號查", async () => {
-    await render(sections.SummarySection());
-    expect(cached.cachedQuotes).toHaveBeenCalledWith(["0050", "006208"]);
-
-    cached.cachedQuotes.mockClear();
-    cached.cachedHoldings.mockResolvedValue([]);
-    await render(sections.SummarySection());
-    expect(cached.cachedQuotes).not.toHaveBeenCalled();
-  });
-
-});
-
-describe("待處理", () => {
-  it("要確認的固定收支與信用卡帳單照日期排，同一天信用卡在前；自動記的不列；每列一顆按鈕（結帳後還沒填帳單的卡是「填帳單」）", async () => {
-    const markup = await render(sections.PendingSection());
-    const rows = [...markup.matchAll(/<li class="card-row[^"]*">(.*?)<\/li>/g)].map((m) => m[1]);
-    const buttons = rows.map((row) => row.match(/aria-label="([^"]*)"[^>]*class="btn-secondary btn-sm[^"]*"/)?.[1]);
-
-    expect(markup).toMatch(/<h2[^>]*>待處理<\/h2>/);
-    expect(buttons).toEqual(["確認：006208 定期定額", "填帳單：國泰卡", "入帳並分配：薪水"]);
-    expect(textOf(markup)).not.toContain("Netflix");
-  });
-
-  it("沒有要處理的就整區不出現", async () => {
-    cached.cachedRecurring.mockResolvedValue([]);
-    // 沒設截止日的卡不用填帳單也不用繳
-    cached.cachedAccounts.mockResolvedValue(ACCOUNTS.map((item) => (item.kind === "credit" ? { ...item, dueDay: null } : item)));
-
-    expect(await render(sections.PendingSection())).toBe("");
-  });
-});
-
-describe("帳戶", () => {
-  it("一張卡分成存款、投資、信用卡三組，組的標題寫小計；停用的帳戶不出現", async () => {
-    const markup = await render(sections.AccountsSection());
-    const groups = [...markup.matchAll(/<h3 id="fin-accounts-[a-z]+"[^>]*>(.*?)<\/h3>/g)].map((m) => textOf(m[1]));
-
-    expect(groups).toEqual(["存款$132,300", "投資$126,000", "信用卡未繳 $19,480"]);
-    expect(textOf(markup)).not.toContain("舊帳戶");
-  });
-
-  it("點一列打開帳戶詳情：每一列是打開視窗的按鈕，報讀器念出帳戶與金額", async () => {
-    cached.cachedCardBills.mockResolvedValue([{ id: 1, accountId: 6, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 12480, paid: 0, lastPaidOn: null }]);
-    const markup = await render(sections.AccountsSection());
-    const row = markup.match(/<button[^>]*aria-haspopup="dialog"[^>]*>(?:(?!<\/button>).)*國泰卡(?:(?!<\/button>).)*<\/button>/)![0];
-
-    expect(textOf(row)).toBe("查看：國泰卡10/20 截止 · 本期應繳 $12,480$19,480");
-  });
-});
-
-describe("本月支出", () => {
-  it("分類照金額排；有預算的寫已用與預算，超支才寫超過多少；右上角連到全部紀錄", async () => {
-    const markup = await render(sections.ExpenseSection());
-    const rows = [...markup.matchAll(/<li><a [^>]*>(.*?)<\/a><\/li>/g)].map((m) => textOf(m[1]));
-
-    expect(rows).toEqual(["餐飲超過 $500$6,500 / $6,000", "交通$5,500"]);
-    expect(markup).toMatch(/<a [^>]*href="\/savings\/records"[^>]*>全部紀錄/);
   });
 });

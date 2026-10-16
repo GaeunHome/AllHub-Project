@@ -1,5 +1,6 @@
 import { HOLIDAY_RULES, INTERVAL_MONTHS, RECURRING_MODES, type EntryKind, type HolidayRule, type IntervalMonths, type RecurringMode } from "../../../lib/kinds";
 import { addMonths, dateToMonth, type MonthKey } from "../../../lib/month";
+import type { RecurringPreset } from "../../paths";
 
 // 固定收支表單的欄位連動 不依賴 React 才能直接測
 
@@ -11,6 +12,15 @@ export const RECURRING_TYPE_LABELS: Record<RecurringType, string> = { expense: "
 export function recurringTypeOf(rule: { kind: EntryKind; holdingId: number | null }): RecurringType {
   return rule.holdingId !== null ? "regular" : rule.kind;
 }
+
+/** 每月固定頁的三區 修改時照規則所在的那一區 */
+export function presetOf(rule: { allocate: boolean; holdingId: number | null }): RecurringPreset {
+  if (rule.holdingId !== null) return "regular-buy";
+  return rule.allocate ? "salary" : "other";
+}
+
+/** 每一區能選的類型 只有一種時表單不顯示類型 */
+export const PRESET_TYPES: Record<RecurringPreset, readonly RecurringType[]> = { salary: ["income"], "regular-buy": ["regular"], other: ["expense", "income", "transfer"] };
 
 /** 送出的 kind 定期定額是轉帳 */
 export function entryKindOf(type: RecurringType): EntryKind {
@@ -90,4 +100,38 @@ export function startMonthOptions(today: string, keep?: MonthKey | null): MonthK
   const current = dateToMonth(today);
   const months = Array.from({ length: 12 }, (_, i) => addMonths(current, i));
   return keep && !months.includes(keep) ? [keep, ...months].sort() : months;
+}
+
+type RuleStart = { kind: EntryKind; holdingId: number | null; intervalMonths: number; startMonth: string | null; dayOfMonth: number; holidayRule: HolidayRule; mode: RecurringMode; allocate: boolean };
+
+/**
+ * 修改時照原本的 新增時預設每月 今天的日期 到期請我確認
+ * 新增薪水先勾好 定期定額先選好 假日規則照建議的
+ */
+export function initialRecurringState(rule: RuleStart | undefined, preset: RecurringPreset | undefined, today: string): RecurringFormState {
+  if (rule) {
+    return {
+      type: recurringTypeOf(rule),
+      intervalMonths: parseInterval(rule.intervalMonths),
+      startMonth: rule.startMonth ? dateToMonth(rule.startMonth) : dateToMonth(today),
+      day: rule.dayOfMonth,
+      holidayRule: rule.holidayRule,
+      mode: rule.mode,
+      allocate: rule.allocate,
+      suggest: false,
+    };
+  }
+  const blank: RecurringFormState = {
+    type: "expense",
+    intervalMonths: 1,
+    startMonth: dateToMonth(today),
+    day: Number(today.slice(8, 10)),
+    holidayRule: "none",
+    mode: "confirm",
+    allocate: false,
+    suggest: true,
+  };
+  if (preset === "salary") return recurringFormReducer(recurringFormReducer(blank, { type: "type", value: "income" }), { type: "allocate", value: true });
+  if (preset === "regular-buy") return recurringFormReducer(blank, { type: "type", value: "regular" });
+  return blank;
 }

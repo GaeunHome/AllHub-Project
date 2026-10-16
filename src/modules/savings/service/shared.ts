@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { db } from "@/core/db";
 import { coreUsers } from "@/core/db/schema";
-import { savingsAccounts, savingsCategories, savingsHoldings, savingsPurposes } from "../data/schema";
+import { savingsAccounts, savingsCategories, savingsHoldings } from "../data/schema";
 import type { DateKey } from "../lib/dates";
 import { accountsWithHoldings } from "../lib/holdings";
 import type { AccountKind, EntryKind } from "../lib/kinds";
@@ -47,7 +47,7 @@ export async function withUniqueName<T>(write: PromiseLike<T>, message: string):
 /** drizzle 的 and 沒條件時是 undefined 空的 where 會碰到別人的資料 */
 export const allOf = (...conditions: SQL[]): SQL => and(...conditions) as SQL;
 
-type OrderedTable = typeof savingsAccounts | typeof savingsPurposes | typeof savingsCategories | typeof savingsHoldings;
+type OrderedTable = typeof savingsAccounts | typeof savingsCategories | typeof savingsHoldings;
 
 /** 新的一列排在最後 範圍裡最大的排序值加一 */
 export function nextSortOrder(table: OrderedTable, scope: SQL): SQL {

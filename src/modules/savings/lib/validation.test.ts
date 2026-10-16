@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { NAME_MAX_LENGTH, NOTE_MAX_LENGTH, PALETTE, SELECTABLE_COLORS } from "./kinds";
+import { CARD_STYLES, CATEGORY_ICON_NAMES, LABEL_MAX_LENGTH, NAME_MAX_LENGTH, NOTE_MAX_LENGTH, PALETTE, SELECTABLE_COLORS } from "./kinds";
 import {
   NOT_FOUND,
   amountFromText,
   checkAccountStart,
+  checkBillDueDate,
   isRowId,
   parseAccountFields,
   parseAccountKind,
+  parseAllocationFields,
   parseAmount,
   parseBalance,
   parseBalanceFields,
@@ -18,7 +20,6 @@ import {
   parseEntryFields,
   parseName,
   parseNote,
-  parsePurposeFields,
   parseRecurringFields,
   parseRowId,
   parseSalaryFields,
@@ -326,12 +327,12 @@ describe("checkAccountStart（紀錄的日期不能早於帳戶開始記帳的�
 
 const account = (fields: Partial<Record<string, string>> = {}) => ({
   name: "國泰",
-  purposeId: "",
+  label: "",
+  cardStyle: "",
   openingBalance: "",
   openingCost: "",
   monthlyPlan: "",
   targetAmount: "",
-  dueDay: "",
   payFromAccountId: "",
   statementDay: "",
   autopay: "",
@@ -342,22 +343,56 @@ describe("parseAccountFields（帳戶設定，依類型）", () => {
   it("存款_全部留空_起始餘額是 0、其他都是 null", () => {
     expect(parseAccountFields(account(), "deposit")).toEqual({
       ok: true,
-      value: { name: "國泰", purposeId: null, openingBalance: 0, openingCost: null, monthlyPlan: null, targetAmount: null, dueDay: null, payFromAccountId: null, statementDay: null, autopay: false },
+      value: { name: "國泰", label: null, cardStyle: null, openingBalance: 0, openingCost: null, monthlyPlan: null, targetAmount: null, payFromAccountId: null, statementDay: null, autopay: false },
     });
   });
 
   it("存款_起始餘額、每月規劃、目標金額與用途", () => {
-    expect(parseAccountFields(account({ purposeId: "3", openingBalance: "12,000", monthlyPlan: "5000", targetAmount: "300000" }), "deposit")).toEqual({
+    expect(parseAccountFields(account({ label: "生活費", openingBalance: "12,000", monthlyPlan: "5000", targetAmount: "300000" }), "deposit")).toEqual({
       ok: true,
-      value: { name: "國泰", purposeId: 3, openingBalance: 12_000, openingCost: null, monthlyPlan: 5000, targetAmount: 300_000, dueDay: null, payFromAccountId: null, statementDay: null, autopay: false },
+      value: { name: "國泰", label: "生活費", cardStyle: null, openingBalance: 12_000, openingCost: null, monthlyPlan: 5000, targetAmount: 300_000, payFromAccountId: null, statementDay: null, autopay: false },
     });
   });
 
-  it("信用卡_目前未繳存成負的起始餘額_繳款日與扣款帳戶_每月規劃與目標不適用而忽略", () => {
-    expect(parseAccountFields(account({ openingBalance: "3500", dueDay: "6", payFromAccountId: "9", monthlyPlan: "100", targetAmount: "200", openingCost: "50" }), "credit")).toEqual({
+  it("用途跟名稱一樣整理（去掉看不見的字元、空白縮成一個）_存款與投資帳戶可以寫，信用卡的表單沒有用途、送來也存 null；只有空白是沒填（null）", () => {
+    expect(parseAccountFields(account({ label: " 緊急\u200B預備金 " }), "deposit")).toMatchObject({ ok: true, value: { label: "緊急預備金" } });
+    expect(parseAccountFields(account({ label: "長期  投資" }), "investment")).toMatchObject({ ok: true, value: { label: "長期 投資" } });
+    expect(parseAccountFields(account({ label: "生活費" }), "credit")).toMatchObject({ ok: true, value: { label: null } });
+    expect(parseAccountFields(account({ label: " \u3000 " }), "deposit")).toMatchObject({ ok: true, value: { label: null } });
+  });
+
+  it("用途剛好 20 個字可以_超過就錯誤", () => {
+    expect(parseAccountFields(account({ label: "存".repeat(LABEL_MAX_LENGTH) }), "deposit")).toMatchObject({ ok: true, value: { label: "存".repeat(LABEL_MAX_LENGTH) } });
+    expect(parseAccountFields(account({ label: "存".repeat(LABEL_MAX_LENGTH + 1) }), "deposit")).toEqual({ ok: false, error: "用途最多 20 個字" });
+  });
+
+  it.each(CARD_STYLES)("信用卡的卡面顏色 %s_可以", (style) => {
+    expect(parseAccountFields(account({ cardStyle: style }), "credit")).toMatchObject({ ok: true, value: { cardStyle: style } });
+  });
+
+  it("信用卡沒選卡面顏色_是 null（畫面照建立的順序輪流）；不在清單裡的顏色_錯誤", () => {
+    expect(parseAccountFields(account({ cardStyle: " " }), "credit")).toMatchObject({ ok: true, value: { cardStyle: null } });
+    expect(parseAccountFields(account({ cardStyle: "pink" }), "credit")).toEqual({ ok: false, error: "卡面顏色不正確" });
+    expect(parseAccountFields(account({ cardStyle: "BLUE" }), "credit")).toEqual({ ok: false, error: "卡面顏色不正確" });
+  });
+
+  it.each(["deposit", "investment"] as const)("%s 送來卡面顏色（就算不在清單裡）_不適用而忽略", (kind) => {
+    expect(parseAccountFields(account({ cardStyle: "blue" }), kind)).toMatchObject({ ok: true, value: { cardStyle: null } });
+    expect(parseAccountFields(account({ cardStyle: "pink" }), kind)).toMatchObject({ ok: true, value: { cardStyle: null } });
+  });
+
+  it("信用卡_目前未繳存成負的起始餘額_扣款帳戶_每月規劃與目標不適用而忽略", () => {
+    expect(parseAccountFields(account({ openingBalance: "3500", payFromAccountId: "9", monthlyPlan: "100", targetAmount: "200", openingCost: "50" }), "credit")).toEqual({
       ok: true,
-      value: { name: "國泰", purposeId: null, openingBalance: -3500, openingCost: null, monthlyPlan: null, targetAmount: null, dueDay: 6, payFromAccountId: 9, statementDay: null, autopay: false },
+      value: { name: "國泰", label: null, cardStyle: null, openingBalance: -3500, openingCost: null, monthlyPlan: null, targetAmount: null, payFromAccountId: 9, statementDay: null, autopay: false },
     });
+  });
+
+  it("信用卡送來繳款截止日（舊的表單）_不收：截止日改成每次填帳單時照帳單填", () => {
+    const parsed = parseAccountFields(account({ dueDay: "20", statementDay: "5" }), "credit");
+
+    expect(parsed).toMatchObject({ ok: true, value: { statementDay: 5 } });
+    expect(parsed.ok && parsed.value).not.toHaveProperty("dueDay");
   });
 
   it("信用卡沒有未繳_起始餘額是 0（不是 -0）", () => {
@@ -365,10 +400,10 @@ describe("parseAccountFields（帳戶設定，依類型）", () => {
     expect(parsed.ok && Object.is(parsed.value.openingBalance, 0)).toBe(true);
   });
 
-  it("投資_目前市值與成本_繳款日與扣款帳戶不適用而忽略", () => {
-    expect(parseAccountFields(account({ openingBalance: "80000", openingCost: "75,000", dueDay: "6", payFromAccountId: "9" }), "investment")).toEqual({
+  it("投資_目前市值與成本_扣款帳戶不適用而忽略", () => {
+    expect(parseAccountFields(account({ openingBalance: "80000", openingCost: "75,000", payFromAccountId: "9" }), "investment")).toEqual({
       ok: true,
-      value: { name: "國泰", purposeId: null, openingBalance: 80_000, openingCost: 75_000, monthlyPlan: null, targetAmount: null, dueDay: null, payFromAccountId: null, statementDay: null, autopay: false },
+      value: { name: "國泰", label: null, cardStyle: null, openingBalance: 80_000, openingCost: 75_000, monthlyPlan: null, targetAmount: null, payFromAccountId: null, statementDay: null, autopay: false },
     });
   });
 
@@ -396,13 +431,9 @@ describe("parseAccountFields（帳戶設定，依類型）", () => {
     expect(parseAccountFields(account(fields), kind)).toEqual({ ok: false, error });
   });
 
-  it.each(["0", "32", "1.5", "abc"])("信用卡繳款截止日 %j_要在 1 到 31 日之間", (dueDay) => {
-    expect(parseAccountFields(account({ dueDay }), "credit")).toEqual({ ok: false, error: expect.stringContaining("繳款截止日") });
-  });
-
   it("信用卡的結帳日與自動扣繳（勾選框送 on）", () => {
-    expect(parseAccountFields(account({ dueDay: "20", statementDay: "5", autopay: "on" }), "credit")).toMatchObject({ ok: true, value: { dueDay: 20, statementDay: 5, autopay: true } });
-    expect(parseAccountFields(account({ dueDay: "20" }), "credit")).toMatchObject({ ok: true, value: { statementDay: null, autopay: false } });
+    expect(parseAccountFields(account({ statementDay: "5", autopay: "on" }), "credit")).toMatchObject({ ok: true, value: { statementDay: 5, autopay: true } });
+    expect(parseAccountFields(account(), "credit")).toMatchObject({ ok: true, value: { statementDay: null, autopay: false } });
     expect(parseAccountFields(account({ statementDay: "0" }), "credit")).toEqual({ ok: false, error: expect.stringContaining("結帳日") });
   });
 
@@ -410,12 +441,15 @@ describe("parseAccountFields（帳戶設定，依類型）", () => {
     expect(parseAccountFields(account({ statementDay: "5", autopay: "on" }), kind)).toMatchObject({ ok: true, value: { statementDay: null, autopay: false } });
   });
 
-  it("繳款日 31_可以（沒有 31 日的月份算月底）", () => {
-    expect(parseAccountFields(account({ dueDay: "31" }), "credit")).toMatchObject({ ok: true, value: { dueDay: 31 } });
+  it("結帳日 31_可以（沒有 31 日的月份算月底）", () => {
+    expect(parseAccountFields(account({ statementDay: "31" }), "credit")).toMatchObject({ ok: true, value: { statementDay: 31 } });
   });
 
-  it("用途 id 格式不對_當作找不到用途", () => {
-    expect(parseAccountFields(account({ purposeId: "abc" }), "deposit")).toEqual({ ok: false, error: NOT_FOUND.purpose });
+  it("舊的表單送來用途 id（就算格式不對）_不讀也不存：用途改成帳戶上的文字", () => {
+    const parsed = parseAccountFields(account({ purposeId: "abc" }), "deposit");
+
+    expect(parsed).toMatchObject({ ok: true, value: { label: null } });
+    expect(parsed.ok && parsed.value).not.toHaveProperty("purposeId");
   });
 
   it("扣款帳戶 id 格式不對_當作找不到帳戶", () => {
@@ -439,32 +473,39 @@ describe("parseAccountFields（帳戶設定，依類型）", () => {
   });
 });
 
-describe("parsePurposeFields 與 parseCategoryFields", () => {
-  it("用途_名稱與顏色", () => {
-    expect(parsePurposeFields({ name: " 生活費 ", color: "blue" })).toEqual({ ok: true, value: { name: "生活費", color: "blue" } });
-    expect(parsePurposeFields({ name: "生活費", color: "pink" })).toEqual({ ok: false, error: "顏色不正確" });
-  });
-
-  it("用途與分類都不能選灰色_灰色留給「未設定用途」「未分類」，圖上才分得出來", () => {
-    expect(parsePurposeFields({ name: "生活費", color: "slate" })).toEqual({ ok: false, error: "顏色不正確" });
-    expect(parseCategoryFields({ name: "提領現金", color: "slate", monthlyBudget: "" }, "expense")).toEqual({ ok: false, error: "顏色不正確" });
-    expect(parseCategoryFields({ name: "獎金", color: "slate", monthlyBudget: "" }, "income")).toEqual({ ok: false, error: "顏色不正確" });
+describe("parseCategoryFields", () => {
+  it("分類不能選灰色_灰色留給「未分類」", () => {
+    expect(parseCategoryFields({ name: "提領現金", color: "slate", monthlyBudget: "", icon: "" }, "expense")).toEqual({ ok: false, error: "顏色不正確" });
+    expect(parseCategoryFields({ name: "獎金", color: "slate", monthlyBudget: "", icon: "" }, "income")).toEqual({ ok: false, error: "顏色不正確" });
   });
 
   it("支出分類_可以設每月預算_留空是不設", () => {
-    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: "6,000" }, "expense")).toEqual({
+    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: "6,000", icon: "utensils" }, "expense")).toEqual({
       ok: true,
-      value: { name: "餐飲", color: "orange", monthlyBudget: 6000 },
+      value: { name: "餐飲", color: "orange", monthlyBudget: 6000, icon: "utensils" },
     });
-    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: " " }, "expense")).toMatchObject({ ok: true, value: { monthlyBudget: null } });
+    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: " ", icon: "" }, "expense")).toMatchObject({ ok: true, value: { monthlyBudget: null } });
   });
 
   it("收入分類_預算不適用而忽略", () => {
-    expect(parseCategoryFields({ name: "薪水", color: "green", monthlyBudget: "100" }, "income")).toEqual({ ok: true, value: { name: "薪水", color: "green", monthlyBudget: null } });
+    expect(parseCategoryFields({ name: "薪水", color: "green", monthlyBudget: "100", icon: "briefcase" }, "income")).toEqual({ ok: true, value: { name: "薪水", color: "green", monthlyBudget: null, icon: "briefcase" } });
   });
 
   it("預算 0 元_至少 1 元", () => {
-    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: "0" }, "expense")).toEqual({ ok: false, error: "金額至少 1 元" });
+    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: "0", icon: "" }, "expense")).toEqual({ ok: false, error: "金額至少 1 元" });
+  });
+
+  it.each(CATEGORY_ICON_NAMES)("分類的圖示 %s（選擇器上的每一個）_收入與支出都可以選", (icon) => {
+    expect(parseCategoryFields({ name: "分類", color: "orange", monthlyBudget: "", icon }, "expense")).toMatchObject({ ok: true, value: { icon } });
+    expect(parseCategoryFields({ name: "分類", color: "orange", monthlyBudget: "", icon }, "income")).toMatchObject({ ok: true, value: { icon } });
+  });
+
+  it("沒選圖示_是 null（畫面用預設的圖示）", () => {
+    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: "", icon: " " }, "expense")).toMatchObject({ ok: true, value: { icon: null } });
+  });
+
+  it.each(["rocket", "Utensils", "constructor", "toString", "__proto__", "landmark"])("圖示 %j 不在選擇器上（含物件內建的名稱、帳戶用的圖示）_錯誤", (icon) => {
+    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: "", icon }, "expense")).toEqual({ ok: false, error: "圖示不正確" });
   });
 });
 
@@ -642,6 +683,44 @@ describe("parseBalanceFields（更新餘額）", () => {
 
   it("存款餘額與投資市值不能是負數（信用卡沒有更新餘額）", () => {
     expect(parseBalanceFields({ accountId: "5", actual: "-300" })).toEqual({ ok: false, error: expect.stringContaining("負數") });
+  });
+});
+
+describe("parseAllocationFields（修改分配：一次改各帳戶的每月規劃與目標）", () => {
+  const NAMES = new Map([
+    [1, "台銀"],
+    [2, "緊急預備金 A"],
+    [3, "國泰卡"],
+  ]);
+  const line = (accountId: string, monthlyPlan = "", targetAmount = "") => ({ accountId, monthlyPlan, targetAmount });
+
+  it("每個帳戶一組_金額照千分位解析，空白是不設（null）", () => {
+    expect(parseAllocationFields([line("1", "5,000"), line("2", "2000", "10,000")], NAMES)).toEqual({
+      ok: true,
+      value: [
+        { accountId: 1, monthlyPlan: 5000, targetAmount: null },
+        { accountId: 2, monthlyPlan: 2000, targetAmount: 10_000 },
+      ],
+    });
+    expect(parseAllocationFields([line("2", " ", " ")], NAMES)).toEqual({ ok: true, value: [{ accountId: 2, monthlyPlan: null, targetAmount: null }] });
+  });
+
+  it("金額不對_錯誤寫出是哪個帳戶的哪一欄", () => {
+    expect(parseAllocationFields([line("1", "5000"), line("2", "0")], NAMES)).toEqual({ ok: false, error: "「緊急預備金 A」的每月規劃：金額至少 1 元" });
+    expect(parseAllocationFields([line("2", "2000", "1.5")], NAMES)).toEqual({ ok: false, error: "「緊急預備金 A」的目標金額：金額只能是正整數（單位：元，不能有小數或負數）" });
+  });
+
+  it("不在自己帳戶清單裡的 id_錯誤只寫欄位名稱，不寫別人的帳戶名稱", () => {
+    expect(parseAllocationFields([line("99", "0")], NAMES)).toEqual({ ok: false, error: "每月規劃：金額至少 1 元" });
+  });
+
+  it.each([
+    ["沒有任何帳戶", []],
+    ["id 格式不對", [line("abc", "100")]],
+    ["同一個帳戶出現兩次", [line("1", "100"), line("1", "200")]],
+    ["行數比自己的帳戶多", [line("1"), line("2"), line("3"), line("4")]],
+  ])("%s（表單被改過或畫面太舊）_整批不收：找不到帳戶，請重新整理頁面", (_name, lines) => {
+    expect(parseAllocationFields(lines, NAMES)).toEqual({ ok: false, error: "找不到帳戶，請重新整理頁面" });
   });
 });
 
@@ -893,13 +972,21 @@ describe("parseConfirmFields 與 parseOccurrenceFields（確認或略過待處�
 });
 
 describe("parsePayCardFields（繳卡費）", () => {
-  it("信用卡、扣款帳戶、金額、日期；帳單金額選填（一起填這一期的帳單）", () => {
-    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY }, TODAY)).toEqual({ ok: true, value: { cardId: 3, fromAccountId: 2, amount: 6340, date: TODAY, billAmount: null, categoryId: null } });
-    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, billAmount: "12,480", categoryId: "11" }, TODAY)).toMatchObject({ ok: true, value: { billAmount: 12_480, categoryId: 11 } });
-    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, billAmount: "12,480", categoryId: "abc" }, TODAY)).toEqual({ ok: false, error: NOT_FOUND.category });
-    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, billAmount: "12,480" }, TODAY)).toMatchObject({ ok: true, value: { billAmount: 12_480 } });
-    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, billAmount: "0" }, TODAY)).toMatchObject({ ok: true, value: { billAmount: 0 } });
-    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, billAmount: "-1" }, TODAY)).toEqual({ ok: false, error: expect.stringContaining("帳單金額") });
+  it("信用卡、扣款帳戶、金額、日期；帳單金額選填（一起填這一期的帳單，要一起填截止日）", () => {
+    const bill = { billAmount: "12,480", dueDate: "2026-10-20" };
+
+    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY }, TODAY)).toEqual({ ok: true, value: { cardId: 3, fromAccountId: 2, amount: 6340, date: TODAY, billAmount: null, dueDate: null, categoryId: null } });
+    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, ...bill, categoryId: "11" }, TODAY)).toMatchObject({ ok: true, value: { billAmount: 12_480, dueDate: "2026-10-20", categoryId: 11 } });
+    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, ...bill, categoryId: "abc" }, TODAY)).toEqual({ ok: false, error: NOT_FOUND.category });
+    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, ...bill }, TODAY)).toMatchObject({ ok: true, value: { billAmount: 12_480 } });
+    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, ...bill, billAmount: "0" }, TODAY)).toMatchObject({ ok: true, value: { billAmount: 0 } });
+    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, ...bill, billAmount: "-1" }, TODAY)).toEqual({ ok: false, error: expect.stringContaining("帳單金額") });
+  });
+
+  it("填了帳單金額卻沒填截止日或截止日不對_擋下；沒填帳單金額時不看截止日", () => {
+    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, billAmount: "12,480" }, TODAY)).toEqual({ ok: false, error: expect.stringContaining("截止日") });
+    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, billAmount: "12,480", dueDate: "2026-02-30" }, TODAY)).toEqual({ ok: false, error: expect.stringContaining("截止日") });
+    expect(parsePayCardFields({ cardId: "3", fromAccountId: "2", amount: "6,340", date: TODAY, dueDate: "abc" }, TODAY)).toMatchObject({ ok: true, value: { billAmount: null, dueDate: null } });
   });
 
   it.each([
@@ -912,12 +999,15 @@ describe("parsePayCardFields（繳卡費）", () => {
   });
 });
 
-describe("parseCardBillFields（填帳單：金額照銀行的帳單）", () => {
-  const fields = (values: Partial<Record<"cardId" | "amount" | "statementDate" | "categoryId", string>> = {}) => ({ cardId: "3", amount: "12,480", statementDate: "", categoryId: "", ...values });
+describe("parseCardBillFields（填帳單：金額與截止日照銀行的帳單）", () => {
+  const fields = (values: Partial<Record<"cardId" | "amount" | "statementDate" | "dueDate" | "categoryId", string>> = {}) => ({ cardId: "3", amount: "12,480", statementDate: "", dueDate: "2026-10-25", categoryId: "", ...values });
 
-  it("信用卡與帳單金額；0 元也可以；結帳日與分類選填", () => {
-    expect(parseCardBillFields(fields(), TODAY)).toEqual({ ok: true, value: { cardId: 3, amount: 12_480, statementDate: null, categoryId: null } });
-    expect(parseCardBillFields(fields({ amount: "0", statementDate: "2026-10-05", categoryId: "11" }), TODAY)).toEqual({ ok: true, value: { cardId: 3, amount: 0, statementDate: "2026-10-05", categoryId: 11 } });
+  it("信用卡、帳單金額與截止日（照填的存，假日也一樣）；0 元也可以；結帳日與分類選填", () => {
+    expect(parseCardBillFields(fields(), TODAY)).toEqual({ ok: true, value: { cardId: 3, amount: 12_480, statementDate: null, dueDate: "2026-10-25", categoryId: null } });
+    expect(parseCardBillFields(fields({ amount: "0", statementDate: "2026-10-05", dueDate: "2026-11-02", categoryId: "11" }), TODAY)).toEqual({
+      ok: true,
+      value: { cardId: 3, amount: 0, statementDate: "2026-10-05", dueDate: "2026-11-02", categoryId: 11 },
+    });
   });
 
   it.each([
@@ -926,8 +1016,29 @@ describe("parseCardBillFields（填帳單：金額照銀行的帳單）", () => 
     [{ amount: "-1" }, "帳單金額"],
     [{ statementDate: "2026-10-15" }, "未來"],
     [{ statementDate: "10/5" }, "結帳日"],
+    [{ dueDate: "" }, "請輸入繳款截止日"],
+    [{ dueDate: "2026-02-30" }, "繳款截止日"],
+    [{ dueDate: "10/25" }, "繳款截止日"],
     [{ categoryId: "abc" }, NOT_FOUND.category],
   ])("%j_錯誤提到「%s」", (values, keyword) => {
     expect(parseCardBillFields(fields(values), TODAY)).toEqual({ ok: false, error: expect.stringContaining(keyword) });
+  });
+});
+
+describe("checkBillDueDate（截止日要在結帳日到結帳後 60 天之間）", () => {
+  it.each([
+    ["2026-10-05", "2026-10-05", "跟結帳日同一天"],
+    ["2026-10-05", "2026-12-04", "結帳後第 60 天"],
+    ["2026-12-31", "2027-03-01", "跨年 結帳後第 60 天"],
+  ])("%s 結帳、截止 %s_可以（%s）", (statementDate, dueDate) => {
+    expect(checkBillDueDate(statementDate, dueDate)).toEqual({ ok: true, value: dueDate });
+  });
+
+  it.each([
+    ["2026-10-05", "2026-10-04", "早於結帳日"],
+    ["2026-10-05", "2026-12-05", "結帳後第 61 天"],
+    ["2026-12-31", "2027-03-02", "跨年 結帳後第 61 天"],
+  ])("%s 結帳、截止 %s_擋下（%s）", (statementDate, dueDate) => {
+    expect(checkBillDueDate(statementDate, dueDate)).toEqual({ ok: false, error: expect.stringContaining("繳款截止日") });
   });
 });

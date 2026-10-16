@@ -9,10 +9,13 @@ vi.mock("@/core/ui/more-menu", () => ({ MoreMenu: ({ label, children }: { label:
 // 刪除鈕 要看交給它的 action 與確認訊息
 vi.mock("@/core/ui/action-button", { spy: true });
 vi.mock("../../actions", () => ({ deleteTransactionAction: vi.fn(), updateTransactionAction: vi.fn(), addTransactionAction: vi.fn() }));
+// 看代號有沒有用投資頁同一個樣子畫
+vi.mock("../visuals", { spy: true });
 
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
 const actions = await import("../../actions");
+const { Ticker } = await import("../visuals");
 const { RecordRow } = await import("./record-row");
 const { RecordList } = await import("./record-list");
 
@@ -47,6 +50,7 @@ const record = (fields: Partial<RecordItem>): RecordItem => ({
   holdingSymbol: null,
   cardBillId: null,
   backToPending: false,
+  categoryIcon: "utensils",
   ...fields,
 });
 const LUNCH = record({ id: 70 });
@@ -148,8 +152,20 @@ describe("紀錄的一列", () => {
 });
 
 describe("買賣持股的紀錄", () => {
-  it("一列寫「買進 006208 · 8 股」與從哪個帳戶到哪個帳戶、定期定額的名稱", () => {
-    expect(textOf(rowButton(row(BUY)) ?? "")).toBe("修改：買進 006208 · 8 股國泰 → 臺銀證券 · 006208 定期定額$1,000");
+  it("一列寫「買進 006208 8 股」（代號跟投資頁一樣是代號的樣子）與從哪個帳戶到哪個帳戶、定期定額的名稱", () => {
+    vi.mocked(Ticker).mockClear();
+
+    expect(textOf(rowButton(row(BUY)) ?? "")).toBe("修改：買進 006208 8 股國泰 → 臺銀證券 · 006208 定期定額$1,000");
+    expect(vi.mocked(Ticker).mock.calls.map(([props]) => props.symbol)).toEqual(["006208"]);
+  });
+
+  it("每一列前面有圖示：收支用分類選的圖示，轉帳、調整、買賣各有固定的圖示（四種都不一樣）", () => {
+    const iconOf = (item: RecordItem) => (rowButton(row(item)) ?? row(item)).match(/\/icons\/ui\/([\w-]+)\.svg/)?.[1];
+    const icons = [TRANSFER, ADJUST, BUY].map(iconOf);
+
+    expect(iconOf(LUNCH)).toBe("utensils");
+    expect(new Set([...icons, iconOf(LUNCH)]).size).toBe(4);
+    expect(icons.every(Boolean)).toBe(true);
   });
 
   it("修改的視窗只有日期與備註；金額、帳戶與類型原樣送回 updateTransactionAction（伺服器擋下其他改動）", () => {
@@ -207,10 +223,10 @@ describe("填帳單時補的紀錄", () => {
 });
 
 describe("從待處理確認來的紀錄", () => {
-  it("刪掉後那一期會回到總覽的待處理：確認訊息照實說，不說無法復原", () => {
+  it("刪掉後那一期會回到總覽的「這個月要做的事」（取代了待處理）：確認訊息照實說，不說無法復原", () => {
     row({ ...SALARY, backToPending: true });
 
-    expect(deleteButton().confirmMessage).toContain("這一期會回到總覽的待處理");
+    expect(deleteButton().confirmMessage).toContain("這一期會回到總覽的「這個月要做的事」");
     expect(deleteButton().confirmMessage).not.toContain("無法復原");
   });
 
@@ -218,7 +234,7 @@ describe("從待處理確認來的紀錄", () => {
     row({ ...BUY, backToPending: true });
 
     expect(deleteButton().confirmMessage).toContain("持股的股數和成本會跟著還原");
-    expect(deleteButton().confirmMessage).toContain("這一期會回到總覽的待處理");
+    expect(deleteButton().confirmMessage).toContain("這一期會回到總覽的「這個月要做的事」");
   });
 });
 

@@ -40,7 +40,7 @@ const rowsOf = (userId: string, kind: "expense" | "income" = "expense") =>
     .orderBy(asc(savingsCategories.sortOrder), asc(savingsCategories.id));
 const namesOf = async (userId: string, kind: "expense" | "income" = "expense") => (await rowsOf(userId, kind)).map((c) => c.name);
 
-const fields = (values: Partial<{ kind: string; name: string; color: string; monthlyBudget: string }> = {}) => ({ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", ...values });
+const fields = (values: Partial<{ kind: string; name: string; color: string; monthlyBudget: string; icon: string }> = {}) => ({ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", icon: "", ...values });
 
 describe("listCategories", () => {
   it("只有自己的_支出在前、收入在後_各自依排序值與建立順序", async () => {
@@ -63,14 +63,23 @@ describe("listCategories", () => {
 });
 
 describe("createCategory", () => {
-  it("支出分類帶每月預算_排在同一類自己的最後面（收入與別人的排序不算）", async () => {
+  it("支出分類帶每月預算與圖示_排在同一類自己的最後面（收入與別人的排序不算）", async () => {
     await insertCategory({ name: "交通", sortOrder: 2 });
     await insertCategory({ name: "薪水", kind: "income", sortOrder: 7 });
     await insertCategory({ name: "別人的", sortOrder: 9, userId: other });
 
-    const category = await createCategory(me, fields({ name: " 餐飲 ", monthlyBudget: "6,000" }));
+    const category = await createCategory(me, fields({ name: " 餐飲 ", monthlyBudget: "6,000", icon: "utensils" }));
 
-    expect(category).toMatchObject({ userId: me, kind: "expense", name: "餐飲", color: "orange", monthlyBudget: 6000, sortOrder: 3 });
+    expect(category).toMatchObject({ userId: me, kind: "expense", name: "餐飲", color: "orange", monthlyBudget: 6000, sortOrder: 3, icon: "utensils" });
+  });
+
+  it("沒選圖示_存成 null", async () => {
+    expect(await createCategory(me, fields())).toMatchObject({ icon: null });
+  });
+
+  it("圖示不在選擇器上_丟使用者錯誤_沒有寫入", async () => {
+    expect(await userError(createCategory(me, fields({ icon: "rocket" })))).toBe("圖示不正確");
+    expect(await rowsOf(me)).toEqual([]);
   });
 
   it("收入分類_預算不適用而存成 null_排序從 0 開始", async () => {
@@ -114,16 +123,24 @@ describe("createCategory", () => {
 });
 
 describe("updateCategory", () => {
-  it("改名稱、顏色與預算_類型建立後不能改（送來的類型忽略）", async () => {
-    const food = await insertCategory({ name: "餐飲", monthlyBudget: 6000 });
+  it("改名稱、顏色、預算與圖示_類型建立後不能改（送來的類型忽略）", async () => {
+    const food = await insertCategory({ name: "餐飲", monthlyBudget: 6000, icon: "utensils" });
 
-    expect(await updateCategory(me, food.id, fields({ kind: "income", name: "吃飯", color: "rose", monthlyBudget: "" }))).toMatchObject({
+    expect(await updateCategory(me, food.id, fields({ kind: "income", name: "吃飯", color: "rose", monthlyBudget: "", icon: "coffee" }))).toMatchObject({
       kind: "expense",
       name: "吃飯",
       color: "rose",
       monthlyBudget: null,
+      icon: "coffee",
     });
-    expect(await rowsOf(me)).toMatchObject([{ name: "吃飯", monthlyBudget: null }]);
+    expect(await rowsOf(me)).toMatchObject([{ name: "吃飯", monthlyBudget: null, icon: "coffee" }]);
+  });
+
+  it("圖示改成不在選擇器上的_丟使用者錯誤_資料不變", async () => {
+    const food = await insertCategory({ name: "餐飲", icon: "utensils" });
+
+    expect(await userError(updateCategory(me, food.id, fields({ icon: "constructor" })))).toBe("圖示不正確");
+    expect(await rowsOf(me)).toMatchObject([{ icon: "utensils" }]);
   });
 
   it("資料庫裡還是灰色的分類（舊資料）_照樣留著；修改時要換成可以選的顏色，留著灰色送出是顏色不正確_資料不變", async () => {

@@ -3,12 +3,13 @@ import type { AccountKind, CategoryKind, EntryKind, HolidayRule, RecurringMode }
 // 頁面整理好這些形狀交給表單 表單不自己讀資料 整理的函式在 web/dashboard-view.ts
 
 /**
- * 啟用中的帳戶照設定的順序 payFromAccountId 是繳卡費的轉出 startDate 是日期欄位的下限
+ * 啟用中的帳戶照帳戶頁的順序 payFromAccountId 是繳卡費的轉出 startDate 是日期欄位的下限
  * withHoldings 是有持股的投資帳戶 轉帳的選單不列 要用買進賣出
  */
 export type AccountOption = { id: number; name: string; kind: AccountKind; payFromAccountId?: number | null; startDate?: string; withHoldings?: boolean };
 
-export type CategoryOption = { id: number; name: string; kind: CategoryKind };
+/** icon 是分類選的圖示 沒選或認不得時畫預設的 */
+export type CategoryOption = { id: number; name: string; kind: CategoryKind; icon?: string | null };
 
 /** 含停用的帳戶 篩選與修改舊紀錄時要選得到原本的帳戶 */
 export type AccountChoice = AccountOption & { active: boolean };

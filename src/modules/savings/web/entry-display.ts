@@ -1,5 +1,6 @@
+import type { UiIconName } from "@/core/ui/icon";
 import { tradeNote } from "../lib/holdings";
-import { TRANSACTION_KIND_LABELS, type AccountKind, type EntryKind, type TransactionKind } from "../lib/kinds";
+import { TRANSACTION_KIND_LABELS, categoryIconOf, type AccountKind, type EntryKind, type TransactionKind } from "../lib/kinds";
 import { formatNumber, formatSignedTwd, formatTwd } from "../lib/money";
 
 /** 沒有分類的收支 選單 篩選與列的說明共用這個名稱 */
@@ -46,6 +47,14 @@ const compact = (text: string) => text.replace(/[\s,]/g, "");
 function isDefaultTradeNote(record: TradeNames & { note: string | null }): boolean {
   if (record.note === null || record.shares === null) return false;
   return compact(record.note) === compact(tradeNote(record.shares > 0 ? "buy" : "sell", record.holdingSymbol ?? "", Math.abs(record.shares)));
+}
+
+/** 紀錄頁一列前面的圖示 收支用分類選的 轉帳 調整 買賣各有固定的圖示 */
+export function recordIcon(record: TradeNames & { kind: TransactionKind; categoryIcon: string | null }): UiIconName {
+  if (isTrade(record)) return "chart-line";
+  if (record.kind === "transfer") return "arrow-left-right";
+  if (record.kind === "adjust") return "scale";
+  return categoryIconOf(record.categoryIcon, record.kind);
 }
 
 /** 紀錄頁一列的名稱 買賣持股寫買進幾股 */

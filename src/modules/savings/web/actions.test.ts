@@ -6,7 +6,6 @@ import { captureErrorLog, form, mocksOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/accounts", { spy: true });
-vi.mock("../service/purposes", { spy: true });
 vi.mock("../service/categories", { spy: true });
 vi.mock("../service/setup", { spy: true });
 vi.mock("../service/transactions", { spy: true });
@@ -15,15 +14,14 @@ vi.mock("../service/holdings", { spy: true });
 vi.mock("../service/cards", { spy: true });
 
 const { SavingsUserError } = await import("../service/errors");
-const accounts = mocksOf(await import("../service/accounts"), "listAccounts", "createAccount", "updateAccount", "setAccountActive", "moveAccount", "deleteAccount");
-const purposes = mocksOf(await import("../service/purposes"), "createPurpose", "updatePurpose", "movePurpose", "deletePurpose");
+const accounts = mocksOf(await import("../service/accounts"), "listAccounts", "createAccount", "updateAccount", "setAccountActive", "moveAccount", "deleteAccount", "updateAllocation");
 const categories = mocksOf(await import("../service/categories"), "listCategories", "createCategory", "updateCategory", "moveCategory", "deleteCategory");
 const setup = mocksOf(await import("../service/setup"), "setupDefaults");
 const transactions = mocksOf(await import("../service/transactions"), "addTransaction", "updateTransaction", "deleteTransaction", "updateBalance", "allocateSalary");
 const recurring = mocksOf(await import("../service/recurring"), "createRecurring", "updateRecurring", "setRecurringActive", "deleteRecurring", "confirmOccurrence", "skipOccurrence");
 const holdings = mocksOf(await import("../service/holdings"), "listHoldings", "addHolding", "updateHolding", "deleteHolding", "buyHolding", "sellHolding");
 const cards = mocksOf(await import("../service/cards"), "payCard", "enterCardBill");
-const services = [accounts, purposes, categories, setup, transactions, recurring, holdings, cards];
+const services = [accounts, categories, setup, transactions, recurring, holdings, cards];
 const allMocks = () => services.flatMap((service) => Object.values(service));
 const actions = await import("./actions");
 
@@ -95,12 +93,12 @@ const CATEGORIES = [category(11, "餐飲", "expense"), category(12, "薪水", "i
 const ACCOUNT_FIELDS = {
   name: "國泰",
   kind: "deposit",
-  purposeId: "5",
+  label: "生活費",
+  cardStyle: "",
   openingBalance: "12,000",
   openingCost: "",
   monthlyPlan: "5000",
   targetAmount: "100000",
-  dueDay: "",
   payFromAccountId: "",
   statementDay: "",
   autopay: "",
@@ -126,8 +124,8 @@ const HOLDING_FIELDS = { accountId: "4", symbol: "006208", shares: "12", cost: "
 const BUY_FIELDS = { holdingId: "21", fromAccountId: "1", shares: "19", amount: "4,916", date: "2026-10-05", note: "" };
 const SELL_FIELDS = { holdingId: "21", toAccountId: "1", shares: "5", amount: "1,300", date: "2026-10-14", note: "" };
 const CONFIRM_FIELDS = { ruleId: "30", period: "2026-10", amount: "15,000", date: "2026-10-06", note: "", shares: "" };
-const PAY_CARD_FIELDS = { cardId: "3", fromAccountId: "1", amount: "12,480", date: "2026-10-14", billAmount: "", categoryId: "" };
-const CARD_BILL_FIELDS = { cardId: "3", amount: "12,480", statementDate: "", categoryId: "" };
+const PAY_CARD_FIELDS = { cardId: "3", fromAccountId: "1", amount: "12,480", date: "2026-10-14", billAmount: "", dueDate: "", categoryId: "" };
+const CARD_BILL_FIELDS = { cardId: "3", amount: "12,480", statementDate: "", dueDate: "2026-10-20", categoryId: "" };
 const BILL = { id: 40, userId: TEST_SESSION.id, accountId: 3, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 12_480, createdAt: NOW };
 
 /** 發薪分配的轉出是同一個名稱重複出現的成對欄位 form 只能放一個值 */
@@ -140,6 +138,17 @@ function salaryForm(fields: Record<string, string>, lines: [string, string][]): 
   return data;
 }
 const SALARY_FIELDS = { accountId: "1", categoryId: "12", amount: "43,000", date: "2026-10-05", note: "", ruleId: "", period: "" };
+
+/** 修改分配的表單 每個帳戶一個 accountId 欄位 金額欄位的名稱帶上 id */
+function allocationForm(lines: [string, string, string][]): FormData {
+  const data = new FormData();
+  for (const [accountId, monthlyPlan, targetAmount] of lines) {
+    data.append("accountId", accountId);
+    data.set(`monthlyPlan:${accountId}`, monthlyPlan);
+    data.set(`targetAmount:${accountId}`, targetAmount);
+  }
+  return data;
+}
 const SALARY_RESULT = {
   income: tx({ id: 80, kind: "income", categoryId: 12, amount: 43000 }),
   transfers: [tx({ id: 81, kind: "transfer", counterAccountId: 2, categoryId: null, amount: 5000 }), tx({ id: 82, kind: "transfer", counterAccountId: 4, categoryId: null, amount: 3000 }), tx({ id: 83, kind: "transfer", counterAccountId: 2, categoryId: null, amount: 3000 })],
@@ -155,16 +164,13 @@ beforeEach(() => {
   accounts.setAccountActive.mockResolvedValue(undefined);
   accounts.moveAccount.mockResolvedValue(undefined);
   accounts.deleteAccount.mockResolvedValue("國泰");
-  purposes.createPurpose.mockResolvedValue({ id: 5, name: "生活費", color: "blue" });
-  purposes.updatePurpose.mockResolvedValue({ id: 5, name: "生活費", color: "blue" });
-  purposes.movePurpose.mockResolvedValue(undefined);
-  purposes.deletePurpose.mockResolvedValue("生活費");
+  accounts.updateAllocation.mockResolvedValue(2);
   categories.listCategories.mockResolvedValue(CATEGORIES);
   categories.createCategory.mockResolvedValue(CATEGORIES[0]);
   categories.updateCategory.mockResolvedValue(CATEGORIES[0]);
   categories.moveCategory.mockResolvedValue(undefined);
   categories.deleteCategory.mockResolvedValue("餐飲");
-  setup.setupDefaults.mockResolvedValue({ purposes: 3, categories: 5 });
+  setup.setupDefaults.mockResolvedValue({ categories: 5 });
   transactions.addTransaction.mockResolvedValue(tx({}));
   transactions.updateTransaction.mockResolvedValue(tx({}));
   transactions.deleteTransaction.mockResolvedValue(true);
@@ -196,12 +202,9 @@ const CASES: [string, Action, () => FormData, Mock][] = [
   ["setAccountActiveAction", actions.setAccountActiveAction, () => form({ id: "1", active: "false" }), accounts.setAccountActive],
   ["moveAccountAction", actions.moveAccountAction, () => form({ id: "1", direction: "up" }), accounts.moveAccount],
   ["deleteAccountAction", actions.deleteAccountAction, () => form({ id: "1" }), accounts.deleteAccount],
-  ["createPurposeAction", actions.createPurposeAction, () => form({ name: "生活費", color: "blue" }), purposes.createPurpose],
-  ["updatePurposeAction", actions.updatePurposeAction, () => form({ id: "5", name: "生活費", color: "blue" }), purposes.updatePurpose],
-  ["movePurposeAction", actions.movePurposeAction, () => form({ id: "5", direction: "down" }), purposes.movePurpose],
-  ["deletePurposeAction", actions.deletePurposeAction, () => form({ id: "5" }), purposes.deletePurpose],
-  ["createCategoryAction", actions.createCategoryAction, () => form({ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "" }), categories.createCategory],
-  ["updateCategoryAction", actions.updateCategoryAction, () => form({ id: "11", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "6000" }), categories.updateCategory],
+  ["updateAllocationAction", actions.updateAllocationAction, () => allocationForm([["1", "5000", ""]]), accounts.updateAllocation],
+  ["createCategoryAction", actions.createCategoryAction, () => form({ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", icon: "utensils" }), categories.createCategory],
+  ["updateCategoryAction", actions.updateCategoryAction, () => form({ id: "11", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "6000", icon: "utensils" }), categories.updateCategory],
   ["moveCategoryAction", actions.moveCategoryAction, () => form({ id: "11", direction: "up" }), categories.moveCategory],
   ["deleteCategoryAction", actions.deleteCategoryAction, () => form({ id: "11" }), categories.deleteCategory],
   ["addTransactionAction", actions.addTransactionAction, () => form(ENTRY_FIELDS), transactions.addTransaction],
@@ -269,9 +272,6 @@ describe("id 與旗標的檢查：Server Action 可以被直接 POST", () => {
     ["setAccountActiveAction", actions.setAccountActiveAction, (id) => form({ id, active: "true" })],
     ["moveAccountAction", actions.moveAccountAction, (id) => form({ id, direction: "up" })],
     ["deleteAccountAction", actions.deleteAccountAction, (id) => form({ id })],
-    ["updatePurposeAction", actions.updatePurposeAction, (id) => form({ id, name: "x", color: "blue" })],
-    ["movePurposeAction", actions.movePurposeAction, (id) => form({ id, direction: "up" })],
-    ["deletePurposeAction", actions.deletePurposeAction, (id) => form({ id })],
     ["updateCategoryAction", actions.updateCategoryAction, (id) => form({ id, kind: "expense", name: "x", color: "blue", monthlyBudget: "" })],
     ["moveCategoryAction", actions.moveCategoryAction, (id) => form({ id, direction: "up" })],
     ["deleteCategoryAction", actions.deleteCategoryAction, (id) => form({ id })],
@@ -303,7 +303,6 @@ describe("id 與旗標的檢查：Server Action 可以被直接 POST", () => {
 
   it.each([
     ["moveAccountAction", actions.moveAccountAction],
-    ["movePurposeAction", actions.movePurposeAction],
     ["moveCategoryAction", actions.moveCategoryAction],
   ] as const)("%s_方向不是 up／down_回錯誤、不呼叫 service", async (_name, action) => {
     expect(await action({}, form({ id: "1", direction: "left" }))).toEqual({ error: INVALID_FORM_MESSAGE });
@@ -332,6 +331,39 @@ describe("帳戶", () => {
   it("刪除_回傳刪掉的名稱", async () => {
     expect(await actions.deleteAccountAction({}, form({ id: "1" }))).toEqual({ message: "已刪除「國泰」" });
     expect(accounts.deleteAccount).toHaveBeenCalledWith(TEST_SESSION.id, 1);
+  });
+});
+
+describe("修改分配", () => {
+  it("每個帳戶的每月規劃與目標（照 accountId 找成對的欄位）交給 service_訊息是「已更新分配」", async () => {
+    const state = await actions.updateAllocationAction(
+      {},
+      allocationForm([
+        ["1", "5,000", ""],
+        ["2", "2000", "10,000"],
+      ]),
+    );
+
+    expect(accounts.updateAllocation).toHaveBeenCalledWith(TEST_SESSION.id, [
+      { accountId: "1", monthlyPlan: "5,000", targetAmount: "" },
+      { accountId: "2", monthlyPlan: "2000", targetAmount: "10,000" },
+    ]);
+    expect(state).toEqual({ message: "已更新分配" });
+  });
+
+  it("金額欄位沒送_當成空的（不設）", async () => {
+    const data = new FormData();
+    data.append("accountId", "1");
+
+    await actions.updateAllocationAction({}, data);
+
+    expect(accounts.updateAllocation.mock.calls[0][1]).toEqual([{ accountId: "1", monthlyPlan: "", targetAmount: "" }]);
+  });
+
+  it("一個帳戶都沒送（表單被改過）_回錯誤、不呼叫 service", async () => {
+    expect(await actions.updateAllocationAction({}, form({ "monthlyPlan:1": "5000" }))).toEqual({ error: INVALID_FORM_MESSAGE });
+    expect(accounts.updateAllocation).not.toHaveBeenCalled();
+    expect(updateTag).not.toHaveBeenCalled();
   });
 });
 
@@ -448,10 +480,13 @@ describe("持股、買賣、待處理與繳卡費：FormData 的欄位名稱照 
     ["confirmOccurrenceAction", () => actions.confirmOccurrenceAction({}, form(CONFIRM_FIELDS)), () => recurring.confirmOccurrence, [CONFIRM_FIELDS]],
     ["skipOccurrenceAction", () => actions.skipOccurrenceAction({}, form({ ruleId: "30", period: "2026-10" })), () => recurring.skipOccurrence, [{ ruleId: "30", period: "2026-10" }]],
     ["payCardAction", () => actions.payCardAction({}, form(PAY_CARD_FIELDS)), () => cards.payCard, [PAY_CARD_FIELDS]],
-    ["payCardAction（一起填帳單）", () => actions.payCardAction({}, form({ ...PAY_CARD_FIELDS, billAmount: "12,480" })), () => cards.payCard, [{ ...PAY_CARD_FIELDS, billAmount: "12,480" }]],
-    ["enterCardBillAction", () => actions.enterCardBillAction({}, form({ ...CARD_BILL_FIELDS, statementDate: "2026-10-05", categoryId: "11" })), () => cards.enterCardBill, [{ ...CARD_BILL_FIELDS, statementDate: "2026-10-05", categoryId: "11" }]],
+    ["payCardAction（一起填帳單與截止日）", () => actions.payCardAction({}, form({ ...PAY_CARD_FIELDS, billAmount: "12,480", dueDate: "2026-10-25" })), () => cards.payCard, [{ ...PAY_CARD_FIELDS, billAmount: "12,480", dueDate: "2026-10-25" }]],
+    ["enterCardBillAction", () => actions.enterCardBillAction({}, form({ ...CARD_BILL_FIELDS, statementDate: "2026-10-05", dueDate: "2026-10-25", categoryId: "11" })), () => cards.enterCardBill, [{ ...CARD_BILL_FIELDS, statementDate: "2026-10-05", dueDate: "2026-10-25", categoryId: "11" }]],
     ["createRecurringAction", () => actions.createRecurringAction({}, form(RULE_FIELDS)), () => recurring.createRecurring, [RULE_FIELDS]],
-    ["createAccountAction", () => actions.createAccountAction({}, form({ ...ACCOUNT_FIELDS, kind: "credit", dueDay: "20", statementDay: "5", autopay: "on" })), () => accounts.createAccount, [{ ...ACCOUNT_FIELDS, kind: "credit", dueDay: "20", statementDay: "5", autopay: "on" }]],
+    ["createAccountAction（信用卡的卡面顏色；舊的表單送來繳款截止日與用途 id 也不交給 service）", () => actions.createAccountAction({}, form({ ...ACCOUNT_FIELDS, kind: "credit", cardStyle: "green", dueDay: "20", purposeId: "5", statementDay: "5", autopay: "on" })), () => accounts.createAccount, [{ ...ACCOUNT_FIELDS, kind: "credit", cardStyle: "green", statementDay: "5", autopay: "on" }]],
+    ["updateAccountAction（舊的表單送來繳款截止日與用途 id 也不交給 service）", () => actions.updateAccountAction({}, form({ id: "3", ...ACCOUNT_FIELDS, kind: "credit", dueDay: "20", purposeId: "5", statementDay: "5" })), () => accounts.updateAccount, [3, { ...ACCOUNT_FIELDS, kind: "credit", statementDay: "5" }]],
+    ["createCategoryAction（圖示）", () => actions.createCategoryAction({}, form({ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "6,000", icon: "utensils" })), () => categories.createCategory, [{ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "6,000", icon: "utensils" }]],
+    ["updateCategoryAction（圖示）", () => actions.updateCategoryAction({}, form({ id: "11", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", icon: "coffee" })), () => categories.updateCategory, [11, { kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", icon: "coffee" }]],
   ] as const)("%s", async (_name, run, service, args) => {
     expect(await run()).not.toHaveProperty("error");
 

@@ -4,7 +4,7 @@ import type { TransactionView } from "../service/transactions";
 
 /**
  * 伺服器整理好的純資料 瀏覽器只在這上面篩選 不帶 userId 與 createdAt
- * backToPending 是刪掉後那一期會回到總覽的待處理 cardBillId 是填帳單時補的
+ * backToPending 是刪掉後那一期會回到待處理 cardBillId 是填帳單時補的 categoryIcon 沒選是 null
  */
 export type RecordItem = Pick<
   TransactionView,
@@ -24,7 +24,7 @@ export type RecordItem = Pick<
   | "shares"
   | "holdingSymbol"
   | "cardBillId"
-> & { backToPending: boolean };
+> & { backToPending: boolean; categoryIcon: string | null };
 
 /** 下拉選單的值 空字串是不篩選 category 也可以是 UNCATEGORIZED_KEY */
 export type RecordFilters = { account: string; category: string; kind: string };

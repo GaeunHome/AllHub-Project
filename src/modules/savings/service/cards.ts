@@ -2,16 +2,15 @@ import "server-only";
 import { and, asc, desc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "@/core/db";
 import { savingsAccounts, savingsCardBills, savingsTransactions, type SavingsAccount, type SavingsCardBill, type SavingsTransaction } from "../data/schema";
-import { billCutoff, billDifference, billPayments, currentStatement, lastStatementDate, statementDueDate, type CardDailyFlow, type CardStatement } from "../lib/cards";
+import { billCutoff, billDifference, billPayments, fillStatementDate, isStatementDate, lastStatementDate, type CardDailyFlow, type CardStatement } from "../lib/cards";
 import { addDays, taipeiToday, type DateKey } from "../lib/dates";
 import type { TransactionKind } from "../lib/kinds";
 import { accountStartDate } from "../lib/ledger";
 import { MAX_AMOUNT } from "../lib/money";
-import { NOT_FOUND, parseCardBillFields, parsePayCardFields } from "../lib/validation";
+import { NOT_FOUND, checkBillDueDate, parseCardBillFields, parsePayCardFields } from "../lib/validation";
 import {
   BILL_DIFFERENCE_TOO_LARGE,
   CARD_BILL_NOT_CREDIT,
-  CARD_NEEDS_DUE_DAY,
   INACTIVE_ACCOUNT,
   PAY_CARD_NOT_CREDIT,
   PAY_FROM_NOT_DEPOSIT,
@@ -24,10 +23,10 @@ import { lockUser, ownAccounts, requireAccount, requireCategory, requireStarted,
 // userId 一律是登入者 別人的 id 當作不存在
 // 鎖的順序 使用者 帳戶 分類 帳單 最後才寫紀錄 跟刪除帳號與帳戶的連帶刪除一樣
 
-/** billAmount 填了就一起填這一期的帳單 categoryId 是補記的刷卡的分類 */
-export type PayCardFields = { cardId: string; fromAccountId: string; amount: string; date: string; billAmount?: string; categoryId?: string };
-/** amount 照銀行的帳單 statementDate 沒填是這一期 categoryId 是補記的刷卡的分類 */
-export type CardBillFields = { cardId: string; amount: string; statementDate: string; categoryId: string };
+/** billAmount 填了就一起填這一期的帳單 要一起填截止日 categoryId 是補記的刷卡的分類 */
+export type PayCardFields = { cardId: string; fromAccountId: string; amount: string; date: string; billAmount?: string; dueDate?: string; categoryId?: string };
+/** amount 與 dueDate 照銀行的帳單 statementDate 沒填是這一期 categoryId 是補記的刷卡的分類 */
+export type CardBillFields = { cardId: string; amount: string; statementDate: string; dueDate: string; categoryId: string };
 
 export const PAY_CARD_NOTE = "繳卡費";
 // 從紀錄頁看得出這一筆是填帳單時補的
@@ -42,7 +41,7 @@ export type CardBillRecord = CardStatement & { paid: number; lastPaidOn: DateKey
 /** difference 正的是補記的刷卡 負的是記成調整的 0 是跟紀錄一樣 */
 export type BillEntry = { bill: SavingsCardBill; card: CardRow; difference: number };
 
-type CardRow = Pick<SavingsAccount, "id" | "name" | "kind" | "active" | "openingBalance" | "statementDay" | "dueDay" | "createdAt">;
+type CardRow = Pick<SavingsAccount, "id" | "name" | "kind" | "active" | "openingBalance" | "statementDay" | "createdAt">;
 
 const t = savingsTransactions;
 // sum 的結果是 bigint 驅動程式回字串 所以用 mapWith 轉回數字
@@ -55,7 +54,6 @@ const cardColumns = {
   active: savingsAccounts.active,
   openingBalance: savingsAccounts.openingBalance,
   statementDay: savingsAccounts.statementDay,
-  dueDay: savingsAccounts.dueDay,
   createdAt: savingsAccounts.createdAt,
 };
 
@@ -140,16 +138,13 @@ async function lockCard(tx: Executor, userId: string, cardId: number): Promise<C
 }
 
 /** 沒指定是這一期 有結帳日的卡最早能填開始記帳時還沒繳的那一期 */
-function billPeriod(card: CardRow, statementDate: DateKey | null, today: DateKey): { statementDate: DateKey; dueDate: DateKey } {
-  const current = currentStatement(card, today);
-  if (current === null) throw new SavingsUserError(CARD_NEEDS_DUE_DAY);
-  if (statementDate === null) return current;
-  const dueDate = statementDueDate(card, statementDate);
-  if (dueDate === null) throw new SavingsUserError(STATEMENT_DAY_MISMATCH);
+function billStatementDate(card: CardRow, statementDate: DateKey | null, today: DateKey): DateKey {
+  if (statementDate === null) return fillStatementDate(card, today);
+  if (!isStatementDate(card, statementDate)) throw new SavingsUserError(STATEMENT_DAY_MISMATCH);
   const start = accountStartDate(card);
   const earliest = card.statementDay === null ? start : lastStatementDate(card.statementDay, addDays(start, 1));
   if (statementDate < earliest) throw new SavingsUserError(STATEMENT_BEFORE_START);
-  return { statementDate, dueDate };
+  return statementDate;
 }
 
 /** 起始餘額加上 cutoff 那天以前的紀錄 補的那一筆要先刪掉再算 */
@@ -167,22 +162,29 @@ async function balanceThrough(tx: Executor, userId: string, card: CardRow, cutof
 
 /**
  * 同一期再填一次會蓋過去 先刪掉上次補的那一筆再重算 才不會補兩次
- * upsert 也鎖住帳單 同時送兩次時第二次等第一次做完
+ * upsert 也鎖住帳單 同時送兩次時第二次等第一次做完 截止日照填的存 遇假日順延是讀的時候算
  */
-async function writeBill(tx: Executor, userId: string, card: CardRow, input: { amount: number; statementDate: DateKey | null; categoryId: number | null }, today: DateKey): Promise<{ bill: SavingsCardBill; difference: number }> {
-  const period = billPeriod(card, input.statementDate, today);
+async function writeBill(
+  tx: Executor,
+  userId: string,
+  card: CardRow,
+  input: { amount: number; statementDate: DateKey | null; dueDate: DateKey; categoryId: number | null },
+  today: DateKey,
+): Promise<{ bill: SavingsCardBill; difference: number }> {
+  const statementDate = billStatementDate(card, input.statementDate, today);
+  const dueDate = valid(checkBillDueDate(statementDate, input.dueDate));
   const [bill] = await tx
     .insert(savingsCardBills)
-    .values({ userId, accountId: card.id, statementDate: period.statementDate, dueDate: period.dueDate, amount: input.amount })
-    .onConflictDoUpdate({ target: [savingsCardBills.accountId, savingsCardBills.statementDate], set: { amount: input.amount, dueDate: period.dueDate } })
+    .values({ userId, accountId: card.id, statementDate, dueDate, amount: input.amount })
+    .onConflictDoUpdate({ target: [savingsCardBills.accountId, savingsCardBills.statementDate], set: { amount: input.amount, dueDate } })
     .returning();
   await tx.delete(t).where(and(eq(t.userId, userId), eq(t.cardBillId, bill.id)));
-  const difference = billDifference(input.amount, await balanceThrough(tx, userId, card, billCutoff(card, period.statementDate)));
+  const difference = billDifference(input.amount, await balanceThrough(tx, userId, card, billCutoff(card, statementDate)));
   if (Math.abs(difference) > MAX_AMOUNT) throw new SavingsUserError(BILL_DIFFERENCE_TOO_LARGE);
   if (difference !== 0) {
     // 卡是這一期中間才開始記帳的 補的那一筆不能早於開始記帳那天
     const start = accountStartDate(card);
-    const date = period.statementDate < start ? start : period.statementDate;
+    const date = statementDate < start ? start : statementDate;
     const fields = difference > 0 ? { kind: "expense" as const, categoryId: input.categoryId, amount: difference, note: UNRECORDED_NOTE } : { kind: "adjust" as const, amount: 0 - difference, note: BILL_ADJUST_NOTE };
     await tx.insert(t).values({ userId, accountId: card.id, date, cardBillId: bill.id, ...fields });
   }
@@ -223,7 +225,7 @@ export async function payCard(
     const categoryId = input.billAmount === null ? null : input.categoryId;
     if (categoryId !== null) await requireCategory(tx, userId, categoryId, "expense", "key share");
     // 帳單先寫 補的那一筆照繳款之前的紀錄算
-    const entry = input.billAmount === null ? null : await writeBill(tx, userId, card, { amount: input.billAmount, statementDate: null, categoryId }, today);
+    const entry = input.billAmount === null || input.dueDate === null ? null : await writeBill(tx, userId, card, { amount: input.billAmount, statementDate: null, dueDate: input.dueDate, categoryId }, today);
     const [transaction] = await tx
       .insert(t)
       .values({ userId, kind: "transfer", accountId: from.id, counterAccountId: card.id, amount: input.amount, date: input.date, note: PAY_CARD_NOTE })

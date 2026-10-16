@@ -21,6 +21,7 @@ const record = (fields: Partial<RecordItem>): RecordItem => ({
   holdingSymbol: null,
   cardBillId: null,
   backToPending: false,
+  categoryIcon: null,
   ...fields,
 });
 

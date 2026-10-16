@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ActionButton } from "@/core/ui/action-button";
 import { useDialog } from "@/core/ui/dialog";
 import type { FormState } from "@/core/ui/form-message";
-import { Icon } from "@/core/ui/icon";
+import { Icon, type UiIconName } from "@/core/ui/icon";
 
 type RowAction = (previous: FormState, formData: FormData) => Promise<FormState>;
 
@@ -177,12 +177,37 @@ export function DeleteMenuItem({ action, id, confirmMessage, label, deletedMessa
   );
 }
 
+type ActiveMenuItemProps = {
+  action: RowAction;
+  id: number;
+  active: boolean;
+  pausedHint: string;
+  /** 停用或恢復後這一列會搬到別的清單 成功時呼叫 讓外面留訊息 */
+  onChanged?: () => void;
+};
+
 /** 停用後資料都留著 隨時可以恢復 */
-export function ActiveMenuItem({ action, id, active, pausedHint }: { action: RowAction; id: number; active: boolean; pausedHint: string }) {
+export function ActiveMenuItem({ action, id, active, pausedHint, onChanged }: ActiveMenuItemProps) {
+  const run = async (previous: FormState, formData: FormData) => {
+    const result = await action(previous, formData);
+    if (!result.error) onChanged?.();
+    return result;
+  };
+
   return (
-    <ActionButton action={action} fields={{ id, active: String(!active) }} title={active ? pausedHint : undefined} formClassName="flex flex-col gap-1" className="menu-item">
+    <ActionButton action={onChanged ? run : action} fields={{ id, active: String(!active) }} title={active ? pausedHint : undefined} formClassName="flex flex-col gap-1" className="menu-item">
       <Icon name={active ? "eye-off" : "eye"} className="size-4" />
       {active ? "停用" : "恢復"}
     </ActionButton>
+  );
+}
+
+/** 打開視窗的選單項目 選單看到 aria-haspopup 就收起 焦點先回到 ⋮ 視窗要放在選單外面 */
+export function DialogMenuItem({ trigger, icon, label }: { trigger: DialogTrigger; icon: UiIconName; label: string }) {
+  return (
+    <button {...trigger} className="menu-item">
+      <Icon name={icon} className="size-4" />
+      {label}
+    </button>
   );
 }

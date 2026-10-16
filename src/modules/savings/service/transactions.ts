@@ -1,9 +1,10 @@
 import "server-only";
-import { and, asc, desc, eq, getTableColumns, gte, inArray, lt, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/core/db";
 import { savingsAccounts, savingsCardBills, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions, type SavingsAccount, type SavingsTransaction } from "../data/schema";
-import { taipeiToday } from "../lib/dates";
+import type { ChecklistRecord } from "../lib/checklist";
+import { taipeiToday, type DateKey } from "../lib/dates";
 import type { CategoryKind, PaletteColor, TransactionKind } from "../lib/kinds";
 import { accountBalances, balanceAdjustment, type AccountMonthFlow, type CategoryMonthTotal } from "../lib/ledger";
 import { MAX_AMOUNT } from "../lib/money";
@@ -361,6 +362,20 @@ async function monthFlows(executor: Executor, userId: string, accountId?: number
 /** 每個帳戶每月一列 資料量是帳戶數乘月數 彙總交給 lib */
 export async function accountMonthFlows(userId: string): Promise<AccountMonthFlow[]> {
   return monthFlows(db(), userId);
+}
+
+/**
+ * 固定收支記下的紀錄 since 以後記的 或期別在那之後的
+ * 這個月要做的事拿它對每一期有沒有記好
+ */
+export async function recurringRecords(userId: string, since: DateKey): Promise<ChecklistRecord[]> {
+  const t = savingsTransactions;
+  const rows = await db()
+    .select({ recurringId: t.recurringId, recurringPeriod: t.recurringPeriod, kind: t.kind, amount: t.amount, date: t.date })
+    .from(t)
+    .where(and(eq(t.userId, userId), isNotNull(t.recurringId), or(gte(t.date, since), gte(t.recurringPeriod, since))))
+    .orderBy(asc(t.date), asc(t.id));
+  return rows.flatMap(({ recurringId, ...row }) => (recurringId === null ? [] : [{ ...row, recurringId }]));
 }
 
 /** 每個分類每月一列 只有收入與支出 */

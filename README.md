@@ -8,7 +8,7 @@ AllHub 是個人製作、非商業的整合網站，把平常會用到的幾個�
 
 截圖都是本機假資料（`npm run mock:external`），沒有真實帳號；觀看頁的播放器是測試用的假播放器。
 
-![首頁儀表板：正在直播的主播、追蹤頻道的最新影片、星穹鐵道的即時便箋、理財的總資產與待處理、未讀通知](docs/images/home.jpg)
+![首頁儀表板：正在直播的主播、追蹤頻道的最新影片、星穹鐵道的即時便箋、理財的總資產與這個月要做的事、未讀通知](docs/images/home.jpg)
 
 | 觀看頁（雙語字幕疊在影片上，深色模式） | 手機版：首頁、觀看頁、通知面板 |
 |---|---|
@@ -16,12 +16,12 @@ AllHub 是個人製作、非商業的整合網站，把平常會用到的幾個�
 
 ## 功能
 
-- **首頁**：正在直播的追蹤主播、追蹤頻道的最新影片、星穹鐵道的開拓力與委託、總資產與待處理、最新的未讀通知，一進網站就看得到。
+- **首頁**：正在直播的追蹤主播、追蹤頻道的最新影片、星穹鐵道的開拓力與委託、理財的總資產與這個月要做的事、最新的未讀通知，一進網站就看得到。
 - **Twitch**：追蹤主播，開台時收到通知（直播標題與分類）。整頁是 Twitch 的深色風格，點主播打開滿版的大面板，看放大的直播預覽。
 - **YouTube**：追蹤頻道的新影片（不含 Shorts），標出有沒有中文字幕。沒有中文字幕的影片可以邊播邊翻：用自己的 AI API Key（Claude、OpenAI 或 Gemini）把韓文字幕翻成中文，翻好的字幕所有人共用、永久保留；別人翻到一半的，要自己按了才會用你的 Key 接著翻。想之後再看的影片可以「保留」，翻譯過的也會自動加入（每人最多 15 部）。
 - **星穹鐵道**：連結自己的 HoYoLAB 帳號，提供即時便箋、活動日曆、角色與遺器、開拓月曆、終局戰績、兌換碼（也能每天自動兌換社群整理的新兌換碼）、每日自動簽到，以及開拓力快滿、每日實訓、每週內容與終局挑戰的提醒（非官方介面）。整頁是遊戲風格的星空，帳號名牌有遊戲裡的頭像，角色詳情是放大立繪的大面板。
-- **理財**：自己新增帳戶（存款、投資、信用卡）、用途與收支分類，記下收入、支出與轉帳。總覽是一張清單：總資產、本月收支、待處理、各帳戶、本月支出與預算、最近 12 個月的收支。
-  - 固定收支可以每幾個月一次、遇假日提前或延後，到期在待處理按一下確認（薪水確認時填實際金額再分配到各帳戶），也能設成自動記。
+- **理財**：分成總覽、紀錄、帳戶、投資、每月固定、設定六頁。第一次用有「開始設定」清單帶著做；總覽有總資產、「我要…」快捷按鈕與「這個月要做的事」。記一筆、更新餘額、填信用卡帳單、買進賣出這些常用動作直接放在每個帳戶與持股上；持股照證交所與櫃買中心的收盤價算市值，薪水入帳後照設定分配到各帳戶。
+  - 固定收支可以每幾個月一次、遇假日提前或延後，到期在「這個月要做的事」按一下確認（薪水確認時填實際金額再分配到各帳戶），也能設成自動記。
   - 信用卡照銀行的帳單填，跟紀錄的差額自動補一筆；投資帳戶記持股，市值照證交所與櫃買中心的收盤價自動算。
 - **網站通知**：各模組的通知集中在導覽列的鈴鐺，提示音與瀏覽器通知可以依模組分開開關。
 - **帳號與邀請**：站長在「管理」頁建立有期限、限次數的邀請連結，也可以停用（凍結：不能登入、排程與通知暫停，資料保留）或刪除帳號。每個人的追蹤名單、API Key、HoYoLAB 帳號、理財與通知各自分開，只有 YouTube 翻好的字幕共用。登入與註冊要輸入圖形驗證碼，登入錯太多次會暫時鎖定；可以改密碼、登出或刪除自己的帳號（資料一起刪除）。使用聲明在 `/terms`。
@@ -75,7 +75,7 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
   4. 執行 db-migrate workflow 建資料表。
   5. 執行 `npm run account create`，依提示貼上連線字串，建好站長帳號（第一個帳號就是站長）後登入；其他人用「管理」頁的邀請連結註冊。
 - 完整步驟，以及換成自己網域的做法，見 [部署](docs/deploy.md)。
-- 升級前先看 [更新紀錄](CHANGELOG.md)（每一版改了什麼、有沒有 migration）與 [之後的部署](docs/deploy.md#之後的部署)（升級時要注意的事）。
+- 升級前先看 [更新紀錄](CHANGELOG.md)（每一版改了什麼、有沒有 migration）與 [之後的部署](docs/deploy.md#之後的部署)（升級時要注意的事；只能從上一版升級）。
 - 網站不讓搜尋引擎收錄；登入與註冊的次數限制、被攻擊時的處理與兩步驟驗證見 [防機器人與被攻擊時](docs/deploy.md#防機器人與被攻擊時)。
 - **有成員之後不能回滾**到多人化以前的版本（v0.1.0），升級到 v0.1.6 之後也不能回滾到 v0.1.5，只能往前修；Vercel 的 Deployment Protection 要保持開啟、Supabase 的 Data API 建議關閉，見 [回滾與部署保護](docs/deploy.md#回滾與部署保護)。
 
@@ -92,7 +92,7 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 
 ## 第三方聲明
 
-- **圖示與字型**：介面圖示來自 [Lucide](https://lucide.dev)（ISC），YouTube、Twitch 標誌來自 [Simple Icons](https://simpleicons.org)（CC0 1.0）；《崩壞：星穹鐵道》的標誌（`public/images/starrail-logo.png`）著作權與商標屬於 HoYoverse（COGNOSPHERE），只用來標示串接的服務，不在本專案的授權範圍內；星穹鐵道頁的元素、命途、屬性圖示（`public/icons/starrail/`）來自社群整理的 [StarRailRes](https://github.com/Mar-7th/StarRailRes)（從遊戲解出的素材），著作權屬於 HoYoverse（COGNOSPHERE），只用在本專案的非商業用途，不在本專案的授權範圍內。詳見 [public/icons/LICENSE.md](public/icons/LICENSE.md)。字型是 [Geist](https://vercel.com/font)、Geist Mono 與 [Rajdhani](https://fonts.google.com/specimen/Rajdhani)（星穹鐵道頁的數字，皆為 SIL Open Font License 1.1）。
+- **圖示與字型**：介面圖示來自 [Lucide](https://lucide.dev)（ISC），YouTube、Twitch 標誌來自 [Simple Icons](https://simpleicons.org)（CC0 1.0）；《崩壞：星穹鐵道》的標誌（`public/images/starrail-logo.png`）著作權與商標屬於 HoYoverse（COGNOSPHERE），只用來標示串接的服務，不在本專案的授權範圍內；星穹鐵道頁的元素、命途、屬性圖示（`public/icons/starrail/`）來自社群整理的 [StarRailRes](https://github.com/Mar-7th/StarRailRes)（從遊戲解出的素材），著作權屬於 HoYoverse（COGNOSPHERE），只用在本專案的非商業用途，不在本專案的授權範圍內。詳見 [public/icons/LICENSE.md](public/icons/LICENSE.md)。理財頁的插圖來自 [unDraw](https://undraw.co)（unDraw License，可以商用與修改，見 [public/illustrations/LICENSE.md](public/illustrations/LICENSE.md)）。字型是 [Geist](https://vercel.com/font)、Geist Mono 與 [Rajdhani](https://fonts.google.com/specimen/Rajdhani)（星穹鐵道頁的數字，皆為 SIL Open Font License 1.1）。
 - **商標**：YouTube、Twitch、HoYoLAB、《崩壞：星穹鐵道》、Claude、OpenAI、Gemini 是各自公司的商標，本專案與這些公司沒有關係。
 - **非官方做法**：HoYoLAB 的資料讀取、簽到與兌換，YouTube 的字幕讀取、頻道頭像與 Shorts 判斷都不是官方 API，可能失效或違反服務條款，請只用在自己的帳號（見 [模組設定與使用](docs/modules.md)）。
 - **資料來源**：股價是臺灣證券交易所與證券櫃檯買賣中心 OpenAPI 的每日收盤價；假日照行政院人事行政總處的辦公日曆表（政府資料開放平臺）；自動兌換用的兌換碼清單來自社群整理的 [hoyo-codes](https://github.com/seriaati/hoyo-codes)。

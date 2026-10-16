@@ -3,7 +3,7 @@
 import { useId, type ChangeEvent, type ReactNode } from "react";
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { MIN_DATE } from "../../../lib/dates";
-import { NAME_MAX_LENGTH, NOTE_MAX_LENGTH } from "../../../lib/kinds";
+import { LABEL_MAX_LENGTH, NAME_MAX_LENGTH, NOTE_MAX_LENGTH, categoryIconOf } from "../../../lib/kinds";
 import { UNCATEGORIZED_LABEL } from "../../entry-display";
 import type { ChoiceAccount } from "./entry-choice";
 import type { CategoryOption } from "./options";
@@ -11,7 +11,7 @@ import type { CategoryOption } from "./options";
 // 瀏覽器只先擋空白與太長這類明顯的錯 金額與日期以伺服器的驗證為準
 
 // legend 預設壓在 fieldset 框線上又不吃 gap 浮動後才跟其他標籤一樣排
-const LEGEND_CLASS = "field-label float-left";
+export const LEGEND_CLASS = "field-label float-left";
 
 type AmountFieldProps = {
   name: string;
@@ -74,6 +74,16 @@ export function NameField({ defaultValue, placeholder }: { defaultValue?: string
     <label className="field">
       <span className="field-label">名稱</span>
       <input name="name" required maxLength={NAME_MAX_LENGTH} defaultValue={defaultValue} placeholder={placeholder} autoComplete="off" data-autofocus className="input" />
+    </label>
+  );
+}
+
+/** 帳戶的用途 寫在帳戶名稱下面 */
+export function LabelField({ defaultValue, placeholder }: { defaultValue?: string | null; placeholder: string }) {
+  return (
+    <label className="field">
+      <span className="field-label">用途（選填）</span>
+      <input name="label" maxLength={LABEL_MAX_LENGTH} defaultValue={defaultValue ?? ""} placeholder={placeholder} autoComplete="off" className="input" />
     </label>
   );
 }
@@ -142,6 +152,7 @@ export function CategoryChips({ categories, value, onChange }: { categories: rea
         {categories.map((category) => (
           <label key={category.id} className={CHOICE_CHIP}>
             <input type="radio" name="categoryId" value={category.id} checked={value === category.id} onChange={() => onChange(category.id)} className="sr-only" />
+            <Icon name={categoryIconOf(category.icon ?? null, category.kind)} className="size-4" />
             {category.name}
           </label>
         ))}
@@ -163,12 +174,12 @@ type DayOfMonthSelectProps = {
   /** 要即時顯示下次日期時改成受控 */
   value?: number;
   onValueChange?: (day: number) => void;
-  /** 信用卡的截止日與結帳日可以不設 */
+  /** 信用卡的結帳日可以不設 */
   allowEmpty?: boolean;
   hint?: ReactNode;
 };
 
-/** 固定收支的日期與信用卡的截止日 結帳日 間隔不一定是每月 所以選項只寫幾日 */
+/** 固定收支的日期與信用卡的結帳日 間隔不一定是每月 所以選項只寫幾日 */
 export function DayOfMonthSelect({ name, label, defaultValue, value, onValueChange, allowEmpty = false, hint }: DayOfMonthSelectProps) {
   const id = useId();
   const controlled = value !== undefined ? { value, onChange: (event: ChangeEvent<HTMLSelectElement>) => onValueChange?.(Number(event.target.value)) } : { defaultValue: defaultValue ?? "" };

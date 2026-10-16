@@ -43,3 +43,58 @@ export const INTERVAL_LABELS: Record<IntervalMonths, string> = { 1: "每月", 2:
 export const SYMBOL_PATTERN = /^[0-9A-Z]{4,6}$/;
 // 擋掉多打幾個 0 的手誤 台股最小單位是 1 股
 export const MAX_SHARES = 1_000_000_000;
+
+/** 分類可選的圖示 值是選擇器上的名稱 */
+export const CATEGORY_ICONS = {
+  utensils: "餐飲",
+  coffee: "飲料",
+  "shopping-cart": "日用品",
+  bus: "交通",
+  car: "汽機車",
+  fuel: "加油",
+  house: "房租",
+  zap: "電費",
+  droplet: "水費",
+  wifi: "網路",
+  smartphone: "手機",
+  "shopping-bag": "購物",
+  shirt: "服飾",
+  scissors: "美容",
+  "heart-pulse": "醫療",
+  shield: "保險",
+  "graduation-cap": "教育",
+  "book-open": "書籍",
+  film: "娛樂",
+  "gamepad-2": "遊戲",
+  plane: "旅遊",
+  "paw-print": "寵物",
+  dumbbell: "運動",
+  gift: "禮物",
+  repeat: "訂閱",
+  receipt: "帳單",
+  banknote: "提領現金",
+  briefcase: "薪水",
+  award: "獎金",
+  "trending-up": "投資收益",
+  percent: "利息",
+  "circle-dot": "其他",
+} as const;
+export type CategoryIcon = keyof typeof CATEGORY_ICONS;
+export const CATEGORY_ICON_NAMES = Object.keys(CATEGORY_ICONS) as CategoryIcon[];
+/** 沒有圖示時用的 */
+export const DEFAULT_CATEGORY_ICON: Record<CategoryKind, CategoryIcon> = { expense: "receipt", income: "briefcase" };
+
+export const ACCOUNT_KIND_ICONS = { deposit: "landmark", investment: "chart-line", credit: "credit-card" } as const satisfies Record<AccountKind, string>;
+
+/** 信用卡卡面的顏色 */
+export const CARD_STYLES = ["blue", "green", "purple", "orange", "black", "silver"] as const;
+export type CardStyle = (typeof CARD_STYLES)[number];
+export const CARD_STYLE_LABELS: Record<CardStyle, string> = { blue: "藍", green: "綠", purple: "紫", orange: "橘", black: "黑", silver: "銀" };
+
+/** 帳戶用途的長度上限 跟名稱一樣 */
+export const LABEL_MAX_LENGTH = NAME_MAX_LENGTH;
+
+/** 不在清單裡的用預設圖示 */
+export function categoryIconOf(icon: string | null, kind: CategoryKind): CategoryIcon {
+  return icon !== null && Object.hasOwn(CATEGORY_ICONS, icon) ? (icon as CategoryIcon) : DEFAULT_CATEGORY_ICON[kind];
+}

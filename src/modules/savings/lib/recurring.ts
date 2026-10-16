@@ -63,6 +63,19 @@ function openOccurrences(rule: RecurringLike, until: DateKey): Occurrence[] {
   return occurrences;
 }
 
+/** 日期在 from 到 until 之間的每一期 處理過的也算 建立之前的日期不算 */
+export function occurrencesBetween(rule: Omit<RecurringLike, "lastPostedMonth">, from: DateKey, until: DateKey): Occurrence[] {
+  const created = taipeiToday(rule.createdAt);
+  // 遇假日延後可能從上個月跨過來 提前可能從下個月跨回來 所以前後各多看一個月
+  const lastPeriod = addMonths(dateToMonth(until), 1);
+  const occurrences: Occurrence[] = [];
+  for (let period = periodAfter(rule, addMonths(dateToMonth(from), -2)); period <= lastPeriod; period = periodAfter(rule, period)) {
+    const date = occurrenceDate(rule, period);
+    if (date >= from && date <= until && date >= created) occurrences.push({ period, date });
+  }
+  return occurrences;
+}
+
 /** 自動記帳最多補最近 limit 期 排程停了很久時才不會一次記一大堆 */
 export function dueMonths(rule: RecurringLike, today: DateKey, limit = 12): MonthKey[] {
   return openOccurrences(rule, today)

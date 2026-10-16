@@ -22,8 +22,8 @@ export type SalaryProps = { accounts: SalaryAccountOption[]; categories: Categor
 export const canReceiveSalary = (accounts: readonly SalaryAccountOption[]) => accounts.some((account) => account.kind !== "credit");
 
 /**
- * 頁首 ⋮ 裡的薪水入帳並分配 給臨時發的獎金這類不在固定收支裡的
- * 成功訊息獨佔頁首那排按鈕的最後一整列
+ * 常用動作卡片標題列 ⋮ 裡的薪水入帳並分配 給臨時發的獎金這類不在固定收支裡的
+ * 成功訊息獨佔標題列的最後一整列
  */
 export function SalaryMenu({ accounts, categories, today }: SalaryProps) {
   const dialog = useDialog();
@@ -108,11 +108,11 @@ export function SalaryForm({ accounts, categories, today, prefill, onDone, onCan
           <p className="notice">
             <Icon name="info" />
             <span>
-              還沒有帳戶設定每月規劃，薪水會全部留在「{receiving}」。可以到
-              <Link href={SAVINGS_PATHS.accounts} className="link">
-                設定
+              還沒有設定分配，薪水會全部留在「{receiving}」。可以到
+              <Link href={SAVINGS_PATHS.recurring} className="link">
+                每月固定
               </Link>
-              幫帳戶加上每月規劃。
+              的「修改分配」設定每個月轉多少到哪些帳戶。
             </span>
           </p>
         ) : (

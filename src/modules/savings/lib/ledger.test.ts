@@ -38,7 +38,6 @@ function account(overrides: Partial<AccountLike> = {}): AccountLike {
     openingCost: null,
     monthlyPlan: null,
     targetAmount: null,
-    dueDay: null,
     payFromAccountId: null,
     active: true,
     sortOrder: id,
@@ -376,8 +375,8 @@ describe("targetProgress（目標金額）", () => {
 describe("creditCardStatuses（扣款帳戶繳完卡費還剩多少）", () => {
   const accounts = [
     account({ id: 1, name: "國泰", sortOrder: 0 }),
-    account({ id: 2, kind: "credit", dueDay: 6, payFromAccountId: 1, sortOrder: 2 }),
-    account({ id: 3, kind: "credit", dueDay: 25, payFromAccountId: 1, sortOrder: 1 }),
+    account({ id: 2, kind: "credit", payFromAccountId: 1, sortOrder: 2 }),
+    account({ id: 3, kind: "credit", payFromAccountId: 1, sortOrder: 1 }),
     account({ id: 4, kind: "credit", sortOrder: 3 }),
     account({ id: 5, kind: "credit", payFromAccountId: 1, active: false, sortOrder: 4 }),
   ];
@@ -405,8 +404,8 @@ describe("creditCardStatuses（扣款帳戶繳完卡費還剩多少）", () => {
 
   it("停用的卡還有未繳_不列出，也不算進扣款帳戶要繳的（停用的帳戶不算進總覽）", () => {
     const deposit = account({ id: 11, sortOrder: 0 });
-    const closedCard = account({ id: 12, kind: "credit", dueDay: 6, payFromAccountId: 11, active: false, sortOrder: 1 });
-    const card = account({ id: 13, kind: "credit", dueDay: 6, payFromAccountId: 11, sortOrder: 2 });
+    const closedCard = account({ id: 12, kind: "credit", payFromAccountId: 11, active: false, sortOrder: 1 });
+    const card = account({ id: 13, kind: "credit", payFromAccountId: 11, sortOrder: 2 });
     const owing = new Map<number, AccountBalance>([
       [11, balanceOf(1000)],
       [12, balanceOf(-5000, { owed: 5000 })],
@@ -417,7 +416,7 @@ describe("creditCardStatuses（扣款帳戶繳完卡費還剩多少）", () => {
   });
 
   it("扣款帳戶不在餘額清單裡_繳完剩多少是 null、不算不夠扣", () => {
-    const card = account({ id: 14, kind: "credit", dueDay: 6, payFromAccountId: 99 });
+    const card = account({ id: 14, kind: "credit", payFromAccountId: 99 });
 
     expect(creditCardStatuses([card], new Map([[14, balanceOf(-800, { owed: 800 })]]))).toEqual([{ accountId: 14, payFromRemaining: null, short: false }]);
   });
@@ -431,7 +430,7 @@ describe("creditCardStatuses（扣款帳戶繳完卡費還剩多少）", () => {
 
   it("有帳單時用本期還要繳的算扣款帳戶夠不夠（結帳後刷的下期才繳）：7,000 − 6,340", () => {
     const deposit = account({ id: 21 });
-    const card = account({ id: 22, kind: "credit", dueDay: 20, payFromAccountId: 21 });
+    const card = account({ id: 22, kind: "credit", payFromAccountId: 21 });
     const balances = new Map<number, AccountBalance>([
       [21, balanceOf(7000)],
       [22, balanceOf(-12_250, { owed: 12_250 })],

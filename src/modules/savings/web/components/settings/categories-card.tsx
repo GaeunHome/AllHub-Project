@@ -4,51 +4,87 @@ import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { CardHeader } from "@/core/ui/page-header";
-import { CATEGORY_KINDS, CATEGORY_KIND_LABELS, type CategoryKind, type PaletteColor } from "../../../lib/kinds";
+import { CATEGORY_KINDS, categoryIconOf, type CategoryKind, type PaletteColor } from "../../../lib/kinds";
 import { formatTwd } from "../../../lib/money";
 import { deleteCategoryAction, moveCategoryAction } from "../../actions";
 import { nextFreeColor } from "../../form-math";
 import { CategoryForm, type CategoryDraft } from "../forms/category-form";
-import { DeleteMenuItem, LIST_ROW_MESSAGE, ListGroup, ListRow, MoveMenuItems, useRemovalNotice } from "../row-controls";
+import { SetupButton } from "../forms/setup-button";
+import { DeleteMenuItem, LIST_ROW_MESSAGE, ListRow, MoveMenuItems, useRemovalNotice } from "../row-controls";
+import { IconTile } from "../visuals";
 
-/** 支出與收入各一組 只有支出有預算 預算靠右對齊 */
+const TITLES: Record<CategoryKind, string> = { expense: "支出分類與預算", income: "收入分類" };
+
+/**
+ * 支出與收入各一張卡片 寬螢幕並排 只有支出有預算
+ * 還沒有分類時先請使用者建立預設的
+ */
 export function CategoriesCard({ categories }: { categories: CategoryDraft[] }) {
-  const add = useDialog();
-  const removal = useRemovalNotice();
-  const groups = CATEGORY_KINDS.map((kind) => ({ kind, items: categories.filter((category) => category.kind === kind) })).filter((group) => group.items.length > 0);
   // 畫面不顯示顏色 但資料表要一個 分到不同的顏色以後要用時才分得出來
   const freeColor = (kind: CategoryKind) => nextFreeColor(categories.filter((category) => category.kind === kind).map((category) => category.color));
+  if (categories.length === 0) return <NoCategories freeColor={freeColor("expense")} />;
 
   return (
-    <section aria-labelledby="savings-categories" className="card stack overflow-hidden">
+    <div className="page-stack xl:grid xl:grid-cols-2 xl:items-start">
+      {CATEGORY_KINDS.map((kind) => (
+        <KindCard key={kind} kind={kind} items={categories.filter((category) => category.kind === kind)} freeColor={freeColor(kind)} />
+      ))}
+    </div>
+  );
+}
+
+function NoCategories({ freeColor }: { freeColor: PaletteColor }) {
+  const add = useDialog();
+  return (
+    <section aria-labelledby="savings-categories" className="card stack">
+      <CardHeader id="savings-categories">分類與預算</CardHeader>
+      <p className="text-ink">還沒有分類。按「開始使用」建立常用的分類（餐飲、交通、薪水…，之後都能改），或自己新增。</p>
+      <div className="button-row">
+        <SetupButton />
+        <button {...add.triggerProps} className="btn-secondary">
+          <Icon name="plus" className="size-4" />
+          新增分類
+        </button>
+      </div>
+      <DialogMessage {...add.messageProps} />
+      <Dialog {...add.dialogProps} title="新增分類">
+        <CategoryForm defaultKind="expense" defaultColor={freeColor} onDone={add.done} onCancel={add.close} />
+      </Dialog>
+    </section>
+  );
+}
+
+function KindCard({ kind, items, freeColor }: { kind: CategoryKind; items: CategoryDraft[]; freeColor: PaletteColor }) {
+  const add = useDialog();
+  const removal = useRemovalNotice();
+  const id = `savings-categories-${kind}`;
+
+  return (
+    <section aria-labelledby={id} className="card stack overflow-hidden">
       <CardHeader
-        id="savings-categories"
+        id={id}
         actions={
-          <button {...add.triggerProps} aria-label="新增分類" className="btn-secondary btn-sm">
+          <button {...add.triggerProps} aria-label={kind === "expense" ? "新增支出分類" : "新增收入分類"} className="btn-secondary btn-sm">
             <Icon name="plus" className="size-4" />
             新增
           </button>
         }
       >
-        分類與預算
+        {TITLES[kind]}
       </CardHeader>
       <DialogMessage {...add.messageProps} />
       <DialogMessage {...removal.messageProps} />
-      <Dialog {...add.dialogProps} title="新增分類" size="sm">
-        <CategoryForm defaultKind="expense" defaultColor={freeColor("expense")} onDone={(message) => add.done(message)} onCancel={add.close} />
+      <Dialog {...add.dialogProps} title={kind === "expense" ? "新增支出分類" : "新增收入分類"}>
+        <CategoryForm defaultKind={kind} defaultColor={freeColor} onDone={add.done} onCancel={add.close} />
       </Dialog>
-      {groups.length === 0 ? (
-        <p className="text-ink">還沒有分類，按「新增」加一個，例如餐飲、交通。</p>
+      {items.length === 0 ? (
+        <p className="text-ink">{kind === "expense" ? "還沒有支出分類，按「新增」加一個，例如餐飲、交通。" : "還沒有收入分類，按「新增」加一個，例如薪水、獎金。"}</p>
       ) : (
-        <div className="card-list">
-          {groups.map((group) => (
-            <ListGroup key={group.kind} id={`savings-categories-${group.kind}`} title={CATEGORY_KIND_LABELS[group.kind]} aside={group.kind === "expense" && <span className="font-normal text-ink-soft">每月預算</span>} withMenu>
-              {group.items.map((category, index) => (
-                <CategoryRow key={category.id} category={category} isFirst={index === 0} isLast={index === group.items.length - 1} freeColor={freeColor(category.kind)} onDeleted={removal.report} />
-              ))}
-            </ListGroup>
+        <ul className="card-list">
+          {items.map((category, index) => (
+            <CategoryRow key={category.id} category={category} isFirst={index === 0} isLast={index === items.length - 1} freeColor={freeColor} onDeleted={removal.report} />
           ))}
-        </div>
+        </ul>
       )}
     </section>
   );
@@ -56,13 +92,20 @@ export function CategoriesCard({ categories }: { categories: CategoryDraft[] }) 
 
 type CategoryRowProps = { category: CategoryDraft; isFirst: boolean; isLast: boolean; freeColor: PaletteColor; onDeleted: (message: string) => void };
 
+/** 點一列修改 上移下移與刪除收在 ⋮ */
 function CategoryRow({ category, isFirst, isLast, freeColor, onDeleted }: CategoryRowProps) {
   const edit = useDialog();
+  const budget = category.kind === "expense" && category.monthlyBudget !== null ? category.monthlyBudget : null;
 
   return (
     <ListRow
-      title={category.name}
-      amount={category.monthlyBudget ? formatTwd(category.monthlyBudget) : undefined}
+      title={
+        <span className="flex items-center gap-3">
+          <IconTile name={categoryIconOf(category.icon, category.kind)} size="sm" />
+          {category.name}
+        </span>
+      }
+      amount={budget !== null ? `預算 ${formatTwd(budget)}` : undefined}
       trigger={edit.triggerProps}
       actionLabel="修改"
       menu={
@@ -80,7 +123,7 @@ function CategoryRow({ category, isFirst, isLast, freeColor, onDeleted }: Catego
       }
     >
       <DialogMessage {...edit.messageProps} className={LIST_ROW_MESSAGE} />
-      <Dialog {...edit.dialogProps} title={`修改「${category.name}」`} size="sm">
+      <Dialog {...edit.dialogProps} title={`修改「${category.name}」`}>
         <CategoryForm category={category} defaultKind={category.kind} defaultColor={freeColor} onDone={edit.done} onCancel={edit.close} />
       </Dialog>
     </ListRow>

@@ -7,7 +7,7 @@ AllHub Project：個人整合系統（站長管理，其他人只能用站長的
 ## 指令
 
 - 檢查：`npm test`（vitest，整合測試用記憶體 PGlite；`vitest.config.mts` 固定 `maxWorkers: 4`，機器忙時才不會逾時）、`npm run lint`、`npm run build`、`npm run typecheck`（要用 build 產生的 `.next/types`，放最後；增量資訊寫在 `.next/cache/tsconfig.tsbuildinfo`，根目錄不會有 `tsconfig.tsbuildinfo`）。
-- 改 `core/db/schema.ts` 或模組的 `data/schema.ts` 後：`npm run db:generate`，migration 產生在 `src/core/db/migrations/` 並一起 commit；不要從本機對正式資料庫 migrate。
+- 改 `core/db/schema.ts` 或模組的 `data/schema.ts` 後：`npm run db:generate`，migration 產生在 `src/core/db/migrations/` 並一起 commit；一個版本最多一個 migration（同一版再改資料表就刪掉這一版的 migration 重新產生），不要從本機對正式資料庫 migrate。
 - 本機：`npm run db:local`（PGlite，要設 `DATABASE_POOL_MAX=1`）、`npm run mock:external`（假外部服務，搭配 `DEV_EXTERNAL_ORIGIN=http://127.0.0.1:4010`）。
 - 帳號：`npm run account create`（第一個是站長，之後是成員）／`passwd <帳號>`（也會解除登入鎖定）／`unlock <帳號>`（只解除登入鎖定，不改密碼）／`list`（含角色與停用），在 `src/dev/account.ts`，用 node 直接執行（型別剝除）。
 
@@ -38,20 +38,20 @@ AllHub Project：個人整合系統（站長管理，其他人只能用站長的
 - 測試只寫答案來自程式以外的：需求（使用者說的，或 CLAUDE.md、docs 寫明的行為）、從輸入手算得出的值、發生過的 bug、架構與快取規則、資料庫與安全（擁有權與 IDOR、交易、migration、登入與權限）。照著程式抄答案的不寫：常數、文案、Tailwind class、內部函式的呼叫次數與順序、先跑程式再貼上的輸出、等於預設值的 props（v0.1.5 依這個標準刪掉了約 225 個測試）。這類行為要改時先寫出會失敗的測試，確認失敗再實作；不為了讓測試通過而刪除或放寬既有測試。
 - 不裝新套件、不改資料表結構，除非使用者要求。
 - 彈出視窗（`core/ui/dialog.tsx`；原生 `<dialog>` 與 `showModal()` 只寫在這個檔案裡，`architecture.test.ts` 檢查）：
-  - 用在哪裡：清單列裡的表單與詳情（修改紀錄、修改帳戶、理財的帳戶詳情、主播詳情）不要展開在列裡；按鈕打開的表單（記一筆、薪水入帳並分配、更新餘額、填帳單、已繳、買進賣出、新增帳戶、新增帳號或更新 cookie）與建立後要先收好的內容（只在這一頁看得到的邀請連結）也用視窗。用 `DialogButton`；按鈕與訊息要自己排版時用 `useDialog()`＋`Dialog`＋`DialogMessage`。不在清單列裡、不常用的設定照舊收在 `<details>`（星穹鐵道的「帳號設定」）或按了才展開的區塊（觀看頁的「上傳字幕」），短的動作與狀態放 ⋮ 選單（YouTube 的頻道、理財設定頁的上移下移停用刪除）；一個按鈕的動作照用 `ActionButton`，刪除類照用 `confirmMessage`。
+  - 用在哪裡：清單列裡的表單與詳情（修改紀錄、修改帳戶、主播詳情）不要展開在列裡；按鈕打開的表單（記一筆、薪水入帳並分配、更新餘額、填帳單、已繳、買進賣出、新增帳戶、新增帳號或更新 cookie）與建立後要先收好的內容（只在這一頁看得到的邀請連結）也用視窗。用 `DialogButton`；按鈕與訊息要自己排版時用 `useDialog()`＋`Dialog`＋`DialogMessage`。不在清單列裡、不常用的設定照舊收在 `<details>`（星穹鐵道的「帳號設定」）或按了才展開的區塊（觀看頁的「上傳字幕」），短的動作與狀態放 ⋮ 選單（YouTube 的頻道、理財各頁的修改、上移下移、停用、刪除；理財常用的動作直接放在列上，見〈理財〉）；一個按鈕的動作照用 `ActionButton`，刪除類照用 `confirmMessage`。
   - 大小：`size` 的 sm／md／lg（24／32／44rem）給表單與短的詳情；內容多、要放大圖的詳情（星穹鐵道的角色詳情、Twitch 的主播詳情）用 `size="full"`：滿版的大面板，寬螢幕四周只留 1rem、手機全螢幕，高度固定，內容依面板大小自己排（角色詳情：寬螢幕立繪是左邊一整欄、依面板高度放大，整個面板同一個捲動區，游標在立繪上也捲得動；主播詳情：預覽限高，16:9 的螢幕不用捲動）。開關、焦點、Esc、點背景、捲動鎖與 Activity 的處理跟其他大小一樣；其他視窗維持原本的大小。
   - 視窗裡的表單一律用 `useDialogForm()`：onSubmit 送出（`<form action>` 送完一定清空欄位，失敗時打的字會不見），失敗留在視窗裡、焦點回到 `data-autofocus` 的欄位；有下一步的表單（連結帳號先選伺服器）傳 `isDone` 判斷完成了沒。
-  - 成功就關掉視窗，訊息用 `DialogMessage` 接在按鈕後面或那一列下面（有圖示與底色）；按鈕在一排按鈕裡時給訊息 `className`（`DialogButton` 是 `messageClassName`；理財的 `ROW_MESSAGE_CLASS`：獨佔最後一整列、對齊跟著那一排），排到這一排的最後一行，不插在兩個按鈕中間。打開視窗的按鈕或整列會不見時（刪除那一列、「開始使用」後卡片被換掉、確認或略過後待處理那一列不見），訊息放在不會消失的外框裡、焦點移過去，不掉到 body（理財的 `useRemovalNotice()`、`SetupResultSlot`、總覽的 `OverviewNotice`；沒有外框時照 Twitch、YouTube 的選單刪除用 `alertMessage`）。一頁有很多會留訊息的視窗時外面包 `DialogMessageScope`，只留最新一則（理財的三頁）。結果要放在別的地方時 `done()` 不帶訊息（連結帳號：導向剛連結的帳號，結果在帳號分頁上方）。
+  - 成功就關掉視窗，訊息用 `DialogMessage` 接在按鈕後面或那一列下面（有圖示與底色）；按鈕在一排按鈕裡時給訊息 `className`（`DialogButton` 是 `messageClassName`；理財的 `ROW_MESSAGE_CLASS`：獨佔最後一整列、對齊跟著那一排），排到這一排的最後一行，不插在兩個按鈕中間。打開視窗的按鈕或整列會不見時（刪除那一列、「開始使用」後卡片被換掉、確認或略過後那一列的按鈕不見），訊息放在不會消失的外框裡、焦點移過去，不掉到 body（理財的 `useRemovalNotice()`、`SetupResultSlot`、總覽的 `OverviewNotice`；沒有外框時照 Twitch、YouTube 的選單刪除用 `alertMessage`）。一頁有很多會留訊息的視窗時外面包 `DialogMessageScope`，只留最新一則（理財的三頁）。結果要放在別的地方時 `done()` 不帶訊息（連結帳號：導向剛連結的帳號，結果在帳號分頁上方）。
   - 關閉不另外跳確認（Chrome 連按 Esc 時擋不住），要保留的內容關掉後給「再看一次」（邀請連結；下一條建立失敗時上一條也留著，換到別頁時在 Activity 藏起來的清除函式裡忘掉，回來就沒了）。寬螢幕置中、手機從底部升起；標題列是 `CardHeader` 加關閉鈕，本文捲動；Esc、點背景、按 X 關閉；收起、卸載或 Activity 把頁面藏起來時一定關掉（開著的 modal 會讓整份文件不能操作）；內容只在開著時算繪。開著時背後的頁面不捲動，`html` 一律保留捲軸的位置，開關視窗時版面不會左右跳。
   - 報讀器：打開時要讓人知道的說明（邀請連結的建立結果與「只在這一頁看得到」）用 `Dialog` 的 `describedBy`（`aria-describedby`）指過去，說明用的 `FormMessage` 加 `live={false}`：內容跟視窗一起出現，放在 live region 裡來不及念，還會跟描述重複。live region 不巢狀（外層一變會連裡面的再念一次），也不放在按鈕裡（`CopyButton` 的字不變，結果念在旁邊一開始就在的 `status`）。
 - 只有一個按鈕的表單（刪除、開關、排序）用 `core/ui/action-button.tsx`，刪除類帶 `confirmMessage` 先確認（底層是 `confirm-submit-button.tsx`）。回饋（`core/ui/form-message.tsx`）：表單下方用 `FormFeedback`；`InlineFeedback` 只用在空間很小的地方（單一按鈕的表單的錯誤、⋮ 選單裡）；彈出視窗成功後的訊息用 `DialogMessage`；點了之後要一眼看到的結果（兌換碼、立即簽到、設定門檻、連結帳號）用 `ResultBanner`：標題寫結果、說明不重複標題（預期外的錯誤在 `runAction()` 的 scope 加 `titled`，說明只寫「原因不明（詳見伺服器 log）」；沒有標題的回饋照舊是「<動作>失敗（詳見伺服器 log）」），成功了但要提醒的用 `warning`，跟按鈕在同一列時獨佔下一整列。圖示用 `core/ui/icon.tsx`（名稱列在 `UI_ICON_NAMES`，檔案在 `public/icons/ui/`），卡片的標題列用 `CardHeader`、卡片外的區段標題用 `SectionTitle`，空狀態用 `EmptyState`。
 - 對外請求一律經 `core/external-url` 的 `externalFetch()`（開發時改送假伺服器、預設 15 秒逾時，AI 翻譯用 `AI_TIMEOUT_MS`），新增外部呼叫也要用它；正式程式不直接呼叫全域 `fetch()`，例外只有 `core/external-url.ts` 本身與 client 元件呼叫自家的 `/api/`（`architecture.test.ts` 檢查）。
 - 外部圖片（頭像、縮圖、角色圖）由瀏覽器直接向平台的 CDN 載入，網站與資料庫都不存：用 `core/ui/external-image.tsx`（`next/image` 加 `unoptimized`，不經 Vercel 的圖片最佳化；`referrerPolicy="no-referrer"`；載入失敗或沒有網址時顯示 `fallback`），圓形頭像用 `core/ui/avatar.tsx`（退回名稱的第一個字）。網址一律先在伺服器端經 `core/external-url` 的 `externalAssetUrl()`：開發時有 `DEV_EXTERNAL_ORIGIN` 就改寫到假伺服器（E2E 不會連到真的 CDN），正式環境原樣輸出，不是 http(s) 的回 null。固定大小的圖給 `width`／`height`，填滿固定比例外框的用 `fill`（外框要是 relative）。畫面最上面一排的縮圖或預覽給 `loading="eager"`（常常是 LCP，延遲載入會慢一拍），其他照預設 lazy。兩類圖片分開：平台資料的圖片（頭像、縮圖、角色圖）照上面由瀏覽器向 CDN 載入；遊戲的固定小圖示（星穹鐵道的元素、命途、屬性）是內建在 `public/icons/starrail/` 的靜態檔，用 `next/image`（`unoptimized`，跟官方標誌一樣）直接畫，不經 `externalAssetUrl()` 與 `ExternalImage`（見〈HoYoLAB〉）。
-- 畫面風格：全站簡潔中性（`globals.css` 的 token：白／淡灰底、灰色細框、陰影很輕），主色只有一個深藍，只用在主要按鈕、連結與焦點框；模組的品牌色（`data-accent`：`blue`／`red`／`violet`／`gold`／`green`，型別是 `core/module.ts` 的 `ModuleAccent`）只用在圖示與小標籤。Twitch 頁用 `.theme-twitch`、星穹鐵道頁用 `.theme-starrail`（兩頁固定深色），YouTube 頁用 `.theme-youtube`（照 YouTube 網站的淺色與深色，跟著外觀切換，紅色只用在標誌與進度條）：只換 CSS 變數，共用的 class（`card`、`chip`、按鈕、`input`…）自動跟著換色，不要另外複製一套元件。三頁都是整頁主題：整頁底色鋪滿全寬與整個高度（`:root:has(.theme-…:not([data-activity-hidden]))`），內容直接放在 AppShell 的外框裡（不再包一張圓角大卡片）。YouTube 連導覽列也換（`:root` 換 `--bg-base` 與 `--header-bg`）；Twitch 與星穹鐵道的導覽列、鈴鐺面板、人像選單維持全站的樣子（使用者的決定）：調色盤（含 `color-scheme: dark` 與深色模式的 `--accent-*`、`--*-dot`）只放在 `PageTheme` 的外框上，`:root`／`html`／`body` 只換背景（與星空的變數 `--sr-sky`），這兩頁的導覽列改成不透明（全站的 `--header-bg` 疊在 `--bg-base` 上；半透明疊在深色底上會變灰，`page-theme.test.ts` 檢查）。星穹鐵道的星空畫在 `body`（最上層是自己畫的靜態 `public/images/starrail-sky.svg`，不加動畫：背景圖一動整頁都要重畫；html 另外給底色，背景才跟著長頁面拉長），彈出視窗用 `sr-dialog` 自己畫星空底。外框一律用 `core/ui/page-theme.tsx` 的 `PageTheme`：Activity 藏起來的頁面還留在文件裡，`:root:has()` 會比對到它，`PageTheme` 在藏起來時（layout effect 的清除函式）標上 `data-activity-hidden`，換頁時主題不會漏過去；伺服器算繪的 HTML 沒有標記，整頁載入時第一次繪製就是這一頁的底色。主題 class 只能放在 `PageTheme` 上（視窗、卡片也不行，`architecture.test.ts` 檢查）。
+- 畫面風格：全站簡潔中性（`globals.css` 的 token：白／淡灰底、灰色細框、陰影很輕），主色只有一個深藍，只用在主要按鈕、連結與焦點框；模組的品牌色（`data-accent`：`blue`／`red`／`violet`／`gold`／`green`，型別是 `core/module.ts` 的 `ModuleAccent`）只用在圖示與小標籤（例外只有理財總覽的總資產大卡，用很淡的模組綠當底）。Twitch 頁用 `.theme-twitch`、星穹鐵道頁用 `.theme-starrail`（兩頁固定深色），YouTube 頁用 `.theme-youtube`（照 YouTube 網站的淺色與深色，跟著外觀切換，紅色只用在標誌與進度條）：只換 CSS 變數，共用的 class（`card`、`chip`、按鈕、`input`…）自動跟著換色，不要另外複製一套元件。三頁都是整頁主題：整頁底色鋪滿全寬與整個高度（`:root:has(.theme-…:not([data-activity-hidden]))`），內容直接放在 AppShell 的外框裡（不再包一張圓角大卡片）。YouTube 連導覽列也換（`:root` 換 `--bg-base` 與 `--header-bg`）；Twitch 與星穹鐵道的導覽列、鈴鐺面板、人像選單維持全站的樣子（使用者的決定）：調色盤（含 `color-scheme: dark` 與深色模式的 `--accent-*`、`--*-dot`）只放在 `PageTheme` 的外框上，`:root`／`html`／`body` 只換背景（與星空的變數 `--sr-sky`），這兩頁的導覽列改成不透明（全站的 `--header-bg` 疊在 `--bg-base` 上；半透明疊在深色底上會變灰，`page-theme.test.ts` 檢查）。星穹鐵道的星空畫在 `body`（最上層是自己畫的靜態 `public/images/starrail-sky.svg`，不加動畫：背景圖一動整頁都要重畫；html 另外給底色，背景才跟著長頁面拉長），彈出視窗用 `sr-dialog` 自己畫星空底。外框一律用 `core/ui/page-theme.tsx` 的 `PageTheme`：Activity 藏起來的頁面還留在文件裡，`:root:has()` 會比對到它，`PageTheme` 在藏起來時（layout effect 的清除函式）標上 `data-activity-hidden`，換頁時主題不會漏過去；伺服器算繪的 HTML 沒有標記，整頁載入時第一次繪製就是這一頁的底色。主題 class 只能放在 `PageTheme` 上（視窗、卡片也不行，`architecture.test.ts` 檢查）。
 - 間距與對齊（主題頁也照這套，只換配色）：
   - 距離交給父層的 gap，子元素不加零散的 margin（例外：`details` 的展開內容、絕對定位、對齊用的負邊距）。頁面的區塊之間 `page-stack`（gap-8）；卡片與區段裡、表單的欄位之間 `stack`（gap-4）；欄位是 `field`＋`field-label`（標籤與輸入框 gap-1.5）；一排按鈕 `button-row`（gap-2）。
   - 卡片內距一律 `card`（p-5／sm:p-6）；卡片裡撐滿左右的清單用 `card-list`＋`card-row`（列的左右內距跟卡片一樣，文字對齊卡片內容），只有清單的卡片是 `card p-0`＋`card-row`；卡片裡再小一級的區塊用 `panel`（p-4）。標題放在卡片裡用 `CardHeader`，頁首、區段標題、卡片對齊同一條左邊線；主要頁面都在 AppShell 的外框裡（`app-header.tsx` 的 `SHELL_FRAME`：幾乎滿版的 `max-w-[120rem]`＋`px-4 sm:px-6 lg:px-8`，導覽列與內容共用、左右邊線對齊，超寬螢幕才置中；`app-shell.test.ts` 檢查），登入與註冊共用 `AuthCard`（max-w-md）。
-  - 寬螢幕：清單與格線在 xl／2xl 加欄（YouTube 的影片 2→3→4 欄）；表單類的頁面（理財的設定、通知、帳號、管理、翻譯設定）在 xl 改成兩欄或三欄，Twitch 頁的輸入框限寬 `max-w-2xl`，不把輸入框拉到整個畫面寬；Twitch 頁在 2xl 把開關台紀錄移到右邊一欄，直播卡片用 auto-fit（人少時撐滿這一欄，不空下一兩欄），首頁「正在直播」只有一兩位時改成橫的卡片；觀看頁的播放器寬度依視窗高度封頂（照 YouTube，播放器大小優先，一行標題與頻道列留在畫面裡），多的寬度給「接下來播放」；劇院模式時播放器撐滿兩欄；理財總覽在 xl 分兩欄（`dashboard/layout.ts`：左邊待處理與帳戶、右邊本月支出與每月收支），2xl 左欄放得下時待處理與帳戶再並排（auto-fit，沒有待處理時帳戶撐滿），紀錄頁在 2xl 旁邊固定放這個月的合計。排欄（`col-span`、`row-span`）寫在元素自己身上，或把同一欄的卡片包成一個 `page-stack`，不從外框用 `[&>:first-child]`、`[&>:nth-child()]`、`*:first:` 挑第幾個（永遠排第一個的 `PageHeader` 例外；`architecture.test.ts` 檢查）：Server Action 的表單開頭有 React 加的隱藏 input，串流中的 Suspense 也會在原地多一個 `<template>`，第幾個會算錯。同一個元件在不同地方寬度不同的（首頁卡片外框、理財的待處理、持股與帳單紀錄、星穹鐵道角色詳情的右欄）用 `@container`，裡面用容器查詢（例如 `@sm:`、`@md:`、`@3xl:`）依所在的寬度排欄，不用螢幕寬度；Twitch 的直播卡片改用 auto-fit 的格線（見上面）。
+  - 寬螢幕：清單與格線在 xl／2xl 加欄（YouTube 的影片 2→3→4 欄）；表單類的頁面（理財的設定、通知、帳號、管理、翻譯設定）在 xl 改成兩欄或三欄，Twitch 頁的輸入框限寬 `max-w-2xl`，不把輸入框拉到整個畫面寬；Twitch 頁在 2xl 把開關台紀錄移到右邊一欄，直播卡片用 auto-fit（人少時撐滿這一欄，不空下一兩欄），首頁「正在直播」只有一兩位時改成橫的卡片；觀看頁的播放器寬度依視窗高度封頂（照 YouTube，播放器大小優先，一行標題與頻道列留在畫面裡），多的寬度給「接下來播放」；劇院模式時播放器撐滿兩欄；理財總覽（`dashboard/layout.ts`）在 xl 時總資產與「我要…」並排、下面分兩欄（左邊這個月要做的事、右邊本月收支與每月收支），2xl 拆成三欄；帳戶頁的卡片與投資頁的持股照寬度加欄，紀錄頁在 2xl 旁邊固定放這個月的合計。排欄（`col-span`、`row-span`）寫在元素自己身上，或把同一欄的卡片包成一個 `page-stack`，不從外框用 `[&>:first-child]`、`[&>:nth-child()]`、`*:first:` 挑第幾個（永遠排第一個的 `PageHeader` 例外；`architecture.test.ts` 檢查）：Server Action 的表單開頭有 React 加的隱藏 input，串流中的 Suspense 也會在原地多一個 `<template>`，第幾個會算錯。同一個元件在不同地方寬度不同的（首頁卡片外框、理財的這個月要做的事、快捷按鈕、信用卡卡面與帳單紀錄、星穹鐵道角色詳情的右欄）用 `@container`，裡面用容器查詢（例如 `@sm:`、`@md:`、`@3xl:`）依所在的寬度排欄，不用螢幕寬度；Twitch 的直播卡片改用 auto-fit 的格線（見上面）。
   - 高度：按鈕、輸入框、下拉選單、分段選擇、YouTube 的膠囊按鈕（`yt-pill`）與搜尋列都是 44px；清單列與工具列裡的次要按鈕（`btn-sm`）、導覽膠囊、YouTube 的篩選膠囊（`yt-chip`）與 `yt-pill-sm`、⋮ 是 36px，觸控裝置一律放大到 44px（`globals.css` 最後的 `pointer: coarse`），太小的元素用透明的偽元素把點擊範圍撐到 44px；只有圖示的按鈕是正方形（`btn-icon`、`icon-button`）；chip 一律 22px。
   - 同一列的卡片用 grid 等寬等高、清單的列一樣高；頭像只用 `Avatar` 的四種大小；圖示與文字垂直置中；金額與數字靠右加 `tabular-nums`，同一欄用固定欄寬對齊。
   - 手機：單欄、左右內距 16px（彈出面板也一樣）、不能橫向捲動（刻意橫捲的導覽列模組按鈕、頭像列、篩選膠囊列、觀看頁的膠囊列除外；導覽列的按鈕不換行，放不下時目前的模組自動捲進畫面，窄螢幕右緣淡出提示還能滑，見 `globals.css` 的 `.nav-scroll`）。
@@ -93,7 +93,7 @@ AllHub Project：個人整合系統（站長管理，其他人只能用站長的
 - 共用的主播與頻道：追蹤時 upsert 共用的那一列再加自己的追蹤（同一個交易），取消追蹤只刪自己的；最後一位追蹤者取消時才刪主播／頻道並刪掉 EventSub／WebSub 訂閱（交易裡鎖住那一列再數追蹤者）。刪除帳號留下沒人追蹤的，由每天的 `twitch:sync`、`youtube:renew` 刪掉。
 - 手動的「同步訂閱」（`syncSubscriptionsFor`）與「續訂」（`renewSubscriptionsFor`）所有人都能按，處理的是全站共用的訂閱；回應只說自己追蹤的數量，不透露全站的主播或頻道數；每人 60 秒冷卻（`takeCooldown()`）。排程用不分使用者的 `syncSubscriptions`、`renewSubscriptions`，回應是全站摘要。開台與新影片通知只送給追蹤、而且通知開著（`*_follows.notify_enabled`）的人；主播表、頻道表的 `notify_enabled` 是單人版的舊欄位，新程式不讀。
 - `notify({ recipients, … })`：收件人是使用者 id 陣列，由各模組決定（Twitch／YouTube 是追蹤而且開著通知的人，星穹鐵道是帳號的擁有者，理財是固定收支或信用卡的擁有者）；空陣列就不寫，查完之後才刪除帳號的人、被停用的人直接略過。排程寄的提醒同一件事只寄一次：星穹鐵道先 `claimOnce()` 再寄、寄不出去 `releaseOnce()`，開拓力與理財用條件式 update 認領（`last_stamina_alert_at`、`last_notified_on`、`card_notified_on`），寄不出去退回。
-- **停用＝凍結**：被停用的帳號資料全部保留，追蹤照樣算數（共用的主播與頻道不會被當成沒人追蹤而刪掉，恢復後不用重建訂閱）；只是 `notify()` 不寫通知給他，星穹鐵道的排程（簽到、開拓力與提醒、自動兌換）不處理他的帳號（`listAccounts()` 只取擁有者沒停用的），理財的 `savings:recurring` 也不替他記帳、不寄到期通知，恢復後自動記的補記停用期間的期別（最多 12 期），要確認的照順序列在待處理。新增會用使用者憑證的排程也要照這樣略過停用的人；重新加密排程例外，照樣處理所有人（移除舊金鑰前要全部換好）。跨模組的檢查在 `src/account-disable.integration.test.ts`。
+- **停用＝凍結**：被停用的帳號資料全部保留，追蹤照樣算數（共用的主播與頻道不會被當成沒人追蹤而刪掉，恢復後不用重建訂閱）；只是 `notify()` 不寫通知給他，星穹鐵道的排程（簽到、開拓力與提醒、自動兌換）不處理他的帳號（`listAccounts()` 只取擁有者沒停用的），理財的 `savings:recurring` 也不替他記帳、不寄到期通知，恢復後自動記的補記停用期間的期別（最多 12 期），要確認的照順序列在這個月要做的事。新增會用使用者憑證的排程也要照這樣略過停用的人；重新加密排程例外，照樣處理所有人（移除舊金鑰前要全部換好）。跨模組的檢查在 `src/account-disable.integration.test.ts`。
 - `user_id` 是 null 的列是部署空窗期的舊程式寫的：新程式一律不讀、不處理（排程也略過；例外是重新加密照樣處理，移除舊金鑰前要全部換好，14 天的清理也不分擁有者），見 `docs/deploy.md`。
 
 ## 快取（`src/cache-rules.test.ts` 檢查）
@@ -211,40 +211,55 @@ AllHub Project：個人整合系統（站長管理，其他人只能用站長的
   - 清單頁 `/youtube/saved`：對 null 的標題或頻道再試一次快取的 oEmbed，還是沒有就顯示影片 id；搜尋在瀏覽器裡篩選標題與頻道名稱（`web/saved-filter.ts`），翻譯狀態的標籤用 `video-filter.ts` 的 `savedBadge()`；移除收在 ⋮ 選單（先確認，翻譯不刪）。列表頁的入口是「訂閱內容」上面的「已保留（N）」。
 
 ### 理財（savings）
-- 模組 id、網址與資料表前綴沿用 `savings`，名稱是「理財」。三頁：總覽 `/savings`、紀錄 `/savings/records`、設定 `/savings/settings`，共用 `web/components/page-frame.tsx`（外框、頁首的 `actions`、`DialogMessageScope` 與 `StreamSection`）與 `savings-nav.tsx`。
-  - 網址集中在 `web/paths.ts`（`SAVINGS_PATHS`）：`addAccount`（`?add=account`）打開設定頁就跳出「新增帳戶」，`editRecurringPath(id)`（`?recurring=<id>`，只認自己的）打開那一條固定收支的修改視窗；打開後用 `router.replace` 拿掉參數（`settings/open-from-link.ts`）。紀錄頁收 `?month=`、`?account=`、`?category=`（只認自己的帳戶與分類）。
-- 資料表：帳戶 `savings_accounts`（deposit／investment／credit，只存自己取的名稱與金額，不存帳號、卡號；信用卡另有繳款截止日 `due_day`、結帳日 `statement_day`、扣款帳戶、自動扣繳 `autopay`）、用途 `savings_purposes`、分類 `savings_categories`（收入／支出，支出可設每月預算）、紀錄 `savings_transactions`（income／expense／transfer／adjust）、固定收支 `savings_recurring`、持股 `savings_holdings`、信用卡帳單 `savings_card_bills`。舊的 `savings_goals`、`savings_entries` 由 0010 刪掉。
-  - 分類與用途的 `color` 只為了資料庫的 check 與舊資料留著，畫面不顯示：新增時送 `nextFreeColor()`，修改時送回原本的。
+- 模組 id、網址與資料表前綴沿用 `savings`，名稱是「理財」。六個分頁照東西分（使用者的決定）：總覽 `/savings`、紀錄 `/savings/records`、帳戶 `/savings/accounts`、投資 `/savings/investments`、每月固定 `/savings/recurring`、設定 `/savings/settings`，共用 `web/components/page-frame.tsx`（外框、頁首的 `actions`、`DialogMessageScope` 與 `StreamSection`）與 `savings-nav.tsx`（手機放不下時橫向捲動，目前的分頁捲進畫面）。
+  - 網址集中在 `web/paths.ts`（`SAVINGS_PATHS`）：`addAccountPath(kind)`（帳戶頁 `?add=deposit|credit`、投資頁 `?add=investment`）打開就跳出新增的視窗，`addRecurringPath(preset)`（每月固定頁 `?add=salary|regular-buy|other`），`editRecurringPath(id)`（每月固定頁 `?edit=<id>`，只認自己的）打開那一條的修改視窗；打開後用 `router.replace` 拿掉參數（`settings/open-from-link.ts`）。設定頁的舊網址 `?add=account`、`?recurring=<id>` 轉到新頁面。紀錄頁收 `?month=`、`?account=`、`?category=`（只認自己的帳戶與分類）。
+- 資料表：帳戶 `savings_accounts`（deposit／investment／credit，只存自己取的名稱與金額，不存帳號、卡號；用途是帳戶上的文字 `label`；信用卡另有結帳日 `statement_day`、扣款帳戶、自動扣繳 `autopay`、卡面顏色 `card_style`；舊的繳款截止日 `due_day` 不再修改，只當第一張帳單截止日的預設）、分類 `savings_categories`（收入／支出，支出可設每月預算，圖示 `icon`）、紀錄 `savings_transactions`（income／expense／transfer／adjust）、固定收支 `savings_recurring`、持股 `savings_holdings`、信用卡帳單 `savings_card_bills`。用途表 `savings_purposes` 與 `purpose_id` 不再讀寫（舊程式不再上線之後的版本刪掉）。
+  - 用途 `label` 跟名稱一樣正規化、最多 20 字，選填。分類的 `icon` 只收 `lib/kinds.ts` 的 `CATEGORY_ICONS`（Lucide 圖示名稱 → 中文），沒有或不認得的照類型用預設圖示（`categoryIconOf()`）；資料庫不檢查，清單可以增減。卡面顏色只收 `CARD_STYLES`（資料庫有 check），沒選的照信用卡建立的順序輪流、跳過別張選走的顏色（`dashboard-view.ts` 的 `cardStyles()`）。
+  - 分類的 `color` 只為了資料庫的 check 與舊資料留著，畫面不顯示：新增時送 `nextFreeColor()`，修改時送回原本的。
 - 金額是新台幣整數（1 元～1 億）。紀錄的 amount 一律是正數、方向看 kind；只有 adjust（更新餘額、帳單差額）帶正負號。轉帳是一列：`account_id` 轉出、`counter_account_id` 轉入。
 - 餘額＝起始餘額＋收入－支出－轉出＋轉入＋調整。信用卡的餘額是負的（未繳＝max(0, －餘額)，正的是溢繳）。正負號只寫在 `lib/ledger.ts` 的 `shownFigure`、`balanceFromFigure`、`balanceAdjustment`，表單的試算與伺服器共用。
 - 日期是台北時間的 YYYY-MM-DD：不能記未來，也不能早於帳戶的開始日（`accountStartDate()`，建立那天），起始餘額就是開始記帳那天的餘額。
 - 總資產＝啟用中的存款餘額＋投資的市值（`assetSummary`，只用 `active`）；有持股的投資帳戶用持股的市值（`lib/holdings.ts` 的 `investmentTotals()`），不看帳上的餘額。總覽只看現在，月份切換在紀錄頁。
-  - 總覽的各區、帳戶詳情、待處理與首頁卡片都從 `web/overview-data.ts` 的 `loadAccounts()`／`loadPending()`（`dashboard-view.ts` 的 `accountsState()`）算，數字才一致；沒有持股時不查股價，沒有信用卡時不查每天的流量與帳單。
-- 刪除帳戶時，跟它有關的紀錄（含轉帳的另一邊）、固定收支、持股與帳單一起刪（外鍵 cascade），其他帳戶的餘額會跟著變；刪除用途、分類時改成未設定、未分類（set null）。停用的帳戶不能記帳、不算進總覽，紀錄留著。
+  - 各頁的帳戶數字、這個月要做的事與首頁卡片都從 `web/overview-data.ts` 的 `loadAccounts()`／`loadPending()`／`loadChecklist()`（`dashboard-view.ts` 的 `accountsState()`）算，數字才一致；沒有持股時不查股價，沒有信用卡時不查每天的流量與帳單。
+- 刪除帳戶時，跟它有關的紀錄（含轉帳的另一邊）、固定收支、持股與帳單一起刪（外鍵 cascade），其他帳戶的餘額會跟著變；刪除分類時改成未分類（set null）。停用的帳戶不能記帳、不算進總覽，紀錄留著。
 - 名稱先去掉看不見的格式字元（emoji 的零寬接合字留著）、NFC 正規化、連續空白縮成一個，再檢查長度（20 字）與重複。固定收支的名稱選填：空的照 `recurringTitle()` 的規則取標題；產生的紀錄備註是規則的 note，沒有就用名稱。
-- 「開始使用」（`setupDefaults`）：沒有用途時建生活費、緊急預備金、投資，沒有分類時建薪水、餐飲、交通、訂閱、提領現金；重按不會重複。
+- 「開始使用」（`setupDefaults`）：沒有分類時建薪水、餐飲、交通、訂閱、提領現金（都帶圖示）；重按不會重複。
 - 畫面（使用者的決定）：
-  - 清單優先：`card p-0`＋`card-row`，每列左邊名稱加一行說明、右邊金額（`row-controls.tsx` 的 `ListRow`、`ListGroup`）；設定頁點一列就是修改，上移、下移、停用、刪除收在 ⋮。
-  - 一頁一個大數字（總覽的總資產）、一個主要按鈕（頁首的記一筆，手機也用它，沒有浮動加號）；其他動作在點一列打開的視窗或 ⋮ 裡，只有待處理每列有一顆按鈕。`CardHeader` 與分頁不帶圖示（`PageHeader` 的模組圖示保留）。
-  - 不加動畫、數字跳動與圓餅圖，數字一出現就是最後的值。圖只有每月收支的長條（`--fin-income`／`--fin-expense`），進度是中性的細長條 `.fin-meter`。
-  - 顏色只表示狀態：金額一律 `text-ink`、收入加「+」；損益只寫正負號，不上紅綠（台股紅漲綠跌會跟全站的紅色＝錯誤打架）。一列最多一個標籤，只給逾期、不夠扣、已停用；到期寫「10/20 前 · 還有 5 天」「逾期 2 天」「今天」（`lib/dates.ts` 的 `dueText()`）。
-- 總覽：頁首的記一筆與 ⋮（薪水入帳並分配，給不在固定收支裡的獎金）；總資產與「本月 收入 · 支出 · 存下（或多花）」一行；待處理（沒有就整區不出現）；帳戶一張卡分存款、投資、信用卡三組，組標題寫小計（信用卡是未繳），點一列打開帳戶詳情（`accounts/account-detail.tsx`）；本月支出照金額排，有預算的才寫「已用 / 預算」與細長條，超支另寫「超過 $X」，點一列到紀錄頁篩好那個分類；每月收支是最近 12 個月的收入與支出長條，點一個月到紀錄頁。
-- 待處理（`lib/pending.ts` 的 `pendingItems()`）：要確認的固定收支（規則與用到的帳戶都要啟用中）與信用卡帳單，依日期排、同一天信用卡在前。固定收支 7 天內（`PENDING_LOOKAHEAD_DAYS`）會到就出現，每條只列最舊的一期（之後還有的寫「還有 N 期」）。按鈕是填帳單／已繳／確認／入帳並分配，固定收支的 ⋮ 有略過這一期與修改。確認的日期預設那一期的日期，還沒到就是今天（不能記未來）。
+  - 使用者說過「找不到功能、不知道從哪裡開始設定、不知道平常要做什麼」：常用動作直接放在那個東西的列或卡片上（記一筆、更新餘額、填帳單、已繳、買進、賣出、確認、略過），⋮ 只放不常用的（修改、上移下移、停用、刪除，信用卡多一個「重填本期帳單」）。不要再收進點一列才打開的詳情視窗。
+  - 清單用 `card p-0`＋`card-row`（`row-controls.tsx` 的 `ListRow`、`ListGroup`）；分類、帳戶類型的圖示用 `web/components/visuals.tsx` 的 `IconTile`（灰底圓形、中性色），股票代號用 `Ticker`。`CardHeader`、分頁與區段標題不帶圖示（`PageHeader` 的模組圖示保留）。
+  - 不加動畫、數字跳動與圓餅圖，數字一出現就是最後的值；不要一排一樣大的數字方塊。圖只有每月收支的長條（`--fin-income`／`--fin-expense`），進度是中性的細長條 `.fin-meter`（`dashboard/meter.tsx`）。總資產大卡（`.fin-hero`）是全站唯一用模組色當底的地方（很淡的綠，深色是暗綠）。
+  - 顏色只表示狀態：金額一律 `text-ink`、收入加「+」；損益只寫正負號，不上紅綠（台股紅漲綠跌會跟全站的紅色＝錯誤打架）。一列最多一個標籤，只給逾期、待填帳單、不夠扣、已停用；到期寫「10/20 前 · 還有 5 天」「逾期 2 天」「今天」（`lib/dates.ts` 的 `dueText()`）。
+  - 插圖（`web/components/illustration.tsx` 的 `Illustration`，檔案在 `public/illustrations/finance/`，unDraw，授權寫在 `public/illustrations/LICENSE.md`）只用在開始設定與空狀態；顏色用 CSS 變數跟著淺色深色換。
+- 總覽（`pages/savings-page.tsx`、`components/overview/*`、`web/overview-view.ts`）由上到下：
+  - 開始設定清單（`lib/setup.ts` 的五步：銀行帳戶、信用卡、證券帳戶、薪水、其他固定支出，完成照資料判斷）：還沒完成時才出現，可以略過一步或整個收起（`createLocalPref`，key `allhub:savings:*`，html 的 `data-fin-*` 屬性在第一次繪製前標好，不會先閃一下）；還沒有分類時上面先有「開始使用」。還沒有帳戶時總覽只有這張清單。
+  - 總資產大卡：總資產，下一行「存款 · 投資（損益，收盤日）· 信用卡未繳」。
+  - 「我要…」：記支出、記收入、轉帳、信用卡、買賣股票、更新餘額六顆按鈕共用一個視窗，信用卡、股票、餘額先選對象，再照那個對象的狀態顯示表單（那張卡還沒填帳單就是填帳單、填了就是已繳）；⋮ 裡是「薪水入帳並分配」（不在固定收支裡的獎金）。表單沿用帳戶頁與投資頁的元件（`EntryForm`、`BillForm`、`PayCardForm`、`UpdateBalanceForm`、`BuySellForm`、`SalaryForm`）。
+  - 這個月要做的事（取代待處理，見下一點）、本月收支（收入 · 支出 · 存下或多花，支出分類照金額排、帶分類圖示，有預算的才畫已用 / 預算與細長條，點一列到紀錄頁篩好那個分類）、每月收支（最近 12 個月的長條，點一個月到紀錄頁）、一行可以收起的「怎麼用」。
+- 這個月要做的事（`lib/checklist.ts` 的 `monthChecklist()`，`loadChecklist()` 組好 `ChecklistView`）：這個月（台北時間）所有例行的事照日期排，做完的留著打勾。
+  - 固定收支：日期在這個月的每一期（遇假日提前從下個月跨過來的也算）。游標之前有紀錄是完成（自動記的是已自動記帳），沒紀錄是已略過；還沒處理的，自動記的寫「自動記帳」，要確認的過了是逾期。上個月以前沒處理的（只有要確認的）排在最上面標「上個月」；下個月 7 天內的也列。紀錄照 `recurring_period` 對期別（排程自動記的也寫它），沒有期別的舊紀錄照日期對。停用的規則、用到停用帳戶的不列。
+  - 信用卡：待填帳單照結帳日、填了之後照截止日（遇假日順延後）放進月份；上個月結帳、這個月截止的那一期算這個月，繳清了留著打勾；前一期在這個月截止而且繳清的也留著打勾，沒繳清的併進這一期不另外列。這個月還沒到的結帳日（今天結帳的也算還沒到）與下個月 7 天內的結帳日列出來但不能按。
+  - 按鈕只給待處理（`lib/pending.ts` 的 `pendingItems()`）裡也有的那一列（`actionable`，key 一樣，視窗內容在 `entries`）：要先處理更早的那一期、7 天後才到或還沒結帳的不能按。按鈕是填帳單、已繳、確認、入帳並分配，固定收支的 ⋮ 有略過這一期與修改（連到每月固定頁）。確認的日期預設那一期的日期，還沒到就是今天（不能記未來）。沒有任何固定收支與信用卡時（`configured` 是 false）寫一行字與「設定薪水與每月固定」。
+- 帳戶（`pages/accounts-page.tsx`、`components/accounts/accounts-board.tsx`）：存款每個帳戶一張卡（帳戶類型圖示、名稱、用途、餘額大字、有目標時細長條），卡上「記一筆」「更新餘額」，點卡片到紀錄頁篩好這個帳戶；信用卡畫成卡面（`card-face.tsx`，CSS 漸層，不放銀行標誌），下面一行目前的狀態與現在該按的「填帳單」或「已繳」，還有「記一筆刷卡」與最近幾期的帳單；所有類型停用的帳戶收在最下面的「已停用（N）」。新增與修改帳戶的表單在這頁（`AddAccountButton`、`AccountForm`），證券帳戶的新增在投資頁（同一個表單，`kind` 固定）。
+- 投資（`pages/investments-page.tsx`、`components/investments/*`）：摘要卡（總市值、成本、損益、收盤日）；每個證券帳戶一張卡，持股表的「買進」「賣出」在每一列上（手機每檔兩行、按鈕在下一列靠右），⋮ 只有修改股數與成本、刪除；沒有持股的證券帳戶是市值＋更新市值＋新增持股；定期定額一區；「新增證券帳戶」。停用的證券帳戶在帳戶頁管理，這裡只寫有幾個。
+- 每月固定（`pages/recurring-page.tsx`、`components/recurring/*`）：薪水（排程、預計金額、入帳帳戶、下一次；「入帳後怎麼分配」寫出各帳戶的每月規劃與目標，「修改分配」一個視窗一次改，`updateAllocationAction`：一個交易、只收自己的存款與投資帳戶，有別人的、信用卡或不存在的整批拒絕）、定期定額（`RegularBuyList`，跟投資頁共用）、其他固定收支（照下一期排，「確認」「略過」在列上）。
+- 設定（`pages/settings-page.tsx`）只剩分類與預算：支出、收入各一張卡，每個分類可以選圖示（`CATEGORY_ICONS` 的格子，分類名稱剛好是圖示的中文名稱時自動選它）、設每月預算（只有支出）；一行連到帳戶、投資、每月固定。
 - 固定收支（`lib/recurring.ts`）：
   - 期別用月份表示：第一期是 `start_month`（null 是舊資料，當成建立的那個月），之後每 `interval_months`（1、2、3、6、12）個月一期。某一期的日期＝那個月的 `day_of_month`（沒有那天就月底），再照 `holiday_rule`（none 照原日、before 提前到前一個工作日、after 延後到下一個工作日）調整；提前可能跨到上個月，期別不變。建立之前的日期不算。
   - `last_posted_month` 是游標：自動記、確認或略過都推到那一期，用條件式 update 認領（`service/periods.ts` 的 `claimMonth()`），同時送兩次也只算一次。改日期或間隔時游標不動，已處理的期別不重來。
-  - `mode`：auto 是到了自動記（舊資料都是），confirm 是到期列進待處理（新增時預設）。定期定額（`holding_id`）與薪水（`allocate`）只能 confirm，資料庫的 check 與 `parseRecurringFields()` 都擋。
+  - `mode`：auto 是到了自動記（舊資料都是），confirm 是到期列進這個月要做的事、按了才記（新增時預設）。定期定額（`holding_id`）與薪水（`allocate`）只能 confirm，資料庫的 check 與 `parseRecurringFields()` 都擋。
   - 確認（`confirmOccurrence`）與略過（`skipOccurrence`）只收最舊的那一期（`requireOldestPending()`，不然回「請先處理更早的那一期」）。確認的金額、日期可以改，日期規則同記帳，紀錄帶 `recurring_id` 與 `recurring_period`。鎖的順序是使用者、帳戶、分類、持股，再鎖規則（跟刪除的連帶刪改同一個順序，不會 deadlock）。
-  - 刪除確認來的紀錄：規則是 confirm 而且游標剛好在這一期時，同一個交易裡退回前一期（`previousOccurrenceMonth()`，第一期退回 null），待處理會再出現；自動記的不退（不然排程隔天又記一次）。薪水那一期的收入刪掉時，分出去的轉帳（也帶這一期）一起刪；只刪其中一筆轉帳不動游標。
-  - 排程 `savings:recurring`（每天 00:30 台北）：自動記的補到今天該記的期別（最多 12 期），一條規則一個交易，先鎖使用者、帳戶與分類再鎖規則。停用的規則或帳戶、早於帳戶開始日的期別略過但游標往前推（恢復後不補記；confirm 的也一樣，恢復後才不會一次跳出一堆待處理）；停用的使用者整個凍結（恢復後補記）；一般轉帳碰到有持股的投資帳戶也略過往前推。接著寄到期通知、清掉舊帳單；摘要不含金額與名稱。
+  - 刪除確認來的紀錄：規則是 confirm 而且游標剛好在這一期時，同一個交易裡退回前一期（`previousOccurrenceMonth()`，第一期退回 null），那一期會再出現在這個月要做的事；自動記的不退（不然排程隔天又記一次）。薪水那一期的收入刪掉時，分出去的轉帳（也帶這一期）一起刪；只刪其中一筆轉帳不動游標。
+  - 排程 `savings:recurring`（每天 00:30 台北）：自動記的補到今天該記的期別（最多 12 期），一條規則一個交易，先鎖使用者、帳戶與分類再鎖規則。停用的規則或帳戶、早於帳戶開始日的期別略過但游標往前推（恢復後不補記；confirm 的也一樣，恢復後才不會一次跳出一堆要確認的）；停用的使用者整個凍結（恢復後補記）；一般轉帳碰到有持股的投資帳戶也略過往前推。接著寄到期通知、清掉舊帳單；摘要不含金額與名稱。
 - 假日（`lib/holidays.ts`）：內建人事總處辦公日曆表（data.gov.tw 資料集 14718）2026、2027 年的平日放假日（這兩年沒有補班），表外的年份只看週末。每年 6～7 月公布下一年後要補上：`holidays.test.ts` 在 7 月以後要求明年的資料也在，沒補就失敗。
-- 薪水：`kind = income`、`allocate = true` 的固定收支（表單勾「這是薪水」時建議遇假日提前：勞動部說發薪日只能提前）。待處理的「入帳並分配」打開發薪分配，預填那一期的金額、入帳帳戶、分類與日期；`allocateSalary` 帶 `ruleId`、`period`，收入與分出去的轉帳都標上這一期，同一個交易認領游標。
+- 薪水：`kind = income`、`allocate = true` 的固定收支，在每月固定頁的薪水一區新增（`preset` 是 salary，建議遇假日提前：勞動部說發薪日只能提前）。這個月要做的事的「入帳並分配」打開發薪分配，預填那一期的金額、入帳帳戶、分類與日期；`allocateSalary` 帶 `ruleId`、`period`，收入與分出去的轉帳都標上這一期，同一個交易認領游標。
 - 發薪分配（`allocateSalary`）在一個交易裡：記一筆收入，再從入帳帳戶轉到各帳戶；入帳與目的帳戶都不能是信用卡、目的帳戶不重複，轉出合計不能超過薪水。建議金額用 `suggestAllocation()`：照每月規劃，有目標的最多分到目標；有持股的投資帳戶不列。
 - 信用卡（`lib/cards.ts`、`service/cards.ts`）：
-  - 截止日：結帳日之後第一個日子是 `due_day` 的日期（沒有那天就月底），遇假日順延到下一個工作日（銀行的做法）；待處理與通知一律用順延後的。
-  - 「填帳單，差額自動補」（`enterCardBill`）：照銀行的帳單寫一張 `savings_card_bills`（每張卡每個結帳日一張，截止日存填的時候算好的），再跟紀錄算到結帳日的未繳比（`billDifference()`）。帳單比較多就在結帳日記一筆信用卡支出「未記錄的刷卡（帳單差額）」（分類可選），比較少記一筆調整「帳單差額」，這一筆帶 `card_bill_id`。同一期再填會蓋過去（先刪上次補的再重算）。從紀錄頁刪掉補的那一筆＝撤銷帳單（帳單一起刪）；補的支出只能改分類與備註，補的調整不能改。
-  - 有結帳日的卡：結帳日（嚴格早於今天）之後這一期還沒填就是 `needsBill`，一定列進待處理（金額是照紀錄估的 `estimate`，0 也列）；填了之後還沒繳清（`remainingDue > 0`）才列。沒有結帳日的卡截止前 10 天內才要填（填的那天當結帳日），過了截止還沒繳清列逾期。沒有截止日的卡不列。已繳＝結帳後轉進這張卡的合計。
-  - 「已繳」（`payCard`）：從存款帳戶轉到卡（備註「繳卡費」）；帶 `billAmount` 時同一個交易先填這一期的帳單。扣款帳戶只能是存款帳戶，「繳完剩多少／不夠扣」用本期還要繳的算（`lib/ledger.ts` 的 `creditCardStatuses()`）。
+  - 截止日每期照帳單填（使用者的決定，設定頁沒有截止日）：填帳單與 `payCard` 帶 `billAmount` 時必填，不能早於結帳日、不能晚於結帳後 60 天（`checkBillDueDate()`、`MAX_DUE_DAYS`），照填的存；逾期、還有幾天、通知與畫面上的日期一律用 `payableDueDate()`（遇假日順延到下一個工作日，已經順延過的不變）。
+  - 視窗的截止日由伺服器先填（`billDefaults()` 的 `defaultDueDate()`，可以改）：帶帳單上印的日子（不順延，跟銀行帳單一樣），遇假日時欄位下面寫「遇假日順延到 M/D」（`shiftedDueDate`）。同一期再填是上次填的；有上一張帳單就是結帳日之後第一個跟它截止日同一天的日子（沒有那天就月底），還沒有帳單用舊的 `due_day`，都沒有是結帳後 15 天。
+  - 「填帳單，差額自動補」（`enterCardBill`）：照銀行的帳單寫一張 `savings_card_bills`（每張卡每個結帳日一張，截止日存填的），再跟紀錄算到結帳日的未繳比（`billDifference()`）。帳單比較多就在結帳日記一筆信用卡支出「未記錄的刷卡（帳單差額）」（分類可選），比較少記一筆調整「帳單差額」，這一筆帶 `card_bill_id`。同一期再填會蓋過去（先刪上次補的再重算）。從紀錄頁刪掉補的那一筆＝撤銷帳單（帳單一起刪）；補的支出只能改分類與備註，補的調整不能改。
+  - 有結帳日的卡：結帳日（嚴格早於今天）之後這一期還沒填就是 `needsBill`（status `needs-bill`），列進這個月要做的事的「填帳單」：還沒有截止日、不算逾期，照結帳日排，寫「10/5 已結帳 · 待填帳單」，金額是照紀錄估的 `estimate`（0 也列）；填了之後還沒繳清（`remainingDue > 0`）才列「已繳」，寫帳單的截止日。
+  - 沒有結帳日的卡不會自動要填：在帳戶頁那張卡按「填帳單」（填的那天當結帳日），之後最新一張還沒繳清就列。繳了多少用 `listCardBills()` 算好的 `paid`（最新一張可能早於近 70 天的流量）。已繳＝結帳後轉進這張卡的合計。
+  - 「已繳」（`payCard`）：從存款帳戶轉到卡（備註「繳卡費」）；帶 `billAmount`（與 `dueDate`）時同一個交易先填這一期的帳單。扣款帳戶只能是存款帳戶，「繳完剩多少／不夠扣」用本期還要繳的算（`lib/ledger.ts` 的 `creditCardStatuses()`）。
   - 每張卡只留最新 5 張帳單（見〈資料保留〉）。信用卡不能更新餘額（刷卡記一筆、繳款用已繳）。
 - 持股（`lib/holdings.ts`、`lib/quotes.ts`、`service/holdings.ts`、`service/quotes.ts`）：
   - 只存代號（大寫英數 4–6 碼）、建立時從股價清單抄的名稱、目前股數與總成本（含手續費）。市值＝股數 × 收盤價（四捨五入，股數乘以分用 bigint 算），沒有報價時用成本、`priced: false`（畫面寫「股價暫時讀不到」）；均價＝總成本 ÷ 股數。
@@ -254,17 +269,18 @@ AllHub Project：個人整合系統（站長管理，其他人只能用站長的
   - 修改持股（對帳、配股）直接改股數與成本，不產生紀錄；刪除持股時定期定額一起刪，買賣紀錄留著（`holding_id` 改成 null）。
   - 有持股的投資帳戶：一般轉帳（沒有 `holding_id` 的）轉進轉出一律擋下（「這個投資帳戶有持股：轉進轉出請用買進或賣出」：記一筆、修改紀錄、固定收支、發薪分配與確認都是），表單用 `accountsWithHoldings()` 拿掉這些帳戶；也不能更新市值。沒有持股的投資帳戶照舊，帳上的餘額就是更新市值時填的數字。
   - 定期定額＝固定收支：`kind = transfer`、從扣款的存款帳戶、`holding_id`，轉入帳戶由 service 照那一檔設（不信任表單）。確認時先用收盤價估（`estimateRegularBuy()`：手續費 1 元含在金額裡，股數無條件捨去，估不出來欄位留空），送出後走買進。
-- 通知（`service/notices.ts`，`savings:recurring` 寄給擁有者，連到 `/savings`）：confirm 的固定收支某一期的日期是今天（「今天到期：<名稱> $金額」，薪水是「今天發薪：記得確認實際金額」）；信用卡截止前 3 天還沒填帳單或還沒繳清（自動扣繳的寫「自動扣繳：本期 $X，記得確認」）。用 `last_notified_on`／`card_notified_on` 條件式 update 認領，同一天只寄一次，寄不出去退回；log 只記錯誤種類與 id。
-- 快取：一張表一個 tag（`savings:accounts`、`purposes`、`categories`、`recurring`、`transactions`、`holdings`、`bills`），加上收盤價的 `savings:external`；紀錄一改，餘額、統計與明細都重算。刪除會連帶改到別張表時一起失效（刪除帳戶：紀錄、固定收支、持股、帳單；刪除紀錄：持股、固定收支、帳單；刪除持股：固定收支、紀錄），對照表在 `web/actions.cache.test.ts`。
+- 通知（`service/notices.ts`，`savings:recurring` 寄給擁有者，連到 `/savings`）：confirm 的固定收支某一期的日期是今天（「今天到期：<名稱> $金額」，薪水是「今天發薪：記得確認實際金額」）；信用卡結帳隔天還沒填帳單（「<卡名> 已結帳：照帳單填金額與截止日」），填了之後帳單的截止日（順延後）前 3 天還沒繳清（自動扣繳的寫「自動扣繳：本期 $X，記得確認」）。用 `last_notified_on`／`card_notified_on` 條件式 update 認領，同一天只寄一次，寄不出去退回；log 只記錯誤種類與 id。
+- 快取：一張表一個 tag（`savings:accounts`、`categories`、`recurring`、`transactions`、`holdings`、`bills`），加上收盤價的 `savings:external`；紀錄一改，餘額、統計與明細都重算。刪除會連帶改到別張表時一起失效（刪除帳戶：紀錄、固定收支、持股、帳單；刪除紀錄：持股、固定收支、帳單；刪除持股：固定收支、紀錄），對照表在 `web/actions.cache.test.ts`。
 - 記帳資料永久保留（帳單除外，見〈資料保留〉），不加清理排程；刪除帳號時一起刪。
 
 ## 部署
 
 - 推上 main 時 Vercel 部署與 `db-migrate.yml` 平行執行，舊程式會在新的資料表上跑一小段時間，migration 一律先擴充、之後再收斂：
   - 新欄位可為 null 或有預設值，新表直接加；不刪也不改舊欄位（舊程式明列欄位的 select、insert、upsert 仍要能用；唯一例外是 `youtube_settings.id` 加上 BY DEFAULT 的 identity，舊程式明確給 id 照樣寫得進去）。
-  - 既有資料的回填寫在同一個 migration 的 SQL 裡（例如 `0006_per_user_data` 把單人版的資料歸給最早建立的站長）。
-  - `src/core/db/migrations.integration.test.ts`：先套到上一版、用舊程式的寫法寫入，再套新的 migration，確認回填與舊寫法仍可用，並靜態檢查新 migration 沒有 drop、rename、NOT NULL 的新欄位（drop 只有明列的白名單：0010 刪掉 v0.1.5 起就不讀寫的 `savings_goals`、`savings_entries`）。
-  - 收斂（刪舊欄位或舊表、把 `user_id` 改成 NOT NULL、刪掉舊索引）要等舊程式不再上線之後的版本，先把空窗期 `user_id` 是 null 的列補回或刪掉。db-migrate 用 GitHub Secrets 的 `MIGRATION_DATABASE_URL`（Session pooler 5432），網站用 `DATABASE_URL`（Transaction pooler 6543）。
+  - 既有資料的回填寫在同一個 migration 的 SQL 裡（例如 v0.1.1 把單人版的資料歸給最早建立的站長）。
+  - `src/core/db/migrations.integration.test.ts`：先套到上一版、用舊程式的寫法寫入，再套新的 migration，確認回填與舊寫法仍可用；基準檔之後的每個 migration 自動檢查一開始設 `lock_timeout = 5s`、沒有 drop、rename、alter column，NOT NULL 的新欄位有預設值，新表開了 RLS。
+  - migration 不累積（使用者的決定）：資料夾只留基準檔 `0000_baseline`（v0.1.6 以前的 0000 到 0013 壓成的）與還沒併進去的這一版 migration。上一版的 migration 確認套用到正式資料庫後，下一版開始時把它併進基準檔：用 `drizzle-kit generate` 從現在的 schema 重新產生（另外指定輸出資料夾），欄位順序調成跟正式資料庫一樣，再把兩種方式建出來的資料庫逐項比對（表、欄位與順序、預設值、identity、約束、索引、RLS、sequence），一樣才換掉；journal 的 `when` 等於正式資料庫最後套用的那一個（drizzle 只套時間比最後一筆晚的，正式資料庫會略過基準檔；測試另外模擬這件事）。舊檔留在 git 歷史裡。因此只能從上一版升級，更舊的要先升到上一版。
+  - 收斂（刪舊欄位或舊表、把 `user_id` 改成 NOT NULL、刪掉舊索引）要等舊程式不再上線之後的版本，先把空窗期 `user_id` 是 null 的列補回或刪掉。drizzle 的查詢會明列 schema 裡的每個欄位，所以刪欄位要分兩版：先從 schema 拿掉（migration 手動去掉 DROP），再下一版才刪。db-migrate 用 GitHub Secrets 的 `MIGRATION_DATABASE_URL`（Session pooler 5432），網站用 `DATABASE_URL`（Transaction pooler 6543）。
 - 不能回滾、只能往前修：有成員之後不能回到多人化以前的版本（v0.1.0）；v0.1.6 起也不能回到 v0.1.5（舊程式不認得「到期請我確認」，會把薪水、定期定額這類固定收支照原日自動記帳，也看不到持股與帳單）。細節在 `docs/deploy.md` 的〈回滾與部署保護〉與〈之後的部署〉。
 - 第一次部署的順序（網頁操作）：Supabase 建專案 → Vercel 匯入並填環境變數 → GitHub Secrets 填 `MIGRATION_DATABASE_URL`、`CRON_SECRET`、`HUB_URL` → 重新部署 → 手動跑 db-migrate → `npm run account create`（依提示貼上 Session pooler 連線字串，第一個帳號是站長）→ 登入 → 在「管理」頁用邀請連結邀請其他人。帳號一定在 migration 之後建立。
 - 密鑰正本就是 Vercel 的環境變數與 GitHub Secrets（步驟見 `docs/secrets.md`）；Vercel 的環境變數改完要重新部署才生效。換 `ENCRYPTION_KEY`（都在 Vercel 網頁上）：舊值複製到 `ENCRYPTION_KEY_PREVIOUS` → 設新值 → 重新部署 → 等 reencrypt 排程回報 0 筆、沒有失敗 → 刪掉 `ENCRYPTION_KEY_PREVIOUS` 再重新部署。

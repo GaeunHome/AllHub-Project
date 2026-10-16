@@ -171,13 +171,13 @@ describe("理財的紀錄頁", () => {
     expect(markup).toContain("舊帳戶（已停用）");
   });
 
-  it("還沒有任何帳戶_一行字加連到設定頁並直接打開「新增帳戶」的連結", async () => {
+  it("還沒有任何帳戶_一行字加連到帳戶頁並直接打開「新增銀行帳戶」的連結", async () => {
     cached.cachedAccounts.mockResolvedValue([]);
 
     const markup = await section();
 
     expect(textOf(markup)).toContain("還沒有帳戶");
-    expect(markup).toContain('href="/savings/settings?add=account#accounts"');
+    expect(markup).toContain('href="/savings/accounts?add=deposit"');
   });
 
   describe("從待處理確認來的紀錄：刪掉後那一期會不會回到待處理（跟伺服器同一個條件）", () => {
@@ -191,8 +191,8 @@ describe("理財的紀錄頁", () => {
 
       await section();
 
-      expect(confirmOf(81)).toContain("回到總覽的待處理");
-      for (const id of [82, 83, 84]) expect(confirmOf(id)).not.toContain("待處理");
+      expect(confirmOf(81)).toContain("回到總覽的「這個月要做的事」");
+      for (const id of [82, 83, 84]) expect(confirmOf(id)).not.toContain("這個月要做的事");
     });
   });
 

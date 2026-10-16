@@ -22,11 +22,12 @@ import { accountFilterFrom, categoryFilterFrom, type RecordItem } from "../recor
  * 只交給瀏覽器畫面用得到的欄位 不帶 userId 與 createdAt
  * 刪掉待處理確認來的最後一期 伺服器會把它放回待處理 條件跟伺服器一樣
  */
-function toRecordItem(view: TransactionView, rules: ReadonlyMap<number, Pick<PendingRuleRow, "mode" | "lastPostedMonth">>): RecordItem {
+function toRecordItem(view: TransactionView, rules: ReadonlyMap<number, Pick<PendingRuleRow, "mode" | "lastPostedMonth">>, icons: ReadonlyMap<number, string | null>): RecordItem {
   const { id, kind, accountId, accountName, counterAccountId, counterAccountName, categoryId, categoryName, amount, date, note, recurring, recurringName, shares, holdingSymbol, cardBillId } = view;
   const rule = view.recurringId === null ? undefined : rules.get(view.recurringId);
   const backToPending = view.recurringPeriod !== null && rule?.mode === "confirm" && rule.lastPostedMonth === view.recurringPeriod;
-  return { id, kind, accountId, accountName, counterAccountId, counterAccountName, categoryId, categoryName, amount, date, note, recurring, recurringName, shares, holdingSymbol, cardBillId, backToPending };
+  const categoryIcon = categoryId === null ? null : (icons.get(categoryId) ?? null);
+  return { id, kind, accountId, accountName, counterAccountId, counterAccountName, categoryId, categoryName, amount, date, note, recurring, recurringName, shares, holdingSymbol, cardBillId, backToPending, categoryIcon };
 }
 
 /**
@@ -75,10 +76,11 @@ export async function RecordsSection({ searchParams }: { searchParams: SearchPar
 
   const today = taipeiToday(now);
   const ruleById = new Map(rules.map((rule) => [rule.id, rule]));
+  const iconById = new Map(categories.map((category) => [category.id, category.icon]));
   const withHoldings = accountsWithHoldings(holdings);
   return (
     <RecordList
-      records={transactions.map((view) => toRecordItem(view, ruleById))}
+      records={transactions.map((view) => toRecordItem(view, ruleById, iconById))}
       accounts={accounts.map((account) => ({ id: account.id, name: account.name, kind: account.kind, active: account.active, ...formExtras(account), withHoldings: withHoldings.has(account.id) }))}
       categories={categoryOptions(categories)}
       today={today}

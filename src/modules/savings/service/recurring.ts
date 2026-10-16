@@ -247,6 +247,7 @@ async function postRule(ruleId: number, today: DateKey): Promise<PostResult> {
         result.skipped++;
         continue;
       }
+      // 標上期別 這個月要做的事才對得到是哪一期記好的
       await tx.insert(savingsTransactions).values({
         userId: rule.userId,
         kind: rule.kind,
@@ -257,6 +258,7 @@ async function postRule(ruleId: number, today: DateKey): Promise<PostResult> {
         date,
         note: rule.note ?? rule.name,
         recurringId: rule.id,
+        recurringPeriod: monthToDate(month),
       });
       result.posted++;
     }

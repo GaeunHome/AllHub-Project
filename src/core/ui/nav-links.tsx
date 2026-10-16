@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useLayoutEffect, useRef, type Ref } from "react";
+import { useLayoutEffect, useRef, type Ref, type RefObject } from "react";
 import type { ModuleInfo } from "../module";
 import { useNotificationCenter } from "../notifications/center";
 import { Icon } from "./icon";
@@ -37,6 +37,24 @@ function revealCurrent(list: HTMLUListElement | null) {
   const endInset = Number.parseFloat(getComputedStyle(list).paddingInlineEnd) || 0;
   const next = navScrollLeft({ start, end: start + box.width }, { scrollLeft: nav.scrollLeft, width: nav.clientWidth, endInset });
   if (next !== nav.scrollLeft) nav.scrollLeft = next;
+}
+
+/**
+ * 橫捲的膠囊列 換頁或寬度改變時把目前那一個捲進畫面
+ * list 的父層是會捲的外框 用 layout effect 在繪製前就捲好 不會先閃一下
+ */
+export function useRevealCurrent(listRef: RefObject<HTMLUListElement | null>, current: unknown) {
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    revealCurrent(list);
+    const nav = list?.parentElement;
+    if (!list || !nav || typeof ResizeObserver === "undefined") return;
+    // 字型載入後膠囊變寬 或轉向與右邊變寬讓外框變窄時再對一次
+    const observer = new ResizeObserver(() => revealCurrent(list));
+    observer.observe(list);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [listRef, current]);
 }
 
 export function NavLinkList({ modules, pathname, listRef }: { modules: NavModule[]; pathname: string | null; listRef?: Ref<HTMLUListElement> }) {
@@ -75,17 +93,6 @@ export function NavLinks({ modules }: { modules: NavModule[] }) {
   const pathname = usePathname();
   const listRef = useRef<HTMLUListElement>(null);
   // 換頁後把目前這頁的膠囊捲進畫面 手機上常被擠到右邊看不到
-  // 用 layout effect 在繪製前就捲好 不會先閃一下
-  useLayoutEffect(() => {
-    const list = listRef.current;
-    revealCurrent(list);
-    const nav = list?.parentElement;
-    if (!list || !nav || typeof ResizeObserver === "undefined") return;
-    // 字型載入後膠囊變寬 或轉向與右邊變寬讓導覽列變窄時再對一次
-    const observer = new ResizeObserver(() => revealCurrent(list));
-    observer.observe(list);
-    observer.observe(nav);
-    return () => observer.disconnect();
-  }, [pathname]);
+  useRevealCurrent(listRef, pathname);
   return <NavLinkList modules={modules} pathname={pathname} listRef={listRef} />;
 }

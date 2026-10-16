@@ -1,11 +1,11 @@
 import "server-only";
-import { and, asc, eq, getTableColumns, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, inArray, isNull, lt, or } from "drizzle-orm";
 import { db } from "@/core/db";
 import { coreUsers } from "@/core/db/schema";
 import { logError } from "@/core/errors";
 import { notify } from "@/core/notify";
 import { savingsAccounts, savingsCategories, savingsHoldings, savingsRecurring, type SavingsRecurring } from "../data/schema";
-import { CARD_FLOW_DAYS, cardBill } from "../lib/cards";
+import { CARD_FLOW_DAYS, cardBill, type CardBill } from "../lib/cards";
 import { addDays, daysBetween, formatSlashDate, type DateKey } from "../lib/dates";
 import { accountBalances } from "../lib/ledger";
 import { formatTwd } from "../lib/money";
@@ -20,7 +20,7 @@ import { accountMonthFlows } from "./transactions";
 // service 不能 import 模組根目錄的 info 模組 id 寫在這裡
 const MODULE_ID = "savings";
 const PAGE = "/savings";
-// 信用卡在截止前幾天提醒
+// 信用卡在帳單的截止日前幾天提醒繳款
 const CARD_NOTICE_DAYS = 3;
 
 export type NoticeResult = { sent: number; failed: number };
@@ -75,7 +75,18 @@ async function noticeRule(rule: SavingsRecurring, today: DateKey): Promise<boole
   return true;
 }
 
-type NotifiableCard = { id: number; userId: string; name: string; statementDay: number | null; dueDay: number | null; autopay: boolean; cardNotifiedOn: string | null };
+type NotifiableCard = { id: number; userId: string; name: string; statementDay: number | null; autopay: boolean; cardNotifiedOn: string | null };
+
+/**
+ * 結帳隔天還沒填帳單時提醒照帳單填 截止日要等填了帳單才知道
+ * 填了之後截止前 3 天還沒繳清提醒繳款 截止日遇假日順延
+ */
+function cardNotice(card: NotifiableCard, bill: CardBill, today: DateKey): { kind: string; title: string } | null {
+  if (bill.needsBill && bill.statementDate !== null && addDays(bill.statementDate, 1) === today) return { kind: "card_statement", title: `${card.name} 已結帳：照帳單填金額與截止日` };
+  if (bill.dueDate === null || bill.remainingDue <= 0 || daysBetween(today, bill.dueDate) !== CARD_NOTICE_DAYS) return null;
+  const due = `${card.name} ${formatSlashDate(bill.dueDate)}`;
+  return { kind: "card_due", title: card.autopay ? `${due} 自動扣繳：本期 ${formatTwd(bill.remainingDue)}，記得確認` : `${due} 截止：本期應繳 ${formatTwd(bill.remainingDue)}` };
+}
 
 /** 一個人的卡一起算 餘額要看全部紀錄 帳單只看近 70 天 */
 async function noticeCards(userId: string, cards: NotifiableCard[], today: DateKey, result: NoticeResult): Promise<void> {
@@ -83,34 +94,27 @@ async function noticeCards(userId: string, cards: NotifiableCard[], today: DateK
   const balances = accountBalances(accounts, flows);
   for (const card of cards) {
     try {
-      const bill = cardBill(card, balances.get(card.id)?.balance ?? 0, daily, today, statements);
-      if (bill.dueDate === null || daysBetween(today, bill.dueDate) !== CARD_NOTICE_DAYS || (!bill.needsBill && bill.remainingDue <= 0)) continue;
+      const notice = cardNotice(card, cardBill(card, balances.get(card.id)?.balance ?? 0, daily, today, statements), today);
+      if (notice === null) continue;
       const claimed = await db()
         .update(savingsAccounts)
         .set({ cardNotifiedOn: today })
         .where(and(eq(savingsAccounts.id, card.id), or(isNull(savingsAccounts.cardNotifiedOn), lt(savingsAccounts.cardNotifiedOn, today))))
         .returning({ id: savingsAccounts.id });
       if (claimed.length === 0) continue;
-      const due = `${card.name} ${formatSlashDate(bill.dueDate)}`;
-      // 還沒填帳單時不知道銀行要扣多少 先提醒填帳單
-      const title = bill.needsBill
-        ? `${due} 截止：記得填帳單並確認繳款`
-        : card.autopay
-          ? `${due} 自動扣繳：本期 ${formatTwd(bill.remainingDue)}，記得確認`
-          : `${due} 截止：本期應繳 ${formatTwd(bill.remainingDue)}`;
       await sendClaimed(
-        () => notify({ recipients: [userId], module: MODULE_ID, kind: "card_due", title, url: PAGE }),
+        () => notify({ recipients: [userId], module: MODULE_ID, kind: notice.kind, title: notice.title, url: PAGE }),
         () => db().update(savingsAccounts).set({ cardNotifiedOn: card.cardNotifiedOn }).where(and(eq(savingsAccounts.id, card.id), eq(savingsAccounts.cardNotifiedOn, today))),
       );
       result.sent++;
     } catch (error) {
       result.failed++;
-      logError("savings", "信用卡截止通知失敗", error, card.id);
+      logError("savings", "信用卡帳單通知失敗", error, card.id);
     }
   }
 }
 
-/** 要確認的固定收支今天到期 信用卡 3 天後截止而且還沒填帳單或還沒繳清 */
+/** 要確認的固定收支今天到期 信用卡結帳隔天還沒填帳單 或帳單 3 天後截止還沒繳清 */
 export async function sendDueNotices(today: DateKey): Promise<NoticeResult> {
   const result: NoticeResult = { sent: 0, failed: 0 };
   const rules = await db()
@@ -136,13 +140,12 @@ export async function sendDueNotices(today: DateKey): Promise<NoticeResult> {
       userId: savingsAccounts.userId,
       name: savingsAccounts.name,
       statementDay: savingsAccounts.statementDay,
-      dueDay: savingsAccounts.dueDay,
       autopay: savingsAccounts.autopay,
       cardNotifiedOn: savingsAccounts.cardNotifiedOn,
     })
     .from(savingsAccounts)
     .innerJoin(coreUsers, and(eq(coreUsers.id, savingsAccounts.userId), isNull(coreUsers.disabledAt)))
-    .where(and(eq(savingsAccounts.kind, "credit"), eq(savingsAccounts.active, true), isNotNull(savingsAccounts.dueDay)))
+    .where(and(eq(savingsAccounts.kind, "credit"), eq(savingsAccounts.active, true)))
     .orderBy(asc(savingsAccounts.userId), asc(savingsAccounts.id));
   const byUser = Map.groupBy(cards, (card) => card.userId);
   for (const [userId, userCards] of byUser) {
@@ -150,7 +153,7 @@ export async function sendDueNotices(today: DateKey): Promise<NoticeResult> {
       await noticeCards(userId, userCards, today, result);
     } catch (error) {
       result.failed += userCards.length;
-      logError("savings", "信用卡截止通知失敗", error, ...userCards.map((card) => card.id));
+      logError("savings", "信用卡帳單通知失敗", error, ...userCards.map((card) => card.id));
     }
   }
   return result;

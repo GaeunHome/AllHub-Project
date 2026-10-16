@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useId, useReducer, useState, type ReactNode } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
@@ -8,28 +9,28 @@ import { dateToMonth, formatMonth, monthToDate } from "../../../lib/month";
 import { createRecurringAction, updateRecurringAction } from "../../actions";
 import { defaultIncomeCategory, nextRunText } from "../../form-math";
 import { pickAccount, pickOtherAccount } from "../../last-used";
+import { SAVINGS_PATHS, type RecurringPreset } from "../../paths";
 import { Segmented } from "../segmented";
 import { TransferAccounts, useEntryChoice } from "./entry-form";
-import { AccountSelect, AmountField, CategoryChips, CheckboxField, DayOfMonthSelect, FormButtons, type SelectableAccount } from "./fields";
+import { AccountSelect, AmountField, CategoryChips, DayOfMonthSelect, FormButtons, type SelectableAccount } from "./fields";
 import type { CategoryOption, HoldingOption, RecurringDraft } from "./options";
 import {
-  RECURRING_TYPES,
+  PRESET_TYPES,
   RECURRING_TYPE_LABELS,
   effectiveMode,
   entryKindOf,
+  initialRecurringState,
   modeLockedBy,
   parseHolidayRule,
   parseInterval,
   parseMode,
+  presetOf,
   recurringFormReducer,
-  recurringTypeOf,
   startMonthOptions,
   type RecurringType,
 } from "./recurring-choice";
 
 type RecurringFormProps = {
-  /** 修改時帶入原本的固定收支 */
-  rule?: RecurringDraft;
   accounts: readonly SelectableAccount[];
   categories: readonly CategoryOption[];
   /** 定期定額能選的持股 啟用中的投資帳戶裡的 修改時多列原本選的 */
@@ -37,37 +38,36 @@ type RecurringFormProps = {
   today: string;
   onDone: (message: string | undefined) => void;
   onCancel: () => void;
-};
+} & (
+  // 修改時照規則所在的那一區 新增時是每月固定頁的哪一區 薪水與定期定額不用選類型
+  { rule: RecurringDraft; preset?: undefined } | { rule?: undefined; preset: RecurringPreset }
+);
 
-const TYPE_OPTIONS = RECURRING_TYPES.map((type) => ({ id: type, label: RECURRING_TYPE_LABELS[type] }));
+const typeOptions = (types: readonly RecurringType[]) => types.map((type) => ({ id: type, label: RECURRING_TYPE_LABELS[type] }));
 
 const NAME_PLACEHOLDERS: Record<RecurringType, string> = { expense: "例如：Netflix、房租", income: "例如：薪水", transfer: "例如：每月存錢", regular: "例如：006208 定期定額" };
 
 const LOCKED_HINTS = { regular: "定期定額要確認股數", salary: "薪水要確認實際金額" } as const;
 
 /** 下面一行即時寫出下一期的日期 含假日調整 */
-export function RecurringForm({ rule, accounts, categories, holdings, today, onDone, onCancel }: RecurringFormProps) {
+export function RecurringForm(props: RecurringFormProps) {
+  const { rule, accounts: allAccounts, categories, holdings, today, onDone, onCancel } = props;
+  const preset = props.rule ? presetOf(props.rule) : props.preset;
+  // 薪水不能入帳到信用卡 有持股的投資帳戶也不能 原本選的留著 儲存時才不會默默換掉
+  const accounts = preset === "salary" ? allAccounts.filter((account) => (account.kind !== "credit" && !account.withHoldings) || account.id === rule?.accountId) : allAccounts;
+  const types = PRESET_TYPES[preset];
+  const [form, dispatch] = useReducer(recurringFormReducer, undefined, () => initialRecurringState(rule, preset, today));
   const choice = useEntryChoice(
     accounts,
     categories,
     () => {
       const account = rule?.accountId ?? pickAccount(accounts);
-      const kind = rule?.kind ?? "expense";
-      return { kind, accountId: account, counterAccountId: rule?.counterAccountId ?? pickOtherAccount(accounts, account), categoryId: rule?.categoryId ?? null };
+      // 新增薪水時先選好薪水這個分類
+      const categoryId = rule ? rule.categoryId : form.allocate ? (defaultIncomeCategory(categories) ?? null) : null;
+      return { kind: rule?.kind ?? entryKindOf(form.type), accountId: account, counterAccountId: rule?.counterAccountId ?? pickOtherAccount(accounts, account), categoryId };
     },
     !rule,
   );
-  const [form, dispatch] = useReducer(recurringFormReducer, undefined, () => ({
-    type: rule ? recurringTypeOf(rule) : "expense",
-    intervalMonths: parseInterval(rule?.intervalMonths ?? 1),
-    startMonth: rule?.startMonth ? dateToMonth(rule.startMonth) : dateToMonth(today),
-    day: rule?.dayOfMonth ?? Number(today.slice(8, 10)),
-    holidayRule: rule?.holidayRule ?? "none",
-    // 新增時預設要確認 金額不固定也不會記錯
-    mode: rule?.mode ?? "confirm",
-    allocate: rule?.allocate ?? false,
-    suggest: !rule,
-  }));
   const { state, pending, formProps } = useDialogForm(rule ? updateRecurringAction : createRecurringAction, onDone);
 
   const deposits = accounts.filter((account) => account.kind === "deposit");
@@ -78,14 +78,6 @@ export function RecurringForm({ rule, accounts, categories, holdings, today, onD
   const changeType = (type: RecurringType) => {
     dispatch({ type: "type", value: type });
     if (type !== "regular") choice.changeKind(type);
-  };
-  const changeAllocate = (checked: boolean) => {
-    dispatch({ type: "allocate", value: checked });
-    // 薪水多半記在薪水這個分類 還沒選分類時幫忙選好
-    if (checked && choice.categoryId === null) {
-      const salary = defaultIncomeCategory(categories);
-      if (salary !== undefined) choice.setCategoryId(salary);
-    }
   };
 
   const locked = modeLockedBy(form);
@@ -106,7 +98,8 @@ export function RecurringForm({ rule, accounts, categories, holdings, today, onD
       {/* 表單不再顯示備註 修改舊規則時原樣送回 */}
       {rule?.note && <input type="hidden" name="note" value={rule.note} />}
       <input type="hidden" name="kind" value={entryKindOf(form.type)} />
-      <Segmented label="類型" options={TYPE_OPTIONS} value={form.type} onChange={changeType} />
+      {types.length > 1 && <Segmented label="類型" options={typeOptions(types)} value={form.type} onChange={changeType} />}
+      {preset === "salary" && <input type="hidden" name="allocate" value="on" />}
       <label className="field">
         <span className="field-label">名稱（選填）</span>
         <input name="name" maxLength={NAME_MAX_LENGTH} defaultValue={rule?.name ?? ""} placeholder={NAME_PLACEHOLDERS[form.type]} autoComplete="off" data-autofocus className="input" />
@@ -122,9 +115,8 @@ export function RecurringForm({ rule, accounts, categories, holdings, today, onD
         )
       ) : (
         <>
-          <AccountSelect name="accountId" label="帳戶" accounts={accounts} value={choice.accountId} onChange={choice.changeAccount} />
+          <AccountSelect name="accountId" label={preset === "salary" ? "入帳帳戶" : "帳戶"} accounts={accounts} value={choice.accountId} onChange={choice.changeAccount} />
           <CategoryChips categories={categories.filter((category) => category.kind === choice.kind)} value={choice.categoryId} onChange={choice.setCategoryId} />
-          {form.type === "income" && <CheckboxField name="allocate" label="這是薪水：入帳後分配到各帳戶" checked={form.allocate} onCheckedChange={changeAllocate} />}
         </>
       )}
       {isRegular && holding && <input type="hidden" name="counterAccountId" value={holding.accountId} />}
@@ -185,7 +177,19 @@ type RegularFieldsProps = {
 
 /** 從存款帳戶扣款 買進投資帳戶裡的一檔 轉入的帳戶由伺服器照持股決定 */
 function RegularFields({ deposits, holdings, accountId, onAccountChange, holdingId, onHoldingChange }: RegularFieldsProps): ReactNode {
-  if (holdings.length === 0) return <p className="notice">先到總覽打開投資帳戶，新增要定期定額的那一檔。</p>;
+  if (holdings.length === 0) {
+    return (
+      <p className="notice">
+        <span>
+          先到
+          <Link href={SAVINGS_PATHS.investments} className="link">
+            投資
+          </Link>
+          新增要定期定額的那一檔。
+        </span>
+      </p>
+    );
+  }
   if (deposits.length === 0) return <p className="notice">要有存款帳戶才能扣款，請先新增帳戶。</p>;
   // 只有一個投資帳戶時不必寫帳戶 選單才放得下名稱
   const manyAccounts = new Set(holdings.map((holding) => holding.accountId)).size > 1;

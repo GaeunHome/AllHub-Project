@@ -122,36 +122,65 @@ describe("要確認的固定收支：某一期的日期是今天就通知擁有�
   });
 });
 
-describe("信用卡：截止前 3 天還沒填帳單或還沒繳清就通知", () => {
-  // 國泰卡 10/5 結帳 截止 10/20 結帳時欠 6,340 之後又刷 5,910 都還沒繳
+describe("信用卡：結帳隔天還沒填帳單、照帳單的截止日前 3 天還沒繳清就通知", () => {
+  // 國泰卡每月 5 日結帳 結帳時欠 6,340 之後 10/7 又刷 5,910 都還沒繳
   async function cathay(values: Partial<typeof savingsAccounts.$inferInsert> = {}) {
     const living = await insertAccount({ name: "生活費帳戶" });
-    const card = await insertAccount({ name: "國泰卡", kind: "credit", openingBalance: -6340, statementDay: 5, dueDay: 20, payFromAccountId: living.id, ...values });
+    const card = await insertAccount({ name: "國泰卡", kind: "credit", openingBalance: -6340, statementDay: 5, payFromAccountId: living.id, ...values });
     await getDb().insert(savingsTransactions).values({ userId: card.userId, kind: "expense", accountId: card.id, amount: 5910, date: "2026-10-07" });
     return { living, card };
   }
   const enterBill = async (card: { id: number; userId: string }, statementDate: string, dueDate: string, amount: number) =>
     getDb().insert(savingsCardBills).values({ userId: card.userId, accountId: card.id, statementDate, dueDate, amount });
 
-  it("還沒填這一期的帳單_10/17 寄「國泰卡 10/20 截止：記得填帳單並確認繳款」；前後一天不寄、同一天不重複", async () => {
+  it("10/5 結帳、還沒填帳單_10/6 寄「國泰卡 已結帳：照帳單填金額與截止日」；結帳當天與再隔一天不寄、同一天不重複", async () => {
     await cathay();
 
-    for (const date of ["2026-10-16", "2026-10-17", "2026-10-17", "2026-10-18"]) await postDueRecurring(runAt(date));
+    for (const date of ["2026-10-05", "2026-10-06", "2026-10-06", "2026-10-07"]) await postDueRecurring(runAt(date));
 
-    expect(await notices()).toEqual([{ userId: me, module: "savings", kind: "card_due", title: "國泰卡 10/20 截止：記得填帳單並確認繳款", url: "/savings" }]);
+    expect(await notices()).toEqual([{ userId: me, module: "savings", kind: "card_statement", title: "國泰卡 已結帳：照帳單填金額與截止日", url: "/savings" }]);
   });
 
-  it("填了帳單還沒繳清_寄「國泰卡 10/20 截止：本期應繳 $6,340」（結帳後刷的下期才繳）", async () => {
+  it("結帳隔天之前就填了帳單_不寄填帳單的提醒", async () => {
     const { card } = await cathay();
     await enterBill(card, "2026-10-05", "2026-10-20", 6340);
 
-    await postDueRecurring(runAt("2026-10-17"));
+    await postDueRecurring(runAt("2026-10-06"));
 
-    expect((await notices()).map((n) => n.title)).toEqual(["國泰卡 10/20 截止：本期應繳 $6,340"]);
+    expect(await notices()).toEqual([]);
   });
 
-  it("自動扣繳的卡填了帳單_寫「<M/D> 自動扣繳：本期 $金額，記得確認」；沒有結帳日的卡填帳單那天就是結帳日", async () => {
-    const card = await insertAccount({ name: "台新卡", kind: "credit", openingBalance: -3500, dueDay: 23, autopay: true });
+  it("還沒填帳單就不知道截止日：舊版設的截止日（20 日）不再拿來提醒，10/17 不寄", async () => {
+    await cathay({ dueDay: 20 });
+    await insertAccount({ name: "台新卡", kind: "credit", openingBalance: -3500, dueDay: 20, autopay: true });
+
+    for (const date of ["2026-10-16", "2026-10-17", "2026-10-18"]) await postDueRecurring(runAt(date));
+
+    expect(await notices()).toEqual([]);
+  });
+
+  it("填了帳單還沒繳清_照帳單的截止日前 3 天（10/17）寄「國泰卡 10/20 截止：本期應繳 $6,340」（結帳後刷的下期才繳）；前後一天不寄", async () => {
+    const { card } = await cathay();
+    await enterBill(card, "2026-10-05", "2026-10-20", 6340);
+
+    for (const date of ["2026-10-16", "2026-10-17", "2026-10-18"]) await postDueRecurring(runAt(date));
+
+    expect(await notices()).toEqual([{ userId: me, module: "savings", kind: "card_due", title: "國泰卡 10/20 截止：本期應繳 $6,340", url: "/savings" }]);
+  });
+
+  it("帳單的截止日填 10/25（週日、10/26 補假）_照順延後的 10/27 在 10/24 提醒，原本的 10/22 不寄", async () => {
+    const { card } = await cathay();
+    await enterBill(card, "2026-10-05", "2026-10-25", 6340);
+
+    await postDueRecurring(runAt("2026-10-22"));
+    expect(await notices()).toEqual([]);
+    await postDueRecurring(runAt("2026-10-24"));
+
+    expect((await notices()).map((n) => n.title)).toEqual(["國泰卡 10/27 截止：本期應繳 $6,340"]);
+  });
+
+  it("自動扣繳的卡填了帳單_寫「<M/D> 自動扣繳：本期 $金額，記得確認」；沒有結帳日的卡自己填了帳單也照樣提醒", async () => {
+    const card = await insertAccount({ name: "台新卡", kind: "credit", openingBalance: -3500, autopay: true });
     await enterBill(card, "2026-10-15", "2026-10-23", 3500);
 
     await postDueRecurring(runAt("2026-10-20"));
@@ -159,51 +188,44 @@ describe("信用卡：截止前 3 天還沒填帳單或還沒繳清就通知", (
     expect((await notices()).map((n) => n.title)).toEqual(["台新卡 10/23 自動扣繳：本期 $3,500，記得確認"]);
   });
 
-  it("截止日遇假日順延：10/25 是週日、10/26 補假，照 10/27 在 10/24 提醒，原本的 10/22 不寄", async () => {
-    const card = await insertAccount({ name: "台新卡", kind: "credit", openingBalance: -3500, dueDay: 25, autopay: true });
-    await enterBill(card, "2026-10-18", "2026-10-27", 3500);
-
-    await postDueRecurring(runAt("2026-10-22"));
-    expect(await notices()).toEqual([]);
-    await postDueRecurring(runAt("2026-10-24"));
-
-    expect((await notices()).map((n) => n.title)).toEqual(["台新卡 10/27 自動扣繳：本期 $3,500，記得確認"]);
-  });
-
-  it("填了帳單也繳清了、停用的卡、別人停用的帳號_都不寄", async () => {
+  it("填了帳單也繳清了、停用的卡、別人停用的帳號_結帳隔天與截止前都不寄", async () => {
     const { living, card } = await cathay();
     await enterBill(card, "2026-10-05", "2026-10-20", 6340);
     await getDb().insert(savingsTransactions).values({ userId: me, kind: "transfer", accountId: living.id, counterAccountId: card.id, amount: 6340, date: "2026-10-12" });
-    await insertAccount({ name: "停用的卡", kind: "credit", openingBalance: -900, statementDay: 5, dueDay: 20, active: false });
-    await insertAccount({ name: "別人的卡", kind: "credit", openingBalance: -900, statementDay: 5, dueDay: 20, userId: other });
+    await insertAccount({ name: "停用的卡", kind: "credit", openingBalance: -900, statementDay: 5, active: false });
+    await insertAccount({ name: "別人的卡", kind: "credit", openingBalance: -900, statementDay: 5, userId: other });
     await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.id, other));
 
+    await postDueRecurring(runAt("2026-10-06"));
     await postDueRecurring(runAt("2026-10-17"));
 
     expect(await notices()).toEqual([]);
   });
 
-  it("停用的使用者的卡不寄也不認領；恢復後截止前 3 天照常寄", async () => {
-    const theirCard = await insertAccount({ name: "別人的卡", kind: "credit", openingBalance: -900, statementDay: 5, dueDay: 20, userId: other });
+  it("停用的使用者的卡不寄也不認領；恢復後結帳隔天照常寄", async () => {
+    const theirCard = await insertAccount({ name: "別人的卡", kind: "credit", openingBalance: -900, statementDay: 5, userId: other });
     await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.id, other));
 
-    await postDueRecurring(runAt("2026-10-17"));
+    await postDueRecurring(runAt("2026-10-06"));
     expect(await notices()).toEqual([]);
     expect((await getDb().select().from(savingsAccounts).where(eq(savingsAccounts.id, theirCard.id)))[0].cardNotifiedOn).toBeNull();
 
     await getDb().update(coreUsers).set({ disabledAt: null }).where(eq(coreUsers.id, other));
-    await postDueRecurring(runAt("2026-10-17"));
+    await postDueRecurring(runAt("2026-10-06"));
 
-    expect(await notices()).toEqual([{ userId: other, module: "savings", kind: "card_due", title: "別人的卡 10/20 截止：記得填帳單並確認繳款", url: "/savings" }]);
+    expect(await notices()).toEqual([{ userId: other, module: "savings", kind: "card_statement", title: "別人的卡 已結帳：照帳單填金額與截止日", url: "/savings" }]);
   });
 
   it("送到資料庫的參數沒有 Date 物件（正式環境經 postgres-js 收到 Date 會丟錯）", async () => {
-    await cathay();
-    const living = await insertAccount({ name: "另一個帳戶" });
-    await insertRule({ accountId: living.id, dayOfMonth: 17, name: "電費" });
+    // 10/20 這一天三種都寄 19 日結帳的卡還沒填帳單 10/23 截止的帳單 20 日到期的固定收支
+    await insertAccount({ name: "國泰卡", kind: "credit", openingBalance: -6340, statementDay: 19 });
+    const taishin = await insertAccount({ name: "台新卡", kind: "credit", openingBalance: -3500 });
+    await enterBill(taishin, "2026-10-15", "2026-10-23", 3500);
+    const living = await insertAccount({ name: "生活費帳戶" });
+    await insertRule({ accountId: living.id, dayOfMonth: 20, name: "電費" });
     const query = vi.spyOn((testDb as TestDb & { $client: PGlite }).$client, "query");
 
-    expect(await postDueRecurring(runAt("2026-10-17"))).toBe("自動記帳 0 筆；通知 2 則");
+    expect(await postDueRecurring(runAt("2026-10-20"))).toBe("自動記帳 0 筆；通知 3 則");
 
     const params = query.mock.calls.flatMap(([, values]) => (Array.isArray(values) ? values : []));
     expect(params.filter((param) => param instanceof Date)).toEqual([]);

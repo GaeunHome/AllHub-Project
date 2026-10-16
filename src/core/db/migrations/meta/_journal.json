@@ -5,99 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1791364319051,
-      "tag": "0000_aspiring_venom",
+      "when": 1792073138959,
+      "tag": "0000_baseline",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1791365944729,
-      "tag": "0001_youtube",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1791385018419,
-      "tag": "0002_youtube_translation_lock",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1791388269440,
-      "tag": "0003_savings",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1791393857161,
-      "tag": "0004_accounts_notifications",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1791443644758,
-      "tag": "0005_multiuser",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1791455237904,
-      "tag": "0006_per_user_data",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1791731712875,
-      "tag": "0007_youtube_saved_videos",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1791941335694,
-      "tag": "0008_enable_rls",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1791965392729,
-      "tag": "0009_finance",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1792049930470,
-      "tag": "0010_finance_v2",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1792051363007,
-      "tag": "0011_starrail_auto_redeem",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1792058736691,
-      "tag": "0012_starrail_game_reminders",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1792073138959,
-      "tag": "0013_finance_card_bills",
+      "when": 1792131927825,
+      "tag": "0001_finance_redesign",
       "breakpoints": true
     }
   ]

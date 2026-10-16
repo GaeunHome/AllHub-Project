@@ -39,7 +39,7 @@ function EntryFields({ choice, accounts, categories, amount, when }: { choice: E
       <AmountField name="amount" label="金額（元）" defaultValue={amount} required autoFocus large placeholder="0" />
       {isTransfer ? (
         choice.cannotTransfer ? (
-          <p className="notice">要有兩個以上的帳戶才能轉帳，請先到設定新增帳戶。</p>
+          <p className="notice">要有兩個以上的帳戶才能轉帳，請先到「帳戶」頁新增。</p>
         ) : (
           <TransferAccounts choice={choice} accounts={accounts} />
         )

@@ -3,8 +3,9 @@
 import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { formatDay } from "../../../lib/dates";
+import { formatNumber } from "../../../lib/money";
 import { deleteTransactionAction, updateTransactionAction } from "../../actions";
-import { isTrade, recordDetails, recordTitle, signedAmount } from "../../entry-display";
+import { isTrade, recordDetails, recordIcon, recordTitle, signedAmount } from "../../entry-display";
 import { choosableAccounts } from "../../form-math";
 import type { RecordItem } from "../../record-filter";
 import { BillRowForm } from "../forms/bill-row-form";
@@ -12,6 +13,7 @@ import { EntryForm } from "../forms/entry-form";
 import type { AccountChoice, CategoryOption } from "../forms/options";
 import { TradeForm } from "../forms/trade-form";
 import { DeleteMenuItem, LIST_ROW_MESSAGE } from "../row-controls";
+import { IconTile, Ticker } from "../visuals";
 
 type RecordRowProps = {
   record: RecordItem;
@@ -23,13 +25,13 @@ type RecordRowProps = {
 };
 
 // 手機兩行 寬螢幕排成一行 名稱固定寬 說明在中間一欄 每一列才對齊
-const ROW_GRID = "grid min-h-14 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-3 pr-2 pl-5 text-left sm:pl-6 lg:grid-cols-[minmax(0,16rem)_minmax(0,1fr)_auto]";
+const ROW_GRID = "grid min-h-14 min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-3 pr-2 pl-5 text-left sm:pl-6 lg:grid-cols-[auto_minmax(0,16rem)_minmax(0,1fr)_auto]";
 
 /** 刪掉後會連動的事寫在確認裡 沒有連動才是無法復原 */
 function deleteConsequence(record: RecordItem, trade: boolean): string {
   const parts = [
     trade && "持股的股數和成本會跟著還原",
-    record.backToPending && "這一期會回到總覽的待處理",
+    record.backToPending && "這一期會回到總覽的「這個月要做的事」",
     record.cardBillId !== null && "這張帳單會一起撤銷，總覽會再請你填這一期的帳單",
   ].filter(Boolean);
   return parts.length > 0 ? `${parts.join("，")}。` : "刪除後無法復原。";
@@ -51,9 +53,14 @@ export function RecordRow({ record, accounts, categories, today, onDeleted }: Re
   const editable = entryKind !== null;
   const content = (
     <>
-      <span className="col-start-1 row-start-1 truncate font-medium text-ink">{title}</span>
-      {detail && <span className="col-start-1 row-start-2 truncate text-sm text-ink-soft lg:col-start-2 lg:row-start-1">{detail}</span>}
-      <span className="col-start-2 row-span-2 row-start-1 text-right font-medium text-ink tabular-nums lg:col-start-3 lg:row-span-1">{amount}</span>
+      <span className="col-start-1 row-span-2 row-start-1 lg:row-span-1">
+        <IconTile name={recordIcon(record)} size="sm" />
+      </span>
+      <span className="col-start-2 row-start-1 flex min-w-0 items-center gap-1.5 font-medium text-ink">
+        {trade && record.holdingSymbol ? <TradeTitle shares={record.shares ?? 0} symbol={record.holdingSymbol} /> : <span className="truncate">{title}</span>}
+      </span>
+      {detail && <span className="col-start-2 row-start-2 truncate text-sm text-ink-soft lg:col-start-3 lg:row-start-1">{detail}</span>}
+      <span className="col-start-3 row-span-2 row-start-1 text-right font-medium text-ink tabular-nums lg:col-start-4 lg:row-span-1">{amount}</span>
     </>
   );
 
@@ -103,5 +110,16 @@ export function RecordRow({ record, accounts, categories, today, onDeleted }: Re
         </Dialog>
       )}
     </li>
+  );
+}
+
+/** 買賣的名稱 代號用跟投資頁一樣的樣子 空白留給報讀器 畫面的間距交給 gap */
+function TradeTitle({ shares, symbol }: { shares: number; symbol: string }) {
+  return (
+    <>
+      {shares > 0 ? "買進" : "賣出"}{" "}
+      <Ticker symbol={symbol} />{" "}
+      <span className="truncate">{formatNumber(Math.abs(shares))} 股</span>
+    </>
   );
 }

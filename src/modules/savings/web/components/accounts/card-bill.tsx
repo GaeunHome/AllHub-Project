@@ -3,8 +3,10 @@
 import { useId, useState } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback, type FormState } from "@/core/ui/form-message";
+import { Icon } from "@/core/ui/icon";
 import { StatusChip } from "@/core/ui/status-chip";
-import { formatSlashDate, type DateKey } from "../../../lib/dates";
+import { MAX_DUE_DAYS, payableDueDate } from "../../../lib/cards";
+import { addDays, formatSlashDate, parseDate, type DateKey } from "../../../lib/dates";
 import { formatTwd } from "../../../lib/money";
 import { enterCardBillAction, payCardAction } from "../../actions";
 import type { BillDraft, BillHistoryRow } from "../../dashboard-view";
@@ -29,16 +31,27 @@ function submitBill(previous: FormState, formData: FormData): Promise<FormState>
   return formData.has("billAmount") ? payCardAction(previous, formData) : enterCardBillAction(previous, formData);
 }
 
+/** 帳單上印的日子遇到假日 銀行會順延 要繳的是順延後的那天 */
+function shiftNote(dueDate: string, draft: BillDraft): string | null {
+  const shifted = dueDate === draft.dueDate && draft.shiftedDueDate ? draft.shiftedDueDate : parseDate(dueDate) && payableDueDate(dueDate);
+  return shifted && shifted !== dueDate ? `遇假日順延到 ${formatSlashDate(shifted)}` : null;
+}
+
 /**
- * 照銀行 App 的帳單填 跟紀錄對不上的差額伺服器自動補一筆
+ * 照銀行 App 的帳單填金額與截止日 跟紀錄對不上的差額伺服器自動補一筆
  * 繳款金額沒動過就跟著帳單金額 通常是整張繳清
  */
 export function BillForm({ draft, categories, accounts, today, onDone, onCancel }: BillFormProps) {
   const { state, pending, formProps } = useDialogForm(submitBill, onDone);
   const [billText, setBillText] = useState(draft.estimate > 0 ? String(draft.estimate) : "");
+  const [dueDate, setDueDate] = useState(draft.dueDate);
   const [payToo, setPayToo] = useState(false);
   const [payText, setPayText] = useState<string | null>(null);
+  const dueId = useId();
   const label = draft.statementDate === null ? "這一期的帳單金額（元）" : `${formatSlashDate(draft.statementDate)} 結帳的帳單金額（元）`;
+  // 沒有結帳日的卡 填的那天就是結帳日 截止日不能更早
+  const statementDate = draft.statementDate ?? today;
+  const shifted = shiftNote(dueDate, draft);
 
   return (
     <form {...formProps} className="stack">
@@ -54,19 +67,44 @@ export function BillForm({ draft, categories, accounts, today, onDone, onCancel 
         placeholder="0"
         hint={`比紀錄上的 ${formatTwd(draft.estimate)} 多的部分，會記成一筆「未記錄的刷卡」。`}
       />
-      <label className="field">
-        <span className="field-label">差額的分類（選填）</span>
-        <select name="categoryId" defaultValue="" className="input">
-          <option value="">{UNCATEGORIZED_LABEL}</option>
-          {categories
-            .filter((category) => category.kind === "expense")
-            .map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-        </select>
-      </label>
+      <div className="grid items-start gap-4 sm:grid-cols-2">
+        <div className="field">
+          <label htmlFor={dueId} className="field-label">
+            繳款截止日（照帳單）
+          </label>
+          <input
+            id={dueId}
+            type="date"
+            name="dueDate"
+            required
+            value={dueDate}
+            onChange={(event) => setDueDate(event.target.value)}
+            min={statementDate}
+            max={addDays(statementDate, MAX_DUE_DAYS)}
+            aria-describedby={shifted ? `${dueId}-hint` : undefined}
+            className="input"
+          />
+          {shifted && (
+            <p id={`${dueId}-hint`} className="flex items-center gap-1.5 text-sm text-ink">
+              <Icon name="calendar-clock" className="size-4 shrink-0 text-ink-soft" />
+              {shifted}
+            </p>
+          )}
+        </div>
+        <label className="field">
+          <span className="field-label">差額的分類（選填）</span>
+          <select name="categoryId" defaultValue="" className="input">
+            <option value="">{UNCATEGORIZED_LABEL}</option>
+            {categories
+              .filter((category) => category.kind === "expense")
+              .map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+          </select>
+        </label>
+      </div>
       {accounts.length > 0 && <CheckboxField name="payToo" label="同時記下繳款" checked={payToo} onCheckedChange={setPayToo} />}
       {payToo && (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -86,16 +124,12 @@ const STATUS_TEXT: Record<BillHistoryRow["status"], string> = { paid: "已繳清
 // 窄的時候每期兩行 夠寬時排成有欄位名稱的表格
 const COLUMNS = "@xl:grid @xl:grid-cols-[minmax(0,1fr)_repeat(5,auto)] @xl:gap-x-5";
 const ROW = "@xl:col-span-full @xl:grid-cols-subgrid @xl:gap-x-5";
-const HEADERS = ["結帳日", "截止日", "帳單", "已繳", "最後繳款", "狀態"];
+const HEADERS = ["結帳日", "截止日", "帳單", "已繳", "繳款日", "狀態"];
 
-/** 填過的帳單 新的在前 逾期的才用標籤 */
+/** 填過的帳單 新的在前 逾期的才用標籤 打開它的按鈕已經寫了最近幾期 這裡不再寫標題 */
 export function BillHistory({ bills }: { bills: BillHistoryRow[] }) {
-  const headingId = useId();
   return (
-    <section aria-labelledby={headingId} className="stack @container">
-      <h3 id={headingId} className="font-semibold text-ink">
-        最近 {bills.length} 期
-      </h3>
+    <section aria-label={`最近 ${bills.length} 期`} className="stack @container">
       <ul className={`flex flex-col divide-y divide-line border-y border-line ${COLUMNS}`}>
         {/* 欄位名稱給看得到的人 每一格另外帶報讀器念的名稱 */}
         <li aria-hidden="true" className={`hidden py-2 text-sm text-ink-soft @xl:grid ${ROW}`}>

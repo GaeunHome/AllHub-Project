@@ -1,7 +1,8 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
-import type { SavingsAccount, SavingsCategory, SavingsHolding, SavingsPurpose, SavingsRecurring } from "../data/schema";
+import type { SavingsAccount, SavingsCategory, SavingsHolding, SavingsRecurring } from "../data/schema";
 import type { CardDailyFlow } from "../lib/cards";
+import type { ChecklistRecord } from "../lib/checklist";
 import type { DateKey } from "../lib/dates";
 import type { AccountMonthFlow, CategoryMonthTotal } from "../lib/ledger";
 import type { MonthKey } from "../lib/month";
@@ -11,10 +12,9 @@ import { savingsTags } from "./cache-tags";
 import { cardDailyFlows, listCardBills, type CardBillRecord } from "./cards";
 import { listCategories } from "./categories";
 import { listHoldings } from "./holdings";
-import { listPurposes } from "./purposes";
 import { fetchQuotes } from "./quotes";
 import { listRecurring } from "./recurring";
-import { accountMonthFlows, categoryMonthTotals, listMonthTransactions, type TransactionView } from "./transactions";
+import { accountMonthFlows, categoryMonthTotals, listMonthTransactions, recurringRecords, type TransactionView } from "./transactions";
 
 // 只給頁面用 同一次請求裡重複呼叫會自動合併 不必再包 React cache
 // userId 是頁面從 session 拿到的登入者 會成為快取 key 每人各一份
@@ -24,13 +24,6 @@ export async function cachedAccounts(userId: string): Promise<SavingsAccount[]> 
   cacheLife("db");
   cacheTag(savingsTags.accounts);
   return listAccounts(userId);
-}
-
-export async function cachedPurposes(userId: string): Promise<SavingsPurpose[]> {
-  "use cache: remote";
-  cacheLife("db");
-  cacheTag(savingsTags.purposes);
-  return listPurposes(userId);
 }
 
 export async function cachedCategories(userId: string): Promise<SavingsCategory[]> {
@@ -67,6 +60,14 @@ export async function cachedMonthTransactions(userId: string, month: MonthKey): 
   cacheLife("db");
   cacheTag(savingsTags.transactions, savingsTags.accounts, savingsTags.categories, savingsTags.holdings, savingsTags.recurring);
   return listMonthTransactions(userId, month);
+}
+
+/** 這個月要做的事對期別用 since 每個月往後推 key 每個月換一次 */
+export async function cachedRecurringRecords(userId: string, since: DateKey): Promise<ChecklistRecord[]> {
+  "use cache: remote";
+  cacheLife("db");
+  cacheTag(savingsTags.transactions);
+  return recurringRecords(userId, since);
 }
 
 export async function cachedHoldings(userId: string): Promise<SavingsHolding[]> {

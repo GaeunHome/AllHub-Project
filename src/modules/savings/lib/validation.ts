@@ -1,16 +1,22 @@
-import { formatMonthDay, parseDate, type DateKey } from "./dates";
+import { MAX_DUE_DAYS } from "./cards";
+import { addDays, formatMonthDay, parseDate, type DateKey } from "./dates";
 import {
   ACCOUNT_KINDS,
+  CARD_STYLES,
+  CATEGORY_ICONS,
   CATEGORY_KINDS,
   ENTRY_KINDS,
   HOLIDAY_RULES,
   INTERVAL_MONTHS,
+  LABEL_MAX_LENGTH,
   MAX_SHARES,
   NAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
   RECURRING_MODES,
   SELECTABLE_COLORS,
   type AccountKind,
+  type CardStyle,
+  type CategoryIcon,
   type CategoryKind,
   type EntryKind,
   type HolidayRule,
@@ -30,7 +36,6 @@ export type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
 /** 別人的 刪掉的或格式不對的 id 都用同一句 不透露那筆資料存不存在 */
 export const NOT_FOUND = {
   account: "找不到這個帳戶，可能已經刪除了",
-  purpose: "找不到這個用途，可能已經刪除了",
   category: "找不到這個分類，可能已經刪除了",
   transaction: "找不到這筆紀錄，可能已經刪除了",
   recurring: "找不到這個固定收支，可能已經刪除了",
@@ -144,6 +149,14 @@ export function parseName(raw: string): Parsed<string> {
   return ok(name);
 }
 
+/** 帳戶的用途 例如生活費 跟名稱一樣正規化 空白是沒填 */
+function parseLabel(raw: string): Parsed<string | null> {
+  const label = normalizeName(raw);
+  if (label === "") return ok(null);
+  if (charCount(label) > LABEL_MAX_LENGTH) return fail(`用途最多 ${LABEL_MAX_LENGTH} 個字`);
+  return ok(label);
+}
+
 export function parseNote(raw: string): Parsed<string | null> {
   const note = raw.trim();
   if (charCount(note) > NOTE_MAX_LENGTH) return fail(`備註最多 ${NOTE_MAX_LENGTH} 個字`);
@@ -156,6 +169,21 @@ const oneOf = <T extends string>(values: readonly T[], raw: string): T | null =>
 export function parseColor(raw: string): Parsed<PaletteColor> {
   const color = oneOf(SELECTABLE_COLORS, raw);
   return color ? ok(color) : fail("顏色不正確");
+}
+
+/** 沒選時畫面照信用卡建立的順序輪流 */
+function parseCardStyle(raw: string): Parsed<CardStyle | null> {
+  const text = raw.trim();
+  if (text === "") return ok(null);
+  const style = oneOf(CARD_STYLES, text);
+  return style ? ok(style) : fail("卡面顏色不正確");
+}
+
+/** 只收選擇器上的圖示 沒選是 null */
+function parseCategoryIcon(raw: string): Parsed<CategoryIcon | null> {
+  const text = raw.trim();
+  if (text === "") return ok(null);
+  return Object.hasOwn(CATEGORY_ICONS, text) ? ok(text as CategoryIcon) : fail("圖示不正確");
 }
 
 export function parseAccountKind(raw: string): Parsed<AccountKind> {
@@ -217,12 +245,12 @@ type Fields<K extends string> = Record<K, string>;
 
 export type AccountInput = {
   name: string;
-  purposeId: number | null;
+  label: string | null;
+  cardStyle: CardStyle | null;
   openingBalance: number;
   openingCost: number | null;
   monthlyPlan: number | null;
   targetAmount: number | null;
-  dueDay: number | null;
   payFromAccountId: number | null;
   statementDay: number | null;
   autopay: boolean;
@@ -238,18 +266,20 @@ const OPENING_LABELS: Record<"create" | "update", Record<AccountKind, string>> =
 };
 
 /**
- * 不適用這個類型的欄位當成 null 例如切換類型前填的
+ * 不適用這個類型的欄位當成 null 例如切換類型前填的 信用卡的截止日改成填帳單時填 不收
  * 信用卡填的是未繳 存成負的起始餘額 負的未繳是溢繳
  */
 export function parseAccountFields(
-  fields: Fields<"name" | "purposeId" | "openingBalance" | "openingCost" | "monthlyPlan" | "targetAmount" | "dueDay" | "payFromAccountId" | "statementDay" | "autopay">,
+  fields: Fields<"name" | "label" | "cardStyle" | "openingBalance" | "openingCost" | "monthlyPlan" | "targetAmount" | "payFromAccountId" | "statementDay" | "autopay">,
   kind: AccountKind,
   mode: "create" | "update" = "create",
 ): Parsed<AccountInput> {
   const name = parseName(fields.name);
   if (!name.ok) return name;
-  const purposeId = optionalId(fields.purposeId, NOT_FOUND.purpose);
-  if (!purposeId.ok) return purposeId;
+  const label = parseLabel(fields.label);
+  if (!label.ok) return label;
+  const cardStyle = kind === "credit" ? parseCardStyle(fields.cardStyle) : ok(null);
+  if (!cardStyle.ok) return cardStyle;
   const opening = labelled(OPENING_LABELS[mode][kind], fields.openingBalance.trim() === "" ? ok(0) : parseBalance(fields.openingBalance, { allowNegative: kind === "credit" }));
   if (!opening.ok) return opening;
   const openingCost = kind === "investment" ? labelled("成本", optional(fields.openingCost, parseBalance)) : ok(null);
@@ -258,47 +288,64 @@ export function parseAccountFields(
   if (!monthlyPlan.ok) return monthlyPlan;
   const targetAmount = kind === "credit" ? ok(null) : labelled("目標金額", optional(fields.targetAmount, parseAmount));
   if (!targetAmount.ok) return targetAmount;
-  const dueDay = kind === "credit" && fields.dueDay.trim() !== "" ? parseDay(fields.dueDay, "繳款截止日要在 1 到 31 日之間") : ok(null);
-  if (!dueDay.ok) return dueDay;
   const statementDay = kind === "credit" && fields.statementDay.trim() !== "" ? parseDay(fields.statementDay, "結帳日要在 1 到 31 日之間") : ok(null);
   if (!statementDay.ok) return statementDay;
   const payFromAccountId = kind === "credit" ? optionalId(fields.payFromAccountId, NOT_FOUND.account) : ok(null);
   if (!payFromAccountId.ok) return payFromAccountId;
   return ok({
     name: name.value,
-    purposeId: purposeId.value,
+    // 信用卡的表單沒有用途
+    label: kind === "credit" ? null : label.value,
+    cardStyle: cardStyle.value,
     openingBalance: balanceFromFigure(kind, opening.value),
     openingCost: openingCost.value,
     monthlyPlan: monthlyPlan.value,
     targetAmount: targetAmount.value,
-    dueDay: dueDay.value,
     payFromAccountId: payFromAccountId.value,
     statementDay: statementDay.value,
     autopay: kind === "credit" && checked(fields.autopay),
   });
 }
 
-export type PurposeInput = { name: string; color: PaletteColor };
+/** 別人的帳戶 信用卡或格式不對的 id 修改分配時整批不寫 */
+export const ALLOCATION_ACCOUNT_INVALID = "找不到帳戶，請重新整理頁面";
 
-export function parsePurposeFields(fields: Fields<"name" | "color">): Parsed<PurposeInput> {
-  const name = parseName(fields.name);
-  if (!name.ok) return name;
-  const color = parseColor(fields.color);
-  if (!color.ok) return color;
-  return ok({ name: name.value, color: color.value });
+export type AllocationInput = { accountId: number; monthlyPlan: number | null; targetAmount: number | null };
+
+/**
+ * 修改分配 一個帳戶一組 空白是不設
+ * accountNames 是自己全部的帳戶 用來限制行數與在錯誤裡寫出帳戶名稱
+ */
+export function parseAllocationFields(lines: Fields<"accountId" | "monthlyPlan" | "targetAmount">[], accountNames?: ReadonlyMap<number, string>): Parsed<AllocationInput[]> {
+  if (lines.length === 0 || (accountNames !== undefined && lines.length > accountNames.size)) return fail(ALLOCATION_ACCOUNT_INVALID);
+  const parsed: AllocationInput[] = [];
+  for (const line of lines) {
+    const accountId = parseRowId(line.accountId);
+    if (accountId === null || parsed.some((row) => row.accountId === accountId)) return fail(ALLOCATION_ACCOUNT_INVALID);
+    const name = accountNames?.get(accountId);
+    const field = (label: string) => (name === undefined ? label : `「${name}」的${label}`);
+    const monthlyPlan = labelled(field("每月規劃"), optional(line.monthlyPlan, parseAmount));
+    if (!monthlyPlan.ok) return monthlyPlan;
+    const targetAmount = labelled(field("目標金額"), optional(line.targetAmount, parseAmount));
+    if (!targetAmount.ok) return targetAmount;
+    parsed.push({ accountId, monthlyPlan: monthlyPlan.value, targetAmount: targetAmount.value });
+  }
+  return ok(parsed);
 }
 
-export type CategoryInput = { name: string; color: PaletteColor; monthlyBudget: number | null };
+export type CategoryInput = { name: string; color: PaletteColor; monthlyBudget: number | null; icon: CategoryIcon | null };
 
 /** 只有支出能設預算 收入的忽略 */
-export function parseCategoryFields(fields: Fields<"name" | "color" | "monthlyBudget">, kind: CategoryKind): Parsed<CategoryInput> {
+export function parseCategoryFields(fields: Fields<"name" | "color" | "monthlyBudget" | "icon">, kind: CategoryKind): Parsed<CategoryInput> {
   const name = parseName(fields.name);
   if (!name.ok) return name;
   const color = parseColor(fields.color);
   if (!color.ok) return color;
   const monthlyBudget = kind === "expense" ? optional(fields.monthlyBudget, parseAmount) : ok(null);
   if (!monthlyBudget.ok) return monthlyBudget;
-  return ok({ name: name.value, color: color.value, monthlyBudget: monthlyBudget.value });
+  const icon = parseCategoryIcon(fields.icon);
+  if (!icon.ok) return icon;
+  return ok({ name: name.value, color: color.value, monthlyBudget: monthlyBudget.value, icon: icon.value });
 }
 
 type EntryCore = { kind: EntryKind; accountId: number; counterAccountId: number | null; categoryId: number | null; amount: number; note: string | null };
@@ -568,13 +615,29 @@ export function parseOccurrenceFields(fields: Fields<"ruleId" | "period">): Pars
   return ok({ ruleId, period });
 }
 
-/** billAmount 是一起填這一期的帳單 沒填是 null categoryId 是補記的刷卡的分類 */
-export type PayCardInput = { cardId: number; fromAccountId: number; amount: number; date: DateKey; billAmount: number | null; categoryId: number | null };
+/** billAmount 與 dueDate 是一起填這一期的帳單 沒填是 null categoryId 是補記的刷卡的分類 */
+export type PayCardInput = { cardId: number; fromAccountId: number; amount: number; date: DateKey; billAmount: number | null; dueDate: DateKey | null; categoryId: number | null };
 
 // 帳單照銀行的 繳清或沒有消費時是 0
 const parseBillAmount = (raw: string) => labelled("帳單金額", parseBalance(raw));
 
-export function parsePayCardFields(fields: Fields<"cardId" | "fromAccountId" | "amount" | "date"> & { billAmount?: string; categoryId?: string }, today: DateKey): Parsed<PayCardInput> {
+// 照帳單填的截止日 早晚的範圍要等知道是哪一期才看
+function parseDueDate(raw: string): Parsed<DateKey> {
+  const text = raw.trim();
+  if (text === "") return fail("請輸入繳款截止日");
+  const date = parseDate(text);
+  return date === null ? fail("繳款截止日不正確") : ok(date);
+}
+
+/** 截止日不會早於結帳日 超過結帳後 60 天多半是打錯月份或年份 */
+export function checkBillDueDate(statementDate: DateKey, dueDate: DateKey): Parsed<DateKey> {
+  if (dueDate < statementDate) return fail(`繳款截止日不能早於結帳日（${formatMonthDay(statementDate, dueDate)}）`);
+  const latest = addDays(statementDate, MAX_DUE_DAYS);
+  if (dueDate > latest) return fail(`繳款截止日最晚是結帳後 ${MAX_DUE_DAYS} 天（${formatMonthDay(latest, dueDate)}）`);
+  return ok(dueDate);
+}
+
+export function parsePayCardFields(fields: Fields<"cardId" | "fromAccountId" | "amount" | "date"> & { billAmount?: string; dueDate?: string; categoryId?: string }, today: DateKey): Parsed<PayCardInput> {
   const cardId = parseRowId(fields.cardId);
   if (cardId === null) return fail(NOT_FOUND.account);
   const fromAccountId = requiredId(fields.fromAccountId, "請選擇扣款的帳戶", NOT_FOUND.account);
@@ -586,22 +649,27 @@ export function parsePayCardFields(fields: Fields<"cardId" | "fromAccountId" | "
   if (!date.ok) return date;
   const billAmount = (fields.billAmount ?? "").trim() === "" ? ok(null) : parseBillAmount(fields.billAmount ?? "");
   if (!billAmount.ok) return billAmount;
+  // 只繳款時沒有帳單 不看截止日
+  const dueDate = billAmount.value === null ? ok(null) : parseDueDate(fields.dueDate ?? "");
+  if (!dueDate.ok) return dueDate;
   const categoryId = optionalId(fields.categoryId ?? "", NOT_FOUND.category);
   if (!categoryId.ok) return categoryId;
-  return ok({ cardId, fromAccountId: fromAccountId.value, amount: amount.value, date: date.value, billAmount: billAmount.value, categoryId: categoryId.value });
+  return ok({ cardId, fromAccountId: fromAccountId.value, amount: amount.value, date: date.value, billAmount: billAmount.value, dueDate: dueDate.value, categoryId: categoryId.value });
 }
 
-/** statementDate 沒填是這一期 categoryId 是補記的刷卡記在哪個支出分類 */
-export type CardBillInput = { cardId: number; amount: number; statementDate: DateKey | null; categoryId: number | null };
+/** statementDate 沒填是這一期 dueDate 照帳單填的存 categoryId 是補記的刷卡記在哪個支出分類 */
+export type CardBillInput = { cardId: number; amount: number; statementDate: DateKey | null; dueDate: DateKey; categoryId: number | null };
 
-export function parseCardBillFields(fields: Fields<"cardId" | "amount" | "statementDate" | "categoryId">, today: DateKey): Parsed<CardBillInput> {
+export function parseCardBillFields(fields: Fields<"cardId" | "amount" | "statementDate" | "dueDate" | "categoryId">, today: DateKey): Parsed<CardBillInput> {
   const cardId = parseRowId(fields.cardId);
   if (cardId === null) return fail(NOT_FOUND.account);
   const amount = parseBillAmount(fields.amount);
   if (!amount.ok) return amount;
   const statementDate = fields.statementDate.trim() === "" ? ok(null) : labelled("結帳日", parseEntryDate(fields.statementDate, today));
   if (!statementDate.ok) return statementDate;
+  const dueDate = parseDueDate(fields.dueDate);
+  if (!dueDate.ok) return dueDate;
   const categoryId = optionalId(fields.categoryId, NOT_FOUND.category);
   if (!categoryId.ok) return categoryId;
-  return ok({ cardId, amount: amount.value, statementDate: statementDate.value, categoryId: categoryId.value });
+  return ok({ cardId, amount: amount.value, statementDate: statementDate.value, dueDate: dueDate.value, categoryId: categoryId.value });
 }

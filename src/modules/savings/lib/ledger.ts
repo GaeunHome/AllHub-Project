@@ -24,13 +24,11 @@ export type AccountLike = {
   openingCost: number | null;
   monthlyPlan: number | null;
   targetAmount: number | null;
-  dueDay: number | null;
   payFromAccountId: number | null;
   active: boolean;
   sortOrder: number;
   createdAt: Date;
 };
-export type PurposeLike = { id: number; name: string; color: PaletteColor };
 export type CategoryLike = { id: number; name: string; kind: CategoryKind; color: PaletteColor; monthlyBudget: number | null };
 
 /**

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch } from "@/dev/fake-fetch";
 import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { captureErrorLog, tagged } from "@/dev/test-helpers";
-import { savingsAccounts, savingsCardBills, savingsCategories, savingsHoldings, savingsPurposes, savingsRecurring, savingsTransactions } from "../data/schema";
+import { savingsAccounts, savingsCardBills, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions } from "../data/schema";
 import {
   cachedAccountFlows,
   cachedAccounts,
@@ -13,9 +13,9 @@ import {
   cachedCategoryTotals,
   cachedHoldings,
   cachedMonthTransactions,
-  cachedPurposes,
   cachedQuotes,
   cachedRecurring,
+  cachedRecurringRecords,
 } from "./cached";
 
 let testDb: TestDb;
@@ -26,9 +26,8 @@ let other: string;
 beforeEach(async () => {
   me = await insertTestUser(testDb, "alice", { role: "owner" });
   other = await insertTestUser(testDb, "bob");
-  const [purpose] = await testDb.insert(savingsPurposes).values({ userId: me, name: "生活費", color: "blue" }).returning();
   const [category] = await testDb.insert(savingsCategories).values({ userId: me, kind: "expense", name: "訂閱", color: "violet" }).returning();
-  const [account] = await testDb.insert(savingsAccounts).values({ userId: me, name: "國泰", kind: "deposit", purposeId: purpose.id }).returning();
+  const [account] = await testDb.insert(savingsAccounts).values({ userId: me, name: "國泰", kind: "deposit" }).returning();
   const [rule] = await testDb.insert(savingsRecurring).values({ userId: me, kind: "expense", accountId: account.id, categoryId: category.id, amount: 390, dayOfMonth: 6, name: "Netflix" }).returning();
   await testDb.insert(savingsTransactions).values([
     { userId: me, kind: "expense", accountId: account.id, categoryId: category.id, amount: 390, date: "2026-10-06", recurringId: rule.id },
@@ -39,7 +38,7 @@ beforeEach(async () => {
 /** 信用卡與持股的資料 只有用到的測試才加 其他測試的結果才不會跟著變 */
 async function addCardAndHolding() {
   const [account] = await testDb.select().from(savingsAccounts);
-  const [card] = await testDb.insert(savingsAccounts).values({ userId: me, name: "國泰卡", kind: "credit", statementDay: 5, dueDay: 20 }).returning();
+  const [card] = await testDb.insert(savingsAccounts).values({ userId: me, name: "國泰卡", kind: "credit", statementDay: 5 }).returning();
   const [broker] = await testDb.insert(savingsAccounts).values({ userId: me, name: "臺銀證券", kind: "investment" }).returning();
   const [etf] = await testDb.insert(savingsHoldings).values({ userId: me, accountId: broker.id, symbol: "006208", name: "富邦台50", shares: 19, cost: 4916 }).returning();
   await testDb.insert(savingsTransactions).values([
@@ -59,12 +58,6 @@ describe("理財的快取讀取：標上讀到的資料表、用 db 效期", () 
   it("cachedAccounts_savings:accounts", async () => {
     expect((await cachedAccounts(me)).map((a) => a.name)).toEqual(["國泰"]);
     expect(tagged()).toEqual(["savings:accounts"]);
-    expect(cacheLife).toHaveBeenCalledWith("db");
-  });
-
-  it("cachedPurposes_savings:purposes", async () => {
-    expect((await cachedPurposes(me)).map((p) => p.name)).toEqual(["生活費"]);
-    expect(tagged()).toEqual(["savings:purposes"]);
     expect(cacheLife).toHaveBeenCalledWith("db");
   });
 
@@ -107,6 +100,22 @@ describe("理財的快取讀取：標上讀到的資料表、用 db 效期", () 
       ["國泰", null, 4916, false, null, "006208", 19],
     ]);
     expect(tagged()).toEqual(["savings:accounts", "savings:categories", "savings:holdings", "savings:recurring", "savings:transactions"]);
+    expect(cacheLife).toHaveBeenCalledWith("db");
+  });
+
+  it("cachedRecurringRecords_固定收支記下的紀錄，since 以後記的或期別在那之後的（提早確認的那一筆記在更早）：savings:transactions", async () => {
+    const [account] = await testDb.select().from(savingsAccounts);
+    const [rule] = await testDb.select().from(savingsRecurring);
+    await testDb.insert(savingsTransactions).values([
+      { userId: me, kind: "expense", accountId: account.id, amount: 1412, date: "2026-08-20", recurringId: rule.id, recurringPeriod: "2026-08-01" },
+      { userId: me, kind: "expense", accountId: account.id, amount: 1500, date: "2026-08-30", recurringId: rule.id, recurringPeriod: "2026-09-01" },
+    ]);
+
+    expect((await cachedRecurringRecords(me, "2026-09-01")).map((r) => [r.recurringId, r.recurringPeriod, r.kind, r.amount, r.date])).toEqual([
+      [rule.id, "2026-09-01", "expense", 1500, "2026-08-30"],
+      [rule.id, null, "expense", 390, "2026-10-06"],
+    ]);
+    expect(tagged()).toEqual(["savings:transactions"]);
     expect(cacheLife).toHaveBeenCalledWith("db");
   });
 
@@ -196,7 +205,6 @@ describe("依使用者的快取：使用者 id 是參數，別人讀到的是自
   it("每個快取函式換成別人都是空的", async () => {
     await addCardAndHolding();
     expect(await cachedAccounts(other)).toEqual([]);
-    expect(await cachedPurposes(other)).toEqual([]);
     expect(await cachedCategories(other)).toEqual([]);
     expect(await cachedRecurring(other)).toEqual([]);
     expect(await cachedAccountFlows(other)).toEqual([]);
@@ -205,5 +213,6 @@ describe("依使用者的快取：使用者 id 是參數，別人讀到的是自
     expect(await cachedHoldings(other)).toEqual([]);
     expect(await cachedCardFlows(other, "2026-01-01")).toEqual([]);
     expect(await cachedCardBills(other)).toEqual([]);
+    expect(await cachedRecurringRecords(other, "2026-01-01")).toEqual([]);
   });
 });

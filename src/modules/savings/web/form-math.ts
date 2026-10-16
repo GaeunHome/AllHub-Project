@@ -115,12 +115,12 @@ function unshiftedDate(rule: RecurringLike, next: DateKey): DateKey | null {
 
 /**
  * 固定收支表單下面那一行 遇假日調整過時寫出原本的日子
- * 要確認的那一期到期了還沒處理 它在總覽的待處理 不寫成下一期 新的規則寫第一期
+ * 要確認的那一期到期了還沒處理 還在等確認 不寫成下一期 新的規則寫第一期
  */
 export function nextRunText(rule: RecurringLike & { mode: RecurringMode }, today: DateKey, fresh: boolean): string {
   const next = nextRunDate(rule, today);
   const original = unshiftedDate(rule, next);
   const shifted = original !== null && original !== next ? `，${formatSlashDate(original)} 遇假日${original > next ? "提前" : "延後"}` : "";
-  const label = fresh ? "第一期" : rule.mode === "confirm" && next <= today ? "待處理" : rule.lastPostedMonth === null ? "第一期" : "下一期";
+  const label = fresh ? "第一期" : rule.mode === "confirm" && next <= today ? "待確認" : rule.lastPostedMonth === null ? "第一期" : "下一期";
   return `${label} ${formatSlashDate(next)}${shifted}`;
 }

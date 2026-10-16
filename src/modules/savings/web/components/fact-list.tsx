@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** 標籤在左 值在右 首頁卡片與帳戶詳情共用 */
+/** 標籤在左 值在右 首頁卡片與紀錄共用 */
 export function FactList({ className = "", children }: { className?: string; children: ReactNode }) {
   return <dl className={`flex flex-col divide-y divide-line ${className}`}>{children}</dl>;
 }

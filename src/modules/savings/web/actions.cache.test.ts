@@ -4,7 +4,6 @@ import { form, mocksOf, updated } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/accounts", { spy: true });
-vi.mock("../service/purposes", { spy: true });
 vi.mock("../service/categories", { spy: true });
 vi.mock("../service/setup", { spy: true });
 vi.mock("../service/transactions", { spy: true });
@@ -13,8 +12,7 @@ vi.mock("../service/holdings", { spy: true });
 vi.mock("../service/cards", { spy: true });
 
 const { SavingsUserError } = await import("../service/errors");
-const accounts = mocksOf(await import("../service/accounts"), "listAccounts", "createAccount", "updateAccount", "setAccountActive", "moveAccount", "deleteAccount");
-const purposes = mocksOf(await import("../service/purposes"), "createPurpose", "updatePurpose", "movePurpose", "deletePurpose");
+const accounts = mocksOf(await import("../service/accounts"), "listAccounts", "createAccount", "updateAccount", "setAccountActive", "moveAccount", "deleteAccount", "updateAllocation");
 const categories = mocksOf(await import("../service/categories"), "listCategories", "createCategory", "updateCategory", "moveCategory", "deleteCategory");
 const setup = mocksOf(await import("../service/setup"), "setupDefaults");
 const transactions = mocksOf(await import("../service/transactions"), "addTransaction", "updateTransaction", "deleteTransaction", "updateBalance", "allocateSalary");
@@ -33,21 +31,19 @@ const BILL = { id: 40, accountId: 3, statementDate: "2026-10-05", dueDate: "2026
 const RULE_FIELDS = { kind: "expense", accountId: "1", counterAccountId: "", categoryId: "", amount: "15000", dayOfMonth: "6", note: "" };
 
 beforeEach(() => {
-  for (const service of [accounts, purposes, categories, setup, transactions, recurring, holdings, cards]) {
+  for (const service of [accounts, categories, setup, transactions, recurring, holdings, cards]) {
     for (const fn of Object.values(service)) fn.mockReset().mockResolvedValue(undefined);
   }
   accounts.listAccounts.mockResolvedValue([CATHAY]);
   accounts.createAccount.mockResolvedValue(CATHAY);
   accounts.updateAccount.mockResolvedValue(CATHAY);
   accounts.deleteAccount.mockResolvedValue("國泰");
-  purposes.createPurpose.mockResolvedValue({ id: 5, name: "生活費" });
-  purposes.updatePurpose.mockResolvedValue({ id: 5, name: "生活費" });
-  purposes.deletePurpose.mockResolvedValue("生活費");
+  accounts.updateAllocation.mockResolvedValue(2);
   categories.listCategories.mockResolvedValue([]);
   categories.createCategory.mockResolvedValue({ id: 11, name: "餐飲" });
   categories.updateCategory.mockResolvedValue({ id: 11, name: "餐飲" });
   categories.deleteCategory.mockResolvedValue("餐飲");
-  setup.setupDefaults.mockResolvedValue({ purposes: 3, categories: 5 });
+  setup.setupDefaults.mockResolvedValue({ categories: 5 });
   transactions.addTransaction.mockResolvedValue(EXPENSE);
   transactions.updateTransaction.mockResolvedValue(EXPENSE);
   transactions.deleteTransaction.mockResolvedValue(true);
@@ -70,20 +66,18 @@ beforeEach(() => {
 
 describe("理財的 Server Action：寫入成功後用 updateTag 讓改到的表失效", () => {
   it.each([
-    // 開始使用只建用途與分類
-    ["setupAction", ["savings:categories", "savings:purposes"], () => actions.setupAction()],
+    // 開始使用只建分類
+    ["setupAction", ["savings:categories"], () => actions.setupAction()],
     ["createAccountAction", ["savings:accounts"], () => actions.createAccountAction({}, form({ name: "國泰", kind: "deposit" }))],
     // 改名也算 明細的帳戶名稱是讀取時 join 的 月份明細的快取也標了 accounts
     ["updateAccountAction", ["savings:accounts"], () => actions.updateAccountAction({}, form({ id: "1", name: "國泰世華" }))],
     ["setAccountActiveAction", ["savings:accounts"], () => actions.setAccountActiveAction({}, form({ id: "1", active: "false" }))],
     ["moveAccountAction", ["savings:accounts"], () => actions.moveAccountAction({}, form({ id: "1", direction: "up" }))],
+    // 每月規劃與目標存在帳戶上
+    ["updateAllocationAction", ["savings:accounts"], () => actions.updateAllocationAction({}, form({ accountId: "1", "monthlyPlan:1": "5000", "targetAmount:1": "" }))],
     // 帳戶的紀錄 含轉帳的另一邊 固定收支 持股與帳單跟著刪除
     ["deleteAccountAction", ["savings:accounts", "savings:bills", "savings:holdings", "savings:recurring", "savings:transactions"], () => actions.deleteAccountAction({}, form({ id: "1" }))],
-    ["createPurposeAction", ["savings:purposes"], () => actions.createPurposeAction({}, form({ name: "生活費", color: "blue" }))],
-    ["updatePurposeAction", ["savings:purposes"], () => actions.updatePurposeAction({}, form({ id: "5", name: "生活費", color: "teal" }))],
-    ["movePurposeAction", ["savings:purposes"], () => actions.movePurposeAction({}, form({ id: "5", direction: "down" }))],
     // 用了這個用途的帳戶改成未設定
-    ["deletePurposeAction", ["savings:accounts", "savings:purposes"], () => actions.deletePurposeAction({}, form({ id: "5" }))],
     ["createCategoryAction", ["savings:categories"], () => actions.createCategoryAction({}, form({ kind: "expense", name: "餐飲", color: "orange" }))],
     ["updateCategoryAction", ["savings:categories"], () => actions.updateCategoryAction({}, form({ id: "11", name: "外食", color: "orange" }))],
     ["moveCategoryAction", ["savings:categories"], () => actions.moveCategoryAction({}, form({ id: "11", direction: "up" }))],
@@ -126,7 +120,6 @@ describe("理財的 Server Action：寫入成功後用 updateTag 讓改到的表
 
   it.each([
     ["deleteAccountAction", () => accounts.deleteAccount.mockResolvedValue(null), () => actions.deleteAccountAction({}, form({ id: "1" }))],
-    ["deletePurposeAction", () => purposes.deletePurpose.mockResolvedValue(null), () => actions.deletePurposeAction({}, form({ id: "5" }))],
     ["deleteCategoryAction", () => categories.deleteCategory.mockResolvedValue(null), () => actions.deleteCategoryAction({}, form({ id: "11" }))],
     ["deleteTransactionAction", () => transactions.deleteTransaction.mockResolvedValue(false), () => actions.deleteTransactionAction({}, form({ id: "70" }))],
     ["deleteRecurringAction", () => recurring.deleteRecurring.mockResolvedValue(false), () => actions.deleteRecurringAction({}, form({ id: "30" }))],
@@ -173,8 +166,8 @@ describe("理財的 Server Action：寫入成功後用 updateTag 讓改到的表
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("開始使用時用途與分類都已經有了（什麼都沒建）_不失效，改用 refresh 讓還停在舊畫面的分頁換掉「開始使用」", async () => {
-    setup.setupDefaults.mockResolvedValue({ purposes: 0, categories: 0 });
+  it("開始使用時分類已經有了（什麼都沒建）_不失效，改用 refresh 讓還停在舊畫面的分頁換掉「開始使用」", async () => {
+    setup.setupDefaults.mockResolvedValue({ categories: 0 });
 
     await actions.setupAction();
 

@@ -10,7 +10,7 @@ import { balanceHint } from "../../form-math";
 import { AmountField, FormButtons, ROW_MESSAGE_CLASS } from "./fields";
 
 /** 信用卡照帳單繳 有持股的投資帳戶照股價算 都不能更新餘額 */
-type BalanceAccount = { id: number; name: string; kind: "deposit" | "investment"; balance: number };
+export type BalanceAccount = { id: number; name: string; kind: "deposit" | "investment"; balance: number };
 
 export type UpdateBalanceButtonProps = { account: BalanceAccount };
 
@@ -29,13 +29,16 @@ export function UpdateBalanceButton({ account }: UpdateBalanceButtonProps) {
       </button>
       <DialogMessage {...dialog.messageProps} className={ROW_MESSAGE_CLASS} />
       <Dialog {...dialog.dialogProps} title={`更新「${account.name}」`} size="sm">
-        <BalanceForm account={account} onDone={dialog.done} onCancel={dialog.close} />
+        <UpdateBalanceForm account={account} onDone={dialog.done} onCancel={dialog.close} />
       </Dialog>
     </>
   );
 }
 
-function BalanceForm({ account, onDone, onCancel }: { account: BalanceAccount; onDone: (message: string | undefined) => void; onCancel: () => void }) {
+type UpdateBalanceFormProps = { account: BalanceAccount; onDone: (message: string | undefined) => void; onCancel: () => void };
+
+/** 視窗的內容 先選帳戶再更新的視窗也用它 */
+export function UpdateBalanceForm({ account, onDone, onCancel }: UpdateBalanceFormProps) {
   const { state, pending, formProps } = useDialogForm(updateBalanceAction, onDone);
   const [text, setText] = useState("");
   const label = FIGURE_LABELS[account.kind];

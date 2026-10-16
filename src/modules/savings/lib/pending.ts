@@ -6,9 +6,10 @@ import { pendingOccurrences, recurringTitle, type RecurringLike } from "./recurr
 
 // 總覽的待處理 要確認的固定收支與信用卡帳單 自動記的不列
 
-export type PendingStatus = DueStatus;
+/** needs-bill 是信用卡結帳了還沒填帳單 還沒有截止日 不算逾期 */
+export type PendingStatus = DueStatus | "needs-bill";
 
-/** daysLeft 是離 date 幾天 逾期是負的 amount 是預計金額或本期應繳 */
+/** daysLeft 是離 date 幾天 過了是負的 amount 是預計金額或本期應繳 */
 type PendingBase = { key: string; date: DateKey; status: PendingStatus; daysLeft: number; name: string; amount: number };
 
 /**
@@ -28,13 +29,16 @@ export type PendingRecurring = PendingBase & {
   laterCount: number;
 };
 
-/** date 是截止日 還沒填帳單時 amount 是估計 填了是本期還要繳的 */
+/**
+ * 還沒填帳單時 date 是結帳日 amount 是照紀錄的估計
+ * 填了之後 date 是帳單遇假日順延後的截止日 amount 是本期還要繳的
+ */
 export type PendingCard = PendingBase & {
   type: "card";
   accountId: number;
   payFromAccountId: number | null;
   autopay: boolean;
-  statementDate: DateKey | null;
+  statementDate: DateKey;
   needsBill: boolean;
   estimate: number;
   billId: number | null;
@@ -106,14 +110,17 @@ export function pendingItems(rules: PendingRuleRow[], bills: CardBill[], today: 
 
   const cards = bills.flatMap((bill): PendingCard[] => {
     const account = accounts.get(bill.accountId);
-    if (!account?.active || account.kind !== "credit" || bill.status === "none" || bill.dueDate === null) return [];
+    if (!account?.active || account.kind !== "credit" || bill.status === "none") return [];
+    // 還沒填帳單不知道截止日 照結帳日排
+    const date = bill.status === "needs-bill" ? bill.statementDate : bill.dueDate;
+    if (date === null || bill.statementDate === null) return [];
     return [
       {
         type: "card",
-        key: `card:${bill.accountId}:${bill.dueDate}`,
-        date: bill.dueDate,
-        status: dueStatus(bill.dueDate, today),
-        daysLeft: daysBetween(today, bill.dueDate),
+        key: `card:${bill.accountId}:${bill.statementDate}`,
+        date,
+        status: bill.status,
+        daysLeft: daysBetween(today, date),
         name: account.name,
         amount: bill.needsBill ? bill.estimate : bill.remainingDue,
         accountId: account.id,

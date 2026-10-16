@@ -6,7 +6,7 @@ import { FormFeedback } from "@/core/ui/form-message";
 import { formatSlashDate, type DateKey } from "../../../lib/dates";
 import { confirmOccurrenceAction } from "../../actions";
 import { priceText, type ConfirmDraft } from "../../dashboard-view";
-import { SharesField } from "../accounts/holding-forms";
+import { SharesField } from "../investments/holding-forms";
 import { AmountField, DateField, FormButtons, NoteField } from "../forms/fields";
 
 type ConfirmFormProps = { draft: ConfirmDraft; today: DateKey; onDone: (message: string | undefined) => void; onCancel: () => void };

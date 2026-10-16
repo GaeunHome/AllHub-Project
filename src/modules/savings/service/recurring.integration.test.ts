@@ -801,11 +801,24 @@ describe("postDueRecurring：假日規則、每幾個月一次、要確認的不
     expect(await postDueRecurring(NOW)).toBe("自動記帳 0 筆");
   });
 
-  it("自動記的紀錄備註用規則的備註，沒有備註用名稱；不帶期別（只有確認來的才有）", async () => {
+  it("自動記的紀錄備註用規則的備註，沒有備註用名稱；標上是哪一期（這個月要做的事要對得到）", async () => {
     const card = await insertAccount({ name: "國泰卡", kind: "credit" });
     await insertRule({ accountId: card.id, dayOfMonth: 12, name: "Netflix", createdAt: noonOf("2026-10-01") });
 
     expect(await postDueRecurring(NOW)).toBe("自動記帳 1 筆");
-    expect((await transactions()).map((t) => [t.note, t.recurringPeriod])).toEqual([["Netflix", null]]);
+    expect((await transactions()).map((t) => [t.note, t.recurringPeriod])).toEqual([["Netflix", "2026-10-01"]]);
+  });
+
+  it("補記好幾期時每一筆標自己的期別；遇假日提前跨到上個月的那一期，日期在上個月、期別還是原本的月份", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    // 每月 1 日 遇假日提前 2026-11-01 是週日 提前到週五 10/30
+    await insertRule({ accountId: living.id, dayOfMonth: 1, holidayRule: "before", createdAt: noonOf("2026-08-15") });
+
+    expect(await postDueRecurring(noonOf("2026-10-30"))).toBe("自動記帳 3 筆");
+    expect((await transactions()).map((t) => [t.date, t.recurringPeriod])).toEqual([
+      ["2026-09-01", "2026-09-01"],
+      ["2026-10-01", "2026-10-01"],
+      ["2026-10-30", "2026-11-01"],
+    ]);
   });
 });

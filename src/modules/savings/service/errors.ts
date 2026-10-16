@@ -7,7 +7,6 @@ export class SavingsUserError extends Error {}
 /** 資料庫的唯一索引擋下同名時用 */
 export const DUPLICATE_NAME = {
   account: "已經有同名的帳戶",
-  purpose: "已經有同名的用途",
   category: "已經有同名的分類",
 } as const;
 
@@ -33,7 +32,6 @@ export const SHARES_REQUIRED = "請輸入買到的股數";
 
 export const PAY_CARD_NOT_CREDIT = "繳卡費要選信用卡";
 export const CARD_BILL_NOT_CREDIT = "帳單要填在信用卡";
-export const CARD_NEEDS_DUE_DAY = "這張卡還沒設定繳款截止日，請先到設定頁填";
 export const STATEMENT_DAY_MISMATCH = "這一天不是這張卡的結帳日";
 export const STATEMENT_BEFORE_START = "這張卡開始記帳之前的帳單不用填";
 export const BILL_DIFFERENCE_TOO_LARGE = "帳單跟紀錄差超過 1 億元，請確認帳單金額";
@@ -46,5 +44,5 @@ export const NOT_INCOME_RULE = "這個固定收支不是收入，不能用發薪
 export const EARLIER_PERIOD_FIRST = "請先處理更早的那一期";
 export const PERIOD_DONE = "這一期已經處理過了，請重新整理頁面";
 export const PERIOD_NOT_DUE = `這一期還沒到，到期前 ${PENDING_LOOKAHEAD_DAYS} 天才能處理`;
-export const PERIOD_NOT_PENDING = "這一期不在待處理裡，請重新整理頁面";
+export const PERIOD_NOT_PENDING = "這一期現在不能處理，請重新整理頁面";
 export const RULE_CHANGED = "這個固定收支剛剛被修改了，請重新整理頁面再試一次";

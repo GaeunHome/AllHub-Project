@@ -3,6 +3,7 @@ import { type AnyPgColumn, boolean, check, date, index, integer, pgTable, serial
 import { coreUsers } from "@/core/db/schema";
 import {
   ACCOUNT_KINDS,
+  CARD_STYLES,
   CATEGORY_KINDS,
   ENTRY_KINDS,
   HOLIDAY_RULES,
@@ -13,6 +14,7 @@ import {
   SYMBOL_PATTERN,
   TRANSACTION_KINDS,
   type AccountKind,
+  type CardStyle,
   type CategoryKind,
   type EntryKind,
   type HolidayRule,
@@ -35,7 +37,7 @@ const owner = () =>
     .references(() => coreUsers.id, { onDelete: "cascade" });
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
-/** 帳戶拿來做什麼 例如生活費 存款那一列的說明寫它 */
+/** 已改用帳戶的 label 之後刪掉 */
 export const savingsPurposes = pgTable(
   "savings_purposes",
   {
@@ -61,6 +63,8 @@ export const savingsCategories = pgTable(
     monthlyBudget: integer("monthly_budget"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: createdAt(),
+    // 圖示名稱 見 CATEGORY_ICONS
+    icon: text("icon"),
   },
   (t) => [
     uniqueIndex("savings_categories_user_kind_name_idx").on(t.userId, t.kind, t.name),
@@ -78,6 +82,7 @@ export const savingsAccounts = pgTable(
     userId: owner(),
     name: text("name").notNull(),
     kind: text("kind").$type<AccountKind>().notNull(),
+    // 已改用 label 之後刪掉
     purposeId: integer("purpose_id").references(() => savingsPurposes.id, { onDelete: "set null" }),
     // 開始記帳前就有的錢 信用卡存成負的未繳金額
     openingBalance: integer("opening_balance").notNull().default(0),
@@ -85,7 +90,7 @@ export const savingsAccounts = pgTable(
     openingCost: integer("opening_cost"),
     monthlyPlan: integer("monthly_plan"),
     targetAmount: integer("target_amount"),
-    // 信用卡的繳款截止日
+    // 舊的繳款截止日設定 不再修改 只當第一張帳單截止日的預設 之後的版本刪掉
     dueDay: smallint("due_day"),
     payFromAccountId: integer("pay_from_account_id").references((): AnyPgColumn => savingsAccounts.id, { onDelete: "set null" }),
     active: boolean("active").notNull().default(true),
@@ -96,6 +101,10 @@ export const savingsAccounts = pgTable(
     autopay: boolean("autopay").notNull().default(false),
     // 截止前的提醒寄到哪一天 排程用條件式 update 認領 同一天只寄一次
     cardNotifiedOn: date("card_notified_on", { mode: "string" }),
+    // 用途 例如生活費
+    label: text("label"),
+    // 信用卡的卡面顏色
+    cardStyle: text("card_style").$type<CardStyle>(),
   },
   (t) => [
     uniqueIndex("savings_accounts_user_name_idx").on(t.userId, t.name),
@@ -110,6 +119,7 @@ export const savingsAccounts = pgTable(
     check("savings_accounts_pay_from", sql`${t.payFromAccountId} is null or (${t.kind} = 'credit' and ${t.payFromAccountId} <> ${t.id})`),
     check("savings_accounts_statement_day", sql`${t.statementDay} is null or (${t.kind} = 'credit' and ${t.statementDay} between 1 and 31)`),
     check("savings_accounts_autopay", sql`not ${t.autopay} or ${t.kind} = 'credit'`),
+    check("savings_accounts_card_style", sql`${t.cardStyle} is null or (${t.kind} = 'credit' and ${oneOf(t.cardStyle, CARD_STYLES)})`),
   ],
 ).enableRLS();
 
@@ -151,7 +161,7 @@ export const savingsCardBills = pgTable(
       .references(() => savingsAccounts.id, { onDelete: "cascade" }),
     // 沒有結帳日的卡是填帳單那天
     statementDate: date("statement_date", { mode: "string" }).notNull(),
-    // 已經照假日順延 之後改了卡的截止日也照填的時候
+    // 照帳單填的存 遇假日順延是讀的時候算 舊程式存的已經順延過
     dueDate: date("due_date", { mode: "string" }).notNull(),
     amount: integer("amount").notNull(),
     createdAt: createdAt(),
