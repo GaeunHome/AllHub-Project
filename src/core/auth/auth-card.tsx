@@ -15,8 +15,14 @@ export function AuthNotice({ icon, children }: { icon: "info" | "circle-alert" |
 /** 登入與註冊共用的外框 三段之間用 gap-6 比欄位之間的 gap-4 大一級 */
 export function AuthCard({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-12">
+    <main className="relative isolate flex flex-1 items-center justify-center px-4 py-12">
       <DiscardHiddenPages />
+      {/* 背景的柔光 只是裝飾 */}
+      <div aria-hidden className="auth-glow">
+        <span className="auth-glow-blob auth-glow-a" />
+        <span className="auth-glow-blob auth-glow-b" />
+        <span className="auth-glow-blob auth-glow-c" />
+      </div>
       <div className="card flex w-full max-w-md flex-col gap-6">
         <header className="flex flex-col items-center gap-4 text-center">
           <span className="logo-mark size-16">

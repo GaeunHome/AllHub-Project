@@ -1,3 +1,5 @@
+import { groupDigits } from "@/core/number";
+
 export const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 export const CHANNEL_ID = /^UC[A-Za-z0-9_-]{22}$/;
 // handle 可以用各國文字 \p{M} 是泰文與印地文這類的組合符號 放進網址時另外編碼
@@ -87,8 +89,6 @@ export function parseGlossary(text: string): GlossaryEntry[] {
 export const GLOSSARY_LIMITS = { entries: 200, termLength: 50, totalLength: 5000 } as const;
 
 const charCount = (text: string) => [...text].length;
-/** 錯誤訊息的數字加千分位 不用 toLocaleString 輸出才不隨 ICU 版本改變 */
-export const withCommas = (n: number) => String(n).replace(/\B(?=(\d{3})+$)/g, ",");
 const preview = (text: string) => (charCount(text) > 10 ? `${[...text].slice(0, 10).join("")}…` : text);
 
 /** 存檔前檢查 回傳給使用者看的錯誤 沒問題回 null */
@@ -100,7 +100,7 @@ export function glossaryProblem(entries: GlossaryEntry[]): string | null {
     if (charCount(target) > termLength) return `專有名詞表每個詞最多 ${termLength} 字：「${preview(source)}」的譯名太長`;
   }
   const total = entries.reduce((sum, { source, target }) => sum + charCount(source) + charCount(target), 0);
-  if (total > totalLength) return `專有名詞表合計最多 ${withCommas(totalLength)} 字（目前 ${withCommas(total)} 字），請刪掉用不到的`;
+  if (total > totalLength) return `專有名詞表合計最多 ${groupDigits(totalLength)} 字（目前 ${groupDigits(total)} 字），請刪掉用不到的`;
   return null;
 }
 

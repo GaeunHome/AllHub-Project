@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { safeEqual } from "@/core/crypto";
 import { connectionProblem, errorKind } from "@/core/errors";
-import { codePointToString } from "./code-point";
 import { CHANNEL_ID } from "./parse";
+import { decodeEntities } from "./text";
 import { youtubeWatchUrl } from "./urls";
 
 const TOPIC_BASE = "https://www.youtube.com/xml/feeds/videos.xml";
@@ -62,16 +62,9 @@ export type FeedEntry = {
 /** 推送的 entry 常常連 Shorts 也給 /watch 連結 這時看不出來 */
 const SHORTS_LINK = /^https:\/\/(?:www\.)?youtube\.com\/shorts\//;
 
-const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
-
 function decodeXml(text: string): string {
   const cdata = /^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/.exec(text);
-  if (cdata) return cdata[1];
-  return text
-    .replace(/&#x([0-9a-f]+);/gi, (whole, hex) => codePointToString(parseInt(hex, 16)) ?? whole)
-    .replace(/&#(\d+);/g, (whole, dec) => codePointToString(Number(dec)) ?? whole)
-    .replace(/&(amp|lt|gt|quot|apos);/g, (_, name) => ENTITIES[name])
-    .trim();
+  return cdata ? cdata[1] : decodeEntities(text).trim();
 }
 
 function tag(xml: string, name: string): string | null {
@@ -133,12 +126,17 @@ export function parseVerification(params: URLSearchParams): Verification | null 
   return { mode, topic, challenge, leaseSeconds: lease === null ? undefined : Math.min(Number(lease), MAX_LEASE_SECONDS), token };
 }
 
+/** 訂閱失敗寫進狀態的開頭 後面接原因 續訂與畫面靠它認出失敗 */
+export const SUBSCRIPTION_FAILED = "訂閱失敗：";
+
+export const isSubscriptionFailure = (status: string | null): boolean => status?.startsWith(SUBSCRIPTION_FAILED) ?? false;
+
 /**
  * 訂閱失敗的原因會顯示在畫面上 只放中文摘要 原文可能是英文或夾帶 hub 的回應
  * 用名稱判斷 HubError 才不必載入 server-only 的 api.ts
  */
 export function subscriptionFailure(error: unknown): string {
-  return `訂閱失敗：${connectionProblem(error, "WebSub hub") ?? hubProblem(error)}`;
+  return `${SUBSCRIPTION_FAILED}${connectionProblem(error, "WebSub hub") ?? hubProblem(error)}`;
 }
 
 function hubProblem(error: unknown): string {

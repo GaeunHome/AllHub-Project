@@ -1,8 +1,7 @@
 import { formatTaipeiMonthDay } from "@/core/time";
 import type { StatusBadge } from "@/core/ui/status-chip";
+import { SUBSCRIPTION_FAILED } from "../lib/websub";
 import type { TranslationStatus } from "../data/schema";
-
-const FAILURE_PREFIX = "訂閱失敗：";
 
 /** 頻道列的訂閱狀態標籤 失敗原因與到期日放在 detail 需要時才顯示 */
 export function channelStatusBadge(status: string | null, leaseExpiresAt: Date | null, now = new Date()): StatusBadge {
@@ -13,7 +12,7 @@ export function channelStatusBadge(status: string | null, leaseExpiresAt: Date |
     if (leaseExpiresAt > now) return { label: "訂閱正常", tone: "success", detail: `${formatTaipeiMonthDay(leaseExpiresAt)} 到期，會自動續訂` };
     return { label: "租約過期，等待續訂", tone: "warning", detail: null };
   }
-  return { label: "訂閱失敗", tone: "danger", detail: status.startsWith(FAILURE_PREFIX) ? status.slice(FAILURE_PREFIX.length) : status };
+  return { label: "訂閱失敗", tone: "danger", detail: status.startsWith(SUBSCRIPTION_FAILED) ? status.slice(SUBSCRIPTION_FAILED.length) : status };
 }
 
 export function describeTranslationStatus(status: TranslationStatus | null): string {

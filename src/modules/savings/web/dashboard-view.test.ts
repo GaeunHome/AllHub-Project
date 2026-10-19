@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { CardDailyFlow } from "../lib/cards";
+import { accountRow, dayFlowRow, flowRow as flow, ruleRow } from "../dev/fixtures";
 import type { HoldingLike } from "../lib/holdings";
-import type { AccountBalance, AccountMonthFlow, CategoryMonthTotal } from "../lib/ledger";
+import type { AccountBalance, CategoryMonthTotal } from "../lib/ledger";
 import { pendingItems, type PendingRuleRow } from "../lib/pending";
 import type { Quote } from "../lib/quotes";
 import { CARD_STYLES } from "../lib/kinds";
@@ -12,13 +12,10 @@ import {
   accountsPageView,
   accountsState,
   activeAccountsInOrder,
-  averagePriceText,
   balanceAccounts,
   cardStyles,
   expenseRows,
   pendingEntries,
-  periodLabel,
-  recordsHref,
   salaryAccountOptions,
   settlementAccounts,
   type AccountsInput,
@@ -31,21 +28,7 @@ const CREATED = new Date("2026-01-05T02:00:00Z");
 const TODAY = "2026-10-15";
 
 type AccountFixture = Pick<OverviewAccount, "id" | "name" | "kind"> & Partial<OverviewAccount>;
-const account = (fixture: AccountFixture): OverviewAccount => ({
-  purposeId: null,
-  openingBalance: 0,
-  openingCost: null,
-  monthlyPlan: null,
-  targetAmount: null,
-  dueDay: null,
-  payFromAccountId: null,
-  active: true,
-  sortOrder: fixture.id,
-  createdAt: CREATED,
-  statementDay: null,
-  autopay: false,
-  ...fixture,
-});
+const account = (fixture: AccountFixture): OverviewAccount => accountRow({ createdAt: CREATED, ...fixture });
 
 const ACCOUNTS = [
   account({ id: 1, name: "台銀", kind: "deposit", label: "交割", openingBalance: 8300 }),
@@ -58,11 +41,9 @@ const ACCOUNTS = [
   account({ id: 7, name: "台新卡", kind: "credit", dueDay: 25, autopay: true, payFromAccountId: 2, openingBalance: -3000 }),
   account({ id: 8, name: "舊帳戶", kind: "deposit", openingBalance: 9000, active: false }),
 ];
-const flow =(accountId: number, month: string, values: Partial<AccountMonthFlow>): AccountMonthFlow => ({ accountId, month, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
 // 國泰卡 9/20 刷 12,480 是 10/5 結帳的帳單 10/10 再刷 6,000 還沒出帳
 const FLOWS = [flow(6, "2026-09", { expense: 12480 }), flow(6, "2026-10", { expense: 6000 })];
-const dayFlow = (accountId: number, date: string, values: Partial<CardDailyFlow>): CardDailyFlow => ({ accountId, date, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
-const CARD_FLOWS = [dayFlow(6, "2026-09-20", { expense: 12480 }), dayFlow(6, "2026-10-10", { expense: 6000 })];
+const CARD_FLOWS = [dayFlowRow(6, "2026-09-20", { expense: 12480 }), dayFlowRow(6, "2026-10-10", { expense: 6000 })];
 const holding = (id: number, symbol: string, name: string, shares: number, cost: number): HoldingLike => ({ id, accountId: 4, symbol, name, shares, cost, sortOrder: id });
 const HOLDINGS = [holding(1, "0050", "元大台灣50", 100, 18000), holding(2, "006208", "富邦台50", 1000, 95000)];
 const quote = (symbol: string, closeCents: number | null): Quote => ({ symbol, name: symbol, closeCents, date: closeCents === null ? null : "2026-10-14", market: "twse" });
@@ -78,12 +59,7 @@ const detailsOf = (overrides: Partial<AccountsInput> = {}) => {
 const detailOf = (name: string, overrides: Partial<AccountsInput> = {}) => detailsOf(overrides).find((detail) => detail.name === name)!;
 const cardOf = (name: string, overrides: Partial<AccountsInput> = {}) => detailOf(name, overrides) as CreditDetail;
 
-describe("總資產與帳戶的詳情", () => {
-  it("總資產是啟用中的存款餘額加投資市值；有持股的投資帳戶用股數 × 收盤價，不看帳上的餘額", () => {
-    // 存款 8,300 + 86,000 + 8,200 投資 1,000 股 × 106.50 + 100 股 × 195.00 + 沒有持股的 50,000 停用的與信用卡不算
-    expect(accountsState(input()).totalAssets).toBe(278500);
-  });
-
+describe("帳戶的詳情", () => {
   it("停用的帳戶不出現", () => {
     expect(detailsOf().map((detail) => detail.name)).not.toContain("舊帳戶");
   });
@@ -131,21 +107,20 @@ describe("信用卡的帳單（填帳單，差額自動補）", () => {
     return pendingEntries(items, { accounts: ACCOUNTS, rules: [], holdings: HOLDINGS, quotes: QUOTES, categories: [], fills: state.fills, today: TODAY }).find((entry) => entry.row.key.startsWith("card:6:"))!;
   };
 
-  it("結帳後還沒填這一期的帳單：按鈕是「填帳單」，金額先填照紀錄估的；還沒有帳單時截止日先用帳戶上的 20 日", () => {
+  it("結帳後還沒填這一期的帳單：按鈕是「填帳單」，金額先填照紀錄估的", () => {
     const entry = pendingOf([]);
 
     expect(entry.row.action).toBe("bill");
     // 帳單金額先填紀錄算的 10/5 結帳時欠 12,480
-    expect(entry.bill).toMatchObject({ cardId: 6, estimate: 12480, statementDate: "2026-10-05", dueDate: "2026-10-20", payFromAccountId: 2 });
+    expect(entry.bill).toMatchObject({ cardId: 6, estimate: 12480, statementDate: "2026-10-05", payFromAccountId: 2 });
     expect(entry.pay).toBeUndefined();
   });
 
-  it("截止日的預設照上一張帳單截止日的日子：9/5 那張填了 9/25，10/5 結帳的預設是帳單上會印的 10/25，遇假日順延到 10/27 另外帶著（舊版設的 20 日不看）；帳戶詳情的「填本期帳單」也一樣", () => {
+  it("這個月要做的事與帳戶詳情的「填帳單」先填好的內容是同一份（截止日的預設照上一張帳單，算法在 lib/cards）", () => {
     const previous: CardBillRecord = { id: 3, accountId: 6, statementDate: "2026-09-05", dueDate: "2026-09-25", amount: 9000, paid: 9000, lastPaidOn: "2026-09-20" };
-    const expected = { statementDate: "2026-10-05", dueDate: "2026-10-25", shiftedDueDate: "2026-10-27" };
 
-    expect(pendingOf([previous]).bill).toMatchObject(expected);
-    expect(cardOf("國泰卡", { cardBills: [previous] }).bill).toMatchObject(expected);
+    expect(pendingOf([previous]).bill).toEqual(cardOf("國泰卡", { cardBills: [previous] }).bill);
+    expect(pendingOf([previous]).bill).toMatchObject({ statementDate: "2026-10-05", dueDate: "2026-10-25" });
   });
 
   it("填了帳單還沒繳清：按鈕回到「已繳」，金額是帳單減掉結帳後繳的（帳單 13,000 比紀錄多 520 也照帳單）", () => {
@@ -171,16 +146,13 @@ describe("信用卡的帳單（填帳單，差額自動補）", () => {
     ]);
   });
 
-  it("沒有結帳日的卡也能「填本期帳單」：填的那天（10/15）就是結帳日；截止日先填舊版設的 25 日（10/25，遇假日順延到 10/27），也沒有舊設定時是結帳後 15 天（10/30 週五，不用順延）", () => {
-    const withoutSetting = ACCOUNTS.map((item) => (item.id === 7 ? { ...item, dueDay: null } : item));
-
-    expect(cardOf("台新卡").bill).toMatchObject({ cardId: 7, statementDate: null, estimate: 3000, dueDate: "2026-10-25", shiftedDueDate: "2026-10-27" });
-    expect(cardOf("台新卡", { accounts: withoutSetting }).bill).toMatchObject({ dueDate: "2026-10-30", shiftedDueDate: "2026-10-30" });
+  it("沒有結帳日的卡也能「填本期帳單」：填的那天就是結帳日，視窗的標題不寫結帳日", () => {
+    expect(cardOf("台新卡").bill).toMatchObject({ cardId: 7, statementDate: null, estimate: 3000 });
   });
 });
 
 describe("本月支出", () => {
-  const category = (id: number, name: string, monthlyBudget: number | null) => ({ id, name, kind: "expense" as const, color: "blue" as const, monthlyBudget });
+  const category = (id: number, name: string, monthlyBudget: number | null) => ({ id, name, kind: "expense" as const, monthlyBudget });
   const CATEGORIES = [category(1, "餐飲", 10000), category(2, "交通", null), category(3, "訂閱", 500), category(4, "娛樂", 3000)];
   const total = (categoryId: number | null, amount: number): CategoryMonthTotal => ({ categoryId, kind: "expense", month: "2026-10", amount });
   const rows = expenseRows(CATEGORIES, [total(1, 8200), total(2, 1900), total(3, 650), total(null, 1250)], "2026-10");
@@ -209,30 +181,8 @@ describe("本月支出", () => {
   });
 });
 
-describe("紀錄頁的網址", () => {
-  it("本月不帶月份；帳戶與分類照紀錄頁認得的參數帶上", () => {
-    expect(recordsHref()).toBe("/savings/records");
-    expect(recordsHref({ month: "2026-08", account: 4 })).toBe("/savings/records?month=2026-08&account=4");
-  });
-});
-
 describe("待處理", () => {
-  const rule = (fixture: Pick<PendingRuleRow, "id" | "kind" | "amount" | "accountId" | "dayOfMonth"> & Partial<PendingRuleRow>): PendingRuleRow => ({
-    intervalMonths: 1,
-    startMonth: null,
-    holidayRule: "none",
-    lastPostedMonth: "2026-09-01",
-    createdAt: CREATED,
-    mode: "confirm",
-    active: true,
-    counterAccountId: null,
-    categoryId: null,
-    holdingId: null,
-    allocate: false,
-    name: null,
-    note: null,
-    ...fixture,
-  });
+  const rule = (fixture: Pick<PendingRuleRow, "id" | "kind" | "amount" | "accountId" | "dayOfMonth"> & Partial<PendingRuleRow>): PendingRuleRow => ruleRow({ createdAt: CREATED, ...fixture });
   const RULES = [
     rule({ id: 1, name: "薪水", kind: "income", amount: 52000, accountId: 2, categoryId: 11, dayOfMonth: 20, allocate: true }),
     rule({ id: 2, kind: "transfer", amount: 5000, accountId: 1, counterAccountId: 4, holdingId: 2, dayOfMonth: 15 }),
@@ -290,14 +240,6 @@ describe("待處理", () => {
   });
 });
 
-describe("月份的稱呼", () => {
-  it("這個月是「本月」，同一年的其他月份只寫月，不同年加上年份", () => {
-    expect(periodLabel("2026-10", "2026-10")).toBe("本月");
-    expect(periodLabel("2026-09", "2026-10")).toBe("9 月");
-    expect(periodLabel("2025-12", "2026-10")).toBe("2025 年 12 月");
-  });
-});
-
 describe("薪水入帳並分配的帳戶", () => {
   it("帶上目前的餘額；有持股的投資帳戶不能入帳也不能轉入（要用買進賣出），不列；停用的帳戶不列", () => {
     const balances = new Map<number, AccountBalance>([
@@ -314,7 +256,7 @@ describe("薪水入帳並分配的帳戶", () => {
 });
 
 describe("交給表單的帳戶", () => {
-  it("只有啟用中的，照設定頁的順序", () => {
+  it("只有啟用中的，照帳戶頁排的順序", () => {
     const shuffled = [account({ id: 3, name: "上海", kind: "deposit", sortOrder: 2 }), account({ id: 1, name: "國泰", kind: "deposit", sortOrder: 1 }), account({ id: 2, name: "舊帳戶", kind: "deposit", active: false })];
 
     expect(activeAccountsInOrder(shuffled).map((item) => item.name)).toEqual(["國泰", "上海"]);
@@ -332,17 +274,6 @@ describe("帳戶詳情的「查看紀錄」", () => {
   it("只有轉入的帳戶也算有紀錄；完全沒有紀錄的連到本月", () => {
     expect(accountRecordsHref(3, flows, "2026-10")).toBe("/savings/records?month=2026-09&account=3");
     expect(accountRecordsHref(9, flows, "2026-10")).toBe("/savings/records?account=9");
-  });
-});
-
-describe("持股的均價", () => {
-  it("總成本除以股數，到小數兩位（27,600 元買 120 股是 $230.00、1,000 元買 3 股是 $333.33）", () => {
-    expect(averagePriceText({ shares: 120, cost: 27600 })).toBe("$230.00");
-    expect(averagePriceText({ shares: 3, cost: 1000 })).toBe("$333.33");
-  });
-
-  it("賣光了（0 股）_沒有均價", () => {
-    expect(averagePriceText({ shares: 0, cost: 0 })).toBeNull();
   });
 });
 
@@ -448,7 +379,7 @@ describe("帳戶頁", () => {
     // 國泰卡 10/5 結帳的帳單 12,480 10/20 截止 之後又刷了 6,000
     const paid = (amount: number) => ({
       flows: [...FLOWS, flow(6, "2026-10", { transferIn: amount })],
-      cardFlows: [...CARD_FLOWS, dayFlow(6, "2026-10-12", { transferIn: amount })],
+      cardFlows: [...CARD_FLOWS, dayFlowRow(6, "2026-10-12", { transferIn: amount })],
       cardBills: [{ ...BILL, paid: amount, lastPaidOn: "2026-10-12" }],
     });
 

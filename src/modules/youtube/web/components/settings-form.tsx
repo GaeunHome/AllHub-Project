@@ -1,17 +1,24 @@
 "use client";
 
 import { useActionState, useId } from "react";
+import { groupDigits } from "@/core/number";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { InfoTip } from "@/core/ui/info-tip";
 import { saveSettingsAction, type SettingsFormState } from "../actions";
 import { AI_PROVIDERS, SUBSCRIPTION_NOTE } from "../ai-providers";
-import { GLOSSARY_LIMITS, withCommas } from "../../lib/parse";
-import type { SettingsView } from "../../service/translation";
+import { GLOSSARY_LIMITS } from "../../lib/parse";
+import type { SettingsView } from "../../service/ai-settings";
 
 // legend 預設壓在 fieldset 的邊框上 也不吃父層的 gap
 // 浮動後變成一般的子元素 樣子才跟其他卡片的 CardHeader 一樣
 const LEGEND_CLASS = "float-left flex w-full flex-wrap items-center gap-3 text-lg font-semibold text-ink";
+
+/** 只顯示前 8 碼 輸入框照樣隱藏打的字 空字串是存了但解不開 */
+function keyPlaceholder(prefix: string | null): string {
+  if (prefix === null) return "未設定";
+  return prefix ? `已設定（前 8 碼 ${prefix}），留空表示不變更` : "已設定（無法解密，請重新填入）";
+}
 
 export function SettingsForm({ settings }: { settings: SettingsView }) {
   const [state, action, pending] = useActionState<SettingsFormState, FormData>(saveSettingsAction, {});
@@ -44,7 +51,7 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
       </fieldset>
 
       {AI_PROVIDERS.map((p) => {
-        const hint = settings.keys[p.id];
+        const prefix = settings.keys[p.id];
         return (
           <fieldset key={p.id} className="card stack min-w-0">
             <legend className={LEGEND_CLASS}>
@@ -52,7 +59,7 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
                 <Icon name="key-round" />
               </span>
               {p.name}
-              {hint !== null && <span className="chip chip-success">已設定</span>}
+              {prefix !== null && <span className="chip chip-success">已設定</span>}
             </legend>
             {p.note && (
               <details className="disclosure text-sm">
@@ -66,11 +73,11 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
                 type="password"
                 name={`key_${p.id}`}
                 autoComplete="off"
-                placeholder={hint === null ? "未設定" : `已設定（末 4 碼 ${hint}），留空表示不變更`}
+                placeholder={keyPlaceholder(prefix)}
                 className="input"
               />
             </label>
-            {hint !== null && (
+            {prefix !== null && (
               <label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 text-sm text-ink-soft">
                 <input type="checkbox" name={`clear_${p.id}`} className="size-4" />
                 清除這把金鑰
@@ -96,7 +103,7 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="text-lg font-semibold text-ink">專有名詞表</span>
             <span className="text-sm text-ink-soft">
-              每行一個「韓文=中文」，翻譯時會照這個譯法。最多 {GLOSSARY_LIMITS.entries} 筆、每個詞 {GLOSSARY_LIMITS.termLength} 字以內，合計 {withCommas(GLOSSARY_LIMITS.totalLength)} 字以內。
+              每行一個「韓文=中文」，翻譯時會照這個譯法。最多 {GLOSSARY_LIMITS.entries} 筆、每個詞 {GLOSSARY_LIMITS.termLength} 字以內，合計 {groupDigits(GLOSSARY_LIMITS.totalLength)} 字以內。
             </span>
           </span>
         </span>

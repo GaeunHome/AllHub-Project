@@ -1,14 +1,11 @@
-import type { UserRole } from "../auth";
+import { ROLE_LABELS, type UserRole } from "../db/schema";
 import { formatTaipeiDateTime, formatTaipeiHourMinute } from "../time";
 import { ActionButton } from "../ui/action-button";
 import { Icon } from "../ui/icon";
 import { deleteUserAction, setUserDisabledAction, unlockUserAction } from "./actions";
 import type { ManagedUser } from "./service";
 
-const ROLE: Record<UserRole, { label: string; chip: string }> = {
-  owner: { label: "站長", chip: "chip chip-brand" },
-  member: { label: "成員", chip: "chip" },
-};
+const ROLE_CHIP: Record<UserRole, string> = { owner: "chip chip-brand", member: "chip" };
 
 /** 停用等於凍結 排程與通知暫停 資料與訂閱保留 恢復後要重新登入 */
 const disableConfirmMessage = (username: string) =>
@@ -36,7 +33,7 @@ export function UserList({ users, currentUserId, lockedUntil }: { users: Managed
                 <p className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold break-all">{user.username}</span>
                   {self && <span>（你）</span>}
-                  <span className={ROLE[user.role].chip}>{ROLE[user.role].label}</span>
+                  <span className={ROLE_CHIP[user.role]}>{ROLE_LABELS[user.role]}</span>
                   {user.disabledAt && <span className="chip chip-danger">已停用</span>}
                   {lockEnd && <span className="chip chip-warning">{`鎖定中，到 ${formatTaipeiHourMinute(lockEnd)}`}</span>}
                 </p>

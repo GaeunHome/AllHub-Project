@@ -8,11 +8,12 @@ import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { formatTwd } from "../../../lib/money";
 import { allocateSalaryAction } from "../../actions";
-import { confirmDate, type SalaryPrefill } from "../../dashboard-view";
+import type { SalaryPrefill } from "../../dashboard-view";
 import { UNCATEGORIZED_LABEL } from "../../entry-display";
-import { defaultIncomeCategory, salaryFormReducer, salaryPreview, salaryStartDate, type SalaryLine } from "../../form-math";
+import { confirmDate, defaultIncomeCategory, salaryFormReducer, salaryPreview, salaryStartDate, type SalaryLine } from "../../form-math";
 import { lastSalaryAccountPref, pickAccount } from "../../last-used";
 import { SAVINGS_PATHS } from "../../paths";
+import { DialogMenuItem } from "../row-controls";
 import { AccountSelect, AmountField, DateField, FormButtons, NoteField, ROW_MESSAGE_CLASS } from "./fields";
 import type { CategoryOption, SalaryAccountOption } from "./options";
 
@@ -32,10 +33,7 @@ export function SalaryMenu({ accounts, categories, today }: SalaryProps) {
   return (
     <>
       <MoreMenu label="更多記帳方式">
-        <button {...dialog.triggerProps} className="menu-item">
-          <Icon name="banknote" className="size-4" />
-          薪水入帳並分配
-        </button>
+        <DialogMenuItem trigger={dialog.triggerProps} icon="banknote" label="薪水入帳並分配" />
       </MoreMenu>
       <DialogMessage {...dialog.messageProps} className={ROW_MESSAGE_CLASS} />
       <Dialog {...dialog.dialogProps} title="薪水入帳並分配" size="lg">

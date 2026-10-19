@@ -1,29 +1,29 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { coreNotifications, coreUsers } from "@/core/db/schema";
-import { insertTestUser, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 import type { PublicCode } from "../lib/codes";
 import type { RedeemOutcome } from "../lib/redeem";
+import type { GameRole } from "../lib/responses";
 import { starrailAccounts, starrailRedeemCodes } from "../data/schema";
+import { hoyolab, ok, role } from "../dev/fixtures";
 
 // 沒設定回應的呼叫只會拿到 undefined 不會連到真的 HoYoLAB 與 hoyo-codes
-const hoyolab = vi.hoisted(() => ({ fetchGameRoles: vi.fn(), redeemCode: vi.fn() }));
 const source = vi.hoisted(() => ({ fetchActiveCodes: vi.fn() }));
-vi.mock("../lib/hoyolab", () => hoyolab);
+vi.mock("../lib/hoyolab", async () => (await import("../dev/fixtures")).hoyolab);
 vi.mock("../lib/codes", () => source);
 vi.mock("@/core/notify", { spy: true });
 
 stubCoreEnv();
 
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
-const { linkAccount } = await import("./accounts");
+const { linkAccount } = await import("./link");
 const { autoRedeemAll } = await import("./auto-redeem");
 
 // 兌換要 cookie_token_v2 account_id_v2 由 ltuid_v2 補上
 const cookieOf = (ltuid: string) => `ltoken_v2=v2_secret_${ltuid}; ltuid_v2=${ltuid}; cookie_token_v2=ct_secret_${ltuid}`;
-const role = (uid: string, nickname: string, region = "prod_official_cht") => ({ uid, nickname, region, regionName: null, level: 70 });
 const code = (value: string, rewards: string | null = null): PublicCode => ({ code: value, rewards });
 const success: RedeemOutcome = { ok: true, message: "獎勵會寄到遊戲內信箱", retcode: 0, cookieInvalid: false };
 const failure = (retcode: number | null, cookieInvalid = false): RedeemOutcome => ({ ok: false, message: "", retcode, cookieInvalid });
@@ -39,8 +39,8 @@ const getDb = setupTestDb();
 let me: string;
 let other: string;
 
-async function linkFor(userId: string, roles: ReturnType<typeof role>[], ltuid: string, { autoRedeem = true, cookie = cookieOf(ltuid) } = {}) {
-  hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: roles, raw: {} });
+async function linkFor(userId: string, roles: GameRole[], ltuid: string, { autoRedeem = true, cookie = cookieOf(ltuid) } = {}) {
+  hoyolab.fetchGameRoles.mockResolvedValue(ok(roles));
   await linkAccount(userId, cookie, "all");
   if (autoRedeem) await getDb().update(starrailAccounts).set({ autoRedeem: true }).where(eq(starrailAccounts.ltuid, ltuid));
 }
@@ -55,8 +55,7 @@ const respondBy = (outcomes: (uid: string, value: string) => RedeemOutcome) =>
   });
 
 beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
+  [me, other] = await insertTestUsers(getDb());
   Object.values(hoyolab).forEach((fn) => fn.mockReset());
   source.fetchActiveCodes.mockReset().mockResolvedValue([code("GIFTNEW1", "60 stellar jade"), code("GIFTNEW2")]);
   notify.mockReset().mockResolvedValue(undefined);
@@ -67,7 +66,7 @@ beforeEach(async () => {
 
 describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌換碼", () => {
   it("用帳號自己的 cookie、UID 與伺服器送出；記下試過的碼，第二天不再送", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
 
     await autoRedeemAll(clock);
 
@@ -81,7 +80,7 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
   });
 
   it("一個帳號的碼都試完就寄一則給擁有者：列出這次兌換成功的碼與社群寫的獎勵，連到這個帳號", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
 
     await autoRedeemAll(clock);
 
@@ -93,8 +92,8 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
   });
 
   it("每個 HoYoLAB 帳號試完就馬上寄，不用等別人的帳號試完", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
-    await linkFor(other, [role("900000002", "鮑勃")], "42");
+    await linkFor(me, [role()], "41");
+    await linkFor(other, [role({ uid: "900000002", nickname: "鮑勃" })], "42");
     // 開拓者已經試過 GIFTNEW2 這次只剩一個碼
     await getDb().insert(starrailRedeemCodes).values({ accountId: await accountIdOf("900000001"), code: "GIFTNEW2", result: "success" });
     const events: string[] = [];
@@ -107,7 +106,7 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
   });
 
   it("同一個 HoYoLAB 帳號兩次兌換之間至少隔 5 秒（CLAUDE.md〈HoYoLAB〉：兩次兌換之間約 5 秒的冷卻，從上一次的回應起算）", async () => {
-    await linkFor(me, [role("900000001", "開拓者"), role("800000002", "小號", "prod_official_asia")], "41");
+    await linkFor(me, [role(), role({ uid: "800000002", nickname: "小號", region: "prod_official_asia" })], "41");
 
     await autoRedeemAll(clock);
 
@@ -116,7 +115,7 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
   });
 
   it("同一個 HoYoLAB 帳號的兩個角色合寄一則：每一行寫是哪個角色兌換到哪個碼，連到星穹鐵道頁", async () => {
-    await linkFor(me, [role("900000001", "開拓者"), role("800000002", "小號", "prod_official_asia")], "41");
+    await linkFor(me, [role(), role({ uid: "800000002", nickname: "小號", region: "prod_official_asia" })], "41");
 
     await autoRedeemAll(clock);
 
@@ -129,8 +128,8 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
   });
 
   it("不同人的 HoYoLAB 帳號輪流送，一個人等冷卻時先送別人的；每個人只收到自己帳號的通知", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
-    await linkFor(other, [role("900000002", "鮑勃")], "42");
+    await linkFor(me, [role()], "41");
+    await linkFor(other, [role({ uid: "900000002", nickname: "鮑勃" })], "42");
 
     await autoRedeemAll(clock);
 
@@ -150,7 +149,7 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
 
   it("兌換只花 30 秒：30 秒後不再送新的，剩下的明天再試（第二天接著送沒試過的）", async () => {
     source.fetchActiveCodes.mockResolvedValue(Array.from({ length: 10 }, (_, i) => code(`GIFTBATCH${i}`)));
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
 
     const summary = await autoRedeemAll(clock);
 
@@ -170,8 +169,8 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
 
   it("要求驗證（風控）_整批停下，那個碼不記下來，明天再試", async () => {
     captureErrorLog();
-    await linkFor(me, [role("900000001", "開拓者")], "41");
-    await linkFor(other, [role("900000002", "鮑勃")], "42");
+    await linkFor(me, [role()], "41");
+    await linkFor(other, [role({ uid: "900000002", nickname: "鮑勃" })], "42");
     hoyolab.redeemCode.mockResolvedValueOnce(failure(10035));
 
     expect(await autoRedeemAll(clock)).toContain("HoYoLAB 要求驗證");
@@ -183,7 +182,7 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
 
   it("要求驗證時整批停下_已經兌換成功的碼照樣寄出", async () => {
     captureErrorLog();
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
     respondBy((_uid, value) => (value === "GIFTNEW1" ? success : failure(10035)));
 
     await autoRedeemAll(clock);
@@ -195,8 +194,8 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
 
   it("請求太頻繁（genshin.py 的 VisitsTooFrequently -110）_這個 HoYoLAB 帳號今天先停、不記下來；別人照樣兌換", async () => {
     captureErrorLog();
-    await linkFor(me, [role("900000001", "開拓者")], "41");
-    await linkFor(other, [role("900000002", "鮑勃")], "42");
+    await linkFor(me, [role()], "41");
+    await linkFor(other, [role({ uid: "900000002", nickname: "鮑勃" })], "42");
     respondBy((uid) => (uid === "900000001" ? failure(-110) : success));
 
     await autoRedeemAll(clock);
@@ -208,7 +207,7 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
 
   it("還沒開放（genshin.py：-2014 Redemption code not activated）_不記下來，同一個帳號接著送下一個碼；第二天再試", async () => {
     captureErrorLog();
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
     respondBy((_uid, value) => (value === "GIFTNEW1" ? failure(-2014) : success));
 
     await autoRedeemAll(clock);
@@ -224,8 +223,8 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
 
   it("cookie 失效_這個 HoYoLAB 帳號今天先跳過、不記下來；別人照樣兌換", async () => {
     captureErrorLog();
-    await linkFor(me, [role("900000001", "開拓者")], "41");
-    await linkFor(other, [role("900000002", "鮑勃")], "42");
+    await linkFor(me, [role()], "41");
+    await linkFor(other, [role({ uid: "900000002", nickname: "鮑勃" })], "42");
     respondBy((uid) => (uid === "900000001" ? failure(-1071, true) : success));
 
     await autoRedeemAll(clock);
@@ -238,7 +237,7 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
   it("已兌換過、過期、無效的記下來不再送；等級不足與認不得的代碼不記，明天再試", async () => {
     captureErrorLog();
     source.fetchActiveCodes.mockResolvedValue([code("USEDCODE"), code("EXPIREDX"), code("BADCODE"), code("LEVELUP"), code("WEIRDO")]);
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
     const outcomes: Record<string, RedeemOutcome> = { USEDCODE: failure(-2017), EXPIREDX: failure(-2001), BADCODE: failure(-1065), LEVELUP: failure(-2021), WEIRDO: failure(-9999) };
     respondBy((_uid, value) => outcomes[value]);
 
@@ -251,7 +250,7 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
   it("每個沒成功的結果都記 retcode（只記數字），認不得的也記；log 不記兌換碼與 cookie", async () => {
     const log = captureErrorLog();
     source.fetchActiveCodes.mockResolvedValue([code("USEDCODE"), code("WEIRDO")]);
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
     respondBy((_uid, value) => (value === "USEDCODE" ? failure(-2017) : failure(-9999)));
 
     await autoRedeemAll(clock);
@@ -263,7 +262,7 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
 
   it("連不上_log 不記兌換碼與 cookie", async () => {
     const log = captureErrorLog();
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
     respondBy(() => failure(null));
 
     await autoRedeemAll(clock);
@@ -284,8 +283,8 @@ describe("cookie 被 HoYoLAB 拒絕：通知擁有者重新貼上，一個遊戲
   const notices = async () => (await getDb().select().from(coreNotifications)).filter((n) => n.title.includes("自動兌換失敗"));
 
   it("通知擁有者：哪個帳號、cookie 已失效、請用「新增帳號或更新 cookie」重新貼上，連到這個帳號；別人不會收到", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
-    await linkFor(other, [role("900000002", "鮑勃")], "42");
+    await linkFor(me, [role()], "41");
+    await linkFor(other, [role({ uid: "900000002", nickname: "鮑勃" })], "42");
 
     await autoRedeemAll(clock);
 
@@ -299,7 +298,7 @@ describe("cookie 被 HoYoLAB 拒絕：通知擁有者重新貼上，一個遊戲
   });
 
   it("隔天還是失效_同一週不再通知；一週後還沒修好_再通知一次", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
 
     await autoRedeemAll(clock);
     for (let day = 1; day <= 6; day++) {
@@ -314,7 +313,7 @@ describe("cookie 被 HoYoLAB 拒絕：通知擁有者重新貼上，一個遊戲
   });
 
   it("同一天排程送了兩次、前一次還在寫通知時後一次就開始了_只通知一次", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
     let release!: () => void;
     notify.mockImplementationOnce(() => new Promise<void>((resolve) => (release = resolve)));
 
@@ -328,7 +327,7 @@ describe("cookie 被 HoYoLAB 拒絕：通知擁有者重新貼上，一個遊戲
   });
 
   it("通知寫不進去_放掉這次的認領，下一次排程再通知", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
     notify.mockRejectedValueOnce(new Error("db down"));
 
     await autoRedeemAll(clock);
@@ -341,7 +340,7 @@ describe("cookie 被 HoYoLAB 拒絕：通知擁有者重新貼上，一個遊戲
 
 describe("哪些帳號會自動兌換", () => {
   it("沒打開的帳號不兌換；沒有人打開時連兌換碼清單都不讀", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41", { autoRedeem: false });
+    await linkFor(me, [role()], "41", { autoRedeem: false });
 
     expect(await autoRedeemAll(clock)).toBe("沒有打開自動兌換的帳號");
     expect(source.fetchActiveCodes).not.toHaveBeenCalled();
@@ -349,14 +348,14 @@ describe("哪些帳號會自動兌換", () => {
   });
 
   it("cookie 少了 cookie_token_v2_略過不送", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41", { cookie: "ltoken_v2=v2_secret_41; ltuid_v2=41" });
+    await linkFor(me, [role()], "41", { cookie: "ltoken_v2=v2_secret_41; ltuid_v2=41" });
 
     expect(await autoRedeemAll(clock)).toContain("cookie 不能兌換");
     expect(hoyolab.redeemCode).not.toHaveBeenCalled();
   });
 
   it("帳號標著 cookie 失效_略過", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
     await getDb().update(starrailAccounts).set({ cookieInvalid: true });
 
     await autoRedeemAll(clock);
@@ -365,8 +364,8 @@ describe("哪些帳號會自動兌換", () => {
   });
 
   it("停用的人（凍結）_不用他的 cookie 兌換，也不通知他", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
-    await linkFor(other, [role("900000002", "鮑勃")], "42");
+    await linkFor(me, [role()], "41");
+    await linkFor(other, [role({ uid: "900000002", nickname: "鮑勃" })], "42");
     await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.id, other));
 
     await autoRedeemAll(clock);
@@ -376,7 +375,7 @@ describe("哪些帳號會自動兌換", () => {
   });
 
   it("兌換碼清單讀不到_什麼都不送，明天再試", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
     source.fetchActiveCodes.mockResolvedValue(null);
 
     expect(await autoRedeemAll(clock)).toBe("讀不到兌換碼清單，明天再試");
@@ -384,7 +383,7 @@ describe("哪些帳號會自動兌換", () => {
   });
 
   it("移除遊戲帳號時試過的兌換碼一起刪", async () => {
-    await linkFor(me, [role("900000001", "開拓者")], "41");
+    await linkFor(me, [role()], "41");
     await autoRedeemAll(clock);
 
     await getDb().delete(starrailAccounts);

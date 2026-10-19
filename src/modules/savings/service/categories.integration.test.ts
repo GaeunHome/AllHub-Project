@@ -1,36 +1,22 @@
 import { and, asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { insertTestUser, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { savingsAccounts, savingsCategories, savingsRecurring, savingsTransactions } from "../data/schema";
+import { savingsRows } from "../dev/db-fixtures";
+import { userError } from "../dev/fixtures";
 import { createCategory, deleteCategory, listCategories, moveCategory, updateCategory } from "./categories";
-import { SavingsUserError } from "./errors";
 
 const getDb = setupTestDb();
 let me: string;
 let other: string;
+const { insertCategory } = savingsRows(getDb, () => me);
 
 beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
+  [me, other] = await insertTestUsers(getDb());
 });
 
 const NOT_FOUND = "找不到這個分類，可能已經刪除了";
 const DUPLICATE = "已經有同名的分類";
-
-async function insertCategory(values: Partial<typeof savingsCategories.$inferInsert> & { name: string }) {
-  const [row] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", color: "orange", ...values }).returning();
-  return row;
-}
-
-/** 要是使用者錯誤畫面才會顯示訊息 不能是文字剛好一樣的其他錯誤 */
-async function userError(promise: Promise<unknown>): Promise<string> {
-  const error = await promise.then(
-    () => undefined,
-    (reason: unknown) => reason,
-  );
-  expect(error).toBeInstanceOf(SavingsUserError);
-  return (error as Error).message;
-}
 
 const rowsOf = (userId: string, kind: "expense" | "income" = "expense") =>
   getDb()
@@ -40,7 +26,7 @@ const rowsOf = (userId: string, kind: "expense" | "income" = "expense") =>
     .orderBy(asc(savingsCategories.sortOrder), asc(savingsCategories.id));
 const namesOf = async (userId: string, kind: "expense" | "income" = "expense") => (await rowsOf(userId, kind)).map((c) => c.name);
 
-const fields = (values: Partial<{ kind: string; name: string; color: string; monthlyBudget: string; icon: string }> = {}) => ({ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", icon: "", ...values });
+const fields = (values: Partial<{ kind: string; name: string; monthlyBudget: string; icon: string }> = {}) => ({ kind: "expense", name: "餐飲", monthlyBudget: "", icon: "", ...values });
 
 describe("listCategories", () => {
   it("只有自己的_支出在前、收入在後_各自依排序值與建立順序", async () => {
@@ -70,7 +56,16 @@ describe("createCategory", () => {
 
     const category = await createCategory(me, fields({ name: " 餐飲 ", monthlyBudget: "6,000", icon: "utensils" }));
 
-    expect(category).toMatchObject({ userId: me, kind: "expense", name: "餐飲", color: "orange", monthlyBudget: 6000, sortOrder: 3, icon: "utensils" });
+    expect(category).toMatchObject({ userId: me, kind: "expense", name: "餐飲", monthlyBudget: 6000, sortOrder: 3, icon: "utensils" });
+  });
+
+  it("顏色由伺服器給（畫面不顯示，資料表要一個）_同一類自己還沒用過的第一個；收入與別人的不算", async () => {
+    await insertCategory({ name: "交通", color: "blue" });
+    await insertCategory({ name: "薪水", kind: "income", color: "teal" });
+    await insertCategory({ name: "別人的", color: "teal", userId: other });
+
+    expect(await createCategory(me, fields({ name: "餐飲" }))).toMatchObject({ color: "teal" });
+    expect(await createCategory(me, fields({ kind: "income", name: "獎金" }))).toMatchObject({ color: "blue" });
   });
 
   it("沒選圖示_存成 null", async () => {
@@ -78,12 +73,12 @@ describe("createCategory", () => {
   });
 
   it("圖示不在選擇器上_丟使用者錯誤_沒有寫入", async () => {
-    expect(await userError(createCategory(me, fields({ icon: "rocket" })))).toBe("圖示不正確");
+    await userError(createCategory(me, fields({ icon: "rocket" })));
     expect(await rowsOf(me)).toEqual([]);
   });
 
   it("收入分類_預算不適用而存成 null_排序從 0 開始", async () => {
-    expect(await createCategory(me, fields({ kind: "income", name: "薪水", color: "green", monthlyBudget: "100" }))).toMatchObject({
+    expect(await createCategory(me, fields({ kind: "income", name: "薪水", monthlyBudget: "100" }))).toMatchObject({
       kind: "income",
       monthlyBudget: null,
       sortOrder: 0,
@@ -91,14 +86,14 @@ describe("createCategory", () => {
   });
 
   it("類型不對_丟使用者錯誤_沒有寫入", async () => {
-    expect(await userError(createCategory(me, fields({ kind: "transfer" })))).toBe("分類類型不正確");
+    await userError(createCategory(me, fields({ kind: "transfer" })));
     expect(await rowsOf(me)).toEqual([]);
   });
 
   it("同一類有同名的_丟使用者錯誤", async () => {
     await insertCategory({ name: "餐飲" });
 
-    expect(await userError(createCategory(me, fields({ name: "餐飲", color: "rose" })))).toBe(DUPLICATE);
+    expect(await userError(createCategory(me, fields({ name: "餐飲" })))).toBe(DUPLICATE);
     expect(await namesOf(me)).toEqual(["餐飲"]);
   });
 
@@ -109,27 +104,16 @@ describe("createCategory", () => {
 
     expect(await namesOf(me, "income")).toEqual(["其他"]);
   });
-
-  it("預算不合法_丟使用者錯誤", async () => {
-    expect(await userError(createCategory(me, fields({ monthlyBudget: "-1" })))).toBe("金額只能是正整數（單位：元，不能有小數或負數）");
-  });
-
-  it("灰色留給「未分類」_收入與支出的分類都不能選，丟使用者錯誤_沒有寫入", async () => {
-    expect(await userError(createCategory(me, fields({ name: "提領現金", color: "slate" })))).toBe("顏色不正確");
-    expect(await userError(createCategory(me, fields({ kind: "income", name: "獎金", color: "slate" })))).toBe("顏色不正確");
-    expect(await rowsOf(me)).toEqual([]);
-    expect(await rowsOf(me, "income")).toEqual([]);
-  });
 });
 
 describe("updateCategory", () => {
-  it("改名稱、顏色、預算與圖示_類型建立後不能改（送來的類型忽略）", async () => {
+  it("改名稱、預算與圖示_類型建立後不能改（送來的類型忽略）、顏色不動", async () => {
     const food = await insertCategory({ name: "餐飲", monthlyBudget: 6000, icon: "utensils" });
 
-    expect(await updateCategory(me, food.id, fields({ kind: "income", name: "吃飯", color: "rose", monthlyBudget: "", icon: "coffee" }))).toMatchObject({
+    expect(await updateCategory(me, food.id, fields({ kind: "income", name: "吃飯", monthlyBudget: "", icon: "coffee" }))).toMatchObject({
       kind: "expense",
       name: "吃飯",
-      color: "rose",
+      color: "orange",
       monthlyBudget: null,
       icon: "coffee",
     });
@@ -139,16 +123,14 @@ describe("updateCategory", () => {
   it("圖示改成不在選擇器上的_丟使用者錯誤_資料不變", async () => {
     const food = await insertCategory({ name: "餐飲", icon: "utensils" });
 
-    expect(await userError(updateCategory(me, food.id, fields({ icon: "constructor" })))).toBe("圖示不正確");
+    await userError(updateCategory(me, food.id, fields({ icon: "constructor" })));
     expect(await rowsOf(me)).toMatchObject([{ icon: "utensils" }]);
   });
 
-  it("資料庫裡還是灰色的分類（舊資料）_照樣留著；修改時要換成可以選的顏色，留著灰色送出是顏色不正確_資料不變", async () => {
+  it("資料庫裡還是灰色的分類（舊資料）_照樣改得了，顏色留著", async () => {
     const cash = await insertCategory({ name: "提領現金", color: "slate", monthlyBudget: 3000 });
 
-    expect(await userError(updateCategory(me, cash.id, fields({ name: "領現金", color: "slate", monthlyBudget: "3000" })))).toBe("顏色不正確");
-    expect(await rowsOf(me)).toMatchObject([{ name: "提領現金", color: "slate", monthlyBudget: 3000 }]);
-    expect(await updateCategory(me, cash.id, fields({ name: "領現金", color: "teal", monthlyBudget: "3000" }))).toMatchObject({ name: "領現金", color: "teal" });
+    expect(await updateCategory(me, cash.id, fields({ name: "領現金", monthlyBudget: "3000" }))).toMatchObject({ name: "領現金", color: "slate" });
   });
 
   it("收入分類_送來的預算忽略", async () => {

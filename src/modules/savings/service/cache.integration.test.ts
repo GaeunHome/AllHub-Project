@@ -1,5 +1,5 @@
 import { cacheLife } from "next/cache";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch } from "@/dev/fake-fetch";
 import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { captureErrorLog, tagged } from "@/dev/test-helpers";
@@ -49,10 +49,6 @@ async function addCardAndHolding() {
   ]);
   await testDb.insert(savingsCardBills).values({ userId: me, accountId: card.id, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 1120 });
 }
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 describe("理財的快取讀取：標上讀到的資料表、用 db 效期", () => {
   it("cachedAccounts_savings:accounts", async () => {
@@ -126,7 +122,7 @@ describe("理財的快取讀取：標上讀到的資料表、用 db 效期", () 
     expect(cacheLife).toHaveBeenCalledWith("db");
   });
 
-  it("cachedCardFlows_只有信用卡、since 當天以後的每日流量（轉入算在信用卡上）：查詢時 join 帳戶看是不是信用卡，所以也標 savings:accounts", async () => {
+  it("cachedCardFlows_只有信用卡、since 當天以後的每日流量（轉入算在信用卡上）：查詢時看帳戶是不是信用卡，所以也標 savings:accounts", async () => {
     await addCardAndHolding();
     expect(await cachedCardFlows(me, "2026-08-06")).toEqual([
       { accountId: expect.any(Number), date: "2026-10-07", income: 0, expense: 820, transferIn: 0, transferOut: 0, adjust: 0 },

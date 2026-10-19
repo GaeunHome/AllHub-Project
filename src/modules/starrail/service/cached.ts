@@ -1,25 +1,24 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { EndgameMode, EndgameSchedule } from "../lib/endgame";
+import { listAccountViews, type StarrailAccountView } from "./accounts";
+import { starrailTags } from "./cache-tags";
+import { recentCheckins } from "./checkin";
 import {
   actCalendarFor,
   charactersFor,
   dailyNoteFor,
   endgameFor,
   ledgerFor,
-  listAccountViews,
   profileFor,
-  recentCheckins,
   type ActCalendarFetch,
-  type CharactersResult,
-  type DailyNoteResult,
+  type CharactersFetch,
+  type DailyNoteFetch,
   type EndgameFetch,
   type LedgerFetch,
-  type StarrailAccountView,
-} from "./accounts";
-import { starrailTags } from "./cache-tags";
+} from "./page-reads";
 
-// 只給頁面用 排程與簽到要讀最新資料 直接用 accounts.ts
+// 只給頁面用 排程與簽到要讀最新資料 直接用 service 的其他檔
 // userId 是登入者也是快取 key 別人的帳號 id 當作不存在
 
 export async function cachedAccounts(userId: string): Promise<StarrailAccountView[]> {
@@ -39,7 +38,7 @@ export async function cachedRecentCheckins(userId: string, accountId?: number): 
 }
 
 /** 參數只有使用者與帳號 id cookie 在函式裡才解密 不進 key 也不進回傳值 */
-export async function cachedDailyNote(userId: string, accountId: number): Promise<DailyNoteResult> {
+export async function cachedDailyNote(userId: string, accountId: number): Promise<DailyNoteFetch> {
   "use cache: remote";
   cacheLife("external");
   // 讀了帳號的 cookie 與 UID 帳號被重新連結 簽到或排程改了時便箋跟著重查
@@ -65,7 +64,7 @@ export async function cachedProfile(userId: string, accountId: number): Promise<
  * 角色資料只放快取不存資料庫
  * 參數只有使用者與帳號 id cookie 在函式裡才解密
  */
-export async function cachedCharacters(userId: string, accountId: number): Promise<CharactersResult> {
+export async function cachedCharacters(userId: string, accountId: number): Promise<CharactersFetch> {
   "use cache: remote";
   // 讀了帳號的 cookie 與 UID 帳號改了角色資料也跟著重查
   cacheTag(starrailTags.accounts);

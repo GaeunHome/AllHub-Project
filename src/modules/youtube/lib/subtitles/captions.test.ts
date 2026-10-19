@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { byUrl, fakeFetch as recordFetch } from "@/dev/fake-fetch";
 import { fetchKoreanCaptions } from "./captions";
 
@@ -26,8 +26,6 @@ function fakeFetch(routes: Array<[RegExp, () => Response]>) {
 
 const html = (body: string, init?: ResponseInit) => () => new Response(body, { headers: { "content-type": "text/html" }, ...init });
 const json = (body: string) => () => new Response(body, { headers: { "content-type": "application/json" } });
-
-afterEach(() => vi.unstubAllEnvs());
 
 describe("fetchKoreanCaptions", () => {
   it("影片 ID 格式錯誤時不發請求", async () => {

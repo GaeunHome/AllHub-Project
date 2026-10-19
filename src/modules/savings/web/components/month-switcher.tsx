@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/core/ui/icon";
 import { MIN_MONTH, addMonths, formatMonth, type MonthKey } from "../../lib/month";
-import { SAVINGS_PATHS } from "../paths";
-import { monthHref } from "./month-href";
+import { SAVINGS_PATHS, monthHref } from "../paths";
 import { MonthSelect } from "./month-select";
 
 /**

@@ -1,20 +1,23 @@
 import { refresh } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
-import { captureErrorLog, mocksOf } from "@/dev/test-helpers";
+import { captureErrorLog, form, mocksOf } from "@/dev/test-helpers";
 
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/channels", { spy: true });
 vi.mock("../service/translation", { spy: true });
+vi.mock("../service/ai-settings", { spy: true });
 
 vi.mock("../service/caption-status", { spy: true });
 vi.mock("../service/saved-videos", { spy: true });
 
 const channels = mocksOf(await import("../service/channels"), "addChannel", "removeChannel", "setChannelNotify", "renewSubscriptionsFor");
 const captions = mocksOf(await import("../service/caption-status"), "checkFollowedVideoCaptions");
-const translation = mocksOf(await import("../service/translation"), "retryTranslation", "restartTranslation", "uploadSubtitles", "saveSettings", "startTranslation", "continueTranslation");
+const translation = mocksOf(await import("../service/translation"), "retryTranslation", "restartTranslation", "uploadSubtitles", "startTranslation", "continueTranslation");
+const settings = mocksOf(await import("../service/ai-settings"), "saveSettings");
+const { TranslationUserError } = await import("../service/errors");
 const saved = mocksOf(await import("../service/saved-videos"), "keepVideo", "removeSavedVideo");
 const actions = await import("./actions");
 const { addChannelAction, restartTranslationAction, retryTranslationAction, uploadSubtitlesAction } = actions;
@@ -29,6 +32,7 @@ beforeEach(() => {
   channels.renewSubscriptionsFor.mockReset().mockResolvedValue("已檢查你追蹤的 1 個頻道的訂閱");
   captions.checkFollowedVideoCaptions.mockReset().mockResolvedValue("no");
   for (const fn of Object.values(translation)) fn.mockReset().mockResolvedValue(undefined);
+  settings.saveSettings.mockReset().mockResolvedValue(undefined);
   translation.startTranslation.mockResolvedValue({ ok: true });
   translation.continueTranslation.mockResolvedValue({ status: "queued", done: 0, total: 1, error: null, translated: [null] });
   saved.keepVideo.mockReset().mockResolvedValue("saved");
@@ -41,10 +45,7 @@ describe("非預期錯誤", () => {
     const error = new Error('Failed query: insert into "youtube_channels" params: secret-detail');
     error.name = "DrizzleQueryError";
     channels.addChannel.mockRejectedValue(error);
-    const form = new FormData();
-    form.set("channel", "@someone");
-
-    const state = await addChannelAction({}, form);
+    const state = await addChannelAction({}, form({ channel: "@someone" }));
 
     expect(state).toEqual({ error: "加入頻道失敗（詳見伺服器 log）" });
     expect(log).toHaveBeenCalled();
@@ -69,12 +70,7 @@ describe("uploadSubtitlesAction：編碼", () => {
   const header = "1\n00:00:01,000 --> 00:00:02,000\n";
   const ascii = (s: string) => [...s].map((c) => c.charCodeAt(0));
 
-  function upload(bytes: Uint8Array<ArrayBuffer>) {
-    const form = new FormData();
-    form.set("videoId", VIDEO);
-    form.set("file", new File([bytes], "video.ko.srt"));
-    return uploadSubtitlesAction({}, form);
-  }
+  const upload = (bytes: Uint8Array<ArrayBuffer>) => uploadSubtitlesAction({}, form({ videoId: VIDEO, file: new File([bytes], "video.ko.srt") }));
 
   it("UTF-8 → 原文交給翻譯", async () => {
     const state = await upload(new TextEncoder().encode(`${header}안녕하세요\n`));
@@ -97,45 +93,31 @@ describe("uploadSubtitlesAction：編碼", () => {
 
 describe("儲存翻譯設定", () => {
   it("專有名詞表超過上限_顯示 service 的說明，並把剛送出的專有名詞表帶回表單（送出後表單會重設，打的內容才不會不見）", async () => {
-    const { TranslationUserError } = await import("../service/translation");
-    translation.saveSettings.mockRejectedValue(new TranslationUserError("專有名詞表最多 200 筆（目前 201 筆），請刪掉用不到的"));
-    const data = new FormData();
-    data.set("provider", "anthropic");
-    data.set("glossary", "민지=珉池\n하니=Hanni");
+    settings.saveSettings.mockRejectedValue(new TranslationUserError("專有名詞表最多 200 筆（目前 201 筆），請刪掉用不到的"));
 
-    expect(await actions.saveSettingsAction({}, data)).toEqual({ error: "專有名詞表最多 200 筆（目前 201 筆），請刪掉用不到的", glossaryText: "민지=珉池\n하니=Hanni" });
+    expect(await actions.saveSettingsAction({}, form({ provider: "anthropic", glossary: "민지=珉池\n하니=Hanni" }))).toEqual({ error: "專有名詞表最多 200 筆（目前 201 筆），請刪掉用不到的", glossaryText: "민지=珉池\n하니=Hanni" });
   });
 
   it("儲存成功_不帶回專有名詞表（表單用存好的設定）", async () => {
-    const data = new FormData();
-    data.set("provider", "anthropic");
-    data.set("glossary", "민지=珉池");
-
-    expect(await actions.saveSettingsAction({}, data)).toEqual({ message: "已儲存" });
+    expect(await actions.saveSettingsAction({}, form({ provider: "anthropic", glossary: "민지=珉池" }))).toEqual({ message: "已儲存" });
   });
 });
 
 describe("擁有權：一律用登入者呼叫 service（表單送來的 id 只決定操作哪一筆）", () => {
-  const formOf = (fields: Record<string, string>) => {
-    const data = new FormData();
-    for (const [key, value] of Object.entries(fields)) data.set(key, value);
-    return data;
-  };
-
   it.each([
-    ["addChannelAction", () => actions.addChannelAction({}, formOf({ channel: "@newjeans" })), () => channels.addChannel],
-    ["removeChannelAction", () => actions.removeChannelAction({}, formOf({ id: "2" })), () => channels.removeChannel],
-    ["setChannelNotifyAction", () => actions.setChannelNotifyAction({}, formOf({ id: "2", enabled: "false" })), () => channels.setChannelNotify],
+    ["addChannelAction", () => actions.addChannelAction({}, form({ channel: "@newjeans" })), () => channels.addChannel],
+    ["removeChannelAction", () => actions.removeChannelAction({}, form({ id: "2" })), () => channels.removeChannel],
+    ["setChannelNotifyAction", () => actions.setChannelNotifyAction({}, form({ id: "2", enabled: "false" })), () => channels.setChannelNotify],
     // 冷卻時間依登入者計算 回應也只說他自己追蹤的頻道
     ["renewAction", () => actions.renewAction(), () => channels.renewSubscriptionsFor],
-    ["recheckCaptionsAction", () => actions.recheckCaptionsAction({}, formOf({ videoId: VIDEO })), () => captions.checkFollowedVideoCaptions],
-    ["saveSettingsAction", () => actions.saveSettingsAction({}, formOf({ provider: "anthropic" })), () => translation.saveSettings],
+    ["recheckCaptionsAction", () => actions.recheckCaptionsAction({}, form({ videoId: VIDEO })), () => captions.checkFollowedVideoCaptions],
+    ["saveSettingsAction", () => actions.saveSettingsAction({}, form({ provider: "anthropic" })), () => settings.saveSettings],
     ["startTranslationAction", () => actions.startTranslationAction(VIDEO), () => translation.startTranslation],
     ["continueTranslationAction", () => actions.continueTranslationAction(VIDEO, 0), () => translation.continueTranslation],
     ["retryTranslationAction", () => actions.retryTranslationAction(VIDEO), () => translation.retryTranslation],
     // 保留的影片每人一份 送來的 id 只決定是哪一支 改的都是登入者自己的清單
-    ["saveVideoAction", () => actions.saveVideoAction({}, formOf({ videoId: VIDEO })), () => saved.keepVideo],
-    ["removeSavedVideoAction", () => actions.removeSavedVideoAction({}, formOf({ videoId: VIDEO })), () => saved.removeSavedVideo],
+    ["saveVideoAction", () => actions.saveVideoAction({}, form({ videoId: VIDEO })), () => saved.keepVideo],
+    ["removeSavedVideoAction", () => actions.removeSavedVideoAction({}, form({ videoId: VIDEO })), () => saved.removeSavedVideo],
   ] as const)("%s_帶的是登入者（bob）的 id", async (_name, run, service) => {
     requireSession.mockResolvedValue(OTHER_SESSION);
 
@@ -154,16 +136,12 @@ describe("擁有權：一律用登入者呼叫 service（表單送來的 id 只�
 
   it("uploadSubtitlesAction_帶的是登入者（bob）與他的角色：只有發起人或站長能換字幕", async () => {
     requireSession.mockResolvedValue(OTHER_SESSION);
-    const data = formOf({ videoId: VIDEO });
-    data.set("file", new File([new TextEncoder().encode("1\n00:00:01,000 --> 00:00:02,000\n안녕\n")], "a.srt"));
-
-    await actions.uploadSubtitlesAction({}, data);
+    await actions.uploadSubtitlesAction({}, form({ videoId: VIDEO, file: new File([new TextEncoder().encode("1\n00:00:01,000 --> 00:00:02,000\n안녕\n")], "a.srt") }));
 
     expect(translation.uploadSubtitles.mock.calls[0][0]).toEqual(OTHER_SESSION);
   });
 
   it("不是發起人也不是站長時重新翻譯_顯示 service 的說明", async () => {
-    const { TranslationUserError } = await import("../service/translation");
     translation.restartTranslation.mockRejectedValue(new TranslationUserError("只有發起翻譯的人或站長可以重新翻譯"));
 
     expect(await actions.restartTranslationAction(VIDEO)).toEqual({ error: "只有發起翻譯的人或站長可以重新翻譯" });

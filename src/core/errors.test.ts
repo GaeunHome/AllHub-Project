@@ -52,4 +52,18 @@ describe("logError", () => {
     expect(log.mock.calls).toEqual([["[starrail] 處理帳號時發生錯誤", "900000001", "PostgresError"]]);
     expect(loggedText(log)).not.toContain("secret-detail");
   });
+
+  it("錯誤帶數字的 status（外部服務回的 HTTP 狀態碼）_自動附上狀態碼，看得出是哪一種失敗", () => {
+    const log = captureErrorLog();
+    const rejected = Object.assign(new Error("invalid client secret-detail"), { name: "TwitchApiError", status: 403 });
+
+    logError("twitch", "建立訂閱失敗", rejected, "stream.online");
+    logError("youtube", "訂閱失敗", Object.assign(new Error("secret-detail"), { status: "503" }));
+
+    expect(log.mock.calls).toEqual([
+      ["[twitch] 建立訂閱失敗", "stream.online", 403, "TwitchApiError"],
+      ["[youtube] 訂閱失敗", "Error"],
+    ]);
+    expect(loggedText(log)).not.toContain("secret-detail");
+  });
 });

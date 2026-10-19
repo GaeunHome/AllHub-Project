@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { captureErrorLog } from "@/dev/test-helpers";
+import { captureErrorLog, textOf } from "@/dev/test-helpers";
 
 vi.mock("next/server", () => ({ connection: async () => {} }));
 vi.mock("./actions", () => ({ login: vi.fn() }));
@@ -11,7 +11,6 @@ vi.mock("./users", () => users);
 const { DeletedNotice, LoginGate } = await import("./login-page");
 
 const html = async () => renderToStaticMarkup((await LoginGate()) as ReactElement);
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 
 beforeEach(() => {
   users.hasAnyUser.mockReset();

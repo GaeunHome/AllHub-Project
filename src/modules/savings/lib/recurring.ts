@@ -1,7 +1,8 @@
+import { taipeiMonthKey } from "@/core/time";
 import { addDays, lastDayOfMonth, taipeiToday, type DateKey } from "./dates";
 import { shiftForHoliday } from "./holidays";
-import { INTERVAL_LABELS, RECURRING_MODE_LABELS, type EntryKind, type HolidayRule, type IntervalMonths, type RecurringMode } from "./kinds";
-import { addMonths, dateToMonth, monthIndex, taipeiMonth, type MonthKey } from "./month";
+import { INTERVAL_LABELS, RECURRING_MODE_LABELS, type EntryKind, type HolidayRule, type IntervalMonths, type RecurringMode, type TransactionKind } from "./kinds";
+import { addMonths, dateToMonth, monthIndex, type MonthKey } from "./month";
 
 // 期別用月份表示 第一期之後每 intervalMonths 個月一期
 // lastPostedMonth 是游標 自動記 確認或略過都會把它推到那一期
@@ -34,7 +35,7 @@ export function occurrenceDate(rule: Pick<RecurringLike, "dayOfMonth" | "holiday
 
 /** 舊資料沒有起始月份 從建立的月份算 */
 export function firstPeriod(rule: Pick<RecurringLike, "startMonth" | "createdAt">): MonthKey {
-  return rule.startMonth === null ? taipeiMonth(rule.createdAt) : dateToMonth(rule.startMonth);
+  return rule.startMonth === null ? taipeiMonthKey(rule.createdAt) : dateToMonth(rule.startMonth);
 }
 
 // 資料庫的 check 只收 1 2 3 6 12 這裡多擋一次 迴圈才不會停不下來
@@ -99,6 +100,18 @@ export function nextRunDate(rule: RecurringLike, today: DateKey): DateKey {
   }
 }
 
+type PeriodRecord = { kind: TransactionKind; recurringPeriod: string | null };
+
+/** 這一期記下的那一筆 薪水分出去的轉帳也標了同一期 只認跟規則同一種的 */
+export function isPeriodRecord<T extends PeriodRecord>(record: T, rule: { kind: EntryKind }): record is T & { recurringPeriod: string } {
+  return record.recurringPeriod !== null && record.kind === rule.kind;
+}
+
+/** 刪掉這一筆時游標退回前一期 只有要確認的規則而且游標剛好在這一期 自動記的不退 不然排程隔天又記一次 */
+export function revertsPeriod(record: PeriodRecord, rule: { kind: EntryKind; mode: RecurringMode; lastPostedMonth: string | null }): boolean {
+  return isPeriodRecord(record, rule) && rule.mode === "confirm" && rule.lastPostedMonth === record.recurringPeriod;
+}
+
 /** 刪除確認來的紀錄時游標退回這裡 第一期之前是 null */
 export function previousOccurrenceMonth(rule: Pick<RecurringLike, "intervalMonths" | "startMonth" | "createdAt">, month: MonthKey): MonthKey | null {
   const first = firstPeriod(rule);
@@ -109,16 +122,30 @@ export function previousOccurrenceMonth(rule: Pick<RecurringLike, "intervalMonth
 
 const intervalLabel = (interval: number) => INTERVAL_LABELS[interval as IntervalMonths] ?? `每 ${interval} 個月`;
 
+/** 多久一次的哪一天 每年的要寫出月份 不然看不出是哪個月 */
+export function scheduleDay(rule: Pick<RecurringLike, "dayOfMonth" | "intervalMonths" | "startMonth" | "createdAt">): string {
+  return rule.intervalMonths === 12 ? `每年 ${Number(firstPeriod(rule).slice(5, 7))} 月 ${rule.dayOfMonth} 日` : `${intervalLabel(rule.intervalMonths)} ${rule.dayOfMonth} 日`;
+}
+
 /** 設定頁每一列的排程 日期 假日規則與記帳方式各一段 */
 export function scheduleText(rule: Pick<RecurringLike, "dayOfMonth" | "intervalMonths" | "startMonth" | "holidayRule" | "createdAt"> & { mode: RecurringMode }): string {
-  // 每年的要寫出月份 不然看不出是哪個月
-  const when = rule.intervalMonths === 12 ? `每年 ${Number(firstPeriod(rule).slice(5, 7))} 月 ${rule.dayOfMonth} 日` : `${intervalLabel(rule.intervalMonths)} ${rule.dayOfMonth} 日`;
   const holiday = rule.holidayRule === "before" ? ["遇假日提前"] : rule.holidayRule === "after" ? ["遇假日延後"] : [];
-  return [when, ...holiday, RECURRING_MODE_LABELS[rule.mode]].join(" · ");
+  return [scheduleDay(rule), ...holiday, RECURRING_MODE_LABELS[rule.mode]].join(" · ");
 }
 
 /** 名稱都從登入者自己的資料找 不會寫出別人的帳戶 */
 export type RecurringNames = { accounts: ReadonlyMap<number, string>; categories: ReadonlyMap<number, string>; holdingSymbols: ReadonlyMap<number, string> };
+
+type Named = { id: number; name: string };
+
+/** 從登入者自己的帳戶 分類與持股建名稱表 */
+export function recurringNames({ accounts, categories, holdings }: { accounts: readonly Named[]; categories: readonly Named[]; holdings: readonly { id: number; symbol: string }[] }): RecurringNames {
+  return {
+    accounts: new Map(accounts.map((account) => [account.id, account.name])),
+    categories: new Map(categories.map((category) => [category.id, category.name])),
+    holdingSymbols: new Map(holdings.map((holding) => [holding.id, holding.symbol])),
+  };
+}
 
 type TitledRule = { name: string | null; kind: EntryKind; accountId: number; counterAccountId: number | null; categoryId: number | null; holdingId: number | null; note: string | null };
 

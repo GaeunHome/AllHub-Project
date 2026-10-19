@@ -2,7 +2,8 @@ import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { mocksOf, textOf } from "@/dev/test-helpers";
+import { feedVideo } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/cached", { spy: true });
@@ -10,21 +11,10 @@ vi.mock("../../service/cached", { spy: true });
 const cached = mocksOf(await import("../../service/cached"), "cachedRecentVideos", "cachedChannelAvatar");
 const { LatestVideos } = await import("./home-card");
 
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const html = async () => renderToStaticMarkup((await LatestVideos()) as ReactElement);
 
-type Overrides = { zhCaptions?: "yes" | "no" | "unknown"; translationStatus?: "queued" | "running" | "done" | "failed" | null; hoursAgo?: number };
-const video = (videoId: string, { zhCaptions = "no", translationStatus = null, hoursAgo = 3 }: Overrides = {}) => ({
-  videoId,
-  title: `影片 ${videoId}`,
-  publishedAt: new Date(Date.now() - hoursAgo * 3600_000),
-  zhCaptions,
-  zhCaptionsCheckedAt: null,
-  channelId: "UCaaaaaaaaaaaaaaaaaaaaaa",
-  channelTitle: "模擬頻道",
-  channelThumbnail: "https://yt3.ggpht.com/ytc/stored-avatar",
-  translationStatus,
-});
+/** 追蹤時存下的頭像 頻道頁的頭像還在讀的時候先用它 */
+const video = (videoId: string, overrides: Parameters<typeof feedVideo>[1] = {}) => feedVideo(videoId, { channelThumbnail: "https://yt3.ggpht.com/ytc/stored-avatar", ...overrides });
 
 beforeEach(() => {
   requireSession.mockReset();

@@ -1,7 +1,6 @@
 import "server-only";
-import { logError } from "@/core/errors";
-import { externalFetch } from "@/core/external-url";
-import { asRecord, number, text } from "./json";
+import { readExternalJson } from "@/core/external-url";
+import { asRecord, numberOf, text } from "@/core/json";
 import { normalizeRedeemCode } from "./redeem";
 
 // 社群整理的兌換碼 seriaati 的 hoyo-codes 每小時更新 先用真的帳號試過 只列有效的
@@ -27,7 +26,7 @@ export function parseActiveCodes(json: unknown): PublicCode[] | null {
     const normalized = normalizeRedeemCode(typeof entry.code === "string" ? entry.code : "");
     if (!normalized.ok || seen.has(normalized.code)) return [];
     seen.add(normalized.code);
-    return [{ code: normalized.code, rewards: rewardText(entry.rewards), order: number(entry.id) ?? -1 }];
+    return [{ code: normalized.code, rewards: rewardText(entry.rewards), order: numberOf(entry.id) ?? -1 }];
   });
   return codes
     .sort((a, b) => b.order - a.order)
@@ -47,17 +46,9 @@ function rewardText(value: unknown): string | null {
 
 /** 讀不到就回 null 明天再試 */
 export async function fetchActiveCodes(): Promise<PublicCode[] | null> {
-  try {
-    const response = await externalFetch(CODES_URL, { headers: { Accept: "application/json" }, cache: "no-store" }, { timeoutMs: LIST_TIMEOUT_MS });
-    if (!response.ok) {
-      console.error("[starrail] 讀取兌換碼清單失敗", `HTTP ${response.status}`);
-      return null;
-    }
-    const codes = parseActiveCodes(await response.json());
-    if (codes === null) console.error("[starrail] 兌換碼清單的格式和預期不同");
-    return codes;
-  } catch (error) {
-    logError("starrail", "讀取兌換碼清單失敗", error);
-    return null;
-  }
+  const json = await readExternalJson(CODES_URL, { module: "starrail", what: "讀取兌換碼清單失敗", init: { cache: "no-store" }, timeoutMs: LIST_TIMEOUT_MS });
+  if (json === null) return null;
+  const codes = parseActiveCodes(json);
+  if (codes === null) console.error("[starrail] 兌換碼清單的格式和預期不同");
+  return codes;
 }

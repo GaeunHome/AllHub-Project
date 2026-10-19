@@ -5,8 +5,14 @@ import { captureErrorLog, form, loggedText, mocksOf, updated } from "@/dev/test-
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/accounts", { spy: true });
+vi.mock("../service/link", { spy: true });
+vi.mock("../service/redeem", { spy: true });
 
-const service = mocksOf(await import("../service/accounts"), "linkAccount", "redeemCodeFor", "setAutoRedeem");
+const service = {
+  ...mocksOf(await import("../service/accounts"), "setAutoRedeem"),
+  ...mocksOf(await import("../service/link"), "linkAccount"),
+  ...mocksOf(await import("../service/redeem"), "redeemCodeFor"),
+};
 const { linkAccountAction, redeemCodeAction, setAutoRedeemAction } = await import("./actions");
 
 const COOKIE = "ltoken_v2=secret-token; ltuid_v2=1";

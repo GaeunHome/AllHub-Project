@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ruleRow } from "../dev/fixtures";
 import { cardBill } from "./cards";
 import { pendingItems, type PendingContext, type PendingRuleRow } from "./pending";
 
@@ -7,36 +8,18 @@ const CREATED = new Date("2026-08-01T04:00:00Z");
 
 const CONTEXT: PendingContext = {
   accounts: [
-    { id: 1, name: "台銀", kind: "deposit", active: true, payFromAccountId: null, autopay: false },
-    { id: 2, name: "生活費帳戶", kind: "deposit", active: true, payFromAccountId: null, autopay: false },
-    { id: 3, name: "國泰卡", kind: "credit", active: true, payFromAccountId: 2, autopay: false },
-    { id: 4, name: "台新卡", kind: "credit", active: true, payFromAccountId: 2, autopay: true },
-    { id: 5, name: "臺銀證券", kind: "investment", active: true, payFromAccountId: null, autopay: false },
-    { id: 6, name: "舊帳戶", kind: "deposit", active: false, payFromAccountId: null, autopay: false },
+    { id: 1, name: "台銀", kind: "deposit", active: true, payFromAccountId: null },
+    { id: 2, name: "生活費帳戶", kind: "deposit", active: true, payFromAccountId: null },
+    { id: 3, name: "國泰卡", kind: "credit", active: true, payFromAccountId: 2 },
+    { id: 4, name: "台新卡", kind: "credit", active: true, payFromAccountId: 2 },
+    { id: 5, name: "臺銀證券", kind: "investment", active: true, payFromAccountId: null },
+    { id: 6, name: "舊帳戶", kind: "deposit", active: false, payFromAccountId: null },
   ],
   categories: [{ id: 11, name: "水電" }],
   holdings: [{ id: 21, symbol: "006208" }],
 };
 
-const rule = (values: Partial<PendingRuleRow> & Pick<PendingRuleRow, "id" | "dayOfMonth">): PendingRuleRow => ({
-  kind: "expense",
-  amount: 1800,
-  mode: "confirm",
-  active: true,
-  accountId: 2,
-  counterAccountId: null,
-  categoryId: null,
-  holdingId: null,
-  allocate: false,
-  name: null,
-  note: null,
-  intervalMonths: 1,
-  startMonth: null,
-  holidayRule: "none",
-  lastPostedMonth: "2026-09-01",
-  createdAt: CREATED,
-  ...values,
-});
+const rule = (values: Partial<PendingRuleRow> & Pick<PendingRuleRow, "id" | "dayOfMonth">): PendingRuleRow => ruleRow({ amount: 1800, accountId: 2, createdAt: CREATED, ...values });
 
 describe("pendingItems（待處理）", () => {
   it("要確認的固定收支只列最舊的一期，laterCount 是之後還有幾期；逾期的 daysLeft 是負的", () => {
@@ -110,8 +93,8 @@ describe("pendingItems（待處理）", () => {
     const taishin = cardBill({ id: 4, statementDay: null }, -3500, [], TODAY, [{ id: 8, accountId: 4, statementDate: "2026-10-15", dueDate: "2026-10-25", amount: 3500 }]);
 
     expect(pendingItems([], [cathay, taishin], TODAY, CONTEXT)).toEqual([
-      { type: "card", key: "card:3:2026-10-05", date: "2026-10-05", status: "needs-bill", daysLeft: -10, name: "國泰卡", amount: 6340, accountId: 3, payFromAccountId: 2, autopay: false, statementDate: "2026-10-05", needsBill: true, estimate: 6340, billId: null },
-      { type: "card", key: "card:4:2026-10-15", date: "2026-10-27", status: "upcoming", daysLeft: 12, name: "台新卡", amount: 3500, accountId: 4, payFromAccountId: 2, autopay: true, statementDate: "2026-10-15", needsBill: false, estimate: 3500, billId: 8 },
+      { type: "card", key: "card:3:2026-10-05", date: "2026-10-05", status: "needs-bill", daysLeft: -10, name: "國泰卡", amount: 6340, accountId: 3, payFromAccountId: 2, statementDate: "2026-10-05", needsBill: true },
+      { type: "card", key: "card:4:2026-10-15", date: "2026-10-27", status: "upcoming", daysLeft: 12, name: "台新卡", amount: 3500, accountId: 4, payFromAccountId: 2, statementDate: "2026-10-15", needsBill: false },
     ]);
   });
 
@@ -122,7 +105,7 @@ describe("pendingItems（待處理）", () => {
       { id: 9, accountId: 3, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 6340 },
     ]);
 
-    expect(pendingItems([], [billed], TODAY, CONTEXT)).toMatchObject([{ key: "card:3:2026-10-05", date: "2026-10-20", status: "upcoming", daysLeft: 5, amount: 12_480, needsBill: false, billId: 9 }]);
+    expect(pendingItems([], [billed], TODAY, CONTEXT)).toMatchObject([{ key: "card:3:2026-10-05", date: "2026-10-20", status: "upcoming", daysLeft: 5, amount: 12_480, needsBill: false }]);
     expect(pendingItems([], [late], "2026-10-22", CONTEXT)).toMatchObject([{ date: "2026-10-20", status: "overdue", daysLeft: -2 }]);
     expect(pendingItems([], [paidOff], TODAY, CONTEXT)).toEqual([]);
   });

@@ -10,6 +10,7 @@ const { NotifyToggle } = await import("./notify-toggle");
 
 type ToggleProps = Parameters<typeof NotifyToggle>[0];
 const props: ToggleProps = { action: vi.fn(), id: 7, enabled: true, subject: "Hanabi" };
+const variants = { button: props, menu: { ...props, variant: "menu", label: "新影片通知" } } satisfies Record<string, ToggleProps>;
 
 /** 送出中 pending 或閒著 回傳表單送出的替身 */
 function sending(pending: boolean) {
@@ -30,7 +31,7 @@ describe("通知開關（NotifyToggle）送出中", () => {
   it.each(["button", "menu"] as const)("%s：用 aria-disabled 標示、不設 disabled（停用的按鈕會丟掉焦點，在彈出視窗裡焦點會跑到視窗外）", (variant) => {
     sending(true);
 
-    const button = renderToStaticMarkup(createElement(NotifyToggle, { ...props, variant })).match(/<button[^>]*>/)![0];
+    const button = renderToStaticMarkup(createElement(NotifyToggle, variants[variant])).match(/<button[^>]*>/)![0];
 
     expect(button).toContain('aria-disabled="true"');
     expect(button).not.toMatch(/\sdisabled(?:=|\s|>)/);
@@ -65,5 +66,16 @@ describe("通知開關（NotifyToggle）送出中", () => {
     expect(setShown).toHaveBeenCalledWith(false);
     const formData = formAction.mock.calls[0][0] as FormData;
     expect(Object.fromEntries(formData)).toEqual({ id: "7", enabled: "false" });
+  });
+});
+
+describe("⋮ 選單裡的通知開關（variant menu）", () => {
+  it("那一列的文字由模組決定（例如 YouTube 的新影片通知），報讀器照樣聽到是誰的通知", () => {
+    sending(false);
+
+    const markup = renderToStaticMarkup(createElement(NotifyToggle, { ...props, variant: "menu", label: "開台通知" }));
+
+    expect(markup).toContain("開台通知");
+    expect(markup).toMatch(/<button[^>]*role="switch"[^>]*aria-label="Hanabi 的通知"/);
   });
 });

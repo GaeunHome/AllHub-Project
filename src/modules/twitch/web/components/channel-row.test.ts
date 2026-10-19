@@ -1,29 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { textOf } from "@/dev/test-helpers";
+import { followedStreamer } from "../../dev/fixtures";
 
 vi.mock("../actions", () => ({ removeStreamerAction: vi.fn(), setStreamerNotifyAction: vi.fn() }));
 
 const { ChannelRow, ChannelDetail } = await import("./channel-row");
 
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
-
-const streamer = (overrides: Record<string, unknown> = {}) => ({
-  id: 7,
-  broadcasterId: "1007",
-  login: "hanabi",
-  displayName: "Hanabi",
-  profileImageUrl: null,
-  onlineSubscriptionId: "sub-on",
-  offlineSubscriptionId: "sub-off",
-  subscriptionStatus: "enabled",
-  isLive: false,
-  notifyEnabled: true,
-  createdAt: new Date("2026-10-01T00:00:00Z"),
-  avatarUrl: null,
-  bannerUrl: null,
-  live: null,
-  ...overrides,
-});
+const streamer = (overrides: Record<string, unknown> = {}) => ({ ...followedStreamer(7, "hanabi", { displayName: "Hanabi" }), avatarUrl: null, bannerUrl: null, live: null, ...overrides });
 
 type RowProps = Parameters<typeof ChannelRow>[0];
 

@@ -1,0 +1,192 @@
+/* 由 globals.css 引入到 @layer components 裡 這裡不再包一層 */
+/* YouTube 觀看頁的播放器 web/components/youtube-player.tsx */
+/* 外框先佔好 16:9 的位置 播放器疊在裡面 進出全螢幕時頁面不會跳 */
+.player-slot {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+/* 劇院模式撐滿內容寬度 高度封頂讓整個播放器留在畫面裡 */
+/* 伺服器讀不到瀏覽器的偏好 整頁載入時由同步腳本先標上 data-youtube-theater */
+@media (min-width: 64rem) {
+  .player-slot[data-size="theater"],
+  html[data-youtube-theater] .player-slot {
+    max-height: calc(100dvh - 11rem);
+  }
+  html[data-youtube-theater] .player-slot {
+    grid-column: span 2 / span 2;
+  }
+  html[data-youtube-theater] :has(> .player-slot) {
+    display: contents;
+  }
+}
+.player-frame {
+  --subtitle-scale: 1;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 1rem;
+  background-color: #0b0b0d;
+  box-shadow: 0 0 0 1px var(--line);
+}
+.player-frame[data-subtitle-size="small"] {
+  --subtitle-scale: 0.8;
+}
+.player-frame[data-subtitle-size="large"] {
+  --subtitle-scale: 1.25;
+}
+.player-frame:fullscreen {
+  border-radius: 0;
+  box-shadow: none;
+}
+/* 全螢幕時不保留捲軸位置 占寬度的捲軸會讓外框右邊留一條黑邊 */
+/* 只在真的全螢幕時成立 藏起來的頁面不會比對到 */
+html:has(.player-frame:fullscreen) {
+  scrollbar-gutter: auto;
+}
+/* iPhone 不能讓一般元素全螢幕 頁內全螢幕蓋滿視窗 高度跟著網址列伸縮 */
+.player-frame[data-fullscreen="pseudo"] {
+  position: fixed;
+  z-index: 65;
+  inset: 0;
+  height: 100dvh;
+  border-radius: 0;
+  box-shadow: none;
+}
+/* 捲動鎖由 lockPageScroll 寫在 html 的屬性上 不比對播放器的屬性 */
+/* Activity 藏起來的頁面才不會把下一頁也鎖住 */
+html[data-player-fullscreen] {
+  overflow: hidden;
+}
+/* 影片 字幕與按鈕都在這層 全螢幕時讓開瀏海與 Home 指示條 */
+.player-stage {
+  position: absolute;
+  inset: 0;
+  container-type: size;
+}
+.player-frame:fullscreen .player-stage,
+.player-frame[data-fullscreen="pseudo"] .player-stage {
+  inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+/* 影片畫面實際的範圍 兩側或上下留黑時字幕仍依畫面定位與縮放 */
+.subtitle-area {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: min(100%, 100cqh * 16 / 9);
+  height: min(100%, 100cqw * 9 / 16);
+  container-type: inline-size;
+}
+/* 字幕依畫面寬度縮放 全螢幕時跟著放大 平常讓開 YouTube 的控制列 */
+.subtitle-overlay {
+  position: absolute;
+  inset-inline: 0;
+  bottom: clamp(2.75rem, 12%, 6rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15em;
+  padding-inline: 5%;
+  text-align: center;
+  font-size: calc(clamp(1.05rem, 2.9cqi, 3.5rem) * var(--subtitle-scale));
+  line-height: 1.35;
+}
+/* 播放中滑鼠不在播放器上時控制列會收起 字幕跟著往下 */
+/* 觸控裝置看不出控制列在不在 一律讓開 */
+@media (hover: hover) {
+  .player-frame[data-playing]:not(:hover) .subtitle-overlay {
+    bottom: clamp(0.75rem, 4%, 2.5rem);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .subtitle-overlay {
+    transition: bottom 200ms ease;
+  }
+}
+/* 長句最多到畫面寬度的七成多 換行時兩行一樣長 */
+/* 韓文從空白處換行 不從一個詞的中間斷開 */
+.subtitle-line {
+  max-width: min(80%, 100cqw - 8rem);
+  border-radius: 0.3em;
+  padding: 0.08em 0.5em;
+  font-weight: 600;
+  color: #fff;
+  background-color: rgb(10 10 12 / 0.74);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  text-shadow:
+    0 1px 2px rgb(0 0 0 / 0.75),
+    0 0 1px rgb(0 0 0 / 0.6);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.subtitle-line:lang(ko) {
+  word-break: keep-all;
+}
+.subtitle-line-secondary {
+  font-size: 0.72em;
+  font-weight: 500;
+  color: #e4e6ea;
+}
+/* 還沒翻好的句子後面的小標示 小字半透明 不搶字幕的視線 */
+.subtitle-badge {
+  display: inline-block;
+  margin-inline-start: 0.5em;
+  border-radius: 9999px;
+  padding-inline: 0.5em;
+  vertical-align: 0.1em;
+  font-size: 0.55em;
+  font-weight: 500;
+  line-height: normal;
+  white-space: nowrap;
+  color: rgb(255 255 255 / 0.75);
+  background-color: rgb(255 255 255 / 0.15);
+}
+/* 按鈕放在右側中間 避開 YouTube 上方的分享與下方的控制列和略過廣告 */
+.player-controls {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  translate: 0 -50%;
+  transition: opacity 150ms ease;
+}
+.player-control {
+  @apply inline-grid size-11 cursor-pointer place-items-center rounded-full;
+  color: #fff;
+  background-color: rgb(15 15 15 / 0.6);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+  transition: background-color 150ms ease;
+}
+.player-control:hover {
+  background-color: rgb(15 15 15 / 0.85);
+}
+.player-control:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+/* 全螢幕時寫出離開全螢幕 iPhone 的頁內全螢幕沒有 Esc 可按 */
+.player-control-labeled {
+  @apply inline-flex w-auto gap-1.5 px-4 text-sm font-semibold;
+}
+/* 直拿手機全螢幕時上下留黑 按鈕移到影片上方的黑色區域 不壓在字幕上 */
+@container (orientation: portrait) {
+  .player-controls {
+    top: 25%;
+  }
+}
+/* 滑過播放器 暫停或鍵盤移到按鈕上才出現 觸控裝置沒有滑過所以一直顯示 */
+@media (hover: hover) {
+  .player-controls {
+    opacity: 0;
+  }
+  .player-frame:hover .player-controls,
+  .player-frame:not([data-playing]) .player-controls,
+  .player-controls:has(:focus-visible) {
+    opacity: 1;
+  }
+}

@@ -1,19 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { fakeFetch, hangUntilAborted } from "@/dev/fake-fetch";
 import { captureErrorLog } from "@/dev/test-helpers";
 
 const { redeemCode } = await import("./hoyolab");
 
 const COOKIE = "ltoken_v2=v2_top_secret; ltuid_v2=42; cookie_token_v2=ct_secret; account_id_v2=42";
-
-beforeEach(() => {
-  vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.unstubAllEnvs();
-});
 
 describe("redeemCode：兌換碼（webExchangeCdkeyRisk）", () => {
   it("POST JSON：cdkey、game_biz、region、uid、語言、平台、時間與裝置 id；Origin 是官方兌換頁", async () => {

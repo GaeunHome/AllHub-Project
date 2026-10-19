@@ -1,6 +1,6 @@
 import { createElement, useActionState } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { markup, textOf } from "@/dev/test-helpers";
 
 // 結果要送出後才有 所以直接給 useActionState 送出後的狀態看畫面
 // 其他照 React 原本的實作
@@ -8,11 +8,10 @@ vi.mock("react", { spy: true });
 
 const { AccountActionForm, numberedAction } = await import("./account-action-form");
 
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const props = { action: vi.fn(), accountId: 7, label: "立即簽到", pendingLabel: "簽到中…", icon: "calendar-check" as const };
 const render = (state: object, pending = false) => {
   vi.mocked(useActionState).mockReturnValue([state, vi.fn(), pending]);
-  return renderToStaticMarkup(createElement(AccountActionForm, props));
+  return markup(createElement(AccountActionForm, props));
 };
 
 describe("帳號卡片上的小表單（立即簽到、設定門檻）", () => {

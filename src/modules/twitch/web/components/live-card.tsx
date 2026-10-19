@@ -1,17 +1,18 @@
 import { externalAssetUrl } from "@/core/external-url";
 import { Avatar } from "@/core/ui/avatar";
 import { ExternalImage } from "@/core/ui/external-image";
+import { twitchChannelUrl } from "../../lib/urls";
 import { formatLiveDuration, formatViewerCount, type StreamerVisual } from "../../lib/visuals";
-import type { TwitchStreamer } from "../../data/schema";
+import type { FollowedStreamer } from "../../data/schema";
 import { GameBoxArt } from "./game-box-art";
 
 /**
  * 照 Twitch 追蹤中頁的直播卡 沒有預覽圖時改放大頭像
  * eager 給第一排 預覽圖立刻載入
  */
-export function LiveCard({ streamer: s, now, eager = false }: { streamer: StreamerVisual<TwitchStreamer>; now: Date; eager?: boolean }) {
+export function LiveCard({ streamer: s, now, eager = false }: { streamer: StreamerVisual<FollowedStreamer>; now: Date; eager?: boolean }) {
   const live = s.live;
-  const channelUrl = `https://twitch.tv/${s.login}`;
+  const channelUrl = twitchChannelUrl(s.login);
   const viewers = formatViewerCount(live?.viewerCount ?? null);
   const duration = formatLiveDuration(live?.startedAt ?? null, now);
   const placeholder = (

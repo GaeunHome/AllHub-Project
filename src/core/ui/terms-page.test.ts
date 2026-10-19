@@ -2,10 +2,11 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { textOf } from "@/dev/test-helpers";
 import { TermsPage } from "./terms-page";
 
 const markup = renderToStaticMarkup(createElement(TermsPage));
-const text = markup.replace(/<[^>]+>/g, "");
+const text = textOf(markup);
 
 describe("使用聲明（公開頁）", () => {
   it("站長確認過的正式版：不再標「草稿」，最後更新也沒有附註", () => {
@@ -29,7 +30,7 @@ describe("使用聲明（公開頁）", () => {
   it("刪除帳號一節是最終版（跟各模組資料依帳號分開一起上線）：刪除帳號時連帶刪除各功能的資料、通知、簽到紀錄與邀請連結", () => {
     for (const line of [
       "你可以在「帳號設定」頁輸入密碼刪除自己的帳號，刪除後無法復原。",
-      "刪除帳號時，追蹤名單、保留的影片清單、加密的 API Key 與 HoYoLAB cookie、理財資料、網站通知、簽到紀錄與你建立的邀請連結都會一起刪除。",
+      "刪除帳號時，追蹤名單、保留的影片清單、加密的 API Key 與 HoYoLAB cookie、理財資料、天氣選的縣市與下雨通知的開關、網站通知、簽到紀錄與你建立的邀請連結都會一起刪除。",
       "共用的翻譯字幕會留給其他使用者，但不再連到你的帳號。",
       "帳號被濫用時，站長可以停用或刪除帳號。",
     ]) {
@@ -74,7 +75,7 @@ describe("使用聲明（公開頁）", () => {
       "Twitch：主播名稱、追蹤時的頭像網址、是否直播中、開台紀錄（直播標題與分類）",
       "YouTube：頻道名稱與追蹤時的頭像網址；影片標題、發布時間、有無中文字幕；保留影片的標題與頻道名稱；共用的翻譯",
       "星穹鐵道：帳號 UID、暱稱、伺服器、開拓等級、HoYoLAB 帳號 id、簽到紀錄、自動兌換試過的兌換碼",
-      "網站通知：開台、新影片、簽到與自動兌換的結果、開拓力與每日、每週、終局挑戰的提醒、理財的到期與卡費提醒",
+      "網站通知：開台、新影片、簽到與自動兌換的結果、開拓力與每日、每週、終局挑戰的提醒、理財的到期與卡費提醒、天氣的下雨提醒",
     ]) {
       expect(markup, item).toContain(`<li>${item}</li>`);
     }
@@ -100,12 +101,18 @@ describe("使用聲明（公開頁）", () => {
     expect(text).toContain("理財的到期與卡費提醒");
   });
 
+  it("天氣照實際揭露：卡片只帶選的縣市，早上的下雨提醒全台一次讀；下雨通知的開關算設定的內容，可以在天氣卡片的設定關掉", () => {
+    expect(text).toMatch(/中央氣象署與環境部：[^。]*卡片只帶你選的縣市[^。]*早上的下雨提醒[^。]*全台一次讀[^。]*不會送出你的任何資料/);
+    expect(text).toMatch(/你設定的內容：[^。]*下雨通知的開關/);
+    expect(text).toMatch(/降雨機率 50% 以上時提醒你帶傘[^。]*「設定」關掉/);
+  });
+
   it("星穹鐵道的屬性與命途圖示內建在網站裡、瀏覽器不會連到 GitHub，第三方服務不列 GitHub", () => {
     expect(text).not.toMatch(/GitHub|githubusercontent/);
   });
 
   it("寫得精簡：每一條（含分項）都不超過 120 字，太長的拆成分項", () => {
-    const items = [...markup.matchAll(/<li>((?:(?!<li>|<\/li>).)*)<\/li>/g)].map((m) => m[1].replace(/<[^>]+>/g, ""));
+    const items = [...markup.matchAll(/<li>((?:(?!<li>|<\/li>).)*)<\/li>/g)].map((m) => textOf(m[1]));
     expect(items.length).toBeGreaterThan(40);
     for (const item of items) expect([...item].length, item).toBeLessThanOrEqual(120);
   });

@@ -1,0 +1,206 @@
+/* 由 globals.css 引入到 @layer components 裡 這裡不再包一層 */
+/* YouTube 頁 播放器在 player.css */
+.yt-logo {
+  @apply flex min-h-11 shrink-0 items-center gap-1 text-[1.375rem] font-bold tracking-tighter;
+  color: var(--ink);
+}
+/* 標誌是單色遮罩 中間三角形是挖空的 墊一塊白色深色模式下才是白的 */
+.yt-logo-mark {
+  position: relative;
+  display: inline-grid;
+  color: var(--accent);
+}
+.yt-logo-mark::before {
+  content: "";
+  position: absolute;
+  inset: 32% 30% 32% 36%;
+  background-color: #ffffff;
+}
+.yt-logo-mark > .icon {
+  position: relative;
+}
+
+/* 像 YouTube 的搜尋列 圓角輸入框接一個灰色按鈕 */
+.yt-search {
+  @apply flex min-w-0 items-stretch;
+}
+.yt-search-input {
+  @apply min-h-11 w-full min-w-0 flex-1 rounded-l-full py-2 pr-2 pl-4 text-base;
+  border: 1px solid var(--line-strong);
+  border-right-width: 0;
+  color: var(--ink);
+  background-color: var(--yt-input);
+}
+.yt-search-input::placeholder {
+  color: var(--placeholder);
+}
+.yt-search-input:focus {
+  outline: none;
+  border-color: var(--yt-search-focus);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.2);
+}
+.yt-search-button {
+  @apply inline-grid min-h-11 w-16 shrink-0 cursor-pointer place-items-center rounded-r-full;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  background-color: var(--yt-search-button);
+}
+.yt-search-button:hover:not(:disabled) {
+  background-color: var(--yt-search-button-hover);
+}
+.yt-search-button:disabled {
+  cursor: wait;
+}
+
+/* 像 YouTube 按讚與分享的膠囊按鈕 跟站內的按鈕一樣 44px 高 */
+.yt-pill {
+  @apply inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 text-sm font-medium whitespace-nowrap select-none;
+  color: var(--ink);
+  background-color: var(--surface-muted);
+  transition: background-color 150ms ease;
+}
+.yt-pill:hover:not(:disabled),
+.yt-pill[aria-expanded="true"] {
+  background-color: var(--surface-sunken);
+}
+.yt-pill:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+/* 標題旁的續訂這類小動作 跟次要按鈕一樣高 */
+.yt-pill-sm {
+  @apply min-h-9 px-3;
+}
+/* 主要動作跟 YouTube 的訂閱一樣 淺色時黑底白字 深色時白底黑字 */
+.yt-pill-primary {
+  color: var(--on-brand);
+  background-color: var(--brand);
+}
+.yt-pill-primary:hover:not(:disabled) {
+  background-color: var(--brand-hover);
+}
+
+/* 字幕語言這類互斥的選項收在同一顆膠囊裡 */
+/* 外框 44px 選項用透明偽元素把點擊範圍撐到外框高度 */
+.yt-segmented {
+  @apply inline-flex min-h-11 shrink-0 items-center gap-0.5 rounded-full p-1 pl-3 text-sm font-medium whitespace-nowrap;
+  color: var(--ink);
+  background-color: var(--surface-muted);
+}
+.yt-segmented > button {
+  @apply relative inline-flex min-w-11 cursor-pointer items-center justify-center self-stretch rounded-full px-3;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+.yt-segmented > button::after {
+  content: "";
+  position: absolute;
+  inset: -0.25rem 0;
+}
+.yt-segmented > button:hover {
+  background-color: var(--surface-muted);
+}
+.yt-segmented > button[aria-pressed="true"] {
+  @apply font-semibold;
+  color: var(--on-brand);
+  background-color: var(--brand);
+}
+
+/* 篩選膠囊選中的跟 YouTube 一樣反白 跟次要按鈕一樣高 */
+.yt-chip {
+  @apply inline-flex min-h-9 shrink-0 cursor-pointer items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap;
+  color: var(--ink);
+  background-color: var(--surface-muted);
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+.yt-chip:hover {
+  background-color: var(--surface-sunken);
+}
+.yt-chip[aria-pressed="true"] {
+  color: var(--on-brand);
+  background-color: var(--brand);
+}
+
+.yt-thumb {
+  @apply relative block aspect-video overflow-hidden rounded-xl;
+  background-color: var(--surface-muted);
+}
+/* 像縮圖右下角的時間長度 白字黑底 字小但對比很高 */
+.yt-badge {
+  @apply absolute right-1.5 bottom-1.5 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold;
+  color: #ffffff;
+  background-color: rgb(0 0 0 / 0.78);
+}
+.yt-badge-danger {
+  background-color: #cc0000;
+}
+
+/* 滑過卡片才出現 ⋮ 卡片平常保持乾淨 觸控裝置沒有滑過所以一直顯示 */
+@media (hover: hover) {
+  .yt-card-more {
+    opacity: 0;
+  }
+  .yt-card:hover .yt-card-more,
+  .yt-card:focus-within .yt-card-more,
+  .yt-card-more[aria-expanded="true"] {
+    opacity: 1;
+  }
+}
+
+/* 訂閱內容在手機是橫向捲動的頭像列 寬螢幕是側欄的頻道列 */
+.yt-channel {
+  @apply flex w-16 cursor-pointer flex-col items-center gap-1.5 rounded-xl text-center;
+  color: var(--ink);
+}
+.yt-channel-name {
+  @apply w-full truncate text-[0.8125rem] font-medium;
+}
+.yt-channel-more {
+  display: none;
+}
+@media (min-width: 64rem) {
+  .yt-channel {
+    @apply min-h-10 w-full flex-row gap-3 rounded-lg px-2 text-left;
+    transition: background-color 150ms ease;
+  }
+  .yt-channel:hover,
+  .yt-channel[aria-expanded="true"] {
+    background-color: var(--surface-muted);
+  }
+  .yt-channel-name {
+    @apply flex-1 text-sm;
+  }
+  .yt-channel-more {
+    display: inline-block;
+    opacity: 0;
+  }
+  .yt-channel:hover .yt-channel-more,
+  .yt-channel:focus-visible .yt-channel-more,
+  .yt-channel[aria-expanded="true"] .yt-channel-more {
+    opacity: 1;
+  }
+}
+
+/* 觀看頁標題下方像 YouTube 說明欄的灰色區塊 放翻譯進度與訊息 */
+.yt-box {
+  @apply rounded-xl p-4 text-[0.9375rem];
+  color: var(--ink);
+  background-color: var(--surface-muted);
+}
+.theme-youtube .switch:checked {
+  background-color: var(--brand-ink);
+}
+/* 手機上播放器撐滿螢幕寬度不留圓角 跟 YouTube App 一樣 */
+@media (max-width: 39.99rem) {
+  .theme-youtube .player-slot {
+    width: calc(100% + 2rem);
+    margin-inline: -1rem;
+  }
+  .theme-youtube .player-frame {
+    border-radius: 0;
+    box-shadow: none;
+  }
+}

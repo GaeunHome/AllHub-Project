@@ -1,5 +1,5 @@
-import { formatSlashDate, type DateKey } from "../lib/dates";
-import { SELECTABLE_COLORS, type CategoryKind, type PaletteColor, type RecurringMode } from "../lib/kinds";
+import { formatSlashDate, latestOf, type DateKey } from "../lib/dates";
+import type { CategoryKind, RecurringMode } from "../lib/kinds";
 import { suggestAllocation, type AccountBalance, type AllocationLine } from "../lib/ledger";
 import { formatSignedTwd } from "../lib/money";
 import { addMonths, dateToMonth, monthIndex } from "../lib/month";
@@ -49,15 +49,10 @@ export function salaryPreview(accounts: readonly SalaryAccountOption[], receivin
   return { lines, remainder, blocked: lines.some((line) => line.invalid) || (remainder !== null && remainder < 0) };
 }
 
-/** 幾個 YYYY-MM-DD 裡最晚的 undefined 略過 */
-export function latestDate(dates: readonly (string | undefined)[]): string | undefined {
-  return dates.reduce<string | undefined>((latest, date) => (date !== undefined && (latest === undefined || date > latest) ? date : latest), undefined);
-}
-
 /** 入帳帳戶與真的要轉入的帳戶都要已經開始記帳 伺服器才收 */
 export function salaryStartDate(accounts: readonly SalaryAccountOption[], receivingAccountId: number, lines: readonly SalaryLine[]): string | undefined {
   const startOf = (id: number) => accounts.find((account) => account.id === id)?.startDate;
-  return latestDate([startOf(receivingAccountId), ...lines.filter((line) => (line.amount ?? 0) > 0).map((line) => startOf(line.accountId))]);
+  return latestOf([startOf(receivingAccountId), ...lines.filter((line) => (line.amount ?? 0) > 0).map((line) => startOf(line.accountId))]) ?? undefined;
 }
 
 /** 發薪分配視窗的狀態 edits 是改過的各行的字 */
@@ -76,20 +71,9 @@ export function salaryFormReducer(state: SalaryFormState, event: SalaryFormEvent
   }
 }
 
-/**
- * 以前存成灰色的改用 fallback 灰色現在留給未分類與未設定用途
- * 伺服器不收 不換的話一儲存就失敗
- */
-export function selectableColor(color: PaletteColor, fallback: PaletteColor): PaletteColor {
-  return (SELECTABLE_COLORS as readonly PaletteColor[]).includes(color) ? color : fallback;
-}
-
-/**
- * 先選還沒用過的顏色 圖表上才分得出來 都用過了就照數量輪替
- * 灰色留給未分類與未設定用途 不會選到
- */
-export function nextFreeColor(used: readonly PaletteColor[]): PaletteColor {
-  return SELECTABLE_COLORS.find((color) => !used.includes(color)) ?? SELECTABLE_COLORS[used.length % SELECTABLE_COLORS.length];
+/** 確認的日期預設那一期的日期 還沒到的話先寫今天 不能記未來 */
+export function confirmDate(occurrence: DateKey, today: DateKey): DateKey {
+  return occurrence <= today ? occurrence : today;
 }
 
 /** 發薪分配預設記在薪水 沒有的話用第一個收入分類 */

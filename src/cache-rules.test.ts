@@ -14,8 +14,20 @@ function walk(dir: string): string[] {
 }
 
 const read = (file: string) => fs.readFileSync(path.join(SRC, file), "utf8");
-const sources = walk(SRC).filter((file) => /\.(ts|tsx)$/.test(file) && !/\.test\.tsx?$/.test(file));
+const allFiles = new Set(walk(SRC));
+const sources = [...allFiles].filter((file) => /\.(ts|tsx)$/.test(file) && !/\.test\.tsx?$/.test(file));
 const moduleIds = fs.readdirSync(path.join(SRC, "modules"), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+
+/** 這個檔案 import 的 src 裡的檔案 @/ 與相對路徑都換成 src 底下的路徑 套件不算 */
+function importTargets(file: string): string[] {
+  return [...read(file).matchAll(/\bfrom\s*["']([^"']+)["']|\bimport\s*\(?\s*["']([^"']+)["']/g)].flatMap((m) => {
+    const spec = m[1] ?? m[2];
+    const base = spec.startsWith("@/") ? spec.slice(2) : spec.startsWith(".") ? path.posix.normalize(path.posix.join(path.posix.dirname(file), spec)) : null;
+    if (base === null) return [];
+    const target = ["", ".ts", ".tsx", "/index.ts", "/index.tsx"].map((suffix) => base + suffix).find((candidate) => allFiles.has(candidate));
+    return target ? [target] : [];
+  });
+}
 
 /** 從左大括號找到對應的右大括號 略過字串 樣板字串與註解裡的括號 */
 function blockFrom(source: string, open: number): string {
@@ -70,8 +82,22 @@ describe("快取規則", () => {
 
   it("快取函式所在的檔案不讀 cookies／headers、不碰登入：登入檢查不能被快取，要留在快取函式外面", () => {
     const files = [...new Set(cachedFunctions.map((f) => f.file))];
-    const offenders = files.filter((file) => /from\s+["'](?:next\/headers|@\/core\/auth[^"']*)["']|\bcookies\(\)|\bheaders\(\)/.test(read(file)));
+    // 會讀 cookie 或 header 的檔 加上登入的入口 core 裡用相對路徑 import 也算
+    const login = new Set(["core/auth/index.ts", "core/auth/session.ts", ...sources.filter((file) => /from\s+["']next\/headers["']/.test(read(file)))]);
+    const offenders = files.flatMap((file) => {
+      const source = read(file);
+      const reasons = [
+        ...(/from\s+["'](?:next\/headers|@\/core\/auth[^"']*)["']/.test(source) ? ["import 了 next/headers 或 @/core/auth"] : []),
+        ...importTargets(file)
+          .filter((target) => login.has(target))
+          .map((target) => `import 了會讀 cookie 或登入的 ${target}`),
+        ...(/\b(?:cookies|headers)\(\)/.test(source) ? ["讀了 cookies() 或 headers()"] : []),
+        ...(/\b(?:requireSession|requireOwner|currentSession)\s*\(/.test(source) ? ["呼叫了 requireSession／requireOwner／currentSession"] : []),
+      ];
+      return reasons.map((reason) => `${file}：${reason}`);
+    });
     expect(files.length).toBeGreaterThanOrEqual(5);
+    expect(login.size).toBeGreaterThan(2);
     expect(offenders).toEqual([]);
   });
 
@@ -130,27 +156,31 @@ describe("快取規則", () => {
   });
 
   it("寫入流程與排程不讀快取（cached.ts）：要依最新資料判斷，只有頁面與輪詢 API 讀快取", () => {
-    // core 沒有 service 資料夾 寫資料庫的檔案列在這裡
+    // core 沒有 service 資料夾 直接用資料庫 用 attempts 記次數與認領 或是 Server Action 的檔就是寫入流程
     // 註冊 登入鎖定 邀請次數都要讀最新的資料
-    const CORE_WRITERS = [
-      "core/notify.ts",
-      "core/notifications/service.ts",
-      "core/auth/users.ts",
-      "core/auth/invites.ts",
-      "core/auth/registration.ts",
-      "core/auth/attempts.ts",
-      "core/auth/captcha.ts",
-      "core/cooldown.ts",
-      "core/auth/actions.ts",
-      "core/admin/service.ts",
-      "core/admin/actions.ts",
-    ];
-    expect(CORE_WRITERS.filter((file) => !sources.includes(file))).toEqual([]);
-    const offenders = sources.filter((file) => {
-      const writesOrSchedules =
-        /\/service\/(?!cached\.ts$)[^/]+$/.test(file) || /(^|\/)cron\.ts$/.test(file) || CORE_WRITERS.includes(file);
-      return writesOrSchedules && /from\s+["'][^"']*\/cached["']/.test(read(file));
-    });
+    const coreWriters = sources.filter(
+      (file) =>
+        file.startsWith("core/") &&
+        !file.endsWith("/cached.ts") &&
+        (importTargets(file).some((target) => target === "core/db/index.ts" || target === "core/auth/attempts.ts") || /^\s*["']use server["']/.test(read(file))),
+    );
+    const isWriter = (file: string) =>
+      /\/service\/(?!cached\.ts$)[^/]+$/.test(file) ||
+      /(^|\/)cron\.ts$/.test(file) ||
+      /^modules\/[^/]+\/web\/actions[^/]*\.ts$/.test(file) ||
+      /^modules\/[^/]+\/web\/routes\//.test(file) ||
+      coreWriters.includes(file);
+    // CLAUDE.md 寫明的例外 保留影片的標題快照用觀看頁讀過的 oEmbed 只是顯示用
+    const ALLOWED_READS: Record<string, string[]> = { "modules/youtube/web/actions.ts": ["cachedVideoInfo"] };
+    const offenders = sources.filter(isWriter).flatMap((file) =>
+      [...read(file).matchAll(/\bimport\s+(type\s+)?([^;]*?)\s*from\s*["']([^"']*\/cached)["']/g)].flatMap((m) => {
+        const names = /^\{[^}]*\}$/.test(m[2].trim()) ? m[2].trim().slice(1, -1).split(",").map((name) => name.trim().replace(/^type\s+/, "")).filter(Boolean) : null;
+        const allowed = ALLOWED_READS[file] ?? [];
+        return !m[1] && names?.every((name) => allowed.includes(name)) ? [] : [`${file} → ${m[3]}：${m[2].trim()}`];
+      }),
+    );
+    // 先確認認得出 core 的寫入流程 規則才不會因為沒掃到東西而空轉
+    expect(coreWriters).toEqual(expect.arrayContaining(["core/notify.ts", "core/auth/actions.ts", "core/admin/actions.ts"]));
     expect(offenders).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { markup as render } from "@/dev/test-helpers";
 import { Illustration, type IllustrationName } from "./illustration";
 
 const DIR = new URL("../../../../../public/illustrations/finance/", import.meta.url);
@@ -25,7 +25,7 @@ describe("理財的插圖", () => {
   it("元件引用的是檔案裡的 #art，viewBox 跟檔案一樣（換圖時兩邊一起改）", () => {
     for (const name of NAMES) {
       const svg = fileOf(name);
-      const markup = renderToStaticMarkup(createElement(Illustration, { name }));
+      const markup = render(createElement(Illustration, { name }));
 
       expect(svg).toContain('<g id="art">');
       expect(markup).toContain(`href="/illustrations/finance/${name}.svg#art"`);

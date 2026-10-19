@@ -1,11 +1,11 @@
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { textOf } from "@/dev/test-helpers";
 import { CardError } from "./card-error-boundary";
 import { HomeCard } from "./home-card";
 
 const INFO = { id: "twitch", name: "Twitch", href: "/twitch", icon: "/icons/brands/twitch.svg", accent: "violet" } as const;
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 
 /** 還在等外部資料的內容 */
 function Pending(): Promise<never> {

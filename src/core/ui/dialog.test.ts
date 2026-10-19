@@ -2,10 +2,10 @@ import fs from "node:fs";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { textOf } from "@/dev/test-helpers";
 import type { FormState } from "./form-message";
 import { Dialog, DialogButton, DialogMessage, dialogFormAction, dialogReducer, isBackdropClick, returnFocusTarget, shownMessage, showDialog, useDialog, useDialogForm } from "./dialog";
 
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const amountInput = createElement("input", { name: "amount" });
 type DialogProps = Parameters<typeof Dialog>[0];
 type DialogButtonProps = Parameters<typeof DialogButton>[0];

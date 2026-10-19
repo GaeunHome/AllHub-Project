@@ -1,6 +1,7 @@
 import { createElement, isValidElement, useActionState, useId, useLayoutEffect, useRef, useState, type EffectCallback, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { textOf } from "@/dev/test-helpers";
 import { Dialog } from "../ui/dialog";
 
 // 連結要送出後才有 直接給 useActionState 送出後的狀態看畫面
@@ -13,7 +14,6 @@ const { createInviteAction } = await import("./actions");
 
 const LINK = `https://hub.example.com/register?code=${"T".repeat(43)}`;
 const CREATED = { message: "已建立邀請連結：7 天內可以註冊 1 個帳號。", link: LINK };
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const created = (state: object = CREATED) => vi.mocked(useActionState).mockReturnValueOnce([state, vi.fn(), false]);
 const reopenButtonOf = (markup: string) => markup.match(/<button[^>]*aria-haspopup="dialog"[^>]*>/)![0];
 const dialogOf = (markup: string) => markup.slice(markup.indexOf("<dialog"), markup.indexOf("</dialog>") + "</dialog>".length);

@@ -1,13 +1,12 @@
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { markup, textOf } from "@/dev/test-helpers";
 import { TrendChart } from "./trend-chart";
 import type { FlowPoint } from "./trend-model";
 
 const point = (month: string, income: number, expense: number): FlowPoint => ({ month, income, expense });
 const POINTS = [point("2025-12", 43000, 21000), point("2026-01", 43000, 38000), point("2026-02", 0, 12000), point("2026-03", 45000, 28500)];
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
-const render = () => renderToStaticMarkup(createElement(TrendChart, { points: POINTS, current: "2026-03" }));
+const render = () => markup(createElement(TrendChart, { points: POINTS, current: "2026-03" }));
 
 describe("每月收支", () => {
   it("只有收入與支出一張圖，不再切換到資產", () => {

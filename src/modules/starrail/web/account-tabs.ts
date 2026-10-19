@@ -7,6 +7,3 @@ export function pickAccount<T extends { id: number }>(accounts: T[], requested: 
   const id = typeof requested === "string" ? Number(requested) : NaN;
   return accounts.find((account) => account.id === id) ?? accounts[0];
 }
-
-/** web 層不能讀模組根目錄的 info.ts 網址寫在這裡 */
-export const accountHref = (accountId: number) => `/starrail?account=${accountId}`;

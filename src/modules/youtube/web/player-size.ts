@@ -23,7 +23,7 @@ export function usePlayerSize(): [PlayerSize, (size: PlayerSize) => void] {
 
 /**
  * 劇院模式時標在 html 上 伺服器讀不到瀏覽器裡的偏好 元件一開始是一般大小
- * globals.css 依它先排成劇院模式
+ * web/player.css 依它先排成劇院模式
  */
 export const THEATER_ATTRIBUTE = "data-youtube-theater";
 

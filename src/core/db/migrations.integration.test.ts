@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 const MIGRATIONS = "src/core/db/migrations";
 const BASELINE = "0000_baseline";
 // 正式資料庫最後套用的 migration 的時間戳記
-const LAST_APPLIED_BEFORE_BASELINE = 1792073138959;
+const LAST_APPLIED_BEFORE_BASELINE = 1792131927825;
 const cleanups: Array<() => Promise<void> | void> = [];
 
 afterEach(async () => {
@@ -28,9 +28,8 @@ function migrationsUpTo(count: number): string {
   const dir = mkdtempSync(path.join(tmpdir(), "allhub-migrations-"));
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }));
   cpSync(MIGRATIONS, dir, { recursive: true });
-  const journalPath = path.join(dir, "meta/_journal.json");
   const entries = journal().entries.filter((entry) => entry.idx < count);
-  writeFileSync(journalPath, JSON.stringify({ ...journal(), entries }));
+  writeFileSync(path.join(dir, "meta/_journal.json"), JSON.stringify({ ...journal(), entries }));
   return dir;
 }
 
@@ -53,20 +52,20 @@ async function insertUser(id: string, username: string, role: "owner" | "member"
 
 const USERS = { early: "11111111-1111-4111-8111-111111111111", boss: "22222222-2222-4222-8222-222222222222" };
 
-describe("基準檔（v0.1.6 以前的 0000 到 0013 壓成一個）", { timeout: 30_000 }, () => {
-  it("排在第一個，時間戳記等於壓縮前正式資料庫最後套用的 0013；之後的 migration 都比它晚（drizzle 只套時間比最後一筆晚的）", () => {
+describe("基準檔（之前的 migration 合併成一個）", { timeout: 30_000 }, () => {
+  it("排在第一個，時間戳記等於合併前正式資料庫最後套用的那一個；之後的 migration 都比它晚（drizzle 只套時間比最後一筆晚的）", () => {
     const [first, ...rest] = journal().entries;
 
     expect(first).toMatchObject({ idx: 0, tag: BASELINE, when: LAST_APPLIED_BEFORE_BASELINE });
     for (const entry of rest) expect(entry.when, entry.tag).toBeGreaterThan(LAST_APPLIED_BEFORE_BASELINE);
   });
 
-  it("正式資料庫（表都在、最後一筆是 0013）再跑 migrate 不會重跑基準檔，只套之後的", async () => {
+  it("正式資料庫（表都在、最後一筆是合併前的最後一個）再跑 migrate 不會重跑基準檔，只套之後的", async () => {
     // 照正式資料庫的樣子 表已經建好 紀錄表只有最後一筆
     const [baseline] = readMigrationFiles({ migrationsFolder: MIGRATIONS });
     for (const statement of baseline.sql) await client.exec(statement);
     await client.exec(`create schema drizzle; create table drizzle.__drizzle_migrations (id serial primary key, hash text not null, created_at bigint)`);
-    await client.query(`insert into drizzle.__drizzle_migrations (hash, created_at) values ('0013', $1)`, [LAST_APPLIED_BEFORE_BASELINE]);
+    await client.query(`insert into drizzle.__drizzle_migrations (hash, created_at) values ('last', $1)`, [LAST_APPLIED_BEFORE_BASELINE]);
 
     await migrate(db, { migrationsFolder: MIGRATIONS });
 
@@ -124,25 +123,47 @@ const statementsOf = (tag: string) =>
     .filter(Boolean);
 
 // 部署時舊程式還在跑 刪表 刪欄位或改名會讓它出錯
-describe("基準檔之後的 migration 都只擴充", () => {
+// 例外只有使用者同意這一版直接收斂 只放行這幾條 代價寫在 docs/deploy.md
+const ALLOWED_CONVERGENCE: Record<string, string[]> = {
+  "0001_weather_cleanup": [
+    `ALTER TABLE "core_notifications" ALTER COLUMN "user_id" SET NOT NULL;`,
+    `ALTER TABLE "starrail_accounts" ALTER COLUMN "user_id" SET NOT NULL;`,
+    `ALTER TABLE "youtube_settings" ALTER COLUMN "user_id" SET NOT NULL;`,
+    `DROP INDEX "core_notifications_unread_idx";`,
+    `ALTER TABLE "savings_accounts" DROP CONSTRAINT "savings_accounts_purpose_id_savings_purposes_id_fk";`,
+    `DROP INDEX "savings_accounts_purpose_id_idx";`,
+    `ALTER TABLE "savings_accounts" DROP COLUMN "purpose_id";`,
+    `DROP TABLE "savings_purposes";`,
+    `ALTER TABLE "twitch_streamers" DROP COLUMN "notify_enabled";`,
+    `ALTER TABLE "youtube_channels" DROP COLUMN "notify_enabled";`,
+    `ALTER TABLE "youtube_settings" DROP COLUMN "anthropic_key_hint";`,
+    `ALTER TABLE "youtube_settings" DROP COLUMN "openai_key_hint";`,
+    `ALTER TABLE "youtube_settings" DROP COLUMN "gemini_key_hint";`,
+  ],
+};
+
+describe("基準檔之後的 migration 都只擴充（明列的收斂例外除外）", () => {
   const pending = journal().entries.filter((entry) => entry.tag !== BASELINE);
 
   it("一開始設 lock_timeout = 5s，而且是單獨一個 statement：要改既有的表或鎖 core_users，等不到鎖就失敗、之後再重跑，不讓線上的查詢排在後面卡住", () => {
     for (const { tag } of pending) expect(statementsOf(tag)[0], tag).toBe("SET LOCAL lock_timeout = '5s';");
   });
 
-  it("沒有 drop、rename、alter column；新欄位是 NOT NULL 的一定有預設值；新表開了 RLS", () => {
+  it("沒有 drop、rename、alter column，只有明列允許的那幾條（多一條、少一條都不行，例外只給還沒併進基準檔的 migration）；新欄位是 NOT NULL 的一定有預設值；新表開了 RLS", () => {
+    expect(Object.keys(ALLOWED_CONVERGENCE).filter((tag) => !pending.some((entry) => entry.tag === tag))).toEqual([]);
     for (const { tag } of pending) {
-      const sql = statementsOf(tag).join("\n");
-      expect(sql, tag).not.toMatch(/\bdrop\b|\brename\b|alter column/i);
+      const statements = statementsOf(tag);
+      const sql = statements.join("\n");
+      const converging = statements.filter((statement) => /\bdrop\b|\brename\b|alter column/i.test(statement));
+      expect(converging.sort(), tag).toEqual([...(ALLOWED_CONVERGENCE[tag] ?? [])].sort());
       for (const [, name, definition] of sql.matchAll(/ADD COLUMN "(\w+)" ([^;]+);/g)) if (/NOT NULL/.test(definition)) expect(definition, `${tag} ${name}`).toMatch(/DEFAULT/);
       for (const [, table] of sql.matchAll(/CREATE TABLE "(\w+)"/g)) expect(sql, `${tag} ${table}`).toContain(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY;`);
     }
   });
 });
 
-// 正式資料庫停在基準檔 套用時線上還是上一版的程式 它的寫法要照常可用
-describe("0001 理財改版：帳戶的用途文字與卡面顏色、分類的圖示（只擴充）", { timeout: 30_000 }, () => {
+// 正式資料庫停在基準檔 套用時線上可能還是上一版的程式
+describe("0001 天氣與收斂：新增天氣的表，刪掉不再使用的欄位與表，依使用者的表 user_id 不能是空的", { timeout: 30_000 }, () => {
   const { boss, early } = USERS;
 
   beforeEach(async () => {
@@ -151,98 +172,104 @@ describe("0001 理財改版：帳戶的用途文字與卡面顏色、分類的�
     await insertUser(early, "early");
   });
 
-  it("回填：帳戶的用途文字是原本用途的名稱（沒設用途的留空；信用卡沒有用途欄位，設了也不填），分類照名稱補上圖示（名稱不在圖示清單裡的留空）；卡面顏色都是空的", async () => {
-    const living = await one<{ id: number }>(`insert into "savings_purposes" ("user_id", "name", "color") values ($1, '生活費', 'blue') returning "id"`, [boss]);
-    const reserve = await one<{ id: number }>(`insert into "savings_purposes" ("user_id", "name", "color") values ($1, '緊急預備金', 'amber') returning "id"`, [early]);
-    await client.query(`insert into "savings_accounts" ("user_id", "name", "kind", "purpose_id") values ($1, '台銀', 'deposit', $2), ($1, '證券', 'investment', null), ($1, '國泰卡', 'credit', $2)`, [boss, living.id]);
-    await client.query(`insert into "savings_accounts" ("user_id", "name", "kind", "purpose_id") values ($1, '郵局', 'deposit', $2)`, [early, reserve.id]);
-    await client.query(
-      `insert into "savings_categories" ("user_id", "kind", "name", "color") values ($1, 'expense', '餐飲', 'orange'), ($1, 'income', '薪水', 'green'), ($1, 'expense', '提領現金', 'teal'), ($1, 'income', '其他', 'blue'), ($1, 'expense', '午餐', 'rose')`,
-      [boss],
-    );
+  it("沒有擁有者的列（多人化以前的舊程式寫的）先刪掉再改成 NOT NULL，有擁有者的不動；刪掉的遊戲帳號的簽到紀錄與兌換碼跟著刪，共用翻譯的發起人照舊可以是空的", async () => {
+    await client.query(`insert into "core_notifications" ("user_id", "module", "kind", "title") values ($1, 'twitch', 'stream_online', '給 boss'), (null, 'twitch', 'stream_online', '沒有收件人')`, [boss]);
+    const owned = await one<{ id: number }>(`insert into "starrail_accounts" ("user_id", "ltuid", "cookie_encrypted", "uid", "region") values ($1, '1', 'v1:x', '800000001', 'prod_official_asia') returning "id"`, [boss]);
+    const orphan = await one<{ id: number }>(`insert into "starrail_accounts" ("user_id", "ltuid", "cookie_encrypted", "uid", "region") values (null, '2', 'v1:y', '800000002', 'prod_official_asia') returning "id"`);
+    for (const { id } of [owned, orphan]) {
+      await client.query(`insert into "starrail_checkin_logs" ("account_id", "result") values ($1, 'success')`, [id]);
+      await client.query(`insert into "starrail_redeem_codes" ("account_id", "code", "result") values ($1, 'STARRAILGIFT', 'success')`, [id]);
+    }
+    // 單人版的那一列固定是 id 1
+    await client.query(`insert into "youtube_settings" ("id", "user_id", "provider") values (1, null, 'gemini')`);
+    await client.query(`insert into "youtube_settings" ("user_id", "provider") values ($1, 'openai')`, [early]);
 
     await migrate(db, { migrationsFolder: MIGRATIONS });
 
-    const { rows: accounts } = await client.query(`select "name", "label", "card_style" from "savings_accounts" order by "id"`);
-    expect(accounts).toEqual([
-      { name: "台銀", label: "生活費", card_style: null },
-      { name: "證券", label: null, card_style: null },
-      { name: "國泰卡", label: null, card_style: null },
-      { name: "郵局", label: "緊急預備金", card_style: null },
-    ]);
-    const { rows: categories } = await client.query(`select "name", "icon" from "savings_categories" order by "id"`);
-    expect(categories).toEqual([
-      { name: "餐飲", icon: "utensils" },
-      { name: "薪水", icon: "briefcase" },
-      { name: "提領現金", icon: "banknote" },
-      { name: "其他", icon: "circle-dot" },
-      { name: "午餐", icon: null },
-    ]);
+    expect((await client.query(`select "user_id", "title" from "core_notifications"`)).rows).toEqual([{ user_id: boss, title: "給 boss" }]);
+    expect((await client.query(`select "id" from "starrail_accounts"`)).rows).toEqual([{ id: owned.id }]);
+    expect((await client.query(`select "account_id" from "starrail_checkin_logs"`)).rows).toEqual([{ account_id: owned.id }]);
+    expect((await client.query(`select "account_id" from "starrail_redeem_codes"`)).rows).toEqual([{ account_id: owned.id }]);
+    expect((await client.query(`select "user_id", "provider" from "youtube_settings"`)).rows).toEqual([{ user_id: early, provider: "openai" }]);
+    const { rows: nullable } = await client.query(
+      `select table_name, column_name from information_schema.columns where table_schema = 'public' and column_name in ('user_id', 'requested_by') and is_nullable = 'YES'`,
+    );
+    expect(nullable).toEqual([{ table_name: "youtube_translations", column_name: "requested_by" }]);
+    await expect(client.query(`insert into "starrail_accounts" ("ltuid", "cookie_encrypted", "uid", "region") values ('3', 'v1:z', '800000003', 'prod_official_asia')`)).rejects.toThrow(/"user_id"/);
   });
 
-  it("套用後 v0.1.6 的寫法照常可用：新增帳戶明列欄位而且帶用途 id、新增分類不給圖示、改帳戶與明列欄位的查詢；新欄位是空的", async () => {
-    await migrate(db, { migrationsFolder: MIGRATIONS });
+  it("刪掉不再使用的欄位、表與索引：主播表與頻道表的舊通知開關、API Key 的末 4 碼、帳戶的用途 id 與用途表、沒有查詢用到的未讀索引（清理排程用的留著）；同一列的其他資料都在", async () => {
     const purpose = await one<{ id: number }>(`insert into "savings_purposes" ("user_id", "name", "color") values ($1, '生活費', 'blue') returning "id"`, [boss]);
+    await client.query(`insert into "savings_accounts" ("user_id", "name", "kind", "purpose_id", "label", "opening_balance") values ($1, '台銀', 'deposit', $2, '生活費', 1000)`, [boss, purpose.id]);
+    await client.query(`insert into "twitch_streamers" ("broadcaster_id", "login", "display_name", "notify_enabled") values ('1035', 'alice', 'Alice', false)`);
+    await client.query(`insert into "youtube_channels" ("channel_id", "title", "notify_enabled") values ('UCaaaaaaaaaaaaaaaaaaaaaa', '頻道 A', false)`);
+    await client.query(`insert into "youtube_settings" ("user_id", "anthropic_key", "anthropic_key_hint") values ($1, 'v1:cipher', 'wxyz')`, [boss]);
+
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+
+    const removed = ["twitch_streamers.notify_enabled", "youtube_channels.notify_enabled", "youtube_settings.anthropic_key_hint", "youtube_settings.openai_key_hint", "youtube_settings.gemini_key_hint", "savings_accounts.purpose_id"];
+    const { rows: columns } = await client.query<{ name: string }>(`select table_name || '.' || column_name as name from information_schema.columns where table_schema = 'public'`);
+    expect(columns.filter(({ name }) => removed.includes(name))).toEqual([]);
+    expect(await one(`select to_regclass('public.savings_purposes') as purposes`)).toEqual({ purposes: null });
+    expect((await client.query(`select indexname from pg_indexes where indexname in ('core_notifications_unread_idx', 'savings_accounts_purpose_id_idx', 'core_notifications_created_at_idx')`)).rows).toEqual([
+      { indexname: "core_notifications_created_at_idx" },
+    ]);
+    expect(await one(`select "name", "label", "opening_balance" from "savings_accounts"`)).toEqual({ name: "台銀", label: "生活費", opening_balance: 1000 });
+    expect(await one(`select "login" from "twitch_streamers"`)).toEqual({ login: "alice" });
+    expect(await one(`select "title" from "youtube_channels"`)).toEqual({ title: "頻道 A" });
+    expect(await one(`select "user_id", "anthropic_key" from "youtube_settings"`)).toEqual({ user_id: boss, anthropic_key: "v1:cipher" });
+  });
+
+  it("套用後 v0.1.7 的寫法：明列了刪掉的欄位就寫不進去（主播表、頻道表、翻譯設定、理財的帳戶；使用者同意的代價，新版部署好就沒事）；其他照舊，例如帶著擁有者寫通知與遊戲帳號", async () => {
+    await migrate(db, { migrationsFolder: MIGRATIONS });
 
     // drizzle 會明列它認得的每一個欄位 沒給值的寫 default
-    const account = await one<{ id: number }>(
-      `insert into "savings_accounts" ("id", "user_id", "name", "kind", "purpose_id", "opening_balance", "opening_cost", "monthly_plan", "target_amount", "due_day", "pay_from_account_id", "active", "sort_order", "created_at", "statement_day", "autopay", "card_notified_on") values (default, $1, '國泰', 'deposit', $2, 12000, null, 5000, 100000, null, null, default, default, default, null, default, null) returning "id"`,
-      [boss, purpose.id],
-    );
-    await client.query(`insert into "savings_categories" ("id", "user_id", "kind", "name", "color", "monthly_budget", "sort_order", "created_at") values (default, $1, 'expense', '早餐', 'orange', null, default, default)`, [boss]);
-    await client.query(`update "savings_accounts" set "name" = '國泰世華', "purpose_id" = $2, "opening_balance" = 13000 where "id" = $1 and "user_id" = $3`, [account.id, purpose.id, boss]);
+    const removedColumnWrites: [sql: string, params: unknown[], column: string][] = [
+      [
+        `insert into "twitch_streamers" ("id", "broadcaster_id", "login", "display_name", "profile_image_url", "online_subscription_id", "offline_subscription_id", "subscription_status", "is_live", "notify_enabled", "created_at") values (default, '1035', 'alice', 'Alice', null, null, null, null, default, default, default)`,
+        [],
+        "notify_enabled",
+      ],
+      [`insert into "youtube_channels" ("id", "channel_id", "title", "thumbnail", "lease_expires_at", "subscription_status", "notify_enabled", "created_at") values (default, 'UCaaaaaaaaaaaaaaaaaaaaaa', '頻道 A', null, null, null, default, default)`, [], "notify_enabled"],
+      [
+        `insert into "youtube_settings" ("id", "user_id", "provider", "anthropic_key", "anthropic_key_hint", "anthropic_model", "openai_key", "openai_key_hint", "openai_model", "gemini_key", "gemini_key_hint", "gemini_model", "glossary", "updated_at") values (default, $1, default, 'v1:cipher', 'wxyz', null, null, null, null, null, null, null, default, default)`,
+        [boss],
+        "anthropic_key_hint",
+      ],
+      [
+        `insert into "savings_accounts" ("id", "user_id", "name", "kind", "purpose_id", "opening_balance", "opening_cost", "monthly_plan", "target_amount", "due_day", "pay_from_account_id", "active", "sort_order", "created_at", "statement_day", "autopay", "card_notified_on", "label", "card_style") values (default, $1, '台銀', 'deposit', null, 1000, null, null, null, null, null, default, default, default, null, default, null, '生活費', null)`,
+        [boss],
+        "purpose_id",
+      ],
+    ];
+    for (const [text, params, column] of removedColumnWrites) await expect(client.query(text, params), column).rejects.toThrow(`column "${column}"`);
 
-    expect(await one(`select "id", "name", "purpose_id", "opening_balance" from "savings_accounts" where "id" = $1`, [account.id])).toEqual({ id: account.id, name: "國泰世華", purpose_id: purpose.id, opening_balance: 13000 });
-    expect(await one(`select "label", "card_style" from "savings_accounts" where "id" = $1`, [account.id])).toEqual({ label: null, card_style: null });
-    expect(await one(`select "name", "icon" from "savings_categories"`)).toEqual({ name: "早餐", icon: null });
+    await client.query(
+      `insert into "core_notifications" ("id", "user_id", "module", "kind", "title", "body", "url", "created_at", "read_at") values (default, $1, 'twitch', 'stream_online', 'Alice 開台了', default, null, default, default)`,
+      [early],
+    );
+    await client.query(
+      `insert into "starrail_accounts" ("id", "user_id", "ltuid", "cookie_encrypted", "uid", "nickname", "region", "level", "stamina_alert_threshold", "last_stamina_alert_at", "cookie_invalid", "auto_redeem", "game_reminders", "created_at", "updated_at") values (default, $1, '42', 'v1:x', '900000001', null, 'prod_official_cht', null, null, null, default, default, default, default, default)`,
+      [early],
+    );
+    expect(await one(`select "user_id", "module", "kind", "title", "body", "url", "read_at" from "core_notifications"`)).toEqual({ user_id: early, module: "twitch", kind: "stream_online", title: "Alice 開台了", body: "", url: null, read_at: null });
+    expect(await one(`select "user_id", "uid", "cookie_invalid", "auto_redeem", "game_reminders" from "starrail_accounts"`)).toEqual({ user_id: early, uid: "900000001", cookie_invalid: false, auto_redeem: false, game_reminders: true });
   });
 
-  it("卡面顏色只有信用卡能設，而且只能是那六種", async () => {
+  it("天氣的表：每人一列，縣市只收 22 個縣市（「台」要寫成「臺」），下雨通知預設開", async () => {
     await migrate(db, { migrationsFolder: MIGRATIONS });
 
-    await expect(client.query(`insert into "savings_accounts" ("user_id", "name", "kind", "card_style") values ($1, '台銀', 'deposit', 'blue')`, [boss])).rejects.toThrow(/savings_accounts_card_style/);
-    await expect(client.query(`insert into "savings_accounts" ("user_id", "name", "kind", "card_style") values ($1, '證券', 'investment', 'green')`, [boss])).rejects.toThrow(/savings_accounts_card_style/);
-    await expect(client.query(`insert into "savings_accounts" ("user_id", "name", "kind", "card_style") values ($1, '國泰卡', 'credit', 'gold')`, [boss])).rejects.toThrow(/savings_accounts_card_style/);
-    for (const [name, style] of [["藍卡", "blue"], ["綠卡", "green"], ["紫卡", "purple"], ["橘卡", "orange"], ["黑卡", "black"], ["銀卡", "silver"]]) {
-      await client.query(`insert into "savings_accounts" ("user_id", "name", "kind", "card_style") values ($1, $2, 'credit', $3)`, [boss, name, style]);
-    }
-    await client.query(`insert into "savings_accounts" ("user_id", "name", "kind") values ($1, '沒選顏色的卡', 'credit')`, [boss]);
-    expect(await one(`select count(*)::int as n from "savings_accounts"`)).toEqual({ n: 7 });
+    await client.query(`insert into "weather_settings" ("user_id", "county") values ($1, '臺北市')`, [boss]);
+    await expect(client.query(`insert into "weather_settings" ("user_id", "county") values ($1, '台北市')`, [early])).rejects.toThrow(/weather_settings_county/);
+    await expect(client.query(`insert into "weather_settings" ("user_id", "county") values ($1, '新北市')`, [boss])).rejects.toThrow(/weather_settings_pkey/);
+    expect((await client.query(`select "user_id", "county", "rain_alert" from "weather_settings"`)).rows).toEqual([{ user_id: boss, county: "臺北市", rain_alert: true }]);
   });
 });
 
-describe("刪除帳號與資料之間的外鍵", { timeout: 30_000 }, () => {
+// 刪除帳號時各表的外鍵 在 src/account-deletion.integration.test.ts 從資料庫的約束動態列出來檢查
+describe("模組內資料之間的外鍵與唯一限制", { timeout: 30_000 }, () => {
   beforeEach(async () => {
     await migrate(db, { migrationsFolder: MIGRATIONS });
-  });
-
-  it("刪除帳號時依使用者的資料一起刪除；共用的翻譯留下、發起人改成 null，主播與頻道也留著（沒人追蹤的由每天的排程清掉）", async () => {
-    const { early, boss } = USERS;
-    await insertUser(boss, "boss", "owner");
-    await insertUser(early, "early");
-    const streamer = await one<{ id: number }>(`insert into "twitch_streamers" ("broadcaster_id", "login", "display_name") values ('1035', 'alice', 'Alice') returning "id"`);
-    await client.query(`insert into "youtube_channels" ("channel_id", "title") values ('UCaaaaaaaaaaaaaaaaaaaaaa', '頻道 A')`);
-    for (const user of [boss, early]) {
-      await client.query(`insert into "twitch_follows" ("user_id", "streamer_id") values ($1, $2)`, [user, streamer.id]);
-      await client.query(`insert into "youtube_follows" ("user_id", "channel_id") values ($1, 'UCaaaaaaaaaaaaaaaaaaaaaa')`, [user]);
-      await client.query(`insert into "youtube_saved_videos" ("user_id", "video_id", "pinned") values ($1, 'abcdefghijk', true)`, [user]);
-      await client.query(`insert into "core_notifications" ("user_id", "module", "kind", "title") values ($1, 'twitch', 'stream_online', 'Alice 開台了')`, [user]);
-    }
-    await client.query(`insert into "youtube_settings" ("user_id", "provider") values ($1, 'anthropic')`, [boss]);
-    await client.query(`insert into "starrail_accounts" ("user_id", "ltuid", "cookie_encrypted", "uid", "region") values ($1, '42', 'v1:x', '900000001', 'prod_official_cht')`, [boss]);
-    await client.query(
-      `insert into "youtube_translations" ("video_id", "status", "source_kind", "source_cues", "translated", "batches", "requested_by") values ('abcdefghijk', 'done', 'manual', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, $1)`,
-      [boss],
-    );
-
-    await client.query(`delete from core_users where id = $1`, [boss]);
-
-    for (const table of ["twitch_follows", "youtube_follows", "youtube_saved_videos", "core_notifications", "youtube_settings", "starrail_accounts"]) {
-      expect((await client.query(`select count(*)::int as n from "${table}" where "user_id" = $1`, [boss])).rows, table).toEqual([{ n: 0 }]);
-    }
-    expect(await one(`select count(*)::int as n from "twitch_follows" where "user_id" = $1`, [early])).toEqual({ n: 1 });
-    expect(await one(`select "video_id", "requested_by" from "youtube_translations"`)).toEqual({ video_id: "abcdefghijk", requested_by: null });
-    expect(await one(`select (select count(*)::int from twitch_streamers) as streamers, (select count(*)::int from youtube_channels) as channels`)).toEqual({ streamers: 1, channels: 1 });
   });
 
   it("保留的影片每人每支一列；試過的兌換碼每個遊戲帳號每個碼一列，移除遊戲帳號或刪除帳號時一起刪", async () => {
@@ -257,56 +284,6 @@ describe("刪除帳號與資料之間的外鍵", { timeout: 30_000 }, () => {
 
     await client.query(`delete from "starrail_accounts" where "id" = $1`, [account.id]);
     expect(await one(`select count(*)::int as n from "starrail_redeem_codes"`)).toEqual({ n: 0 });
-  });
-
-  /**
-   * 一個人在每張理財的表各留下資料
-   * 含彼此參照的外鍵 用途 分類 扣款帳戶 轉帳的另一邊 固定收支
-   */
-  async function seedFinance(userId: string, prefix: string) {
-    const purpose = await one<{ id: number }>(`insert into "savings_purposes" ("user_id", "name", "color") values ($1, '生活費', 'blue') returning "id"`, [userId]);
-    const category = await one<{ id: number }>(`insert into "savings_categories" ("user_id", "kind", "name", "color", "monthly_budget") values ($1, 'expense', '餐飲', 'orange', 6000) returning "id"`, [userId]);
-    const deposit = await one<{ id: number }>(`insert into "savings_accounts" ("user_id", "name", "kind", "purpose_id", "opening_balance") values ($1, $2, 'deposit', $3, 1000) returning "id"`, [
-      userId,
-      `${prefix}存款`,
-      purpose.id,
-    ]);
-    const card = await one<{ id: number }>(`insert into "savings_accounts" ("user_id", "name", "kind", "statement_day", "pay_from_account_id", "opening_balance") values ($1, $2, 'credit', 5, $3, -500) returning "id"`, [
-      userId,
-      `${prefix}信用卡`,
-      deposit.id,
-    ]);
-    const rule = await one<{ id: number }>(`insert into "savings_recurring" ("user_id", "kind", "account_id", "category_id", "amount", "day_of_month") values ($1, 'expense', $2, $3, 390, 6) returning "id"`, [
-      userId,
-      card.id,
-      category.id,
-    ]);
-    await client.query(
-      `insert into "savings_transactions" ("user_id", "kind", "account_id", "counter_account_id", "category_id", "amount", "date", "recurring_id") values ($1, 'expense', $2, null, $3, 390, '2026-10-06', $4), ($1, 'transfer', $5, $2, null, 500, '2026-10-07', null)`,
-      [userId, card.id, category.id, rule.id, deposit.id],
-    );
-    const broker = await one<{ id: number }>(`insert into "savings_accounts" ("user_id", "name", "kind") values ($1, $2, 'investment') returning "id"`, [userId, `${prefix}證券`]);
-    await client.query(`insert into "savings_holdings" ("user_id", "account_id", "symbol", "name", "shares", "cost") values ($1, $2, '006208', '富邦台50', 10, 1200)`, [userId, broker.id]);
-    await client.query(`insert into "savings_card_bills" ("user_id", "account_id", "statement_date", "due_date", "amount") values ($1, $2, '2026-10-05', '2026-10-20', 890)`, [userId, card.id]);
-  }
-
-  const FINANCE_TABLES = ["savings_accounts", "savings_card_bills", "savings_categories", "savings_holdings", "savings_purposes", "savings_recurring", "savings_transactions"];
-  const countOf = async (table: string, userId: string) => (await one<{ n: number }>(`select count(*)::int as n from "${table}" where "user_id" = $1`, [userId])).n;
-
-  it("刪除帳號時理財的資料一起刪除（外鍵 cascade，含彼此參照的列）；別人的不受影響", async () => {
-    const { early, boss } = USERS;
-    await insertUser(early, "early");
-    await insertUser(boss, "boss");
-    await seedFinance(early, "早");
-    await seedFinance(boss, "老闆");
-
-    await client.query(`delete from core_users where id = $1`, [boss]);
-
-    for (const table of FINANCE_TABLES) {
-      expect(await countOf(table, boss), table).toBe(0);
-      expect(await countOf(table, early), `${table}（別人的）`).toBeGreaterThan(0);
-    }
-    expect(await countOf("savings_transactions", early)).toBe(2);
   });
 
   it("刪除持股時定期定額一起刪、買賣紀錄留著（holding_id 改成 null）；刪除投資帳戶時持股一起刪，別人的不受影響", async () => {

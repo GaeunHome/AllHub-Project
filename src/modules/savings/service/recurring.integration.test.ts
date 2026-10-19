@@ -1,22 +1,19 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { asc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
-import { beforeEach, describe, expect, it, onTestFinished, vi, type MockInstance } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { coreUsers } from "@/core/db/schema";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
-import { savingsAccounts, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions } from "../data/schema";
-import { SavingsUserError } from "./errors";
+import { savingsAccounts, savingsCategories, savingsRecurring, savingsTransactions } from "../data/schema";
+import { dateParams, logQueries, logStatements, pgliteOf, savingsRows } from "../dev/db-fixtures";
+import { userError } from "../dev/fixtures";
 import { createRecurring, deleteRecurring, listRecurring, postDueRecurring, setRecurringActive, updateRecurring, type RecurringFields } from "./recurring";
 
-let testDb: TestDb;
-const getDb = setupTestDb((d) => (testDb = d));
+const getDb = setupTestDb();
 let me: string;
 let other: string;
 
 beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
+  [me, other] = await insertTestUsers(getDb());
 });
 
 // 台北時間 2026-10-14 中午
@@ -34,34 +31,12 @@ const CATEGORY_NOT_FOUND = "找不到這個分類，可能已經刪除了";
 const INACTIVE = "這個帳戶已停用，請先恢復";
 const KIND_MISMATCH = "分類跟收支類型不符";
 
-async function insertAccount(values: Partial<typeof savingsAccounts.$inferInsert> & { name: string }) {
-  const [row] = await getDb().insert(savingsAccounts).values({ userId: me, kind: "deposit", createdAt: LONG_AGO, ...values }).returning();
-  return row;
-}
-
-async function insertCategory(values: { name: string; kind?: "income" | "expense"; userId?: string }) {
-  const [row] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", color: "violet", ...values }).returning();
-  return row;
-}
-
-async function insertRule(values: Partial<typeof savingsRecurring.$inferInsert> & { accountId: number; dayOfMonth: number }) {
-  const [row] = await getDb().insert(savingsRecurring).values({ userId: me, kind: "expense", amount: 100, ...values }).returning();
-  return row;
-}
-
-/** 要是使用者錯誤畫面才會顯示訊息 不能是文字剛好一樣的其他錯誤 */
-async function userError(promise: Promise<unknown>): Promise<string> {
-  const error = await promise.then(
-    () => undefined,
-    (reason: unknown) => reason,
-  );
-  expect(error).toBeInstanceOf(SavingsUserError);
-  return (error as Error).message;
-}
-
+const { insertAccount, insertCategory, insertRule, insertHolding, ruleOf, transactions } = savingsRows(getDb, () => me, {
+  account: { createdAt: LONG_AGO },
+  category: { color: "violet" },
+  holding: { shares: 0, cost: 0 },
+});
 const rules = () => getDb().select().from(savingsRecurring).orderBy(asc(savingsRecurring.id));
-const ruleOf = async (id: number) => (await getDb().select().from(savingsRecurring).where(eq(savingsRecurring.id, id)))[0];
-const transactions = () => getDb().select().from(savingsTransactions).orderBy(asc(savingsTransactions.id));
 
 /** 原本的測試都是自動記帳的固定收支 新欄位給舊資料的值 */
 const fields = (values: Partial<RecurringFields> = {}): RecurringFields => ({
@@ -81,40 +56,6 @@ const fields = (values: Partial<RecurringFields> = {}): RecurringFields => ({
   allocate: "",
   ...values,
 });
-
-/** 取 setupTestDb 底下的 PGlite 因為 TestDb 的型別沒有列出 drizzle 的 $client */
-const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
-/**
- * 正式環境經 drizzle 的 postgres-js 收到 Date 參數會丟錯
- * 測試的 PGlite 自己會轉而查不出來 所以直接看送出的參數
- */
-const dateParams = (query: MockInstance) => query.mock.calls.flatMap(([, params]) => (Array.isArray(params) ? params : [])).filter((param) => param instanceof Date);
-
-/** 記下送出的每一句 SQL 與交易的開始 */
-function logQueries(): string[] {
-  const queries: string[] = [];
-  const pglite = pgliteOf(testDb);
-  const transaction = pglite.transaction.bind(pglite);
-  vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) => {
-    queries.push("begin");
-    return transaction(callback);
-  }) as typeof transaction);
-  (globalThis as unknown as { hubDb?: unknown }).hubDb = drizzle(pglite, { logger: { logQuery: (query) => queries.push(query) } });
-  return queries;
-}
-
-/** 同 logQueries 另外記下參數 交易的開始記成 sql 是 begin 的一筆 */
-function logStatements(): { sql: string; params: unknown[] }[] {
-  const statements: { sql: string; params: unknown[] }[] = [];
-  const pglite = pgliteOf(testDb);
-  const transaction = pglite.transaction.bind(pglite);
-  vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) => {
-    statements.push({ sql: "begin", params: [] });
-    return transaction(callback);
-  }) as typeof transaction);
-  (globalThis as unknown as { hubDb?: unknown }).hubDb = drizzle(pglite, { logger: { logQuery: (sql, params) => statements.push({ sql, params }) } });
-  return statements;
-}
 
 describe("listRecurring", () => {
   it("只有自己的_依每月的日期、同一天再依建立順序_停用的也列出", async () => {
@@ -219,7 +160,7 @@ describe("updateRecurring", () => {
     const cathay = await insertAccount({ name: "國泰" });
     const rule = await insertRule({ accountId: cathay.id, dayOfMonth: 6, amount: 390 });
 
-    expect(await userError(updateRecurring(me, rule.id, fields({ accountId: String(cathay.id), amount: "0" })))).toBe("金額至少 1 元");
+    await userError(updateRecurring(me, rule.id, fields({ accountId: String(cathay.id), amount: "0" })));
     expect((await ruleOf(rule.id)).amount).toBe(390);
   });
 
@@ -488,7 +429,7 @@ describe("postDueRecurring（排程 savings:recurring）", () => {
     const cathay = await insertAccount({ name: "國泰" });
     const broken = await insertRule({ accountId: cathay.id, dayOfMonth: 1, note: "秘密的備註", createdAt: noonOf("2026-10-01") });
     await insertRule({ accountId: cathay.id, dayOfMonth: 2, createdAt: noonOf("2026-10-01") });
-    vi.spyOn(testDb, "transaction").mockImplementationOnce(() => {
+    vi.spyOn(getDb(), "transaction").mockImplementationOnce(() => {
       throw new Error("connection reset: secret-detail");
     });
 
@@ -504,7 +445,7 @@ describe("postDueRecurring（排程 savings:recurring）", () => {
   it("鎖住那條固定收支再算，用條件式 update 認領月份後才寫紀錄（同一個交易）；PGlite 只有一條連線，所以直接看送出的 SQL", async () => {
     const cathay = await insertAccount({ name: "國泰" });
     await insertRule({ accountId: cathay.id, dayOfMonth: 6, createdAt: noonOf("2026-09-01"), lastPostedMonth: "2026-09-01" });
-    const queries = logQueries();
+    const queries = logQueries(getDb());
 
     await postDueRecurring(NOW);
 
@@ -524,7 +465,7 @@ describe("postDueRecurring（排程 savings:recurring）", () => {
     const subscription = await insertCategory({ name: "訂閱" });
     await insertRule({ accountId: cathay.id, categoryId: subscription.id, dayOfMonth: 6, createdAt: noonOf("2026-09-01"), lastPostedMonth: "2026-09-01" });
     await insertRule({ kind: "transfer", accountId: cathay.id, counterAccountId: broker.id, dayOfMonth: 7, createdAt: noonOf("2026-09-01"), lastPostedMonth: "2026-09-01" });
-    const statements = logStatements();
+    const statements = logStatements(getDb());
 
     expect(await postDueRecurring(NOW)).toBe("自動記帳 2 筆");
 
@@ -566,7 +507,7 @@ describe("postDueRecurring（排程 savings:recurring）", () => {
     const post = await insertAccount({ name: "郵局" });
     const rule = await insertRule({ accountId: cathay.id, dayOfMonth: 6, createdAt: noonOf("2026-09-01"), lastPostedMonth: "2026-09-01" });
     // 鎖完父列帳戶之後 鎖固定收支之前 另一個請求把它改到郵局
-    const pglite = pgliteOf(testDb);
+    const pglite = pgliteOf(getDb());
     const transaction = pglite.transaction.bind(pglite);
     let moved = false;
     vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) =>
@@ -645,7 +586,7 @@ describe("postDueRecurring（排程 savings:recurring）", () => {
     const closed = await insertAccount({ name: "舊帳戶", active: false });
     await insertRule({ accountId: cathay.id, dayOfMonth: 6, createdAt: noonOf("2026-09-01") });
     await insertRule({ accountId: closed.id, dayOfMonth: 6, createdAt: noonOf("2026-09-01") });
-    const query = vi.spyOn(pgliteOf(testDb), "query");
+    const query = vi.spyOn(pgliteOf(getDb()), "query");
 
     expect(await postDueRecurring(NOW)).toBe(`自動記帳 2 筆；${SKIPPED(2)}`);
 
@@ -653,11 +594,6 @@ describe("postDueRecurring（排程 savings:recurring）", () => {
     expect(dateParams(query)).toEqual([]);
   });
 });
-
-async function insertHolding(values: Partial<typeof savingsHoldings.$inferInsert> & { accountId: number }) {
-  const [row] = await getDb().insert(savingsHoldings).values({ userId: me, symbol: "006208", name: "富邦台50", shares: 0, cost: 0, ...values }).returning();
-  return row;
-}
 
 describe("新增與修改：名稱、間隔、起始月份、假日規則、記帳方式", () => {
   it("新增時沒選記帳方式_預設到期請我確認；其他新欄位照表單存", async () => {

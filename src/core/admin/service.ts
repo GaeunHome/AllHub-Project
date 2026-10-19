@@ -2,6 +2,7 @@ import "server-only";
 import { asc, eq, gt, sql } from "drizzle-orm";
 import { db } from "../db";
 import { coreUsers, type UserRole } from "../db/schema";
+import { UserError } from "../form";
 
 /** 管理頁的使用者清單 不含密碼雜湊與登入失敗紀錄 */
 export type ManagedUser = { id: string; username: string; role: UserRole; createdAt: Date; disabledAt: Date | null };
@@ -9,7 +10,7 @@ export type ManagedUser = { id: string; username: string; role: UserRole; create
 export type LockedUser = { id: string; lockedUntil: Date };
 
 /** 站長的操作不被允許 例如停用自己 訊息會直接顯示在畫面上 */
-export class AdminUserError extends Error {
+export class AdminUserError extends UserError {
   name = "AdminUserError";
 }
 

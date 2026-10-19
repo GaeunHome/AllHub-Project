@@ -1,20 +1,16 @@
 import "server-only";
 import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
-import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { db } from "@/core/db";
-import { coreUsers } from "@/core/db/schema";
-import { savingsAccounts, savingsCategories, savingsHoldings } from "../data/schema";
+import { db, type Executor } from "@/core/db";
+import { savingsAccounts, savingsCategories, savingsHoldings, savingsTransactions } from "../data/schema";
 import type { DateKey } from "../lib/dates";
 import { accountsWithHoldings } from "../lib/holdings";
-import type { AccountKind, EntryKind } from "../lib/kinds";
+import { accountIdsOf } from "../lib/ledger";
+import type { AccountKind, EntryKind, TransactionKind } from "../lib/kinds";
 import { moveInOrder, type Direction } from "../lib/order";
 import { NOT_FOUND, checkAccountStart, type Parsed } from "../lib/validation";
 import { CATEGORY_KIND_MISMATCH, HELD_INVESTMENT_TRANSFER, INACTIVE_ACCOUNT, SavingsUserError } from "./errors";
 
 // userId 都是 Server Action 從 session 拿的登入者 別人的 id 一律當作不存在
-
-/** PgDatabase 涵蓋 db 與交易的 tx 交易裡的查詢也能用 */
-export type Executor = PgDatabase<PgQueryResultHKT>;
 
 export function valid<T>(parsed: Parsed<T>): T {
   if (!parsed.ok) throw new SavingsUserError(parsed.error);
@@ -72,14 +68,6 @@ export async function moveWithin(table: OrderedTable, scope: SQL, id: number, di
       if (current.get(rowId) !== sortOrder) await tx.update(table).set({ sortOrder }).where(eq(table.id, rowId));
     }
   });
-}
-
-/**
- * 寫好幾張表的交易一開始先鎖使用者
- * 刪除帳號的連帶刪除會等這個交易做完 反過來也一樣 不會互相等到 deadlock
- */
-export async function lockUser(executor: Executor, userId: string): Promise<void> {
-  await executor.select({ id: coreUsers.id }).from(coreUsers).where(eq(coreUsers.id, userId)).for("key share");
 }
 
 export type AccountRef = { id: number; name: string; kind: AccountKind; active: boolean; createdAt: Date };
@@ -146,7 +134,7 @@ type EntryReferences = { kind: EntryKind; accountId: number; counterAccountId: n
  * 紀錄的日期不能早於任一個帳戶開始記帳的那天
  */
 export async function checkEntryReferences(executor: Executor, userId: string, input: EntryReferences, alreadyUsed: (number | null)[] = []): Promise<void> {
-  const ids = input.counterAccountId === null ? [input.accountId] : [input.accountId, input.counterAccountId];
+  const ids = accountIdsOf(input);
   const accounts = await ownAccounts(executor, userId, ids);
   for (const id of ids) {
     const account = requireAccount(accounts, id, !alreadyUsed.includes(id));
@@ -154,4 +142,43 @@ export async function checkEntryReferences(executor: Executor, userId: string, i
   }
   if (input.categoryId !== null) await requireCategory(executor, userId, input.categoryId, input.kind);
   if (input.kind === "transfer" && !input.holdingId) await rejectHeldInvestments(executor, userId, ids);
+}
+
+const t = savingsTransactions;
+// sum 的結果是 bigint 驅動程式回字串 累計可能超過 int 所以不在 SQL 轉型
+const sumOf = (kind: TransactionKind) => sql<number>`coalesce(sum(${t.amount}) filter (where ${t.kind} = ${kind}), 0)`.mapWith(Number);
+
+type FlowSide = typeof t.accountId | typeof t.counterAccountId;
+
+/** 一個帳戶一段時間的合計 金額都是正數 只有調整帶正負號 */
+export type FlowRow = { accountId: number; period: string; income: number; expense: number; transferIn: number; transferOut: number; adjust: number };
+
+/**
+ * period 是分段的欄位 例如月份或日期 轉出算在 account_id 轉入算在 counter_account_id 兩邊各查一次再合起來
+ * filter 給兩邊加一樣的條件 例如只算一個帳戶 照段再照帳戶排
+ */
+export async function flowsBy(executor: Executor, period: SQL<string> | typeof t.date, filter: (side: FlowSide) => SQL | undefined): Promise<FlowRow[]> {
+  const [outgoing, incoming] = await Promise.all([
+    executor
+      .select({ accountId: t.accountId, period, income: sumOf("income"), expense: sumOf("expense"), transferOut: sumOf("transfer"), adjust: sumOf("adjust") })
+      .from(t)
+      .where(filter(t.accountId))
+      .groupBy(t.accountId, period),
+    executor
+      .select({ accountId: t.counterAccountId, period, transferIn: sql<number>`sum(${t.amount})`.mapWith(Number) })
+      .from(t)
+      .where(and(eq(t.kind, "transfer"), filter(t.counterAccountId)))
+      .groupBy(t.counterAccountId, period),
+  ]);
+
+  const flows = new Map<string, FlowRow>();
+  const flowOf = (accountId: number, period: string) => {
+    const key = `${accountId}|${period}`;
+    let flow = flows.get(key);
+    if (!flow) flows.set(key, (flow = { accountId, period, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0 }));
+    return flow;
+  };
+  for (const row of outgoing) Object.assign(flowOf(row.accountId, row.period), { income: row.income, expense: row.expense, transferOut: row.transferOut, adjust: row.adjust });
+  for (const row of incoming) if (row.accountId !== null) flowOf(row.accountId, row.period).transferIn = row.transferIn;
+  return [...flows.values()].sort((a, b) => a.period.localeCompare(b.period) || a.accountId - b.accountId);
 }

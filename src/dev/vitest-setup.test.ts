@@ -1,13 +1,8 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { externalFetch } from "@/core/external-url";
+import { describe, expect, it, vi } from "vitest";
+import { externalAssetUrl, externalFetch } from "@/core/external-url";
 import { fakeFetch } from "./fake-fetch";
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.unstubAllEnvs();
-});
 
 const failureOf = (pending: Promise<unknown>) =>
   pending.then(
@@ -45,8 +40,6 @@ describe("測試防護：全域 fetch 只能連 localhost／127.0.0.1", () => {
   });
 
   it("vi.mock(path, { spy: true }) 沒設定回應而呼叫到真的實作時_經過 externalFetch 也會被擋下", async () => {
-    vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
-
     expect(await failureOf(externalFetch("https://sg-public-api.hoyolab.com/event/luna/os/info"))).toContain("測試不能對外連線");
   });
 
@@ -66,5 +59,20 @@ describe("測試防護：全域 fetch 只能連 localhost／127.0.0.1", () => {
 
     vi.unstubAllGlobals();
     expect(await failureOf(fetch("https://api.twitch.tv/helix/users"))).toContain("測試不能對外連線");
+  });
+});
+
+describe("每個測試開始前自動還原", () => {
+  it("這個測試換掉 fetch、設了假伺服器，都不自己還原", async () => {
+    vi.stubGlobal("fetch", fakeFetch(() => new Response("替身")).impl);
+    vi.stubEnv("DEV_EXTERNAL_ORIGIN", "http://127.0.0.1:4010");
+
+    expect(await (await fetch("https://api.twitch.tv/helix/users")).text()).toBe("替身");
+    expect(externalAssetUrl("https://static-cdn.jtvnw.net/a.png")).toBe("http://127.0.0.1:4010/a.png");
+  });
+
+  it("下一個測試_fetch 回到只能連本機的防護版（vitest.config 的 unstubGlobals），網址也照原樣、不改寫到假伺服器（本機 shell 設了 DEV_EXTERNAL_ORIGIN 也一樣）", async () => {
+    expect(await failureOf(fetch("https://api.twitch.tv/helix/users"))).toContain("測試不能對外連線");
+    expect(externalAssetUrl("https://static-cdn.jtvnw.net/a.png")).toBe("https://static-cdn.jtvnw.net/a.png");
   });
 });

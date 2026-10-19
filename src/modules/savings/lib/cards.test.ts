@@ -1,16 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { dayFlowRow } from "../dev/fixtures";
 import { billDefaults, billDifference, billPayments, billStatus, cardBill, defaultDueDate, lastStatementDate, payableDueDate, type CardDailyFlow, type CardStatement } from "./cards";
 
-const flow = (date: string, values: Partial<Omit<CardDailyFlow, "accountId" | "date">>, accountId = 5): CardDailyFlow => ({
-  accountId,
-  date,
-  income: 0,
-  expense: 0,
-  transferIn: 0,
-  transferOut: 0,
-  adjust: 0,
-  ...values,
-});
+// 卡片 id 預設是下面的 CARD
+const flow = (date: string, values: Partial<CardDailyFlow>, accountId = 5) => dayFlowRow(accountId, date, values);
 
 describe("lastStatementDate（嚴格早於今天、日子是結帳日的最近一天）", () => {
   it.each([
@@ -96,7 +89,6 @@ describe("cardBill（有結帳日：結帳後就要填帳單，填了之後還�
       owedNow: 7500,
       statementDate: "2026-10-05",
       dueDate: null,
-      billId: null,
       statementAmount: null,
       estimate: 10_000,
       paid: 4000,
@@ -109,7 +101,6 @@ describe("cardBill（有結帳日：結帳後就要填帳單，填了之後還�
 
   it("填了 10/5 的帳單 12,480（銀行說的比紀錄多）_本期還要繳 12,480 減已繳 4,000 是 8,480，不用再填", () => {
     expect(cardBill(CARD, -7500, FLOWS, "2026-10-15", [bill(1, "2026-10-05", "2026-10-20", 12_480)])).toMatchObject({
-      billId: 1,
       statementAmount: 12_480,
       dueDate: "2026-10-20",
       paid: 4000,
@@ -175,7 +166,6 @@ describe("cardBill（沒有結帳日：不會自動要你填，自己在帳戶�
     expect(cardBill(CARD, -2300, flows, "2026-10-20", [bill(2, "2026-10-18", "2026-10-25", 3800)])).toMatchObject({
       statementDate: "2026-10-18",
       dueDate: "2026-10-27",
-      billId: 2,
       statementAmount: 3800,
       paid: 1000,
       remainingDue: 2800,
@@ -186,45 +176,39 @@ describe("cardBill（沒有結帳日：不會自動要你填，自己在帳戶�
   });
 
   it("繳清了_不列，照最新一張寫已繳清", () => {
-    expect(cardBill(CARD, 0, [flow("2026-10-18", { transferIn: 3800 })], "2026-10-20", [bill(2, "2026-10-18", "2026-10-27", 3800)])).toMatchObject({ billId: 2, statementAmount: 3800, remainingDue: 0, status: "none" });
+    expect(cardBill(CARD, 0, [flow("2026-10-18", { transferIn: 3800 })], "2026-10-20", [bill(2, "2026-10-18", "2026-10-27", 3800)])).toMatchObject({ statementDate: "2026-10-18", statementAmount: 3800, remainingDue: 0, status: "none" });
   });
 
   it("截止日過了還沒繳清_一直是逾期，直到填了下一張（新的帳單會算進沒繳的）", () => {
     const unpaid = [bill(2, "2026-10-18", "2026-10-27", 3800)];
 
-    expect(cardBill(CARD, -3800, [], "2026-10-28", unpaid)).toMatchObject({ billId: 2, dueDate: "2026-10-27", remainingDue: 3800, status: "overdue", daysLeft: -1 });
-    expect(cardBill(CARD, -3800, [], "2026-11-15", unpaid)).toMatchObject({ billId: 2, status: "overdue", daysLeft: -19 });
-    expect(cardBill(CARD, -5000, [], "2026-11-15", [...unpaid, bill(3, "2026-11-15", "2026-11-25", 5000)])).toMatchObject({ billId: 3, dueDate: "2026-11-25", remainingDue: 5000, status: "upcoming", daysLeft: 10 });
+    expect(cardBill(CARD, -3800, [], "2026-10-28", unpaid)).toMatchObject({ statementDate: "2026-10-18", dueDate: "2026-10-27", remainingDue: 3800, status: "overdue", daysLeft: -1 });
+    expect(cardBill(CARD, -3800, [], "2026-11-15", unpaid)).toMatchObject({ statementDate: "2026-10-18", status: "overdue", daysLeft: -19 });
+    expect(cardBill(CARD, -5000, [], "2026-11-15", [...unpaid, bill(3, "2026-11-15", "2026-11-25", 5000)])).toMatchObject({ statementDate: "2026-11-15", dueDate: "2026-11-25", remainingDue: 5000, status: "upcoming", daysLeft: 10 });
   });
 
   it("最新一張是 7 月的、7 月就繳清了_繳了多少用帳單紀錄算好的（流量只有近 70 天，不能當成沒繳）", () => {
-    expect(cardBill(CARD, -500, [], "2026-10-15", [{ ...bill(1, "2026-07-10", "2026-07-24", 3000), paid: 3000 }])).toMatchObject({ billId: 1, remainingDue: 0, status: "none" });
+    expect(cardBill(CARD, -500, [], "2026-10-15", [{ ...bill(1, "2026-07-10", "2026-07-24", 3000), paid: 3000 }])).toMatchObject({ statementDate: "2026-07-10", remainingDue: 0, status: "none" });
   });
 });
 
 describe("billDefaults（填帳單視窗的預設）", () => {
-  it("有結帳日：填上次結帳那一期，金額照紀錄算到結帳日（結帳後的刷卡與繳款不算），截止日照上一張帳單的日子（別張卡的不算）；平日不用順延", () => {
+  it("有結帳日：填上次結帳那一期，金額照紀錄算到結帳日（結帳後的刷卡與繳款不算），截止日照上一張帳單的日子（別張卡的不算）", () => {
     const flows = [flow("2026-09-28", { expense: 3000 }), flow("2026-10-03", { expense: 2000 }), flow("2026-10-07", { expense: 1500 }), flow("2026-10-10", { transferIn: 4000 })];
 
     expect(billDefaults({ id: 5, statementDay: 5, dueDay: null }, -7500, flows, "2026-10-15", [bill(1, "2026-09-05", "2026-09-21", 9000), bill(9, "2026-09-05", "2026-09-30", 1, 6)])).toEqual({
       statementDate: "2026-10-05",
       estimate: 10_000,
       dueDate: "2026-10-21",
-      shiftedDueDate: "2026-10-21",
     });
   });
 
-  it("沒有結帳日：填的那天就是結帳日，金額照紀錄算到前一天（今天刷的 300 不算），還沒有帳單時截止日用舊的設定：印的是 10/25（週日），10/26 補假，順延到 10/27", () => {
+  it("沒有結帳日：填的那天就是結帳日，金額照紀錄算到前一天（今天刷的 300 不算），還沒有帳單時截止日用舊的設定", () => {
     expect(billDefaults({ id: 5, statementDay: null, dueDay: 25 }, -3800, [flow("2026-10-20", { expense: 300 })], "2026-10-20")).toEqual({
       statementDate: "2026-10-20",
       estimate: 3500,
       dueDate: "2026-10-25",
-      shiftedDueDate: "2026-10-27",
     });
-  });
-
-  it("同一期再填一次：預設上次填的截止日，順延後的照它算（填 10/31 週六 → 11/2）", () => {
-    expect(billDefaults({ id: 5, statementDay: 5, dueDay: null }, 0, [], "2026-10-15", [bill(1, "2026-10-05", "2026-10-31", 9000)])).toMatchObject({ dueDate: "2026-10-31", shiftedDueDate: "2026-11-02" });
   });
 });
 

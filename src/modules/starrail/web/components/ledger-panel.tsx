@@ -6,6 +6,7 @@ import { formatTaipeiTime } from "../../lib/responses";
 import type { StarrailAccountView } from "../../service/accounts";
 import { cachedLedger } from "../../service/cached";
 import { LedgerView } from "./ledger-view";
+import { PanelNotice } from "./panel-parts";
 
 /**
  * 先查這個月 再一起查其他給得到的月份 各自快取 30 分鐘
@@ -16,11 +17,9 @@ export async function LedgerPanel({ account }: { account: StarrailAccountView })
   const first = await cachedLedger(user.id, account.id, ledgerMonthOf(new Date()));
   if (!first.ok) {
     return (
-      <section className="stack">
-        {/* 標題列跟有切換鈕時一樣高 並排的終局戰績標題才對得齊 */}
-        <h3 className="sr-title min-h-11">開拓月曆</h3>
+      <PanelNotice title="開拓月曆" tall>
         <FormMessage tone="error">{first.message}</FormMessage>
-      </section>
+      </PanelNotice>
     );
   }
   const others = await Promise.all(first.ledger.months.filter((month) => month !== first.ledger.month).map((month) => cachedLedger(user.id, account.id, month)));

@@ -5,12 +5,12 @@ import { flushSync } from "react-dom";
 import { Icon } from "@/core/ui/icon";
 import { listenPageKeys } from "@/core/ui/popup-layer";
 import { findCueIndex } from "../../lib/cue-lookup";
-import type { Cue } from "../../lib/subtitles/format";
+import type { Cue, SubtitleMode } from "../../lib/subtitles/format";
 import { createPlaybackClock } from "../playback-clock";
 import { fullscreenMode, fullscreenToggle, leaveFullscreen, lockPageScroll, type FullscreenMode } from "../player-fullscreen";
 import { playerShortcut } from "../player-shortcuts";
 import type { PlayerSize } from "../player-size";
-import { subtitleDisplay, type SubtitleLang, type SubtitleMode } from "../subtitle-display";
+import { subtitleDisplay, type SubtitleLang } from "../subtitle-display";
 import type { SubtitleSize } from "../subtitle-size";
 
 type YtPlayer = { getCurrentTime(): number; getPlaybackRate?(): number; destroy(): void };

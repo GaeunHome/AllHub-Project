@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { fakeFetch, hangUntilAborted } from "@/dev/fake-fetch";
 import { captureErrorLog } from "@/dev/test-helpers";
 
@@ -14,15 +14,6 @@ const SAMPLE = {
   ],
   game: "hkrpg",
 };
-
-beforeEach(() => {
-  vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
-  vi.unstubAllGlobals();
-});
 
 describe("parseActiveCodes：hoyo-codes 的兌換碼清單", () => {
   it("讀 code 與 rewards；新加入的（id 大的）排前面，直播碼這類快過期的先兌換；沒寫獎勵的是 null", () => {

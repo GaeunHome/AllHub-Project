@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { ROLE_LABELS } from "../db/schema";
 import { Icon } from "../ui/icon";
 import { CardHeader, PageHeader } from "../ui/page-header";
 import { LoadingState, Skeleton } from "../ui/skeleton";
@@ -35,7 +36,7 @@ export async function AccountSections() {
           <p className="text-sm text-ink-soft">目前登入的帳號</p>
           <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-ink">
             {user.username}
-            <span className={isOwner ? "chip chip-brand" : "chip"}>{isOwner ? "站長" : "成員"}</span>
+            <span className={isOwner ? "chip chip-brand" : "chip"}>{ROLE_LABELS[user.role]}</span>
           </p>
         </div>
         <form action={logout}>
@@ -81,7 +82,7 @@ export async function AccountSections() {
         <details className="disclosure">
           <summary>其他功能的資料呢？</summary>
           <p className="leading-relaxed">
-            刪除帳號時，追蹤名單、加密的 API Key 與 HoYoLAB cookie、理財資料會一起刪除，共用的翻譯留下但不再連到你。保存哪些資料見
+            刪除帳號時，你在各功能存的資料都會一起刪除，包括加密的 API Key 與 cookie；共用的翻譯會留下，但不再連到你。保存哪些資料見
             <Link href="/terms" className="link">
               使用聲明
             </Link>

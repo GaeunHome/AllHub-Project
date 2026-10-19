@@ -2,7 +2,7 @@ import { formatTaipeiDateTime } from "@/core/time";
 import { splitRecentCheckins } from "../recent-checkins";
 
 /** 只列用到的欄位 頁面傳進來的是 cachedRecentCheckins 讀到的紀錄 新的在前 */
-export type CheckinLogRow = { log: { id: number; result: string; message: string | null; totalSignDay: number | null; createdAt: Date } };
+type CheckinLogRow = { log: { id: number; result: string; message: string | null; totalSignDay: number | null; createdAt: Date } };
 
 const RESULT_LABEL = { success: "簽到成功", already: "已簽過", failed: "簽到失敗" } as Record<string, string>;
 const RESULT_CHIP = { success: "chip chip-success", already: "chip", failed: "chip chip-danger" } as Record<string, string>;

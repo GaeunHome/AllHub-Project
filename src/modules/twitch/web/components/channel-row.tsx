@@ -6,14 +6,15 @@ import { ExternalImage } from "@/core/ui/external-image";
 import { Icon } from "@/core/ui/icon";
 import { NotifyToggle } from "@/core/ui/notify-toggle";
 import { StatusChip } from "@/core/ui/status-chip";
+import { twitchChannelUrl } from "../../lib/urls";
 import { formatCount, formatLiveDuration, formatViewerCount, type StreamerVisual } from "../../lib/visuals";
-import type { TwitchStreamer } from "../../data/schema";
+import type { FollowedStreamer } from "../../data/schema";
 import { removeStreamerAction, setStreamerNotifyAction } from "../actions";
 import { subscriptionBadge } from "../status";
 import { GameBoxArt } from "./game-box-art";
 
 /** now 用來算開台多久 同一頁的直播卡片用同一個時間 */
-type RowProps = { streamer: StreamerVisual<TwitchStreamer>; now: Date };
+type RowProps = { streamer: StreamerVisual<FollowedStreamer>; now: Date };
 
 /**
  * 照 Twitch 側欄的追蹤清單 直播中顯示遊戲與人數 離線的變灰
@@ -115,7 +116,7 @@ export function ChannelDetail({ streamer: s, now }: RowProps) {
           {badge.detail && <p className={`text-sm leading-relaxed ${badge.tone === "danger" ? "text-danger" : "text-ink-soft"}`}>{badge.detail}</p>}
         </div>
         {/* 右欄只有 22rem 很長的帳號截斷 不撐出橫向捲動 */}
-        <a href={`https://twitch.tv/${s.login}`} target="_blank" rel="noreferrer" className="btn-secondary">
+        <a href={twitchChannelUrl(s.login)} target="_blank" rel="noreferrer" className="btn-secondary">
           <Icon name="external-link" className="size-4" />
           <span className="min-w-0 truncate">在 Twitch 開啟（twitch.tv/{s.login}）</span>
         </a>

@@ -1,4 +1,4 @@
-import { staminaFullAt, type DailyNote } from "./responses";
+import { formatTaipeiTime, staminaFullAt, type DailyNote } from "./responses";
 
 const DEFAULT_ALERT_MARGIN = 20;
 /** 每 6 分鐘回 1 點 兩次排程之間最長將近兩小時 這段時間回 20 點 */
@@ -32,12 +32,22 @@ export function staminaAlertAction(
   return alreadyAlerted ? "reset" : "none";
 }
 
+/** 便箋的進度條 超過上限也只畫滿 讀不到時是 0 */
+export function percentOf(value: number | null, max: number | null): number {
+  return value !== null && max ? Math.min(100, Math.round((value / max) * 100)) : 0;
+}
+
 /**
  * 開拓力的進度條與回滿時間 便箋可能是幾分鐘前查的
  * 回滿時間從查詢當下起算 已經過了就當作回滿 回傳 null
  */
 export function staminaGauge(note: DailyNote, fetchedAt: Date, now: Date): { percent: number; fullAt: Date | null } {
-  const percent = note.stamina !== null && note.maxStamina ? Math.min(100, Math.round((note.stamina / note.maxStamina) * 100)) : 0;
   const recoveredAt = staminaFullAt(note, fetchedAt);
-  return { percent, fullAt: recoveredAt && recoveredAt > now ? recoveredAt : null };
+  return { percent: percentOf(note.stamina, note.maxStamina), fullAt: recoveredAt && recoveredAt > now ? recoveredAt : null };
+}
+
+/** 星穹鐵道頁與首頁寫的回滿時間 fullAt 是 staminaGauge 算的 */
+export function staminaFullText(note: DailyNote, fullAt: Date | null, now: Date): string {
+  if (fullAt) return `${formatTaipeiTime(fullAt, now)} 回滿`;
+  return note.stamina !== null ? "已回滿" : "回滿時間不明";
 }

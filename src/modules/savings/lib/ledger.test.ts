@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { accountRow, flowRow as flow } from "../dev/fixtures";
 import {
   accountBalances,
   accountStartDate,
@@ -16,11 +17,9 @@ import {
   targetProgress,
   type AccountBalance,
   type AccountLike,
-  type AccountMonthFlow,
   type AllocationAccount,
   type CategoryLike,
   type CategoryMonthTotal,
-  type Slice,
 } from "./ledger";
 
 /** 台北時間當天中午建立 */
@@ -29,38 +28,11 @@ const createdOn = (date: string) => new Date(`${date}T04:00:00Z`);
 let nextId = 1;
 function account(overrides: Partial<AccountLike> = {}): AccountLike {
   const id = overrides.id ?? nextId++;
-  return {
-    id,
-    name: `帳戶${id}`,
-    kind: "deposit",
-    purposeId: null,
-    openingBalance: 0,
-    openingCost: null,
-    monthlyPlan: null,
-    targetAmount: null,
-    payFromAccountId: null,
-    active: true,
-    sortOrder: id,
-    createdAt: createdOn("2026-01-10"),
-    ...overrides,
-  };
+  return accountRow({ id, name: `帳戶${id}`, kind: "deposit", createdAt: createdOn("2026-01-10"), ...overrides });
 }
-
-const flow = (accountId: number, month: string, amounts: Partial<Omit<AccountMonthFlow, "accountId" | "month">>): AccountMonthFlow => ({
-  accountId,
-  month,
-  income: 0,
-  expense: 0,
-  transferIn: 0,
-  transferOut: 0,
-  adjust: 0,
-  ...amounts,
-});
 
 const balanceOf = (balance: number, extra: Partial<AccountBalance> = {}): AccountBalance => ({ balance, cost: null, profit: null, owed: null, ...extra });
 const balancesOf = (entries: [number, number][]) => new Map(entries.map(([id, balance]) => [id, balanceOf(balance)]));
-/** 浮點數相加會有誤差 百分比先換成千分之幾的整數再加總 畫面只顯示到小數一位 */
-const tenthsTotal = (slices: Slice[]) => slices.reduce((total, slice) => total + Math.round(slice.percent * 10), 0);
 
 describe("bySortOrder（共用的小工具）", () => {
   it("照排序值、同排序值再照 id_任何有這兩個欄位的資料都能用", () => {
@@ -168,7 +140,7 @@ describe("accountBalances（餘額＝起始＋收入−支出−轉出＋轉入�
 });
 
 describe("assetSummary（總資產與信用卡未繳）", () => {
-  it("只算啟用中的帳戶：資產是存款加投資（負的也算）_未繳是信用卡的合計_賺賠是投資的合計", () => {
+  it("只算啟用中的帳戶：資產是存款加投資（負的也算）_未繳是信用卡的合計_投資的賺賠是市值減成本", () => {
     const accounts = [
       account({ id: 1 }),
       account({ id: 2, kind: "investment" }),
@@ -188,30 +160,11 @@ describe("assetSummary（總資產與信用卡未繳）", () => {
       [7, balanceOf(1000, { cost: 500, profit: 500 })],
     ]);
 
-    expect(assetSummary(accounts, balances)).toEqual({ assets: 125_400, owed: 1200, investmentProfit: 9200 });
-    expect(assetSummary(accounts, balances, "active")).toEqual({ assets: 125_400, owed: 1200, investmentProfit: 9200 });
-  });
-
-  it("all（過去的月份）_停用的帳戶也算：那時候錢還在", () => {
-    const accounts = [
-      account({ id: 1 }),
-      account({ id: 2, kind: "investment", active: false }),
-      account({ id: 3, active: false }),
-      account({ id: 4, kind: "credit", active: false }),
-    ];
-    const balances = new Map<number, AccountBalance>([
-      [1, balanceOf(1000)],
-      [2, balanceOf(2000, { cost: 1500, profit: 500 })],
-      [3, balanceOf(300)],
-      [4, balanceOf(-700, { owed: 700 })],
-    ]);
-
-    expect(assetSummary(accounts, balances, "all")).toEqual({ assets: 3300, owed: 700, investmentProfit: 500 });
-    expect(assetSummary(accounts, balances)).toEqual({ assets: 1000, owed: 0, investmentProfit: 0 });
+    expect(assetSummary(accounts, balances)).toEqual({ assets: 125_400, deposit: 36_200, investment: { value: 89_200, cost: 80_000, profit: 9200 }, owed: 1200 });
   });
 
   it("什麼都沒有_全部是 0", () => {
-    expect(assetSummary([], new Map())).toEqual({ assets: 0, owed: 0, investmentProfit: 0 });
+    expect(assetSummary([], new Map())).toEqual({ assets: 0, deposit: 0, investment: { value: 0, cost: 0, profit: 0 }, owed: 0 });
   });
 
   it("有持股的投資帳戶用持股的市值與賺賠，不看帳上的餘額；沒有持股的照帳上的餘額（更新市值填的數字）", () => {
@@ -223,7 +176,12 @@ describe("assetSummary（總資產與信用卡未繳）", () => {
     ]);
     const holdings = new Map([[2, { value: 53_644, cost: 47_400, profit: 6244 }]]);
 
-    expect(assetSummary(accounts, balances, "active", holdings)).toEqual({ assets: 108_450 + 53_644 + 20_000, owed: 0, investmentProfit: 6244 + 2000 });
+    expect(assetSummary(accounts, balances, holdings)).toEqual({
+      assets: 108_450 + 53_644 + 20_000,
+      deposit: 108_450,
+      investment: { value: 53_644 + 20_000, cost: 47_400 + 18_000, profit: 6244 + 2000 },
+      owed: 0,
+    });
   });
 });
 
@@ -252,58 +210,29 @@ describe("monthTotals（本月收入、支出、存下）", () => {
 });
 
 const categories: CategoryLike[] = [
-  { id: 1, name: "薪水", kind: "income", color: "green", monthlyBudget: null },
-  { id: 2, name: "餐飲", kind: "expense", color: "orange", monthlyBudget: 6000 },
-  { id: 3, name: "交通", kind: "expense", color: "blue", monthlyBudget: 2000 },
-  { id: 4, name: "訂閱", kind: "expense", color: "violet", monthlyBudget: 500 },
+  { id: 1, name: "薪水", kind: "income", monthlyBudget: null },
+  { id: 2, name: "餐飲", kind: "expense", monthlyBudget: 6000 },
+  { id: 3, name: "交通", kind: "expense", monthlyBudget: 2000 },
+  { id: 4, name: "訂閱", kind: "expense", monthlyBudget: 500 },
 ];
 
-describe("expenseSlices（本月支出照分類，百分比是佔本月支出的比例）", () => {
+describe("expenseSlices（本月支出照分類）", () => {
   it("由大到小_未分類與找不到的分類合成一列「未分類」_沒花錢的分類不列_收入不算", () => {
     expect(expenseSlices(categories, totals, "2026-10")).toEqual([
-      { key: "category:2", label: "餐飲", amount: 1200, percent: 60 },
-      { key: "uncategorized", label: "未分類", amount: 500, percent: 25 },
-      { key: "category:3", label: "交通", amount: 300, percent: 15 },
+      { key: "category:2", label: "餐飲", amount: 1200 },
+      { key: "uncategorized", label: "未分類", amount: 500 },
+      { key: "category:3", label: "交通", amount: 300 },
     ]);
   });
 
-  it("金額一樣時照分類的順序_未分類排最後_百分比到小數一位、合計剛好 100（多的 0.1 給前面的）", () => {
+  it("金額一樣時照分類的順序_未分類排最後", () => {
     const tied: CategoryMonthTotal[] = [
       { categoryId: null, kind: "expense", month: "2026-10", amount: 100 },
       { categoryId: 3, kind: "expense", month: "2026-10", amount: 100 },
       { categoryId: 2, kind: "expense", month: "2026-10", amount: 100 },
     ];
 
-    const slices = expenseSlices(categories, tied, "2026-10");
-
-    expect(slices.map((s) => [s.key, s.percent])).toEqual([
-      ["category:2", 33.4],
-      ["category:3", 33.3],
-      ["uncategorized", 33.3],
-    ]);
-    expect(tenthsTotal(slices)).toBe(1000);
-  });
-
-  it("六片一樣大_四捨五入會合計 100.2，改成依餘數分配：合計剛好 100", () => {
-    const six: CategoryLike[] = Array.from({ length: 6 }, (_, i) => ({ id: 10 + i, name: `分類${i}`, kind: "expense", color: "blue", monthlyBudget: null }));
-    const even: CategoryMonthTotal[] = six.map((category) => ({ categoryId: category.id, kind: "expense", month: "2026-10", amount: 50 }));
-
-    const slices = expenseSlices(six, even, "2026-10");
-
-    expect(slices.map((s) => s.percent)).toEqual([16.7, 16.7, 16.7, 16.7, 16.6, 16.6]);
-    expect(tenthsTotal(slices)).toBe(1000);
-  });
-
-  it("餘數大的先拿到多的 0.1（不是照順序）", () => {
-    const three: CategoryMonthTotal[] = [
-      { categoryId: 2, kind: "expense", month: "2026-10", amount: 1006 },
-      { categoryId: 3, kind: "expense", month: "2026-10", amount: 1004 },
-      { categoryId: 4, kind: "expense", month: "2026-10", amount: 990 },
-    ];
-
-    // 約 33.53 33.47 33.0 捨去後 33.5 + 33.4 + 33.0 = 99.9
-    // 多的 0.1 給餘數最大的 33.47 那片
-    expect(expenseSlices(categories, three, "2026-10").map((s) => s.percent)).toEqual([33.5, 33.5, 33]);
+    expect(expenseSlices(categories, tied, "2026-10").map((s) => s.key)).toEqual(["category:2", "category:3", "uncategorized"]);
   });
 
   it("那個月沒有支出_沒有任何一片", () => {
@@ -314,8 +243,8 @@ describe("expenseSlices（本月支出照分類，百分比是佔本月支出的
 describe("budgetRows（每月預算）", () => {
   const budgeted: CategoryLike[] = [
     ...categories,
-    { id: 5, name: "娛樂", kind: "expense", color: "rose", monthlyBudget: null },
-    { id: 6, name: "保險", kind: "expense", color: "teal", monthlyBudget: 3000 },
+    { id: 5, name: "娛樂", kind: "expense", monthlyBudget: null },
+    { id: 6, name: "保險", kind: "expense", monthlyBudget: 3000 },
   ];
   const spent: CategoryMonthTotal[] = [
     { categoryId: 2, kind: "expense", month: "2026-10", amount: 4500 },
@@ -335,7 +264,7 @@ describe("budgetRows（每月預算）", () => {
   });
 
   it("剛好花完是 100%_多 1 元是 100.1%", () => {
-    const one: CategoryLike[] = [{ id: 7, name: "書", kind: "expense", color: "blue", monthlyBudget: 1000 }];
+    const one: CategoryLike[] = [{ id: 7, name: "書", kind: "expense", monthlyBudget: 1000 }];
     const at = (amount: number) => budgetRows(one, [{ categoryId: 7, kind: "expense", month: "2026-10", amount }], "2026-10")[0];
 
     expect(at(1000)).toMatchObject({ percent: 100 });
@@ -343,7 +272,7 @@ describe("budgetRows（每月預算）", () => {
   });
 
   it("百分比無條件捨去：7,999／10,000 是 79.9 不會進位成 80", () => {
-    const one: CategoryLike[] = [{ id: 8, name: "書", kind: "expense", color: "blue", monthlyBudget: 10_000 }];
+    const one: CategoryLike[] = [{ id: 8, name: "書", kind: "expense", monthlyBudget: 10_000 }];
 
     expect(budgetRows(one, [{ categoryId: 8, kind: "expense", month: "2026-10", amount: 7999 }], "2026-10")[0]).toMatchObject({ percent: 79.9 });
   });
@@ -355,20 +284,20 @@ describe("targetProgress（目標金額）", () => {
   });
 
   it("存到一部分", () => {
-    expect(targetProgress(100_000, 25_000)).toEqual({ target: 100_000, balance: 25_000, remaining: 75_000, percent: 25, reached: false });
+    expect(targetProgress(100_000, 25_000)).toEqual({ target: 100_000, percent: 25, reached: false });
   });
 
-  it("剛好達標或超過_還差 0、100%", () => {
-    expect(targetProgress(100_000, 100_000)).toEqual({ target: 100_000, balance: 100_000, remaining: 0, percent: 100, reached: true });
-    expect(targetProgress(100_000, 130_000)).toEqual({ target: 100_000, balance: 130_000, remaining: 0, percent: 100, reached: true });
+  it("剛好達標或超過_100%", () => {
+    expect(targetProgress(100_000, 100_000)).toEqual({ target: 100_000, percent: 100, reached: true });
+    expect(targetProgress(100_000, 130_000)).toEqual({ target: 100_000, percent: 100, reached: true });
   });
 
   it("差一點點_不會顯示成 100%", () => {
-    expect(targetProgress(100_000, 99_999)).toMatchObject({ percent: 99.9, reached: false, remaining: 1 });
+    expect(targetProgress(100_000, 99_999)).toMatchObject({ percent: 99.9, reached: false });
   });
 
-  it("餘額是負的_0%、還差目標加上負的部分", () => {
-    expect(targetProgress(1000, -500)).toEqual({ target: 1000, balance: -500, remaining: 1500, percent: 0, reached: false });
+  it("餘額是負的_0%", () => {
+    expect(targetProgress(1000, -500)).toEqual({ target: 1000, percent: 0, reached: false });
   });
 });
 

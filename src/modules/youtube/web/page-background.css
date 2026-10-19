@@ -1,0 +1,12 @@
+/* 由 globals.css 在 @layer 外面引入 跟全站的 :root 變數同一層 */
+/* YouTube 頁連底色與導覽列也換 整頁看起來才像 YouTube */
+/* 排除 Activity 藏起來的頁面 看過 YouTube 再換頁時底色才不會漏過去 */
+:root:has(.theme-youtube:not([data-activity-hidden])) {
+  --bg-base: #ffffff;
+  --header-bg: rgb(255 255 255 / 0.95);
+
+  @variant dark {
+    --bg-base: #0f0f0f;
+    --header-bg: rgb(15 15 15 / 0.95);
+  }
+}

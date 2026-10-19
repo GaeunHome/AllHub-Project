@@ -1,13 +1,15 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
-import { fetchVideoInfo } from "../lib/api";
 import type { VideoInfo } from "../lib/oembed";
+import type { FollowedChannel } from "../data/schema";
+import { getSettingsView, missingApiKeyMessage, type SettingsView } from "./ai-settings";
 import { youtubeTags } from "./cache-tags";
 import { recheckCandidates, type RecheckCandidate } from "./caption-status";
-import { followedVideoTitle, listFollowedChannels, recentVideos, videoChannel, type FollowedChannel } from "./channels";
+import { listFollowedChannels } from "./channels";
 import { listSavedVideos, type SavedVideo } from "./saved-videos";
-import { getSettingsView, getTranslation, missingApiKeyMessage, type SettingsView, type TranslationView } from "./translation";
-import { channelAvatar } from "./visuals";
+import { getTranslation, type TranslationView } from "./translation";
+import { followedVideo, recentVideos, type FollowedVideo } from "./video-list";
+import { channelAvatar, videoInfo } from "./visuals";
 
 // 只給頁面用 寫入 排程與翻譯鎖要讀最新資料 直接用其他 service
 // userId 是登入者 會成為快取 key 所以每人各一份 共用的翻譯只用影片 id
@@ -34,7 +36,7 @@ export async function cachedRecheckCandidates(userId: string): Promise<RecheckCa
   return recheckCandidates(userId);
 }
 
-/** 只有末 4 碼與模型設定 金鑰連密文都不進快取 */
+/** 只有前 8 碼與模型設定 金鑰連密文都不進快取 */
 export async function cachedSettingsView(userId: string): Promise<SettingsView> {
   "use cache: remote";
   cacheLife("db");
@@ -71,20 +73,12 @@ export async function cachedSavedVideos(userId: string): Promise<SavedVideo[]> {
   return listSavedVideos(userId);
 }
 
-/** 只查得到自己追蹤頻道的影片 */
-export async function cachedVideoTitle(userId: string, videoId: string): Promise<string | null> {
-  "use cache: remote";
-  cacheLife("db");
-  cacheTag(youtubeTags.videos, youtubeTags.follows);
-  return followedVideoTitle(userId, videoId);
-}
-
-/** 只查得到自己追蹤頻道的影片 其他回 null 畫面改用 oEmbed */
-export async function cachedVideoChannel(userId: string, videoId: string): Promise<Awaited<ReturnType<typeof videoChannel>>> {
+/** 觀看頁的標題與頻道列共用這一份 只查得到自己追蹤頻道的影片 其他回 null 畫面改用 oEmbed */
+export async function cachedFollowedVideo(userId: string, videoId: string): Promise<FollowedVideo | null> {
   "use cache: remote";
   cacheLife("db");
   cacheTag(youtubeTags.videos, youtubeTags.channels, youtubeTags.follows);
-  return videoChannel(userId, videoId);
+  return followedVideo(userId, videoId);
 }
 
 /** 頻道頁的頭像是外部資料 不存資料庫 參數是頻道 id 或 @handle */
@@ -102,7 +96,7 @@ export async function cachedChannelAvatar(ref: string): Promise<string | null> {
 export async function cachedVideoInfo(videoId: string): Promise<VideoInfo | null> {
   "use cache: remote";
   cacheTag(youtubeTags.external);
-  const info = await fetchVideoInfo(videoId);
+  const info = await videoInfo(videoId);
   if (info) cacheLife("avatar");
   else cacheLife("external");
   return info;

@@ -1,7 +1,7 @@
 import "server-only";
-import { and, desc, eq, lte, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lte, notInArray, sql } from "drizzle-orm";
 import { db } from "@/core/db";
-import { youtubeFollows, youtubeVideos } from "../data/schema";
+import { youtubeChannels, youtubeFollows, youtubeTranslations, youtubeVideos } from "../data/schema";
 
 /** 每人的清單只看自己追蹤頻道的最新幾支 不在任何人清單裡的由 cleanup 刪掉 */
 export const LIST_LIMIT = 20;
@@ -9,8 +9,8 @@ export const LIST_LIMIT = 20;
 export const newestFirst = [sql`${youtubeVideos.publishedAt} desc nulls last`, desc(youtubeVideos.id)];
 
 /**
- * 這個人清單上的影片 id 範圍跟 recentVideos 一樣 當子查詢用
- * 背景重新檢查字幕只碰畫面上看得到的影片
+ * 這個人清單上的影片 id 清單的範圍只在這裡定義 當子查詢用
+ * 影片清單與背景重新檢查字幕都只碰畫面上看得到的影片
  */
 export function listedVideoIds(userId: string) {
   return db()
@@ -19,6 +19,43 @@ export function listedVideoIds(userId: string) {
     .innerJoin(youtubeFollows, and(eq(youtubeFollows.channelId, youtubeVideos.channelId), eq(youtubeFollows.userId, userId)))
     .orderBy(...newestFirst)
     .limit(LIST_LIMIT);
+}
+
+/** 這個人的影片清單 帶頻道名稱與翻譯狀態 */
+export async function recentVideos(userId: string) {
+  return db()
+    .select({
+      videoId: youtubeVideos.videoId,
+      title: youtubeVideos.title,
+      publishedAt: youtubeVideos.publishedAt,
+      zhCaptions: youtubeVideos.zhCaptions,
+      zhCaptionsCheckedAt: youtubeVideos.zhCaptionsCheckedAt,
+      channelId: youtubeVideos.channelId,
+      channelTitle: youtubeChannels.title,
+      channelThumbnail: youtubeChannels.thumbnail,
+      translationStatus: youtubeTranslations.status,
+    })
+    .from(youtubeVideos)
+    .leftJoin(youtubeChannels, eq(youtubeChannels.channelId, youtubeVideos.channelId))
+    .leftJoin(youtubeTranslations, eq(youtubeTranslations.videoId, youtubeVideos.videoId))
+    .where(inArray(youtubeVideos.id, listedVideoIds(userId)))
+    .orderBy(...newestFirst);
+}
+
+export type FollowedVideo = { title: string; channelId: string; channelTitle: string | null; thumbnail: string | null };
+
+/**
+ * 自己追蹤頻道的某支影片 不限清單上的最新幾支 觀看頁 保留與重新檢查字幕共用
+ * 別人追蹤的頻道的影片當作沒有 回 null 別人追蹤哪些頻道不能從這裡看出來
+ */
+export async function followedVideo(userId: string, videoId: string): Promise<FollowedVideo | null> {
+  const [row] = await db()
+    .select({ title: youtubeVideos.title, channelId: youtubeVideos.channelId, channelTitle: youtubeChannels.title, thumbnail: youtubeChannels.thumbnail })
+    .from(youtubeVideos)
+    .innerJoin(youtubeFollows, and(eq(youtubeFollows.channelId, youtubeVideos.channelId), eq(youtubeFollows.userId, userId)))
+    .leftJoin(youtubeChannels, eq(youtubeChannels.channelId, youtubeVideos.channelId))
+    .where(eq(youtubeVideos.videoId, videoId));
+  return row ?? null;
 }
 
 /**

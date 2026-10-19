@@ -1,6 +1,7 @@
 import { createElement, useSyncExternalStore } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { textOf } from "@/dev/test-helpers";
 
 // 模擬瀏覽器裡的算繪 useSyncExternalStore 換成回傳指定的整秒
 // 其他照原本的實作
@@ -165,7 +166,7 @@ describe("瀏覽器裡的時鐘", () => {
     const clock = renderAt(NOON);
     const outerClasses = (markup: string) => (markup.match(/^<\w+ [^>]*class="([^"]*)"/)?.[1] ?? "").split(" ").filter((c) => c !== "invisible").sort();
     const icons = (markup: string) => markup.match(/<span class="icon[^"]*"/g);
-    const visibleText = (markup: string) => markup.replace(/<span class="sr-only">.*?<\/span>/, "").replace(/<[^>]+>/g, "");
+    const visibleText = (markup: string) => textOf(markup.replace(/<span class="sr-only">.*?<\/span>/, ""));
 
     expect(placeholder).toMatch(/^<span [^>]*class="[^"]*\binvisible\b/);
     expect(outerClasses(clock)).toContain("tabular-nums");

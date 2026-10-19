@@ -2,7 +2,8 @@ import { cacheLife, revalidateTag } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { expiredTags, mocksOf, tagged } from "@/dev/test-helpers";
-import { twitchFollows, twitchStreamEvents, twitchStreamers } from "../data/schema";
+import { twitchStreamEvents, twitchStreamers } from "../data/schema";
+import { ALICE_STREAM, ALICE_EVENT, ONLINE_SUBSCRIPTION, seedFollowedStreamer } from "../dev/fixtures";
 
 vi.mock("../lib/api", { spy: true });
 
@@ -10,22 +11,16 @@ const { getStreams } = mocksOf(await import("../lib/api"), "getStreams");
 const { cachedRecentEvents, cachedStreamers } = await import("./cached");
 const { handleNotification, handleRevocation } = await import("./streamers");
 
-const onlineSub = { id: "sub-on", type: "stream.online", status: "enabled", condition: { broadcaster_user_id: "42" } };
-const offlineSub = { ...onlineSub, id: "sub-off", type: "stream.offline" };
-const event = { broadcaster_user_id: "42", broadcaster_user_login: "alice", broadcaster_user_name: "Alice", started_at: "2026-10-07T09:00:00Z" };
+const offlineSub = { ...ONLINE_SUBSCRIPTION, id: "sub-off", type: "stream.offline" };
 
 let testDb: TestDb;
 setupTestDb((d) => (testDb = d));
 let me: string;
 
 beforeEach(async () => {
-  getStreams.mockReset().mockResolvedValue([{ user_id: "42", title: "今天玩鐵道", game_name: "Honkai: Star Rail", started_at: "" }]);
+  getStreams.mockReset().mockResolvedValue([ALICE_STREAM]);
   me = await insertTestUser(testDb, "alice", { role: "owner" });
-  const [streamer] = await testDb
-    .insert(twitchStreamers)
-    .values({ broadcasterId: "42", login: "alice", displayName: "Alice", onlineSubscriptionId: "sub-on", offlineSubscriptionId: "sub-off" })
-    .returning();
-  await testDb.insert(twitchFollows).values({ userId: me, streamerId: streamer.id });
+  await seedFollowedStreamer(testDb, me, { onlineSubscriptionId: "sub-on", offlineSubscriptionId: "sub-off" });
 });
 
 describe("Twitch 的快取讀取", () => {
@@ -48,7 +43,7 @@ describe("EventSub webhook：寫入後讓 tag 失效（expire: 0）", () => {
   it("開台_先失效紀錄與直播中狀態_延後的直播資訊與通知再失效一次", async () => {
     let deferred: (() => Promise<void>) | undefined;
 
-    await handleNotification("m1", onlineSub as never, event as never, { defer: (task) => (deferred = task) });
+    await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT, { defer: (task) => (deferred = task) });
 
     expect(expiredTags()).toEqual(["twitch:events", "twitch:streamers"]);
     vi.mocked(revalidateTag).mockReset();
@@ -60,22 +55,22 @@ describe("EventSub webhook：寫入後讓 tag 失效（expire: 0）", () => {
   });
 
   it("關台_紀錄與直播中狀態失效", async () => {
-    await handleNotification("m2", offlineSub as never, event as never);
+    await handleNotification("m2", offlineSub, ALICE_EVENT);
 
     expect(expiredTags()).toEqual(["twitch:events", "twitch:streamers"]);
   });
 
   it("Twitch 重送同一則通知_沒有寫入就不失效", async () => {
-    await handleNotification("m1", offlineSub as never, event as never);
+    await handleNotification("m1", offlineSub, ALICE_EVENT);
     vi.mocked(revalidateTag).mockReset();
 
-    await handleNotification("m1", offlineSub as never, event as never);
+    await handleNotification("m1", offlineSub, ALICE_EVENT);
 
     expect(expiredTags()).toEqual([]);
   });
 
   it("沒有追蹤的主播_不寫入也不失效", async () => {
-    await handleNotification("m3", offlineSub as never, { ...event, broadcaster_user_id: "999" } as never);
+    await handleNotification("m3", offlineSub, { ...ALICE_EVENT, broadcaster_user_id: "999" });
 
     expect(expiredTags()).toEqual([]);
   });

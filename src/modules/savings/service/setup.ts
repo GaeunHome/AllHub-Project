@@ -1,7 +1,7 @@
 import "server-only";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/core/db";
-import { coreUsers } from "@/core/db/schema";
+import { lockUserRow } from "@/core/db/users";
 import { savingsCategories } from "../data/schema";
 import type { CategoryIcon, CategoryKind, PaletteColor } from "../lib/kinds";
 
@@ -26,7 +26,7 @@ export async function setupDefaults(userId: string): Promise<{ categories: numbe
   return db().transaction(async (tx) => {
     // 鎖住使用者再數 連按兩次時第二次會等第一次建好
     // 還沒有分類時沒有別的列可以鎖
-    await tx.select({ id: coreUsers.id }).from(coreUsers).where(eq(coreUsers.id, userId)).for("no key update");
+    await lockUserRow(tx, userId, "no key update");
     const [categories] = await tx.select({ count: COUNT }).from(savingsCategories).where(eq(savingsCategories.userId, userId));
     if (categories.count > 0) return { categories: 0 };
 

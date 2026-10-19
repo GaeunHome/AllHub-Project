@@ -1,9 +1,10 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUser, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { stubTwitchEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 import { twitchFollows, twitchStreamers } from "../data/schema";
+import { seedFollowedStreamer } from "../dev/fixtures";
 
 vi.mock("../lib/api", { spy: true });
 
@@ -31,12 +32,8 @@ beforeEach(async () => {
   twitch.deleteSubscription.mockResolvedValue(undefined);
   twitch.createSubscription.mockImplementation(async (type: string) => sub(`new-${type}`, type, OWN_CALLBACK));
   twitch.getUsersByLogin.mockResolvedValue([{ id: "42", login: "alice", display_name: "Alice", profile_image_url: "https://static-cdn.jtvnw.net/a.png" }]);
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
-  const [streamer] = await getDb().insert(twitchStreamers).values({
-    broadcasterId: "42", login: "alice", displayName: "Alice", onlineSubscriptionId: "on-1", offlineSubscriptionId: "off-1",
-  }).returning();
-  await getDb().insert(twitchFollows).values({ userId: me, streamerId: streamer.id });
+  [me, other] = await insertTestUsers(getDb());
+  await seedFollowedStreamer(getDb(), me, { onlineSubscriptionId: "on-1", offlineSubscriptionId: "off-1" });
 });
 
 describe("syncSubscriptions（PGlite 整合）", () => {

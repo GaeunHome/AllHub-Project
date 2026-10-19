@@ -1,8 +1,8 @@
 import { createElement, type ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { markup, mocksOf } from "@/dev/test-helpers";
+import { accountView } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/cached", { spy: true });
@@ -10,11 +10,11 @@ vi.mock("../../service/cached", { spy: true });
 const cached = mocksOf(await import("../../service/cached"), "cachedProfile");
 const { LoadedAccountAvatar } = await import("./account-avatar");
 
-const account = { id: 3, uid: "900000003", nickname: "開拓者", region: "prod_official_cht", level: 70, staminaAlertThreshold: null, cookieInvalid: false, autoRedeem: false, canAutoRedeem: false, gameReminders: true };
+const account = accountView();
 const TRAIN = createElement("span", null, "列車圖示");
 const AVATAR = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/head/201102.png";
 
-const html = async () => renderToStaticMarkup((await LoadedAccountAvatar({ account, size: "md", placeholder: TRAIN })) as ReactElement);
+const html = async () => markup((await LoadedAccountAvatar({ account, size: "md", placeholder: TRAIN })) as ReactElement);
 
 beforeEach(() => {
   requireSession.mockReset();

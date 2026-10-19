@@ -1,96 +1,119 @@
-import { eq } from "drizzle-orm";
-import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
+import { sql, type SQL } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { hashPassword } from "@/core/auth/credentials";
 import { deleteOwnAccount } from "@/core/auth/users";
-import { coreInvites, coreNotifications, coreUsers } from "@/core/db/schema";
-import { insertTestUser, setupTestDb } from "@/dev/test-db";
-import { savingsAccounts, savingsCardBills, savingsCategories, savingsHoldings, savingsPurposes, savingsRecurring, savingsTransactions } from "@/modules/savings/data/schema";
-import { starrailAccounts, starrailCheckinLogs, starrailRedeemCodes } from "@/modules/starrail/data/schema";
-import { twitchFollows, twitchStreamers } from "@/modules/twitch/data/schema";
-import { youtubeChannels, youtubeFollows, youtubeSavedVideos, youtubeSettings, youtubeTranslations } from "@/modules/youtube/data/schema";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 
 // 刪除帳號跟各模組的資料表只靠外鍵連在一起
 // core 不能 import 模組 所以跨模組的檢查放在 src 底下
 
 const getDb = setupTestDb();
 const PASSWORD = "correct horse battery staple";
-const CH = "UC" + "a".repeat(22);
 
-let member: string;
 let owner: string;
+let member: string;
 
-/** 一個人在每個模組都留下資料 */
-async function seedEverything(userId: string, suffix: string) {
-  const db = getDb();
-  const [streamer] = await db.insert(twitchStreamers).values({ broadcasterId: `b${suffix}`, login: `streamer${suffix}`, displayName: "主播" }).returning();
-  await db.insert(twitchFollows).values({ userId, streamerId: streamer.id });
-  await db.insert(youtubeChannels).values({ channelId: CH.slice(0, -1) + suffix, title: "頻道" });
-  await db.insert(youtubeFollows).values({ userId, channelId: CH.slice(0, -1) + suffix });
-  await db.insert(youtubeSettings).values({ userId, anthropicKey: "v1:cipher", anthropicKeyHint: "1234" });
-  await db.insert(youtubeTranslations).values({ videoId: `video000000${suffix}`.slice(-11), requestedBy: userId, sourceKind: "upload", sourceCues: [], translated: [], batches: [] });
-  // 兩個人都保留同一支影片 刪掉一個人的清單不影響另一個人
-  await db.insert(youtubeSavedVideos).values({ userId, videoId: "dQw4w9WgXcQ", title: "影片", pinned: true });
-  const [starrail] = await db.insert(starrailAccounts).values({ userId, ltuid: suffix, uid: `80000000${suffix}`, region: "prod_official_asia", cookieEncrypted: "v1:cipher" }).returning();
-  await db.insert(starrailCheckinLogs).values({ accountId: starrail.id, result: "success" });
-  await db.insert(starrailRedeemCodes).values({ accountId: starrail.id, code: "STARRAILGIFT", result: "success" });
-  // 理財的表彼此參照 帳戶指向用途 紀錄與固定收支指向帳戶和分類
-  // 刪除帳號時整串一起刪
-  const [purpose] = await db.insert(savingsPurposes).values({ userId, name: "生活費", color: "blue" }).returning();
-  const [category] = await db.insert(savingsCategories).values({ userId, kind: "expense", name: "餐飲", color: "orange" }).returning();
-  const [account] = await db.insert(savingsAccounts).values({ userId, name: "國泰證券", kind: "investment", purposeId: purpose.id, openingBalance: 1000 }).returning();
-  const [rule] = await db.insert(savingsRecurring).values({ userId, kind: "expense", accountId: account.id, categoryId: category.id, amount: 390, dayOfMonth: 6 }).returning();
-  await db.insert(savingsTransactions).values({ userId, kind: "expense", accountId: account.id, categoryId: category.id, amount: 390, date: "2026-10-06", recurringId: rule.id });
-  await db.insert(savingsHoldings).values({ userId, accountId: account.id, symbol: "006208", name: "富邦台50", shares: 12, cost: 3000 });
-  await db.insert(savingsCardBills).values({ userId, accountId: account.id, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 1000 });
-  await db.insert(coreNotifications).values({ userId, module: "twitch", kind: "stream_online", title: "開台了" });
-  await db.insert(coreInvites).values({ tokenHash: `hash${suffix}`, createdBy: userId, expiresAt: new Date(Date.now() + 86_400_000), maxUses: 1 });
+const first = async <T extends Record<string, unknown> = { id: number }>(query: SQL) => (await getDb().execute<T>(query)).rows[0];
+
+type UserForeignKey = { table: string; column: string; onDelete: string; notNull: boolean };
+
+/** 資料庫裡每個指向 core_users 的外鍵 新的表加了外鍵就會出現在這裡 不用改測試 */
+async function userForeignKeys(): Promise<UserForeignKey[]> {
+  const { rows } = await getDb().execute<UserForeignKey>(sql`
+    select c.conrelid::regclass::text as "table", a.attname as "column",
+      case c.confdeltype when 'c' then 'cascade' when 'n' then 'set null' when 'd' then 'set default' when 'r' then 'restrict' else 'no action' end as "onDelete",
+      a.attnotnull as "notNull"
+    from pg_constraint c join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+    where c.contype = 'f' and c.confrelid = 'core_users'::regclass
+    order by 1, 2`);
+  return rows;
 }
 
-const countOf = async (table: PgTable, column: PgColumn, userId: string) => (await getDb().select().from(table).where(eq(column, userId))).length;
+const rowsOf = async ({ table, column }: UserForeignKey, userId: string) =>
+  (await first<{ n: number }>(sql`select count(*)::int as n from ${sql.identifier(table)} where ${sql.identifier(column)} = ${userId}`)).n;
+
+/**
+ * 一個人在每張有外鍵的表都留下資料 含理財的表彼此參照的列
+ * 寫成 SQL 不靠 drizzle 的 schema 程式不再讀寫但還沒刪掉的舊表也照樣放
+ */
+async function seedEverything(userId: string, n: number) {
+  const streamer = await first(sql`insert into twitch_streamers (broadcaster_id, login, display_name) values (${`b${n}`}, ${`streamer${n}`}, '主播') returning id`);
+  await first(sql`insert into twitch_follows (user_id, streamer_id) values (${userId}, ${streamer.id})`);
+  const channel = `UC${String(n).repeat(22)}`;
+  await first(sql`insert into youtube_channels (channel_id, title) values (${channel}, '頻道')`);
+  await first(sql`insert into youtube_follows (user_id, channel_id) values (${userId}, ${channel})`);
+  await first(sql`insert into youtube_settings (user_id, provider, anthropic_key) values (${userId}, 'anthropic', 'v1:cipher')`);
+  await first(sql`insert into youtube_translations (video_id, status, source_kind, source_cues, translated, batches, requested_by) values (${`video000000${n}`.slice(-11)}, 'done', 'manual', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, ${userId})`);
+  // 兩個人都保留同一支影片 刪掉一個人的清單不影響另一個人
+  await first(sql`insert into youtube_saved_videos (user_id, video_id, title, pinned) values (${userId}, 'dQw4w9WgXcQ', '影片', true)`);
+  const game = await first(sql`insert into starrail_accounts (user_id, ltuid, cookie_encrypted, uid, region) values (${userId}, ${String(n)}, 'v1:cipher', ${`80000000${n}`}, 'prod_official_asia') returning id`);
+  await first(sql`insert into starrail_checkin_logs (account_id, result) values (${game.id}, 'success')`);
+  await first(sql`insert into starrail_redeem_codes (account_id, code, result) values (${game.id}, 'STARRAILGIFT', 'success')`);
+  const category = await first(sql`insert into savings_categories (user_id, kind, name, color, monthly_budget) values (${userId}, 'expense', '餐飲', 'orange', 6000) returning id`);
+  const deposit = await first(sql`insert into savings_accounts (user_id, name, kind, opening_balance) values (${userId}, '存款', 'deposit', 1000) returning id`);
+  const card = await first(sql`insert into savings_accounts (user_id, name, kind, statement_day, pay_from_account_id, opening_balance) values (${userId}, '信用卡', 'credit', 5, ${deposit.id}, -500) returning id`);
+  const broker = await first(sql`insert into savings_accounts (user_id, name, kind) values (${userId}, '證券', 'investment') returning id`);
+  const rule = await first(sql`insert into savings_recurring (user_id, kind, account_id, category_id, amount, day_of_month) values (${userId}, 'expense', ${card.id}, ${category.id}, 390, 6) returning id`);
+  const bill = await first(sql`insert into savings_card_bills (user_id, account_id, statement_date, due_date, amount) values (${userId}, ${card.id}, '2026-10-05', '2026-10-20', 890) returning id`);
+  const etf = await first(sql`insert into savings_holdings (user_id, account_id, symbol, name, shares, cost) values (${userId}, ${broker.id}, '006208', '富邦台50', 10, 1200) returning id`);
+  const regularBuy = await first(
+    sql`insert into savings_recurring (user_id, kind, account_id, counter_account_id, amount, day_of_month, mode, holding_id) values (${userId}, 'transfer', ${deposit.id}, ${broker.id}, 1000, 5, 'confirm', ${etf.id}) returning id`,
+  );
+  await first(sql`insert into savings_transactions (user_id, kind, account_id, category_id, amount, date, recurring_id) values (${userId}, 'expense', ${card.id}, ${category.id}, 390, '2026-10-06', ${rule.id})`);
+  await first(sql`insert into savings_transactions (user_id, kind, account_id, counter_account_id, amount, date) values (${userId}, 'transfer', ${deposit.id}, ${card.id}, 500, '2026-10-07')`);
+  await first(sql`insert into savings_transactions (user_id, kind, account_id, amount, date, card_bill_id) values (${userId}, 'expense', ${card.id}, 500, '2026-10-05', ${bill.id})`);
+  await first(
+    sql`insert into savings_transactions (user_id, kind, account_id, counter_account_id, amount, date, holding_id, shares, cost_change, recurring_id, recurring_period) values (${userId}, 'transfer', ${deposit.id}, ${broker.id}, 1000, '2026-10-05', ${etf.id}, 8, 1000, ${regularBuy.id}, '2026-10-01')`,
+  );
+  await first(sql`insert into weather_settings (user_id, county) values (${userId}, '臺北市')`);
+  await first(sql`insert into core_notifications (user_id, module, kind, title) values (${userId}, 'twitch', 'stream_online', '開台了')`);
+  await first(sql`insert into core_invites (token_hash, created_by, expires_at, max_uses) values (${`hash${n}`}, ${userId}, ${new Date(Date.now() + 86_400_000).toISOString()}::timestamptz, 1)`);
+}
 
 beforeEach(async () => {
-  owner = await insertTestUser(getDb(), "boss", { role: "owner" });
-  member = await insertTestUser(getDb(), "member");
-  await getDb().update(coreUsers).set({ passwordHash: await hashPassword(PASSWORD) }).where(eq(coreUsers.id, member));
-  await seedEverything(member, "1");
-  await seedEverything(owner, "2");
+  [owner, member] = await insertTestUsers(getDb());
+  await first(sql`update core_users set password_hash = ${await hashPassword(PASSWORD)} where id = ${member}`);
+  await seedEverything(member, 1);
+  await seedEverything(owner, 2);
 });
 
-describe("刪除自己的帳號：各功能的資料一起刪除，共用的翻譯留下但不再連到他", () => {
-  it("追蹤名單、保留的影片、加密的 API Key、HoYoLAB 帳號與簽到紀錄、理財（帳戶、用途、分類、持股、紀錄、固定收支、信用卡帳單）、通知、邀請都刪掉；別人的資料不受影響", async () => {
+describe("刪除自己的帳號：外鍵指向 core_users 的資料一起刪除，共用的翻譯留下但不再連到他", () => {
+  it("外鍵的刪除規則：都是 on delete cascade、不能是空的，只有共用翻譯的發起人是 set null（發起人刪除帳號後是空的）", async () => {
+    const keys = await userForeignKeys();
+
+    expect(keys.length).toBeGreaterThan(10);
+    expect(keys.filter((key) => key.onDelete !== "cascade").map((key) => `${key.table}.${key.column}：${key.onDelete}`)).toEqual(["youtube_translations.requested_by：set null"]);
+    expect(keys.filter((key) => !key.notNull).map((key) => `${key.table}.${key.column}`)).toEqual(["youtube_translations.requested_by"]);
+  });
+
+  it("每張有外鍵指向 core_users 的表都放了兩個人的測試資料（新的表要加進 seedEverything，下面的刪除檢查才涵蓋得到）", async () => {
+    const missing: string[] = [];
+    for (const key of await userForeignKeys()) {
+      if ((await rowsOf(key, member)) === 0) missing.push(`${key.table}.${key.column}（成員）`);
+      if ((await rowsOf(key, owner)) === 0) missing.push(`${key.table}.${key.column}（站長）`);
+    }
+
+    expect(missing).toEqual([]);
+  });
+
+  it("刪除後每張有外鍵的表裡都沒有他的列，別人的不受影響；簽到紀錄與試過的兌換碼跟著遊戲帳號刪", async () => {
+    const keys = await userForeignKeys();
+    const ownerRows = await Promise.all(keys.map((key) => rowsOf(key, owner)));
+
     expect(await deleteOwnAccount(member, PASSWORD)).toEqual({ ok: true });
 
-    for (const [name, table, column] of [
-      ["twitch_follows", twitchFollows, twitchFollows.userId],
-      ["youtube_follows", youtubeFollows, youtubeFollows.userId],
-      ["youtube_settings", youtubeSettings, youtubeSettings.userId],
-      ["youtube_saved_videos", youtubeSavedVideos, youtubeSavedVideos.userId],
-      ["starrail_accounts", starrailAccounts, starrailAccounts.userId],
-      ["savings_purposes", savingsPurposes, savingsPurposes.userId],
-      ["savings_categories", savingsCategories, savingsCategories.userId],
-      ["savings_accounts", savingsAccounts, savingsAccounts.userId],
-      ["savings_holdings", savingsHoldings, savingsHoldings.userId],
-      ["savings_recurring", savingsRecurring, savingsRecurring.userId],
-      ["savings_transactions", savingsTransactions, savingsTransactions.userId],
-      ["savings_card_bills", savingsCardBills, savingsCardBills.userId],
-      ["core_notifications", coreNotifications, coreNotifications.userId],
-      ["core_invites", coreInvites, coreInvites.createdBy],
-    ] as const) {
-      expect(await countOf(table, column, member), name).toBe(0);
-      expect(await countOf(table, column, owner), `${name}（站長的）`).toBe(1);
+    for (const [i, key] of keys.entries()) {
+      expect(await rowsOf(key, member), `${key.table}.${key.column}`).toBe(0);
+      expect(await rowsOf(key, owner), `${key.table}.${key.column}（站長的）`).toBe(ownerRows[i]);
     }
-    expect(await getDb().select().from(starrailCheckinLogs)).toHaveLength(1);
-    // 自動兌換試過的兌換碼跟著遊戲帳號刪
-    expect(await getDb().select().from(starrailRedeemCodes)).toHaveLength(1);
+    expect(await first(sql`select (select count(*)::int from starrail_checkin_logs) as logs, (select count(*)::int from starrail_redeem_codes) as codes`)).toEqual({ logs: 1, codes: 1 });
   });
 
   it("他發起的翻譯留給其他人，發起人改成 null；共用的主播與頻道留著（沒人追蹤的由排程清掉）", async () => {
     await deleteOwnAccount(member, PASSWORD);
 
-    const translations = await getDb().select({ videoId: youtubeTranslations.videoId, requestedBy: youtubeTranslations.requestedBy }).from(youtubeTranslations);
-    expect(translations.map((t) => t.requestedBy).sort()).toEqual([null, owner].sort());
-    expect(await getDb().select().from(twitchStreamers)).toHaveLength(2);
-    expect(await getDb().select().from(youtubeChannels)).toHaveLength(2);
+    const { rows } = await getDb().execute<{ requested_by: string | null }>(sql`select requested_by from youtube_translations order by video_id`);
+    expect(rows.map((row) => row.requested_by)).toEqual([null, owner]);
+    expect(await first(sql`select (select count(*)::int from twitch_streamers) as streamers, (select count(*)::int from youtube_channels) as channels`)).toEqual({ streamers: 2, channels: 2 });
   });
 });

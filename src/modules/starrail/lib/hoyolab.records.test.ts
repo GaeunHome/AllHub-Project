@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fakeFetch } from "@/dev/fake-fetch";
 
 const { fetchActCalendar, fetchEndgame, fetchLedger, fetchProfile } = await import("./hoyolab");
@@ -9,15 +9,6 @@ const query = (url: string) => Object.fromEntries(new URL(url).searchParams);
 const endpoint = (url: string) => `${new URL(url).origin}${new URL(url).pathname}`;
 const cookiePairs = (header: unknown) => String(header).split(/;\s*/).sort();
 const sentCookie = (hoyolab: ReturnType<typeof fakeFetch>) => (hoyolab.calls[0].init.headers as Record<string, string>).Cookie;
-
-beforeEach(() => {
-  vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.unstubAllEnvs();
-});
 
 describe("fetchLedger：開拓月曆（srledger/month_info）", () => {
   it("帶 uid、region、month（YYYYMM）與語言", async () => {

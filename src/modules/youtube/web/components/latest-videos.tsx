@@ -1,18 +1,11 @@
 import Link from "next/link";
-import { Suspense } from "react";
-import { externalAssetUrl } from "@/core/external-url";
 import { formatRelativeTime } from "@/core/time";
-import { Avatar } from "@/core/ui/avatar";
 import { EmptyState } from "@/core/ui/empty-state";
-import { LoadingState, Skeleton } from "@/core/ui/skeleton";
+import { MEDIA_GRID, MediaGridSkeleton } from "@/core/ui/media-grid";
+import { Skeleton } from "@/core/ui/skeleton";
+import { YOUTUBE_PAGE_PATH } from "../../lib/urls";
 import { ChannelAvatar } from "./channel-avatar";
 import { VideoLink, VideoThumbnail, channelNameOf, type FeedVideo } from "./video-card";
-
-// 依卡片寬度用容器查詢 寬的一排四支 中等兩支 很窄時一列一支 小縮圖在左
-// 跟 Twitch 的卡片同一套格線
-const GRID = "grid grid-cols-1 gap-4 @md:grid-cols-2 @4xl:grid-cols-4";
-// web 層不能讀根目錄的 info.ts 所以網址寫在這裡
-const YOUTUBE_PAGE = "/youtube";
 
 /** 首頁最新影片的內容 點擊與狀態標籤跟 YouTube 頁共用 */
 export function LatestVideoList({ videos, more, now }: { videos: FeedVideo[]; more: number; now: Date }) {
@@ -23,7 +16,7 @@ export function LatestVideoList({ videos, more, now }: { videos: FeedVideo[]; mo
         icon="clapperboard"
         title="還沒有影片"
         action={
-          <Link href={YOUTUBE_PAGE} className="btn-secondary">
+          <Link href={YOUTUBE_PAGE_PATH} className="btn-secondary">
             去追蹤頻道
           </Link>
         }
@@ -33,7 +26,7 @@ export function LatestVideoList({ videos, more, now }: { videos: FeedVideo[]; mo
 
   return (
     <div className="stack">
-      <ul className={GRID}>
+      <ul className={MEDIA_GRID}>
         {videos.map((video) => (
           <li key={video.videoId} className="min-w-0">
             <LatestVideoTile video={video} now={now} />
@@ -41,7 +34,7 @@ export function LatestVideoList({ videos, more, now }: { videos: FeedVideo[]; mo
         ))}
       </ul>
       {more > 0 && (
-        <Link href={YOUTUBE_PAGE} className="link link-block">
+        <Link href={YOUTUBE_PAGE_PATH} className="link link-block">
           還有 {more} 支影片
         </Link>
       )}
@@ -64,9 +57,7 @@ function LatestVideoTile({ video, now }: { video: FeedVideo; now: Date }) {
           </VideoLink>
         </h3>
         <p className="flex min-w-0 items-center gap-2 text-sm text-ink-soft">
-          <Suspense fallback={<Avatar src={externalAssetUrl(video.channelThumbnail)} name={channelName} size="xs" />}>
-            <ChannelAvatar channelRef={video.channelId} name={channelName} stored={video.channelThumbnail} size="xs" />
-          </Suspense>
+          <ChannelAvatar channelRef={video.channelId} name={channelName} stored={video.channelThumbnail} size="xs" />
           <span className="truncate">{channelName}</span>
         </p>
         {video.publishedAt && (
@@ -81,16 +72,11 @@ function LatestVideoTile({ video, now }: { video: FeedVideo; now: Date }) {
 
 export function LatestVideosSkeleton() {
   return (
-    <LoadingState label="載入最新影片…" className={GRID}>
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className={`flex items-start gap-3 @md:flex-col @md:items-stretch ${i > 1 ? "hidden @4xl:flex" : ""}`}>
-          <Skeleton className="aspect-video w-32 shrink-0 rounded-lg @md:w-full" />
-          <div className="flex flex-1 flex-col gap-2">
-            <Skeleton className="h-4 w-11/12" />
-            <Skeleton className="h-3.5 w-1/2" />
-          </div>
-        </div>
-      ))}
-    </LoadingState>
+    <MediaGridSkeleton label="載入最新影片…">
+      <div className="flex flex-1 flex-col gap-2">
+        <Skeleton className="h-4 w-11/12" />
+        <Skeleton className="h-3.5 w-1/2" />
+      </div>
+    </MediaGridSkeleton>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CARD_STYLES, CATEGORY_ICON_NAMES, LABEL_MAX_LENGTH, NAME_MAX_LENGTH, NOTE_MAX_LENGTH, PALETTE, SELECTABLE_COLORS } from "./kinds";
+import { LABEL_MAX_LENGTH, NAME_MAX_LENGTH, NOTE_MAX_LENGTH } from "./kinds";
 import {
   NOT_FOUND,
   amountFromText,
@@ -15,7 +15,6 @@ import {
   parseCardBillFields,
   parseCategoryFields,
   parseCategoryKind,
-  parseColor,
   parseEntryDate,
   parseEntryFields,
   parseName,
@@ -254,23 +253,6 @@ describe("名稱、備註、顏色與類型", () => {
     expect(parseNote("字".repeat(NOTE_MAX_LENGTH + 1))).toEqual({ ok: false, error: "備註最多 200 個字" });
   });
 
-  it.each(SELECTABLE_COLORS)("顏色 %s_可以", (raw) => {
-    expect(parseColor(raw)).toEqual({ ok: true, value: raw });
-  });
-
-  it("可以選的顏色_是色盤拿掉灰色的其他 7 種", () => {
-    expect(SELECTABLE_COLORS).toEqual(["blue", "teal", "green", "amber", "orange", "rose", "violet"]);
-  });
-
-  it.each(["", "red", "BLUE", "#ff0000"])("顏色 %j_不在色盤裡", (raw) => {
-    expect(parseColor(raw)).toEqual({ ok: false, error: "顏色不正確" });
-  });
-
-  it("灰色（slate）在色盤裡但留給未分類、未設定用途_不能選", () => {
-    expect(PALETTE).toContain("slate");
-    expect(parseColor("slate")).toEqual({ ok: false, error: "顏色不正確" });
-  });
-
   it("帳戶類型_只收存款、投資、信用卡", () => {
     expect(parseAccountKind("credit")).toEqual({ ok: true, value: "credit" });
     expect(parseAccountKind("loan")).toEqual({ ok: false, error: "帳戶類型不正確" });
@@ -366,10 +348,6 @@ describe("parseAccountFields（帳戶設定，依類型）", () => {
     expect(parseAccountFields(account({ label: "存".repeat(LABEL_MAX_LENGTH + 1) }), "deposit")).toEqual({ ok: false, error: "用途最多 20 個字" });
   });
 
-  it.each(CARD_STYLES)("信用卡的卡面顏色 %s_可以", (style) => {
-    expect(parseAccountFields(account({ cardStyle: style }), "credit")).toMatchObject({ ok: true, value: { cardStyle: style } });
-  });
-
   it("信用卡沒選卡面顏色_是 null（畫面照建立的順序輪流）；不在清單裡的顏色_錯誤", () => {
     expect(parseAccountFields(account({ cardStyle: " " }), "credit")).toMatchObject({ ok: true, value: { cardStyle: null } });
     expect(parseAccountFields(account({ cardStyle: "pink" }), "credit")).toEqual({ ok: false, error: "卡面顏色不正確" });
@@ -445,13 +423,6 @@ describe("parseAccountFields（帳戶設定，依類型）", () => {
     expect(parseAccountFields(account({ statementDay: "31" }), "credit")).toMatchObject({ ok: true, value: { statementDay: 31 } });
   });
 
-  it("舊的表單送來用途 id（就算格式不對）_不讀也不存：用途改成帳戶上的文字", () => {
-    const parsed = parseAccountFields(account({ purposeId: "abc" }), "deposit");
-
-    expect(parsed).toMatchObject({ ok: true, value: { label: null } });
-    expect(parsed.ok && parsed.value).not.toHaveProperty("purposeId");
-  });
-
   it("扣款帳戶 id 格式不對_當作找不到帳戶", () => {
     expect(parseAccountFields(account({ payFromAccountId: "-1" }), "credit")).toEqual({ ok: false, error: NOT_FOUND.account });
   });
@@ -474,38 +445,28 @@ describe("parseAccountFields（帳戶設定，依類型）", () => {
 });
 
 describe("parseCategoryFields", () => {
-  it("分類不能選灰色_灰色留給「未分類」", () => {
-    expect(parseCategoryFields({ name: "提領現金", color: "slate", monthlyBudget: "", icon: "" }, "expense")).toEqual({ ok: false, error: "顏色不正確" });
-    expect(parseCategoryFields({ name: "獎金", color: "slate", monthlyBudget: "", icon: "" }, "income")).toEqual({ ok: false, error: "顏色不正確" });
-  });
-
   it("支出分類_可以設每月預算_留空是不設", () => {
-    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: "6,000", icon: "utensils" }, "expense")).toEqual({
+    expect(parseCategoryFields({ name: "餐飲", monthlyBudget: "6,000", icon: "utensils" }, "expense")).toEqual({
       ok: true,
-      value: { name: "餐飲", color: "orange", monthlyBudget: 6000, icon: "utensils" },
+      value: { name: "餐飲", monthlyBudget: 6000, icon: "utensils" },
     });
-    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: " ", icon: "" }, "expense")).toMatchObject({ ok: true, value: { monthlyBudget: null } });
+    expect(parseCategoryFields({ name: "餐飲", monthlyBudget: " ", icon: "" }, "expense")).toMatchObject({ ok: true, value: { monthlyBudget: null } });
   });
 
   it("收入分類_預算不適用而忽略", () => {
-    expect(parseCategoryFields({ name: "薪水", color: "green", monthlyBudget: "100", icon: "briefcase" }, "income")).toEqual({ ok: true, value: { name: "薪水", color: "green", monthlyBudget: null, icon: "briefcase" } });
+    expect(parseCategoryFields({ name: "薪水", monthlyBudget: "100", icon: "briefcase" }, "income")).toEqual({ ok: true, value: { name: "薪水", monthlyBudget: null, icon: "briefcase" } });
   });
 
   it("預算 0 元_至少 1 元", () => {
-    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: "0", icon: "" }, "expense")).toEqual({ ok: false, error: "金額至少 1 元" });
-  });
-
-  it.each(CATEGORY_ICON_NAMES)("分類的圖示 %s（選擇器上的每一個）_收入與支出都可以選", (icon) => {
-    expect(parseCategoryFields({ name: "分類", color: "orange", monthlyBudget: "", icon }, "expense")).toMatchObject({ ok: true, value: { icon } });
-    expect(parseCategoryFields({ name: "分類", color: "orange", monthlyBudget: "", icon }, "income")).toMatchObject({ ok: true, value: { icon } });
+    expect(parseCategoryFields({ name: "餐飲", monthlyBudget: "0", icon: "" }, "expense")).toEqual({ ok: false, error: "金額至少 1 元" });
   });
 
   it("沒選圖示_是 null（畫面用預設的圖示）", () => {
-    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: "", icon: " " }, "expense")).toMatchObject({ ok: true, value: { icon: null } });
+    expect(parseCategoryFields({ name: "餐飲", monthlyBudget: "", icon: " " }, "expense")).toMatchObject({ ok: true, value: { icon: null } });
   });
 
   it.each(["rocket", "Utensils", "constructor", "toString", "__proto__", "landmark"])("圖示 %j 不在選擇器上（含物件內建的名稱、帳戶用的圖示）_錯誤", (icon) => {
-    expect(parseCategoryFields({ name: "餐飲", color: "orange", monthlyBudget: "", icon }, "expense")).toEqual({ ok: false, error: "圖示不正確" });
+    expect(parseCategoryFields({ name: "餐飲", monthlyBudget: "", icon }, "expense")).toEqual({ ok: false, error: "圖示不正確" });
   });
 });
 

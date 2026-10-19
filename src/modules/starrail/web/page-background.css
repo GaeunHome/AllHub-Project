@@ -1,0 +1,25 @@
+/* 由 globals.css 在 @layer 外面引入 跟全站的 :root 變數同一層 */
+/* Activity 藏起來的頁面還在文件裡 排除 data-activity-hidden 星空才不會漏到別頁 */
+/* html 自己有底色 body 的星空才不會被當成畫布背景 照視窗高度一段段重複 */
+/* 星空的變數放這裡 body 與 sr-dialog 都讀得到 導覽列用的變數不動 */
+:root:has(.theme-starrail:not([data-activity-hidden])) {
+  background-color: #090d26;
+  /* 星空是整頁重複的細小星點 角落的光暈與底色漸層 */
+  --sr-sky:
+    radial-gradient(1.5px 1.5px at 12% 18%, rgb(255 255 255 / 0.7), transparent),
+    radial-gradient(1px 1px at 37% 62%, rgb(255 255 255 / 0.5), transparent),
+    radial-gradient(1.5px 1.5px at 64% 34%, rgb(199 210 254 / 0.55), transparent),
+    radial-gradient(1px 1px at 86% 78%, rgb(230 194 122 / 0.5), transparent),
+    radial-gradient(40rem 30rem at 100% 0%, rgb(76 56 160 / 0.32), transparent 70%),
+    radial-gradient(36rem 28rem at 0% 100%, rgb(37 70 160 / 0.26), transparent 70%),
+    linear-gradient(180deg, #0b1030 0%, #0a0f2b 45%, #120c33 100%);
+  --sr-sky-size: 360px 420px, 360px 420px, 360px 420px, 360px 420px, auto, auto, auto;
+}
+/* 最上層是自己畫的行星與軌道 高 56rem 頁面很長時不跟著拉大 軌道線才維持細的 */
+:root:has(.theme-starrail:not([data-activity-hidden])) body {
+  background-color: #090d26;
+  background-image: url("/images/starrail-sky.svg"), var(--sr-sky);
+  background-repeat: no-repeat, repeat, repeat, repeat, repeat, repeat, repeat, repeat;
+  background-position: top center, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+  background-size: 100% 56rem, var(--sr-sky-size);
+}

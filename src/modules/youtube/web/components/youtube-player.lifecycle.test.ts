@@ -1,6 +1,6 @@
-import fs from "node:fs";
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type DependencyList, type EffectCallback } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readStylesheet } from "@/dev/stylesheet";
 
 // effect 只在瀏覽器跑 直接呼叫元件 state 給初始值 setter 換成替身
 // effect 收起來自己跑 跑完再跑清除函式就是卸載或 Activity 把頁面藏起來
@@ -101,7 +101,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
-  vi.unstubAllGlobals();
   for (const hook of [useRef, useState, useEffect, useLayoutEffect, useImperativeHandle]) vi.mocked(hook).mockReset();
 });
 
@@ -190,8 +189,8 @@ describe("播放器卸載或被 Activity 藏起來（例如按上一頁）", () 
   });
 });
 
-describe("播放器加在 html 上的規則（globals.css）", () => {
-  const css = fs.readFileSync(new URL("../../../../app/globals.css", import.meta.url), "utf8");
+describe("播放器加在 html 上的規則（web/player.css）", () => {
+  const css = readStylesheet();
   const rule = (selector: string) => new RegExp(`^\\s*${selector.replace(/[.()[\]]/g, "\\$&")} \\{([^}]*)\\}`, "m").exec(css)?.[1] ?? "";
 
   it("頁內全螢幕的捲動鎖在 html 的屬性上：Activity 藏起來的頁面還留在文件裡，用 :has 比對播放器的 data-fullscreen 會連它一起算，按上一頁後下一頁就捲不動", () => {

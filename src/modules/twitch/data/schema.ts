@@ -13,11 +13,6 @@ export const twitchStreamers = pgTable("twitch_streamers", {
   /** Twitch 的訂閱狀態代碼像 enabled 或是訂閱失敗的中文摘要 */
   subscriptionStatus: text("subscription_status"),
   isLive: boolean("is_live").notNull().default(false),
-  /**
-   * 單人版的通知開關 已改用 twitch_follows 的
-   * 部署空窗期舊程式還會讀寫 等它下線後再刪
-   */
-  notifyEnabled: boolean("notify_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 
@@ -52,3 +47,6 @@ export const twitchStreamEvents = pgTable("twitch_stream_events", {
 }).enableRLS();
 
 export type TwitchStreamer = typeof twitchStreamers.$inferSelect;
+
+/** 使用者追蹤的主播 主播表的欄位加上這個人在 twitch_follows 的通知開關 */
+export type FollowedStreamer = TwitchStreamer & Pick<typeof twitchFollows.$inferSelect, "notifyEnabled">;

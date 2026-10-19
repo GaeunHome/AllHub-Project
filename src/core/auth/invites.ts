@@ -1,16 +1,14 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
-import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { db } from "../db";
+import { db, type Executor } from "../db";
 import { coreInvites, coreUsers } from "../db/schema";
+import { UserError } from "../form";
+import { DAY_MS } from "../time";
 import { INVITE_DAY_OPTIONS, INVITE_NOTE_MAX_LENGTH, INVITE_USE_OPTIONS } from "./invite-rules";
-
-export { INVITE_DAY_OPTIONS, INVITE_USE_OPTIONS };
 
 const TOKEN_BYTES = 32;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const DAY_MS = 24 * 60 * 60 * 1000;
 // 管理頁只列最近的邀請 小網站用不到更多
 const LIST_LIMIT = 100;
 
@@ -28,11 +26,8 @@ export type InviteSummary = {
   revokedAt: Date | null;
 };
 
-/** 註冊時要跟建立帳號在同一個交易裡 所以也收 transaction */
-type Executor = PgDatabase<PgQueryResultHKT>;
-
 /** 站長輸入錯誤 例如期限 次數 備註 訊息直接顯示在表單上 */
-export class InviteInputError extends Error {
+export class InviteInputError extends UserError {
   name = "InviteInputError";
 }
 
@@ -88,8 +83,8 @@ export async function findUsableInvite(token: string, now = new Date()): Promise
 }
 
 /**
- * 條件式 update 同時用同一個邀請時資料庫一次只讓一個加一
- * 後到的會重新檢查條件 次數不會超過上限
+ * 條件式 update 同時用同一個邀請時資料庫一次只讓一個加一 後到的會重新檢查條件
+ * 註冊時要跟建立帳號在同一個交易裡 所以也收交易的 tx
  */
 export async function consumeInvite(token: string, now = new Date(), executor: Executor = db()): Promise<number | null> {
   if (!isInviteToken(token)) return null;

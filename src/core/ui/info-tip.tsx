@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useReducer, useRef, type FocusEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Icon } from "./icon";
+import { POPUP_TRIGGER } from "./popup-layer";
 
 export type InfoTipState = { hover: boolean; focus: boolean; pinned: boolean; dismissed: boolean };
 export type InfoTipEvent = "hover" | "unhover" | "focus" | "blur" | "toggle" | "escape" | "outside" | "reset";
@@ -130,7 +131,7 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
         aria-expanded={visible}
         // tooltip 沒有 aria-haspopup 能宣告的值
         // popup-layer.ts 靠這個屬性認出它開著 頁面的快捷鍵才會讓開
-        data-popup-trigger=""
+        {...{ [POPUP_TRIGGER]: "" }}
         onClick={() => dispatch("toggle")}
         onFocus={onFocus}
         onBlur={() => dispatch("blur")}

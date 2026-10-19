@@ -1,6 +1,7 @@
 import "server-only";
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { claimKey } from "../claim";
 import { coreEnv, devEnv } from "../env";
 import { claimOnce } from "./attempts";
 import { generateCaptchaCode, renderCaptchaSvg } from "./captcha-image";
@@ -75,7 +76,7 @@ export async function verifyCaptcha(purpose: CaptchaPurpose, answer: string, tok
   const secret = coreEnv().SESSION_SECRET;
   const parsed = issuedToken(purpose, token, now, secret);
   if (!parsed) return false;
-  if (!(await claimOnce(NONCE_SCOPE, createHash("sha256").update(parsed.nonce).digest("hex"), now))) return false;
+  if (!(await claimOnce(NONCE_SCOPE, claimKey(parsed.nonce), now))) return false;
   return verifyCaptchaToken(purpose, answer, token, now, secret);
 }
 

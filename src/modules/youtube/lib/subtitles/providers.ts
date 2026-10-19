@@ -6,6 +6,9 @@ export const AI_PROVIDER_IDS = ["anthropic", "openai", "gemini"] as const;
 
 export type AiProvider = (typeof AI_PROVIDER_IDS)[number];
 
+/** 還沒存過設定的人用這個 資料表的預設值也是它 */
+export const DEFAULT_PROVIDER: AiProvider = "anthropic";
+
 /** 錯誤訊息裡的供應商名稱 */
 export const AI_PROVIDER_NAMES: Record<AiProvider, string> = { anthropic: "Claude", openai: "OpenAI", gemini: "Gemini" };
 

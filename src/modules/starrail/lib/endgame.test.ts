@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ENDGAME_MODES, endgameLabel, formatPartialTime, interpretEndgame, parseEndgame } from "./endgame";
+import { challengeLabel } from "./calendar";
+import { ENDGAME_MODES, formatPartialTime, interpretEndgame, parseEndgame } from "./endgame";
 
 const IMG = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg";
 const ICONS = "/icons/starrail";
@@ -170,8 +171,8 @@ describe("interpretEndgame", () => {
 });
 
 describe("顯示用", () => {
-  it("三種模式的中文名稱", () => {
-    expect(ENDGAME_MODES.map(endgameLabel)).toEqual(["混沌回憶", "虛構敘事", "末日幻影"]);
+  it("三種模式的中文名稱（跟活動日曆的終局挑戰同一套）", () => {
+    expect(ENDGAME_MODES.map((mode) => challengeLabel(mode))).toEqual(["混沌回憶", "虛構敘事", "末日幻影"]);
   });
 
   it("formatPartialTime：年月日時分組成字串；缺欄位 null", () => {

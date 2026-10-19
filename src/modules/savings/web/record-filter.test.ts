@@ -88,7 +88,7 @@ describe("categoryFilterFrom：網址的 ?category=（總覽點支出圓餅圖�
   });
 });
 
-describe("accountFilterFrom：網址的 ?account=（總覽的帳戶詳情連過來）", () => {
+describe("accountFilterFrom：網址的 ?account=（帳戶頁的卡片連過來）", () => {
   const ACCOUNTS = [{ id: 1 }, { id: 2 }];
 
   it("自己的帳戶 id_篩選那個帳戶", () => {

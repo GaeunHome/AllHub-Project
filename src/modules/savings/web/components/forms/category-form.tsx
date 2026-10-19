@@ -4,20 +4,17 @@ import { useState } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
-import { CATEGORY_ICONS, CATEGORY_ICON_NAMES, CATEGORY_KINDS, CATEGORY_KIND_LABELS, NAME_MAX_LENGTH, type CategoryIcon, type CategoryKind, type PaletteColor } from "../../../lib/kinds";
+import { SegmentedControl } from "@/core/ui/segmented-control";
+import { CATEGORY_ICONS, CATEGORY_ICON_NAMES, CATEGORY_KINDS, CATEGORY_KIND_LABELS, NAME_MAX_LENGTH, type CategoryIcon, type CategoryKind } from "../../../lib/kinds";
 import { createCategoryAction, updateCategoryAction } from "../../actions";
-import { selectableColor } from "../../form-math";
-import { Segmented } from "../segmented";
 import { AmountField, FormButtons, LEGEND_CLASS } from "./fields";
 
 /** icon 是 null 時畫面用這一類的預設圖示 */
-export type CategoryDraft = { id: number; name: string; kind: CategoryKind; color: PaletteColor; monthlyBudget: number | null; icon: string | null };
+export type CategoryDraft = { id: number; name: string; kind: CategoryKind; monthlyBudget: number | null; icon: string | null };
 
 type CategoryFormProps = {
   category?: CategoryDraft;
   defaultKind: CategoryKind;
-  /** 資料表要一個顏色 新增時用這一類還沒用過的 修改灰色的舊分類也換成它 */
-  defaultColor: PaletteColor;
   onDone: (message: string | undefined) => void;
   onCancel: () => void;
 };
@@ -33,7 +30,7 @@ function iconForName(name: string): CategoryIcon | null {
 }
 
 /** 只有支出能設每月預算 類型建立後不能改 */
-export function CategoryForm({ category, defaultKind, defaultColor, onDone, onCancel }: CategoryFormProps) {
+export function CategoryForm({ category, defaultKind, onDone, onCancel }: CategoryFormProps) {
   const [kind, setKind] = useState<CategoryKind>(category?.kind ?? defaultKind);
   const [icon, setIcon] = useState<CategoryIcon | null>(() => (category && isCategoryIcon(category.icon) ? category.icon : null));
   // 自己選過圖示後 改名稱不再幫忙換
@@ -53,9 +50,8 @@ export function CategoryForm({ category, defaultKind, defaultColor, onDone, onCa
           <p className="text-ink">{CATEGORY_KIND_LABELS[kind]}的分類（類型建立後不能改）</p>
         </>
       ) : (
-        <Segmented label="分類類型" name="kind" options={CATEGORY_KIND_OPTIONS} value={kind} onChange={setKind} />
+        <SegmentedControl variant="field" label="分類類型" name="kind" options={CATEGORY_KIND_OPTIONS} value={kind} onChange={setKind} />
       )}
-      <input type="hidden" name="color" value={category ? selectableColor(category.color, defaultColor) : defaultColor} />
       <label className="field">
         <span className="field-label">名稱</span>
         <input

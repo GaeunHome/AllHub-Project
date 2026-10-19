@@ -2,7 +2,7 @@ import { boolean, index, integer, jsonb, pgTable, primaryKey, serial, text, time
 import { coreUsers } from "@/core/db/schema";
 import type { GlossaryEntry } from "../lib/parse";
 import type { Cue } from "../lib/subtitles/format";
-import { AI_PROVIDER_IDS } from "../lib/subtitles/providers";
+import { AI_PROVIDER_IDS, DEFAULT_PROVIDER } from "../lib/subtitles/providers";
 
 /** 頻道與 WebSub 訂閱共用 同一個頻道只訂閱一次 誰追蹤記在 youtube_follows */
 export const youtubeChannels = pgTable("youtube_channels", {
@@ -14,8 +14,6 @@ export const youtubeChannels = pgTable("youtube_channels", {
   leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
   /** pending 是等 hub 確認 subscribed 是成功 失敗或 hub 拒絕時存訂閱失敗與原因 */
   subscriptionStatus: text("subscription_status"),
-  /** 單人版的舊通知開關 新的在 youtube_follows 空窗期舊程式還會讀寫 之後再刪 */
-  notifyEnabled: boolean("notify_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 
@@ -55,23 +53,20 @@ export const youtubeVideos = pgTable("youtube_videos", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 
-/** 每人一列 API Key 用 core/crypto 加密 hint 存末 4 碼給畫面顯示 */
+/** 每人一列 API Key 用 core/crypto 加密 畫面要顯示的前幾碼讀設定時才解開來取 */
 export const youtubeSettings = pgTable("youtube_settings", {
-  // 單人版固定寫 id 1 空窗期的舊程式還會這樣寫 新的列從 2 開始才不會撞到
+  // 單人版固定寫 id 1 新的列從 2 開始才不會撞到
   id: integer("id").primaryKey().generatedByDefaultAsIdentity({ startWith: 2 }),
-  /** 可為 null 是為了部署空窗期的舊程式 新程式只讀寫自己那一列 */
   userId: uuid("user_id")
+    .notNull()
     .unique()
     .references(() => coreUsers.id, { onDelete: "cascade" }),
-  provider: text("provider", { enum: AI_PROVIDER_IDS }).notNull().default("anthropic"),
+  provider: text("provider", { enum: AI_PROVIDER_IDS }).notNull().default(DEFAULT_PROVIDER),
   anthropicKey: text("anthropic_key"),
-  anthropicKeyHint: text("anthropic_key_hint"),
   anthropicModel: text("anthropic_model"),
   openaiKey: text("openai_key"),
-  openaiKeyHint: text("openai_key_hint"),
   openaiModel: text("openai_model"),
   geminiKey: text("gemini_key"),
-  geminiKeyHint: text("gemini_key_hint"),
   geminiModel: text("gemini_model"),
   glossary: jsonb("glossary").$type<GlossaryEntry[]>().notNull().default([]),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -139,3 +134,6 @@ export const youtubeSavedVideos = pgTable(
 
 export type YoutubeChannel = typeof youtubeChannels.$inferSelect;
 export type YoutubeTranslation = typeof youtubeTranslations.$inferSelect;
+
+/** 使用者追蹤的頻道 頻道表的欄位加上這個人在 youtube_follows 的通知開關 */
+export type FollowedChannel = YoutubeChannel & Pick<typeof youtubeFollows.$inferSelect, "notifyEnabled">;

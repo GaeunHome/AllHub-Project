@@ -13,6 +13,7 @@ import { formatTwd } from "../../../lib/money";
 import { deleteAccountAction, moveAccountAction, setAccountActiveAction } from "../../actions";
 import type { AccountsPageView, CreditCardView, DepositCardView, InactiveAccountView } from "../../dashboard-view";
 import { accountDeleteWarning } from "../../settings-display";
+import { ACCOUNTS_GRID } from "../dashboard/layout";
 import { Meter } from "../dashboard/meter";
 import { Illustration } from "../illustration";
 import { AccountForm } from "../forms/account-form";
@@ -45,8 +46,6 @@ type AccountsBoardProps = {
 /** 卡片上的動作要的東西 onRemoved 給停用與刪除後會不見的卡片留訊息 */
 type CardShared = { context: AccountsContext; payFromAccounts: AccountsPageView["payFromAccounts"]; onRemoved: (message: string) => void };
 
-// 同一列的卡片等寬等高 寬螢幕多排幾張
-const GRID = "grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 // 新增的按鈕排在最後一格 虛線框跟卡片一樣圓
 const ADD_TILE =
   "flex min-h-28 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-line-strong p-5 text-sm font-semibold text-ink-soft transition-colors hover:border-[var(--muted)] hover:bg-surface-muted hover:text-ink";
@@ -75,7 +74,7 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
       )}
       <section aria-labelledby="fin-deposits" className="stack">
         <SectionHeader id="fin-deposits" title="存款" summary={view.deposits.length > 0 && <Sum label="合計" amount={view.depositTotal} />} />
-        <div className={GRID}>
+        <div className={ACCOUNTS_GRID}>
           {view.deposits.map((card) => (
             <DepositCard key={card.detail.id} card={card} {...shared} />
           ))}
@@ -84,7 +83,7 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
       </section>
       <section aria-labelledby="fin-cards" className="stack">
         <SectionHeader id="fin-cards" title="信用卡" summary={view.cards.length > 0 && <Sum label="未繳" amount={view.owedTotal} />} />
-        <div className={GRID}>
+        <div className={ACCOUNTS_GRID}>
           {view.cards.map((card) => (
             <CreditCard key={card.detail.id} card={card} {...shared} />
           ))}

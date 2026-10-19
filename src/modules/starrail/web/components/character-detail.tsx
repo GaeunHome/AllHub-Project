@@ -14,7 +14,7 @@ import {
   type StatLine,
   type Trace,
 } from "../../lib/characters";
-import { ElementBadge, GameIcon, Portrait, rarityClass } from "./sr-visuals";
+import { ElementBadge, GameIcon, GoldChip, Portrait, rarityClass } from "./sr-visuals";
 
 const dash = (value: string | number | null) => (value === null || value === "" ? "—" : value);
 const stars = (rarity: number | null) => (rarity ? "★".repeat(Math.min(rarity, 5)) : null);
@@ -117,13 +117,13 @@ function DetailHeader({ character: c, titleId, onClose }: { character: StarrailC
   const path = pathLabel(c.path);
   const rarity = stars(c.rarity);
   return (
-    <header className="sticky top-0 z-10 order-1 flex items-start gap-3 border-b border-line bg-[#0d1233]/95 px-4 py-4 backdrop-blur sm:px-6 lg:order-none">
+    <header className="sticky top-0 z-10 order-1 flex items-start gap-3 border-b border-line bg-[var(--sr-detail-bar)] px-4 py-4 backdrop-blur sm:px-6 lg:order-none">
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <h3 id={titleId} className="truncate text-xl font-bold tracking-wide text-ink lg:text-2xl">
           {c.name ?? "（未知角色）"}
         </h3>
         <div className="flex flex-wrap items-center gap-1.5">
-          {rarity && <span className="chip border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-[#f4d79b]">{rarity}</span>}
+          {rarity && <GoldChip>{rarity}</GoldChip>}
           {c.element && (
             <span className="chip">
               <ElementBadge element={c.element} src={c.elementIcon} decorative className="size-4 text-[0.5625rem]" />
@@ -176,7 +176,7 @@ function StatsTable({ stats }: { stats: StatLine[] }) {
               </span>
             </td>
             <td className="sr-num py-1.5 text-right text-[0.9375rem] text-ink-soft">{dash(stat.base)}</td>
-            <td className="sr-num py-1.5 text-right text-[0.9375rem] text-[#8fe3bd]">{dash(stat.add)}</td>
+            <td className="sr-num py-1.5 text-right text-[0.9375rem] text-[var(--sr-bonus)]">{dash(stat.add)}</td>
             <td className="sr-num py-1.5 text-right text-base font-bold text-ink">{dash(stat.final)}</td>
           </tr>
         ))}
@@ -198,7 +198,7 @@ function LightConeCard({ lightCone }: { lightCone: LightCone }) {
           <span className="sr-num text-base font-bold text-ink">Lv.{dash(lightCone.level)}</span> · 疊影{" "}
           <span className="sr-num text-base font-bold text-ink">{dash(lightCone.superimposition)}</span>
         </p>
-        {rarity && <p className="text-sm text-[#f4d79b]">{rarity}</p>}
+        {rarity && <p className="text-sm text-[var(--sr-gold-ink)]">{rarity}</p>}
       </div>
     </div>
   );
@@ -209,7 +209,7 @@ function EidolonGrid({ eidolons }: { eidolons: Eidolon[] }) {
     <ul className="grid grid-cols-3 gap-3 @sm:grid-cols-6">
       {eidolons.map((e, i) => (
         <li key={e.pos ?? i} className={`flex flex-col items-center gap-1.5 text-center ${e.unlocked === false ? "opacity-50" : ""}`}>
-          <span className={`relative size-12 overflow-hidden rounded-full bg-[#1f2547] ring-1 ${e.unlocked === false ? "ring-line" : "ring-[var(--sr-gold-line)]"}`}>
+          <span className={`relative size-12 overflow-hidden rounded-full bg-[var(--sr-avatar-bg)] ring-1 ${e.unlocked === false ? "ring-line" : "ring-[var(--sr-gold-line)]"}`}>
             <ExternalImage src={e.icon} alt="" fill className="object-cover" fallback={<FallbackIcon name="star" />} />
             {e.unlocked === false && (
               <span className="absolute inset-0 grid place-items-center bg-black/40 text-white">
@@ -268,7 +268,7 @@ function RelicCard({ relic }: { relic: Relic }) {
           <ExternalImage src={relic.icon} alt={relic.name ?? ""} fill className="object-cover" fallback={<FallbackIcon name="shield-check" />} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium tracking-wide text-[#f4d79b]">{relicSlotLabel(relic.pos) ?? "遺器"}</p>
+          <p className="text-xs font-medium tracking-wide text-[var(--sr-gold-ink)]">{relicSlotLabel(relic.pos) ?? "遺器"}</p>
           <p className="line-clamp-2 text-sm leading-snug font-medium text-ink" title={relic.name ?? undefined}>
             {dash(relic.name)}
           </p>
@@ -309,11 +309,11 @@ function Upgrades({ count }: { count: number }) {
 function TraceRow({ trace }: { trace: Trace }) {
   return (
     <li className={`flex items-center gap-2.5 py-1 ${trace.activated === false ? "opacity-55" : ""}`}>
-      <span className="relative size-9 shrink-0 overflow-hidden rounded-full bg-[#1f2547] ring-1 ring-line">
+      <span className="relative size-9 shrink-0 overflow-hidden rounded-full bg-[var(--sr-avatar-bg)] ring-1 ring-line">
         <ExternalImage src={trace.icon} alt="" fill className="object-cover" fallback={<FallbackIcon name="target" />} />
       </span>
       <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-sm text-ink">
-        {trace.typeLabel && <span className="shrink-0 text-[0.8125rem] text-[#f4d79b]">{trace.typeLabel}</span>}
+        {trace.typeLabel && <span className="shrink-0 text-[0.8125rem] text-[var(--sr-gold-ink)]">{trace.typeLabel}</span>}
         <span className="truncate">{dash(trace.name)}</span>
       </span>
       {trace.kind === "skill" && trace.level !== null && <span className="sr-num shrink-0 text-base font-bold text-ink">Lv.{trace.level}</span>}

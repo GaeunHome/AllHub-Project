@@ -1,6 +1,6 @@
 {
-  "id": "02dcf481-d23d-42a2-8826-2e11a74e32c2",
-  "prevId": "94e6d365-2e79-4298-91d0-d8f547d3b9b2",
+  "id": "6177b203-d0dd-4592-a796-ec75a94ea1ab",
+  "prevId": "59d5a0ce-17f1-466e-a2d9-3113223cb743",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -138,7 +138,7 @@
           "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "module": {
           "name": "module",
@@ -197,22 +197,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "core_notifications_unread_idx": {
-          "name": "core_notifications_unread_idx",
-          "columns": [
-            {
-              "expression": "module",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"core_notifications\".\"read_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -471,12 +455,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "purpose_id": {
-          "name": "purpose_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "opening_balance": {
           "name": "opening_balance",
           "type": "integer",
@@ -589,21 +567,6 @@
           "method": "btree",
           "with": {}
         },
-        "savings_accounts_purpose_id_idx": {
-          "name": "savings_accounts_purpose_id_idx",
-          "columns": [
-            {
-              "expression": "purpose_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "savings_accounts_pay_from_account_id_idx": {
           "name": "savings_accounts_pay_from_account_id_idx",
           "columns": [
@@ -632,19 +595,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "savings_accounts_purpose_id_savings_purposes_id_fk": {
-          "name": "savings_accounts_purpose_id_savings_purposes_id_fk",
-          "tableFrom": "savings_accounts",
-          "tableTo": "savings_purposes",
-          "columnsFrom": [
-            "purpose_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         },
         "savings_accounts_pay_from_account_id_savings_accounts_id_fk": {
@@ -1099,98 +1049,6 @@
         "savings_holdings_cost": {
           "name": "savings_holdings_cost",
           "value": "\"savings_holdings\".\"cost\" between 0 and 100000000"
-        }
-      },
-      "isRLSEnabled": true
-    },
-    "public.savings_purposes": {
-      "name": "savings_purposes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "color": {
-          "name": "color",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "savings_purposes_user_name_idx": {
-          "name": "savings_purposes_user_name_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "savings_purposes_user_id_core_users_id_fk": {
-          "name": "savings_purposes_user_id_core_users_id_fk",
-          "tableFrom": "savings_purposes",
-          "tableTo": "core_users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "savings_purposes_color": {
-          "name": "savings_purposes_color",
-          "value": "\"savings_purposes\".\"color\" in ('blue', 'teal', 'green', 'amber', 'orange', 'rose', 'violet', 'slate')"
         }
       },
       "isRLSEnabled": true
@@ -1886,7 +1744,7 @@
           "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "ltuid": {
           "name": "ltuid",
@@ -2381,13 +2239,6 @@
           "notNull": true,
           "default": false
         },
-        "notify_enabled": {
-          "name": "notify_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -2410,6 +2261,64 @@
       },
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": true
+    },
+    "public.weather_settings": {
+      "name": "weather_settings",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "county": {
+          "name": "county",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rain_alert": {
+          "name": "rain_alert",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "weather_settings_user_id_core_users_id_fk": {
+          "name": "weather_settings_user_id_core_users_id_fk",
+          "tableFrom": "weather_settings",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "weather_settings_county": {
+          "name": "weather_settings_county",
+          "value": "\"weather_settings\".\"county\" in ('臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣')"
+        }
+      },
       "isRLSEnabled": true
     },
     "public.youtube_channels": {
@@ -2451,13 +2360,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "notify_enabled": {
-          "name": "notify_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
         },
         "created_at": {
           "name": "created_at",
@@ -2699,7 +2601,7 @@
           "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "provider": {
           "name": "provider",
@@ -2710,12 +2612,6 @@
         },
         "anthropic_key": {
           "name": "anthropic_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "anthropic_key_hint": {
-          "name": "anthropic_key_hint",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2732,12 +2628,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "openai_key_hint": {
-          "name": "openai_key_hint",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "openai_model": {
           "name": "openai_model",
           "type": "text",
@@ -2746,12 +2636,6 @@
         },
         "gemini_key": {
           "name": "gemini_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "gemini_key_hint": {
-          "name": "gemini_key_hint",
           "type": "text",
           "primaryKey": false,
           "notNull": false

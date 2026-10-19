@@ -1,9 +1,9 @@
 import { payableDueDate, type CardBill } from "./cards";
 import { addDays, type DateKey } from "./dates";
 import type { TransactionKind } from "./kinds";
-import { addMonths, dateToMonth, monthToDate, type MonthKey } from "./month";
-import { pendingItems, type PendingContext, type PendingRuleRow } from "./pending";
-import { PENDING_LOOKAHEAD_DAYS, occurrencesBetween, pendingOccurrences, recurringTitle, scheduledDate, type Occurrence } from "./recurring";
+import { addMonths, dateToMonth, monthToDate } from "./month";
+import { cardKey, pendingItems, recurringKey, type PendingContext, type PendingRuleRow } from "./pending";
+import { PENDING_LOOKAHEAD_DAYS, occurrencesBetween, pendingOccurrences, recurringNames, recurringTitle, scheduledDate, type Occurrence } from "./recurring";
 
 // 總覽的這個月要做的事 做完的留著打勾
 // 固定收支照每一期的日期 信用卡待填帳單照結帳日 填了之後照截止日
@@ -11,7 +11,8 @@ import { PENDING_LOOKAHEAD_DAYS, occurrencesBetween, pendingOccurrences, recurri
 /** auto 是自動記帳還沒到 auto-done 是自動記好了 */
 export type ChecklistState = "done" | "skipped" | "todo" | "overdue" | "auto" | "auto-done";
 
-export type ChecklistKind = "salary" | "card" | "regular-buy" | "recurring";
+/** 薪水的金額前面加加號 定期定額跟其他固定收支一樣 */
+export type ChecklistKind = "salary" | "card" | "recurring";
 
 /** unbilled 是還沒結帳 needs-bill 是待填帳單 unpaid 是待繳 paid 是繳清 */
 export type ChecklistCardStage = "unbilled" | "needs-bill" | "unpaid" | "paid";
@@ -34,7 +35,6 @@ export type ChecklistItem = {
   /** 日期在下個月的 月底才看得到 信用卡的截止日可能超過 7 天 */
   upcoming: boolean;
   ruleId: number | null;
-  period: MonthKey | null;
   cardId: number | null;
   /** 現在就能處理 視窗的內容在待處理裡 要先處理更早的那一期 7 天後才到或還沒結帳的不行 */
   actionable: boolean;
@@ -66,10 +66,6 @@ export type ChecklistInput = {
 type Placement = Pick<ChecklistItem, "carriedOver" | "upcoming">;
 const THIS_MONTH: Placement = { carriedOver: false, upcoming: false };
 
-function ruleKind(rule: Pick<PendingRuleRow, "allocate" | "holdingId">): ChecklistKind {
-  if (rule.allocate) return "salary";
-  return rule.holdingId === null ? "recurring" : "regular-buy";
-}
 
 /**
  * 規則與用到的帳戶都要啟用中 跟待處理一樣
@@ -85,11 +81,7 @@ export function monthChecklist(input: ChecklistInput, today: DateKey): Checklist
   const actionable = new Set(pendingItems(input.rules, [...input.bills], today, input.context).map((item) => item.key));
   const accounts = new Map(input.context.accounts.map((account) => [account.id, account]));
   const usable = (id: number | null) => id === null || accounts.get(id)?.active === true;
-  const names = {
-    accounts: new Map(input.context.accounts.map((account) => [account.id, account.name])),
-    categories: new Map(input.context.categories.map((category) => [category.id, category.name])),
-    holdingSymbols: new Map(input.context.holdings.map((holding) => [holding.id, holding.symbol])),
-  };
+  const names = recurringNames(input.context);
 
   // 薪水分出去的轉帳也標了同一期 只認跟規則同一種的那一筆
   const recordOf = (rule: PendingRuleRow, occurrence: Occurrence) =>
@@ -101,8 +93,8 @@ export function monthChecklist(input: ChecklistInput, today: DateKey): Checklist
     );
 
   const ruleRow = (rule: PendingRuleRow, occurrence: Occurrence, placement: Placement): ChecklistItem => {
-    const key = `recurring:${rule.id}:${occurrence.period}`;
-    const base = { key, kind: ruleKind(rule), date: occurrence.date, title: recurringTitle(rule, names), estimated: false, ruleId: rule.id, period: occurrence.period, cardId: null, cardStage: null, ...placement };
+    const key = recurringKey(rule.id, occurrence.period);
+    const base = { key, kind: rule.allocate ? ("salary" as const) : ("recurring" as const), date: occurrence.date, title: recurringTitle(rule, names), estimated: false, ruleId: rule.id, cardId: null, cardStage: null, ...placement };
     const handled = rule.lastPostedMonth !== null && occurrence.period <= dateToMonth(rule.lastPostedMonth);
     if (!handled) {
       const state = rule.mode === "auto" ? "auto" : occurrence.date < today ? "overdue" : "todo";
@@ -128,8 +120,8 @@ export function monthChecklist(input: ChecklistInput, today: DateKey): Checklist
 
   type Card = ChecklistContext["accounts"][number];
   const cardBase = (card: Card, statementDate: DateKey, placement: Placement) => {
-    const key = `card:${card.id}:${statementDate}`;
-    return { key, kind: "card" as const, title: card.name, ruleId: null, period: null, cardId: card.id, actionable: actionable.has(key), ...placement };
+    const key = cardKey(card.id, statementDate);
+    return { key, kind: "card" as const, title: card.name, ruleId: null, cardId: card.id, actionable: actionable.has(key), ...placement };
   };
 
   // 最近結帳的那一期 待填帳單的日期是結帳日 填了之後是遇假日順延後的截止日

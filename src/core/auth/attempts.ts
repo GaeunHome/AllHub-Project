@@ -4,6 +4,7 @@ import { and, eq, gt, lt, sql } from "drizzle-orm";
 import { db } from "../db";
 import { coreRateLimits } from "../db/schema";
 import { coreEnv } from "../env";
+import { DAY_MS, HOUR_MS } from "../time";
 
 // 嘗試次數與用過的驗證碼 nonce 都存在 core_rate_limits
 // Vercel 是 serverless 記憶體裡的計數各個執行個體各算各的
@@ -11,9 +12,8 @@ import { coreEnv } from "../env";
 export type AttemptRule = { scope: string; max: number; windowMs: number };
 export type AttemptGate = { allowed: true } | { allowed: false; retryAfterMs: number };
 
-const HOUR_MS = 60 * 60 * 1000;
 // 時間窗最長一小時 超過一天的紀錄已經用不到
-const STALE_MS = 24 * HOUR_MS;
+const STALE_MS = DAY_MS;
 
 /** 同一個 IP 送出註冊表單的次數 成功失敗都算 */
 export const REGISTER_ATTEMPTS = { scope: "register", max: 10, windowMs: HOUR_MS } satisfies AttemptRule;
@@ -50,8 +50,8 @@ async function deleteStale(now: Date): Promise<void> {
 }
 
 /**
- * 讓驗證碼的 nonce 只能用一次 第一次記下這個 key 才回 true
- * insert 遇到重複直接略過 同時送出也只有一個成功
+ * 同一件事只認領一次 例如驗證碼的 nonce 重複的 insert 直接略過 同時送出也只有一個回 true
+ * 紀錄一天後清掉 只擋得住一天內的重複 週期超過一天的事不能靠它
  */
 export async function claimOnce(scope: string, key: string, now = new Date()): Promise<boolean> {
   const inserted = await db()

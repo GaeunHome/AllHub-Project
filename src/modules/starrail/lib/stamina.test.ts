@@ -5,16 +5,16 @@ import { alertThreshold, staminaAlertAction, staminaGauge } from "./stamina";
 const note = (stamina: number | null, max: number | null = 240) =>
   parseDailyNote({ current_stamina: stamina, max_stamina: max });
 
-describe("alertThreshold", () => {
-  it("defaults to max minus 20", () => {
+describe("alertThreshold：開拓力提醒的門檻", () => {
+  it("沒設定_用上限減 20", () => {
     expect(alertThreshold(note(0), null)).toBe(220);
   });
 
-  it("prefers the account's custom threshold", () => {
+  it("帳號設定了門檻_用設定的", () => {
     expect(alertThreshold(note(0), 200)).toBe(200);
   });
 
-  it("is null when max stamina is unknown and no custom value", () => {
+  it("沒設定又讀不到上限_null", () => {
     expect(alertThreshold(note(0, null), null)).toBeNull();
   });
 });

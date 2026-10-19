@@ -1,13 +1,14 @@
 // 終局戰績的欄位依 genshin.py 的 challenge 模型整理 還沒用真實帳號驗證
 
+import { asRecord, boolOf, createMissing, numberOf, text } from "@/core/json";
 import { elementIconUrl } from "./game-icons";
-import { asRecord, bool, createMissing, image, number, text } from "./json";
+import { image } from "./image";
 import { interpretWith, type HoyolabResult } from "./responses";
 
+/** 名稱跟活動日曆的終局挑戰一樣 用 calendar.ts 的 challengeLabel */
 export const ENDGAME_MODES = ["chaos", "fiction", "shadow"] as const;
 export type EndgameMode = (typeof ENDGAME_MODES)[number];
 
-const LABELS: Record<EndgameMode, string> = { chaos: "混沌回憶", fiction: "虛構敘事", shadow: "末日幻影" };
 export const ENDGAME_ENDPOINTS: Record<EndgameMode, string> = { chaos: "challenge", fiction: "challenge_story", shadow: "challenge_boss" };
 
 /** current 是本期 previous 是上期 對應 schedule_type 的 1 和 2 */
@@ -45,10 +46,6 @@ export type Endgame = {
 
 export type EndgameResult = { endgame: Endgame; missing: string[] };
 
-export function endgameLabel(mode: EndgameMode): string {
-  return LABELS[mode];
-}
-
 export function interpretEndgame(json: unknown, mode: EndgameMode): HoyolabResult<EndgameResult> {
   return interpretWith(json, (data) => parseEndgame(data, mode));
 }
@@ -56,12 +53,12 @@ export function interpretEndgame(json: unknown, mode: EndgameMode): HoyolabResul
 /** 回應裡的時間是伺服器時區的年月日時分 直接組成字串不換算時區 */
 export function formatPartialTime(value: unknown): string | null {
   const t = asRecord(value);
-  const [year, month, day, hour, minute] = ["year", "month", "day", "hour", "minute"].map((key) => number(t?.[key]));
+  const [year, month, day, hour, minute] = ["year", "month", "day", "hour", "minute"].map((key) => numberOf(t?.[key]));
   if (year === null || month === null || day === null || hour === null || minute === null) return null;
   return `${year}/${month}/${day} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-const withExtra = (stars: number | null, extra: unknown) => (stars === null ? null : stars + (number(extra) ?? 0));
+const withExtra = (stars: number | null, extra: unknown) => (stars === null ? null : stars + (numberOf(extra) ?? 0));
 
 export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
   const root = asRecord(data);
@@ -69,7 +66,7 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
   if (!root) return { endgame: empty, missing: ["has_data"] };
 
   const missing = createMissing();
-  const declared = bool(root.has_data);
+  const declared = boolOf(root.has_data);
   if (declared === null) missing.add("has_data");
   const group = asRecord(Array.isArray(root.groups) ? root.groups[0] : null);
   // 這一期沒有挑戰時很多欄位本來就是空的 不算格式不同
@@ -82,13 +79,13 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
     const element = need(text(avatar.element)?.toLowerCase() ?? null, at("element"));
     return [
       {
-        id: number(avatar.id),
-        level: need(number(avatar.level), at("level")),
+        id: numberOf(avatar.id),
+        level: need(numberOf(avatar.level), at("level")),
         icon: need(image(avatar.icon), at("icon")),
-        rarity: need(number(avatar.rarity), at("rarity")),
+        rarity: need(numberOf(avatar.rarity), at("rarity")),
         element,
         elementIcon: elementIconUrl(element),
-        eidolon: number(avatar.rank),
+        eidolon: numberOf(avatar.rank),
       },
     ];
   };
@@ -100,8 +97,8 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
     return [
       {
         avatars: (Array.isArray(n.avatars) ? n.avatars : (missing.add(at("avatars")), [])).flatMap(member),
-        score: mode === "chaos" ? null : need(number(n.score), at("score")),
-        bossDefeated: mode === "shadow" ? need(bool(n.boss_defeated), at("boss_defeated")) : null,
+        score: mode === "chaos" ? null : need(numberOf(n.score), at("score")),
+        bossDefeated: mode === "shadow" ? need(boolOf(n.boss_defeated), at("boss_defeated")) : null,
       },
     ];
   };
@@ -116,10 +113,10 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
       return [
         {
           name: need(text(floor.name), at("name")),
-          stars: withExtra(need(number(floor.star_num), at("star_num")), floor.extra_star_num),
-          rounds: mode === "chaos" ? need(number(floor.round_num), at("round_num")) : null,
+          stars: withExtra(need(numberOf(floor.star_num), at("star_num")), floor.extra_star_num),
+          rounds: mode === "chaos" ? need(numberOf(floor.round_num), at("round_num")) : null,
           score: mode === "chaos" || scores.length === 0 ? null : scores.reduce((sum, s) => sum + s, 0),
-          quickClear: bool(floor.is_fast),
+          quickClear: boolOf(floor.is_fast),
           nodes,
         },
       ];
@@ -133,9 +130,9 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
       name: need(text(group?.name_mi18n), "groups[].name_mi18n"),
       begin: need(formatPartialTime(root.begin_time) ?? formatPartialTime(group?.begin_time), "begin_time"),
       end: need(formatPartialTime(root.end_time) ?? formatPartialTime(group?.end_time), "end_time"),
-      stars: withExtra(need(number(root.star_num), "star_num"), root.extra_star_num),
+      stars: withExtra(need(numberOf(root.star_num), "star_num"), root.extra_star_num),
       maxFloor: need(text(root.max_floor), "max_floor"),
-      battles: need(number(root.battle_num), "battle_num"),
+      battles: need(numberOf(root.battle_num), "battle_num"),
       floors,
     },
     missing: missing.sorted(),

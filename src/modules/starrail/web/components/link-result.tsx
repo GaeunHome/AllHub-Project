@@ -4,7 +4,7 @@ import { createContext, use, useCallback, useEffect, useLayoutEffect, useRef, us
 import { ResultBanner } from "@/core/ui/form-message";
 
 /** 連結好的結果 accountId 是 service 剛寫入的自己那一列 */
-export type LinkResult = { accountId: number; message: string; warning?: string };
+type LinkResult = { accountId: number; message: string; warning?: string };
 type ShownResult = LinkResult & { seq: number };
 
 const ShowLinkResultContext = createContext<(result: LinkResult) => void>(() => {});

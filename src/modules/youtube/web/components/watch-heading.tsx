@@ -4,8 +4,8 @@ import { externalAssetUrl } from "@/core/external-url";
 import { Avatar } from "@/core/ui/avatar";
 import { Icon } from "@/core/ui/icon";
 import { Skeleton } from "@/core/ui/skeleton";
-import { youtubeChannelRef } from "../../lib/urls";
-import { cachedChannelAvatar, cachedSavedVideos, cachedVideoChannel, cachedVideoInfo } from "../../service/cached";
+import { youtubeChannelRef, youtubeChannelUrl } from "../../lib/urls";
+import { cachedChannelAvatar, cachedFollowedVideo, cachedSavedVideos, cachedVideoInfo } from "../../service/cached";
 import { WatchSaveButton } from "./save-video-button";
 
 type WatchMeta = { title: string | null; channel: { name: string; url: string | null; avatar: string | null } | null };
@@ -15,12 +15,12 @@ type WatchMeta = { title: string | null; channel: { name: string; url: string | 
  * 標題與頻道列各自串流 cache 讓兩邊共用同一次查詢
  */
 const watchMeta = cache(async (userId: string, videoId: string): Promise<WatchMeta> => {
-  const tracked = await cachedVideoChannel(userId, videoId);
+  const tracked = await cachedFollowedVideo(userId, videoId);
   if (tracked) {
     const avatar = await cachedChannelAvatar(tracked.channelId);
     return {
       title: null,
-      channel: { name: tracked.channelTitle ?? tracked.channelId, url: `https://www.youtube.com/channel/${tracked.channelId}`, avatar: avatar ?? tracked.thumbnail },
+      channel: { name: tracked.channelTitle ?? tracked.channelId, url: youtubeChannelUrl(tracked.channelId), avatar: avatar ?? tracked.thumbnail },
     };
   }
 
@@ -83,10 +83,10 @@ export async function WatchChannel({ videoId }: { videoId: string }) {
 }
 
 /** 頭像讀到前先放一樣大的模組圖示 保留按鈕也先放一樣大的骨架 版面才不會跳 */
-export function WatchChannelFallback({ icon }: { icon?: `/${string}.svg` }) {
+export function WatchChannelFallback({ icon }: { icon: `/${string}.svg` }) {
   return (
     <ChannelIdentity
-      avatar={<span className="icon-tile size-12 rounded-full">{icon ? <Icon src={icon} /> : <Icon name="play" />}</span>}
+      avatar={<span className="icon-tile size-12 rounded-full"><Icon src={icon} /></span>}
       name={null}
       action={<Skeleton className="h-11 w-[5.5rem] rounded-full" />}
     />

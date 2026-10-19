@@ -6,7 +6,7 @@ import { Icon, type UiIconName } from "@/core/ui/icon";
 import type { FormState } from "../actions";
 
 /** seq 每次加一 同樣的結果再出現時也換新的結果框 報讀器才會再念 */
-export type NumberedState = FormState & { seq?: number };
+type NumberedState = FormState & { seq?: number };
 
 /** 包住 Server Action 每次的結果都編上新序號 畫面拿它當結果框的 key */
 export function numberedAction(action: (prev: FormState, formData: FormData) => Promise<FormState>) {

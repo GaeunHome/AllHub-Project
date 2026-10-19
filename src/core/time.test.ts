@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
-import { formatRelativeTime, formatTaipeiDateTime, formatTaipeiHourMinute, formatTaipeiMonthDay, formatTaipeiHourMinuteSecond, taipeiDateKey } from "./time";
+import {
+  formatRelativeTime,
+  formatTaipeiDateTime,
+  formatTaipeiHourMinute,
+  formatTaipeiHourMinuteSecond,
+  formatTaipeiMonthDay,
+  taipeiDateKey,
+  taipeiDayOffset,
+  taipeiMonthKey,
+} from "./time";
 
 describe("formatTaipeiDateTime", () => {
   it.each([
@@ -71,6 +80,31 @@ describe("taipeiDateKey", () => {
   });
 });
 
+describe("taipeiMonthKey：伺服器是 UTC 月底晚上八點後會差一個月", () => {
+  it.each([
+    ["2026-10-31T15:59:59Z", "2026-10", "台北 10/31 23:59"],
+    ["2026-10-31T16:00:00Z", "2026-11", "台北已經 11/1、UTC 還是 10/31"],
+    ["2026-12-31T16:00:00Z", "2027-01", "台北已經跨年"],
+  ])("%s → %s（%s）", (iso, expected) => {
+    expect(taipeiMonthKey(new Date(iso))).toBe(expected);
+  });
+});
+
+describe("taipeiDayOffset：照台北的日曆算差幾天，不看幾點", () => {
+  // 台北 2026/10/20 23:30
+  const now = new Date("2026-10-20T15:30:00Z");
+
+  it.each([
+    ["2026-10-20T16:00:00Z", 1, "只差 30 分鐘、但台北已經是隔天"],
+    ["2026-10-19T16:00:00Z", 0, "台北同一天的 00:00"],
+    ["2026-10-19T15:59:00Z", -1, "台北前一天的 23:59"],
+    ["2026-10-22T08:00:00Z", 2, "後天"],
+    ["2026-12-31T16:00:00Z", 73, "跨年也照日曆算：10 月還有 11 天、11 月 30 天、12 月 31 天，再加 1 月 1 日"],
+  ])("%s → %d（%s）", (iso, expected) => {
+    expect(taipeiDayOffset(new Date(iso), now)).toBe(expected);
+  });
+});
+
 describe("ICU 版本不同時輸出不變", () => {
   // 台北 2027/1/5 01:05:07 月日時秒都是一位數 補零規則不同時看得出來
   const instant = new Date("2027-01-04T17:05:07Z");
@@ -120,5 +154,11 @@ describe("formatRelativeTime：影片卡片上的「3 小時前」", () => {
 
   it("時間在未來（伺服器時鐘有誤差）_當成剛剛", () => {
     expect(formatRelativeTime(new Date(NOW.getTime() + 5 * MINUTE), NOW)).toBe("剛剛");
+  });
+
+  it("最大單位寫到天（通知只留兩週）_7 天以上照樣寫幾天前，不換成週、月", () => {
+    expect(formatRelativeTime(ago(7 * DAY), NOW, { largestUnit: "day" })).toBe("7 天前");
+    expect(formatRelativeTime(ago(40 * DAY), NOW, { largestUnit: "day" })).toBe("40 天前");
+    expect(formatRelativeTime(ago(3 * HOUR), NOW, { largestUnit: "day" })).toBe("3 小時前");
   });
 });

@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { stubCoreEnv } from "@/dev/test-env";
-import { DecryptionError, createKeyring, decrypt, decryptSecret, encrypt, encryptSecret, needsReencrypt, safeEqual } from "./crypto";
+import { captureErrorLog, loggedText } from "@/dev/test-helpers";
+import { DecryptionError, createKeyring, decrypt, decryptSecret, encrypt, encryptSecret, needsReencrypt, reencryptEach, safeEqual } from "./crypto";
 
 const key = randomBytes(32).toString("base64");
 
@@ -133,6 +134,71 @@ describe("金鑰環：encryptSecret / decryptSecret / needsReencrypt", () => {
   it("needsReencrypt_格式不認得的也算需要", () => {
     expect(needsReencrypt("v9.whatever.body", keyring)).toBe(true);
     expect(needsReencrypt(`v1.${keyIdOf(old)}.body`, keyring)).toBe(true);
+  });
+});
+
+describe("reencryptEach：換金鑰後逐筆改用目前的金鑰", () => {
+  const current = newKey();
+  const old = newKey();
+  const keyring = createKeyring(current, [old]);
+  type Row = { id: number; secret: string };
+  /** 假的資料表 只在密文還是讀出來的那一份時寫回 */
+  function table(rows: Row[]) {
+    const stored = new Map(rows.map((row) => [row.id, row.secret]));
+    const write = async (row: Row, ciphertext: string) => {
+      if (stored.get(row.id) !== row.secret) return false;
+      stored.set(row.id, ciphertext);
+      return true;
+    };
+    return { stored, write };
+  }
+
+  it("舊金鑰與舊格式的換成目前的金鑰、內容不變；已經是目前金鑰的不動也不算", async () => {
+    const rows = [
+      { id: 1, secret: encryptSecret("cookie-1", createKeyring(old)) },
+      { id: 2, secret: encrypt("cookie-2", old) },
+      { id: 3, secret: encryptSecret("cookie-3", keyring) },
+    ];
+    const { stored, write } = table(rows);
+
+    expect(await reencryptEach(rows, { ciphertext: (row) => row.secret, write, log: { module: "demo", what: "重新加密失敗" }, keyring })).toEqual({ reencrypted: 2, failed: 0 });
+    for (const [id, plain] of [[1, "cookie-1"], [2, "cookie-2"], [3, "cookie-3"]] as const) {
+      expect(needsReencrypt(stored.get(id)!, keyring)).toBe(false);
+      expect(decryptSecret(stored.get(id)!, createKeyring(current))).toBe(plain);
+    }
+    expect(stored.get(3)).toBe(rows[2].secret);
+  });
+
+  it("讀出來之後被換上新的值（例如重新連結）_不寫回、不算成功也不算失敗", async () => {
+    const rows = [{ id: 1, secret: encryptSecret("舊的 cookie", createKeyring(old)) }];
+    const { stored, write } = table(rows);
+    stored.set(1, encryptSecret("新的 cookie", keyring));
+
+    expect(await reencryptEach(rows, { ciphertext: (row) => row.secret, write, log: { module: "demo", what: "重新加密失敗" }, keyring })).toEqual({ reencrypted: 0, failed: 0 });
+    expect(decryptSecret(stored.get(1)!, keyring)).toBe("新的 cookie");
+  });
+
+  it("單筆解不開或寫不進去_算失敗、其他筆照做；log 只記種類與識別資訊，不記密文", async () => {
+    const log = captureErrorLog();
+    const stranger = encryptSecret("top-secret", createKeyring(newKey()));
+    const rows = [
+      { id: 1, secret: stranger },
+      { id: 2, secret: encryptSecret("cookie-2", createKeyring(old)) },
+      { id: 3, secret: encryptSecret("cookie-3", createKeyring(old)) },
+    ];
+    const { write } = table(rows);
+    const flaky = async (row: Row, ciphertext: string) => (row.id === 3 ? Promise.reject(Object.assign(new Error("secret-detail"), { name: "PostgresError" })) : write(row, ciphertext));
+
+    expect(await reencryptEach(rows, { ciphertext: (row) => row.secret, write: flaky, log: { module: "starrail", what: "cookie 重新加密失敗", context: (row) => `uid-${row.id}` }, keyring })).toEqual({
+      reencrypted: 1,
+      failed: 2,
+    });
+    expect(log.mock.calls).toEqual([
+      ["[starrail] cookie 重新加密失敗", "uid-1", "unknown_key"],
+      ["[starrail] cookie 重新加密失敗", "uid-3", "PostgresError"],
+    ]);
+    expect(loggedText(log)).not.toContain("top-secret");
+    expect(loggedText(log)).not.toContain("secret-detail");
   });
 });
 

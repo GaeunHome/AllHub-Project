@@ -7,8 +7,7 @@ import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH, hashPassword, newPasswordProblem, normalizeUsername, usernameProblem } from "../core/auth/credentials.ts";
-import { coreUsers } from "../core/db/schema.ts";
-import type { UserRole } from "../core/db/schema.ts";
+import { ROLE_LABELS, coreUsers } from "../core/db/schema.ts";
 import { errorKind } from "../core/errors.ts";
 
 export type AccountDb = PgDatabase<PgQueryResultHKT>;
@@ -60,7 +59,6 @@ const URL_PROMPT = "資料庫連線字串（正式資料庫用 Supabase 的 Sess
 // 使用者遇過貼上時中間斷行 前半段被當成連線字串 後半段跑進帳號欄位
 const INCOMPLETE_URL =
   "連線字串不完整，可能複製時中間斷行了（缺少 port 或資料庫名稱）。請重新複製 Supabase 的 Session pooler 連線字串（結尾是 :5432/postgres），貼上時確認是同一行。";
-const ROLE_LABELS: Record<UserRole, string> = { owner: "站長", member: "成員" };
 // 在 insert 裡判斷 問密碼的期間可能有人先建了帳號
 const OWNER_IF_FIRST = sql`(case when exists (select 1 from ${coreUsers}) then 'member' else 'owner' end)`;
 

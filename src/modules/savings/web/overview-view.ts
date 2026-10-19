@@ -1,10 +1,10 @@
 import type { ChecklistItem, ChecklistState } from "../lib/checklist";
-import { daysBetween, dueText, formatSlashDate, type DateKey } from "../lib/dates";
-import { PENDING_LOOKAHEAD_DAYS } from "../lib/recurring";
+import { daysBetween, dueText, formatSlashDate, latestOf, type DateKey } from "../lib/dates";
 import { categoryIconOf, type AccountKind, type CategoryIcon, type EntryKind } from "../lib/kinds";
 import { UNCATEGORIZED_KEY, monthTotals, type CategoryLike, type CategoryMonthTotal, type MonthTotals } from "../lib/ledger";
 import { formatTwd } from "../lib/money";
 import type { MonthKey } from "../lib/month";
+import { PENDING_LOOKAHEAD_DAYS } from "../lib/recurring";
 import { setupStatus, type SetupStatus } from "../lib/setup";
 import type { AccountOption, CategoryOption, EntryFormOptions } from "./components/forms/options";
 import type { BalanceAccount } from "./components/forms/update-balance";
@@ -16,7 +16,6 @@ import {
   depositOptions,
   entryFormOptions,
   expenseRows,
-  overdueBadge,
   settlementAccounts,
   type AccountsInput,
   type AccountsState,
@@ -27,7 +26,7 @@ import {
   type PayCardDraft,
   type PendingEntry,
 } from "./dashboard-view";
-import { plannedAmount } from "./entry-display";
+import { overdueBadge, plannedAmount } from "./format";
 import type { ChecklistView } from "./overview-data";
 
 // 總覽的資料 伺服器元件整理好再交給畫面
@@ -47,34 +46,21 @@ export type HeroView = {
   cardOwed: number | null;
 };
 
-const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
-
-/** 只算啟用中的帳戶 有持股的證券帳戶用持股的市值與損益 合計跟總資產一樣 */
-export function heroView({ accounts }: Pick<AccountsInput, "accounts">, state: Pick<AccountsState, "balances" | "investments" | "totalAssets">): HeroView {
-  const active = (kind: AccountKind) => accounts.filter((account) => account.active && account.kind === kind);
-  const deposits = active("deposit");
-  const investments = active("investment");
-  const cards = active("credit");
-  const balanceOf = (id: number) => state.balances.get(id);
-  const held = investments.flatMap((account) => {
-    const value = state.investments.get(account.id);
+/** 只算啟用中的帳戶 合計是 accountsState 算好的 有持股的證券帳戶寫有沒有讀到股價與收盤日 */
+export function heroView({ accounts }: Pick<AccountsInput, "accounts">, { summary, investments }: Pick<AccountsState, "summary" | "investments">): HeroView {
+  const has = (kind: AccountKind) => accounts.some((account) => account.active && account.kind === kind);
+  const held = accounts.flatMap((account) => {
+    const value = account.active && account.kind === "investment" ? investments.get(account.id) : undefined;
     return value ? [value] : [];
   });
-  const quoteDates = held.flatMap((value) => (value.date === null ? [] : [value.date]));
 
   return {
-    total: state.totalAssets,
-    deposit: deposits.length === 0 ? null : sum(deposits.map((account) => balanceOf(account.id)?.balance ?? 0)),
-    investment:
-      investments.length === 0
-        ? null
-        : {
-            value: sum(investments.map((account) => state.investments.get(account.id)?.value ?? balanceOf(account.id)?.balance ?? 0)),
-            profit: sum(investments.map((account) => state.investments.get(account.id)?.profit ?? balanceOf(account.id)?.profit ?? 0)),
-            priced: held.every((value) => value.priced),
-            quoteDate: quoteDates.length === 0 ? null : quoteDates.reduce((a, b) => (b > a ? b : a)),
-          },
-    cardOwed: cards.length === 0 ? null : sum(cards.map((account) => balanceOf(account.id)?.owed ?? 0)),
+    total: summary.assets,
+    deposit: has("deposit") ? summary.deposit : null,
+    investment: has("investment")
+      ? { value: summary.investment.value, profit: summary.investment.profit, priced: held.every((value) => value.priced), quoteDate: latestOf(held.map((value) => value.date)) }
+      : null,
+    cardOwed: has("credit") ? summary.owed : null,
   };
 }
 
@@ -141,12 +127,6 @@ export type ChecklistRow = {
 };
 
 const TO_DO: readonly ChecklistState[] = ["todo", "overdue"];
-const groupOrder = (item: Pick<ChecklistItem, "carriedOver" | "upcoming">) => (item.carriedOver ? 0 : item.upcoming ? 2 : 1);
-
-/** 上個月沒做完的在最上面 其餘照日期 下個月初的在最後 */
-export function orderChecklist<T extends Pick<ChecklistItem, "carriedOver" | "upcoming" | "date">>(items: readonly T[]): T[] {
-  return [...items].sort((a, b) => groupOrder(a) - groupOrder(b) || a.date.localeCompare(b.date));
-}
 
 /** 還要做的 包括逾期的 */
 export const isToDo = (item: Pick<ChecklistItem, "state">) => TO_DO.includes(item.state);
@@ -196,12 +176,12 @@ function amountText(item: ChecklistItem, kind: EntryKind): string {
   return plannedAmount(kind, item.amount);
 }
 
-/** incomeRules 是收入的固定收支 金額前面加加號 */
-export function checklistRows(view: Pick<ChecklistView, "items" | "entries" | "today">, incomeRules: ReadonlySet<number>): ChecklistRow[] {
+/** 照 monthChecklist 排好的順序 收入的固定收支金額前面加加號 */
+export function checklistRows(view: Pick<ChecklistView, "items" | "entries" | "today" | "incomeRules">): ChecklistRow[] {
   const entries = new Map(view.entries.map((entry) => [entry.row.key, entry]));
-  return orderChecklist(view.items).map((item) => {
+  return view.items.map((item) => {
     const entry = isToDo(item) && item.actionable ? (entries.get(item.key) ?? null) : null;
-    const income = item.kind === "salary" || (item.ruleId !== null && incomeRules.has(item.ruleId));
+    const income = item.kind === "salary" || (item.ruleId !== null && view.incomeRules.has(item.ruleId));
     const note = stateNote(item, view.today);
     return {
       key: item.key,
@@ -217,7 +197,7 @@ export function checklistRows(view: Pick<ChecklistView, "items" | "entries" | "t
 
 /** 首頁卡片與總覽的標題列 還有幾件與最近要做的那一件 */
 export function checklistSummary(items: readonly ChecklistItem[]): { remaining: number; next: ChecklistItem | null } {
-  const toDo = orderChecklist(items).filter(isToDo);
+  const toDo = items.filter(isToDo);
   return { remaining: toDo.length, next: toDo[0] ?? null };
 }
 

@@ -4,21 +4,24 @@ import { requireSession } from "@/core/auth";
 import { updateTags } from "@/core/cache";
 import { INVALID_FORM_MESSAGE, formFlag, formId, formText, runAction } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
-import * as service from "../service/accounts";
+import { removeAccount, setAutoRedeem, setGameReminders, setStaminaThreshold, type Outcome } from "../service/accounts";
 import { starrailTags } from "../service/cache-tags";
+import { checkinAccount } from "../service/checkin";
+import { linkAccount, type RoleChoice, type RoleSelection } from "../service/link";
+import { redeemCodeFor } from "../service/redeem";
 
 export type { FormState } from "@/core/ui/form-message";
 /**
  * 好幾個伺服器都有角色時 第一步回傳清單讓使用者選
  * 連結好了帶著剛連結的帳號 id 讓畫面導向它 還有要提醒的事
  */
-export type LinkState = FormState & { roles?: service.RoleChoice[]; warning?: string; accountId?: number };
+export type LinkState = FormState & { roles?: RoleChoice[]; warning?: string; accountId?: number };
 
-const done = (result: service.ActionResult): FormState => (result.ok ? { message: result.message } : { error: result.error });
+const done = (result: Outcome<{ message: string }>): FormState => (result.ok ? { message: result.message } : { error: result.error });
 // 輸入與 HoYoLAB 的錯誤由 service 用結果回傳 丟出來的都是預期外的錯誤
-const run = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "starrail", action }, () => false, work);
+const run = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "starrail", action }, work);
 // 簽到 門檻 兌換的結果框標題已經寫了失敗 預期外的錯誤只寫原因不明
-const runTitled = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "starrail", action, titled: true }, () => false, work);
+const runTitled = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "starrail", action, titled: true }, work);
 
 // 連結與簽到逐個角色寫入 失敗時可能只完成一部分 所以在 finally 讓 tag 失效
 // 一律用登入者的 id 呼叫 service 表單送來的帳號 id 只決定操作哪一個
@@ -28,13 +31,13 @@ export async function linkAccountAction(_prev: LinkState, formData: FormData): P
   const cookie = formText(formData, "cookie").trim();
   if (!cookie) return { error: "請貼上 cookie" };
   // cookie 只留在瀏覽器的表單裡 第二步跟勾選的 UID 一起再送一次
-  const selection: service.RoleSelection = formData.get("step") === "choose" ? formData.getAll("uid").map(String) : "ask";
-  let roles: service.RoleChoice[] | undefined;
+  const selection: RoleSelection = formData.get("step") === "choose" ? formData.getAll("uid").map(String) : "ask";
+  let roles: RoleChoice[] | undefined;
   // 帳號 id 來自 service 剛寫入的自己那一列 不是表單送來的
   let linked: Pick<LinkState, "warning" | "accountId"> | undefined;
   try {
     const state = await run("連結帳號", async () => {
-      const result = await service.linkAccount(userId, cookie, selection);
+      const result = await linkAccount(userId, cookie, selection);
       if ("roles" in result) {
         roles = result.roles;
         return;
@@ -58,7 +61,7 @@ export async function checkinAction(_prev: FormState, formData: FormData): Promi
   let accountChanged = true;
   try {
     return await runTitled("簽到", async () => {
-      const result = await service.checkinAccount(userId, id);
+      const result = await checkinAccount(userId, id);
       accountChanged = result.accountChanged;
       return done(result);
     });
@@ -79,7 +82,7 @@ export async function setThresholdAction(_prev: FormState, formData: FormData): 
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   try {
     return await runTitled("設定提醒門檻", async () => {
-      if (!(await service.setStaminaThreshold(userId, id, threshold))) return { error: "找不到這個帳號，請重新整理頁面" };
+      if (!(await setStaminaThreshold(userId, id, threshold))) return { error: "找不到這個帳號，請重新整理頁面" };
       return threshold === null ? "已改回預設門檻" : `門檻已設為 ${threshold}`;
     });
   } finally {
@@ -94,7 +97,7 @@ export async function setAutoRedeemAction(_prev: FormState, formData: FormData):
   const enabled = formFlag(formData, "enabled");
   if (id === null || enabled === null) return { error: INVALID_FORM_MESSAGE };
   return run("設定自動兌換", async () => {
-    const result = await service.setAutoRedeem(userId, id, enabled);
+    const result = await setAutoRedeem(userId, id, enabled);
     if (!result.ok) return { error: result.error };
     updateTags(starrailTags.accounts);
     return enabled ? "已打開自動兌換" : "已關閉自動兌換";
@@ -108,7 +111,7 @@ export async function setGameRemindersAction(_prev: FormState, formData: FormDat
   const enabled = formFlag(formData, "enabled");
   if (id === null || enabled === null) return { error: INVALID_FORM_MESSAGE };
   return run("設定提醒", async () => {
-    if (!(await service.setGameReminders(userId, id, enabled))) return { error: "找不到這個帳號，請重新整理頁面" };
+    if (!(await setGameReminders(userId, id, enabled))) return { error: "找不到這個帳號，請重新整理頁面" };
     updateTags(starrailTags.accounts);
     return enabled ? "已打開每日、每週與終局提醒" : "已關閉每日、每週與終局提醒";
   });
@@ -120,8 +123,7 @@ export async function redeemCodeAction(_prev: FormState, formData: FormData): Pr
   const id = formId(formData, "accountId");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return runTitled("兌換", async () => {
-    const result = await service.redeemCodeFor(userId, id, formText(formData, "code"));
-    return result.ok ? { message: result.message } : { error: result.error };
+    return done(await redeemCodeFor(userId, id, formText(formData, "code")));
   });
 }
 
@@ -130,7 +132,7 @@ export async function removeAccountAction(_prev: FormState, formData: FormData):
   const id = formId(formData, "accountId");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   try {
-    return await run("移除角色", () => service.removeAccount(userId, id));
+    return await run("移除角色", () => removeAccount(userId, id));
   } finally {
     // 簽到紀錄會跟著角色一起刪除
     updateTags(starrailTags.accounts, starrailTags.checkins);

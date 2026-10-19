@@ -5,6 +5,7 @@ import { Icon, type UiIconName } from "@/core/ui/icon";
 import { MIN_DATE } from "../../../lib/dates";
 import { LABEL_MAX_LENGTH, NAME_MAX_LENGTH, NOTE_MAX_LENGTH, categoryIconOf } from "../../../lib/kinds";
 import { UNCATEGORIZED_LABEL } from "../../entry-display";
+import { pausedName } from "../../format";
 import type { ChoiceAccount } from "./entry-choice";
 import type { CategoryOption } from "./options";
 
@@ -130,7 +131,7 @@ export function AccountSelect({ name, label, accounts, ...state }: AccountSelect
       <select name={name} required {...controlled} className="input">
         {accounts.map((account) => (
           <option key={account.id} value={account.id}>
-            {account.active === false ? `${account.name}（已停用）` : account.name}
+            {pausedName(account.name, account.active)}
           </option>
         ))}
       </select>

@@ -1,7 +1,7 @@
-import { Fragment, createElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { Fragment, createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FormState } from "@/core/ui/form-message";
+import { markup as render, textOf } from "@/dev/test-helpers";
 
 // 視窗關著時不算繪內容 換掉 Dialog 才看得到裡面 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });
@@ -49,8 +49,6 @@ const CATEGORIES = [
 const OPTIONS = { accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY };
 const done = { onDone: vi.fn(), onCancel: vi.fn() };
 
-const render = (element: ReactNode) => renderToStaticMarkup(element as never);
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
 const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
 const inputsOf = (markup: string, name: string) => [...markup.matchAll(new RegExp(`<input[^>]*name="${name}"[^>]*>`, "g"))].map((m) => m[0]);
 const selectOf = (markup: string, name: string) => markup.match(new RegExp(`<select[^>]*name="${name}"[^>]*>[\\s\\S]*?</select>`))?.[0] ?? "";
@@ -76,7 +74,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
-  vi.unstubAllGlobals();
 });
 
 describe("記一筆（快速記帳）", () => {
@@ -200,10 +197,10 @@ describe("記一筆（快速記帳）", () => {
   });
 
   it("送到 addTransactionAction；帳戶卡片上的按鈕報讀器念得出是哪個帳戶（看得到的字也在名稱裡）", () => {
-    const markup = render(createElement(QuickAddButton, { ...OPTIONS, accountId: 2, className: "btn-secondary btn-sm" }));
+    const markup = render(createElement(QuickAddButton, { ...OPTIONS, accountId: 2 }));
 
     expect(formActions()).toEqual([actions.addTransactionAction]);
-    expect(markup).toMatch(/aria-label="記一筆：郵局"[^>]*class="btn-secondary btn-sm"/);
+    expect(markup).toMatch(/aria-label="記一筆：郵局"/);
   });
 });
 
@@ -250,10 +247,10 @@ describe("更新餘額", () => {
     expect(textOf(investment)).toContain("銀行 App 上的目前市值（元）");
   });
 
-  it("按鈕預設是清單列裡的小按鈕；報讀器念得出是哪個帳戶", () => {
+  it("報讀器念得出是哪個帳戶", () => {
     const markup = render(createElement(UpdateBalanceButton, { account: { id: 1, name: "國泰", kind: "deposit", balance: 0 } }));
 
-    expect(markup).toMatch(/aria-label="更新餘額：國泰" class="btn-secondary btn-sm"/);
+    expect(markup).toMatch(/aria-label="更新餘額：國泰"/);
   });
 
   it("成功訊息獨佔帳戶卡片那排按鈕的最後一整列", () => {
@@ -357,12 +354,11 @@ describe("帳戶表單", () => {
     expect(fieldNames(credit)).toEqual(["autopay", "cardStyle", "kind", "name", "openingBalance", "payFromAccountId", "statementDay"]);
   });
 
-  it("用途是選填的文字（取代用途的下拉選單），修改時帶入原本的；信用卡沒有用途", () => {
+  it("用途是選填的文字，修改時帶入原本的；信用卡沒有用途", () => {
     const markup = render(createElement(AccountForm, { account: { ...card, id: 1, kind: "deposit", label: "生活費", openingBalance: 52000, statementDay: null, payFromAccountId: null, autopay: false }, payFromAccounts, ...done }));
 
     expect(inputOf(markup, "label")).toContain('value="生活費"');
     expect(inputOf(markup, "label")).not.toContain("required");
-    expect(selectOf(markup, "purposeId")).toBe("");
     expect(inputOf(render(createElement(AccountForm, { account: card, payFromAccounts, ...done })), "label")).toBe("");
   });
 
@@ -432,24 +428,15 @@ describe("帳戶表單", () => {
 });
 
 describe("分類表單", () => {
-  const colorOf = (markup: string) => markup.match(/<input type="hidden" name="color" value="(\w+)"/)?.[1];
-  const FOOD = { id: 11, name: "餐飲", kind: "expense" as const, color: "orange" as const, monthlyBudget: 6000, icon: "utensils" };
+  const FOOD = { id: 11, name: "餐飲", kind: "expense" as const, monthlyBudget: 6000, icon: "utensils" };
   const iconRadios = (markup: string) => inputsOf(markup, "icon");
 
-  it("不用選顏色（畫面上不再顯示）：新增時自動給還沒用過的顏色，資料表的顏色欄位才有值", () => {
-    const markup = render(createElement(CategoryForm, { defaultKind: "expense", defaultColor: "amber", ...done }));
-
-    expect(inputsOf(markup, "color")).toHaveLength(1);
-    expect(colorOf(markup)).toBe("amber");
-  });
-
-  it("修改時原本的顏色原樣送回；以前存成灰色的（伺服器不收）換成還沒用過的，儲存才不會失敗", () => {
-    expect(colorOf(render(createElement(CategoryForm, { category: { ...FOOD, color: "teal" }, defaultKind: "expense", defaultColor: "rose", ...done })))).toBe("teal");
-    expect(colorOf(render(createElement(CategoryForm, { category: { id: 14, name: "提領現金", kind: "expense", color: "slate", monthlyBudget: null, icon: null }, defaultKind: "expense", defaultColor: "amber", ...done })))).toBe("amber");
+  it("不用選顏色：新增與修改都不送顏色（新增時伺服器自己給，修改不動）", () => {
+    for (const category of [undefined, FOOD]) expect(fieldNames(render(createElement(CategoryForm, { category, defaultKind: "expense", ...done })))).not.toContain("color");
   });
 
   it("圖示是一格一格的選擇器：每一格報讀器念得出中文名稱；修改時選好原本的圖示，送出 icon", () => {
-    const radios = iconRadios(render(createElement(CategoryForm, { category: FOOD, defaultKind: "expense", defaultColor: "orange", ...done })));
+    const radios = iconRadios(render(createElement(CategoryForm, { category: FOOD, defaultKind: "expense", ...done })));
 
     expect(radios.length).toBeGreaterThan(1);
     for (const radio of radios) expect(radio).toMatch(/type="radio"[^>]*aria-label="[一-鿿]+"/);
@@ -458,15 +445,15 @@ describe("分類表單", () => {
 
   it("沒有圖示的分類（或存了認不得的）_一格都不選，不送 icon，畫面用預設的圖示", () => {
     for (const icon of [null, "not-an-icon"]) {
-      const markup = render(createElement(CategoryForm, { category: { ...FOOD, icon }, defaultKind: "expense", defaultColor: "orange", ...done }));
+      const markup = render(createElement(CategoryForm, { category: { ...FOOD, icon }, defaultKind: "expense", ...done }));
 
       expect(iconRadios(markup).some((radio) => radio.includes('checked=""'))).toBe(false);
     }
   });
 
   it("新增分類：類型預設是設定頁正在看的那一類；支出有每月預算，收入沒有", () => {
-    const expense = render(createElement(CategoryForm, { defaultKind: "expense", defaultColor: "rose", ...done }));
-    const income = render(createElement(CategoryForm, { defaultKind: "income", defaultColor: "rose", ...done }));
+    const expense = render(createElement(CategoryForm, { defaultKind: "expense", ...done }));
+    const income = render(createElement(CategoryForm, { defaultKind: "income", ...done }));
 
     expect(inputOf(expense, "kind")).toContain('value="expense"');
     expect(inputOf(expense, "monthlyBudget")).not.toBe("");
@@ -476,7 +463,7 @@ describe("分類表單", () => {
   });
 
   it("修改分類：類型不能改，預算帶入", () => {
-    const markup = render(createElement(CategoryForm, { category: { id: 11, name: "餐飲", kind: "expense", color: "orange", monthlyBudget: 6000, icon: null }, defaultKind: "expense", defaultColor: "orange", ...done }));
+    const markup = render(createElement(CategoryForm, { category: { id: 11, name: "餐飲", kind: "expense", monthlyBudget: 6000, icon: null }, defaultKind: "expense", ...done }));
 
     expect(inputOf(markup, "kind")).toBe("");
     expect(inputOf(markup, "monthlyBudget")).toContain('value="6000"');
@@ -648,7 +635,7 @@ describe("固定收支表單", () => {
     });
   });
 
-  it("要確認的規則到期了還沒處理：那一期在總覽的待處理，寫「待處理」不寫成下一期", () => {
+  it("要確認的規則到期了還沒處理：那一期在總覽的這個月要做的事，寫「待確認」不寫成下一期", () => {
     const markup = render(createElement(RecurringForm, { ...FORM, rule: { ...rule, dayOfMonth: 5, holidayRule: "none", mode: "confirm", lastPostedMonth: "2026-09-01" } }));
 
     expect(nextLine(markup)).toBe("待確認 10/5");
@@ -665,7 +652,7 @@ describe("視窗裡的表單不用 <form action>", () => {
       render(createElement(EntryForm, { ...OPTIONS, action: actions.addTransactionAction, ...done })),
       render(createElement(UpdateBalanceButton, { account: { id: 1, name: "國泰", kind: "deposit", balance: 0 } })),
       render(createElement(AccountForm, { payFromAccounts: [], ...done })),
-      render(createElement(CategoryForm, { defaultKind: "expense", defaultColor: "blue", ...done })),
+      render(createElement(CategoryForm, { defaultKind: "expense", ...done })),
       render(createElement(RecurringForm, { ...OPTIONS, holdings: [], preset: "other", ...done })),
       render(createElement(TradeForm, { record: { id: 80, accountId: 1, counterAccountId: 4, amount: 1000, date: TODAY, note: null }, accounts: [], today: TODAY, ...done })),
     ];

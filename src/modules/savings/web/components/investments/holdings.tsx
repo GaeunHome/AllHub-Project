@@ -2,14 +2,14 @@
 
 import { useId } from "react";
 import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
-import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import type { DateKey } from "../../../lib/dates";
 import { formatTwd } from "../../../lib/money";
 import { deleteHoldingAction } from "../../actions";
-import { averagePriceText, formatShares, priceText, profitText, type HoldingView } from "../../dashboard-view";
+import type { HoldingView } from "../../dashboard-view";
+import { averagePriceText, formatShares, priceText, profitText } from "../../format";
 import type { AccountOption } from "../forms/options";
-import { DeleteMenuItem } from "../row-controls";
+import { DeleteMenuItem, DialogMenuItem } from "../row-controls";
 import { Ticker } from "../visuals";
 import { BuySellForm, EditHoldingForm } from "./holding-forms";
 
@@ -137,10 +137,7 @@ function HoldingRow({ holding, accounts, today, minDate, onDeleted }: HoldingRow
         </div>
         <div className="@4xl:col-start-9 @4xl:row-start-1">
           <MoreMenu label={`「${label}」的選項`}>
-            <button {...edit.triggerProps} className="menu-item">
-              <Icon name="pencil" className="size-4" />
-              修改股數與成本
-            </button>
+            <DialogMenuItem trigger={edit.triggerProps} icon="pencil" label="修改股數與成本" />
             <DeleteMenuItem
               action={deleteHoldingAction}
               id={holding.id}

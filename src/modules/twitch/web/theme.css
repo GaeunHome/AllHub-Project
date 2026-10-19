@@ -1,0 +1,45 @@
+/* 由 globals.css 在 @layer 外面引入 跟全站的 :root 變數同一層 */
+/* Twitch 頁不論外觀都是 Twitch 的深色風格 共用的 card chip 按鈕 input 跟著換色 */
+/* 調色盤只放在 PageTheme 外框上 導覽列與選單在外框外面 維持全站的樣子 */
+.theme-twitch {
+  color-scheme: dark;
+  --surface: #18181b;
+  --surface-solid: #1f1f23;
+  --surface-muted: #26262c;
+  --surface-sunken: #2f2f35;
+  --line: #2f2f35;
+  --line-strong: #45454d;
+  --ink: #efeff1;
+  --ink-soft: #dedee3;
+  --muted: #b3b3bd;
+  --placeholder: #8e8e98;
+  --brand: #9146ff;
+  --brand-hover: #772ce8;
+  --brand-ink: #bf94ff;
+  --brand-soft: rgb(145 70 255 / 0.18);
+  --brand-line: rgb(145 70 255 / 0.5);
+  --on-brand: #ffffff;
+  --focus: #bf94ff;
+  --ring: rgb(145 70 255 / 0.4);
+  --accent: #bf94ff;
+  --accent-ink: #bf94ff;
+  --accent-soft: rgb(145 70 255 / 0.16);
+  --accent-line: rgb(145 70 255 / 0.45);
+  --success: #6ee7b7;
+  --success-soft: rgb(52 211 153 / 0.12);
+  --success-line: rgb(52 211 153 / 0.32);
+  --warning: #fcd34d;
+  --warning-soft: rgb(251 191 36 / 0.11);
+  --warning-line: rgb(251 191 36 / 0.3);
+  --danger: #ff9b9b;
+  --danger-soft: rgb(235 4 0 / 0.14);
+  --danger-line: rgb(255 120 120 / 0.38);
+  --danger-hover: rgb(235 4 0 / 0.24);
+  --live: #eb0400;
+  --elevation-card: none;
+  --elevation-lift: 0 12px 30px -12px rgb(0 0 0 / 0.8);
+  --skeleton-base: #26262c;
+  --skeleton-shine: rgb(255 255 255 / 0.05);
+  color: var(--ink);
+  accent-color: var(--brand);
+}

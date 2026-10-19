@@ -2,6 +2,7 @@
 // 它匯出 handle 處理了就回 true
 import { existsSync, readdirSync } from "node:fs";
 import { createServer } from "node:http";
+import { mockContext } from "./mock-context.mjs";
 
 const port = Number(process.env.MOCK_PORT ?? 4010);
 const modulesDir = new URL("../modules/", import.meta.url);
@@ -18,38 +19,7 @@ createServer(async (req, res) => {
   for await (const chunk of req) body += chunk;
   console.log(`[mock] ${req.method} ${url.pathname}${url.search}`);
 
-  const json = (status, data) => {
-    res.writeHead(status, { "Content-Type": "application/json" });
-    res.end(data === undefined ? "" : JSON.stringify(data));
-    return true;
-  };
-  const text = (status, data, type = "text/plain") => {
-    res.writeHead(status, { "Content-Type": `${type}; charset=utf-8` });
-    res.end(data);
-    return true;
-  };
-  // 假的 CDN 圖片 externalAssetUrl 把頭像與縮圖都改寫到這裡
-  // 顏色依 label 固定 畫面上看得出是哪一張
-  const image = (label, { width = 320, height = 180, round = false } = {}) => {
-    const hue = [...label].reduce((sum, ch) => (sum * 31 + ch.codePointAt(0)) % 360, 7);
-    const caption = label.slice(0, 16).replace(/[<>&"]/g, "");
-    const fontSize = Math.round(Math.min(width, height) / (caption.length > 4 ? 7 : 3));
-    const shape = round ? `<circle cx="50%" cy="50%" r="50%" fill="url(#g)"/>` : `<rect width="100%" height="100%" fill="url(#g)"/>`;
-    res.writeHead(200, { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=600" });
-    res.end(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue} 72% 64%)"/><stop offset="1" stop-color="hsl(${(hue + 60) % 360} 62% 40%)"/></linearGradient></defs>${shape}<text x="50%" y="50%" fill="#fff" font-family="sans-serif" font-weight="700" font-size="${fontSize}" text-anchor="middle" dominant-baseline="central">${caption}</text></svg>`,
-    );
-    return true;
-  };
-
-  // 轉址 例如一般影片的 /shorts/<id> 會 303 到 /watch 呼叫端靠 Location 判斷
-  const redirect = (status, location) => {
-    res.writeHead(status, { Location: location });
-    res.end();
-    return true;
-  };
-
-  const ctx = { req, url, body, json, text, image, redirect };
+  const ctx = mockContext({ req, url, body, res });
   for (const mock of mocks) if (await mock.handle(ctx)) return;
-  json(404, { message: `mock 沒有這個路徑：${url.pathname}` });
+  ctx.json(404, { message: `mock 沒有這個路徑：${url.pathname}` });
 }).listen(port, "127.0.0.1", () => console.log(`[mock] listening on http://127.0.0.1:${port}（${mocks.map((m) => m.id).join("、")}）`));

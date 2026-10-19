@@ -3,6 +3,7 @@ import { drizzle, type PgliteDatabase } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach } from "vitest";
 import { coreUsers, type UserRole } from "@/core/db/schema";
+import { OTHER_SESSION, TEST_SESSION } from "./session-stub";
 
 export type TestDb = PgliteDatabase;
 
@@ -44,4 +45,14 @@ export async function insertTestUser(db: TestDb, username: string, { id, role = 
     .values({ ...(id ? { id } : {}), username, passwordHash: "scrypt$unused", role })
     .returning({ id: coreUsers.id });
   return user.id;
+}
+
+/**
+ * 站長 alice 與成員 bob 測擁有權與 IDOR 用
+ * id 跟 session-stub 的 TEST_SESSION 與 OTHER_SESSION 一樣 換登入者時直接對得上
+ */
+export async function insertTestUsers(db: TestDb): Promise<[alice: string, bob: string]> {
+  const alice = await insertTestUser(db, TEST_SESSION.username, { id: TEST_SESSION.id, role: TEST_SESSION.role });
+  const bob = await insertTestUser(db, OTHER_SESSION.username, { id: OTHER_SESSION.id, role: OTHER_SESSION.role });
+  return [alice, bob];
 }

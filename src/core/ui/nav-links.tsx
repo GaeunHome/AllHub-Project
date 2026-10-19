@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef, type Ref, type RefObject } from "react";
-import type { ModuleInfo } from "../module";
+import { pageModules, type ModuleInfo } from "../module";
 import { useNotificationCenter } from "../notifications/center";
+import { CountBadge } from "./count-badge";
 import { Icon } from "./icon";
 
-export type NavModule = Pick<ModuleInfo, "id" | "name" | "href" | "icon" | "accent" | "notifies">;
+export type NavModule = Pick<ModuleInfo, "id" | "name" | "href" | "icon" | "accent" | "notifies" | "homeOnly">;
 
 function currentOf(href: string, pathname: string | null): "page" | "true" | undefined {
   if (pathname === href) return "page";
@@ -63,7 +64,7 @@ export function NavLinkList({ modules, pathname, listRef }: { modules: NavModule
   return (
     // w-max 讓清單照內容的寬度 末端的留白才算進捲動範圍
     <ul ref={listRef} className="flex w-max items-center gap-1 sm:gap-1.5">
-      {modules.map((m) => {
+      {pageModules(modules).map((m) => {
         const current = currentOf(m.href, pathname);
         const unread = feed.unread.byModule[m.id] ?? 0;
         return (
@@ -71,16 +72,11 @@ export function NavLinkList({ modules, pathname, listRef }: { modules: NavModule
           // not-sr-only 會把 white-space 改回 normal 所以寬螢幕再指定一次
           <li key={m.id} className="shrink-0">
             <Link href={m.href} data-accent={m.accent} aria-current={current} className="nav-pill relative">
-              {m.icon && <Icon src={m.icon} />}
+              <Icon src={m.icon} />
               {/* 手機上只留圖示 名稱給報讀器 模組變多也擠得進一行 */}
-              <span className={m.icon ? "sr-only whitespace-nowrap sm:not-sr-only sm:whitespace-nowrap" : "whitespace-nowrap"}>{m.name}</span>
+              <span className="sr-only whitespace-nowrap sm:not-sr-only sm:whitespace-nowrap">{m.name}</span>
               {/* 手機上疊在圖示右上角 放在行內會撐寬膠囊 最後一個模組就被擠出畫面 */}
-              {unread > 0 && (
-                <span className="count-badge max-sm:absolute max-sm:-top-1 max-sm:-right-1">
-                  {unread > 99 ? "99+" : unread}
-                  <span className="sr-only"> 則未讀</span>
-                </span>
-              )}
+              <CountBadge count={unread} className="max-sm:absolute max-sm:-top-1 max-sm:-right-1" />
             </Link>
           </li>
         );

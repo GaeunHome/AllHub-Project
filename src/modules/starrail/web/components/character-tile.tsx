@@ -33,7 +33,7 @@ export function CharacterTile({ character, onSelect }: { character: StarrailChar
           </span>
         )}
         <span className="absolute inset-x-0 bottom-0 flex items-end justify-between bg-linear-to-t from-black/80 to-transparent px-1.5 pt-4 pb-0.5 text-white">
-          <span className="sr-num text-[0.8125rem] font-semibold text-[#ffe3a3]">{rarity !== null && `${rarity}★`}</span>
+          <span className="sr-num text-[0.8125rem] font-semibold text-[var(--sr-rarity)]">{rarity !== null && `${rarity}★`}</span>
           <span className="sr-num text-[0.9375rem] leading-5 font-bold">{level !== null && `Lv.${level}`}</span>
         </span>
       </span>

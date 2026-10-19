@@ -1,9 +1,11 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DAY_MS } from "@/core/time";
 import { fakeFetch } from "@/dev/fake-fetch";
 import { setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubYoutubeEnv } from "@/dev/test-env";
 import { youtubeChannels } from "../data/schema";
+import { CHANNEL_ID as CH, OTHER_CHANNEL_ID as OTHER } from "../dev/fixtures";
 import { hubRequest } from "../lib/api";
 import { parseVerification, topicFor } from "../lib/websub";
 import { handleVerification } from "./channels";
@@ -13,11 +15,8 @@ import { handleVerification } from "./channels";
 
 stubYoutubeEnv();
 
-const CH = "UC" + "a".repeat(22);
-const OTHER = "UC" + "b".repeat(22);
 const CALLBACK = "https://hub.example.com/api/youtube/websub";
 const NOW = new Date("2026-10-07T12:00:00Z");
-const DAY_MS = 24 * 3600_000;
 
 let testDb: TestDb;
 setupTestDb((d) => (testDb = d));
@@ -30,7 +29,6 @@ beforeEach(() => {
   vi.stubGlobal("fetch", hub.impl);
 });
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 

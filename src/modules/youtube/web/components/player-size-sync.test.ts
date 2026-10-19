@@ -1,18 +1,14 @@
-import fs from "node:fs";
 import { createElement, useLayoutEffect, useSyncExternalStore, type EffectCallback } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fakeStorage } from "@/dev/fake-storage";
+import { readStylesheet } from "@/dev/stylesheet";
 import { PLAYER_SIZE_INIT_SCRIPT, THEATER_ATTRIBUTE, savePlayerSize } from "../player-size";
 
 // layout effect 只在瀏覽器跑 直接呼叫元件時收起來自己執行
 vi.mock("react", { spy: true });
 
 const { PlayerSizeSync } = await import("./player-size-sync");
-
-function fakeStorage(initial: Record<string, string> = {}) {
-  const data = new Map(Object.entries(initial));
-  return { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => void data.set(key, value) };
-}
 
 let html: Set<string>;
 
@@ -23,7 +19,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.mocked(useLayoutEffect).mockReset();
   vi.mocked(useSyncExternalStore).mockReset();
 });
@@ -71,8 +66,8 @@ describe("觀看頁的劇院模式同步（PlayerSizeSync）", () => {
   });
 });
 
-describe("html 標上劇院模式時的版面（globals.css）", () => {
-  const css = fs.readFileSync(new URL("../../../../app/globals.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+describe("html 標上劇院模式時的版面（web/player.css）", () => {
+  const css = readStylesheet().replace(/\/\*[\s\S]*?\*\//g, "");
   /** lg 寬螢幕區塊裡 選擇器清單含有 selector 的規則內容 每一條合併起來 */
   const wideRule = (selector: string) => {
     const wide = css.split("@media (min-width: 64rem)").slice(1).map((block) => block.slice(block.indexOf("{") + 1, block.indexOf("\n  }")));

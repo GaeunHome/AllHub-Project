@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TEST_SESSION, requireSession } from "@/dev/session-stub";
 import { captureErrorLog, form, mocksOf } from "@/dev/test-helpers";
 
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/channels", { spy: true });
 vi.mock("../service/caption-status", { spy: true });

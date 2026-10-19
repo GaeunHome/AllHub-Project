@@ -1,19 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fakeFetch } from "@/dev/fake-fetch";
 
 const { fetchCharacters, fetchDailyNote } = await import("./hoyolab");
 
 const COOKIE = "ltoken_v2=v2_top_secret; ltuid_v2=42";
 const ok = (data: unknown) => Response.json({ retcode: 0, message: "OK", data });
-
-beforeEach(() => {
-  vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-  vi.unstubAllEnvs();
-});
 
 describe("fetchCharacters：戰績的角色詳情（avatar/info）", () => {
   it("帶 need_wiki、role_id、server 與 DS；語言用繁體中文", async () => {

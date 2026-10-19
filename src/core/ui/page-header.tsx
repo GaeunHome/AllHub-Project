@@ -4,17 +4,15 @@ import { Icon, type UiIconName } from "./icon";
 type PageHeaderProps = {
   icon?: ReactNode;
   title: ReactNode;
-  subtitle?: ReactNode;
   actions?: ReactNode;
 };
 
-export function PageHeader({ icon, title, subtitle, actions }: PageHeaderProps) {
+export function PageHeader({ icon, title, actions }: PageHeaderProps) {
   return (
     <header className="flex flex-wrap items-center gap-x-4 gap-y-3">
       {icon && <span className="icon-tile size-12 rounded-2xl sm:size-14">{icon}</span>}
       <div className="flex min-w-48 flex-1 flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight text-ink sm:text-3xl">{title}</h1>
-        {subtitle && <p className="text-sm text-ink-soft">{subtitle}</p>}
       </div>
       {/* 手機上動作按鈕換到下一行 標題才不會被擠成一長條 */}
       {actions && <div className="button-row w-full sm:w-auto">{actions}</div>}

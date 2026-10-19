@@ -7,13 +7,13 @@ import type { FormState } from "@/core/ui/form-message";
 import { parseNotifyToggle } from "@/core/ui/notify-toggle-form";
 import { TwitchApiError } from "../lib/api";
 import { twitchTags } from "../service/cache-tags";
-import { TwitchUserError, addStreamer, removeStreamer, setStreamerNotify, syncSubscriptionsFor } from "../service/streamers";
+import { addStreamer, removeStreamer, setStreamerNotify, syncSubscriptionsFor } from "../service/streamers";
 
 export type { FormState } from "@/core/ui/form-message";
 
-// 找不到帳號或設定不對這類 Twitch 的錯誤直接給使用者看 其他只給摘要
-const isUserError = (error: unknown) => error instanceof TwitchUserError || error instanceof TwitchApiError;
-const run = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "twitch", action }, isUserError, work);
+// Twitch 回的錯誤也直接給使用者看 例如憑證填錯 其他非預期的只給摘要
+const isTwitchError = (error: unknown) => error instanceof TwitchApiError;
+const run = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "twitch", action }, isTwitchError, work);
 
 // 寫入橫跨資料庫與 Twitch API 失敗時可能只完成一部分 所以在 finally 讓 tag 失效
 // 一律用登入者的 id 呼叫 service 表單送來的主播 id 只決定操作哪一位

@@ -1,6 +1,6 @@
 import type { UiIconName } from "@/core/ui/icon";
 import { tradeNote } from "../lib/holdings";
-import { TRANSACTION_KIND_LABELS, categoryIconOf, type AccountKind, type EntryKind, type TransactionKind } from "../lib/kinds";
+import { TRANSACTION_KIND_LABELS, categoryIconOf, type AccountKind, type TransactionKind } from "../lib/kinds";
 import { formatNumber, formatSignedTwd, formatTwd } from "../lib/money";
 
 /** 沒有分類的收支 選單 篩選與列的說明共用這個名稱 */
@@ -90,9 +90,4 @@ export function signedAmount(kind: TransactionKind, amount: number, accountKind?
     case "adjust":
       return formatSignedTwd(accountKind === "credit" ? 0 - amount : amount);
   }
-}
-
-/** 固定收支與待處理的預計金額 只有收入帶加號 */
-export function plannedAmount(kind: EntryKind, amount: number): string {
-  return kind === "income" ? formatSignedTwd(amount) : formatTwd(amount);
 }

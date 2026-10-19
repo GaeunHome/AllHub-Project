@@ -1,5 +1,5 @@
-import fs from "node:fs";
 import { describe, expect, it, vi } from "vitest";
+import { readStylesheet } from "@/dev/stylesheet";
 import { THEME_INIT_SCRIPT, THEME_KEY, THEME_OPTIONS, applyTheme, parseThemePref } from "./theme";
 
 /** 只記錄 data-theme 的假 <html> */
@@ -87,7 +87,8 @@ describe("THEME_INIT_SCRIPT：第一次繪製前套用存著的主題", () => {
 });
 
 describe("globals.css 的 dark variant", () => {
-  const css = fs.readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+  // 模組引入的樣式也要照這個規則
+  const css = readStylesheet();
   const variant = /@custom-variant dark \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
 
   it("有 data-theme 時以它為準，沒有時跟隨系統", () => {

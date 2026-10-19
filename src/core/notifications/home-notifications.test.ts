@@ -1,13 +1,13 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { textOf } from "@/dev/test-helpers";
 import { UnreadDigestList } from "./home-notifications";
 import type { NotificationModule } from "./notification-summary";
 import type { NotificationItem } from "./types";
 
 const NOW = new Date("2026-10-08T12:00:00Z");
 const MODULES = new Map<string, NotificationModule>([["twitch", { id: "twitch", name: "Twitch", icon: "/icons/brands/twitch.svg", accent: "violet" }]]);
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 
 const item = (id: number, title: string, minutesAgo: number): NotificationItem => ({
   id,

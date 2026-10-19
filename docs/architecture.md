@@ -1,6 +1,6 @@
 # 架構
 
-這頁說明程式碼結構、架構規則、資料表、排程、資料保留、快取與安全，以及怎麼新增模組。寫程式時要遵守的完整規則與慣例在 [CLAUDE.md](../CLAUDE.md)。
+這頁說明程式碼結構、架構規則、資料表、排程、資料保留、快取與安全，以及怎麼新增與移除模組。寫程式時要遵守的完整規則與慣例在 [CLAUDE.md](../CLAUDE.md)。
 
 ## 程式碼結構
 
@@ -19,14 +19,14 @@ src/
 ├─ modules/
 │  ├─ index.ts       模組清單（導覽列、首頁的模組入口）
 │  ├─ cron.ts        排程清單
-│  └─ <id>/          twitch、youtube、starrail、savings
+│  └─ <id>/          twitch、youtube、starrail、savings、weather
 │     ├─ info.ts     名稱、網址、圖示
 │     ├─ cron.ts     排程（選填）
-│     ├─ web/        頁面（含首頁卡片 pages/home-card.tsx）、元件、Server Actions、API handler
+│     ├─ web/        頁面（含首頁卡片 pages/home-card.tsx）、元件、Server Actions、API handler、樣式（*.css）
 │     ├─ service/    商業流程與資料庫讀寫
 │     ├─ data/       資料表
 │     ├─ lib/        純函式、外部 API client
-│     └─ dev/        本機假外部服務（選填）
+│     └─ dev/        本機假外部服務、測試共用的 fixture（選填，只給測試用）
 ├─ dev/              命令列工具（account）、假外部服務入口、測試用資料庫與測試輔助
 └─ proxy.ts          擋未登入的請求
 ```
@@ -36,25 +36,30 @@ src/
 這些規則由 `src/architecture.test.ts` 自動檢查，`npm test` 時會跑：
 
 - **模組彼此獨立**：模組不能 import 其他模組、模組清單或 `src/app`；`core` 也不能 import 模組。
-- **依賴只能往下**：模組內是 `web → service → data → lib`。`web` 只能 `import type` data 的型別，不能直接存取資料庫。
+- **依賴只能往下**：模組內是 `web → service → data → lib`。`web` 只能 `import type` data 的型別，不能直接存取資料庫，也不直接用會寫資料庫的 `core/notify`、`core/cooldown`、`core/auth/attempts`（經過 service）；`service`、`data`、`lib` 不碰登入（`@/core/auth`、`next/headers`），使用者 id 由 `web` 傳進來。
+- **`dev/` 只給測試**：模組的 `dev/`（假外部服務、測試共用的 fixture）只有測試能 import；fixture 自己只用同模組的 `lib`、`data`（寫假資料要用資料表物件）與 `src/dev` 的測試輔助。
+- **模組 id 一致**：`info.ts` 的 `id`、通知與 log 的 `module`、認領與冷卻的 scope（`<id>:種類`）、瀏覽器偏好的 key（`allhub:<id>:…`）都用資料夾名稱。
+- **Server Action 先確認登入**：`"use server"` 檔的每個 export，第一個敘述是 `await requireSession()` 或 `await requireOwner()`；不用登入的只有登入、註冊、登出。
 - **`src/app` 只做轉接**：
   - 頁面只 render 模組 `web/pages/` 或 core 的頁面元件。
   - route handler 只轉接，例如 `export { GET } from …`；排程的 `api/cron/[task]` 例外，把模組的排程清單交給 core 的 `runCron()`（core 不能 import 模組清單）。
-  - 測試檢查的是 `src/app` 只透過模組的 `info`、`cron`、`web/pages`、`web/routes` 使用模組。
-- **首頁卡片**：每個模組的首頁卡片放在自己的 `web/pages/home-card.tsx`，由 `src/app/(main)/page.tsx` 組合後交給 core 的 `HomePage` 排版（core 不 import 模組）；每張卡片都要組合到首頁。
+  - 測試檢查的是 `src/app` 只透過模組的 `info`、`cron`、`web/pages`、`web/routes` 使用模組；core 只用頁面元件、route handler、排程、robots、外觀與登入檢查（測試裡的允許清單）。
+- **首頁卡片**：每個模組的首頁卡片放在自己的 `web/pages/home-card.tsx`，由 `src/app/(main)/page.tsx` 組合後交給 core 的 `HomePage` 排版（core 不 import 模組）；每張卡片都要組合到首頁。只有首頁卡片、沒有自己頁面的模組（例如天氣）在 `info.ts` 設 `homeOnly: true`，導覽列與首頁的模組入口就不列出它，卡片標題列也不放連結。
 - **資料表的位置**：只能定義在 `core/db/schema.ts`（表名以 `core_` 開頭）或模組的 `data/schema.ts`（表名以 `<id>_` 開頭）；每張表都加 `.enableRLS()`（見〈安全〉的資料庫的 RLS）。
+- **樣式的位置**：CSS 只有 `src/app/globals.css` 與模組 `web/` 底下的檔，模組的檔都由 `globals.css` 引入；模組的檔只寫自己前綴的 class（`MODULE_CSS_PREFIXES`）與自己的 `.theme-<id>`，`globals.css` 裡的模組 class 只剩跟 core 或兩個模組共用的幾條（`SHARED_IN_GLOBALS`）。
 - **環境變數**：都定義在 `core/env.ts`，順序同 `.env.example`（由 `env.test.ts` 檢查）；其他地方不直接讀 `process.env`（少數例外列在 CLAUDE.md，也由 `architecture.test.ts` 檢查）。
+- **其他**：日期時間的顯示一律經 `core/time.ts`（不直接用 `Intl.DateTimeFormat`、`Intl.RelativeTimeFormat`、`toLocale*String`）；`next/image` 一律 `unoptimized`；原生 `<dialog>` 只在 `core/ui/dialog.tsx`；對外請求一律經 `externalFetch()`；測試檔一律是 `.test.ts`（vitest 只跑這種）。
 - **快取寫法**：由 `src/cache-rules.test.ts` 檢查（見下方〈快取〉）。
 
 ## 資料表
 
-各模組的資料依使用者分開：每個人只看得到、改得到自己的資料。依使用者的表都有 `user_id`，外鍵指向 `core_users`，刪除帳號時一起刪除（`on delete cascade`）；共用的表不屬於任何人。
+各模組的資料依使用者分開：每個人只看得到、改得到自己的資料。依使用者的表都有 `user_id`（不能是空的），外鍵指向 `core_users`，刪除帳號時一起刪除（`on delete cascade`）；共用的表不屬於任何人。
 
 | 資料表 | 依使用者／共用 | 內容 | 保留 |
 |---|---|---|---|
 | `core_users` | — | 帳號、角色、停用、登入失敗次數 | 永久 |
 | `core_invites` | 依使用者（建立者） | 邀請，只存雜湊 | 永久，刪除帳號時一起刪 |
-| `core_rate_limits` | — | 註冊與邀請碼的嘗試次數、用過的驗證碼 nonce 的雜湊、手動同步與續訂的冷卻時間（帳號 id 的雜湊）、星穹鐵道的提醒發過了沒（遊戲帳號與期別的雜湊） | 一小時／一天 |
+| `core_rate_limits` | — | 註冊與邀請碼的嘗試次數、用過的驗證碼 nonce 的雜湊、手動同步與續訂的冷卻時間（帳號 id 的雜湊）、星穹鐵道與天氣的提醒發過了沒（遊戲帳號與期別、帳號 id 與日期的雜湊） | 一小時／一天 |
 | `core_notifications` | 依使用者（收件人） | 網站通知 | 14 天 |
 | `twitch_follows` | 依使用者 | 追蹤的主播、通知開關 | 永久 |
 | `twitch_streamers` | 共用 | 主播與 EventSub 訂閱（同一位主播只訂閱一次） | 沒有人追蹤時刪除 |
@@ -69,18 +74,18 @@ src/
 | `starrail_checkin_logs` | 跟著帳號 | 簽到紀錄 | 14 天 |
 | `starrail_redeem_codes` | 跟著帳號 | 自動兌換試過的兌換碼（社群公開的碼）與結果，試過的不再送出 | 永久，移除帳號時一起刪 |
 | `savings_accounts` | 依使用者 | 理財的帳戶：自己取的名稱、類型（存款、投資、信用卡）、用途文字、起始餘額、每月規劃、目標；信用卡的結帳日、扣款帳戶、自動扣繳與卡面顏色（舊的繳款截止日只當第一張帳單截止日的預設）。不存帳號、卡號 | 永久 |
-| `savings_purposes` | 依使用者 | 舊的用途表，已改成帳戶上的用途文字，程式不再讀寫（之後的版本刪掉） | 永久 |
 | `savings_categories` | 依使用者 | 收入、支出的分類與圖示，支出分類的每月預算 | 永久 |
 | `savings_transactions` | 依使用者 | 收入、支出、轉帳與調整（更新餘額、帳單差額）；買賣持股、確認固定收支記下的也在這裡 | 永久（刪除帳戶時，跟它有關的紀錄一起刪） |
 | `savings_recurring` | 依使用者 | 固定收支：每幾個月一次、遇假日提前或延後、自動記帳或到期請你確認（含薪水與定期定額） | 永久 |
 | `savings_holdings` | 依使用者 | 投資帳戶的持股：代號、名稱、目前股數與總成本 | 永久（刪除投資帳戶時一起刪） |
 | `savings_card_bills` | 依使用者 | 信用卡帳單：結帳日、截止日（照帳單填的）與金額 | 每張卡留最新 5 張 |
+| `weather_settings` | 依使用者 | 天氣卡片選的縣市與早上的下雨通知開關（每人一列，開關預設開） | 永久 |
 
 - **擁有權**：Server Action、頁面與 Route Handler 都用登入者的 id 呼叫 service，service 的 SQL 同時比對 `user_id`，別人的 id 一律當作不存在。例外是 YouTube 的翻譯：所有人共用，字幕下載也不檢查擁有權。
   - 續翻用觀看者自己的 API Key；別人發起、還沒翻完的翻譯不會自動用他的 Key 接著翻，要他在觀看頁按「用我的 API Key 繼續翻譯」。
   - 只有字幕內容的問題（AI 輸出格式不對、模型拒絕翻譯）才把共用的翻譯標成失敗；觀看者自己的金鑰、額度、頻率限制或連線錯誤只回給他，翻譯維持排隊中，別人看不到。
   - 只有發起人或站長能重新翻譯或換字幕。
-- **部署空窗期的舊資料**：`user_id` 可以是 null，是為了部署時還在跑的舊程式（見 [部署 › 從單人版升級](deploy.md#之後的部署)）；新程式不讀這些列（重新加密的排程與 14 天的清理例外，照樣處理）。
+- **擁有者一定有值**：多人化部署時舊程式寫的、沒有擁有者的列，v0.1.8 的 migration 刪掉之後把 `user_id` 改成 NOT NULL（見 [部署 › 之後的部署](deploy.md#之後的部署)）。可以是 null 的只有共用翻譯的發起人（發起人刪除帳號後）。
 
 ## 排程
 
@@ -99,14 +104,16 @@ src/
 | `twitch:sync` | 檢查並補建 EventSub 訂閱；刪掉沒有人追蹤的主播與它的訂閱 | 每天 04:00 | Vercel Cron |
 | `youtube:renew` | 續訂快到期的 WebSub 訂閱；取消並刪掉沒有人追蹤的頻道 | 每天 04:30 | Vercel Cron |
 | `notifications:cleanup` | 刪除超過 14 天的網站通知 | 每天 05:00 | Vercel Cron |
+| `weather:rain` | 開著下雨通知的人，選的縣市今天白天或今晚的降雨機率 50% 以上時提醒帶傘（全台的預報一次讀；每人每天最多一則，重送不會重寄；停用的使用者略過；沒設定氣象署的授權碼時不做） | 每天 06:00 | Vercel Cron |
 | `starrail:redeem` | 替打開自動兌換的帳號，兌換社群兌換碼清單上還沒試過的碼（清單最多 50 個；每次約 30 秒、同一個 HoYoLAB 帳號每 6 秒一個，剩下的隔天再試；成功時通知） | 每天 12:00 | Vercel Cron |
 
 **Vercel Cron**
 
 - `vercel.json` 裡的時間是 UTC，也就是台北時間減 8 小時。
 - Hobby 方案每個排程一天最多跑一次，而且只保證在設定的那個小時內執行；每個專案最多 100 個排程。
+- `src/modules/cron.test.ts` 檢查登記的排程（模組的與 core 的 `notifications:cleanup`）跟 `vercel.json` 的路徑一一對應；只能手動跑的排程另外列在它的 `MANUAL_ONLY`。
 - 同一個路徑可以登記好幾個時間：`starrail:stamina` 每個 UTC 小時各一條（共 24 條），所以大約每小時跑一次。每條都可能在那個小時裡的任何時候觸發，相鄰兩次可能只隔幾分鐘，也可能隔將近兩小時。
-- 排程的 route 沒有設 `maxDuration`，用的是 Fluid compute 的預設（Hobby 300 秒）。最久的是 `youtube:cleanup`（外部請求最多 60 秒）與 `starrail:redeem`（約 45 秒），所以 Fluid compute 要開著（新專案預設開啟，見 [部署](deploy.md#2-vercel匯入-repo填環境變數)）。
+- 排程的 route 沒有設 `maxDuration`，用的是 Fluid compute 的預設（Hobby 300 秒）。最久的是 `youtube:cleanup`（外部請求最多 60 秒）、`starrail:redeem`（約 45 秒）與 `weather:rain`（讀全台預報最多等 15 秒），所以 Fluid compute 要開著（新專案預設開啟，見 [部署](deploy.md#2-vercel匯入-repo填環境變數)）。
 - Vercel 偶爾會漏送或重送同一次排程（[官方說明](https://vercel.com/docs/cron-jobs/manage-cron-jobs#cron-job-delivery-and-idempotency)）：排程都可以重跑，自動記帳與提醒會先認領，同一件事不會做兩次。
 
 **GitHub Actions**
@@ -114,7 +121,7 @@ src/
 - `cron.yml` 只用來手動執行：在 Actions 頁面按 Run workflow，可以指定任何排程（例如補跑、換金鑰後立刻重新加密）。它需要 GitHub Secrets 的 `HUB_URL` 與 `CRON_SECRET`。
 - 為什麼不用 GitHub 的定時排程：`starrail:stamina` 以前由 `cron.yml` 每 30 分鐘呼叫，但 GitHub 常常略過，實際一天只跑 4–5 次、間隔 3–8 小時，開拓力提醒晚了好幾個小時才到。
 - 其他 workflow：
-  - `ci.yml`：在 PR 與 main 上依序跑測試、lint、建置、型別檢查。
+  - `ci.yml`：在 PR 與 main 上跑兩個同時進行的工作：一個跑測試，另一個依序跑 lint、建置、型別檢查（各自最多 30 分鐘）。
   - `db-migrate.yml`：main 的 migration 有變動或手動執行時，套用 migration。
 
 **手動執行**
@@ -122,6 +129,7 @@ src/
 - 指令：`curl -H "Authorization: Bearer $CRON_SECRET" https://<網址>/api/cron/<排程>`，一次跑一個排程。
 - 回應格式是 `{"results":{…}}`。失敗時只寫「失敗（詳見伺服器 log）」。
 - 密鑰錯誤回 401；排程名稱錯誤回 404，並列出所有排程。只認登記過的排程名稱，`constructor`、`toString` 這類名稱也回 404。
+- `weather:rain` 要補跑請在台北 6 點以後：每人每天只寄一則（照台北的日期），6 點前跑看的是還沒過完的今晚（前一天 18 點開始）與今天白天，寄了之後 6 點的排程就不會再寄。
 
 ## 資料保留
 
@@ -136,11 +144,11 @@ src/
     - 已經發過通知、發布不到 48 小時的 Shorts 先留著（推送時沒確認到是 Shorts 而通知了），理由同上：hub 重送時才不會重複通知。這段期間它不算進最新 20 支，最舊的一般影片不會因此被刪掉。
 - **翻譯好的字幕永久保留**：影片被清掉、頻道沒有人追蹤而被刪除時都不刪（翻譯表跟影片表、頻道表沒有外鍵），花錢翻好的字幕重看不用再付費。
 - **保留的影片**：每人最多 15 部，滿了時先擠掉最舊的自動項目（按過翻譯時加入的），沒有清理排程；影片被清掉、頻道沒有人追蹤時都不刪（跟影片表沒有外鍵），自己移除或刪除帳號時才刪。移除不影響共用的翻譯。
-- **永久保留**：邀請連結、追蹤名單、保留的影片、翻譯設定與加密的 API Key、連結的 HoYoLAB 帳號與自動兌換試過的兌換碼、理財的帳戶、分類、紀錄、固定收支與持股（信用卡帳單見下一條）。刪除帳號時，這些連同他的網站通知與簽到紀錄一起刪除。
+- **永久保留**：邀請連結、追蹤名單、保留的影片、翻譯設定與加密的 API Key、連結的 HoYoLAB 帳號與自動兌換試過的兌換碼、理財的帳戶、分類、紀錄、固定收支與持股（信用卡帳單見下一條）、天氣選的縣市與下雨通知的開關。刪除帳號時，這些連同他的網站通知與簽到紀錄一起刪除。
 - **信用卡帳單：每張卡只留最新 5 張**。`savings:recurring` 每天清掉更舊的；填帳單時補的那一筆紀錄留著，餘額不會變。
 - **共用、刪除帳號後留下**：翻譯好的字幕（發起人改成 null，發起時的專有名詞表也留在翻譯裡）；主播與頻道在沒有人追蹤時，由取消追蹤的最後一個人或每天的 `twitch:sync`、`youtube:renew` 刪掉。
-- **不存**：畫面上即時讀的外部資料（最新的頭像、直播的觀看人數與預覽圖、遊戲封面、觀看頁的影片資訊、即時便箋、星穹鐵道的遊戲頭像、角色、開拓月曆、活動日曆、終局戰績、證交所與櫃買中心的收盤價）只放在快取裡，見下方〈快取〉；手動輸入的兌換碼與兌換結果不存也不快取。會存進資料庫的平台資料是追蹤時存下的主播與頻道名稱和頭像網址、主播有沒有在直播（EventSub 寫入的 `is_live`）、影片的標題、發布時間與中文字幕狀態、連結時查到的星穹鐵道帳號資料（UID、暱稱、伺服器、開拓等級與 cookie 裡的 `ltuid`）、自動兌換試過的兌換碼與結果（只記成功、已兌換、過期、無效這類不會變的）、保留影片時的標題與頻道名稱快照、新增持股時抄下的股票名稱，以及上面列的通知、開台與簽到紀錄、翻譯（使用聲明第四節照這份寫）。圖片由瀏覽器直接向平台的 CDN 載入，網站不轉送也不存（星穹鐵道的元素、命途、屬性小圖示是固定的遊戲素材，內建在 `public/icons/starrail/`）。
-- **`core_rate_limits`**：註冊與邀請碼的嘗試次數（IP 只存雜湊，時間窗一小時）、用過的驗證碼 nonce 的雜湊、手動同步與續訂的冷卻時間（帳號 id 的雜湊，60 秒）、星穹鐵道的提醒與自動兌換的 cookie 通知發過了沒（遊戲帳號與期別的雜湊，避免同一件事提醒兩次）。超過一天的紀錄會在下一次有人登入、註冊、按同步或續訂、排程發提醒時順便刪除，不另外排程。
+- **不存**：畫面上即時讀的外部資料（最新的頭像、直播的觀看人數與預覽圖、遊戲封面、觀看頁的影片資訊、即時便箋、星穹鐵道的遊戲頭像、角色、開拓月曆、活動日曆、終局戰績、證交所與櫃買中心的收盤價、天氣預報與空氣品質）只放在快取裡，見下方〈快取〉；手動輸入的兌換碼與兌換結果不存也不快取。會存進資料庫的平台資料是追蹤時存下的主播與頻道名稱和頭像網址、主播有沒有在直播（EventSub 寫入的 `is_live`）、影片的標題、發布時間與中文字幕狀態、連結時查到的星穹鐵道帳號資料（UID、暱稱、伺服器、開拓等級與 cookie 裡的 `ltuid`）、自動兌換試過的兌換碼與結果（只記成功、已兌換、過期、無效這類不會變的）、保留影片時的標題與頻道名稱快照、新增持股時抄下的股票名稱，以及上面列的通知、開台與簽到紀錄、翻譯（使用聲明第四節照這份寫）。圖片由瀏覽器直接向平台的 CDN 載入，網站不轉送也不存（星穹鐵道的元素、命途、屬性小圖示是固定的遊戲素材，內建在 `public/icons/starrail/`）。
+- **`core_rate_limits`**：註冊與邀請碼的嘗試次數（IP 只存雜湊，時間窗一小時）、用過的驗證碼 nonce 的雜湊、手動同步與續訂的冷卻時間（帳號 id 的雜湊，60 秒）、星穹鐵道的提醒與自動兌換的 cookie 通知發過了沒（遊戲帳號與期別的雜湊，避免同一件事提醒兩次）、天氣的下雨提醒今天寄過了沒（帳號 id 與日期的雜湊）。超過一天的紀錄會在下一次有人登入、註冊、按同步或續訂、排程發提醒時順便刪除，不另外排程。
 
 ## 快取
 
@@ -151,7 +159,7 @@ src/
   |---|---|---|
   | Twitch 直播狀態、觀看人數、預覽圖 | 最多 2 分鐘 | `live` |
   | HoYoLAB 即時便箋 | 最多 5 分鐘 | `external` |
-  | HoYoLAB 角色、開拓月曆、活動日曆、終局戰績 | 最多 30 分鐘 | `records` |
+  | HoYoLAB 角色、開拓月曆、活動日曆、終局戰績；氣象署的天氣預報、環境部的空氣品質 | 最多 30 分鐘 | `records` |
   | 證交所與櫃買中心的收盤價（一天更新一次） | 每小時重讀，最多 6 小時 | `quotes` |
   | Twitch 頭像、離線橫幅、遊戲封面；YouTube 頻道頭像、影片資訊；HoYoLAB 遊戲頭像 | 最多一天 | `avatar` |
   - 讀不到（被擋、出錯、資料不公開）時只快取幾分鐘，之後再試；收盤價只讀到其中一個來源時也一樣。
@@ -212,22 +220,41 @@ src/
 
 ## 新增模組
 
-1. **建目錄**：建 `src/modules/<id>/`，照上面的結構放檔案，資料表名稱以 `<id>_` 開頭、`pgTable(...)` 後面加 `.enableRLS()`。
+1. **建目錄**：建 `src/modules/<id>/`，照上面的結構放檔案，資料表名稱以 `<id>_` 開頭、`pgTable(...)` 後面加 `.enableRLS()`。資料夾名稱就是模組 id：`info.ts` 的 `id`、通知與 log 的 `module`、認領與冷卻的 scope、`allhub:<id>:` 的瀏覽器偏好都用它。
 2. **路由**：
    - 頁面放在 `src/app/(main)/<id>/page.tsx`，只 render 模組 `web/pages/` 的元件。
    - API 放在 `src/app/api/<id>/…/route.ts`，只轉接 `web/routes/` 的 handler。
    - `maxDuration` 這類設定要直接寫在 `src/app` 的檔案裡。
+   - 外部服務呼叫的端點（webhook）不走登入：加進 `src/proxy.ts` 的 matcher 排除清單（整段比對，後面接 `(?:/|$)`），`src/proxy.test.ts` 加一條，端點自己驗簽章。
 3. **登記模組**：在 `src/modules/index.ts` 登記 `info`。不會發通知的模組在 `info.ts` 設 `notifies: false`，它就不會出現在「提醒方式」（`src/architecture.test.ts` 會檢查這個設定跟有沒有呼叫 `notify()` 一致）。
-4. **排程**（有的話）：
-   - 在 `src/modules/cron.ts` 登記。
-   - 加進 `vercel.json`。Hobby 每條一天最多跑一次，要更頻繁就用同一個路徑多登記幾條（像 `starrail:stamina` 每個 UTC 小時一條）；不要用 GitHub Actions 的定時排程，它常常略過。
+4. **圖示與顏色**：`info.ts` 的 `icon` 是 `public/` 底下的單色 SVG（用 CSS mask 上色），畫面上用的通用圖示放 `public/icons/ui/`、名稱加進 `core/ui/icon.tsx` 的 `UI_ICON_NAMES`。品牌色從 `ModuleAccent`（`core/module.ts`）挑；要新的顏色時兩邊一起加，`globals.css` 的 `--accent-*` 淺色與深色各一組。模組專用的樣式放在模組的 `web/*.css`（主題頁的 `theme.css`、`page-background.css`，元件的 `<名稱>.css`），在 `src/app/globals.css` 照位置用 `@import` 引入，class 的前綴登記在 `src/architecture.test.ts` 的 `MODULE_CSS_PREFIXES`；整頁主題的 class 只放在 `PageTheme` 上（見 CLAUDE.md〈程式碼慣例〉的畫面風格與樣式檔）。
+5. **排程**（有的話）：
+   - 在 `src/modules/cron.ts` 登記，用 `expiringTask()` 包起來。
+   - 加進 `vercel.json`（`src/modules/cron.test.ts` 檢查兩邊一一對應）。Hobby 每條一天最多跑一次，要更頻繁就用同一個路徑多登記幾條（像 `starrail:stamina` 每個 UTC 小時一條）；不要用 GitHub Actions 的定時排程，它常常略過。
+   - `src/modules/cron.cache.integration.test.ts` 的 `EXPECTED` 加一列（這個排程讓哪些 tag 失效）。
    - 更新上方的排程表。
-5. **環境變數**（有的話）：加在 `src/core/env.ts`，並依同樣順序加進 `.env.example`。
-6. **首頁卡片**（選填）：在 `web/pages/home-card.tsx` 用 `core/ui/home-card.tsx` 的 `HomeCard` 包住卡片內容（標題列先出現，內容有自己的 Suspense 骨架與錯誤邊界），內容先 `requireSession()` 再讀自己的 `service/cached.ts`；再到 `src/app/(main)/page.tsx` 把它放進 `wide`（一張一列，彼此不並排）、`half`（平常一張一列，2xl 以上跟 `compact` 那組各佔半列）或 `compact`（兩張並排）。卡片外框是 `@container`，內容的欄數用容器查詢（`@md:`、`@4xl:`）依卡片寬度決定。
-7. **讀寫資料與通知**：
-   - 每個人自己的資料表加 `user_id`（外鍵指向 `core_users`、`on delete cascade`），service 的讀寫一律比對登入者的 id，並寫擁有權（IDOR）測試（規則見 CLAUDE.md〈多人〉）。
+6. **環境變數**（有的話）：加在 `src/core/env.ts`，並依同樣順序加進 `.env.example`；`src/dev/test-env.ts` 加這組的測試值與 `stub…Env()`，並放進跨模組測試用的 `stubAllEnv()`（`env.test.ts` 檢查）；取得方式寫進 [密鑰](secrets.md)。
+7. **首頁卡片**（選填）：在 `web/pages/home-card.tsx` 用 `core/ui/home-card.tsx` 的 `HomeCard` 包住卡片內容（標題列先出現，內容有自己的 Suspense 骨架與錯誤邊界），內容先 `requireSession()` 再讀自己的 `service/cached.ts`；再到 `src/app/(main)/page.tsx` 把它放進 `wide`（一張一列，彼此不並排）、`half`（平常一張一列，2xl 以上跟 `compact` 那組各佔半列）或 `compact`（兩張並排）。卡片外框是 `@container`，內容的欄數用容器查詢（`@md:`、`@4xl:`）依卡片寬度決定。
+8. **讀寫資料與通知**：
+   - 每個人自己的資料表加 `user_id`（NOT NULL，外鍵指向 `core_users`、`on delete cascade`），service 的讀寫一律比對登入者的 id，並寫擁有權（IDOR）測試（規則見 CLAUDE.md〈多人〉）。
+   - 在 `src/account-deletion.integration.test.ts` 的 `seedEverything` 補一筆這張表的資料（寫 SQL）：測試從資料庫的外鍵列出每張指向 `core_users` 的表，沒放資料、不是 cascade 或可以是空的都會失敗。
+   - 排程會用使用者的憑證或寄通知時，略過停用的人（CLAUDE.md〈多人〉的停用＝凍結），在 `src/account-disable.integration.test.ts` 或模組自己的整合測試加一條。
    - 頁面讀資料用 `service/cached.ts` 的快取函式，使用者 id 當參數；寫入時讓對應的 tag 失效（規則見 CLAUDE.md〈快取〉）。
    - 發通知用 `core/notify.ts` 的 `notify()`，指定收件人的使用者 id。
-8. **假外部服務**（有的話）：放在 `dev/mock.mjs`，`npm run mock:external` 會自動載入。
-9. **Migration**：執行 `npm run db:generate` 產生 migration，跟程式一起 commit；一個版本只有一個，資料夾只留基準檔與這一版的；要跟還在跑的舊程式相容（先擴充再收斂，見 [部署 › 之後的部署](deploy.md#之後的部署)）。
-10. **文件**：在 [模組設定與使用](modules.md) 加上這個模組的說明。
+9. **假外部服務**（有的話）：放在 `dev/mock.mjs`，`npm run mock:external` 會自動載入；它的測試用 `src/dev/mock-request.ts` 的 `mockRequest()` 直接呼叫 `handle`。測試共用的 fixture 也放 `dev/`（只有測試能 import）。
+10. **Migration**：執行 `npm run db:generate` 產生 migration，跟程式一起 commit；一個版本只有一個，資料夾只留基準檔與這一版的；要跟還在跑的舊程式相容（先擴充再收斂，見 [部署 › 之後的部署](deploy.md#之後的部署)）。
+11. **文件**：在 [模組設定與使用](modules.md) 加上這個模組的說明；使用聲明（`core/ui/terms-page.tsx`：存了哪些資料、留多久、會連到哪些外部服務）跟著改；CLAUDE.md 加這個模組的注意事項。
+
+## 移除模組
+
+刪資料表要分兩版（先擴充再收斂：部署時舊程式還在跑，見 [部署 › 之後的部署](deploy.md#之後的部署)）。
+
+1. **這一版：拿掉程式**
+   - 入口：`src/modules/index.ts`、`src/modules/cron.ts`、`src/app` 的頁面與 API、首頁的卡片（`src/app/(main)/page.tsx`）、`vercel.json` 的排程、`src/proxy.ts` 的 matcher 與 `src/proxy.test.ts`。
+   - 刪掉 `src/modules/<id>/`，拿掉 `src/modules/cron.cache.integration.test.ts` 的 `EXPECTED` 與 `src/account-disable.integration.test.ts` 裡它的那一段。
+   - 環境變數：`src/core/env.ts`、`.env.example`、`src/dev/test-env.ts`（含 `stubAllEnv()`），Vercel 上的值也刪掉。
+   - 資料表：表的定義已經跟著 `data/schema.ts` 刪了，`npm run db:generate` 產生的 migration 手動去掉 DROP，這一版只是程式不再讀寫。`src/account-deletion.integration.test.ts` 的 `seedEverything` 留著這張表的那幾筆（表與外鍵都還在）。
+   - 只有它用的圖示、樣式（`web/*.css`、`globals.css` 引入它們的那幾行、`MODULE_CSS_PREFIXES` 與 `SHARED_IN_GLOBALS` 裡它的那幾條）與 `ModuleAccent`、使用聲明、[模組設定與使用](modules.md)、[密鑰](secrets.md)、這頁的排程表與資料表、CLAUDE.md 的那一節、CHANGELOG。
+2. **下一版（舊程式不再上線之後）：刪資料表**
+   - migration 手寫 `DROP TABLE`，在 `migrations.integration.test.ts` 明列允許；`seedEverything` 拿掉這張表的那幾筆（不然測試會說沒有這張表）。
+   - 留著也沒關係的：瀏覽器裡 `allhub:<id>:` 的偏好、`core_notifications` 裡這個模組的通知（14 天後清掉）、`core_rate_limits` 的認領與冷卻（一天後清掉）。

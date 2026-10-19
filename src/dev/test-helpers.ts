@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { expect, onTestFinished, vi, type Mock } from "vitest";
 import * as nextCache from "./next-cache-stub";
 
@@ -10,6 +12,25 @@ import * as nextCache from "./next-cache-stub";
  */
 export function resetNextCache(): void {
   for (const spy of Object.values(nextCache)) spy.mockReset();
+}
+
+/** 元件算繪成的 HTML 伺服器元件先 await 再傳進來 */
+export const markup = (node: ReactNode): string => renderToStaticMarkup(node);
+
+const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: "\u00a0" };
+
+/**
+ * 畫面上看得到的字 去掉標籤後把 React 跳脫的字元換回來
+ * spaced 時每個標籤換成空白再合併連續空白 用來比對前後有分隔的詞
+ */
+export function textOf(html: string, { spaced = false }: { spaced?: boolean } = {}): string {
+  const text = spaced ? html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ") : html.replace(/<[^>]+>/g, "");
+  // 一次全部換完 跳脫過兩次的字才不會被換回兩次
+  return text.replace(/&(?:#(\d+)|#x([\da-f]+)|([a-z]+));/gi, (entity, decimal?: string, hex?: string, name?: string) => {
+    if (decimal) return String.fromCodePoint(Number(decimal));
+    if (hex) return String.fromCodePoint(parseInt(hex, 16));
+    return ENTITIES[name!.toLowerCase()] ?? entity;
+  });
 }
 
 /** 快取函式標上的 tag 已排序 */

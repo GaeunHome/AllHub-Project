@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { entryDetails, entryTitle, plannedAmount, recordDetails, recordTitle, signedAmount } from "./entry-display";
+import { entryDetails, entryTitle, recordDetails, recordTitle, signedAmount } from "./entry-display";
 
 const names = { accountName: "國泰", counterAccountName: null, categoryName: null, note: null };
 
@@ -113,13 +113,5 @@ describe("signedAmount：紀錄頁的金額", () => {
     expect(signedAmount("adjust", 480, "credit")).toBe("-$480");
     expect(signedAmount("adjust", -500, "credit")).toBe("+$500");
     expect(signedAmount("expense", 120, "credit")).toBe("-$120");
-  });
-});
-
-describe("plannedAmount：固定收支的預計金額", () => {
-  it("只有收入帶 +，支出與轉帳不帶符號", () => {
-    expect(plannedAmount("income", 52000)).toBe("+$52,000");
-    expect(plannedAmount("expense", 390)).toBe("$390");
-    expect(plannedAmount("transfer", 5000)).toBe("$5,000");
   });
 });

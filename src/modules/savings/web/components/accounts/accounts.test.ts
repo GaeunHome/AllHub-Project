@@ -1,6 +1,6 @@
-import { Fragment, createElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { markup as render, textOf } from "@/dev/test-helpers";
 import type { BillDraft } from "../../dashboard-view";
 
 // 視窗關著時不算繪內容 換掉才看得到裡面 其他照原本的實作
@@ -15,8 +15,6 @@ const { BillForm, BillHistory } = await import("./card-bill");
 const { AddAccountButton } = await import("./add-account-button");
 
 const TODAY = "2026-10-15";
-const render = (element: ReactNode) => renderToStaticMarkup(element as never);
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
 const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
 const valueOf = (markup: string, name: string) => inputOf(markup, name).match(/value="([^"]*)"/)?.[1];
 const formActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
@@ -91,12 +89,10 @@ describe("填帳單", () => {
   });
 
   it("截止日先填帳單上印的日子；那天遇假日時欄位下寫出順延到哪天（10/25 週日、10/26 補假 → 10/27），沒有順延就不寫", () => {
-    const printed = bill({ ...DRAFT, dueDate: "2026-10-25", shiftedDueDate: "2026-10-27" });
+    const printed = bill({ ...DRAFT, dueDate: "2026-10-25" });
 
     expect(valueOf(printed, "dueDate")).toBe("2026-10-25");
     expect(describedHint(printed, "dueDate")).toBe("遇假日順延到 10/27");
-    // 沒帶順延後的日子時自己照辦公日曆算
-    expect(describedHint(bill({ ...DRAFT, dueDate: "2026-10-25" }), "dueDate")).toBe("遇假日順延到 10/27");
     expect(describedHint(bill(), "dueDate")).toBe("");
   });
 

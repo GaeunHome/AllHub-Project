@@ -4,8 +4,9 @@ import { useId, useState } from "react";
 import { FormMessage } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { SegmentedControl } from "@/core/ui/segmented-control";
-import { ENDGAME_MODES, endgameLabel, type Endgame, type EndgameFloor, type EndgameMode, type EndgameSchedule } from "../../lib/endgame";
-import { groupDigits } from "../../lib/ledger";
+import { groupDigits } from "@/core/number";
+import { challengeLabel } from "../../lib/calendar";
+import { ENDGAME_MODES, type Endgame, type EndgameFloor, type EndgameMode, type EndgameSchedule } from "../../lib/endgame";
 import { TeamAvatar } from "./team-avatar";
 
 export type EndgameRecord = { mode: EndgameMode; schedule: EndgameSchedule } & ({ ok: true; endgame: Endgame } | { ok: false; message: string });
@@ -36,7 +37,7 @@ export function EndgameView({ records, names }: { records: EndgameRecord[]; name
       <div role="tablist" aria-label="模式" className="no-scrollbar flex overflow-x-auto border-b border-line">
         {ENDGAME_MODES.map((m) => (
           <button key={m} type="button" role="tab" aria-selected={m === mode} onClick={() => setMode(m)} className="sr-tab shrink-0">
-            {endgameLabel(m)}
+            {challengeLabel(m)}
           </button>
         ))}
       </div>
@@ -60,7 +61,7 @@ function EndgameRecordView({ endgame, names }: { endgame: Endgame; names: Record
       {/* 手機上名稱與期間一列 數字排在下一列 寬螢幕數字排在右邊 */}
       <div className="sr-panel flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="truncate text-lg font-bold tracking-wide text-ink">{endgame.name ?? endgameLabel(endgame.mode)}</p>
+          <p className="truncate text-lg font-bold tracking-wide text-ink">{endgame.name ?? challengeLabel(endgame.mode)}</p>
           {(endgame.begin || endgame.end) && (
             <p className="flex items-center gap-1.5 text-sm text-ink-soft">
               <Icon name="calendar" className="size-3.5" />
@@ -131,7 +132,7 @@ function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number,
             <div key={i} className="flex items-start gap-2.5">
               {/* 隊伍編號用固定大小的方塊不換行 頭像才對齊 */}
               <span className="grid h-12 shrink-0 place-items-center">
-                <span className="sr-num grid size-6 place-items-center rounded-sm border border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-sm leading-none font-bold text-[#f4d79b]">
+                <span className="sr-num grid size-6 place-items-center rounded-sm border border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-sm leading-none font-bold text-[var(--sr-gold-ink)]">
                   <span aria-hidden>{i + 1}</span>
                   <span className="sr-only">第 {i + 1} 隊</span>
                 </span>

@@ -13,3 +13,6 @@ export const OVERVIEW_COLUMNS = "grid gap-8 xl:grid-cols-[minmax(0,3fr)_minmax(0
 export const OVERVIEW_LEFT = "page-stack min-w-0";
 
 export const OVERVIEW_RIGHT = "page-stack min-w-0 2xl:contents";
+
+/** 帳戶頁的卡片 同一列等寬等高 寬螢幕多排幾張 */
+export const ACCOUNTS_GRID = "grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";

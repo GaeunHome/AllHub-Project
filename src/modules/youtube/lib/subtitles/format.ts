@@ -1,6 +1,9 @@
-import { codePointToString } from "../code-point";
+import { decodeEntities, tidyLines } from "../text";
 
 export type Cue = { start: number; end: number; text: string }; // 毫秒
+
+/** 中文 韓文或兩種一起 觀看頁的字幕與下載的檔案共用 */
+export type SubtitleMode = "zh" | "ko" | "both";
 
 export class SubtitleParseError extends Error {
   constructor(message: string) {
@@ -77,23 +80,9 @@ function parseTiming(line: string): [number, number] {
   return [start, end];
 }
 
-const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
-
 // 先拿掉標籤再解碼實體 否則 &lt;3 解碼後會被當成標籤刪掉
 function cleanText(raw: string): string {
-  return raw
-    .replace(/<[^>]*>/g, "")
-    .replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (whole, name: string) => {
-      if (name[0] === "#") {
-        const code = name[1].toLowerCase() === "x" ? parseInt(name.slice(2), 16) : parseInt(name.slice(1), 10);
-        return codePointToString(code) ?? whole;
-      }
-      return ENTITIES[name.toLowerCase()] ?? whole;
-    })
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .join("\n");
+  return tidyLines(decodeEntities(raw.replace(/<[^>]*>/g, "")));
 }
 
 function formatTime(ms: number, separator: "," | "."): string {
@@ -106,7 +95,7 @@ function formatTime(ms: number, separator: "," | "."): string {
 
 // 文字裡的空行會被讀成 cue 的結尾 輸出前要壓掉
 function cueBody(text: string): string {
-  return text.split("\n").map((line) => line.trim()).filter(Boolean).join("\n") || " ";
+  return tidyLines(text) || " ";
 }
 
 export function toSrt(cues: Cue[]): string {

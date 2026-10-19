@@ -1,0 +1,63 @@
+/* 由 globals.css 在 @layer 外面引入 跟全站的 :root 變數同一層 */
+/* text-sr-gold 這類 class 用的金色 */
+@theme inline {
+  --color-sr-gold: var(--sr-gold);
+}
+
+/* 星穹鐵道頁不論外觀都是遊戲的深藍星空 調色盤只放在外框上 做法同 Twitch */
+.theme-starrail {
+  color-scheme: dark;
+  --sr-gold: #e6c27a;
+  --sr-gold-soft: rgb(230 194 122 / 0.14);
+  --sr-gold-line: rgb(230 194 122 / 0.45);
+  --sr-five: linear-gradient(160deg, #6b4520 0%, #b07f3d 45%, #ecc985 100%);
+  --sr-four: linear-gradient(160deg, #3b2a6e 0%, #6a4bb0 50%, #b59bea 100%);
+  --sr-gold-ink: #f4d79b;
+  /* 頭像與圖示的底色 外圈跟星空同色 疊在一起時分得開 */
+  --sr-avatar-bg: #1f2547;
+  --sr-avatar-ring: #0b1030;
+  /* 開拓力的進度條 角色詳情的標題列 面板的加成數值 角色格的稀有度 */
+  --sr-gauge-from: #b8893e;
+  --sr-gauge-to: #f1d28e;
+  --sr-detail-bar: color-mix(in oklab, #0d1233 95%, transparent);
+  --sr-bonus: #8fe3bd;
+  --sr-rarity: #ffe3a3;
+  --surface: rgb(18 24 58 / 0.78);
+  --surface-solid: #141a3d;
+  --surface-muted: rgb(255 255 255 / 0.055);
+  --surface-sunken: rgb(255 255 255 / 0.1);
+  --line: rgb(205 214 255 / 0.16);
+  --line-strong: rgb(205 214 255 / 0.32);
+  --ink: #f7f4ea;
+  --ink-soft: #dfe2f1;
+  --muted: #b9bfdb;
+  --placeholder: #8f96b8;
+  --brand: #e2b862;
+  --brand-hover: #f0c879;
+  --brand-ink: #f1cf87;
+  --brand-soft: rgb(230 194 122 / 0.14);
+  --brand-line: rgb(230 194 122 / 0.45);
+  --on-brand: #121735;
+  --focus: #f4d79b;
+  --ring: rgb(244 215 155 / 0.35);
+  --accent: #e6c27a;
+  --accent-ink: #f1cf87;
+  --accent-soft: rgb(230 194 122 / 0.12);
+  --accent-line: rgb(230 194 122 / 0.4);
+  --success: #7ee2b8;
+  --success-soft: rgb(52 211 153 / 0.13);
+  --success-line: rgb(52 211 153 / 0.34);
+  --warning: #fcd78a;
+  --warning-soft: rgb(251 191 36 / 0.12);
+  --warning-line: rgb(251 191 36 / 0.32);
+  --danger: #ffaaa8;
+  --danger-soft: rgb(239 68 68 / 0.15);
+  --danger-line: rgb(248 113 113 / 0.4);
+  --danger-hover: rgb(239 68 68 / 0.24);
+  --elevation-card: none;
+  --elevation-lift: 0 16px 40px -16px rgb(0 0 0 / 0.8);
+  --skeleton-base: rgb(255 255 255 / 0.08);
+  --skeleton-shine: rgb(255 255 255 / 0.06);
+  color: var(--ink);
+  accent-color: var(--brand);
+}

@@ -1,4 +1,4 @@
-import { taipeiDateKey } from "@/core/time";
+import { DAY_MS, taipeiDateKey } from "@/core/time";
 import type { MonthKey } from "./month";
 
 /** 台北時間的 YYYY-MM-DD 字串 跟資料庫的 date 欄位與日期輸入框同一種格式 */
@@ -30,15 +30,10 @@ export function parseDate(raw: unknown): DateKey | null {
   return raw >= MIN_DATE ? raw : null;
 }
 
-// 日期字串沒有時區 用伺服器或瀏覽器的時區算星期會差一天 所以用 UTC
-function weekdayOf(year: number, month: number, day: number): string {
-  return WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
-}
-
 /** 月日加上括號裡的星期 */
 export function formatDay(date: DateKey): string {
-  const [year, month, day] = date.split("-").map(Number);
-  return `${month} 月 ${day} 日（${weekdayOf(year, month, day)}）`;
+  const [, month, day] = date.split("-").map(Number);
+  return `${month} 月 ${day} 日（${WEEKDAYS[weekdayOfDate(date)]}）`;
 }
 
 /** 跟 reference 不同年時寫出年份 才不會看錯是哪一年 */
@@ -52,7 +47,6 @@ const toUtc = (date: DateKey) => {
   const [year, month, day] = date.split("-").map(Number);
   return Date.UTC(year, month - 1, day);
 };
-const DAY_MS = 86_400_000;
 
 /** 日期字串加減天數 用 UTC 算才不會碰到時區與日光節約 */
 export function addDays(date: DateKey, days: number): DateKey {
@@ -64,9 +58,19 @@ export function daysBetween(from: DateKey, to: DateKey): number {
   return Math.round((toUtc(to) - toUtc(from)) / DAY_MS);
 }
 
-/** 0 是星期日 6 是星期六 */
+/** 0 是星期日 6 是星期六 日期字串沒有時區 用伺服器或瀏覽器的時區算會差一天 所以用 UTC */
 export function weekdayOfDate(date: DateKey): number {
   return new Date(toUtc(date)).getUTCDay();
+}
+
+/** 最晚的那一個 都沒有是 null 日期與月份的字串比大小就是比先後 */
+export function latestOf<T extends string>(values: readonly (T | null | undefined)[]): T | null {
+  return values.reduce<T | null>((latest, value) => (typeof value === "string" && (latest === null || value > latest) ? value : latest), null);
+}
+
+/** 最早的那一個 都沒有是 null */
+export function earliestOf<T extends string>(values: readonly (T | null | undefined)[]): T | null {
+  return values.reduce<T | null>((earliest, value) => (typeof value === "string" && (earliest === null || value < earliest) ? value : earliest), null);
 }
 
 /** 到期與截止的短寫法 例如 10/20 */

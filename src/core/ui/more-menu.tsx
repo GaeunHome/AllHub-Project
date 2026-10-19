@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "./icon";
+import { POPUP_TRIGGER } from "./popup-layer";
 
 type MoreMenuProps = {
   /** 給報讀器與提示的按鈕名稱 例如影片標題的選項 */
@@ -106,7 +107,7 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
         aria-controls={open ? panelId : undefined}
         // 面板是 group 沒有對應的 aria-haspopup 值
         // popup-layer.ts 靠這個屬性認出選單開著 頁面的快捷鍵才會讓開
-        data-popup-trigger=""
+        {...{ [POPUP_TRIGGER]: "" }}
         onClick={toggle}
         className={triggerClassName}
       >

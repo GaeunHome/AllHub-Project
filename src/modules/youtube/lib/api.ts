@@ -1,9 +1,9 @@
 import "server-only";
 import { youtubeEnv } from "@/core/env";
-import { externalFetch } from "@/core/external-url";
+import { HttpStatusError, externalFetch } from "@/core/external-url";
 import { parseChannelAvatar, parseChannelId } from "./channel-page";
 import { parseOembed, type VideoInfo } from "./oembed";
-import { youtubeChannelPageUrl, youtubeWatchUrl } from "./urls";
+import { youtubeChannelPageUrl, youtubeHandleUrl, youtubeWatchUrl } from "./urls";
 import { callbackToken, parseFeed, topicFor, type FeedEntry } from "./websub";
 import { YOUTUBE_TIMEOUT_MS, fetchYoutubePage } from "./youtube-fetch";
 
@@ -29,9 +29,9 @@ const get = (url: string) => fetchYoutubePage(url);
 
 /** 把 @handle 換成頻道 id 沒有官方免金鑰的做法 只能讀頻道頁 HTML 改版可能失效 */
 export async function resolveHandle(handle: string): Promise<{ channelId: string; thumbnail: string | null } | null> {
-  const response = await get(`https://www.youtube.com/@${encodeURIComponent(handle)}`);
+  const response = await get(youtubeHandleUrl(handle));
   if (response.status === 404) return null;
-  if (!response.ok) throw new Error(`YouTube 回應 ${response.status}`);
+  if (!response.ok) throw new HttpStatusError(response.status);
 
   const html = await response.text();
   const channelId = parseChannelId(html);
@@ -72,7 +72,7 @@ export async function checkIsShort(videoId: string, { timeoutMs }: { timeoutMs?:
 export async function fetchChannelFeed(channelId: string, { timeoutMs }: { timeoutMs?: number } = {}): Promise<{ title: string | null; entries: FeedEntry[] } | null> {
   const response = await fetchYoutubePage(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, { timeoutMs });
   if (response.status === 404 || response.status === 400) return null;
-  if (!response.ok) throw new Error(`YouTube 回應 ${response.status}`);
+  if (!response.ok) throw new HttpStatusError(response.status);
   return parseFeed(await response.text());
 }
 
@@ -109,18 +109,12 @@ export async function hubRequest(mode: "subscribe" | "unsubscribe", channelId: s
   throw new HubError(response.status, `hub 回應 ${response.status}${text ? `：${text}` : ""}`);
 }
 
-/** oEmbed 官方又免金鑰 任何影片都拿得到標題 失敗回 null 不影響翻譯 */
-export async function fetchVideoTitle(videoId: string): Promise<string | null> {
-  return (await fetchVideoInfo(videoId))?.title ?? null;
-}
-
-/** 用 oEmbed 讀任何影片 影片不存在 私人或連線失敗都回 null 畫面照常顯示 */
+/**
+ * oEmbed 官方又免金鑰 任何影片都讀得到標題與頻道 影片不存在或私人影片回 null
+ * 連線錯誤與讀不懂的回應照常丟出 跟頭像一樣由 service 記下種類
+ */
 export async function fetchVideoInfo(videoId: string): Promise<VideoInfo | null> {
-  try {
-    const response = await get(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(youtubeWatchUrl(videoId))}`);
-    if (!response.ok) return null;
-    return parseOembed(await response.json());
-  } catch {
-    return null;
-  }
+  const response = await get(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(youtubeWatchUrl(videoId))}`);
+  if (!response.ok) return null;
+  return parseOembed(await response.json());
 }

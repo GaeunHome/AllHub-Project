@@ -1,13 +1,14 @@
-import { Fragment, createElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { menuOf, outsideMenus } from "@/dev/more-menu-stub";
+import { markup as render, textOf } from "@/dev/test-helpers";
 import type { HoldingView } from "../../dashboard-view";
 import type { BrokerageView, InvestmentSummary } from "../../investments-view";
 
 // 視窗與選單關著時不算繪內容 換掉才看得到裡面 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });
 vi.mock("@/core/ui/action-button", { spy: true });
-vi.mock("@/core/ui/more-menu", () => ({ MoreMenu: ({ label, children }: { label: string; children: ReactNode }) => createElement("div", { "data-menu": label }, children) }));
+vi.mock("@/core/ui/more-menu", () => import("@/dev/more-menu-stub"));
 vi.mock("../../actions", () =>
   Object.fromEntries(
     [
@@ -39,17 +40,12 @@ const { BrokerageList } = await import("./brokerage-list");
 const { SummaryCard } = await import("./summary-card");
 
 const TODAY = "2026-10-15";
-const render = (element: ReactNode) => renderToStaticMarkup(element as never);
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
 const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
 const valueOf = (markup: string, name: string) => inputOf(markup, name).match(/value="([^"]*)"/)?.[1];
 const selectedOption = (markup: string, name: string) =>
   markup.match(new RegExp(`<select[^>]*name="${name}"[^>]*>[\\s\\S]*?</select>`))?.[0].match(/<option[^>]*selected=""[^>]*>([^<]*)<\/option>/)?.[1];
 const fieldNames = (markup: string) => [...new Set([...markup.matchAll(/<(?:input|select)[^>]*name="([^"]+)"/g)].map((m) => m[1]))].sort();
 const formActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
-// 選單裡沒有別的 div 到第一個 </div> 就是選單的內容
-const menuOf = (markup: string, label: string) => markup.match(new RegExp(`<div data-menu="${label}">([\\s\\S]*?)</div>`))?.[1] ?? "";
-const outsideMenus = (markup: string) => markup.replace(/<div data-menu="[^"]*">[\s\S]*?<\/div>/g, "");
 const buttonsOf = (markup: string) => [...markup.matchAll(/<button[^>]*>((?:(?!<\/button>)[\s\S])*)<\/button>/g)].map((m) => textOf(m[1]).trim());
 
 const DEPOSITS = [

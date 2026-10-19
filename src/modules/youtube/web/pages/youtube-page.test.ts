@@ -1,12 +1,13 @@
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { after } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { mocksOf, textOf } from "@/dev/test-helpers";
 import { CaptionCheckRefresh } from "../components/caption-check-refresh";
 import { ChannelSidebar } from "../components/channel-sidebar";
 import { VideoFeed, type FeedItem } from "../components/video-feed";
+import { feedVideo, findByType, savedVideo } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ after: vi.fn() }));
@@ -17,33 +18,9 @@ const cached = mocksOf(await import("../../service/cached"), "cachedChannels", "
 const { recheckDueCaptions } = mocksOf(await import("../../service/caption-status"), "recheckDueCaptions");
 const { YoutubeHome } = await import("./youtube-page");
 
+/** 沒特別說的影片兩小時前檢查過字幕 */
 const CHECKED_AT = new Date(Date.now() - 2 * 3600_000);
-type Overrides = { zhCaptions?: "yes" | "no" | "unknown"; zhCaptionsCheckedAt?: Date | null };
-const video = (videoId: string, { zhCaptions = "no", zhCaptionsCheckedAt = CHECKED_AT }: Overrides = {}) => ({
-  videoId,
-  title: `影片 ${videoId}`,
-  publishedAt: new Date(Date.now() - 3 * 3600_000),
-  zhCaptions,
-  zhCaptionsCheckedAt,
-  channelId: "UCaaaaaaaaaaaaaaaaaaaaaa",
-  channelTitle: "模擬頻道",
-  channelThumbnail: null,
-  translationStatus: null,
-});
-
-/** 只看伺服器元件回傳的元素樹 不實際算繪 client 元件要瀏覽器的 router */
-function findByType(node: ReactNode, type: unknown): ReactElement | undefined {
-  if (Array.isArray(node)) {
-    for (const child of node) {
-      const found = findByType(child, type);
-      if (found) return found;
-    }
-    return undefined;
-  }
-  if (!node || typeof node !== "object" || !("type" in node)) return undefined;
-  const element = node as ReactElement<{ children?: ReactNode }>;
-  return element.type === type ? element : findByType(element.props.children, type);
-}
+const video = (videoId: string, overrides: Parameters<typeof feedVideo>[1] = {}) => feedVideo(videoId, { zhCaptionsCheckedAt: CHECKED_AT, ...overrides });
 
 beforeEach(() => {
   requireSession.mockReset();
@@ -95,8 +72,6 @@ describe("YouTube 頁：第一排的縮圖常常是 LCP", () => {
 });
 
 describe("YouTube 頁：已保留的影片的入口", () => {
-  const savedVideo = (videoId: string) => ({ videoId, title: "影片", channelTitle: "頻道", pinned: true, savedAt: new Date(), translationStatus: null });
-
   it("訂閱內容上面有「已保留（N）」，數的是自己保留的影片；手機也看得到（不是只在寬螢幕的側欄）", async () => {
     requireSession.mockResolvedValue(OTHER_SESSION);
     cached.cachedSavedVideos.mockResolvedValue([savedVideo("saved000001"), savedVideo("saved000002")]);
@@ -105,7 +80,7 @@ describe("YouTube 頁：已保留的影片的入口", () => {
     const markup = renderToStaticMarkup(sidebar);
 
     expect(markup).toMatch(/<a[^>]*href="\/youtube\/saved"/);
-    expect(markup.replace(/<[^>]+>/g, "")).toContain("已保留（2）");
+    expect(textOf(markup)).toContain("已保留（2）");
     expect(markup).not.toMatch(/<a[^>]*href="\/youtube\/saved"[^>]*class="[^"]*\bhidden\b/);
     expect(cached.cachedSavedVideos).toHaveBeenCalledWith(OTHER_SESSION.id);
   });
@@ -113,6 +88,6 @@ describe("YouTube 頁：已保留的影片的入口", () => {
   it("還沒有保留的影片_入口照樣在（數量是 0），找得到這個功能", async () => {
     const markup = renderToStaticMarkup(findByType(await YoutubeHome(), ChannelSidebar) as ReactElement);
 
-    expect(markup.replace(/<[^>]+>/g, "")).toContain("已保留（0）");
+    expect(textOf(markup)).toContain("已保留（0）");
   });
 });

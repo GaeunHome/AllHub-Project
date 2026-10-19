@@ -1,0 +1,68 @@
+/* 由 globals.css 在 @layer 外面引入 跟全站的 :root 變數同一層 */
+/* YouTube 頁照 YouTube 網站的淺色與深色 跟著外觀切換 紅色只留給標誌與進度條 */
+/* 灰色的面跟 YouTube 一樣用半透明黑白疊出來 放在什麼底上都對得上 */
+.theme-youtube {
+  --surface: #ffffff;
+  --surface-solid: #ffffff;
+  --surface-muted: rgb(0 0 0 / 0.05);
+  --surface-sunken: rgb(0 0 0 / 0.1);
+  --line: rgb(0 0 0 / 0.1);
+  --line-strong: #d3d3d3;
+  --ink: #0f0f0f;
+  --ink-soft: #272727;
+  /* YouTube 的次要文字色 在白底上有 6:1 不會太淡 */
+  --muted: #606060;
+  --placeholder: #717171;
+  --brand: #0f0f0f;
+  --brand-hover: #272727;
+  --brand-ink: #065fd4;
+  --brand-soft: #def1ff;
+  --brand-line: rgb(6 95 212 / 0.35);
+  --on-brand: #ffffff;
+  --focus: #065fd4;
+  --ring: rgb(6 95 212 / 0.25);
+  --accent: #ff0000;
+  --accent-ink: #0f0f0f;
+  --accent-soft: rgb(0 0 0 / 0.05);
+  --accent-line: rgb(0 0 0 / 0.1);
+  --yt-input: #ffffff;
+  --yt-search-button: #f8f8f8;
+  --yt-search-button-hover: #efefef;
+  --yt-search-focus: #1c62b9;
+  --elevation-card: none;
+  --elevation-lift: 0 4px 32px rgb(0 0 0 / 0.12);
+  --skeleton-base: rgb(0 0 0 / 0.07);
+  --skeleton-shine: rgb(255 255 255 / 0.6);
+  color: var(--ink);
+  accent-color: var(--brand-ink);
+
+  @variant dark {
+    --surface: #0f0f0f;
+    --surface-solid: #212121;
+    --surface-muted: rgb(255 255 255 / 0.1);
+    --surface-sunken: rgb(255 255 255 / 0.2);
+    --line: rgb(255 255 255 / 0.16);
+    --line-strong: #303030;
+    --ink: #f1f1f1;
+    --ink-soft: #e2e2e2;
+    --muted: #aaaaaa;
+    --placeholder: #8c8c8c;
+    --brand: #f1f1f1;
+    --brand-hover: #d9d9d9;
+    --brand-ink: #3ea6ff;
+    --brand-soft: rgb(62 166 255 / 0.15);
+    --brand-line: rgb(62 166 255 / 0.4);
+    --on-brand: #0f0f0f;
+    --focus: #3ea6ff;
+    --ring: rgb(62 166 255 / 0.3);
+    --accent-ink: #f1f1f1;
+    --accent-soft: rgb(255 255 255 / 0.1);
+    --accent-line: rgb(255 255 255 / 0.2);
+    --yt-input: #121212;
+    --yt-search-button: #222222;
+    --yt-search-button-hover: #303030;
+    --elevation-lift: 0 4px 32px rgb(0 0 0 / 0.6);
+    --skeleton-base: rgb(255 255 255 / 0.1);
+    --skeleton-shine: rgb(255 255 255 / 0.05);
+  }
+}

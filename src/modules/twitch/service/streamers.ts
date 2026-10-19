@@ -1,12 +1,13 @@
 import "server-only";
-import { and, count, desc, eq, getTableColumns, lt, or } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, or } from "drizzle-orm";
 import { expireTags } from "@/core/cache";
 import { takeCooldown } from "@/core/cooldown";
 import { db } from "@/core/db";
 import { missingTwitchEnv } from "@/core/env";
 import { logError } from "@/core/errors";
+import { UserError } from "@/core/form";
 import { notify } from "@/core/notify";
-import { RETENTION_DAYS, retentionCutoff } from "@/core/retention";
+import { deleteExpired } from "@/core/retention-cleanup";
 import {
   TwitchApiError,
   createSubscription,
@@ -19,7 +20,8 @@ import {
 } from "../lib/api";
 import type { EventSubSubscription, StreamEvent } from "../lib/eventsub";
 import { subscriptionFailure, subscriptionsHealthy } from "../lib/subscriptions";
-import { twitchFollows, twitchStreamEvents, twitchStreamers, type TwitchStreamer } from "../data/schema";
+import { normalizeLogin, twitchChannelUrl } from "../lib/urls";
+import { twitchFollows, twitchStreamEvents, twitchStreamers, type FollowedStreamer, type TwitchStreamer } from "../data/schema";
 import { twitchTags } from "./cache-tags";
 
 const EVENT_TYPES: StreamEventType[] = ["stream.online", "stream.offline"];
@@ -32,7 +34,7 @@ const MANUAL_SYNC_COOLDOWN_MS = 60_000;
 /** 不是這些狀態的訂閱不會再收到通知 同步時刪掉重建 */
 const HEALTHY_STATUSES = new Set(["enabled", "webhook_callback_verification_pending"]);
 
-export class TwitchUserError extends Error {}
+export class TwitchUserError extends UserError {}
 
 /** 還沒設定 Twitch 應用程式時直接說去哪裡設定 不要只顯示加入主播失敗 */
 function requireTwitchSetup(): void {
@@ -42,25 +44,6 @@ function requireTwitchSetup(): void {
   }
   if (missing.length > 0) throw new TwitchUserError(`Twitch 的環境變數還沒設定好：請到 Vercel 確認 ${missing.join("、")}，重新部署後再試`);
 }
-
-/** Twitch 回錯誤時多記狀態碼 回應原文可能帶有設定內容 不記 */
-const twitchStatus = (error: unknown) => (error instanceof TwitchApiError ? [error.status] : []);
-
-/** 接受 login @login 或 twitch.tv/login 網址 */
-export function normalizeLogin(input: string): string {
-  return input
-    .trim()
-    .replace(/^(https?:\/\/)?(www\.)?twitch\.tv\//i, "")
-    .replace(/^@/, "")
-    .split(/[/?#]/)[0]
-    .toLowerCase();
-}
-
-/**
- * 主播表的欄位 但 notifyEnabled 換成這個人在 twitch_follows 的開關
- * 不是主播表裡單人版的舊欄位
- */
-export type FollowedStreamer = TwitchStreamer;
 
 // 每個函式的 userId 都是從 session 拿到的登入者 只讀寫他自己的追蹤
 
@@ -169,7 +152,7 @@ async function deleteSubscriptionsOf(streamer: TwitchStreamer): Promise<boolean>
       // Twitch 那邊已經不存在就當作刪除成功
       if (error instanceof TwitchApiError && error.status === 404) continue;
       failed = true;
-      logError("twitch", "刪除訂閱失敗", error, subscriptionId, ...twitchStatus(error));
+      logError("twitch", "刪除訂閱失敗", error, subscriptionId);
     }
   }
   return !failed;
@@ -196,7 +179,7 @@ async function ensureSubscriptions(streamer: TwitchStreamer, existing: Map<strin
     } catch (error) {
       ids[type] = null;
       statuses.push(subscriptionFailure(error));
-      logError("twitch", "建立訂閱失敗", error, type, streamer.broadcasterId, ...twitchStatus(error));
+      logError("twitch", "建立訂閱失敗", error, type, streamer.broadcasterId);
     }
   }
 
@@ -322,7 +305,7 @@ export async function handleNotification(
     try {
       await announceOnline(inserted.id, tracked.id, event, sleep);
     } catch (error) {
-      logError("twitch", "開台通知失敗", error, ...twitchStatus(error));
+      logError("twitch", "開台通知失敗", error);
     }
   };
   if (defer) defer(announce);
@@ -341,7 +324,7 @@ async function announceOnline(eventId: number, streamerId: number, event: Stream
       [stream] = await getStreams([event.broadcaster_user_id]);
     } catch (error) {
       // 丟錯通常是設定或權限問題 重試也不會好
-      logError("twitch", "查詢直播資訊失敗", error, ...twitchStatus(error));
+      logError("twitch", "查詢直播資訊失敗", error);
       break;
     }
   }
@@ -363,7 +346,7 @@ async function announceOnline(eventId: number, streamerId: number, event: Stream
     kind: "stream_online",
     title: `${event.broadcaster_user_name} 開台了`,
     body: lines.join("\n"),
-    url: `https://twitch.tv/${event.broadcaster_user_login}`,
+    url: twitchChannelUrl(event.broadcaster_user_login),
   });
 }
 
@@ -372,11 +355,7 @@ async function announceOnline(eventId: number, streamerId: number, event: Stream
  * EventSub 只收 10 分鐘內的訊息 刪舊紀錄不影響 message id 去重
  */
 export async function cleanupStreamEvents(now = new Date()): Promise<string> {
-  const deleted = await db()
-    .delete(twitchStreamEvents)
-    .where(lt(twitchStreamEvents.receivedAt, retentionCutoff(now)))
-    .returning({ id: twitchStreamEvents.id });
-  return `刪除 ${deleted.length} 筆超過 ${RETENTION_DAYS} 天的開台／關台紀錄`;
+  return deleteExpired(twitchStreamEvents.receivedAt, "開台／關台紀錄", now);
 }
 
 export async function handleRevocation(subscription: EventSubSubscription): Promise<void> {

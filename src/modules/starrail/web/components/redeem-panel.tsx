@@ -5,6 +5,7 @@ import { ResultBanner } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { normalizeRedeemCode } from "../../lib/redeem";
 import { redeemCodeAction, type FormState } from "../actions";
+import { GoldChip } from "./sr-visuals";
 
 /** 兩次兌換之間 HoYoLAB 要等約 5 秒 按完先停用按鈕免得一直太頻繁 */
 const COOLDOWN_SECONDS = 5;
@@ -13,7 +14,7 @@ const COOLDOWN_SECONDS = 5;
  * 送出後輸入框會清空 所以結果帶著剛才兌換的碼
  * seq 每次加一 同樣的結果再出現時也換新的結果框 報讀器才會再念
  */
-export type RedeemState = FormState & { code?: string; seq?: number };
+type RedeemState = FormState & { code?: string; seq?: number };
 
 /** 結果帶著跟伺服器同一套整理過的碼 畫面標的就是實際送出的碼 */
 export function redeemFormAction(action: (previous: FormState, formData: FormData) => Promise<FormState>, onSubmitted: () => void) {
@@ -49,7 +50,7 @@ export function RedeemPanel({ accountId, label }: RedeemPanelProps) {
         <input type="hidden" name="accountId" value={accountId} />
         <p className="flex flex-wrap items-center gap-2 text-sm text-ink-soft 2xl:self-end">
           兌換到
-          <span className="chip border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-[#f4d79b]">{label}</span>
+          <GoldChip>{label}</GoldChip>
         </p>
         {/* 輸入框與按鈕一直在同一行 手機上輸入框縮短 按鈕不換行 */}
         <div className="flex gap-2">

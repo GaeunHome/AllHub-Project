@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { formatTaipeiDateTime } from "../time";
+import { CountBadge } from "../ui/count-badge";
 import { EmptyState } from "../ui/empty-state";
 import { Icon } from "../ui/icon";
 import { useNotificationCenter } from "./center";
-import { absoluteTime } from "./format";
 import { linkTarget } from "./links";
 import { ModuleBadge, type NotificationModule } from "./notification-summary";
 import type { NotificationItem } from "./types";
@@ -53,7 +54,7 @@ export function NotificationList({ items, moduleIds, module, modules, retentionD
           </FilterLink>
           {filters.map((m) => (
             <FilterLink key={m.id} href={`/notifications?module=${m.id}`} current={module === m.id} count={feed.unread.byModule[m.id] ?? 0} accent={m.accent}>
-              {m.icon ? <Icon src={m.icon} /> : <Icon name="bell" />}
+              <Icon src={m.icon} />
               {m.name}
             </FilterLink>
           ))}
@@ -73,7 +74,7 @@ export function NotificationList({ items, moduleIds, module, modules, retentionD
       </div>
 
       {items.length === 0 ? (
-        <EmptyState icon="inbox" title="這段期間沒有通知" hint={`追蹤的主播開台、頻道有新影片、簽到或開拓力快滿時，通知會出現在這裡，保留 ${retentionDays} 天`} />
+        <EmptyState icon="inbox" title="這段期間沒有通知" hint={`各功能的通知會出現在這裡，保留 ${retentionDays} 天`} />
       ) : (
         <ul className="card divide-y divide-line p-0">
           {items.map((item) => (
@@ -89,12 +90,7 @@ function FilterLink({ href, current, count, accent, children }: { href: string; 
   return (
     <Link href={href} scroll={false} aria-current={current ? "page" : undefined} data-accent={accent} className="nav-pill">
       {children}
-      {count > 0 && (
-        <span className="count-badge">
-          {count > 99 ? "99+" : count}
-          <span className="sr-only"> 則未讀</span>
-        </span>
-      )}
+      <CountBadge count={count} />
     </Link>
   );
 }
@@ -120,7 +116,7 @@ function NotificationEntry({ item, module, read, onRead }: { item: NotificationI
           <p className="flex flex-wrap items-center gap-2">
             <span className="chip">{module?.name ?? item.module}</span>
             <time dateTime={item.createdAt} className="text-[0.8125rem] whitespace-nowrap text-ink-soft tabular-nums">
-              {absoluteTime(item.createdAt)}
+              {formatTaipeiDateTime(new Date(item.createdAt))}
             </time>
           </p>
         </div>

@@ -13,7 +13,7 @@ import { AccountForm } from "../forms/account-form";
 import { ROW_MESSAGE_CLASS } from "../forms/fields";
 import type { AccountOption } from "../forms/options";
 import { UpdateBalanceButton } from "../forms/update-balance";
-import { ActiveMenuItem, DeleteMenuItem, MoveMenuItems, useRemovalNotice } from "../row-controls";
+import { ActiveMenuItem, DeleteMenuItem, DialogMenuItem, MoveMenuItems, useRemovalNotice } from "../row-controls";
 import { AddHoldingForm } from "./holding-forms";
 import { Holdings } from "./holdings";
 
@@ -54,20 +54,14 @@ export function BrokerageCard({ brokerage, depositAccounts, payFromAccounts, tod
         </div>
         <div className="col-start-2 row-start-1">
           <MoreMenu label={`「${brokerage.name}」的選項`}>
-            <button {...edit.triggerProps} className="menu-item">
-              <Icon name="pencil" className="size-4" />
-              修改帳戶
-            </button>
+            <DialogMenuItem trigger={edit.triggerProps} icon="pencil" label="修改帳戶" />
             <MoveMenuItems action={moveAccountAction} id={brokerage.id} isFirst={brokerage.isFirst} isLast={brokerage.isLast} />
             <ActiveMenuItem
-              action={async (previous, formData) => {
-                const result = await setAccountActiveAction(previous, formData);
-                if (!result.error) onRemoved(result.message ?? `已停用「${brokerage.name}」，可以在帳戶頁最下面的「已停用」恢復`);
-                return result;
-              }}
+              action={setAccountActiveAction}
               id={brokerage.id}
               active
               pausedHint="停用後不能再買賣、不算進總覽，紀錄與持股會留著"
+              onChanged={() => onRemoved(`已停用「${brokerage.name}」，可以在帳戶頁最下面的「已停用」恢復`)}
             />
             <DeleteMenuItem
               action={deleteAccountAction}

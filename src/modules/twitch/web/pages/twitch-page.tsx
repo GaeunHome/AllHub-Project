@@ -14,7 +14,7 @@ export function TwitchPage({ info }: { info: ModuleInfo }) {
   return (
     <PageTheme accent={info.accent} className="theme-twitch page-stack 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_24rem] 2xl:items-start">
       <section className="stack 2xl:col-span-2">
-        <PageHeader icon={info.icon && <Icon src={info.icon} />} title={info.name} />
+        <PageHeader icon={<Icon src={info.icon} />} title={info.name} />
         {/* 輸入框不必拉到整個畫面寬 */}
         <div className="max-w-2xl">
           <AddStreamerForm />

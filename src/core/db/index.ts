@@ -1,9 +1,13 @@
 import "server-only";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { coreEnv } from "../env";
 
 type Db = ReturnType<typeof createDb>;
+
+/** db() 或交易裡的 tx 都可以 要跟其他寫入放在同一個交易時傳 tx */
+export type Executor = PgDatabase<PgQueryResultHKT>;
 
 function createDb() {
   // prepare false 才能接 Supabase 的 transaction pooler 6543 port

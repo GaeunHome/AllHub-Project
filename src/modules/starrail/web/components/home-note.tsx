@@ -6,15 +6,14 @@ import { ExternalImage } from "@/core/ui/external-image";
 import { FormMessage } from "@/core/ui/form-message";
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
-import { expeditionStates, formatTaipeiTime, type ExpeditionState } from "../../lib/responses";
+import { expeditionStates, type ExpeditionState } from "../../lib/responses";
 import { serverLabel } from "../../lib/roles";
-import { staminaGauge } from "../../lib/stamina";
-import type { DailyNoteResult, StarrailAccountView } from "../../service/accounts";
-import { accountHref } from "../account-tabs";
+import { staminaFullText, staminaGauge } from "../../lib/stamina";
+import { accountHref, STARRAIL_HREF } from "../../lib/urls";
+import type { StarrailAccountView } from "../../service/accounts";
+import type { DailyNoteFetch } from "../../service/page-reads";
 import { AccountAvatar } from "./account-avatar";
 
-// web 層不能讀模組根目錄的 info.ts 網址寫在這裡 帳號的網址用 accountHref
-const STARRAIL_PAGE = "/starrail";
 // 寬螢幕左邊開拓力 右邊後備開拓力與每日實訓 兩欄等寬等高
 const PAIR = "grid gap-4 sm:grid-cols-2";
 
@@ -25,7 +24,7 @@ export function NoLinkedAccount() {
       icon="train-front"
       title="還沒有連結 HoYoLAB 帳號"
       action={
-        <Link href={STARRAIL_PAGE} className="btn-secondary">
+        <Link href={STARRAIL_HREF} className="btn-secondary">
           連結帳號
         </Link>
       }
@@ -57,7 +56,7 @@ function AccountTitle({ account, skeleton = false }: { account: StarrailAccountV
 }
 
 /** 一個帳號的即時便箋 查詢失敗時只在這一列說明 */
-export function AccountNoteRow({ account, result, now }: { account: StarrailAccountView; result: DailyNoteResult; now: Date }) {
+export function AccountNoteRow({ account, result, now }: { account: StarrailAccountView; result: DailyNoteFetch; now: Date }) {
   if (!result.ok) {
     return (
       <div className="stack">
@@ -103,7 +102,7 @@ export function AccountNoteRow({ account, result, now }: { account: StarrailAcco
           </div>
           <p className="flex items-center gap-2 text-ink">
             <Icon name="clock" className="size-4 text-accent" />
-            {gauge.fullAt ? `${formatTaipeiTime(gauge.fullAt, now)} 回滿` : note.stamina !== null ? "已回滿" : "回滿時間不明"}
+            {staminaFullText(note, gauge.fullAt, now)}
           </p>
         </div>
         <dl className="flex flex-col gap-4">

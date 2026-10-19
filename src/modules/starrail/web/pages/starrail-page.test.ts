@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { readStylesheet } from "@/dev/stylesheet";
+import { markup as render, mocksOf } from "@/dev/test-helpers";
+import { accountView } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 // next/font 只能在 Next 的建置裡執行
@@ -18,7 +19,7 @@ const { LinkResultBanner, LinkResultProvider } = await import("../components/lin
 const { StarrailBanner } = await import("../components/starrail-banner");
 const { PageTheme } = await import("@/core/ui/page-theme");
 
-const view = (id: number, uid: string) => ({ id, uid, nickname: `角色 ${id}`, region: "prod_official_asia", level: 70, staminaAlertThreshold: null, cookieInvalid: false, autoRedeem: false, canAutoRedeem: false, gameReminders: true });
+const view = (id: number, uid: string) => accountView({ id, uid, nickname: `角色 ${id}`, region: "prod_official_asia" });
 const MINE = [view(1, "800000001"), view(2, "800000002")];
 
 /**
@@ -82,7 +83,7 @@ describe("連結帳號的結果", () => {
   });
 
   it("整個帳號區包在同一份結果裡：頁面最下面的視窗、還沒有帳號時的整頁表單都交得到帳號分頁上方", () => {
-    const page = StarrailPage({ info: { id: "starrail", name: "星穹鐵道", href: "/starrail", description: "" }, searchParams: Promise.resolve({}) });
+    const page = StarrailPage({ info: { id: "starrail", name: "星穹鐵道", href: "/starrail", description: "", icon: "/icons/ui/train-front.svg" }, searchParams: Promise.resolve({}) });
     const types = typesIn(page);
 
     expect(types).toContain(LinkResultProvider);
@@ -90,10 +91,10 @@ describe("連結帳號的結果", () => {
   });
 });
 
-const INFO: ModuleInfo = { id: "starrail", name: "星穹鐵道", href: "/starrail", description: "" };
+const INFO: ModuleInfo = { id: "starrail", name: "星穹鐵道", href: "/starrail", description: "", icon: "/icons/ui/train-front.svg" };
 
 describe("星穹鐵道頁：整頁主題", () => {
-  it("外框是 PageTheme，深色星空鋪滿整個畫面（整頁底色由 globals.css 換，導覽列維持全站的樣子）；內容直接放在 AppShell 的外框裡，不再是淺灰頁面上的圓角卡片", () => {
+  it("外框是 PageTheme，深色星空鋪滿整個畫面（整頁底色由模組的 page-background.css 換，導覽列維持全站的樣子）；內容直接放在 AppShell 的外框裡，不再是淺灰頁面上的圓角卡片", () => {
     const page = StarrailPage({ info: INFO, searchParams: Promise.resolve({}) }) as ReactElement<{ className?: string }>;
     const classes = page.props.className!.split(" ");
 
@@ -103,16 +104,16 @@ describe("星穹鐵道頁：整頁主題", () => {
   });
 
   it("橫幅不再是另一塊星空框：官方標誌直接放在整頁的星空上（標誌就是 h1）", () => {
-    const markup = renderToStaticMarkup(createElement(StarrailBanner, { info: INFO }));
+    const markup = render(createElement(StarrailBanner, { info: INFO }));
 
     expect(markup).not.toContain("banner-starry");
     expect(markup).toMatch(/<h1[^>]*>.*<img[^>]*alt="星穹鐵道"/);
   });
 });
 
-describe("星穹鐵道頁：星空（globals.css）", () => {
+describe("星穹鐵道頁：星空（模組的 page-background.css 與 starrail.css）", () => {
   // 先拿掉註解 選擇器清單裡有這個選擇器的規則都算
-  const css = fs.readFileSync(new URL("../../../../app/globals.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const css = readStylesheet().replace(/\/\*[\s\S]*?\*\//g, "");
   const declarations = (selector: string) =>
     [...css.matchAll(/([^{};]+)\{([^{}]*)\}/g)]
       .filter((m) => m[1].split(",").some((s) => s.trim() === selector))

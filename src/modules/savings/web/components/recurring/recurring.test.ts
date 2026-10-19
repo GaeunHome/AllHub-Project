@@ -1,12 +1,14 @@
-import { Fragment, createElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { menuOf, outsideMenus } from "@/dev/more-menu-stub";
+import { markup as render, textOf } from "@/dev/test-helpers";
+import { accountRow, ruleRow } from "../../../dev/fixtures";
 import type { AccountBalance } from "../../../lib/ledger";
 import type { PendingRuleRow } from "../../../lib/pending";
 
 // 視窗與選單關著時不算繪內容 換成直接算繪才看得到表單與選單裡的按鈕
 vi.mock("@/core/ui/dialog", { spy: true });
-vi.mock("@/core/ui/more-menu", () => ({ MoreMenu: ({ label, children }: { label: string; children: ReactNode }) => createElement("div", { "data-menu": label }, children) }));
+vi.mock("@/core/ui/more-menu", () => import("@/dev/more-menu-stub"));
 // 略過與刪除 要看交給它的確認訊息
 vi.mock("@/core/ui/action-button", { spy: true });
 // 真的 hook 要有路由才能算繪 這裡換成只記下要不要打開
@@ -33,27 +35,11 @@ const { SalarySection } = await import("./salary-section");
 
 // 今天是 2026-10-16 星期五
 const TODAY = "2026-10-16";
-const CREATED = new Date("2026-08-01T02:00:00Z");
-const account = (id: number, name: string, kind: "deposit" | "investment" | "credit", fields: Record<string, unknown> = {}) => ({
-  id,
-  name,
-  kind,
-  purposeId: null,
-  openingBalance: 0,
-  openingCost: null,
-  monthlyPlan: null as number | null,
-  targetAmount: null as number | null,
-  payFromAccountId: null,
-  active: true,
-  sortOrder: id,
-  createdAt: CREATED,
-  ...fields,
-});
 const ACCOUNTS = [
-  account(1, "生活費帳戶", "deposit"),
-  account(2, "台銀", "deposit", { monthlyPlan: 5000 }),
-  account(3, "緊急預備金 A", "deposit", { monthlyPlan: 2000, targetAmount: 10000 }),
-  account(6, "臺銀證券", "investment"),
+  accountRow({ id: 1, name: "生活費帳戶", kind: "deposit" }),
+  accountRow({ id: 2, name: "台銀", kind: "deposit", monthlyPlan: 5000 }),
+  accountRow({ id: 3, name: "緊急預備金 A", kind: "deposit", monthlyPlan: 2000, targetAmount: 10000 }),
+  accountRow({ id: 6, name: "臺銀證券", kind: "investment" }),
 ];
 const balance = (amount: number): AccountBalance => ({ balance: amount, cost: null, profit: null, owed: null });
 const BALANCES = new Map([
@@ -68,27 +54,8 @@ const CATEGORIES = [
 ];
 const HOLDINGS = [{ id: 50, accountId: 6, symbol: "006208", name: "富邦台灣50", shares: 238, cost: 24000, sortOrder: 0 }];
 
-const rule = (id: number, fields: Partial<PendingRuleRow>): PendingRuleRow => ({
-  id,
-  kind: "expense",
-  name: null,
-  accountId: 1,
-  counterAccountId: null,
-  categoryId: 11,
-  amount: 15000,
-  dayOfMonth: 20,
-  intervalMonths: 1,
-  startMonth: null,
-  holidayRule: "none",
-  mode: "confirm",
-  holdingId: null,
-  allocate: false,
-  note: null,
-  active: true,
-  lastPostedMonth: "2026-09-01",
-  createdAt: CREATED,
-  ...fields,
-});
+// 預設是 8/1 建立 每月 20 日要確認的房租
+const rule = (id: number, fields: Partial<PendingRuleRow>): PendingRuleRow => ruleRow({ id, categoryId: 11, ...fields });
 // 10/10 是週六 10/9 放假 提前到 10/8 已經過了
 const SALARY = rule(30, { kind: "income", name: "薪水", categoryId: 21, amount: 52000, dayOfMonth: 10, holidayRule: "before", allocate: true });
 const REGULAR = rule(31, { kind: "transfer", accountId: 2, counterAccountId: 6, categoryId: null, holdingId: 50, amount: 5000, dayOfMonth: 5, holidayRule: "after" });
@@ -99,15 +66,6 @@ const GYM = rule(35, { name: "健身房", active: false });
 
 const viewOf = (rules: PendingRuleRow[]) => recurringPageView({ accounts: ACCOUNTS, rules, categories: CATEGORIES, holdings: HOLDINGS, quotes: null, balances: BALANCES, today: TODAY });
 
-const textOf = (markup: string) =>
-  markup
-    .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"');
-// 選單裡沒有別的 div 到第一個 </div> 就是選單的內容
-const menuOf = (markup: string, label: string) => markup.match(new RegExp(`<div data-menu="${label}">([\\s\\S]*?)</div>`))?.[1] ?? "";
-/** 選單以外看得到的按鈕 */
-const outsideMenus = (markup: string) => markup.replace(/<div data-menu="[^"]*">[\s\S]*?<\/div>/g, "");
 const buttonsOf = (markup: string) => [...markup.matchAll(/<button[^>]*>((?:(?!<\/button>)[\s\S])*)<\/button>/g)].map((m) => textOf(m[1]).trim());
 const menuItems = (markup: string, label: string) => buttonsOf(menuOf(markup, label));
 const dialogActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
@@ -123,7 +81,7 @@ beforeEach(() => {
 describe("定期定額（投資頁與每月固定頁共用）", () => {
   const list = (props: Record<string, unknown> = {}) => {
     const view = viewOf([REGULAR]);
-    return renderToStaticMarkup(createElement(RegularBuyList, { items: view.regularBuys, form: view.form, ...props }));
+    return render(createElement(RegularBuyList, { items: view.regularBuys, form: view.form, ...props }));
   };
 
   it("每一列：代號、哪一檔、排程、從哪個帳戶扣、扣款金額", () => {
@@ -156,7 +114,7 @@ describe("定期定額（投資頁與每月固定頁共用）", () => {
 
   it("還沒有持股_不能新增，說明先新增持股；每月固定頁連到投資頁", () => {
     const view = viewOf([]);
-    const markup = renderToStaticMarkup(createElement(RegularBuyList, { items: [], form: { ...view.form, holdings: [] } }));
+    const markup = render(createElement(RegularBuyList, { items: [], form: { ...view.form, holdings: [] } }));
 
     expect(markup).not.toContain('aria-label="新增定期定額"');
     expect(textOf(markup)).toContain("先新增持股");
@@ -167,7 +125,7 @@ describe("定期定額（投資頁與每月固定頁共用）", () => {
 describe("其他固定收支", () => {
   const list = (rules = [RENT, NETFLIX, GYM], props: Record<string, unknown> = {}) => {
     const view = viewOf(rules);
-    return renderToStaticMarkup(createElement(OtherRecurringList, { items: view.others, form: view.form, ...props }));
+    return render(createElement(OtherRecurringList, { items: view.others, form: view.form, ...props }));
   };
 
   it("到期時「確認」「略過」直接在列上；略過先確認", () => {
@@ -220,7 +178,7 @@ describe("其他固定收支", () => {
 describe("薪水", () => {
   const section = (rules = [SALARY]) => {
     const view = viewOf(rules);
-    return renderToStaticMarkup(createElement(SalarySection, { items: view.salaries, form: view.form, salaryAccounts: view.salaryAccounts, allocationAccounts: view.allocationAccounts }));
+    return render(createElement(SalarySection, { items: view.salaries, form: view.form, salaryAccounts: view.salaryAccounts, allocationAccounts: view.allocationAccounts }));
   };
 
   it("每條薪水寫發薪日（遇假日提前）、入帳到哪個帳戶與預計金額", () => {
@@ -259,9 +217,9 @@ describe("薪水", () => {
   });
 
   it("只有信用卡（沒有能入帳的帳戶）_從開始設定的「設定薪水」連過來也不打開表單，入帳帳戶不會是空的選單", () => {
-    const view = recurringPageView({ accounts: [account(5, "國泰卡", "credit")], rules: [], categories: CATEGORIES, holdings: [], quotes: null, balances: new Map(), today: TODAY });
+    const view = recurringPageView({ accounts: [accountRow({ id: 5, name: "國泰卡", kind: "credit" })], rules: [], categories: CATEGORIES, holdings: [], quotes: null, balances: new Map(), today: TODAY });
 
-    renderToStaticMarkup(createElement(SalarySection, { items: [], form: view.form, salaryAccounts: view.salaryAccounts, allocationAccounts: view.allocationAccounts, openAdd: true }));
+    render(createElement(SalarySection, { items: [], form: view.form, salaryAccounts: view.salaryAccounts, allocationAccounts: view.allocationAccounts, openAdd: true }));
 
     expect(vi.mocked(useLinkedTrigger).mock.calls.map(([, enabled]) => enabled)).toEqual([false]);
   });

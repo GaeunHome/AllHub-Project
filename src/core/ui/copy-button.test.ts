@@ -1,6 +1,7 @@
 import { createElement, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { textOf } from "@/dev/test-helpers";
 
 // 複製的結果要按下去才有 直接給 useState 一個複製後的狀態
 // 其他照 React 原本的實作
@@ -8,7 +9,6 @@ vi.mock("react", { spy: true });
 
 const { CopyButton } = await import("./copy-button");
 
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const render = (state?: "copied" | "failed") => {
   if (state) vi.mocked(useState).mockReturnValueOnce([state, vi.fn()]);
   return renderToStaticMarkup(createElement(CopyButton, { text: "https://hub.example.com/register?code=abc", label: "複製連結", className: "btn-primary" }));

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { dayFlowRow, ruleRow } from "../dev/fixtures";
 import { cardBill, type CardBill, type CardDailyFlow, type CardStatement } from "./cards";
 import { monthChecklist, type ChecklistContext, type ChecklistInput, type ChecklistItem, type ChecklistRecord } from "./checklist";
 import type { TransactionKind } from "./kinds";
@@ -12,14 +13,14 @@ const CREATED = new Date("2026-08-01T02:00:00Z");
 
 const CONTEXT: ChecklistContext = {
   accounts: [
-    { id: 1, name: "生活費帳戶", kind: "deposit", active: true, payFromAccountId: null, autopay: false, statementDay: null },
-    { id: 2, name: "台銀", kind: "deposit", active: true, payFromAccountId: null, autopay: false, statementDay: null },
-    { id: 3, name: "國泰卡", kind: "credit", active: true, payFromAccountId: 1, autopay: false, statementDay: 5 },
-    { id: 4, name: "台新卡", kind: "credit", active: true, payFromAccountId: 1, autopay: true, statementDay: 25 },
-    { id: 5, name: "臺銀證券", kind: "investment", active: true, payFromAccountId: null, autopay: false, statementDay: null },
-    { id: 6, name: "停用的帳戶", kind: "deposit", active: false, payFromAccountId: null, autopay: false, statementDay: null },
-    { id: 7, name: "停用的卡", kind: "credit", active: false, payFromAccountId: null, autopay: false, statementDay: 10 },
-    { id: 8, name: "沒有結帳日的卡", kind: "credit", active: true, payFromAccountId: null, autopay: false, statementDay: null },
+    { id: 1, name: "生活費帳戶", kind: "deposit", active: true, payFromAccountId: null, statementDay: null },
+    { id: 2, name: "台銀", kind: "deposit", active: true, payFromAccountId: null, statementDay: null },
+    { id: 3, name: "國泰卡", kind: "credit", active: true, payFromAccountId: 1, statementDay: 5 },
+    { id: 4, name: "台新卡", kind: "credit", active: true, payFromAccountId: 1, statementDay: 25 },
+    { id: 5, name: "臺銀證券", kind: "investment", active: true, payFromAccountId: null, statementDay: null },
+    { id: 6, name: "停用的帳戶", kind: "deposit", active: false, payFromAccountId: null, statementDay: null },
+    { id: 7, name: "停用的卡", kind: "credit", active: false, payFromAccountId: null, statementDay: 10 },
+    { id: 8, name: "沒有結帳日的卡", kind: "credit", active: true, payFromAccountId: null, statementDay: null },
   ],
   categories: [
     { id: 11, name: "薪水" },
@@ -28,31 +29,10 @@ const CONTEXT: ChecklistContext = {
   holdings: [{ id: 21, symbol: "006208" }],
 };
 
-const rule = (id: number, values: Partial<PendingRuleRow> = {}): PendingRuleRow => ({
-  id,
-  kind: "expense",
-  amount: 1000,
-  mode: "confirm",
-  active: true,
-  accountId: 1,
-  counterAccountId: null,
-  categoryId: null,
-  holdingId: null,
-  allocate: false,
-  name: `規則 ${id}`,
-  note: null,
-  dayOfMonth: 1,
-  intervalMonths: 1,
-  startMonth: null,
-  holidayRule: "none",
-  lastPostedMonth: null,
-  createdAt: CREATED,
-  ...values,
-});
+const rule = (id: number, values: Partial<PendingRuleRow> = {}): PendingRuleRow => ruleRow({ id, amount: 1000, name: `規則 ${id}`, dayOfMonth: 1, lastPostedMonth: null, createdAt: CREATED, ...values });
 
 const record = (recurringId: number, recurringPeriod: string | null, date: string, amount: number, kind: TransactionKind = "expense"): ChecklistRecord => ({ recurringId, recurringPeriod, kind, amount, date });
 
-const flow = (accountId: number, date: string, values: Partial<Omit<CardDailyFlow, "accountId" | "date">>): CardDailyFlow => ({ accountId, date, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
 
 type Statement = CardStatement & { paid: number; lastPaidOn: string | null };
 const statement = (accountId: number, statementDate: string, dueDate: string, amount: number, paid = 0, lastPaidOn: string | null = null): Statement => ({ id: accountId * 100, accountId, statementDate, dueDate, amount, paid, lastPaidOn });
@@ -94,7 +74,6 @@ describe("monthChecklist：固定收支這個月的每一期", () => {
         carriedOver: false,
         upcoming: false,
         ruleId: 30,
-        period: "2026-10",
         cardId: null,
         actionable: false,
         cardStage: null,
@@ -139,7 +118,7 @@ describe("monthChecklist：固定收支這個月的每一期", () => {
     ];
 
     expect(checklist({ rules }).map((item) => [item.key, item.kind, item.title, item.date, item.state, item.actionable])).toEqual([
-      ["recurring:40:2026-10", "regular-buy", "006208 定期定額", "2026-10-05", "overdue", true],
+      ["recurring:40:2026-10", "recurring", "006208 定期定額", "2026-10-05", "overdue", true],
       ["recurring:41:2026-10", "recurring", "電費", "2026-10-20", "todo", true],
       ["recurring:42:2026-10", "recurring", "規則 42", "2026-10-28", "todo", false],
     ]);
@@ -228,7 +207,6 @@ describe("monthChecklist：信用卡待填帳單照結帳日、填了之後照�
         carriedOver: false,
         upcoming: false,
         ruleId: null,
-        period: null,
         cardId: 3,
         actionable: true,
         cardStage: "needs-bill",
@@ -245,13 +223,13 @@ describe("monthChecklist：信用卡待填帳單照結帳日、填了之後照�
   });
 
   it("繳了一部分_金額是還要繳的（帳單 3,370、繳了 1,000 → 2,370）", () => {
-    const flows = [flow(3, "2026-10-10", { transferIn: 1000 })];
+    const flows = [dayFlowRow(3, "2026-10-10", { transferIn: 1000 })];
 
     expect(checklist(cardInput(TODAY, [{ id: 3, balance: -2370, flows }], [statement(3, "2026-10-05", "2026-10-20", 3370, 1000, "2026-10-10")]))).toMatchObject([{ amount: 2370, state: "todo" }]);
   });
 
   it("繳清了_完成：寫帳單金額與最後繳款的那天；0 元的帳單沒有繳款，寫結帳日", () => {
-    const paid = cardInput(TODAY, [{ id: 3, balance: 0, flows: [flow(3, "2026-10-14", { transferIn: 3370 })] }], [statement(3, "2026-10-05", "2026-10-20", 3370, 3370, "2026-10-14")]);
+    const paid = cardInput(TODAY, [{ id: 3, balance: 0, flows: [dayFlowRow(3, "2026-10-14", { transferIn: 3370 })] }], [statement(3, "2026-10-05", "2026-10-20", 3370, 3370, "2026-10-14")]);
     const zero = cardInput(TODAY, [{ id: 3, balance: 0 }], [statement(3, "2026-10-05", "2026-10-20", 0)]);
 
     expect(checklist(paid)).toMatchObject([{ key: "card:3:2026-10-05", date: "2026-10-20", state: "done", amount: 3370, doneOn: "2026-10-14", actionable: false, cardStage: "paid" }]);
@@ -260,7 +238,7 @@ describe("monthChecklist：信用卡待填帳單照結帳日、填了之後照�
 
   it("這個月還沒結帳（台新卡 25 日）_列出結帳日（還不能填，沒有金額）；上個月 9/25 那一期還沒填帳單，排在最上面標上個月", () => {
     // 9/25 之後刷了 280 與 360 目前未繳 5,830 所以 9/25 的未繳是 5,190
-    const flows = [flow(4, "2026-10-02", { expense: 280 }), flow(4, "2026-10-11", { expense: 360 })];
+    const flows = [dayFlowRow(4, "2026-10-02", { expense: 280 }), dayFlowRow(4, "2026-10-11", { expense: 360 })];
 
     expect(checklist(cardInput(TODAY, [{ id: 4, balance: -5830, flows }])).map((item) => [item.key, item.date, item.state, item.amount, item.estimated, item.carriedOver, item.actionable, item.cardStage])).toEqual([
       ["card:4:2026-09-25", "2026-09-25", "todo", 5190, true, true, true, "needs-bill"],
@@ -286,7 +264,7 @@ describe("monthChecklist：信用卡待填帳單照結帳日、填了之後照�
   it("這個月結帳了還沒填（10/25），前一期 10/12 截止已繳清_兩期都列：繳清的打勾、這一期待填帳單", () => {
     // 10/26 光復節補假 今天 10/27
     const today = "2026-10-27";
-    const items = checklist(cardInput(today, [{ id: 4, balance: -640, flows: [flow(4, "2026-10-10", { transferIn: 5190 })] }], [statement(4, "2026-09-25", "2026-10-12", 5190, 5190, "2026-10-10")]), today);
+    const items = checklist(cardInput(today, [{ id: 4, balance: -640, flows: [dayFlowRow(4, "2026-10-10", { transferIn: 5190 })] }], [statement(4, "2026-09-25", "2026-10-12", 5190, 5190, "2026-10-10")]), today);
 
     expect(items.map((item) => [item.key, item.date, item.state, item.actionable, item.cardStage])).toEqual([
       ["card:4:2026-09-25", "2026-10-12", "done", false, "paid"],
@@ -297,7 +275,7 @@ describe("monthChecklist：信用卡待填帳單照結帳日、填了之後照�
   it("月底結帳、帳單截止日在下個月（10/25 結帳、11/12 截止）_待繳與繳清都跟其他下個月的一樣標 upcoming（畫面把下個月的照日期排在這個月的後面）", () => {
     const today = "2026-10-28";
     const unpaid = cardInput(today, [{ id: 4, balance: -5830 }], [statement(4, "2026-10-25", "2026-11-12", 5830)]);
-    const paid = cardInput(today, [{ id: 4, balance: 0, flows: [flow(4, "2026-10-27", { transferIn: 5830 })] }], [statement(4, "2026-10-25", "2026-11-12", 5830, 5830, "2026-10-27")]);
+    const paid = cardInput(today, [{ id: 4, balance: 0, flows: [dayFlowRow(4, "2026-10-27", { transferIn: 5830 })] }], [statement(4, "2026-10-25", "2026-11-12", 5830, 5830, "2026-10-27")]);
     const row = (item: ChecklistItem) => [item.key, item.date, item.state, item.carriedOver, item.upcoming];
 
     expect(checklist(unpaid, today).map(row)).toEqual([["card:4:2026-10-25", "2026-11-12", "todo", false, true]]);

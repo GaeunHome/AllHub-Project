@@ -1,6 +1,6 @@
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { markup, textOf } from "@/dev/test-helpers";
 import type { Relic, StarrailCharacter } from "../../lib/characters";
 import { CharacterBrowser } from "./character-browser";
 import { CharacterDetail } from "./character-detail";
@@ -48,9 +48,8 @@ const seele = (overrides: Partial<StarrailCharacter> = {}): StarrailCharacter =>
   ...overrides,
 });
 
-const detail = (character = seele()) => renderToStaticMarkup(CharacterDetail({ character, titleId: "title", onClose: () => {} }));
-const tile = (character = seele()) => renderToStaticMarkup(CharacterTile({ character, onSelect: () => {} }));
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
+const detail = (character = seele()) => markup(CharacterDetail({ character, titleId: "title", onClose: () => {} }));
+const tile = (character = seele()) => markup(CharacterTile({ character, onSelect: () => {} }));
 /** 遺器卡片裡某一條副詞條的 markup 也就是裡面沒有其他 li 的最內層 li */
 const statRow = (markup: string, name: string) =>
   [...markup.matchAll(/<li[^>]*>(?:(?!<\/?li[\s>]).)*<\/li>/g)].map((m) => m[0]).find((li) => li.includes(`>${name}<`)) ?? "";
@@ -62,9 +61,9 @@ const classesOf = (markup: string, pattern: RegExp) => markup.match(pattern)?.[1
 
 describe("角色詳情：版面", () => {
   it("視窗是滿版的大面板（Dialog 的 size=full），套星空主題與切角；尺寸不再自己另寫一套", () => {
-    const markup = renderToStaticMarkup(createElement(CharacterBrowser, { characters: [seele()], fetchedLabel: "今天 14:05" }));
+    const html = markup(createElement(CharacterBrowser, { characters: [seele()], fetchedLabel: "今天 14:05" }));
 
-    expect(markup.match(/<dialog[^>]*>/)![0]).toContain('class="dialog dialog-full sr-dialog"');
+    expect(html.match(/<dialog[^>]*>/)![0]).toContain('class="dialog dialog-full sr-dialog"');
   });
 
   it("右欄依自己的寬度分欄（容器查詢）：寬的時候面板與光錐、星魂並排，遺器與行跡排成三欄", () => {

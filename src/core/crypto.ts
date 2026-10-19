@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { coreEnv } from "./env";
+import { logError } from "./errors";
 
 const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
@@ -81,6 +82,34 @@ export function decryptSecret(payload: string, keyring: Keyring = keyringFromEnv
 
 export function needsReencrypt(payload: string, keyring: Keyring = keyringFromEnv()): boolean {
   return !payload.startsWith(`${VERSION}.${keyring.current.id}.`);
+}
+
+export type ReencryptOptions<T> = {
+  /** 存在資料庫的密文 */
+  ciphertext: (item: T) => string;
+  /** 只在密文還是讀出來的那一份時寫回 回傳有沒有寫入 這期間換上的新值不能被舊的蓋掉 */
+  write: (item: T, ciphertext: string) => Promise<boolean>;
+  /** 單筆失敗的 log 例如 module 是 youtube what 是 API Key 重新加密失敗 context 是 provider */
+  log: { module: string; what: string; context?: (item: T) => string | number | null };
+  keyring?: Keyring;
+};
+
+/**
+ * 換金鑰的排程 還不是目前金鑰加密的逐筆解開再加密寫回 單筆失敗不影響其他筆
+ * 回傳寫回與失敗的筆數 已經是目前金鑰的不算 失敗的只在 log 記種類
+ */
+export async function reencryptEach<T>(items: readonly T[], { ciphertext, write, log, keyring = keyringFromEnv() }: ReencryptOptions<T>): Promise<{ reencrypted: number; failed: number }> {
+  let reencrypted = 0;
+  let failed = 0;
+  for (const item of items.filter((candidate) => needsReencrypt(ciphertext(candidate), keyring))) {
+    try {
+      if (await write(item, encryptSecret(decryptSecret(ciphertext(item), keyring), keyring))) reencrypted++;
+    } catch (error) {
+      failed++;
+      logError(log.module, log.what, error, ...(log.context ? [log.context(item)] : []));
+    }
+  }
+  return { reencrypted, failed };
 }
 
 /** 長度不同也不會提早結束的比對 用在密碼與 token */

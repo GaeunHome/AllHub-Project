@@ -31,7 +31,29 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 | `PUBLIC_BASE_URL` | 網站網址，例如 `https://allhub-project.vercel.app` | Vercel；GitHub Secrets 的 `HUB_URL` 填同一個網址 |
 | `TWITCH_CLIENT_ID`、`TWITCH_CLIENT_SECRET` | Twitch 開發者後台（見 [模組設定與使用](modules.md#twitch)） | Vercel |
 | `TWITCH_EVENTSUB_SECRET`、`YOUTUBE_WEBSUB_SECRET` | 兩個 webhook 的簽章密鑰，用上面的指令產生 | Vercel |
+| `CWA_API_KEY` | 選填，中央氣象署的授權碼，首頁的天氣卡片與早上的下雨提醒用（見下方〈天氣的授權碼〉）；沒填時卡片說明要設定、不發下雨提醒 | Vercel |
+| `MOENV_API_KEY` | 選填，環境部的 API Key，天氣卡片的空氣品質用（見下方〈天氣的授權碼〉）；沒填時不顯示空氣品質 | Vercel |
 | AI API Key、HoYoLAB cookie | 在網站上填，加密後存在資料庫，不是環境變數 | — |
+
+## 天氣的授權碼
+
+兩個都是免費的，申請時只要電子郵件。拿到後貼到 Vercel 的環境變數，重新部署就會出現在首頁的天氣卡片。
+
+**中央氣象署（`CWA_API_KEY`，天氣、溫度、降雨機率與早上的下雨提醒）**
+
+1. 打開 [氣象會員登入](https://opendata.cwa.gov.tw/userLogin)（[氣象資料開放平臺](https://opendata.cwa.gov.tw)右上角的「登入／註冊」），還沒有帳號就按「加入會員」。
+2. 同意申請同意書，填電子郵件與密碼，到信箱點確認信。
+3. 登入後打開 [取得授權碼](https://opendata.cwa.gov.tw/user/authkey)，按「取得授權碼」，畫面上的一串 `CWA-` 開頭的字就是授權碼。授權碼外洩時，同一頁可以按「更新授權碼」換一個。
+
+**環境部（`MOENV_API_KEY`，空氣品質）**
+
+1. 打開 [會員註冊](https://data.moenv.gov.tw/api-term)（[環境資料開放平臺](https://data.moenv.gov.tw)的「會員註冊」），同意 API 介接服務條款，填電子郵件等資料完成註冊。
+2. 平臺會寄一封信，信裡就是 API 金鑰。之後要再看金鑰或重新申請，到 [會員登入](https://data.moenv.gov.tw/login)。
+3. **金鑰一年到期**：環境部發的是一年期的金鑰。到期後天氣卡片的空氣品質會一直寫「暫時讀不到」（天氣照常），到會員登入重新申請一把，換掉 Vercel 的 `MOENV_API_KEY` 再重新部署。建議申請時就在行事曆記下到期日。
+
+- **介面可能會改**：步驟照兩個平臺 2026 年 10 月的說明整理，按鈕名稱如果不一樣，找「授權碼」「API 金鑰」或「會員」相關的選項。
+- **只放在 Vercel**：跟其他密鑰一樣不要存在電腦上；貼的時候前後的空白網站會自動去掉。
+- **授權條款**：兩個平臺的資料都依政府資料開放授權條款提供，要標示出處，所以天氣卡片下面寫著「資料來源：中央氣象署、環境部」。
 
 ## 填到 Vercel
 
@@ -60,7 +82,7 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 - **兩個連線字串放反**：`DATABASE_URL` 要用 Transaction pooler（6543），`MIGRATION_DATABASE_URL` 要用 Session pooler（5432）。
 - **用了 Direct connection**：主機是 `db.<專案>.supabase.co` 的是 Direct connection（IPv6）。GitHub Actions 只有 IPv4 連不到，`MIGRATION_DATABASE_URL` 要改用 Session pooler。
 - **連線字串格式不對**：要用 `postgresql://` 開頭。密碼裡的 `@`、`#`、`?`、`/`、`:`、`$` 等特殊字元要先做百分比編碼，例如 `@` 寫成 `%40`。
-- **混進奇怪的字元**：這些值都只有英數與半形符號。出現全形符號、中文，或前後多了空白、換行，多半是複製時多帶了東西。網站只會自動去掉 `TWITCH_CLIENT_ID`、`TWITCH_CLIENT_SECRET` 前後的空白與換行，其他的要自己刪掉。
+- **混進奇怪的字元**：這些值都只有英數與半形符號。出現全形符號、中文，或前後多了空白、換行，多半是複製時多帶了東西。網站只會自動去掉 `TWITCH_CLIENT_ID`、`TWITCH_CLIENT_SECRET`、`CWA_API_KEY`、`MOENV_API_KEY` 前後的空白與換行，其他的要自己刪掉。
 - **`PUBLIC_BASE_URL` 的寫法**：要用 `https://` 開頭，結尾不要 `/`。GitHub 的 `HUB_URL` 也一樣。
 - **長度不對**：網站用到時會檢查，不符合會報錯（訊息只列名稱與原因，不含值）。用上面的指令產生的值都符合：
   - `SESSION_SECRET` 至少 32 個字元。

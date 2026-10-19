@@ -3,6 +3,7 @@ import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import { expireTags } from "./cache";
 import { db } from "./db";
 import { coreNotifications, coreUsers } from "./db/schema";
+import { MODULE_ID_PATTERN, USER_ID_PATTERN } from "./ids";
 import { notificationsTag } from "./notifications/cache-tags";
 import { linkTarget } from "./notifications/links";
 
@@ -12,15 +13,12 @@ import { linkTarget } from "./notifications/links";
  */
 export type NotifyInput = { recipients: readonly string[]; module: string; kind: string; title: string; body?: string; url?: string | null };
 
-const MODULE_ID = /^[a-z][a-z0-9-]{0,31}$/;
-const USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
 /** 各模組共用的通知出口 每個收件人各寫一則 他的鈴鐺輪詢時就會看到 */
 export async function notify({ recipients, module, kind, title, body = "", url }: NotifyInput): Promise<void> {
   // 這些都是呼叫端決定的值 不對就是程式錯誤 直接丟出來
-  if (!MODULE_ID.test(module)) throw new Error(`notify：模組 id 格式不對（${module}）`);
+  if (!MODULE_ID_PATTERN.test(module)) throw new Error(`notify：模組 id 格式不對（${module}）`);
   if (!kind.trim() || !title.trim()) throw new Error("notify：缺少 kind 或 title");
-  if (recipients.some((id) => !USER_ID.test(id))) throw new Error("notify：收件人要是使用者 id");
+  if (recipients.some((id) => !USER_ID_PATTERN.test(id))) throw new Error("notify：收件人要是使用者 id");
   const userIds = [...new Set(recipients)];
   if (userIds.length === 0) return;
 

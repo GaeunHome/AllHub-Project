@@ -3,26 +3,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
 import { mocksOf } from "@/dev/test-helpers";
+import { feedVideo as video } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ after: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("../../service/cached", { spy: true });
 
 const cached = mocksOf(await import("../../service/cached"), "cachedRecentVideos");
 const { UpNext } = await import("./up-next");
 
-const video = (videoId: string) => ({
-  videoId,
-  title: `影片 ${videoId}`,
-  publishedAt: new Date(Date.now() - 3 * 3600_000),
-  zhCaptions: "no",
-  zhCaptionsCheckedAt: new Date(),
-  channelId: "UCaaaaaaaaaaaaaaaaaaaaaa",
-  channelTitle: "模擬頻道",
-  channelThumbnail: null,
-  translationStatus: null,
-});
 const html = async (current = "watching001") => renderToStaticMarkup((await UpNext({ params: Promise.resolve({ videoId: current }) })) as ReactElement);
 
 beforeEach(() => {
@@ -43,7 +33,7 @@ describe("觀看頁的「接下來播放」", () => {
   });
 
   it("寬螢幕上第一支在畫面最上面（播放器是跨網域的 iframe，不算 LCP，常常輪到這張縮圖）：不延遲載入，其他照樣延遲", async () => {
-    cached.cachedRecentVideos.mockResolvedValue(["next0000001", "next0000002", "next0000003"].map(video));
+    cached.cachedRecentVideos.mockResolvedValue(["next0000001", "next0000002", "next0000003"].map((id) => video(id)));
 
     const loading = [...(await html()).matchAll(/<img[^>]*i\.ytimg\.com[^>]*>/g)].map((m) => m[0].match(/loading="(\w+)"/)?.[1]);
 

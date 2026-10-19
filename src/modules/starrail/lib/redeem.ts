@@ -1,8 +1,9 @@
 // 依 genshin.py 的 redeem_code 整理 還沒用真實帳號驗證
 // 手動輸入的兌換碼與結果都不存 自動兌換只記下試過的社群公開兌換碼
 
+import { asRecord, numberOf } from "@/core/json";
 import { cookieKeys } from "./cookie";
-import { asRecord, number } from "./json";
+import { DAILY_LIMIT, GEETEST, NOT_LOGGED_IN, TOO_FREQUENT } from "./retcodes";
 
 /** 真的有 5 個字的兌換碼 例如 OMEGA 下限放寬到 4 */
 const CODE = /^[A-Z0-9]{4,20}$/;
@@ -31,12 +32,12 @@ export type RedeemOutcome = { ok: boolean; message: string; retcode: number | nu
 const INVALID = "兌換碼無效，請確認有沒有打錯";
 const ALREADY = "已經兌換過這個兌換碼了";
 const LEVEL = "開拓等級不足，還不能兌換這個兌換碼";
-const TOO_FREQUENT = "HoYoLAB 說請求太頻繁，請稍後再試";
+const TOO_FREQUENT_MESSAGE = "HoYoLAB 說請求太頻繁，請稍後再試";
 const RISK_MESSAGE = "HoYoLAB 要求驗證，請到官方兌換頁（hsr.hoyoverse.com/gift）兌換";
-/** 驗證碼與風控 genshin.py 的 GEETEST_RETCODES 加上社群兌換機器人遇過的 -502 */
-const RISK = [1034, 5003, 10035, 10041, -502];
-/** genshin.py 的 VisitsTooFrequently 與 TooManyRequests */
-const RATE_LIMIT = [-110, 1028, 10101];
+/** 驗證碼與風控 加上社群兌換機器人遇過的 -502 */
+const RISK = [...GEETEST, -502];
+/** 1028 也是 genshin.py 的 VisitsTooFrequently */
+const RATE_LIMIT = [TOO_FREQUENT, 1028, DAILY_LIMIT];
 /** genshin.py 的 Redemption code not activated 直播碼這類還沒開放的 */
 const NOT_ACTIVE = -2014;
 /** 依 genshin.py 的 errors.py -2016 是兩次兌換之間約 5 秒的冷卻 */
@@ -53,15 +54,15 @@ const MESSAGES: Record<number, string> = {
   [-2011]: LEVEL,
   [-2021]: LEVEL,
   [-2008]: "這個兌換碼不能在這個伺服器使用",
-  ...Object.fromEntries(RATE_LIMIT.map((code) => [code, TOO_FREQUENT])),
+  ...Object.fromEntries(RATE_LIMIT.map((code) => [code, TOO_FREQUENT_MESSAGE])),
   ...Object.fromEntries(RISK.map((code) => [code, RISK_MESSAGE])),
 };
-/** -100 與 10001 是沒登入或 cookie 無效 -1071 是兌換介面的 cookie 無效 */
-const COOKIE_INVALID = new Set([-100, 10001, -1071]);
+/** -1071 是兌換介面的 cookie 無效 */
+const COOKIE_INVALID = new Set([...NOT_LOGGED_IN, -1071]);
 
 export function interpretRedeem(json: unknown): RedeemOutcome {
   const body = asRecord(json);
-  const retcode = number(body?.retcode);
+  const retcode = numberOf(body?.retcode);
   if (retcode === 0) return { ok: true, message: "獎勵會寄到遊戲內信箱", retcode, cookieInvalid: false };
   if (retcode === null) {
     const local = typeof body?.localError === "string" ? body.localError : "HoYoLAB 回應格式和預期不同";
@@ -76,7 +77,7 @@ export function interpretRedeem(json: unknown): RedeemOutcome {
  * 自動兌換依結果決定下一步 settled 是答案不會變 記下來不再送出
  * 還沒開放 冷卻 太頻繁 風控 cookie 失效 連不上 等級不足或認不得的代碼都明天再試 過期的碼清單自然不再列出
  */
-export type RedeemVerdict =
+type RedeemVerdict =
   | { kind: "success" | "already" | "expired" | "invalid"; settled: true }
   | { kind: "inactive" | "level" | "failed" | "cooldown" | "rate_limit" | "cookie" | "risk" | "network"; settled: false };
 

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fakeFetch as recordFetch } from "@/dev/fake-fetch";
 import { hasChineseCaptions, listCaptionTracks, type CaptionTrackInfo } from "./captions";
 
@@ -27,8 +27,6 @@ const track = (languageCode: string, extra: Partial<Track> = {}): Track => ({
   ...extra,
 });
 const info = (languageCode: string, extra: Partial<CaptionTrackInfo> = {}): CaptionTrackInfo => ({ languageCode, automatic: false, translated: false, ...extra });
-
-afterEach(() => vi.unstubAllEnvs());
 
 describe("listCaptionTracks", () => {
   it("列出影片的字幕軌：語言、是不是自動產生、是不是自動翻譯", async () => {

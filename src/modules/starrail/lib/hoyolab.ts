@@ -25,22 +25,17 @@ import {
   type HoyolabResult,
   type Profile,
 } from "./responses";
+import { CHECKIN_ACT_ID } from "./urls";
 
 // HoYoLAB 國際服的非官方介面 還沒用真實帳號驗證
 // 改版就可能失效 呼叫端都要能處理失敗
 
 const ROLES_URL = "https://api-account-os.hoyolab.com/account/binding/api/getUserGameRolesByCookie?game_biz=hkrpg_global";
-const NOTE_URL = "https://bbs-api-os.hoyolab.com/game_record/hkrpg/api/note";
 const RECORD_BASE = "https://bbs-api-os.hoyolab.com/game_record/hkrpg/api";
-const CHARACTERS_URL = `${RECORD_BASE}/avatar/info`;
-const PROFILE_URL = `${RECORD_BASE}/index`;
-// calender 是 HoYoLAB 原本的拼字
-const CALENDAR_URL = `${RECORD_BASE}/get_act_calender`;
 const LEDGER_URL = "https://sg-public-api.hoyolab.com/event/srledger/month_info";
 const REDEEM_URL = "https://public-operation-hkrpg.hoyoverse.com/common/apicdkey/api/webExchangeCdkeyRisk";
 const GIFT_PAGE = "https://hsr.hoyoverse.com";
 const CHECKIN_BASE = "https://sg-public-api.hoyolab.com/event/luna/os";
-const CHECKIN_ACT_ID = "e202303301540311";
 
 /** 自動兌換的排程要在 60 秒內跑完 兌換的請求最多等 10 秒 */
 const REDEEM_TIMEOUT_MS = 10_000;
@@ -75,8 +70,15 @@ async function call(url: string, init: RequestInit, timeoutMs?: number): Promise
   try {
     return JSON.parse(text);
   } catch {
-    return { retcode: null, message: `HTTP ${response.status}`, body: text.slice(0, 300) };
+    // 被擋或維護時回的是網頁 內容可能帶有帳號資料 只記狀態碼 畫面照樣說格式不同
+    console.error("[starrail] HoYoLAB 的回應不是 JSON", new URL(url).pathname, `HTTP ${response.status}`);
+    return null;
   }
+}
+
+/** 戰績類的介面都是 GET 而且帶 DS */
+function recordGet(cookie: string, path: string, query: Record<string, string>): Promise<unknown> {
+  return call(`${RECORD_BASE}/${path}?${new URLSearchParams(query)}`, { headers: headers(cookie, { ds: generateDs() }) });
 }
 
 export async function fetchGameRoles(cookie: string): Promise<HoyolabResult<GameRole[]>> {
@@ -84,29 +86,26 @@ export async function fetchGameRoles(cookie: string): Promise<HoyolabResult<Game
 }
 
 /** 便箋的數字給排程判斷開拓力 委託只有頁面用 */
-export type NoteWithExpeditions = DailyNote & { expeditions: Expedition[] };
+type NoteWithExpeditions = DailyNote & { expeditions: Expedition[] };
 
 export async function fetchDailyNote(cookie: string, uid: string, region: string): Promise<HoyolabResult<NoteWithExpeditions>> {
-  const url = `${NOTE_URL}?server=${encodeURIComponent(region)}&role_id=${encodeURIComponent(uid)}`;
-  return interpretWith(await call(url, { headers: headers(cookie, { ds: generateDs() }) }), (data) => ({ ...parseDailyNote(data), expeditions: parseExpeditions(data) }));
+  const json = await recordGet(cookie, "note", { server: region, role_id: uid });
+  return interpretWith(json, (data) => ({ ...parseDailyNote(data), expeditions: parseExpeditions(data) }));
 }
 
 /** 角色詳情 need_wiki 跟 genshin.py 一樣帶上 */
 export async function fetchCharacters(cookie: string, uid: string, region: string): Promise<HoyolabResult<CharacterList>> {
-  const url = `${CHARACTERS_URL}?need_wiki=true&role_id=${encodeURIComponent(uid)}&server=${encodeURIComponent(region)}`;
-  return interpretCharacters(await call(url, { headers: headers(cookie, { ds: generateDs() }) }));
+  return interpretCharacters(await recordGet(cookie, "avatar/info", { need_wiki: "true", role_id: uid, server: region }));
 }
 
-/** 戰績首頁 只取遊戲頭像 跟便箋一樣帶 DS */
+/** 戰績首頁 只取遊戲頭像 */
 export async function fetchProfile(cookie: string, uid: string, region: string): Promise<HoyolabResult<Profile>> {
-  const query = new URLSearchParams({ role_id: uid, server: region });
-  return interpretWith(await call(`${PROFILE_URL}?${query}`, { headers: headers(cookie, { ds: generateDs() }) }), parseProfile);
+  return interpretWith(await recordGet(cookie, "index", { role_id: uid, server: region }), parseProfile);
 }
 
-/** 活動日曆 參數照 genshin.py 跟便箋一樣帶 DS */
+/** 活動日曆 參數照 genshin.py calender 是 HoYoLAB 原本的拼字 */
 export async function fetchActCalendar(cookie: string, uid: string, region: string): Promise<HoyolabResult<ActCalendarResult>> {
-  const query = new URLSearchParams({ role_id: uid, server: region });
-  return interpretActCalendar(await call(`${CALENDAR_URL}?${query}`, { headers: headers(cookie, { ds: generateDs() }) }));
+  return interpretActCalendar(await recordGet(cookie, "get_act_calender", { role_id: uid, server: region }));
 }
 
 /**
@@ -116,14 +115,14 @@ export async function fetchActCalendar(cookie: string, uid: string, region: stri
 export async function fetchLedger(cookie: string, uid: string, region: string, month: string): Promise<HoyolabResult<LedgerResult>> {
   const sent = withAccountIds(cookie);
   const query = new URLSearchParams({ uid, region, month, lang: "zh-tw" });
-  const result = interpretLedger(await call(`${LEDGER_URL}?${query}`, { headers: headers(sent) }), month);
-  return explainLedgerLogin(result, cookieKeys(sent));
+  const json = await call(`${LEDGER_URL}?${query}`, { headers: headers(sent) });
+  return explainLedgerLogin(interpretLedger(json, month), json, cookieKeys(sent));
 }
 
 /** 混沌回憶 虛構敘事 末日幻影的戰績 schedule_type 1 是本期 2 是上期 */
 export async function fetchEndgame(cookie: string, uid: string, region: string, mode: EndgameMode, schedule: EndgameSchedule): Promise<HoyolabResult<EndgameResult>> {
-  const query = new URLSearchParams({ schedule_type: schedule === "current" ? "1" : "2", need_all: "true", role_id: uid, server: region });
-  return interpretEndgame(await call(`${RECORD_BASE}/${ENDGAME_ENDPOINTS[mode]}?${query}`, { headers: headers(cookie, { ds: generateDs() }) }), mode);
+  const query = { schedule_type: schedule === "current" ? "1" : "2", need_all: "true", role_id: uid, server: region };
+  return interpretEndgame(await recordGet(cookie, ENDGAME_ENDPOINTS[mode], query), mode);
 }
 
 /**
@@ -151,11 +150,11 @@ export async function fetchCheckinInfo(cookie: string): Promise<HoyolabResult<Ch
   return interpretWith(await call(url, { headers: checkinHeaders(cookie) }), parseCheckinInfo);
 }
 
-export async function signIn(cookie: string): Promise<CheckinOutcome & { raw: unknown }> {
+export async function signIn(cookie: string): Promise<CheckinOutcome> {
   const json = await call(`${CHECKIN_BASE}/sign`, {
     method: "POST",
     headers: { ...checkinHeaders(cookie), "Content-Type": "application/json" },
     body: JSON.stringify({ act_id: CHECKIN_ACT_ID, lang: "zh-tw" }),
   });
-  return { ...interpretSign(json), raw: json };
+  return interpretSign(json);
 }

@@ -5,6 +5,8 @@ import { ActionButton } from "@/core/ui/action-button";
 import { useDialog } from "@/core/ui/dialog";
 import type { FormState } from "@/core/ui/form-message";
 import { Icon, type UiIconName } from "@/core/ui/icon";
+import { formatMonth } from "../../lib/month";
+import { skipOccurrenceAction } from "../actions";
 
 type RowAction = (previous: FormState, formData: FormData) => Promise<FormState>;
 
@@ -195,7 +197,7 @@ export function ActiveMenuItem({ action, id, active, pausedHint, onChanged }: Ac
   };
 
   return (
-    <ActionButton action={onChanged ? run : action} fields={{ id, active: String(!active) }} title={active ? pausedHint : undefined} formClassName="flex flex-col gap-1" className="menu-item">
+    <ActionButton action={run} fields={{ id, active: String(!active) }} title={active ? pausedHint : undefined} formClassName="flex flex-col gap-1" className="menu-item">
       <Icon name={active ? "eye-off" : "eye"} className="size-4" />
       {active ? "停用" : "恢復"}
     </ActionButton>
@@ -209,5 +211,29 @@ export function DialogMenuItem({ trigger, icon, label }: { trigger: DialogTrigge
       <Icon name={icon} className="size-4" />
       {label}
     </button>
+  );
+}
+
+type SkipButtonProps = { name: string; ruleId: number; period: string; onSkipped: (message: string) => void; inMenu?: boolean };
+
+/** 略過也是處理掉這一期 先確認 按完這一期的按鈕會不見 訊息交給外面 */
+export function SkipButton({ name, ruleId, period, onSkipped, inMenu = false }: SkipButtonProps) {
+  const skip = async (previous: FormState, formData: FormData) => {
+    const result = await skipOccurrenceAction(previous, formData);
+    if (!result.error) onSkipped(result.message ?? `已略過「${name}」${formatMonth(period)}`);
+    return result;
+  };
+  return (
+    <ActionButton
+      action={skip}
+      fields={{ ruleId, period }}
+      confirmMessage={`略過「${name}」${formatMonth(period)}這一期？這一期不會記帳。`}
+      formClassName={inMenu ? "flex flex-col gap-1" : undefined}
+      aria-label={inMenu ? undefined : `略過這一期：${name}`}
+      className={inMenu ? "menu-item" : "btn-secondary btn-sm"}
+    >
+      {inMenu && <Icon name="check-check" className="size-4" />}
+      {inMenu ? "略過這一期" : "略過"}
+    </ActionButton>
   );
 }

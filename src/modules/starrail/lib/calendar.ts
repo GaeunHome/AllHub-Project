@@ -1,11 +1,12 @@
 // 活動日曆依 genshin.py 的 HSREventCalendar 整理 還沒用真實帳號驗證
 // 讀不到的欄位給 null 並記下路徑 時間是 Unix 秒數的字串 0 代表沒有排定
 
-import { asRecord, createMissing, image, number, text } from "./json";
+import { asRecord, createMissing, numberOf, text } from "@/core/json";
+import { image } from "./image";
 import { interpretWith, type HoyolabResult } from "./responses";
 
 /** 混沌回憶 虛構敘事 末日幻影 異相仲裁 跟終局戰績的名稱一樣 */
-export type ChallengeKind = "chaos" | "fiction" | "shadow" | "peak";
+type ChallengeKind = "chaos" | "fiction" | "shadow" | "peak";
 
 const CHALLENGE_KINDS: Record<string, ChallengeKind> = {
   ChallengeTypeChasm: "chaos",
@@ -49,13 +50,16 @@ export function interpretActCalendar(json: unknown): HoyolabResult<ActCalendarRe
   return interpretWith(json, parseActCalendar);
 }
 
+/** 終局戰績的三種模式也用這個名稱 */
+export function challengeLabel(kind: ChallengeKind): string;
+export function challengeLabel(kind: ChallengeKind | null): string | null;
 export function challengeLabel(kind: ChallengeKind | null): string | null {
   return kind ? CHALLENGE_LABELS[kind] : null;
 }
 
 /** Unix 秒數換成毫秒 0 或看不懂的是 null */
 function timestamp(value: unknown): number | null {
-  const seconds = number(value);
+  const seconds = numberOf(value);
   return seconds !== null && Number.isInteger(seconds) && seconds > 0 ? seconds * 1000 : null;
 }
 
@@ -101,12 +105,12 @@ export function parseActCalendar(data: unknown): ActCalendarResult {
     return [
       {
         ...timed(item, "challenge_list[]"),
-        id: number(item.group_id),
+        id: numberOf(item.group_id),
         kind: type === null ? null : (CHALLENGE_KINDS[type] ?? null),
         name: missing.need(text(item.name_mi18n), at("name_mi18n")),
         status: missing.need(challengeStatus(item.status), at("status")),
-        current: missing.need(number(item.current_progress), at("current_progress")),
-        total: missing.need(number(item.total_progress), at("total_progress")),
+        current: missing.need(numberOf(item.current_progress), at("current_progress")),
+        total: missing.need(numberOf(item.total_progress), at("total_progress")),
       },
     ];
   });
@@ -117,11 +121,11 @@ export function parseActCalendar(data: unknown): ActCalendarResult {
     return [
       {
         ...timed(item, "act_list[]"),
-        id: number(item.id),
+        id: numberOf(item.id),
         kind: eventKind(item.act_type),
         name: missing.need(text(item.name)?.replace(/\\n/g, " ") ?? null, "act_list[].name"),
-        current: number(item.current_progress),
-        total: number(item.total_progress),
+        current: numberOf(item.current_progress),
+        total: numberOf(item.total_progress),
       },
     ];
   });
@@ -142,7 +146,7 @@ export function parseActCalendar(data: unknown): ActCalendarResult {
             id: idText(item.item_id),
             name: missing.need(text(item.item_name), at("item_name")),
             icon: missing.need(image(item[iconKey]), at(iconKey)),
-            rarity: missing.need(number(item.rarity), at("rarity")),
+            rarity: missing.need(numberOf(item.rarity), at("rarity")),
           },
         ];
       });
@@ -166,7 +170,7 @@ export function isOngoing(item: Timed, now: Date): boolean {
   return item.endsAt !== null && item.endsAt > at && (item.startsAt === null || item.startsAt <= at);
 }
 
-export function byEndTime(a: Timed, b: Timed): number {
+function byEndTime(a: Timed, b: Timed): number {
   return (a.endsAt ?? Infinity) - (b.endsAt ?? Infinity);
 }
 

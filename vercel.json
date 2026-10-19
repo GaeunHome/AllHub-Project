@@ -12,6 +12,7 @@
     { "path": "/api/cron/twitch:sync", "schedule": "0 20 * * *" },
     { "path": "/api/cron/youtube:renew", "schedule": "30 20 * * *" },
     { "path": "/api/cron/notifications:cleanup", "schedule": "0 21 * * *" },
+    { "path": "/api/cron/weather:rain", "schedule": "0 22 * * *" },
     { "path": "/api/cron/starrail:redeem", "schedule": "0 4 * * *" },
     { "path": "/api/cron/starrail:stamina", "schedule": "0 0 * * *" },
     { "path": "/api/cron/starrail:stamina", "schedule": "0 1 * * *" },

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, hangUntilAborted } from "@/dev/fake-fetch";
-import { externalAssetUrl, externalFetch, externalUrl } from "./external-url";
+import { captureErrorLog, loggedText } from "@/dev/test-helpers";
+import { externalAssetUrl, externalFetch, externalUrl, readExternalJson } from "./external-url";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -144,5 +145,56 @@ describe("externalAssetUrl：瀏覽器直接載入的外部圖片網址", () => 
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("DEV_EXTERNAL_ORIGIN", "mock-server-4011");
     expect(externalAssetUrl("https://i.ytimg.com/vi/x/mqdefault.jpg")).toBe("https://i.ytimg.com/vi/x/mqdefault.jpg");
+  });
+});
+
+describe("readExternalJson：讀外部服務的 JSON，讀不到記 log 回 null", () => {
+  // 氣象署與環境部的授權碼放在網址參數裡
+  const URL_WITH_KEY = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization=CWA-SECRET-KEY";
+  const LOG = { module: "weather", what: "讀不到天氣預報" };
+
+  it("讀到了_回傳 JSON，請求帶 Accept: application/json 與呼叫端給的設定", async () => {
+    const { impl, calls } = fakeFetch(() => Response.json({ records: { location: [] } }));
+
+    expect(await readExternalJson(URL_WITH_KEY, { ...LOG, init: { cache: "no-store" }, fetchImpl: impl })).toEqual({ records: { location: [] } });
+    expect(calls[0].init).toMatchObject({ cache: "no-store", headers: { Accept: "application/json" } });
+  });
+
+  it("狀態碼不對_回 null，log 記狀態碼與錯誤種類，不記網址（裡面有授權碼）與回應內容", async () => {
+    const log = captureErrorLog();
+    const { impl } = fakeFetch(() => new Response("upstream secret-detail", { status: 503 }));
+
+    expect(await readExternalJson(URL_WITH_KEY, { ...LOG, fetchImpl: impl })).toBeNull();
+    expect(log.mock.calls).toEqual([["[weather] 讀不到天氣預報", 503, "HttpStatusError"]]);
+    expect(loggedText(log)).not.toContain("CWA-SECRET-KEY");
+    expect(loggedText(log)).not.toContain("secret-detail");
+  });
+
+  it("逾時、連不上、回應不是 JSON_一律回 null，log 只記錯誤種類", async () => {
+    const log = captureErrorLog();
+    const responses = [
+      fakeFetch(hangUntilAborted).impl,
+      fakeFetch(() => Promise.reject(new TypeError("fetch failed: getaddrinfo ENOTFOUND secret-detail"))).impl,
+      fakeFetch(() => new Response("<html>secret-detail</html>")).impl,
+    ];
+
+    for (const fetchImpl of responses) expect(await readExternalJson(URL_WITH_KEY, { ...LOG, fetchImpl, timeoutMs: 10 })).toBeNull();
+
+    expect(log.mock.calls.map((call) => call.at(-1))).toEqual(["TimeoutError", "TypeError", "SyntaxError"]);
+    expect(loggedText(log)).not.toContain("secret-detail");
+  });
+
+  it("有給 parse_回傳解析的結果；解析時丟錯也當成讀不到，記錯誤種類", async () => {
+    const log = captureErrorLog();
+    const { impl } = fakeFetch(() => Response.json([{ Code: "2330" }, { Code: "0050" }]));
+    const codes = (json: unknown) => {
+      if (!Array.isArray(json)) throw Object.assign(new Error("不是陣列"), { name: "QuoteFormatError" });
+      return json.map((row: { Code: string }) => row.Code);
+    };
+
+    expect(await readExternalJson("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", { module: "savings", what: "讀不到證交所的收盤價", parse: codes, fetchImpl: impl })).toEqual(["2330", "0050"]);
+    const notArray = fakeFetch(() => Response.json({ stat: "error" }));
+    expect(await readExternalJson("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", { module: "savings", what: "讀不到證交所的收盤價", parse: codes, fetchImpl: notArray.impl })).toBeNull();
+    expect(log.mock.calls).toEqual([["[savings] 讀不到證交所的收盤價", "QuoteFormatError"]]);
   });
 });

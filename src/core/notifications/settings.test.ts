@@ -16,8 +16,8 @@ afterEach(() => {
 describe("提醒方式的模組開關", () => {
   it("模組清單由呼叫端傳入_每個模組一列，各有提示音與瀏覽器通知兩個開關（新增模組會自動出現）", () => {
     const modules = [
-      { id: "twitch", name: "Twitch" },
-      { id: "garden", name: "花園" },
+      { id: "twitch", name: "Twitch", icon: "/icons/brands/twitch.svg" } as const,
+      { id: "garden", name: "花園", icon: "/icons/ui/flower-2.svg" } as const,
     ];
 
     const markup = renderToStaticMarkup(createElement(AlertSwitchTable, { modules }));
@@ -28,8 +28,8 @@ describe("提醒方式的模組開關", () => {
 
   it("notifies 是 false 的模組不會發通知_不出現在提醒方式（例如理財）", () => {
     const modules = [
-      { id: "twitch", name: "Twitch" },
-      { id: "savings", name: "理財", notifies: false },
+      { id: "twitch", name: "Twitch", icon: "/icons/brands/twitch.svg" } as const,
+      { id: "savings", name: "理財", icon: "/icons/ui/wallet.svg", notifies: false } as const,
     ];
 
     const markup = renderToStaticMarkup(createElement(AlertSwitchTable, { modules }));
@@ -40,7 +40,7 @@ describe("提醒方式的模組開關", () => {
   });
 
   it("伺服器算繪時讀不到瀏覽器的設定_先顯示預設的全開", () => {
-    const markup = renderToStaticMarkup(createElement(AlertSwitchTable, { modules: [{ id: "twitch", name: "Twitch" }] }));
+    const markup = renderToStaticMarkup(createElement(AlertSwitchTable, { modules: [{ id: "twitch", name: "Twitch", icon: "/icons/brands/twitch.svg" } as const] }));
 
     expect(markup.match(/checked=""/g)).toHaveLength(2);
   });
@@ -48,8 +48,8 @@ describe("提醒方式的模組開關", () => {
 
 describe("通知頁的「提醒方式」", () => {
   const MODULES = [
-    { id: "twitch", name: "Twitch" },
-    { id: "savings", name: "理財", notifies: false },
+    { id: "twitch", name: "Twitch", icon: "/icons/brands/twitch.svg" } as const,
+    { id: "savings", name: "理財", icon: "/icons/ui/wallet.svg", notifies: false } as const,
   ];
   /** 只有這些模組開著提示音時 提示音那一區的圖示名稱 */
   const soundIconWith = (enabled: string[]) => {

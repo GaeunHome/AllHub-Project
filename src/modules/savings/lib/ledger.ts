@@ -1,6 +1,6 @@
 import type { CardBill } from "./cards";
-import { taipeiToday, type DateKey } from "./dates";
-import type { AccountKind, CategoryKind, PaletteColor } from "./kinds";
+import { earliestOf, taipeiToday, type DateKey } from "./dates";
+import type { AccountKind, CategoryKind } from "./kinds";
 import type { MonthKey } from "./month";
 
 // 頁面與表單共用同一套計算 資料庫只給每個帳戶與分類每月的合計
@@ -19,7 +19,6 @@ export type AccountLike = {
   id: number;
   name: string;
   kind: AccountKind;
-  purposeId: number | null;
   openingBalance: number;
   openingCost: number | null;
   monthlyPlan: number | null;
@@ -29,7 +28,7 @@ export type AccountLike = {
   sortOrder: number;
   createdAt: Date;
 };
-export type CategoryLike = { id: number; name: string; kind: CategoryKind; color: PaletteColor; monthlyBudget: number | null };
+export type CategoryLike = { id: number; name: string; kind: CategoryKind; monthlyBudget: number | null };
 
 /**
  * cost 與 profit 只有投資帳戶有 是淨投入與賺賠
@@ -37,23 +36,23 @@ export type CategoryLike = { id: number; name: string; kind: CategoryKind; color
  */
 export type AccountBalance = { balance: number; cost: number | null; profit: number | null; owed: number | null };
 
-/** percent 是 0 到 100 到小數一位 同一組合計剛好 100 */
-export type Slice = { key: string; label: string; amount: number; percent: number };
-
-/** 停用的帳戶現在不用了 本月用 active 不算它 */
-export type AssetScope = "active" | "all";
+/** 本月支出的一塊 key 是紀錄頁篩選用的 */
+export type Slice = { key: string; label: string; amount: number };
 
 export type MonthTotals = { income: number; expense: number; saved: number };
-
-/** 資產是存款餘額加投資市值的合計 owed 是信用卡未繳合計 */
-export type AssetSummary = { assets: number; owed: number; investmentProfit: number };
 
 /** 有持股的投資帳戶用持股算的市值與成本 lib/holdings 的 investmentTotals 算好 */
 export type InvestmentFigures = { value: number; cost: number; profit: number };
 
+/**
+ * 啟用中帳戶的合計 assets 是存款餘額加投資市值 owed 是信用卡未繳
+ * 總覽 帳戶頁 投資頁與首頁卡片都用這一份 數字才一致
+ */
+export type AssetSummary = { assets: number; deposit: number; investment: InvestmentFigures; owed: number };
+
 export type BudgetRow = { categoryId: number; name: string; budget: number; spent: number; percent: number };
 
-export type TargetProgress = { target: number; balance: number; remaining: number; percent: number; reached: boolean };
+export type TargetProgress = { target: number; percent: number; reached: boolean };
 
 /** 扣款帳戶繳完所有從它扣的卡費後還剩多少 不夠扣時 short */
 export type CardStatus = { accountId: number; payFromRemaining: number | null; short: boolean };
@@ -70,26 +69,6 @@ const sum = (values: number[]) => values.reduce((total, value) => total + value,
 
 // 進度無條件捨去 還沒到預算或目標時才不會進位顯示成 100%
 const flooredPercent = (part: number, whole: number) => Math.floor((part * 1000) / whole) / 10;
-
-/**
- * 各列用最大餘數法分配 合計剛好 100
- * 各自四捨五入的話三等分是 99.9 六等分是 100.2
- */
-function sharePercents(amounts: number[]): number[] {
-  const whole = sum(amounts);
-  // 以 0.1% 為單位做整數運算 不經過浮點數
-  const tenths = amounts.map((amount) => ({ floor: Math.floor((amount * 1000) / whole), remainder: (amount * 1000) % whole }));
-  const left = 1000 - sum(tenths.map((share) => share.floor));
-  // 餘數一樣時給前面的 也就是金額比較大或排前面的那一列
-  const extra = new Set(
-    tenths
-      .map((share, i) => ({ i, remainder: share.remainder }))
-      .sort((a, b) => b.remainder - a.remainder || a.i - b.i)
-      .slice(0, left)
-      .map((share) => share.i),
-  );
-  return tenths.map((share, i) => (share.floor + (extra.has(i) ? 1 : 0)) / 10);
-}
 
 /** 設定頁的順序 傳進來的順序不可靠時也照這個排 例如頁面自己篩選過 */
 export function bySortOrder(a: { sortOrder: number; id: number }, b: { sortOrder: number; id: number }): number {
@@ -119,7 +98,8 @@ export function balanceAdjustment(kind: AccountKind, balance: number, figure: nu
   return balanceFromFigure(kind, figure) - balance;
 }
 
-const inScope = (account: AccountLike, scope: AssetScope) => scope === "all" || account.active;
+/** 紀錄或固定收支用到的帳戶 轉帳是兩個 */
+export const accountIdsOf = (entry: { accountId: number; counterAccountId: number | null }): number[] => (entry.counterAccountId === null ? [entry.accountId] : [entry.accountId, entry.counterAccountId]);
 
 type FlowTotals = Omit<AccountMonthFlow, "accountId" | "month">;
 const noFlow = (): FlowTotals => ({ income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0 });
@@ -161,28 +141,26 @@ export function accountBalances(accounts: AccountLike[], flows: AccountMonthFlow
 const owedOf = (balance: AccountBalance | undefined) => balance?.owed ?? Math.max(0, -(balance?.balance ?? 0));
 
 /**
- * 有持股的投資帳戶用 investmentValues 的市值與賺賠 不看帳上的餘額與調整
+ * 停用的帳戶不算 有持股的投資帳戶用 investmentValues 的市值與成本 不看帳上的餘額與調整
  * 沒有持股的照舊 帳上的餘額就是更新市值時填的數字
  */
-export function assetSummary(
-  accounts: AccountLike[],
-  balances: Map<number, AccountBalance>,
-  scope: AssetScope = "active",
-  investmentValues?: ReadonlyMap<number, InvestmentFigures>,
-): AssetSummary {
-  const summary: AssetSummary = { assets: 0, owed: 0, investmentProfit: 0 };
+export function assetSummary(accounts: AccountLike[], balances: Map<number, AccountBalance>, investmentValues?: ReadonlyMap<number, InvestmentFigures>): AssetSummary {
+  let deposit = 0;
+  let owed = 0;
+  const investment = { value: 0, cost: 0, profit: 0 };
   for (const account of accounts) {
-    if (!inScope(account, scope)) continue;
+    if (!account.active) continue;
     const balance = balances.get(account.id);
-    if (account.kind === "credit") {
-      summary.owed += owedOf(balance);
-      continue;
+    if (account.kind === "credit") owed += owedOf(balance);
+    else if (account.kind === "deposit") deposit += balance?.balance ?? 0;
+    else {
+      const held = investmentValues?.get(account.id);
+      investment.value += held?.value ?? balance?.balance ?? 0;
+      investment.cost += held?.cost ?? balance?.cost ?? balance?.balance ?? 0;
     }
-    const held = account.kind === "investment" ? investmentValues?.get(account.id) : undefined;
-    summary.assets += held?.value ?? balance?.balance ?? 0;
-    if (account.kind === "investment") summary.investmentProfit += held?.profit ?? balance?.profit ?? 0;
   }
-  return summary;
+  investment.profit = investment.value - investment.cost;
+  return { assets: deposit + investment.value, deposit, investment, owed };
 }
 
 export function monthTotals(totals: CategoryMonthTotal[], month: MonthKey): MonthTotals {
@@ -206,8 +184,7 @@ export function expenseSlices(categories: CategoryLike[], totals: CategoryMonthT
   // 金額一樣時照分類的順序 未分類排最後
   const position = (key: number | null) => (key === null ? Number.POSITIVE_INFINITY : expense.findIndex((category) => category.id === key));
   const entries = [...amounts].filter(([, amount]) => amount > 0).sort(([keyA, a], [keyB, b]) => b - a || position(keyA) - position(keyB));
-  const percents = sharePercents(entries.map(([, amount]) => amount));
-  return entries.map(([key, amount], i) => ({ key: expenseSliceKey(key), label: (key === null ? undefined : known.get(key)?.name) ?? "未分類", amount, percent: percents[i] }));
+  return entries.map(([key, amount]) => ({ key: expenseSliceKey(key), label: (key === null ? undefined : known.get(key)?.name) ?? "未分類", amount }));
 }
 
 /** 只有設了預算的支出分類 還沒花的也列 */
@@ -223,7 +200,7 @@ export function budgetRows(categories: CategoryLike[], totals: CategoryMonthTota
 export function targetProgress(target: number | null, balance: number): TargetProgress | null {
   if (target === null) return null;
   const reached = balance >= target;
-  return { target, balance, remaining: Math.max(0, target - balance), percent: reached ? 100 : Math.max(0, flooredPercent(balance, target)), reached };
+  return { target, percent: reached ? 100 : Math.max(0, flooredPercent(balance, target)), reached };
 }
 
 /**
@@ -271,5 +248,5 @@ export function suggestAllocation(
 
 /** 最早有紀錄的月份 月份選單用 沒有紀錄是 null */
 export function earliestFlowMonth(flows: AccountMonthFlow[]): MonthKey | null {
-  return flows.reduce<MonthKey | null>((earliest, flow) => (earliest === null || flow.month < earliest ? flow.month : earliest), null);
+  return earliestOf(flows.map((flow) => flow.month));
 }

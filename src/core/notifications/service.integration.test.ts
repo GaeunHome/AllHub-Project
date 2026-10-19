@@ -162,12 +162,11 @@ describe("cleanupNotifications", () => {
 });
 
 describe("每個人只看得到、改得到自己的通知", () => {
-  /** 別人的通知 以及部署空窗期舊程式寫的沒有收件人的通知 */
   async function seedOthers() {
-    return seed({ module: "twitch", title: "別人的", userId: other }, { module: "youtube", title: "沒有收件人", userId: null });
+    return seed({ module: "twitch", title: "別人的", userId: other });
   }
 
-  it("未讀數、最近通知、通知頁清單與篩選數字都不含別人的與沒有收件人的", async () => {
+  it("未讀數、最近通知、通知頁清單與篩選數字都不含別人的", async () => {
     await seedOthers();
     await seed({ module: "starrail", title: "我的" });
 
@@ -180,9 +179,9 @@ describe("每個人只看得到、改得到自己的通知", () => {
   });
 
   it("用別人的通知 id 標已讀_沒有效果", async () => {
-    const [theirs, orphan] = await seedOthers();
+    const [theirs] = await seedOthers();
 
-    expect(await markNotificationsRead(me, [theirs.id, orphan.id], NOW)).toBe(0);
+    expect(await markNotificationsRead(me, [theirs.id], NOW)).toBe(0);
 
     expect((await getDb().select().from(coreNotifications)).every((n) => n.readAt === null)).toBe(true);
   });
@@ -195,8 +194,8 @@ describe("每個人只看得到、改得到自己的通知", () => {
     expect(await unreadSummary(other, NOW)).toEqual({ total: 1, byModule: { twitch: 1 } });
   });
 
-  it("清理排程不分收件人：超過 14 天的一律刪除（包括沒有收件人的）", async () => {
-    await seed({ module: "twitch", title: "別人的舊通知", userId: other, createdAt: daysAgo(20) }, { module: "twitch", title: "沒有收件人", userId: null, createdAt: daysAgo(20) });
+  it("清理排程不分收件人：超過 14 天的一律刪除", async () => {
+    await seed({ module: "twitch", title: "別人的舊通知", userId: other, createdAt: daysAgo(20) }, { module: "twitch", title: "我的舊通知", createdAt: daysAgo(20) });
 
     expect(await cleanupNotifications(NOW)).toBe("刪除 2 筆超過 14 天的網站通知");
   });

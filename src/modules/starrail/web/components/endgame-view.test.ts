@@ -1,6 +1,6 @@
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { markup, textOf } from "@/dev/test-helpers";
 import type { Endgame, EndgameNode, TeamMember } from "../../lib/endgame";
 import { EndgameView, type EndgameRecord } from "./endgame-view";
 
@@ -31,9 +31,8 @@ const chaos: Endgame = {
 
 const render = (endgame: Endgame) => {
   const records: EndgameRecord[] = [{ mode: "chaos", schedule: "current", ok: true, endgame }];
-  return renderToStaticMarkup(createElement(EndgameView, { records, names: { 1102: "希兒" } }));
+  return markup(createElement(EndgameView, { records, names: { 1102: "希兒" } }));
 };
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 
 describe("終局戰績的上場隊伍", () => {
   it("隊伍編號是小方塊裡的數字，報讀器念「第 N 隊」；不再寫上半、下半、隊伍 3", () => {

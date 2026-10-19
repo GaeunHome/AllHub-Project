@@ -1,29 +1,25 @@
-// 介面沒有公開文件也還沒驗證 讀不到的欄位給 null 原始 JSON 留著除錯
+// 介面沒有公開文件也還沒驗證 讀不到的欄位給 null
 
-import { formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDateKey } from "@/core/time";
-import { asRecord, createMissing, image, number } from "./json";
+import { asRecord, boolOf, createMissing, numberOf } from "@/core/json";
+import { formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDayOffset } from "@/core/time";
+import { image } from "./image";
+import { ALREADY_SIGNED, DAILY_LIMIT, DATA_NOT_PUBLIC, GEETEST, NOT_LOGGED_IN, TOO_FREQUENT } from "./retcodes";
 
-export type HoyolabResult<T> =
-  | { ok: true; data: T; raw: unknown }
-  | { ok: false; retcode: number | null; message: string; cookieInvalid: boolean; raw: unknown };
+export type HoyolabResult<T> = { ok: true; data: T } | { ok: false; retcode: number | null; message: string; cookieInvalid: boolean };
 
-/** -100 是未登入 10001 是 cookie 無效 */
-const COOKIE_INVALID_CODES = new Set([-100, 10001]);
+const COOKIE_INVALID_CODES = new Set(NOT_LOGGED_IN);
 
 /** 常見的錯誤代碼給中文說明 不顯示 HoYoLAB 的英文原文 */
-const GEETEST = "HoYoLAB 要求驗證碼：先到 HoYoLAB 網站打開戰績頁通過驗證，再回來重新整理";
+const GEETEST_HINT = "HoYoLAB 要求驗證碼：先到 HoYoLAB 網站打開戰績頁通過驗證，再回來重新整理";
 const KNOWN_ERRORS: Record<number, string> = {
-  10101: "HoYoLAB 今天的查詢次數已達上限，明天再試",
-  10102: "資料沒有公開：到 HoYoLAB → 戰績 → 設定，打開對應的公開設定",
-  [-110]: "HoYoLAB 說查詢太頻繁，過幾分鐘再試",
-  1034: GEETEST,
-  10035: GEETEST,
-  10041: GEETEST,
-  5003: GEETEST,
+  [DAILY_LIMIT]: "HoYoLAB 今天的查詢次數已達上限，明天再試",
+  [DATA_NOT_PUBLIC]: "資料沒有公開：到 HoYoLAB → 戰績 → 設定，打開對應的公開設定",
+  [TOO_FREQUENT]: "HoYoLAB 說查詢太頻繁，過幾分鐘再試",
+  ...Object.fromEntries(GEETEST.map((code) => [code, GEETEST_HINT])),
 };
 
 /** 回應裡的 retcode 格式不對時回 null */
-export function retcodeOf(json: unknown): number | null {
+function retcodeOf(json: unknown): number | null {
   const retcode = asRecord(json)?.retcode;
   return typeof retcode === "number" ? retcode : null;
 }
@@ -33,7 +29,7 @@ export function interpretResponse(json: unknown): HoyolabResult<unknown> {
   const retcode = retcodeOf(json);
   const message = typeof body?.message === "string" ? body.message : "";
 
-  if (retcode === 0) return { ok: true, data: body?.data ?? null, raw: json };
+  if (retcode === 0) return { ok: true, data: body?.data ?? null };
 
   const cookieInvalid = retcode !== null && COOKIE_INVALID_CODES.has(retcode);
   const known = retcode === null ? undefined : KNOWN_ERRORS[retcode];
@@ -50,14 +46,13 @@ export function interpretResponse(json: unknown): HoyolabResult<unknown> {
           ? `${known}（${retcode}）`
           : `HoYoLAB 回應錯誤（${retcode}：${message}）`,
     cookieInvalid,
-    raw: json,
   };
 }
 
 /** 成功時把 data 交給 parse 失敗原樣回傳 */
 export function interpretWith<T>(json: unknown, parse: (data: unknown) => T): HoyolabResult<T> {
   const result = interpretResponse(json);
-  return result.ok ? { ok: true, data: parse(result.data), raw: json } : result;
+  return result.ok ? { ok: true, data: parse(result.data) } : result;
 }
 
 export type GameRole = { uid: string; nickname: string | null; region: string; regionName: string | null; level: number | null };
@@ -70,7 +65,7 @@ export function parseGameRoles(data: unknown): GameRole[] {
     const uid = str(role?.game_uid);
     const region = str(role?.region);
     if (!uid || !region) return [];
-    return [{ uid, nickname: str(role?.nickname), region, regionName: str(role?.region_name), level: number(role?.level) }];
+    return [{ uid, nickname: str(role?.nickname), region, regionName: str(role?.region_name), level: numberOf(role?.level) }];
   });
 }
 
@@ -93,19 +88,19 @@ export type DailyNote = {
 export function parseDailyNote(data: unknown): DailyNote {
   const note = asRecord(data);
   return {
-    stamina: number(note?.current_stamina),
-    maxStamina: number(note?.max_stamina),
-    staminaRecoverSeconds: number(note?.stamina_recover_time),
-    reserveStamina: number(note?.current_reserve_stamina),
+    stamina: numberOf(note?.current_stamina),
+    maxStamina: numberOf(note?.max_stamina),
+    staminaRecoverSeconds: numberOf(note?.stamina_recover_time),
+    reserveStamina: numberOf(note?.current_reserve_stamina),
     // epedition 是 HoYoLAB 原本的拼字
-    expeditionsAccepted: number(note?.accepted_epedition_num),
-    expeditionsTotal: number(note?.total_expedition_num),
-    trainScore: number(note?.current_train_score),
-    maxTrainScore: number(note?.max_train_score),
-    rogueScore: number(note?.current_rogue_score),
-    maxRogueScore: number(note?.max_rogue_score),
-    cocoonRemaining: number(note?.weekly_cocoon_cnt),
-    cocoonLimit: number(note?.weekly_cocoon_limit),
+    expeditionsAccepted: numberOf(note?.accepted_epedition_num),
+    expeditionsTotal: numberOf(note?.total_expedition_num),
+    trainScore: numberOf(note?.current_train_score),
+    maxTrainScore: numberOf(note?.max_train_score),
+    rogueScore: numberOf(note?.current_rogue_score),
+    maxRogueScore: numberOf(note?.max_rogue_score),
+    cocoonRemaining: numberOf(note?.weekly_cocoon_cnt),
+    cocoonLimit: numberOf(note?.weekly_cocoon_limit),
   };
 }
 
@@ -115,7 +110,6 @@ export type Expedition = {
   status: "ongoing" | "finished" | null;
   remainingSeconds: number | null;
   avatars: string[];
-  itemUrl: string | null;
 };
 
 export function parseExpeditions(data: unknown): Expedition[] {
@@ -129,9 +123,8 @@ export function parseExpeditions(data: unknown): Expedition[] {
       {
         name: typeof expedition.name === "string" && expedition.name !== "" ? expedition.name : null,
         status: status === "ongoing" || status === "finished" ? status : null,
-        remainingSeconds: number(expedition.remaining_time),
+        remainingSeconds: numberOf(expedition.remaining_time),
         avatars: Array.isArray(expedition.avatars) ? expedition.avatars.flatMap((avatar) => image(avatar) ?? []) : [],
-        itemUrl: image(expedition.item_url),
       },
     ];
   });
@@ -170,9 +163,8 @@ export function staminaFullAt(note: DailyNote, now: Date): Date | null {
 }
 
 export function formatTaipeiTime(date: Date, now: Date): string {
-  // 用台北的年月日算相差幾天 從 0 回滿要約 30 小時 可能跨兩天
-  const taipeiDay = (d: Date) => Date.parse(taipeiDateKey(d));
-  const days = Math.round((taipeiDay(date) - taipeiDay(now)) / 86_400_000);
+  // 照台北的日曆算相差幾天 從 0 回滿要約 30 小時 可能跨兩天
+  const days = taipeiDayOffset(date, now);
   const time = formatTaipeiHourMinute(date);
   if (days === 0) return `今天 ${time}`;
   if (days === 1) return `明天 ${time}`;
@@ -193,28 +185,27 @@ export type CheckinInfo = { isSigned: boolean | null; totalSignDay: number | nul
 export function parseCheckinInfo(data: unknown): CheckinInfo {
   const info = asRecord(data);
   return {
-    isSigned: typeof info?.is_sign === "boolean" ? info.is_sign : null,
-    totalSignDay: number(info?.total_sign_day),
+    isSigned: boolOf(info?.is_sign),
+    totalSignDay: numberOf(info?.total_sign_day),
   };
 }
 
-export type CheckinOutcome = { result: "success" | "already" | "failed"; message: string; cookieInvalid: boolean };
-
-/** -5003 是今天已經簽過 */
-const ALREADY_SIGNED = -5003;
+/** retcode 只給 log 用 回應原文可能帶有帳號資料 */
+export type CheckinOutcome = { result: "success" | "already" | "failed"; message: string; cookieInvalid: boolean; retcode: number | null };
 
 export function interpretSign(json: unknown): CheckinOutcome {
   const response = interpretResponse(json);
+  const retcode = retcodeOf(json);
   if (!response.ok) {
-    if (response.retcode === ALREADY_SIGNED) return { result: "already", message: "今天已經簽到過了", cookieInvalid: false };
-    return { result: "failed", message: response.message, cookieInvalid: response.cookieInvalid };
+    if (response.retcode === ALREADY_SIGNED) return { result: "already", message: "今天已經簽到過了", cookieInvalid: false, retcode };
+    return { result: "failed", message: response.message, cookieInvalid: response.cookieInvalid, retcode };
   }
 
   // 被風控要求驗證碼時 retcode 仍是 0 要看 gt_result
   if (asRecord(asRecord(response.data)?.gt_result)?.is_risk === true) {
-    return { result: "failed", message: "HoYoLAB 要求驗證碼，請到 HoYoLAB 網站手動簽到一次", cookieInvalid: false };
+    return { result: "failed", message: "HoYoLAB 要求驗證碼，請到 HoYoLAB 網站手動簽到一次", cookieInvalid: false, retcode };
   }
-  return { result: "success", message: "簽到成功", cookieInvalid: false };
+  return { result: "success", message: "簽到成功", cookieInvalid: false, retcode };
 }
 
 function str(value: unknown): string | null {

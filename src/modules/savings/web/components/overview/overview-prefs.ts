@@ -12,7 +12,7 @@ export const setupCollapsedPref = createLocalPref<boolean>({ key: SETUP_COLLAPSE
 export const setupSkippedPref = createLocalPref<string>({ key: SETUP_SKIPPED_KEY, defaultValue: "", parse: (stored) => serializeSkippedSteps(parseSkippedSteps(stored)) });
 export const howToCollapsedPref = createLocalPref<boolean>({ key: HOW_TO_COLLAPSED_KEY, defaultValue: false, ...onOff });
 
-/** globals.css 依這幾個屬性排 */
+/** web/savings.css 依這幾個屬性排 */
 export const SETUP_ATTRIBUTE = "data-fin-setup";
 export const SKIP_ATTRIBUTE = "data-fin-skip";
 export const HOW_TO_ATTRIBUTE = "data-fin-how-to";

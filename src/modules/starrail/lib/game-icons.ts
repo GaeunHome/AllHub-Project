@@ -3,29 +3,57 @@
 
 const ICONS = "/icons/starrail";
 
-// HoYoLAB 的 lightning 在遊戲資料裡叫 Thunder
-const ELEMENT_FILES: Record<string, string> = {
-  physical: "physical",
-  fire: "fire",
-  ice: "ice",
-  lightning: "thunder",
-  wind: "wind",
-  quantum: "quantum",
-  imaginary: "imaginary",
+/** 畫面上的中文名稱與圖示的檔名 */
+type Named = { label: string; file: string };
+
+/**
+ * 七種屬性 順序是篩選選單的順序
+ * HoYoLAB 的 lightning 在遊戲資料裡叫 Thunder
+ */
+export const ELEMENTS: Record<string, Named> = {
+  physical: { label: "物理", file: "physical" },
+  fire: { label: "火", file: "fire" },
+  ice: { label: "冰", file: "ice" },
+  lightning: { label: "雷", file: "thunder" },
+  wind: { label: "風", file: "wind" },
+  quantum: { label: "量子", file: "quantum" },
+  imaginary: { label: "虛數", file: "imaginary" },
 };
 
-/** base_type 1 到 9 的順序 跟 characters.ts 的命途名稱一樣 */
-const PATH_FILES = ["destruction", "hunt", "erudition", "harmony", "nihility", "preservation", "abundance", "remembrance", "elation"];
+/** 命途 照 base_type 1 到 9 的順序 */
+const PATHS: Named[] = [
+  { label: "毀滅", file: "destruction" },
+  { label: "巡獵", file: "hunt" },
+  { label: "智識", file: "erudition" },
+  { label: "同諧", file: "harmony" },
+  { label: "虛無", file: "nihility" },
+  { label: "存護", file: "preservation" },
+  { label: "豐饒", file: "abundance" },
+  { label: "記憶", file: "remembrance" },
+  { label: "歡愉", file: "elation" },
+];
+
+/** 大小寫不拘 認不得的屬性回 null */
+export function elementOf(element: string | null): Named | null {
+  if (element === null) return null;
+  const key = element.toLowerCase();
+  return Object.hasOwn(ELEMENTS, key) ? ELEMENTS[key] : null;
+}
+
+/** 認不得的命途回 null */
+export function pathOf(path: number | null): Named | null {
+  return path !== null && Number.isInteger(path) && path >= 1 && path <= PATHS.length ? PATHS[path - 1] : null;
+}
 
 /** 認不得的屬性回 null 畫面退回色圓 */
 export function elementIconUrl(element: string | null): string | null {
-  if (element === null) return null;
-  const key = element.toLowerCase();
-  return Object.hasOwn(ELEMENT_FILES, key) ? `${ICONS}/element/${ELEMENT_FILES[key]}.png` : null;
+  const entry = elementOf(element);
+  return entry ? `${ICONS}/element/${entry.file}.png` : null;
 }
 
 export function pathIconUrl(path: number | null): string | null {
-  return path !== null && Number.isInteger(path) && path >= 1 && path <= PATH_FILES.length ? `${ICONS}/path/${PATH_FILES[path - 1]}.png` : null;
+  const entry = pathOf(path);
+  return entry ? `${ICONS}/path/${entry.file}.png` : null;
 }
 
 // property_type 的對照依 hoyo-buddy 的 YATTA_PROP_TYPE_TO_GPY_TYPE

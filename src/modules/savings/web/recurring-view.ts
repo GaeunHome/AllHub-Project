@@ -1,12 +1,12 @@
 import type { UiIconName } from "@/core/ui/icon";
-import { dueText, formatSlashDate, type DateKey, type DueStatus } from "../lib/dates";
+import type { DateKey, DueStatus } from "../lib/dates";
 import { accountsWithHoldings, type HoldingLike } from "../lib/holdings";
-import { DEFAULT_CATEGORY_ICON, INTERVAL_LABELS, categoryIconOf, type EntryKind, type IntervalMonths, type RecurringMode } from "../lib/kinds";
-import { bySortOrder, suggestAllocation, type AccountBalance, type AccountLike, type AllocationReason, type CategoryLike } from "../lib/ledger";
+import { DEFAULT_CATEGORY_ICON, categoryIconOf, type EntryKind, type RecurringMode } from "../lib/kinds";
+import { accountIdsOf, bySortOrder, suggestAllocation, type AccountBalance, type AccountLike, type AllocationReason, type CategoryLike } from "../lib/ledger";
 import type { MonthKey } from "../lib/month";
 import { pendingItems, type PendingRecurring, type PendingRuleRow } from "../lib/pending";
 import type { Quote } from "../lib/quotes";
-import { firstPeriod, nextRunDate, recurringTitle, scheduleText } from "../lib/recurring";
+import { nextRunDate, recurringNames, recurringTitle, scheduleDay, scheduleText } from "../lib/recurring";
 import type { AccountChoice, CategoryOption, HoldingOption, RecurringDraft, SalaryAccountOption } from "./components/forms/options";
 import { categoryOptions, formExtras, pendingEntries, salaryAccountOptions, type ConfirmDraft, type SalaryPrefill } from "./dashboard-view";
 import { sortByNextDate } from "./settings-display";
@@ -84,11 +84,9 @@ export type RecurringSources = {
   today: DateKey;
 };
 
-const intervalLabel = (interval: number) => INTERVAL_LABELS[interval as IntervalMonths] ?? `每 ${interval} 個月`;
-
-/** 每年的寫出月份 遇假日寫在括號裡 */
+/** 遇假日寫在括號裡 */
 export function whenText(rule: Pick<PendingRuleRow, "dayOfMonth" | "intervalMonths" | "startMonth" | "holidayRule" | "createdAt">): string {
-  const day = rule.intervalMonths === 12 ? `每年 ${Number(firstPeriod(rule).slice(5, 7))} 月 ${rule.dayOfMonth} 日` : `${intervalLabel(rule.intervalMonths)} ${rule.dayOfMonth} 日`;
+  const day = scheduleDay(rule);
   if (rule.holidayRule === "before") return `${day}（遇假日提前）`;
   if (rule.holidayRule === "after") return `${day}（遇假日延後）`;
   return day;
@@ -117,8 +115,7 @@ const toDraft = (rule: PendingRuleRow): RecurringDraft => ({
 
 /** 跟總覽同一套 到了或 7 天內會到的最舊那一期 規則或帳戶停用的不列 */
 function dueViews({ accounts, rules, categories, holdings, quotes, today }: RecurringSources): Map<number, DueView> {
-  const context = { accounts: accounts.map((account) => ({ ...account, autopay: false })), categories, holdings };
-  const items = pendingItems(rules, [], today, context).filter((item): item is PendingRecurring => item.type === "recurring");
+  const items = pendingItems(rules, [], today, { accounts, categories, holdings }).filter((item): item is PendingRecurring => item.type === "recurring");
   const entries = pendingEntries(items, { accounts, rules, holdings, quotes, categories, fills: new Map(), today });
   return new Map(
     items.map((item): [number, DueView] => {
@@ -136,17 +133,12 @@ export function recurringPageView(sources: RecurringSources): RecurringPageView 
   const categoryById = new Map(categories.map((category) => [category.id, category]));
   const holdingById = new Map(holdings.map((holding) => [holding.id, holding]));
   const withHoldings = accountsWithHoldings(holdings);
-  const names = {
-    accounts: new Map(accounts.map((account) => [account.id, account.name])),
-    categories: new Map(categories.map((category) => [category.id, category.name])),
-    holdingSymbols: new Map(holdings.map((holding) => [holding.id, holding.symbol])),
-  };
+  const names = recurringNames(sources);
   const due = dueViews(sources);
 
   const pausedOf = (rule: PendingRuleRow): RecurringRowView["paused"] => {
     if (!rule.active) return "rule";
-    const used = [rule.accountId, rule.counterAccountId].filter((id): id is number => id !== null);
-    return used.some((id) => accountById.get(id)?.active === false) ? "account" : null;
+    return accountIdsOf(rule).some((id) => accountById.get(id)?.active === false) ? "account" : null;
   };
   const iconOf = (rule: PendingRuleRow): UiIconName => {
     if (rule.holdingId !== null) return "chart-line";
@@ -235,20 +227,4 @@ function recurringFormOptions(accounts: AccountLike[], categories: RecurringSour
       }),
     today,
   };
-}
-
-/**
- * 列上名稱下面那一行 要處理的那一期寫日期與還有幾天 逾期改用標籤不在這裡重複
- * 停用的不寫下一期 extra 是排程後面多寫的 例如從哪個帳戶扣
- */
-export function recurringDetail(row: Pick<RecurringRowView, "nextDate" | "due" | "paused">, schedule: string, extra: string[] = []): string {
-  const parts = [schedule, ...extra];
-  if (row.paused !== null) return parts.join(" · ");
-  if (row.due) {
-    parts.push(row.due.status === "overdue" ? formatSlashDate(row.due.date) : `${formatSlashDate(row.due.date)} ${row.due.status === "today" ? "今天到期" : `到期 · ${dueText(row.due.daysLeft)}`}`);
-    if (row.due.laterCount > 0) parts.push(`還有 ${row.due.laterCount} 期`);
-  } else if (row.nextDate !== null) {
-    parts.push(`下一期 ${formatSlashDate(row.nextDate)}`);
-  }
-  return parts.join(" · ");
 }

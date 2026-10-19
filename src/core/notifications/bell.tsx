@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import { CountBadge } from "../ui/count-badge";
 import { useHeaderMenuRoot } from "../ui/header-menus";
 import { Icon } from "../ui/icon";
 import { useNotificationCenter } from "./center";
 import { relativeTime } from "./format";
 import { NotificationSummary } from "./notification-summary";
 import { AlertSettingsHelp, AlertSwitchTable, BrowserPermissionNotice } from "./settings";
-
-const formatCount = (count: number) => (count > 99 ? "99+" : String(count));
 
 export function NotificationBell() {
   const { feed, ringCount } = useNotificationCenter();
@@ -35,11 +34,7 @@ export function NotificationBell() {
         <span key={ringCount} className={ringCount > 0 ? "bell-ringing inline-flex" : "inline-flex"}>
           <Icon name={total > 0 ? "bell-ring" : "bell"} className="size-[1.125rem]" />
         </span>
-        {total > 0 && (
-          <span aria-hidden className="count-badge absolute -top-1 -right-1">
-            {formatCount(total)}
-          </span>
-        )}
+        <CountBadge count={total} hidden className="absolute -top-1 -right-1" />
       </button>
 
       {/* 收起時整個卸載 下次打開一律回到通知清單 */}

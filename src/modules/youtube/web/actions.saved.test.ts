@@ -6,7 +6,7 @@ import { captureErrorLog, form, loggedText, mocksOf } from "@/dev/test-helpers";
 const deferred = vi.hoisted(() => ({ tasks: [] as (() => unknown)[] }));
 
 vi.mock("next/server", () => ({ after: (task: () => unknown) => deferred.tasks.push(task) }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/saved-videos", { spy: true });
 vi.mock("../service/translation", { spy: true });
@@ -15,7 +15,7 @@ vi.mock("../service/cached", { spy: true });
 const saved = mocksOf(await import("../service/saved-videos"), "keepVideo", "removeSavedVideo");
 const translation = mocksOf(await import("../service/translation"), "startTranslation", "uploadSubtitles", "retryTranslation", "restartTranslation", "continueTranslation");
 const { cachedVideoInfo } = mocksOf(await import("../service/cached"), "cachedVideoInfo");
-const { ApiKeySetupError, TranslationUserError } = await import("../service/translation");
+const { ApiKeySetupError, TranslationUserError } = await import("../service/errors");
 const actions = await import("./actions");
 
 const VIDEO = "dQw4w9WgXcQ";

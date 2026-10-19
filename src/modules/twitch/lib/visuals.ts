@@ -1,3 +1,4 @@
+import { groupDigits } from "@/core/number";
 import type { TwitchGame, TwitchStream, TwitchUser } from "./api";
 
 // Helix 的頭像 直播與封面只放快取不存資料庫
@@ -86,10 +87,9 @@ export function formatLiveDuration(startedAt: string | null, now: Date): string 
   return rest === 0 ? `開台 ${hours} 小時` : `開台 ${hours} 小時 ${rest} 分`;
 }
 
-/** 千分位自己加 不依賴執行環境的語系資料 */
+/** 加千分位 人數不會是負的 */
 export function formatCount(count: number | null): string | null {
-  if (count === null) return null;
-  return String(Math.max(0, Math.round(count))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return count === null ? null : groupDigits(Math.max(0, count));
 }
 
 export function formatViewerCount(count: number | null): string | null {

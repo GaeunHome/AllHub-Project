@@ -1,15 +1,16 @@
 import "server-only";
-import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db } from "@/core/db";
+import { db, type Executor } from "@/core/db";
+import { lockUserRow } from "@/core/db/users";
 import { savingsAccounts, savingsCardBills, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions, type SavingsAccount, type SavingsTransaction } from "../data/schema";
 import type { ChecklistRecord } from "../lib/checklist";
 import { taipeiToday, type DateKey } from "../lib/dates";
-import type { CategoryKind, PaletteColor, TransactionKind } from "../lib/kinds";
-import { accountBalances, balanceAdjustment, type AccountMonthFlow, type CategoryMonthTotal } from "../lib/ledger";
+import type { CategoryKind, TransactionKind } from "../lib/kinds";
+import { accountBalances, accountIdsOf, balanceAdjustment, type AccountMonthFlow, type CategoryMonthTotal } from "../lib/ledger";
 import { MAX_AMOUNT } from "../lib/money";
 import { addMonths, dateToMonth, monthToDate, parseMonth, type MonthKey } from "../lib/month";
-import { previousOccurrenceMonth } from "../lib/recurring";
+import { isPeriodRecord, previousOccurrenceMonth, revertsPeriod } from "../lib/recurring";
 import { NOT_FOUND, amountFromText, isRowId, parseBalanceFields, parseEntryDate, parseEntryFields, parseNote, parseRowId, parseSalaryFields } from "../lib/validation";
 import {
   ADJUST_NOT_EDITABLE,
@@ -30,7 +31,7 @@ import {
 } from "./errors";
 import { revertTrade } from "./holdings";
 import { claimMonth, lockOwnRule, requireOldestPending } from "./periods";
-import { checkEntryReferences, heldInvestmentIds, lockUser, ownAccounts, rejectHeldInvestments, requireAccount, requireCategory, requireStarted, valid, type Executor } from "./shared";
+import { checkEntryReferences, flowsBy, heldInvestmentIds, ownAccounts, rejectHeldInvestments, requireAccount, requireCategory, requireStarted, valid } from "./shared";
 
 // userId 一律是登入者 別人的 id 當作不存在 now 讓測試固定今天
 
@@ -48,7 +49,6 @@ export type TransactionView = SavingsTransaction & {
   accountName: string;
   counterAccountName: string | null;
   categoryName: string | null;
-  categoryColor: PaletteColor | null;
   holdingSymbol: string | null;
   recurringName: string | null;
   recurring: boolean;
@@ -130,7 +130,7 @@ async function updateTrade(userId: string, id: number, existing: TradeShape, fie
   const date = valid(parseEntryDate(fields.date, taipeiToday(now)));
   const note = valid(parseNote(fields.note));
   // 停用的帳戶也可以改 但日期不能早於開始記帳的那天
-  const accounts = await ownAccounts(db(), userId, existing.counterAccountId === null ? [existing.accountId] : [existing.accountId, existing.counterAccountId]);
+  const accounts = await ownAccounts(db(), userId, accountIdsOf(existing));
   for (const account of accounts.values()) requireStarted(account, date);
   const [transaction] = await db().update(savingsTransactions).set({ date, note }).where(own(userId, id)).returning();
   if (!transaction) throw new SavingsUserError(NOT_FOUND.transaction);
@@ -175,8 +175,8 @@ export async function deleteTransaction(userId: string, id: number): Promise<boo
 
   return db().transaction(async (tx) => {
     // 跟刪除帳號 帳戶 持股 固定收支的連帶刪改同一個順序 最後才刪紀錄
-    await lockUser(tx, userId);
-    await ownAccounts(tx, userId, existing.counterAccountId === null ? [existing.accountId] : [existing.accountId, existing.counterAccountId], "share");
+    await lockUserRow(tx, userId, "key share");
+    await ownAccounts(tx, userId, accountIdsOf(existing), "share");
     const [holding] = existing.holdingId === null ? [] : await tx.select().from(savingsHoldings).where(and(eq(savingsHoldings.id, existing.holdingId), eq(savingsHoldings.userId, userId))).for("update");
     const [rule] = existing.recurringId === null ? [] : await tx.select().from(savingsRecurring).where(and(eq(savingsRecurring.id, existing.recurringId), eq(savingsRecurring.userId, userId))).for("update");
     const [bill] =
@@ -192,13 +192,13 @@ export async function deleteTransaction(userId: string, id: number): Promise<boo
     if (!deleted) return false;
     if (holding && deleted.holdingId === holding.id && deleted.shares !== null) await revertTrade(tx, holding, deleted);
     // 薪水分出去的轉帳也標了這一期 刪掉其中一筆不代表這一期沒確認
-    if (rule && deleted.recurringId === rule.id && deleted.recurringPeriod !== null && deleted.kind === rule.kind) {
+    if (rule && deleted.recurringId === rule.id && isPeriodRecord(deleted, rule)) {
       // 收入刪了 分出去的轉帳也一起刪 不然再確認一次會多一份
       if (rule.allocate) {
         const sameRun = and(eq(savingsTransactions.userId, userId), eq(savingsTransactions.recurringId, rule.id), eq(savingsTransactions.recurringPeriod, deleted.recurringPeriod), eq(savingsTransactions.kind, "transfer"));
         await tx.delete(savingsTransactions).where(sameRun);
       }
-      if (rule.mode === "confirm" && rule.lastPostedMonth === deleted.recurringPeriod) {
+      if (revertsPeriod(deleted, rule)) {
         const previous = previousOccurrenceMonth(rule, dateToMonth(deleted.recurringPeriod));
         await tx
           .update(savingsRecurring)
@@ -251,7 +251,7 @@ export async function allocateSalary(userId: string, fields: SalaryFields, now =
   return db().transaction(async (tx) => {
     // 檢查與寫入在同一個交易 任何一筆不行就全部不寫 不會只記了薪水沒分出去
     // 先鎖使用者再鎖帳戶 新紀錄的外鍵也要鎖使用者 反了會跟刪除帳號互相等
-    await lockUser(tx, userId);
+    await lockUserRow(tx, userId, "key share");
     const accounts = await ownAccounts(
       tx,
       userId,
@@ -307,7 +307,6 @@ export async function listMonthTransactions(userId: string, month: MonthKey): Pr
       accountName: savingsAccounts.name,
       counterAccountName: counter.name,
       categoryName: savingsCategories.name,
-      categoryColor: savingsCategories.color,
       holdingSymbol: savingsHoldings.symbol,
       recurringName: savingsRecurring.name,
     })
@@ -324,39 +323,11 @@ export async function listMonthTransactions(userId: string, month: MonthKey): Pr
 }
 
 const MONTH = sql<string>`to_char(${savingsTransactions.date}, 'YYYY-MM')`;
-// sum 的結果是 bigint 驅動程式回字串 累計可能超過 int 所以不在 SQL 轉型
-const sumOf = (kind: TransactionKind) => sql<number>`coalesce(sum(${savingsTransactions.amount}) filter (where ${savingsTransactions.kind} = ${kind}), 0)`.mapWith(Number);
 
-/**
- * 轉入算在 counter_account_id 其他都算在 account_id
- * 更新餘額時只算一個帳戶 而且要在交易裡讀
- */
+/** 更新餘額時只算一個帳戶 而且要在交易裡讀 */
 async function monthFlows(executor: Executor, userId: string, accountId?: number): Promise<AccountMonthFlow[]> {
-  const t = savingsTransactions;
-  const only = (column: typeof t.accountId | typeof t.counterAccountId): SQL | undefined => (accountId === undefined ? undefined : eq(column, accountId));
-  const [outgoing, incoming] = await Promise.all([
-    executor
-      .select({ accountId: t.accountId, month: MONTH, income: sumOf("income"), expense: sumOf("expense"), transferOut: sumOf("transfer"), adjust: sumOf("adjust") })
-      .from(t)
-      .where(and(eq(t.userId, userId), only(t.accountId)))
-      .groupBy(t.accountId, MONTH),
-    executor
-      .select({ accountId: t.counterAccountId, month: MONTH, transferIn: sql<number>`sum(${t.amount})`.mapWith(Number) })
-      .from(t)
-      .where(and(eq(t.userId, userId), eq(t.kind, "transfer"), only(t.counterAccountId)))
-      .groupBy(t.counterAccountId, MONTH),
-  ]);
-
-  const flows = new Map<string, AccountMonthFlow>();
-  const flowOf = (id: number, month: MonthKey) => {
-    const key = `${id}|${month}`;
-    let flow = flows.get(key);
-    if (!flow) flows.set(key, (flow = { accountId: id, month, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0 }));
-    return flow;
-  };
-  for (const row of outgoing) Object.assign(flowOf(row.accountId, row.month), { income: row.income, expense: row.expense, transferOut: row.transferOut, adjust: row.adjust });
-  for (const row of incoming) if (row.accountId !== null) flowOf(row.accountId, row.month).transferIn = row.transferIn;
-  return [...flows.values()].sort((a, b) => a.month.localeCompare(b.month) || a.accountId - b.accountId);
+  const flows = await flowsBy(executor, MONTH, (side) => and(eq(savingsTransactions.userId, userId), accountId === undefined ? undefined : eq(side, accountId)));
+  return flows.map(({ period, ...flow }) => ({ ...flow, month: period }));
 }
 
 /** 每個帳戶每月一列 資料量是帳戶數乘月數 彙總交給 lib */

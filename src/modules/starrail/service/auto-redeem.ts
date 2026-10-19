@@ -2,40 +2,35 @@ import "server-only";
 import { and, inArray } from "drizzle-orm";
 import { db } from "@/core/db";
 import { logError } from "@/core/errors";
-import { notifiedSince, notify } from "@/core/notify";
-import { taipeiDateKey } from "@/core/time";
+import { DAY_MS, taipeiDateKey } from "@/core/time";
 import { fetchActiveCodes, type PublicCode } from "../lib/codes";
 import { withAccountIds } from "../lib/cookie";
 import { redeemCode } from "../lib/hoyolab";
 import { redeemCookieProblem, redeemVerdict } from "../lib/redeem";
 import { serverLabel } from "../lib/roles";
+import { accountHref, STARRAIL_HREF } from "../lib/urls";
 import { starrailRedeemCodes, type StarrailAccount } from "../data/schema";
 import { cookieOf, listAccounts, trackingAccountChanges, type AccountChanges } from "./accounts";
-import { notifyOnce } from "./notify-once";
+import { notifiedOwnerSince, notifyOnce, notifyOwner } from "./notices";
 
-// service 不能 import 模組根目錄的 info.ts 模組 id 寫在這裡
-const MODULE_ID = "starrail";
 /** HoYoLAB 兩次兌換之間要等約 5 秒 從上一次的回應起算 多留一秒 */
 const REDEEM_GAP_MS = 6_000;
 /** 讀清單 5 秒 兌換 30 秒 加上最後一個請求的 10 秒 沒有 Fluid compute 也在 60 秒內跑完 */
 const REDEEM_BUDGET_MS = 30_000;
 const COOKIE_NOTICE_KIND = "redeem_cookie";
 /** 排程在那個小時內的任何時間都可能跑 少算半天 隔週同一天才會再通知 */
-const COOKIE_NOTICE_INTERVAL_MS = 6.5 * 86_400_000;
-
-type OwnedAccount = StarrailAccount & { userId: string };
+const COOKIE_NOTICE_INTERVAL_MS = 6.5 * DAY_MS;
 
 /** 測試換成假的時鐘 不用真的等 */
-export type RedeemClock = { now: () => number; sleep: (ms: number) => Promise<void> };
+type RedeemClock = { now: () => number; sleep: (ms: number) => Promise<void> };
 const realClock: RedeemClock = { now: () => Date.now(), sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) };
 
-type Queue = { account: OwnedAccount; cookie: string; codes: PublicCode[] };
-type Redeemed = { account: OwnedAccount; code: PublicCode };
+type Queue = { account: StarrailAccount; cookie: string; codes: PublicCode[] };
+type Redeemed = { account: StarrailAccount; code: PublicCode };
 /** 同一個擁有者的同一個 HoYoLAB 帳號 兌換成功的碼合寄一則 */
 type Group = { userId: string; ltuid: string; queues: Queue[]; redeemed: Redeemed[] };
 
-const nameOf = (account: OwnedAccount) => `${account.nickname ?? account.uid}（${serverLabel(account.region)}）`;
-const accountUrl = (account: OwnedAccount) => `/starrail?account=${account.id}`;
+const nameOf = (account: StarrailAccount) => `${account.nickname ?? account.uid}（${serverLabel(account.region)}）`;
 
 /**
  * 每天一次 替打開自動兌換的帳號送出還沒試過的兌換碼
@@ -70,7 +65,7 @@ export async function autoRedeemAll(clock: RedeemClock = realClock): Promise<str
 }
 
 /** 每個帳號還沒試過的兌換碼 cookie 解不開或少了兌換要用的鍵就略過 */
-async function buildQueues(accounts: OwnedAccount[], codes: PublicCode[], changes: AccountChanges): Promise<{ queues: Queue[]; skipped: number }> {
+async function buildQueues(accounts: StarrailAccount[], codes: PublicCode[], changes: AccountChanges): Promise<{ queues: Queue[]; skipped: number }> {
   const accountIds = accounts.map((account) => account.id);
   const tried = await db()
     .select({ accountId: starrailRedeemCodes.accountId, code: starrailRedeemCodes.code })
@@ -98,7 +93,7 @@ async function redeemQueues(queues: Queue[], clock: RedeemClock) {
   const deadline = clock.now() + REDEEM_BUDGET_MS;
   const readyAt = new Map<string, number>();
   const groups = groupQueues(queues);
-  const cookieRejected: OwnedAccount[] = [];
+  const cookieRejected: StarrailAccount[] = [];
   let redeemed = 0;
   let settled = 0;
   let stoppedByRisk = false;
@@ -163,13 +158,11 @@ async function notifyRedeemed(group: Group): Promise<void> {
   if (items.length === 0) return;
   const accountIds = new Set(items.map((item) => item.account.id));
   try {
-    await notify({
-      recipients: [group.userId],
-      module: MODULE_ID,
+    await notifyOwner(group.userId, {
       kind: "redeem",
       title: items.length === 1 ? `已自動兌換 ${items[0].code.code}` : `已自動兌換 ${items.length} 個兌換碼`,
       body: [...items.map(({ account, code }) => `${nameOf(account)}：${code.code}${code.rewards ? `（${code.rewards}）` : ""}`), "獎勵會寄到遊戲內信箱"].join("\n"),
-      url: accountIds.size === 1 ? accountUrl(items[0].account) : "/starrail",
+      url: accountIds.size === 1 ? accountHref(items[0].account.id) : STARRAIL_HREF,
     });
   } catch (error) {
     logError("starrail", "自動兌換通知失敗", error);
@@ -180,20 +173,16 @@ async function notifyRedeemed(group: Group): Promise<void> {
  * cookie 被 HoYoLAB 拒絕時請擁有者重新貼上 一個遊戲帳號一週一則
  * 認領一天後就刪 一週內寄過沒有看通知紀錄 認領只擋同一天重送的排程
  */
-async function noticeCookieRejected(account: OwnedAccount, now: Date): Promise<void> {
-  const url = accountUrl(account);
+async function noticeCookieRejected(account: StarrailAccount, now: Date): Promise<void> {
+  const url = accountHref(account.id);
   try {
-    if (await notifiedSince({ userId: account.userId, module: MODULE_ID, kind: COOKIE_NOTICE_KIND, since: new Date(now.getTime() - COOKIE_NOTICE_INTERVAL_MS), url })) return;
-    await notifyOnce(COOKIE_NOTICE_KIND, account.id, taipeiDateKey(now), now, () =>
-      notify({
-        recipients: [account.userId],
-        module: MODULE_ID,
-        kind: COOKIE_NOTICE_KIND,
-        title: `${nameOf(account)} 自動兌換失敗：cookie 已失效`,
-        body: "請用「新增帳號或更新 cookie」重新貼上，修好之前每週提醒一次",
-        url,
-      }),
-    );
+    if (await notifiedOwnerSince(account.userId, COOKIE_NOTICE_KIND, new Date(now.getTime() - COOKIE_NOTICE_INTERVAL_MS), url)) return;
+    await notifyOnce(account, taipeiDateKey(now), now, {
+      kind: COOKIE_NOTICE_KIND,
+      title: `${nameOf(account)} 自動兌換失敗：cookie 已失效`,
+      body: "請用「新增帳號或更新 cookie」重新貼上，修好之前每週提醒一次",
+      url,
+    });
   } catch (error) {
     logError("starrail", "自動兌換 cookie 失效通知失敗", error);
   }

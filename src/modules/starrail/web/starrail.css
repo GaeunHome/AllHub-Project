@@ -1,0 +1,110 @@
+/* 由 globals.css 引入到 @layer components 裡 這裡不再包一層 */
+/* 半透明的切角面板 右上與左下切掉一角 上緣一條淡金色細線 */
+.sr-panel {
+  position: relative;
+  border: 1px solid var(--line);
+  /* 幾乎不透明 背景的軌道線只在面板之間露出來 不會穿過文字 */
+  background: linear-gradient(180deg, rgb(27 35 80 / 0.94), rgb(15 20 54 / 0.94));
+  clip-path: polygon(0 0, calc(100% - var(--sr-cut, 16px)) 0, 100% var(--sr-cut, 16px), 100% 100%, var(--sr-cut, 16px) 100%, 0 calc(100% - var(--sr-cut, 16px)));
+}
+.sr-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  height: 1px;
+  background: linear-gradient(90deg, var(--sr-gold), transparent);
+  pointer-events: none;
+}
+/* 星穹鐵道的彈出視窗自己畫星空底 主題 class 只能放在 PageTheme 上 */
+/* 背景暗一點並模糊 寬螢幕跟面板一樣切角 */
+.sr-dialog {
+  background-color: #090d26;
+  background-image: var(--sr-sky);
+  background-size: var(--sr-sky-size);
+}
+.sr-dialog::backdrop {
+  background-color: rgb(0 0 0 / 0.65);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+@media (min-width: 40rem) {
+  .sr-dialog {
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+  }
+}
+/* 立繪舞台用深藍底加一圈稀有度色的光暈 不用整片亮色的稀有度底色 */
+.sr-stage {
+  --sr-stage-glow: rgb(148 163 184 / 0.3);
+  background:
+    radial-gradient(circle closest-side, var(--sr-stage-glow), transparent),
+    linear-gradient(180deg, #141c4f 0%, #0a0f2c 100%);
+}
+.sr-stage[data-rarity="5"] {
+  --sr-stage-glow: rgb(221 170 92 / 0.5);
+}
+.sr-stage[data-rarity="4"] {
+  --sr-stage-glow: rgb(156 118 236 / 0.5);
+}
+/* 區塊標題左邊一條金色短線 字距拉開 */
+.sr-title {
+  @apply flex items-center gap-2.5 text-base font-semibold tracking-[0.12em];
+  color: var(--ink);
+}
+.sr-title::before {
+  content: "";
+  width: 0.25rem;
+  height: 1.1em;
+  background: var(--sr-gold);
+  transform: skewX(-18deg);
+}
+.sr-num {
+  /* @theme inline 的變數不會輸出到 :root 直接寫 next/font 掛在外框上的字型變數 */
+  font-family: var(--font-rajdhani), var(--font-geist-sans), sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.sr-five {
+  background-image: var(--sr-five);
+}
+.sr-four {
+  background-image: var(--sr-four);
+}
+.sr-tab {
+  @apply inline-flex min-h-9 cursor-pointer items-center px-3.5 text-sm font-medium;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease;
+}
+.sr-tab:hover {
+  color: var(--ink);
+}
+.sr-tab[aria-selected="true"] {
+  color: var(--sr-gold);
+  border-bottom-color: var(--sr-gold);
+}
+/* 帳號分頁是切角的小面板 選到的是金框 */
+.sr-account-tab {
+  @apply inline-flex min-h-11 shrink-0 items-center gap-1.5 px-4 text-sm font-medium whitespace-nowrap;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  background-color: rgb(255 255 255 / 0.04);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+.sr-account-tab:hover {
+  color: var(--ink);
+  background-color: rgb(255 255 255 / 0.08);
+}
+.sr-account-tab[aria-current="page"] {
+  border-color: var(--sr-gold-line);
+  color: var(--ink);
+  background-color: var(--sr-gold-soft);
+}

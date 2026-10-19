@@ -1,15 +1,17 @@
 import "server-only";
 import { and, asc, eq, getTableColumns, inArray, isNull, lt, or } from "drizzle-orm";
+import { sendOrRelease } from "@/core/claim";
 import { db } from "@/core/db";
 import { coreUsers } from "@/core/db/schema";
+import { activeOwnerOf } from "@/core/db/users";
 import { logError } from "@/core/errors";
 import { notify } from "@/core/notify";
 import { savingsAccounts, savingsCategories, savingsHoldings, savingsRecurring, type SavingsRecurring } from "../data/schema";
 import { CARD_FLOW_DAYS, cardBill, type CardBill } from "../lib/cards";
 import { addDays, daysBetween, formatSlashDate, type DateKey } from "../lib/dates";
-import { accountBalances } from "../lib/ledger";
+import { accountBalances, accountIdsOf } from "../lib/ledger";
 import { formatTwd } from "../lib/money";
-import { pendingOccurrences, recurringTitle } from "../lib/recurring";
+import { pendingOccurrences, recurringNames, recurringTitle } from "../lib/recurring";
 import { listAccounts } from "./accounts";
 import { cardDailyFlows, listCardBills } from "./cards";
 import { accountMonthFlows } from "./transactions";
@@ -25,29 +27,16 @@ const CARD_NOTICE_DAYS = 3;
 
 export type NoticeResult = { sent: number; failed: number };
 
-const accountIdsOf = (rule: Pick<SavingsRecurring, "accountId" | "counterAccountId">) => (rule.counterAccountId === null ? [rule.accountId] : [rule.accountId, rule.counterAccountId]);
-
-/** 寄出失敗時把認領退回去 明天的排程或重送時還能再寄 */
-async function sendClaimed(send: () => Promise<void>, revert: () => Promise<unknown>): Promise<void> {
-  try {
-    await send();
-  } catch (error) {
-    await revert();
-    throw error;
-  }
-}
+// 寄出失敗時把認領退回去 明天的排程或重送時還能再寄
+const RELEASE_LOG = { module: "savings", what: "退回到期通知的認領失敗" };
 
 /** 名稱跟待處理一樣 從擁有者自己的帳戶 分類與持股找 */
-async function ruleTitle(rule: SavingsRecurring, accountNames: Map<number, string>): Promise<string> {
+async function ruleTitle(rule: SavingsRecurring, accounts: { id: number; name: string }[]): Promise<string> {
   const [categories, holdings] = await Promise.all([
     rule.categoryId === null ? [] : db().select({ id: savingsCategories.id, name: savingsCategories.name }).from(savingsCategories).where(and(eq(savingsCategories.id, rule.categoryId), eq(savingsCategories.userId, rule.userId))),
     rule.holdingId === null ? [] : db().select({ id: savingsHoldings.id, symbol: savingsHoldings.symbol }).from(savingsHoldings).where(and(eq(savingsHoldings.id, rule.holdingId), eq(savingsHoldings.userId, rule.userId))),
   ]);
-  return recurringTitle(rule, {
-    accounts: accountNames,
-    categories: new Map(categories.map((category) => [category.id, category.name])),
-    holdingSymbols: new Map(holdings.map((holding) => [holding.id, holding.symbol])),
-  });
+  return recurringTitle(rule, recurringNames({ accounts, categories, holdings }));
 }
 
 /** 某一期的日期是今天才寄 帳戶停用的不寄 待處理也不會列 */
@@ -67,10 +56,11 @@ async function noticeRule(rule: SavingsRecurring, today: DateKey): Promise<boole
   if (claimed.length === 0) return false;
 
   // 薪水每月不一樣 提醒填實際的金額
-  const title = rule.allocate ? "今天發薪：記得確認實際金額" : `今天到期：${await ruleTitle(rule, new Map(accounts.map((account) => [account.id, account.name])))} ${formatTwd(rule.amount)}`;
-  await sendClaimed(
+  const title = rule.allocate ? "今天發薪：記得確認實際金額" : `今天到期：${await ruleTitle(rule, accounts)} ${formatTwd(rule.amount)}`;
+  await sendOrRelease(
     () => notify({ recipients: [rule.userId], module: MODULE_ID, kind: "recurring_due", title, url: PAGE }),
     () => db().update(savingsRecurring).set({ lastNotifiedOn: rule.lastNotifiedOn }).where(and(eq(savingsRecurring.id, rule.id), eq(savingsRecurring.lastNotifiedOn, today))),
+    RELEASE_LOG,
   );
   return true;
 }
@@ -102,9 +92,10 @@ async function noticeCards(userId: string, cards: NotifiableCard[], today: DateK
         .where(and(eq(savingsAccounts.id, card.id), or(isNull(savingsAccounts.cardNotifiedOn), lt(savingsAccounts.cardNotifiedOn, today))))
         .returning({ id: savingsAccounts.id });
       if (claimed.length === 0) continue;
-      await sendClaimed(
+      await sendOrRelease(
         () => notify({ recipients: [userId], module: MODULE_ID, kind: notice.kind, title: notice.title, url: PAGE }),
         () => db().update(savingsAccounts).set({ cardNotifiedOn: card.cardNotifiedOn }).where(and(eq(savingsAccounts.id, card.id), eq(savingsAccounts.cardNotifiedOn, today))),
+        RELEASE_LOG,
       );
       result.sent++;
     } catch (error) {
@@ -120,7 +111,7 @@ export async function sendDueNotices(today: DateKey): Promise<NoticeResult> {
   const rules = await db()
     .select(getTableColumns(savingsRecurring))
     .from(savingsRecurring)
-    .innerJoin(coreUsers, and(eq(coreUsers.id, savingsRecurring.userId), isNull(coreUsers.disabledAt)))
+    .innerJoin(coreUsers, activeOwnerOf(savingsRecurring.userId))
     .where(and(eq(savingsRecurring.mode, "confirm"), eq(savingsRecurring.active, true)))
     .orderBy(asc(savingsRecurring.id));
   for (const rule of rules) {
@@ -144,7 +135,7 @@ export async function sendDueNotices(today: DateKey): Promise<NoticeResult> {
       cardNotifiedOn: savingsAccounts.cardNotifiedOn,
     })
     .from(savingsAccounts)
-    .innerJoin(coreUsers, and(eq(coreUsers.id, savingsAccounts.userId), isNull(coreUsers.disabledAt)))
+    .innerJoin(coreUsers, activeOwnerOf(savingsAccounts.userId))
     .where(and(eq(savingsAccounts.kind, "credit"), eq(savingsAccounts.active, true)))
     .orderBy(asc(savingsAccounts.userId), asc(savingsAccounts.id));
   const byUser = Map.groupBy(cards, (card) => card.userId);

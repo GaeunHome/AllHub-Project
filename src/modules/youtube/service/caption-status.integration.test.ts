@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
-import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
-import { insertTestUser, setupTestDb } from "@/dev/test-db";
-import { mocksOf } from "@/dev/test-helpers";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { captureErrorLog, mocksOf } from "@/dev/test-helpers";
 import { youtubeChannels, youtubeFollows, youtubeVideos } from "../data/schema";
+import { CHANNEL_ID as CH, KOREAN_TRACKS as KO } from "../dev/fixtures";
 
 vi.mock("../lib/subtitles/captions", { spy: true });
 
@@ -10,7 +11,6 @@ const { listCaptionTracks } = mocksOf(await import("../lib/subtitles/captions"),
 const captionStatus = await import("./caption-status");
 const { RECHECK_BATCH, checkChineseCaptions } = captionStatus;
 
-const CH = "UC" + "a".repeat(22);
 const NOW = new Date("2026-10-07T12:00:00Z");
 const hoursAgo = (hours: number) => new Date(NOW.getTime() - hours * 3600_000);
 
@@ -21,7 +21,6 @@ let other: string;
 const recheckDueCaptions = (now: Date) => captionStatus.recheckDueCaptions(me, now);
 
 const ZH = { ok: true, tracks: [{ languageCode: "zh-TW", automatic: false, translated: false }] };
-const KO = { ok: true, tracks: [{ languageCode: "ko", automatic: false, translated: false }] };
 const BLOCKED = { ok: false, reason: "blocked", message: "要求驗證" };
 
 type VideoSeed = Partial<typeof youtubeVideos.$inferInsert> & { videoId: string };
@@ -33,8 +32,7 @@ const videoRow = async (videoId: string) => (await getDb().select().from(youtube
 
 beforeEach(async () => {
   listCaptionTracks.mockReset().mockResolvedValue(KO);
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
+  [me, other] = await insertTestUsers(getDb());
   await getDb().insert(youtubeChannels).values({ channelId: CH, title: "뉴진스" });
   await getDb().insert(youtubeFollows).values({ userId: me, channelId: CH });
 });
@@ -202,8 +200,7 @@ describe("recheckDueCaptions（影片清單顯示時在背景重新檢查）", (
   });
 
   it("某一支檢查出錯_其他照樣檢查，不往外丟", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    onTestFinished(() => log.mockRestore());
+    captureErrorLog();
     await insertVideos({ videoId: "aaaaaaaaaaa" }, { videoId: "bbbbbbbbbbb" });
     listCaptionTracks.mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce(ZH);
 

@@ -14,10 +14,6 @@ const subtitleSize = createLocalPref<SubtitleSize>({
   parse: (stored) => SUBTITLE_SIZES.find((size) => size.id === stored)?.id,
 });
 
-export const readSubtitleSize = subtitleSize.read;
-
-export const saveSubtitleSize = subtitleSize.save;
-
 export function useSubtitleSize(): [SubtitleSize, (size: SubtitleSize) => void] {
   return [subtitleSize.useValue(), subtitleSize.save];
 }

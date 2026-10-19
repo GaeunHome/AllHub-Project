@@ -12,10 +12,11 @@ vi.mock("../lib/subtitles", { spy: true });
 vi.mock("../lib/api", { spy: true });
 
 const { fetchKoreanCaptions, translateBatch } = mocksOf(await import("../lib/subtitles"), "fetchKoreanCaptions", "translateBatch");
-const { fetchVideoTitle } = mocksOf(await import("../lib/api"), "fetchVideoTitle");
-const { AiError, DEFAULT_MODELS } = await import("../lib/subtitles");
+const { fetchVideoInfo } = mocksOf(await import("../lib/api"), "fetchVideoInfo");
+const { AiError } = await import("../lib/subtitles");
+const aiSettings = await import("./ai-settings");
 const translation = await import("./translation");
-const { TranslationUserError, ApiKeySetupError } = translation;
+const { TranslationUserError, ApiKeySetupError } = await import("./errors");
 
 const VIDEO = "dQw4w9WgXcQ";
 type BatchArgs = { cues: { text: string }[]; batch: { start: number; end: number }; beforeCall?: () => Promise<void> };
@@ -32,9 +33,7 @@ let boss: string;
 const member = (id: string) => ({ id, role: "member" as const });
 
 // 沒特別說的都是 me 在操作
-const saveSettings = (input: Parameters<typeof translation.saveSettings>[1]) => translation.saveSettings(me, input);
-const getSettingsView = () => translation.getSettingsView(me);
-const missingApiKeyMessage = () => translation.missingApiKeyMessage(me);
+const saveSettings = (input: Parameters<typeof aiSettings.saveSettings>[1]) => aiSettings.saveSettings(me, input);
 const startTranslation = (videoId: string) => translation.startTranslation(me, videoId);
 const uploadSubtitles = (videoId: string, content: string) => translation.uploadSubtitles(member(me), videoId, content);
 const continueTranslation = (videoId: string, options?: Parameters<typeof translation.continueTranslation>[2]) => translation.continueTranslation(me, videoId, options);
@@ -53,80 +52,12 @@ beforeEach(async () => {
   clock = 1_000_000;
   batchMs = 1000;
   fetchKoreanCaptions.mockReset().mockResolvedValue({ ok: true, kind: "manual", language: "ko", cues: cues(130) });
-  fetchVideoTitle.mockReset().mockResolvedValue("影片標題");
+  fetchVideoInfo.mockReset().mockResolvedValue({ title: "影片標題", channelName: null, channelUrl: null });
   translateBatch.mockReset().mockImplementation(async ({ cues: all, batch }: { cues: { text: string }[]; batch: { start: number; end: number } }) => {
     clock += batchMs;
     return all.slice(batch.start, batch.end).map((c) => `中 ${c.text}`);
   });
   await saveSettings({ provider: "anthropic", keys: { anthropic: "sk-ant-secret-1234" }, clear: [], models: {}, glossaryText: "지수=Jisoo" });
-});
-
-describe("設定", () => {
-  it("金鑰加密儲存_畫面只看到末4碼_留空不變更_可清除", async () => {
-    const [row] = await testDb.select().from(youtubeSettings);
-    expect(row.anthropicKey).not.toContain("sk-ant");
-    expect(row.anthropicKeyHint).toBe("1234");
-
-    await saveSettings({ provider: "openai", keys: { anthropic: "", openai: "sk-openai-9876" }, clear: [], models: { openai: " gpt-x " }, glossaryText: "" });
-    let view = await getSettingsView();
-    expect(view.provider).toBe("openai");
-    expect(view.keys).toEqual({ anthropic: "1234", openai: "9876", gemini: null });
-    expect(view.customModels.openai).toBe("gpt-x");
-    expect(view.glossaryText).toBe("");
-    expect(JSON.stringify(view)).not.toContain("sk-");
-
-    await saveSettings({ provider: "openai", keys: {}, clear: ["anthropic"], models: {}, glossaryText: "" });
-    view = await getSettingsView();
-    expect(view.keys.anthropic).toBeNull();
-  });
-
-  it("沒填模型時用預設值", async () => {
-    const view = await getSettingsView();
-    expect(view.customModels.anthropic).toBe("");
-    expect(view.defaultModels.anthropic).toBe("claude-haiku-4-5");
-    // 實際會用的模型由 customModels 與 defaultModels 合併 不再另外放一份
-    expect(view).not.toHaveProperty("models");
-  });
-
-  it("觀看頁的金鑰提示：目前的供應商有金鑰回 null，沒有就回要去設定的提示", async () => {
-    expect(await missingApiKeyMessage()).toBeNull();
-
-    await saveSettings({ provider: "gemini", keys: {}, clear: [], models: {}, glossaryText: "" });
-    expect(await missingApiKeyMessage()).toContain("還沒設定 Gemini 的 API Key");
-  });
-
-  it("模型留空存 null；表單拿到原始自訂值（沒填是空字串）與程式預設值當提示", async () => {
-    await saveSettings({ provider: "anthropic", keys: {}, clear: [], models: { anthropic: "", openai: "  ", gemini: "gemini-custom" }, glossaryText: "" });
-
-    const [row] = await testDb.select().from(youtubeSettings);
-    expect(row).toMatchObject({ anthropicModel: null, openaiModel: null, geminiModel: "gemini-custom" });
-    const view = await getSettingsView();
-    expect(view.customModels).toEqual({ anthropic: "", openai: "", gemini: "gemini-custom" });
-    expect(view.defaultModels).toEqual(DEFAULT_MODELS);
-  });
-});
-
-describe("專有名詞表的上限（存檔時檢查）", () => {
-  const glossaryOf = (n: number) => Array.from({ length: n }, (_, i) => `이름${i}=名字${i}`).join("\n");
-
-  it("在上限內_照常儲存", async () => {
-    await saveSettings({ provider: "anthropic", keys: {}, clear: [], models: {}, glossaryText: glossaryOf(200) });
-
-    expect((await testDb.select().from(youtubeSettings))[0].glossary).toHaveLength(200);
-  });
-
-  it.each([
-    ["超過 200 筆", glossaryOf(201), "專有名詞表最多 200 筆"],
-    ["詞太長", `${"가".repeat(51)}=太長`, "專有名詞表每個詞最多 50 字"],
-    ["合計太長", Array.from({ length: 120 }, (_, i) => `${"가".repeat(20)}${i}=${"中".repeat(25)}`).join("\n"), "專有名詞表合計最多 5,000 字"],
-  ])("%s_回中文錯誤，整份設定都不寫入（金鑰也不換）", async (_name, glossaryText, message) => {
-    const error = await saveSettings({ provider: "openai", keys: { openai: "sk-openai-new-0000" }, clear: [], models: {}, glossaryText }).catch((e: unknown) => e);
-
-    expect(error).toBeInstanceOf(TranslationUserError);
-    expect((error as Error).message).toContain(message);
-    const view = await getSettingsView();
-    expect(view).toMatchObject({ provider: "anthropic", keys: { openai: null }, glossaryText: "지수=Jisoo" });
-  });
 });
 
 describe("startTranslation", () => {
@@ -150,7 +81,7 @@ describe("startTranslation", () => {
   it("追蹤影片已有標題時不另外查", async () => {
     await getDb().insert(youtubeVideos).values({ videoId: VIDEO, channelId: "UC" + "a".repeat(22), title: "已知標題" });
     await startTranslation(VIDEO);
-    expect(fetchVideoTitle).not.toHaveBeenCalled();
+    expect(fetchVideoInfo).not.toHaveBeenCalled();
     const [row] = await testDb.select().from(youtubeTranslations);
     expect(row.title).toBe("已知標題");
   });
@@ -544,31 +475,8 @@ describe("continueTranslation：觀看中（帶播放位置）", () => {
   });
 });
 
-describe("翻譯設定與 API Key 每人一份", () => {
-  it("每個人各自一列：別人存的金鑰不會蓋掉我的，畫面也只看得到自己的末 4 碼", async () => {
-    await translation.saveSettings(other, { provider: "gemini", keys: { gemini: "gm-other-5678" }, clear: [], models: {}, glossaryText: "제니=Jennie" });
-
-    expect(await getSettingsView()).toMatchObject({ provider: "anthropic", keys: { anthropic: "1234", openai: null, gemini: null }, glossaryText: "지수=Jisoo" });
-    expect(await translation.getSettingsView(other)).toMatchObject({ provider: "gemini", keys: { anthropic: null, openai: null, gemini: "5678" }, glossaryText: "제니=Jennie" });
-    expect((await testDb.select().from(youtubeSettings)).map((row) => row.userId).sort()).toEqual([me, other].sort());
-  });
-
-  it("還沒設定過的人_提示要先填 API Key", async () => {
-    expect(await translation.missingApiKeyMessage(boss)).toContain("還沒設定 Claude 的 API Key");
-    await expect(translation.startTranslation(boss, VIDEO)).rejects.toBeInstanceOf(ApiKeySetupError);
-  });
-
-  it("單人版留下的 id = 1 那一列（migration 已歸給站長）照常讀得到；新的列自動編號，不會撞到 1", async () => {
-    await getDb().insert(youtubeSettings).values({ id: 1, userId: boss, provider: "openai", openaiKeyHint: "0000" });
-
-    expect((await translation.getSettingsView(boss)).provider).toBe("openai");
-    const ids = (await testDb.select().from(youtubeSettings)).map((row) => row.id);
-    expect(ids.filter((id) => id === 1)).toHaveLength(1);
-  });
-});
-
 describe("翻譯共用：同一支影片所有人看同一份", () => {
-  const otherKey = async () => translation.saveSettings(other, { provider: "openai", keys: { openai: "sk-openai-other-4321" }, clear: [], models: {}, glossaryText: "제니=Jennie" });
+  const otherKey = async () => aiSettings.saveSettings(other, { provider: "openai", keys: { openai: "sk-openai-other-4321" }, clear: [], models: {}, glossaryText: "제니=Jennie" });
 
   it("記下發起人與發起時的專有名詞表；別人再按開始翻譯直接沿用，不重抓字幕", async () => {
     await otherKey();
@@ -671,7 +579,7 @@ describe("翻譯共用：同一支影片所有人看同一份", () => {
   });
 
   it("站長可以重新翻譯成員發起的翻譯；之後發起人變成站長、專有名詞表換成站長當下的設定", async () => {
-    await translation.saveSettings(boss, { provider: "anthropic", keys: { anthropic: "sk-ant-boss-0000" }, clear: [], models: {}, glossaryText: "리사=Lisa" });
+    await aiSettings.saveSettings(boss, { provider: "anthropic", keys: { anthropic: "sk-ant-boss-0000" }, clear: [], models: {}, glossaryText: "리사=Lisa" });
     await startTranslation(VIDEO);
     await continueTranslation(VIDEO, { now });
 

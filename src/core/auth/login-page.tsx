@@ -2,13 +2,12 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { logError } from "../errors";
+import type { SearchParams } from "../module";
 import { LoadingState, Skeleton } from "../ui/skeleton";
 import { AuthCard, AuthNotice } from "./auth-card";
 import { LoginForm } from "./login-form";
 import { captchaImageUrl } from "./messages";
 import { hasAnyUser } from "./users";
-
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   return (

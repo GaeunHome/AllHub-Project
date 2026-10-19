@@ -5,24 +5,18 @@ import { captureErrorLog, expiredTags, form, mocksOf, updated } from "@/dev/test
 const deferred = vi.hoisted(() => ({ tasks: [] as (() => unknown)[] }));
 
 vi.mock("next/server", () => ({ after: (task: () => unknown) => deferred.tasks.push(task) }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/channels", { spy: true });
 vi.mock("../service/caption-status", { spy: true });
 vi.mock("../service/translation", { spy: true });
+vi.mock("../service/ai-settings", { spy: true });
 vi.mock("../service/saved-videos", { spy: true });
 
 const channels = mocksOf(await import("../service/channels"), "addChannel", "removeChannel", "renewSubscriptionsFor", "setChannelNotify");
 const captions = mocksOf(await import("../service/caption-status"), "checkFollowedVideoCaptions");
-const translation = mocksOf(
-  await import("../service/translation"),
-  "saveSettings",
-  "startTranslation",
-  "uploadSubtitles",
-  "retryTranslation",
-  "restartTranslation",
-  "continueTranslation",
-);
+const translation = mocksOf(await import("../service/translation"), "startTranslation", "uploadSubtitles", "retryTranslation", "restartTranslation", "continueTranslation");
+const settings = mocksOf(await import("../service/ai-settings"), "saveSettings");
 const saved = mocksOf(await import("../service/saved-videos"), "keepVideo", "removeSavedVideo");
 const actions = await import("./actions");
 
@@ -39,6 +33,7 @@ beforeEach(() => {
   channels.setChannelNotify.mockReset().mockResolvedValue(true);
   captions.checkFollowedVideoCaptions.mockReset().mockResolvedValue("no");
   for (const fn of Object.values(translation)) fn.mockReset().mockResolvedValue(undefined);
+  settings.saveSettings.mockReset().mockResolvedValue(undefined);
   translation.startTranslation.mockResolvedValue({ ok: true });
   translation.continueTranslation.mockResolvedValue(QUEUED);
   saved.keepVideo.mockReset().mockResolvedValue("saved");
@@ -106,7 +101,7 @@ describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag �
     ["saveSettingsAction 沒選供應商", () => actions.saveSettingsAction({}, form({ provider: "other" }))],
     ["startTranslationAction 的影片 id 不正確", () => actions.startTranslationAction("bad id")],
     ["uploadSubtitlesAction 沒選檔案", () => actions.uploadSubtitlesAction({}, form({ videoId: VIDEO }))],
-    ["openVideoAction 只是轉址", () => actions.openVideoAction({}, form({ url: VIDEO }))],
+    ["openVideoAction 只是轉址", () => expect(actions.openVideoAction({}, form({ url: VIDEO }))).rejects.toThrow("NEXT_REDIRECT:/youtube/watch/dQw4w9WgXcQ")],
     ["saveVideoAction 的影片 id 不正確", () => actions.saveVideoAction({}, form({ videoId: "bad" }))],
     ["removeSavedVideoAction 的影片 id 不正確", () => actions.removeSavedVideoAction({}, form({ videoId: "bad" }))],
     [

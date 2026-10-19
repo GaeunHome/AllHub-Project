@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { insertTestUser, setupTestDb } from "@/dev/test-db";
-import { savingsAccounts, savingsCardBills, savingsCategories, savingsHoldings, savingsPurposes, savingsRecurring, savingsTransactions } from "./schema";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { savingsAccounts, savingsCardBills, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions } from "./schema";
 
 // 程式漏檢查時資料庫也會擋 約束跟 lib 的驗證是同一套規則
 
@@ -12,8 +12,7 @@ let deposit: number;
 let post: number;
 
 beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
+  [me, other] = await insertTestUsers(getDb());
   const rows = await getDb()
     .insert(savingsAccounts)
     .values([
@@ -176,9 +175,8 @@ describe("信用卡帳單（savings_card_bills）", () => {
   });
 });
 
-describe("用途與分類", () => {
+describe("分類", () => {
   it("顏色只能是色盤裡的", async () => {
-    expect(await failureOf(getDb().insert(savingsPurposes).values({ userId: me, name: "生活費", color: "pink" as "blue" }))).toContain("savings_purposes_color");
     expect(await failureOf(getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "餐飲", color: "pink" as "blue" }))).toContain("savings_categories_color");
   });
 
@@ -196,13 +194,9 @@ describe("用途與分類", () => {
 });
 
 describe("名稱：同一個人不能重複（分類是同一類裡），別人的不算", () => {
-  it("帳戶、用途、分類", async () => {
+  it("帳戶、分類", async () => {
     expect(await failureOf(account({ name: "國泰", kind: "credit" }))).toContain("savings_accounts_user_name_idx");
     await account({ name: "國泰", userId: other });
-
-    await getDb().insert(savingsPurposes).values({ userId: me, name: "生活費", color: "blue" });
-    expect(await failureOf(getDb().insert(savingsPurposes).values({ userId: me, name: "生活費", color: "rose" }))).toContain("savings_purposes_user_name_idx");
-    await getDb().insert(savingsPurposes).values({ userId: other, name: "生活費", color: "blue" });
 
     await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "其他", color: "slate" });
     expect(await failureOf(getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "其他", color: "blue" }))).toContain("savings_categories_user_kind_name_idx");

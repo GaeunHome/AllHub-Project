@@ -1,9 +1,8 @@
-import { createElement, type ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { markup, mocksOf } from "@/dev/test-helpers";
+import type { SavingsRecurring } from "../../data/schema";
+import { accountRow, ruleRow } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), usePathname: () => "/savings/recurring" }));
@@ -20,59 +19,15 @@ const cached = mocksOf(await import("../../service/cached"), "cachedAccounts", "
 const { SalarySection } = await import("../components/recurring/salary-section");
 const { RegularBuyList } = await import("../components/recurring/regular-buy-list");
 const { OtherRecurringList } = await import("../components/recurring/other-recurring-list");
-const { RecurringPage, RecurringSection } = await import("./recurring-page");
+const { RecurringSection } = await import("./recurring-page");
 
-const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: true };
 const CREATED = new Date("2026-08-01T02:00:00Z");
-const account = (id: number, name: string, kind: "deposit" | "investment" | "credit") => ({
-  id,
-  userId: "u",
-  name,
-  kind,
-  label: null,
-  cardStyle: null,
-  purposeId: null,
-  openingBalance: 0,
-  openingCost: null,
-  monthlyPlan: null,
-  targetAmount: null,
-  dueDay: null,
-  statementDay: null,
-  payFromAccountId: null,
-  autopay: false,
-  cardNotifiedOn: null,
-  active: true,
-  sortOrder: id,
-  createdAt: CREATED,
-});
-const ACCOUNTS = [account(1, "生活費帳戶", "deposit"), account(2, "台銀", "deposit"), account(6, "臺銀證券", "investment")];
-const rule = (id: number, fields: Record<string, unknown> = {}) => ({
-  id,
-  userId: "u",
-  kind: "expense",
-  name: "房租",
-  accountId: 1,
-  counterAccountId: null,
-  categoryId: null,
-  amount: 15000,
-  dayOfMonth: 20,
-  intervalMonths: 1,
-  startMonth: null,
-  holidayRule: "none",
-  mode: "confirm",
-  holdingId: null,
-  allocate: false,
-  note: null,
-  active: true,
-  lastPostedMonth: "2026-09-01",
-  lastNotifiedOn: null,
-  createdAt: CREATED,
-  ...fields,
-});
+const ACCOUNTS = [accountRow({ id: 1, name: "生活費帳戶", kind: "deposit" }), accountRow({ id: 2, name: "台銀", kind: "deposit" }), accountRow({ id: 6, name: "臺銀證券", kind: "investment" })];
+const rule = (id: number, fields: Partial<SavingsRecurring> = {}) => ruleRow({ id, name: "房租", ...fields });
 const RULES = [rule(30, { kind: "income", name: "薪水", allocate: true, dayOfMonth: 10 }), rule(32)];
 const HOLDINGS = [{ id: 50, userId: "u", accountId: 6, symbol: "006208", name: "富邦台灣50", shares: 238, cost: 24000, sortOrder: 0, createdAt: CREATED }];
 
-const visit = async (search: Record<string, string | string[] | undefined> = {}) => renderToStaticMarkup((await RecurringSection({ searchParams: Promise.resolve(search) })) as ReactElement);
+const visit = async (search: Record<string, string | string[] | undefined> = {}) => markup(await RecurringSection({ searchParams: Promise.resolve(search) }));
 const propsOf = (component: unknown) => vi.mocked(component as (props: Record<string, unknown>) => null).mock.calls[0][0];
 
 beforeEach(() => {
@@ -87,12 +42,6 @@ beforeEach(() => {
 });
 
 describe("每月固定頁", () => {
-  it("頁首與分頁列（每月固定是目前這一頁）", () => {
-    const markup = renderToStaticMarkup(createElement(RecurringPage, { info: INFO, searchParams: Promise.resolve({}) }));
-
-    expect(markup).toMatch(/<a [^>]*aria-current="page"[^>]*href="\/savings\/recurring"|<a [^>]*href="\/savings\/recurring"[^>]*aria-current="page"/);
-  });
-
   it("用登入者（bob）的 id 讀資料", async () => {
     requireSession.mockResolvedValue(OTHER_SESSION);
 

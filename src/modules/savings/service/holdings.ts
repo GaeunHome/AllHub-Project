@@ -1,6 +1,7 @@
 import "server-only";
 import { and, asc, eq } from "drizzle-orm";
-import { db } from "@/core/db";
+import { db, type Executor } from "@/core/db";
+import { lockUserRow } from "@/core/db/users";
 import { savingsHoldings, savingsTransactions, type SavingsHolding, type SavingsTransaction } from "../data/schema";
 import { taipeiToday, type DateKey } from "../lib/dates";
 import { removedCost, tradeNote } from "../lib/holdings";
@@ -20,7 +21,7 @@ import {
   TRADE_ACCOUNT_NOT_DEPOSIT,
 } from "./errors";
 import { findQuote } from "./quotes";
-import { lockUser, nextSortOrder, ownAccounts, requireAccount, requireStarted, valid, withUniqueName, type AccountRef, type Executor } from "./shared";
+import { nextSortOrder, ownAccounts, requireAccount, requireStarted, valid, withUniqueName, type AccountRef } from "./shared";
 
 // userId 一律是登入者 別人的 id 當作不存在
 // 鎖的順序跟刪除帳號 帳戶 持股的連帶刪除一樣 使用者 帳戶 持股 再寫紀錄
@@ -107,7 +108,7 @@ export async function lockOwnHolding(executor: Executor, userId: string, id: num
 async function lockTrade(executor: Executor, userId: string, input: TradeInput): Promise<{ holding: SavingsHolding; cash: AccountRef; investment: AccountRef }> {
   const [found] = await executor.select({ accountId: savingsHoldings.accountId }).from(savingsHoldings).where(own(userId, input.holdingId));
   if (!found) throw new SavingsUserError(NOT_FOUND.holding);
-  await lockUser(executor, userId);
+  await lockUserRow(executor, userId, "key share");
   const accounts = await ownAccounts(executor, userId, [input.accountId, found.accountId], "share");
   const cash = requireAccount(accounts, input.accountId, true);
   if (cash.kind !== "deposit") throw new SavingsUserError(TRADE_ACCOUNT_NOT_DEPOSIT);

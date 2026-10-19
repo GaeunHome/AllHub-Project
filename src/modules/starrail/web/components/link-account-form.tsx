@@ -5,10 +5,11 @@ import { useEffect, useState } from "react";
 import { DialogButton, useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
-import { accountHref } from "../account-tabs";
 import { linkAccountAction, type LinkState } from "../actions";
-import type { RoleChoice } from "../../service/accounts";
+import { accountHref } from "../../lib/urls";
+import type { RoleChoice } from "../../service/link";
 import { useShowLinkResult } from "./link-result";
+import { GoldChip } from "./sr-visuals";
 
 /** 還沒連結時直接顯示表單 已有帳號時只是一個按鈕 要新增或更新 cookie 再打開視窗 */
 export function LinkAccountForm({ defaultOpen }: { defaultOpen: boolean }) {
@@ -157,7 +158,7 @@ export function RoleChooser({ cookie, choices, pending, onBack }: RoleChooserPro
         {choices.map((role, index) => (
           <label key={role.uid} className="choice-card flex-wrap">
             <input type="checkbox" name="uid" value={role.uid} defaultChecked={role.selected} data-autofocus={index === 0 || undefined} className="size-4 shrink-0" />
-            <span className="chip border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-[#f4d79b]">{role.server}</span>
+            <GoldChip>{role.server}</GoldChip>
             <span className="font-semibold text-ink">{role.nickname ?? "（未知暱稱）"}</span>
             {role.level !== null && <span className="sr-num text-lg font-bold text-sr-gold">Lv.{role.level}</span>}
             <span className="text-sm text-ink-soft">

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { ModuleInfo } from "../module";
+import { pageModules, type ModuleInfo } from "../module";
 import { HomeNotifications } from "../notifications/home-notifications";
 import { HomeCard } from "./home-card";
 import { Icon } from "./icon";
@@ -16,7 +16,10 @@ type HomePageProps = {
    * 超寬螢幕時跟並排的那組各佔半列
    */
   half?: ReactNode;
-  /** 兩張並排等寬等高 超寬螢幕時在 half 旁邊上下排 最後一張固定是未讀通知 */
+  /**
+   * 兩張並排等寬等高 超寬螢幕時在 half 旁邊上下排
+   * 最後固定是未讀通知 兩欄時獨佔一整列 前面兩張一列時旁邊才不會空一格
+   */
   compact: ReactNode;
 };
 
@@ -29,10 +32,10 @@ export function HomePage({ modules, wide, half, compact }: HomePageProps) {
         {/* 模組入口縮成一排 沒有首頁卡片的模組也從這裡進去 */}
         <nav aria-label="所有功能">
           <ul className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-            {modules.map((m) => (
+            {pageModules(modules).map((m) => (
               <li key={m.id} className="min-w-0">
                 <Link href={m.href} data-accent={m.accent} className="home-module-link">
-                  {m.icon ? <Icon src={m.icon} /> : <Icon name="sparkles" />}
+                  <Icon src={m.icon} />
                   <span className="max-w-full truncate">{m.name}</span>
                 </Link>
               </li>
@@ -49,7 +52,7 @@ export function HomePage({ modules, wide, half, compact }: HomePageProps) {
         {/* 超寬螢幕時在 half 旁邊改上下排 兩張並排會比旁邊矮很多 底下留一大片空白 */}
         <div className={`grid grid-cols-1 gap-8 sm:grid-cols-2 ${half ? "2xl:grid-cols-1" : "2xl:col-span-2"}`}>
           {compact}
-          <HomeCard info={NOTIFICATIONS} title="未讀通知" skeleton={null}>
+          <HomeCard info={NOTIFICATIONS} title="未讀通知" skeleton={null} className={half ? "sm:col-span-2 2xl:col-span-1" : "sm:col-span-2"}>
             <HomeNotifications />
           </HomeCard>
         </div>

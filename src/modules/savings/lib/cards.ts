@@ -1,4 +1,4 @@
-import { addDays, daysBetween, dueStatus, type DateKey, type DueStatus } from "./dates";
+import { addDays, daysBetween, dueStatus, earliestOf, latestOf, type DateKey, type DueStatus } from "./dates";
 import { shiftForHoliday } from "./holidays";
 import { addMonths, dateToMonth } from "./month";
 import { scheduledDate } from "./recurring";
@@ -29,7 +29,6 @@ export type CardBill = {
   owedNow: number;
   statementDate: DateKey | null;
   dueDate: DateKey | null;
-  billId: number | null;
   statementAmount: number | null;
   estimate: number;
   paid: number;
@@ -41,9 +40,9 @@ export type CardBill = {
 
 /**
  * 填帳單視窗的預設 statementDate 是這次要填的那一期 沒有結帳日的卡是今天
- * dueDate 是帳單上印的日子 shiftedDueDate 是遇假日順延後真正的期限
+ * dueDate 是帳單上印的日子 遇假日順延的那天由視窗自己算
  */
-export type BillDefaults = { statementDate: DateKey; estimate: number; dueDate: DateKey; shiftedDueDate: DateKey };
+export type BillDefaults = { statementDate: DateKey; estimate: number; dueDate: DateKey };
 
 /** 上次結帳日最多在一個多月前 往前 70 天一定涵蓋結帳後的紀錄 */
 export const CARD_FLOW_DAYS = 70;
@@ -138,10 +137,9 @@ export function billPayments(
   return statements.map((statement, i) => {
     const from = cutoffs[i];
     // 下一張是結帳日比它晚的裡面最早的那張
-    const until = cutoffs.filter((cutoff) => cutoff > from).reduce<DateKey | null>((earliest, cutoff) => (earliest === null || cutoff < earliest ? cutoff : earliest), null);
+    const until = earliestOf(cutoffs.filter((cutoff) => cutoff > from));
     const mine = payments.filter((payment) => payment.date > from && (until === null || payment.date <= until));
-    const lastPaidOn = mine.reduce<DateKey | null>((latest, payment) => (latest === null || payment.date > latest ? payment.date : latest), null);
-    return { id: statement.id, paid: mine.reduce((total, payment) => total + payment.amount, 0), lastPaidOn };
+    return { id: statement.id, paid: mine.reduce((total, payment) => total + payment.amount, 0), lastPaidOn: latestOf(mine.map((payment) => payment.date)) };
   });
 }
 
@@ -165,7 +163,6 @@ export function cardBill(card: CardLike, balance: number, flows: CardDailyFlow[]
       owedNow,
       statementDate: statement.statementDate,
       dueDate,
-      billId: statement.id,
       statementAmount: statement.amount,
       estimate: owedAt(cutoff),
       paid,
@@ -180,7 +177,7 @@ export function cardBill(card: CardLike, balance: number, flows: CardDailyFlow[]
     const estimate = statementDate === null ? owedNow : owedAt(statementDate);
     const paid = statementDate === null ? 0 : paidAfter(statementDate);
     const needsBill = statementDate !== null;
-    return { accountId: card.id, owedNow, statementDate, dueDate: null, billId: null, statementAmount: null, estimate, paid, remainingDue: Math.max(0, estimate - paid), needsBill, status: needsBill ? "needs-bill" : "none", daysLeft: null };
+    return { accountId: card.id, owedNow, statementDate, dueDate: null, statementAmount: null, estimate, paid, remainingDue: Math.max(0, estimate - paid), needsBill, status: needsBill ? "needs-bill" : "none", daysLeft: null };
   };
 
   const own = statements.filter((statement) => statement.accountId === card.id);
@@ -199,5 +196,5 @@ export function billDefaults(card: CardLike & { dueDay: number | null }, balance
   const statementDate = fillStatementDate(card, today);
   const own = statements.filter((statement) => statement.accountId === card.id);
   const dueDate = defaultDueDate(statementDate, own, card.dueDay);
-  return { statementDate, estimate: owedThrough(card.id, balance, flows, billCutoff(card, statementDate)), dueDate, shiftedDueDate: payableDueDate(dueDate) };
+  return { statementDate, estimate: owedThrough(card.id, balance, flows, billCutoff(card, statementDate)), dueDate };
 }

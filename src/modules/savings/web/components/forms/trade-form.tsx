@@ -2,8 +2,8 @@
 
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
+import { latestOf } from "../../../lib/dates";
 import { updateTransactionAction } from "../../actions";
-import { latestDate } from "../../form-math";
 import { DateField, FormButtons, NoteField } from "./fields";
 import type { AccountOption } from "./options";
 
@@ -34,7 +34,7 @@ export function TradeForm({ record, accounts, today, onDone, onCancel }: TradeFo
       <input type="hidden" name="counterAccountId" value={record.counterAccountId ?? ""} />
       <input type="hidden" name="categoryId" value="" />
       <input type="hidden" name="amount" value={record.amount} />
-      <DateField defaultValue={record.date} today={today} min={latestDate([startOf(record.accountId), startOf(record.counterAccountId)])} autoFocus />
+      <DateField defaultValue={record.date} today={today} min={latestOf([startOf(record.accountId), startOf(record.counterAccountId)]) ?? undefined} autoFocus />
       <NoteField defaultValue={record.note} />
       <p className="text-sm text-ink-soft">要改金額或股數，請刪除後重記。</p>
       {!pending && <FormFeedback state={{ error: state.error }} />}

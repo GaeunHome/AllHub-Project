@@ -1,0 +1,302 @@
+/* 由 globals.css 引入到 @layer components 裡 這裡不再包一層 */
+/* 理財的總覽 數字一出現就是最後的值 不加進場動畫 */
+
+/* 預算與目標的細長條 顏色一律中性 狀態寫在旁邊的字 */
+.fin-meter {
+  display: block;
+  height: 0.375rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background-color: var(--surface-sunken);
+}
+.fin-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--muted);
+}
+
+/* 每月收支的圖高度固定 月份那一列另外算 卡片才不會出現自己的捲軸 */
+.fin-readout {
+  @apply flex min-h-7 flex-wrap items-center gap-x-4 gap-y-1 text-sm;
+  color: var(--ink-soft);
+}
+.fin-readout-month {
+  font-weight: 600;
+  color: var(--ink);
+}
+.fin-readout-item {
+  @apply inline-flex items-center gap-1.5;
+}
+.fin-readout-item > strong {
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.fin-key {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+  border-radius: 0.1875rem;
+}
+.fin-key-income {
+  background-color: var(--fin-income);
+}
+.fin-key-expense {
+  background-color: var(--fin-expense);
+}
+.fin-chart {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 0.625rem;
+  row-gap: 0.5rem;
+}
+.fin-chart-ticks {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
+  width: 2.75rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.fin-chart-ticks > li {
+  position: absolute;
+  right: 0;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateY(50%);
+}
+.fin-chart-plot {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+  height: 13rem;
+}
+.fin-chart-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fin-chart-grid > span {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background-color: var(--line);
+}
+.fin-chart-grid > span[data-zero] {
+  background-color: var(--line-strong);
+}
+/* 滑過或鍵盤移到的那個月的底色 */
+.fin-chart-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 0.5rem;
+  background-color: var(--surface-muted);
+}
+.fin-chart-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  text-align: center;
+  color: var(--ink-soft);
+}
+.fin-bars {
+  position: absolute;
+  inset: 0;
+  display: grid;
+}
+/* 每個月的連結疊在圖與月份上 整欄都點得到 */
+.fin-chart-hits {
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+}
+/* 兩根長條之間 2px 的縫 長條最粗 18px 多的寬度留白 */
+.fin-bar-group {
+  display: flex;
+  height: 100%;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+}
+.fin-bar {
+  width: min(34%, 1.125rem);
+  border-radius: 4px 4px 0 0;
+}
+.fin-bar-income {
+  background-color: var(--fin-income);
+}
+.fin-bar-expense {
+  background-color: var(--fin-expense);
+}
+.fin-chart-hit {
+  flex: 1;
+  border-radius: 0.5rem;
+}
+.fin-chart-hit:focus-visible {
+  outline-offset: -2px;
+}
+.fin-chart-months {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.25;
+  color: var(--ink-soft);
+}
+.fin-chart-months > [data-current] {
+  font-weight: 700;
+  color: var(--ink);
+}
+.fin-table {
+  @apply mt-3 w-full;
+  font-variant-numeric: tabular-nums;
+}
+.fin-table th,
+.fin-table td {
+  padding: 0.375rem 0 0.375rem 0.75rem;
+  text-align: right;
+  font-weight: 400;
+  color: var(--ink);
+}
+.fin-table thead th {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+.fin-table tbody tr {
+  border-top: 1px solid var(--line);
+}
+.fin-table .fin-table-label {
+  padding-left: 0;
+  text-align: left;
+}
+
+/* 總資產大卡 理財唯一用模組色當底的地方 淺色很淡 深色是暗綠 字照一般的顏色 */
+.fin-hero {
+  border-color: color-mix(in srgb, var(--accent-line) 50%, var(--line));
+  background-color: var(--accent-soft);
+}
+
+/* 常用動作的按鈕 窄的時候圖示在左 卡片夠寬一排六個時圖示在上 */
+.fin-action {
+  @apply flex min-h-14 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background-color: var(--surface-solid);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+.fin-action:hover {
+  border-color: var(--line-strong);
+  background-color: var(--surface-muted);
+}
+.fin-action-icon {
+  @apply inline-grid size-9 shrink-0 place-items-center rounded-full;
+  color: var(--accent);
+  background-color: var(--surface-muted);
+}
+.fin-action:hover .fin-action-icon {
+  background-color: var(--surface-sunken);
+}
+@container (width >= 42rem) {
+  .fin-action {
+    min-height: 6rem;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+  }
+}
+
+/* 視窗裡先選對象 每一個是一整列的按鈕 */
+.fin-pick {
+  @apply flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-4 py-2.5 text-left;
+  border: 1px solid var(--line-strong);
+  background-color: var(--surface-solid);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+.fin-pick:hover {
+  border-color: var(--muted);
+  background-color: var(--surface-muted);
+}
+
+/* 開始設定還沒做的步驟寫第幾步 */
+.fin-step-number {
+  @apply inline-grid size-7 shrink-0 place-items-center rounded-full text-sm font-bold tabular-nums;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  background-color: var(--surface-solid);
+}
+
+/* 開始設定與怎麼用的收起和略過存在瀏覽器 兩種樣子都畫好 */
+/* 由 html 上的屬性決定顯示哪一種 第一次繪製前就標好 見 overview-prefs.ts */
+.fin-setup-closed,
+.fin-step-skipped,
+.fin-how-to-closed {
+  display: none;
+}
+html[data-fin-setup="hidden"] .fin-setup:not([data-required]),
+html[data-fin-setup="collapsed"] .fin-setup:not([data-required]) .fin-setup-open,
+html[data-fin-how-to="collapsed"] .fin-how-to-open {
+  display: none;
+}
+html[data-fin-setup="collapsed"] .fin-setup:not([data-required]) .fin-setup-closed,
+html[data-fin-how-to="collapsed"] .fin-how-to-closed {
+  display: inline-flex;
+}
+html[data-fin-skip~="deposit"] .fin-setup:not([data-required]) [data-step="deposit"] .fin-step-todo,
+html[data-fin-skip~="credit"] .fin-setup:not([data-required]) [data-step="credit"] .fin-step-todo,
+html[data-fin-skip~="investment"] .fin-setup:not([data-required]) [data-step="investment"] .fin-step-todo,
+html[data-fin-skip~="salary"] .fin-setup:not([data-required]) [data-step="salary"] .fin-step-todo,
+html[data-fin-skip~="recurring"] .fin-setup:not([data-required]) [data-step="recurring"] .fin-step-todo {
+  display: none;
+}
+html[data-fin-skip~="deposit"] .fin-setup:not([data-required]) [data-step="deposit"] .fin-step-skipped,
+html[data-fin-skip~="credit"] .fin-setup:not([data-required]) [data-step="credit"] .fin-step-skipped,
+html[data-fin-skip~="investment"] .fin-setup:not([data-required]) [data-step="investment"] .fin-step-skipped,
+html[data-fin-skip~="salary"] .fin-setup:not([data-required]) [data-step="salary"] .fin-step-skipped,
+html[data-fin-skip~="recurring"] .fin-setup:not([data-required]) [data-step="recurring"] .fin-step-skipped {
+  display: flex;
+}
+html[data-fin-skip~="deposit"] .fin-setup:not([data-required]) [data-step="deposit"] .fin-step-title,
+html[data-fin-skip~="credit"] .fin-setup:not([data-required]) [data-step="credit"] .fin-step-title,
+html[data-fin-skip~="investment"] .fin-setup:not([data-required]) [data-step="investment"] .fin-step-title,
+html[data-fin-skip~="salary"] .fin-setup:not([data-required]) [data-step="salary"] .fin-step-title,
+html[data-fin-skip~="recurring"] .fin-setup:not([data-required]) [data-step="recurring"] .fin-step-title {
+  color: var(--ink-soft);
+}
+
+/* 理財的插圖 原圖的顏色換成網站的 深色模式另外一組 來源見 public/illustrations/LICENSE.md */
+.fin-illustration {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  --illu-accent: var(--accent);
+  --illu-ink: #2f2e41;
+  --illu-ink-2: #3f3d56;
+  --illu-line: #e6e6e6;
+  --illu-soft: #f2f2f2;
+  --illu-mid: #cfd2d9;
+  --illu-paper: #ffffff;
+
+  @variant dark {
+    --illu-ink: #5a5f6c;
+    --illu-ink-2: #6e7484;
+    --illu-line: #2c2f36;
+    --illu-soft: #24272c;
+    --illu-mid: #3d414a;
+    --illu-paper: #32363e;
+  }
+}

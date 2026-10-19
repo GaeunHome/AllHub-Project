@@ -11,7 +11,8 @@ export type NotificationModule = Pick<ModuleInfo, "id" | "name" | "icon" | "acce
 export function ModuleBadge({ module, className = "size-9" }: { module?: NotificationModule; className?: string }) {
   return (
     <span data-accent={module?.accent} className={`icon-tile shrink-0 rounded-xl ${className}`}>
-      {module?.icon ? <Icon src={module.icon} /> : <Icon name="bell" />}
+      {/* 已經移除的模組留下的通知認不出來 用鈴鐺 */}
+      {module ? <Icon src={module.icon} /> : <Icon name="bell" />}
     </span>
   );
 }

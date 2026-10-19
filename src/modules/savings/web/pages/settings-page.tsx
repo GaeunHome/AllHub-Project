@@ -2,12 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { requireSession } from "@/core/auth";
-import type { ModuleInfo } from "@/core/module";
+import type { ModuleInfo, SearchParams } from "@/core/module";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { parseRowId } from "../../lib/validation";
 import { cachedCategories } from "../../service/cached";
 import { SetupResultSlot } from "../components/forms/setup-button";
-import type { SearchParams } from "../components/month-href";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { CategoriesCard } from "../components/settings/categories-card";
 import { SAVINGS_PATHS, editRecurringPath } from "../paths";
@@ -27,7 +26,7 @@ export async function LegacyLinkRedirect({ searchParams }: { searchParams?: Sear
 export async function CategoriesLoader() {
   const user = await requireSession();
   const categories = await cachedCategories(user.id);
-  return <CategoriesCard categories={categories.map(({ id, name, kind, color, monthlyBudget, icon }) => ({ id, name, kind, color, monthlyBudget, icon }))} />;
+  return <CategoriesCard categories={categories.map(({ id, name, kind, monthlyBudget, icon }) => ({ id, name, kind, monthlyBudget, icon }))} />;
 }
 
 /** 跟載入完成的卡片一樣高 串流進來時下面的字才不會跳 */

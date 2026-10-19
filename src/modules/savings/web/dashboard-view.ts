@@ -1,5 +1,5 @@
 import { billDefaults, billStatus, cardBill, payableDueDate, type BillDefaults, type CardBill, type CardBillStatus, type CardDailyFlow } from "../lib/cards";
-import { MIN_DATE, dueText, formatSlashDate, type DateKey } from "../lib/dates";
+import { MIN_DATE, dueText, formatSlashDate, latestOf, type DateKey } from "../lib/dates";
 import { accountsWithHoldings, estimateRegularBuy, investmentTotals, profitPercentOf, valueHolding, type HoldingLike, type InvestmentValue } from "../lib/holdings";
 import { ACCOUNT_KIND_LABELS, CARD_STYLES, type AccountKind, type CardStyle, type EntryKind } from "../lib/kinds";
 import {
@@ -15,74 +15,29 @@ import {
   type AccountBalance,
   type AccountLike,
   type AccountMonthFlow,
+  type AssetSummary,
   type CardStatus,
   type CategoryLike,
   type CategoryMonthTotal,
 } from "../lib/ledger";
-import { formatNumber, formatSignedTwd, formatTwd } from "../lib/money";
-import { dateToMonth, formatMonth, formatMonthShort, type MonthKey } from "../lib/month";
+import { formatTwd } from "../lib/money";
+import { dateToMonth, type MonthKey } from "../lib/month";
 import type { PendingItem, PendingRuleRow } from "../lib/pending";
-import { formatPrice, type Quote } from "../lib/quotes";
+import type { Quote } from "../lib/quotes";
 import type { CardBillRecord } from "../service/cards";
 import type { AccountDraft } from "./components/forms/account-form";
 import type { AccountOption, CategoryOption, EntryFormOptions, SalaryAccountOption } from "./components/forms/options";
 import type { BalanceAccount } from "./components/forms/update-balance";
-import { SAVINGS_PATHS } from "./paths";
+import { confirmDate } from "./form-math";
+import { overdueBadge } from "./format";
+import { recordsHref } from "./paths";
 import type { AccountUsage } from "./settings-display";
 
 // 伺服器元件整理好畫面與表單要的形狀 交給 client 元件的只帶用得到的欄位
 
-/** 這個月寫本月 同一年只寫月份 不同年才加年份 */
-export function periodLabel(month: MonthKey, current: MonthKey): string {
-  if (month === current) return "本月";
-  return month.slice(0, 4) === current.slice(0, 4) ? formatMonthShort(month) : formatMonth(month);
-}
-
-/** 損益的百分比 到小數一位 正的帶加號 四捨五入成 0 時不帶符號 */
-export function formatSignedPercent(percent: number): string {
-  const fixed = percent.toFixed(1);
-  if (fixed === "0.0" || fixed === "-0.0") return "0.0%";
-  return percent > 0 ? `+${fixed}%` : `${fixed}%`;
-}
-
-/**
- * 損益加上相對成本的百分比 成本是 0 時不寫百分比
- * 括號用半形 靠右對齊時一欄的數字才排得齊 中間不換行
- */
-export function profitText(profit: number, percent: number | null): string {
-  return percent === null ? formatSignedTwd(profit) : `${formatSignedTwd(profit)}\u00a0(${formatSignedPercent(percent)})`;
-}
-
-export const formatShares = (shares: number) => `${formatNumber(shares)} 股`;
-
-/** 股價存成整數的分 例如 $258.70 */
-export const priceText = (closeCents: number) => `$${formatPrice(closeCents)}`;
-
-/** 總成本除以股數 寫法跟收盤價一樣才好比 賣光的沒有均價 */
-export function averagePriceText({ shares, cost }: { shares: number; cost: number }): string | null {
-  return shares > 0 ? priceText(Math.round((cost * 100) / shares)) : null;
-}
-
-/** 逾期的標籤 一列最多一個標籤 只給要處理的狀態 */
-export const overdueBadge = (daysLeft: number) => ({ label: dueText(daysLeft), tone: "danger" as const });
-
-type RecordsFilter = { month?: MonthKey | null; account?: number; category?: number | typeof UNCATEGORIZED_KEY };
-
-/** 紀錄頁的網址 本月不帶 month 帳戶與分類帶上後紀錄頁一打開就篩好 */
-export function recordsHref({ month = null, account, category }: RecordsFilter = {}): string {
-  const params = new URLSearchParams();
-  if (month !== null) params.set("month", month);
-  if (account !== undefined) params.set("account", String(account));
-  if (category !== undefined) params.set("category", String(category));
-  const query = params.toString();
-  return query ? `${SAVINGS_PATHS.records}?${query}` : SAVINGS_PATHS.records;
-}
-
-export const monthRecordsHref = (month: MonthKey, current: MonthKey) => recordsHref({ month: month === current ? null : month });
-
 /** 最近一筆紀錄在這個月之前時 直接打開那個月 不然紀錄頁一打開是空的 */
 export function accountRecordsHref(accountId: number, flows: readonly Pick<AccountMonthFlow, "accountId" | "month">[], current: MonthKey): string {
-  const latest = flows.reduce<MonthKey | null>((last, flow) => (flow.accountId === accountId && (last === null || flow.month > last) ? flow.month : last), null);
+  const latest = latestOf(flows.filter((flow) => flow.accountId === accountId).map((flow) => flow.month));
   return recordsHref({ month: latest === null || latest >= current ? null : latest, account: accountId });
 }
 
@@ -162,8 +117,8 @@ export type AccountsState = {
   fills: Map<number, BillDefaults>;
   /** 有持股的投資帳戶 一般轉帳轉不進也轉不出 */
   withHoldings: Set<number>;
-  /** 啟用中的存款餘額加投資市值 有持股的投資帳戶用持股的市值 */
-  totalAssets: number;
+  /** 啟用中帳戶的合計 總資產是存款餘額加投資市值 有持股的投資帳戶用持股的市值 */
+  summary: AssetSummary;
 };
 
 export function accountsState({ accounts, flows, holdings, quotes, cardFlows, cardBills, today }: AccountsInput): AccountsState {
@@ -173,7 +128,7 @@ export function accountsState({ accounts, flows, holdings, quotes, cardFlows, ca
   const balanceOf = (card: OverviewAccount) => balances.get(card.id)?.balance ?? 0;
   const bills = new Map(cards.map((card) => [card.id, cardBill(card, balanceOf(card), cardFlows, today, cardBills)]));
   const fills = new Map(cards.map((card) => [card.id, billDefaults(card, balanceOf(card), cardFlows, today, cardBills)]));
-  return { balances, investments, bills, fills, withHoldings: accountsWithHoldings(holdings), totalAssets: assetSummary(accounts, balances, "active", investments).assets };
+  return { balances, investments, bills, fills, withHoldings: accountsWithHoldings(holdings), summary: assetSummary(accounts, balances, investments) };
 }
 
 /**
@@ -227,10 +182,10 @@ export type HoldingView = {
 export type PayCardDraft = { cardId: number; cardName: string; amount: number; payFromAccountId: number | null; minDate: DateKey };
 
 /**
- * 填帳單視窗先填好的內容 dueDate 是帳單上印的日子 shiftedDueDate 是遇假日順延後的
+ * 填帳單視窗先填好的內容 dueDate 是帳單上印的日子
  * statementDate 是 null 的卡沒有結帳日 填的那天就是結帳日
  */
-export type BillDraft = Omit<PayCardDraft, "amount"> & { estimate: number; statementDate: DateKey | null; dueDate: DateKey; shiftedDueDate?: DateKey };
+export type BillDraft = Omit<PayCardDraft, "amount"> & { estimate: number; statementDate: DateKey | null; dueDate: DateKey };
 
 /** 信用卡的最近幾期 dueDate 是遇假日順延後的 status 是已繳清 未繳或逾期 */
 export type BillHistoryRow = Pick<CardBillRecord, "id" | "statementDate" | "dueDate" | "amount" | "paid" | "lastPaidOn"> & { status: "paid" | "unpaid" | "overdue" };
@@ -243,7 +198,6 @@ export type DepositDetail = DetailBase & {
   balance: number;
   /** 用途 例如生活費 */
   label: string | null;
-  monthlyPlan: number | null;
   target: { amount: number; percent: number; reached: boolean } | null;
 };
 
@@ -275,7 +229,6 @@ export type CreditDetail = DetailBase & {
   status: CardBillStatus;
   daysLeft: number | null;
   statementDay: number | null;
-  autopay: boolean;
   /** 扣款帳戶繳完所有從它扣的卡費後還剩多少 */
   payFrom: { name: string; remaining: number; short: boolean } | null;
   /** 這一期還沒填帳單 本期應繳是照紀錄估的 */
@@ -299,7 +252,6 @@ function depositDetail(account: OverviewAccount, base: DetailBase, balance: Acco
     kind: "deposit",
     balance: balance.balance,
     label: account.label ?? null,
-    monthlyPlan: account.monthlyPlan,
     target: target && { amount: target.target, percent: target.percent, reached: target.reached },
   };
 }
@@ -354,7 +306,6 @@ function creditDetail(account: OverviewAccount, base: DetailBase, balance: Accou
     status: bill.status,
     daysLeft: bill.daysLeft,
     statementDay: account.statementDay,
-    autopay: account.autopay,
     payFrom: payFromName !== undefined && status && status.payFromRemaining !== null ? { name: payFromName, remaining: status.payFromRemaining, short: status.short } : null,
     needsBill: bill.needsBill,
     pay: { cardId: account.id, cardName: account.name, amount: bill.remainingDue > 0 ? bill.remainingDue : bill.owedNow, payFromAccountId: account.payFromAccountId, minDate },
@@ -364,13 +315,7 @@ function creditDetail(account: OverviewAccount, base: DetailBase, balance: Accou
 }
 
 /** 沒有結帳日的卡標題不寫結帳日 填的那天就是 */
-const billDraft = (card: Omit<PayCardDraft, "amount">, fill: BillDefaults, statementDate: DateKey | null): BillDraft => ({
-  ...card,
-  estimate: fill.estimate,
-  statementDate,
-  dueDate: fill.dueDate,
-  shiftedDueDate: fill.shiftedDueDate,
-});
+const billDraft = (card: Omit<PayCardDraft, "amount">, fill: BillDefaults, statementDate: DateKey | null): BillDraft => ({ ...card, estimate: fill.estimate, statementDate, dueDate: fill.dueDate });
 
 /** 截止日過了還沒繳 */
 export function creditOverdue<T extends Pick<CreditDetail, "status" | "daysLeft" | "remainingDue">>(detail: T): detail is T & { daysLeft: number } {
@@ -543,9 +488,9 @@ export function accountsPageView(input: AccountsInput, state: AccountsState, rul
 
   return {
     deposits,
-    depositTotal: deposits.reduce((sum, card) => sum + card.detail.balance, 0),
+    depositTotal: state.summary.deposit,
     cards,
-    owedTotal: cards.reduce((sum, card) => sum + card.detail.owedNow, 0),
+    owedTotal: state.summary.owed,
     inactive,
     payFromAccounts: input.accounts
       .filter((account) => account.kind === "deposit")
@@ -566,11 +511,6 @@ export type PendingRowView = { key: string; action: PendingAction };
 
 function pendingRowView(item: PendingItem): PendingRowView {
   return { key: item.key, action: item.type === "card" ? (item.needsBill ? "bill" : "pay") : item.allocate ? "allocate" : "confirm" };
-}
-
-/** 確認的日期預設那一期的日期 還沒到的話先寫今天 不能記未來 */
-export function confirmDate(occurrence: DateKey, today: DateKey): DateKey {
-  return occurrence <= today ? occurrence : today;
 }
 
 /** 定期定額先估好的股數與扣款 沒有報價時是 null 欄位留空 */
@@ -618,8 +558,6 @@ type PendingSources = {
   today: DateKey;
 };
 
-const latest = (dates: DateKey[]) => dates.reduce((a, b) => (b > a ? b : a), MIN_DATE);
-
 /** 備註留空時伺服器記下的字 跟它用同一個規則 沒有預設時給個例子 */
 function notePlaceholder(rule: PendingRuleRow, symbol: string | null): string {
   if (symbol !== null) return `留空會寫「買進 ${symbol} N 股」`;
@@ -634,7 +572,7 @@ export function pendingEntries(items: PendingItem[], { accounts, rules, holdings
   const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
   const quoteBySymbol = new Map((quotes ?? []).map((quote) => [quote.symbol, quote]));
   // 收支沒有轉入的帳戶 只看用得到的帳戶開始記帳的日期
-  const startOf = (...ids: (number | null)[]) => latest(ids.flatMap((id) => (id === null ? [] : [accountById.get(id)])).flatMap((account) => (account ? [accountStartDate(account)] : [])));
+  const startOf = (...ids: (number | null)[]) => latestOf(ids.map((id) => (id === null ? undefined : accountById.get(id))).map((account) => account && accountStartDate(account))) ?? MIN_DATE;
 
   return items.flatMap((item): PendingEntry[] => {
     const row = pendingRowView(item);

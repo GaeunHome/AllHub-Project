@@ -1,46 +1,30 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { savingsAccounts, savingsCardBills, savingsCategories, savingsTransactions } from "../data/schema";
+import { dateParams, pgliteOf, savingsRows } from "../dev/db-fixtures";
+import { userError } from "../dev/fixtures";
 import { cardBill } from "../lib/cards";
 import { accountBalances } from "../lib/ledger";
 import { listAccounts } from "./accounts";
 import { cardDailyFlows, enterCardBill, listCardBills, payCard, type CardBillFields, type PayCardFields } from "./cards";
-import { SavingsUserError } from "./errors";
 import { postDueRecurring } from "./recurring";
 import { accountMonthFlows, deleteTransaction, updateTransaction } from "./transactions";
 
-let testDb: TestDb;
-const getDb = setupTestDb((d) => (testDb = d));
+const getDb = setupTestDb();
 let me: string;
 let other: string;
-
-beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
-});
 
 // 台北時間 2026-10-15 中午
 const NOW = new Date("2026-10-15T04:00:00Z");
 const CREATED = new Date("2026-08-01T04:00:00Z");
 const ACCOUNT_NOT_FOUND = "找不到這個帳戶，可能已經刪除了";
 
-async function insertAccount(values: Partial<typeof savingsAccounts.$inferInsert> & { name: string }) {
-  const [row] = await getDb().insert(savingsAccounts).values({ userId: me, kind: "deposit", createdAt: CREATED, ...values }).returning();
-  return row;
-}
+const { insertAccount, transactions } = savingsRows(getDb, () => me, { account: { createdAt: CREATED } });
 
-async function userError(promise: Promise<unknown>): Promise<string> {
-  const error = await promise.then(
-    () => undefined,
-    (reason: unknown) => reason,
-  );
-  expect(error).toBeInstanceOf(SavingsUserError);
-  return (error as Error).message;
-}
-
-const transactions = () => getDb().select().from(savingsTransactions).orderBy(asc(savingsTransactions.id));
+beforeEach(async () => {
+  [me, other] = await insertTestUsers(getDb());
+});
 const pay = (cardId: number, fromAccountId: number, values: Partial<PayCardFields> = {}): PayCardFields => ({ cardId: String(cardId), fromAccountId: String(fromAccountId), amount: "6,340", date: "2026-10-15", ...values });
 const billFields = (cardId: number, values: Partial<CardBillFields> = {}): CardBillFields => ({ cardId: String(cardId), amount: "12,480", statementDate: "", dueDate: "2026-10-20", categoryId: "", ...values });
 const bills = () => getDb().select().from(savingsCardBills).orderBy(asc(savingsCardBills.id));
@@ -247,7 +231,7 @@ describe("enterCardBill（填帳單：金額與截止日照銀行的，跟紀錄
     expect(bill).toMatchObject({ statementDate: "2026-10-18", dueDate: "2026-10-25", amount: 3000 });
     expect(difference).toBe(1000);
     expect((await reconciles()).map((t) => [t.kind, t.amount, t.date])).toEqual([["expense", 1000, "2026-10-18"]]);
-    expect(await billNow(card, "2026-10-20")).toMatchObject({ billId: bill.id, remainingDue: 3000, dueDate: "2026-10-27", status: "upcoming", daysLeft: 7 });
+    expect(await billNow(card, "2026-10-20")).toMatchObject({ statementDate: bill.statementDate, statementAmount: 3000, remainingDue: 3000, dueDate: "2026-10-27", status: "upcoming", daysLeft: 7 });
   });
 
   it("沒有結帳日的卡：截止日不能早於填帳單那天（就是結帳日）", async () => {
@@ -259,14 +243,13 @@ describe("enterCardBill（填帳單：金額與截止日照銀行的，跟紀錄
 
   it("送到資料庫的參數沒有 Date 物件（正式環境經 postgres-js 收到 Date 會丟錯）", async () => {
     const { living, card } = await cathay();
-    const query = vi.spyOn((testDb as TestDb & { $client: PGlite }).$client, "query");
+    const query = vi.spyOn(pgliteOf(getDb()), "query");
 
     await enterCardBill(me, billFields(card.id), NOW);
     await payCard(me, pay(card.id, living.id, { billAmount: "12,000", dueDate: "2026-10-20" }), NOW);
     await listCardBills(me);
 
-    const params = query.mock.calls.flatMap(([, values]) => (Array.isArray(values) ? values : []));
-    expect(params.filter((param) => param instanceof Date)).toEqual([]);
+    expect(dateParams(query)).toEqual([]);
   });
 });
 
@@ -362,7 +345,7 @@ describe("帳單紀錄、撤銷與修改", () => {
     expect(await deleteTransaction(me, reconcile.id)).toBe(true);
 
     expect(await bills()).toEqual([]);
-    expect(await billNow(card)).toMatchObject({ needsBill: true, billId: null, estimate: 3000 });
+    expect(await billNow(card)).toMatchObject({ needsBill: true, statementAmount: null, estimate: 3000 });
   });
 
   it("刪掉別人補的那一筆_回 false，他的帳單還在", async () => {

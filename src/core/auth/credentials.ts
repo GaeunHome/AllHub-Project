@@ -1,13 +1,11 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { COMMON_PASSWORDS } from "./common-passwords.ts";
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "./password-rules.ts";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "./password-rules.ts";
 
 // 網站與 account CLI 共用 CLI 用純 node 直接載入
 // 只能 import node 內建模組與帶 .ts 副檔名的相對路徑
 
-export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH };
-export const USERNAME_MIN_LENGTH = 3;
-export const USERNAME_MAX_LENGTH = 32;
+export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH };
 
 export type ScryptParams = { N: number; r: number; p: number };
 

@@ -1,6 +1,6 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { beforeEach, describe, expect, it } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUser, insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { pgliteOf, savingsRows } from "../dev/db-fixtures";
 import { enterCardBill, payCard } from "../service/cards";
 import { confirmOccurrence, postDueRecurring, skipOccurrence } from "../service/recurring";
 import { loadChecklist } from "./overview-data";
@@ -21,34 +21,19 @@ let power: number;
 let netflix: number;
 let gym: number;
 
-// web 層不能 import 資料表 直接用 SQL 準備資料
-const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
-const query = (text: string, params: unknown[] = []) => pgliteOf(getDb()).query<{ id: number }>(text, params);
-
-async function insertAccount(userId: string, name: string, extra = "", values: unknown[] = []) {
-  const columns = extra ? `, ${extra}` : "";
-  const placeholders = values.map((_, i) => `, $${i + 4}`).join("");
-  const { rows } = await query(`insert into savings_accounts (user_id, name, created_at${columns}) values ($1, $2, $3${placeholders}) returning id`, [userId, name, CREATED, ...values]);
-  return rows[0].id;
-}
-
-async function insertRule(userId: string, values: { accountId: number; dayOfMonth: number; amount: number; name: string; mode?: "auto" | "confirm"; lastPostedMonth: string }) {
-  const { rows } = await query(
-    `insert into savings_recurring (user_id, kind, account_id, day_of_month, amount, name, mode, last_posted_month, created_at) values ($1, 'expense', $2, $3, $4, $5, $6, $7, $8) returning id`,
-    [userId, values.accountId, values.dayOfMonth, values.amount, values.name, values.mode ?? "confirm", values.lastPostedMonth, CREATED],
-  );
-  return rows[0].id;
-}
+const { insertAccount, insertRule, insertTransaction } = savingsRows(getDb, () => me, {
+  account: { createdAt: new Date(CREATED) },
+  rule: { mode: "confirm", createdAt: new Date(CREATED) },
+});
 
 beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
-  living = await insertAccount(me, "生活費帳戶", "kind, opening_balance", ["deposit", 50_000]);
+  [me, other] = await insertTestUsers(getDb());
+  ({ id: living } = await insertAccount({ name: "生活費帳戶", openingBalance: 50_000 }));
   // 結帳時欠 3,000 結帳後沒有新的紀錄
-  card = await insertAccount(me, "國泰卡", "kind, statement_day, pay_from_account_id, opening_balance", ["credit", 5, living, -3000]);
-  power = await insertRule(me, { accountId: living, dayOfMonth: 5, amount: 1350, name: "電費", lastPostedMonth: "2026-09-01" });
-  netflix = await insertRule(me, { accountId: card, dayOfMonth: 12, amount: 390, name: "Netflix", mode: "auto", lastPostedMonth: "2026-09-01" });
-  gym = await insertRule(me, { accountId: living, dayOfMonth: 1, amount: 1200, name: "健身房", lastPostedMonth: "2026-09-01" });
+  ({ id: card } = await insertAccount({ name: "國泰卡", kind: "credit", statementDay: 5, payFromAccountId: living, openingBalance: -3000 }));
+  ({ id: power } = await insertRule({ accountId: living, dayOfMonth: 5, amount: 1350, name: "電費", lastPostedMonth: "2026-09-01" }));
+  ({ id: netflix } = await insertRule({ accountId: card, dayOfMonth: 12, amount: 390, name: "Netflix", mode: "auto", lastPostedMonth: "2026-09-01" }));
+  ({ id: gym } = await insertRule({ accountId: living, dayOfMonth: 1, amount: 1200, name: "健身房", lastPostedMonth: "2026-09-01" }));
 });
 
 const view = async (userId = me) => {
@@ -92,16 +77,17 @@ describe("loadChecklist（總覽的這個月要做的事）", () => {
   });
 
   it("沒有期別的舊自動紀錄_照日期對得到", async () => {
-    await query(`insert into savings_transactions (user_id, kind, account_id, amount, date, note, recurring_id) values ($1, 'expense', $2, 390, '2026-10-12', 'Netflix', $3)`, [me, card, netflix]);
-    await query(`update savings_recurring set last_posted_month = '2026-10-01' where id = $1`, [netflix]);
+    await insertTransaction({ accountId: card, amount: 390, date: "2026-10-12", note: "Netflix", recurringId: netflix });
+    // web 層不能 import 資料表 游標直接用 SQL 推
+    await pgliteOf(getDb()).query(`update savings_recurring set last_posted_month = '2026-10-01' where id = $1`, [netflix]);
 
     expect((await view()).find(([key]) => key === `recurring:${netflix}:2026-10`)).toEqual([`recurring:${netflix}:2026-10`, "auto-done", 390, "2026-10-12", false]);
   });
 
   it("只讀自己的：別人的固定收支、卡與紀錄都不會出現；什麼都沒有的人是空的、configured 是 false", async () => {
-    const theirs = await insertAccount(other, "別人的帳戶", "kind", ["deposit"]);
-    const theirRule = await insertRule(other, { accountId: theirs, dayOfMonth: 5, amount: 999, name: "別人的", lastPostedMonth: "2026-10-01" });
-    await query(`insert into savings_transactions (user_id, kind, account_id, amount, date, recurring_id, recurring_period) values ($1, 'expense', $2, 999, '2026-10-05', $3, '2026-10-01')`, [other, theirs, theirRule]);
+    const { id: theirs } = await insertAccount({ name: "別人的帳戶", userId: other });
+    const { id: theirRule } = await insertRule({ accountId: theirs, dayOfMonth: 5, amount: 999, name: "別人的", lastPostedMonth: "2026-10-01", userId: other });
+    await insertTransaction({ accountId: theirs, amount: 999, date: "2026-10-05", recurringId: theirRule, recurringPeriod: "2026-10-01", userId: other });
 
     expect((await view()).map(([key]) => key)).not.toContain(`recurring:${theirRule}:2026-10`);
     expect(await view(other)).toEqual([[`recurring:${theirRule}:2026-10`, "done", 999, "2026-10-05", false]]);

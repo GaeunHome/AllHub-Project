@@ -14,32 +14,32 @@ import {
   staminaFullAt,
 } from "./responses";
 
-describe("interpretResponse", () => {
-  it("returns data when retcode is 0", () => {
+describe("interpretResponse：HoYoLAB 的回應", () => {
+  it("retcode 是 0_回傳 data", () => {
     expect(interpretResponse({ retcode: 0, message: "OK", data: { a: 1 } })).toMatchObject({ ok: true, data: { a: 1 } });
   });
 
-  it.each([-100, 10001])("flags retcode %i as an invalid cookie", (retcode) => {
+  it.each([-100, 10001])("retcode %i_標記 cookie 失效", (retcode) => {
     const result = interpretResponse({ retcode, message: "Please login", data: null });
 
     expect(result).toMatchObject({ ok: false, retcode, cookieInvalid: true });
     expect(!result.ok && result.message).toContain("重新登入");
   });
 
-  it("carries other error codes and messages", () => {
+  it("其他錯誤_帶著代碼與 HoYoLAB 的訊息", () => {
     const result = interpretResponse({ retcode: 1008, message: "role not found" });
 
     expect(result).toMatchObject({ ok: false, retcode: 1008, cookieInvalid: false });
     expect(!result.ok && result.message).toContain("1008：role not found");
   });
 
-  it("fails safely on an unexpected shape", () => {
+  it("格式不對_回失敗，不丟錯", () => {
     expect(interpretResponse("<html>")).toMatchObject({ ok: false, retcode: null, cookieInvalid: false });
   });
 });
 
-describe("parseGameRoles", () => {
-  it("reads roles and skips entries without uid or region", () => {
+describe("parseGameRoles：帳號底下的角色", () => {
+  it("讀出角色_沒有 UID 或伺服器的略過", () => {
     const roles = parseGameRoles({
       list: [
         { game_uid: "900000001", nickname: "開拓者", region: "prod_official_cht", region_name: "TW, HK, MO", level: 70 },
@@ -53,13 +53,13 @@ describe("parseGameRoles", () => {
     ]);
   });
 
-  it("returns an empty list when list is missing", () => {
+  it("沒有 list_空的", () => {
     expect(parseGameRoles(null)).toEqual([]);
   });
 });
 
-describe("parseDailyNote", () => {
-  it("maps known fields, including the original 'epedition' spelling", () => {
+describe("parseDailyNote：即時便箋", () => {
+  it("讀出各欄位_委託照 HoYoLAB 原本的拼字 epedition", () => {
     const note = parseDailyNote({
       current_stamina: 180,
       max_stamina: 240,
@@ -91,7 +91,7 @@ describe("parseDailyNote", () => {
     });
   });
 
-  it("gives null for missing or malformed fields", () => {
+  it("沒有或看不懂的欄位_null", () => {
     const note = parseDailyNote({ current_stamina: "abc", max_stamina: "240" });
 
     expect(note.stamina).toBeNull();
@@ -100,43 +100,43 @@ describe("parseDailyNote", () => {
   });
 });
 
-describe("staminaFullAt", () => {
+describe("staminaFullAt：開拓力回滿的時間", () => {
   const now = new Date("2026-10-07T04:00:00Z");
 
-  it("adds the recover seconds to now", () => {
+  it("現在加上回滿要的秒數", () => {
     const note = parseDailyNote({ stamina_recover_time: 3600 });
 
     expect(staminaFullAt(note, now)?.toISOString()).toBe("2026-10-07T05:00:00.000Z");
   });
 
-  it("returns null when already full", () => {
+  it("已經滿了_null", () => {
     expect(staminaFullAt(parseDailyNote({ stamina_recover_time: 0 }), now)).toBeNull();
   });
 });
 
-describe("formatTaipeiTime", () => {
+describe("formatTaipeiTime：照台北時間寫今天、明天或日期", () => {
   // 台北 2026-10-07 12:00
   const now = new Date("2026-10-07T04:00:00Z");
 
-  it("labels same-day times as today in Taipei time", () => {
+  it("台北的同一天_寫今天", () => {
     expect(formatTaipeiTime(new Date("2026-10-07T10:30:00Z"), now)).toBe("今天 18:30");
   });
 
-  it("labels times after Taipei midnight as tomorrow", () => {
+  it("過了台北的午夜_寫明天", () => {
     expect(formatTaipeiTime(new Date("2026-10-07T17:05:00Z"), now)).toBe("明天 01:05");
   });
 
-  it("labels times two Taipei days later with the date (stamina from 0 takes ~30 hours)", () => {
+  it("台北的兩天後_寫日期（開拓力從 0 回滿要約 30 小時）", () => {
     // 台北 2026-10-09 02:00
     expect(formatTaipeiTime(new Date("2026-10-08T18:00:00Z"), now)).toBe("10/9 02:00");
   });
 
-  it("counts days by the Taipei calendar across the new year", () => {
+  it("跨年也照台北的日曆算", () => {
     // 台北 2026-12-31 20:00 看 2027-01-01 01:05
     expect(formatTaipeiTime(new Date("2026-12-31T17:05:00Z"), new Date("2026-12-31T12:00:00Z"))).toBe("明天 01:05");
   });
 
-  it.each(ICU_VARIANTS)("gives the same text when ICU output differs ($name)", (variant) => {
+  it.each(ICU_VARIANTS)("ICU 的輸出不同時_文字照樣一樣（$name）", (variant) => {
     simulateIcu(variant);
 
     expect(formatTaipeiTime(new Date("2026-10-07T17:05:00Z"), now)).toBe("明天 01:05");
@@ -144,33 +144,33 @@ describe("formatTaipeiTime", () => {
   });
 });
 
-describe("parseCheckinInfo", () => {
-  it("reads sign status and total days", () => {
+describe("parseCheckinInfo：簽到狀態", () => {
+  it("讀出今天簽了沒與累計天數", () => {
     expect(parseCheckinInfo({ is_sign: true, total_sign_day: 7 })).toEqual({ isSigned: true, totalSignDay: 7 });
   });
 
-  it("gives null when fields are missing", () => {
+  it("沒有欄位_null", () => {
     expect(parseCheckinInfo({})).toEqual({ isSigned: null, totalSignDay: null });
   });
 });
 
-describe("interpretSign", () => {
-  it("treats retcode 0 without risk as success", () => {
+describe("interpretSign：簽到的回應", () => {
+  it("retcode 0 而且沒有風控_成功", () => {
     expect(interpretSign({ retcode: 0, message: "OK", data: { code: "ok" } })).toMatchObject({ result: "success" });
   });
 
-  it("treats -5003 as already signed", () => {
+  it("-5003_今天已經簽過", () => {
     expect(interpretSign({ retcode: -5003, message: "already" })).toMatchObject({ result: "already", cookieInvalid: false });
   });
 
-  it("fails when HoYoLAB asks for a captcha", () => {
+  it("HoYoLAB 要求驗證碼_失敗", () => {
     const outcome = interpretSign({ retcode: 0, message: "OK", data: { gt_result: { is_risk: true } } });
 
     expect(outcome.result).toBe("failed");
     expect(outcome.message).toContain("驗證碼");
   });
 
-  it("propagates an invalid cookie", () => {
+  it("cookie 失效_帶著失效標記", () => {
     expect(interpretSign({ retcode: -100, message: "not login" })).toMatchObject({ result: "failed", cookieInvalid: true });
   });
 });
@@ -199,7 +199,7 @@ describe("interpretResponse：常見的錯誤代碼給中文說明（不顯示 H
 });
 
 describe("parseExpeditions：委託的角色圖與剩餘時間", () => {
-  it("讀出名稱、狀態、剩餘秒數、角色圖與委託圖", () => {
+  it("讀出名稱、狀態、剩餘秒數與角色圖", () => {
     expect(
       parseExpeditions({
         expeditions: [
@@ -219,9 +219,8 @@ describe("parseExpeditions：委託的角色圖與剩餘時間", () => {
         status: "ongoing",
         remainingSeconds: 7260,
         avatars: ["https://act-webstatic.hoyoverse.com/a/1.png", "https://act-webstatic.hoyoverse.com/a/2.png"],
-        itemUrl: "https://act-webstatic.hoyoverse.com/item/1.png",
       },
-      { name: "陽光下的迷宮", status: "finished", remainingSeconds: 0, avatars: [], itemUrl: null },
+      { name: "陽光下的迷宮", status: "finished", remainingSeconds: 0, avatars: [] },
     ]);
   });
 
@@ -229,7 +228,7 @@ describe("parseExpeditions：委託的角色圖與剩餘時間", () => {
     expect(parseExpeditions({})).toEqual([]);
     expect(parseExpeditions(null)).toEqual([]);
     expect(parseExpeditions({ expeditions: [{ avatars: ["not-a-url", 3], status: "?", name: 1 }] })).toEqual([
-      { name: null, status: null, remainingSeconds: null, avatars: [], itemUrl: null },
+      { name: null, status: null, remainingSeconds: null, avatars: [] },
     ]);
   });
 });
@@ -257,7 +256,7 @@ describe("formatRemaining：還剩多久（委託與活動日曆共用）", () =
 describe("expeditionStates：委託現在完成了沒（星穹鐵道頁與首頁共用）", () => {
   const fetchedAt = new Date("2026-10-07T04:00:00Z");
   const now = new Date("2026-10-07T04:10:00Z");
-  const expedition = (status: "ongoing" | "finished" | null, remainingSeconds: number | null) => ({ name: "委託", status, remainingSeconds, avatars: [], itemUrl: null });
+  const expedition = (status: "ongoing" | "finished" | null, remainingSeconds: number | null) => ({ name: "委託", status, remainingSeconds, avatars: [] });
 
   it("剩餘時間扣掉查詢後已經過去的時間", () => {
     expect(expeditionStates([expedition("ongoing", 3600)], fetchedAt, now)).toEqual([{ ...expedition("ongoing", 3000), done: false }]);

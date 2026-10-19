@@ -1,17 +1,10 @@
-import { taipeiDateKey } from "@/core/time";
-
-/** YYYY-MM 字串 跟網址參數與月份輸入框同一種格式 */
+/** YYYY-MM 字串 跟網址參數與月份輸入框同一種格式 台北的這個月用 core/time 的 taipeiMonthKey */
 export type MonthKey = string;
 
 // 更早的月份多半是打錯 日期運算也不用處理不到四位數的年份
 export const MIN_MONTH: MonthKey = "2000-01";
 
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
-
-// 伺服器是 UTC 月底晚上八點後會差一個月 所以本月用台北時間算
-export function taipeiMonth(date: Date): MonthKey {
-  return dateToMonth(taipeiDateKey(date));
-}
 
 export function parseMonth(raw: unknown): MonthKey | null {
   return typeof raw === "string" && MONTH_PATTERN.test(raw) && raw >= MIN_MONTH ? raw : null;

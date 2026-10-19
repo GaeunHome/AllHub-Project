@@ -4,17 +4,17 @@ import { refresh } from "next/cache";
 import { headers } from "next/headers";
 import { requireOwner } from "../auth";
 import { authTags } from "../auth/cache-tags";
-import { INVITE_DAY_OPTIONS, INVITE_USE_OPTIONS, InviteInputError, createInvite, revokeInvite } from "../auth/invites";
+import { createInvite, revokeInvite } from "../auth/invites";
+import { INVITE_DAY_OPTIONS, INVITE_USE_OPTIONS } from "../auth/invite-rules";
 import { updateTags } from "../cache";
 import { INVALID_FORM_MESSAGE, actionErrorMessage, formFlag, formId, formText, formUuid, runAction } from "../form";
 import type { FormState } from "../ui/form-message";
-import { AdminUserError, deleteUser, setUserDisabled, unlockUser } from "./service";
+import { deleteUser, setUserDisabled, unlockUser } from "./service";
 
 /** 資料庫只存雜湊 link 只在建立當下的回應裡 重新整理就拿不回來 */
 export type InviteFormState = FormState & { link?: string };
 
 const USER_GONE = "找不到這個帳號，可能已經被刪除";
-const isAdminError = (error: unknown) => error instanceof AdminUserError;
 
 /** Server Action 可以被直接 POST 不能相信下拉選單 值要剛好是其中一個選項 */
 function optionOf(options: readonly number[], raw: string): number | null {
@@ -45,7 +45,7 @@ export async function createInviteAction(_prev: InviteFormState, formData: FormD
       link: `${await siteOrigin()}/register?code=${token}`,
     };
   } catch (error) {
-    return { error: actionErrorMessage({ module: "admin", action: "建立邀請連結" }, (e) => e instanceof InviteInputError, error) };
+    return { error: actionErrorMessage({ module: "admin", action: "建立邀請連結" }, error) };
   }
 }
 
@@ -53,7 +53,7 @@ export async function revokeInviteAction(_prev: FormState, formData: FormData): 
   await requireOwner();
   const id = formId(formData, "inviteId");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
-  return runAction({ module: "admin", action: "撤銷邀請" }, () => false, async () => {
+  return runAction({ module: "admin", action: "撤銷邀請" }, async () => {
     if (await revokeInvite(id)) {
       updateTags(authTags.invites);
       return;
@@ -69,7 +69,7 @@ export async function setUserDisabledAction(_prev: FormState, formData: FormData
   const userId = formUuid(formData, "userId");
   const disabled = formFlag(formData, "disabled");
   if (userId === null || disabled === null) return { error: INVALID_FORM_MESSAGE };
-  return runAction({ module: "admin", action: disabled ? "停用帳號" : "恢復帳號" }, isAdminError, async () => {
+  return runAction({ module: "admin", action: disabled ? "停用帳號" : "恢復帳號" }, async () => {
     if (await setUserDisabled(owner.id, userId, disabled)) {
       updateTags(authTags.users);
       return;
@@ -83,7 +83,7 @@ export async function deleteUserAction(_prev: FormState, formData: FormData): Pr
   const owner = await requireOwner();
   const userId = formUuid(formData, "userId");
   if (userId === null) return { error: INVALID_FORM_MESSAGE };
-  return runAction({ module: "admin", action: "刪除帳號" }, isAdminError, async () => {
+  return runAction({ module: "admin", action: "刪除帳號" }, async () => {
     if (await deleteUser(owner.id, userId)) {
       // 他建立的邀請跟著外鍵刪掉 所以邀請也要失效
       updateTags(authTags.users, authTags.invites);
@@ -98,7 +98,7 @@ export async function unlockUserAction(_prev: FormState, formData: FormData): Pr
   await requireOwner();
   const userId = formUuid(formData, "userId");
   if (userId === null) return { error: INVALID_FORM_MESSAGE };
-  return runAction({ module: "admin", action: "解除鎖定" }, () => false, async () => {
+  return runAction({ module: "admin", action: "解除鎖定" }, async () => {
     if (await unlockUser(userId)) {
       updateTags(authTags.users);
       return;

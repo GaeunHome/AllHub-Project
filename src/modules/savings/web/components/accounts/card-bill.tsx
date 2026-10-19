@@ -32,8 +32,8 @@ function submitBill(previous: FormState, formData: FormData): Promise<FormState>
 }
 
 /** 帳單上印的日子遇到假日 銀行會順延 要繳的是順延後的那天 */
-function shiftNote(dueDate: string, draft: BillDraft): string | null {
-  const shifted = dueDate === draft.dueDate && draft.shiftedDueDate ? draft.shiftedDueDate : parseDate(dueDate) && payableDueDate(dueDate);
+function shiftNote(dueDate: string): string | null {
+  const shifted = parseDate(dueDate) && payableDueDate(dueDate);
   return shifted && shifted !== dueDate ? `遇假日順延到 ${formatSlashDate(shifted)}` : null;
 }
 
@@ -51,7 +51,7 @@ export function BillForm({ draft, categories, accounts, today, onDone, onCancel 
   const label = draft.statementDate === null ? "這一期的帳單金額（元）" : `${formatSlashDate(draft.statementDate)} 結帳的帳單金額（元）`;
   // 沒有結帳日的卡 填的那天就是結帳日 截止日不能更早
   const statementDate = draft.statementDate ?? today;
-  const shifted = shiftNote(dueDate, draft);
+  const shifted = shiftNote(dueDate);
 
   return (
     <form {...formProps} className="stack">

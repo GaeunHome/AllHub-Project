@@ -1,5 +1,5 @@
 import { requireSession } from "@/core/auth";
-import type { ModuleInfo } from "@/core/module";
+import type { ModuleInfo, SearchParams } from "@/core/module";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { taipeiToday } from "../../lib/dates";
 import { accountBalances } from "../../lib/ledger";
@@ -7,7 +7,6 @@ import { quoteSymbols } from "../../lib/quotes";
 import { cachedAccountFlows, cachedAccounts, cachedCategories, cachedHoldings, cachedQuotes, cachedRecurring } from "../../service/cached";
 import { BrokerageList } from "../components/investments/brokerage-list";
 import { SummaryCard } from "../components/investments/summary-card";
-import type { SearchParams } from "../components/month-href";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { RegularBuyList } from "../components/recurring/regular-buy-list";
 import { depositOptions } from "../dashboard-view";

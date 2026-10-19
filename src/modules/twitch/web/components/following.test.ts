@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
 import { mocksOf } from "@/dev/test-helpers";
+import { followedStreamer, liveStream } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/cached", { spy: true });
@@ -13,34 +14,11 @@ const { Following } = await import("./following");
 
 const html = async () => renderToStaticMarkup((await Following()) as ReactElement);
 
-const streamer = (id: number, login: string) => ({
-  id,
-  broadcasterId: String(1000 + id),
-  login,
-  displayName: login.toUpperCase(),
-  profileImageUrl: null,
-  onlineSubscriptionId: null,
-  offlineSubscriptionId: null,
-  subscriptionStatus: "enabled",
-  isLive: false,
-  notifyEnabled: true,
-  createdAt: new Date("2026-10-01T00:00:00Z"),
-});
-const liveStream = (id: number, login: string) => ({
-  userId: String(1000 + id),
-  title: "今天玩鐵道",
-  gameId: "1351906",
-  gameName: "Honkai: Star Rail",
-  viewerCount: 1234,
-  startedAt: new Date(Date.now() - 95 * 60_000).toISOString(),
-  previewUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${login}-640x360.jpg`,
-  largePreviewUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${login}-1920x1080.jpg`,
-});
 const LOGINS = ["aa", "bb", "cc", "dd", "ee"];
 
 beforeEach(() => {
   requireSession.mockReset();
-  cached.cachedStreamers.mockReset().mockResolvedValue(LOGINS.map((login, i) => streamer(i + 1, login)));
+  cached.cachedStreamers.mockReset().mockResolvedValue(LOGINS.map((login, i) => followedStreamer(i + 1, login)));
   cached.cachedStreamerProfiles.mockReset().mockResolvedValue([]);
   cached.cachedLiveStreams.mockReset().mockResolvedValue(LOGINS.map((login, i) => liveStream(i + 1, login)));
   cached.cachedGameArt.mockReset().mockResolvedValue([]);

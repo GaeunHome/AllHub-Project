@@ -1,4 +1,4 @@
-import type { DateKey } from "../lib/dates";
+import { latestOf, type DateKey } from "../lib/dates";
 import { profitPercentOf, type HoldingLike } from "../lib/holdings";
 import { accountStartDate, bySortOrder, type AccountMonthFlow } from "../lib/ledger";
 import type { PendingRuleRow } from "../lib/pending";
@@ -45,8 +45,6 @@ const usageOf = (id: number, { flows, holdings, rules }: Pick<InvestmentsSources
   holdingCount: holdings.filter((holding) => holding.accountId === id).length,
 });
 
-const latest = (dates: (DateKey | null)[]) => dates.reduce<DateKey | null>((last, date) => (date !== null && (last === null || date > last) ? date : last), null);
-
 export function investmentsView(sources: InvestmentsSources): InvestmentsView {
   const { accounts, flows, holdings, quotes, rules, today } = sources;
   const brokerageAccounts = accounts.filter((account) => account.kind === "investment").sort(bySortOrder);
@@ -71,17 +69,16 @@ export function investmentsView(sources: InvestmentsSources): InvestmentsView {
     ];
   });
 
-  const value = brokerages.reduce((sum, brokerage) => sum + brokerage.value, 0);
-  const cost = brokerages.reduce((sum, brokerage) => sum + brokerage.cost, 0);
+  const { value, cost, profit } = state.summary.investment;
   const holdingAccounts = brokerages.filter((brokerage) => brokerage.holdings.length > 0);
   return {
     summary: {
       value,
       cost,
-      profit: value - cost,
-      profitPercent: profitPercentOf(value - cost, cost),
+      profit,
+      profitPercent: profitPercentOf(profit, cost),
       priced: holdingAccounts.every((brokerage) => brokerage.priced),
-      quoteDate: latest(holdingAccounts.map((brokerage) => brokerage.quoteDate)),
+      quoteDate: latestOf(holdingAccounts.map((brokerage) => brokerage.quoteDate)),
       accounts: brokerages.length,
     },
     brokerages,

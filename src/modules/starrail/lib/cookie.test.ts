@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { missingKeysWarning, parseHoyolabCookie, withAccountIds } from "./cookie";
 
-describe("parseHoyolabCookie", () => {
-  it("keeps only the HoYoLAB keys it needs", () => {
+describe("parseHoyolabCookie：只留需要的鍵", () => {
+  it("其他追蹤用的 cookie 丟掉，只留 HoYoLAB 介面要用的", () => {
     const result = parseHoyolabCookie(
       "_ga=GA1.2.3; ltoken_v2=v2_abc; ltuid_v2=123456; mi18nLang=zh-tw; ltmid_v2=mid_x; _gid=xyz",
     );
@@ -15,26 +15,26 @@ describe("parseHoyolabCookie", () => {
     });
   });
 
-  it("keeps values that contain '='", () => {
+  it("值裡有等號_照原樣保留", () => {
     const result = parseHoyolabCookie("ltoken_v2=v2_a=b==; ltuid_v2=1");
 
     expect(result).toMatchObject({ ok: true, cookie: "ltoken_v2=v2_a=b==; ltuid_v2=1" });
   });
 
-  it("tolerates whitespace and newlines from copy-paste", () => {
+  it("複製時夾著空白與換行_照樣解析", () => {
     const result = parseHoyolabCookie("  ltoken_v2 = v2_abc ;\n ltuid_v2=42 ;  ");
 
     expect(result).toMatchObject({ ok: true, ltuid: "42" });
   });
 
-  it("reports every missing required key", () => {
+  it("少了必要的鍵_每個都列出來", () => {
     const result = parseHoyolabCookie("ltmid_v2=mid_x");
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toContain("ltoken_v2、ltuid_v2");
   });
 
-  it("treats an empty value as missing", () => {
+  it("值是空的_當作沒貼", () => {
     const result = parseHoyolabCookie("ltoken_v2=; ltuid_v2=1");
 
     expect(!result.ok && result.error).toContain("ltoken_v2");

@@ -1,7 +1,7 @@
 import { Suspense, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mocksOf } from "@/dev/test-helpers";
+import { mocksOf, textOf } from "@/dev/test-helpers";
 
 vi.mock(".", () => ({ requireSession: vi.fn() }));
 vi.mock("./actions", () => ({ logout: vi.fn(), changePasswordAction: vi.fn(), deleteAccountAction: vi.fn() }));
@@ -10,7 +10,6 @@ const session = mocksOf(await import("."), "requireSession");
 const { AccountPage, AccountSections } = await import("./account-page");
 
 const html = async () => renderToStaticMarkup((await AccountSections()) as ReactElement);
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const ALICE = { id: "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f", username: "alice" };
 
 beforeEach(() => {

@@ -11,12 +11,12 @@ import { accountsState, categoryOptions, depositOptions, pendingEntries, salaryA
 
 /**
  * 總資產 帳戶 待處理與首頁卡片都要的資料 都讀快取 同一次請求裡重複呼叫會合併
- * 沒有持股時不查股價 沒有信用卡時不查每天的流量與帳單
+ * 沒有持股時不查股價 沒有信用卡時不查每天的流量與帳單 帳戶頁不看市值 quotes 給 false 也不查
  */
-export async function loadAccounts(userId: string, now: Date): Promise<{ input: AccountsInput; state: AccountsState }> {
+export async function loadAccounts(userId: string, now: Date, { quotes: withQuotes = true }: { quotes?: boolean } = {}): Promise<{ input: AccountsInput; state: AccountsState }> {
   const today = taipeiToday(now);
   const [accounts, flows, holdings] = await Promise.all([cachedAccounts(userId), cachedAccountFlows(userId), cachedHoldings(userId)]);
-  const symbols = quoteSymbols(holdings.map((holding) => holding.symbol));
+  const symbols = withQuotes ? quoteSymbols(holdings.map((holding) => holding.symbol)) : [];
   const cards = accounts.some((account) => account.kind === "credit");
   const [quotes, cardFlows, cardBills] = await Promise.all([
     symbols.length > 0 ? cachedQuotes(symbols) : null,
@@ -35,12 +35,13 @@ export async function loadPending(userId: string, now: Date) {
 }
 
 /**
- * entries 是要處理的那幾列的視窗內容 key 跟 items 的一樣
+ * entries 是要處理的那幾列的視窗內容 key 跟 items 的一樣 incomeRules 是收入的固定收支
  * configured 是有啟用中的固定收支或信用卡 沒有時畫面改成去設定的提示
  */
 export type ChecklistView = {
   items: ChecklistItem[];
   entries: PendingEntry[];
+  incomeRules: ReadonlySet<number>;
   payFromAccounts: AccountOption[];
   salaryAccounts: SalaryAccountOption[];
   categories: CategoryOption[];
@@ -56,6 +57,7 @@ export async function loadChecklist(userId: string, now: Date): Promise<Checklis
   return {
     items: monthChecklist({ rules, bills: [...state.bills.values()], statements: input.cardBills, records, context }, input.today),
     entries: pendingEntries(items, { accounts: input.accounts, rules, holdings: input.holdings, quotes: input.quotes, categories, fills: state.fills, today: input.today }),
+    incomeRules: new Set(rules.filter((rule) => rule.kind === "income").map((rule) => rule.id)),
     payFromAccounts: depositOptions(input.accounts),
     salaryAccounts: salaryAccountOptions(input.accounts, state.balances, state.withHoldings),
     categories: categoryOptions(categories),

@@ -1,7 +1,7 @@
-import fs from "node:fs";
 import { createElement, useLayoutEffect, useRef, type EffectCallback, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readStylesheet } from "@/dev/stylesheet";
 
 // layout effect 只在瀏覽器跑 直接呼叫元件時收起來自己執行
 vi.mock("react", { spy: true });
@@ -60,8 +60,8 @@ describe("整頁主題的外框（PageTheme）", () => {
   });
 });
 
-describe("會換整頁樣式的 :has()（globals.css）", () => {
-  const css = fs.readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+describe("會換整頁樣式的 :has()（globals.css 與它引入的模組樣式）", () => {
+  const css = readStylesheet();
   const rootHas = [...css.matchAll(/^\s*((?::root|html|body):has\([^{]*?)\s*\{/gm)].map((m) => m[1]);
 
   it("YouTube 頁換整頁底色與導覽列時排除 Activity 藏起來的頁面", () => {
@@ -106,8 +106,8 @@ describe("會換整頁樣式的 :has()（globals.css）", () => {
         expect(frame).toMatch(/color-scheme:\s*dark/);
         expect(frame).toMatch(/--ink:/);
         expect(frame).toMatch(/--surface:/);
-        expect(frame).toMatch(/--accent-gold:\s*#fbbf24/);
-        expect(frame).toMatch(/--success-dot:\s*#34d399/);
+        expect(frame).toMatch(/--accent-gold:/);
+        expect(frame).toMatch(/--success-dot:/);
       });
 
       it(`${theme}：導覽列直接疊在深色底上會被染灰，改成不透明、跟別頁一樣的顏色（全站的 --header-bg 疊在 --bg-base 上）`, () => {
@@ -117,6 +117,24 @@ describe("會換整頁樣式的 :has()（globals.css）", () => {
         expect(header).toMatch(/background-image:\s*linear-gradient\(var\(--header-bg\),\s*var\(--header-bg\)\)/);
       });
     }
+
+    it("固定深色頁的模組圖示色與狀態點，跟全站深色模式的值逐一相同：外觀選淺色時，這兩頁的圖示與標籤也跟深色模式一樣", () => {
+      const variables = (body: string) =>
+        Object.fromEntries(
+          body
+            .split(";")
+            .map((declaration) => declaration.split(":"))
+            .filter(([name]) => name?.trim().startsWith("--"))
+            .map(([name, ...value]) => [name.trim(), value.join(":").trim()]),
+        );
+      const darkRoot = variables(/:root\s*\{\s*@variant dark\s*\{([^{}]*)\}\s*\}/.exec(css.replace(/\/\*[\s\S]*?\*\//g, ""))?.[1] ?? "");
+      const fixedDark = rules.filter((rule) => rule.selectors.includes(".theme-twitch") && rule.selectors.includes(".theme-starrail"));
+      const iconColors = Object.fromEntries(Object.entries(darkRoot).filter(([name]) => /^--accent-|-dot$/.test(name)));
+
+      expect(Object.keys(iconColors).length).toBeGreaterThan(0);
+      expect(fixedDark).toHaveLength(1);
+      expect(variables(fixedDark[0].body)).toEqual(iconColors);
+    });
   });
 
   it("用頁面主題 class 換整頁樣式的選擇器都排除藏起來的頁面（dialog 會在藏起來時關掉、全螢幕會離開，不用排除）", () => {

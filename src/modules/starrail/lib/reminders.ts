@@ -1,13 +1,12 @@
 // 提醒都照伺服器當地的時間 每天 04:00 重置 週一 04:00 換週
 // 同一期只提醒一次 由 service 記下 這裡只判斷該不該提醒
 
+import { DAY_MS, HOUR_MS } from "@/core/time";
 import { isOngoing, progressFull, type CalendarChallenge } from "./calendar";
 import type { DailyNote } from "./responses";
 
 /** 伺服器時區固定 沒有夏令時間 認不得的伺服器當成 UTC+8 */
 const OFFSET_HOURS: Record<string, number> = { prod_official_usa: -5, prod_official_eur: 1, prod_official_asia: 8, prod_official_cht: 8 };
-const HOUR_MS = 3_600_000;
-const DAY_MS = 24 * HOUR_MS;
 const RESET_HOUR = 4;
 
 /** 每日實訓 晚上九點還沒做完才提醒 */
@@ -36,7 +35,7 @@ export function nextReset(region: string, now: Date): Date {
 }
 
 /** period 是伺服器當地的日期 同一天只提醒一次 */
-export type DailyReminder = { period: string; score: number; max: number; resetAt: Date };
+type DailyReminder = { period: string; score: number; max: number; resetAt: Date };
 
 export function dailyTrainingReminder(note: DailyNote, region: string, now: Date): DailyReminder | null {
   const clock = localClock(region, now);
@@ -47,7 +46,7 @@ export function dailyTrainingReminder(note: DailyNote, region: string, now: Date
 }
 
 /** period 是那個週日的日期 沒做完的項目才有值 */
-export type WeeklyReminder = {
+type WeeklyReminder = {
   period: string;
   rogue: { score: number; max: number } | null;
   cocoon: { remaining: number; limit: number | null } | null;

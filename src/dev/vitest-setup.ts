@@ -1,9 +1,12 @@
-import { beforeEach } from "vitest";
-import { resetNextCache } from "./test-helpers";
+import { beforeEach, vi } from "vitest";
+import * as nextCache from "./next-cache-stub";
 
-// 每個測試都從沒有 next/cache 呼叫紀錄的狀態開始 測試檔不用自己清
 beforeEach(() => {
-  resetNextCache();
+  // 每個測試都從沒有 next/cache 呼叫紀錄的狀態開始 測試檔不用自己清
+  for (const spy of Object.values(nextCache)) spy.mockReset();
+  // 本機跑測試時 shell 可能設了假伺服器 externalFetch 就會改寫網址
+  // 先清掉 測試看到的是真正的網址 要用假伺服器的測試自己再設
+  vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
 });
 
 // 測試不能對外連線 spy 模式的 vi.mock 忘了設回應就會呼叫真的實作 先在這裡擋下

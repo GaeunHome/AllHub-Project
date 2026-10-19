@@ -1,10 +1,11 @@
 import { eq } from "drizzle-orm";
 import { cacheLife, revalidateTag } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv, stubYoutubeEnv } from "@/dev/test-env";
 import { expiredTags, mocksOf, tagged } from "@/dev/test-helpers";
 import { youtubeChannels, youtubeFollows, youtubeSavedVideos, youtubeSettings, youtubeTranslations, youtubeVideos } from "../data/schema";
+import { CHANNEL_ID as CH, KOREAN_TRACKS, VIDEO_ID as VIDEO } from "../dev/fixtures";
 import { callbackToken, topicFor } from "../lib/websub";
 
 vi.mock("../lib/subtitles/captions", { spy: true });
@@ -19,11 +20,7 @@ const { checkIsShort } = mocksOf(await import("../lib/api"), "checkIsShort");
 const cached = await import("./cached");
 const { isRecheckDue, recheckDueCaptions } = await import("./caption-status");
 const { handleFeed, handleVerification } = await import("./channels");
-const translation = await import("./translation");
-
-const CH = "UC" + "a".repeat(22);
-const VIDEO = "dQw4w9WgXcQ";
-const KO = { ok: true, tracks: [{ languageCode: "ko", automatic: false, translated: false }] };
+const settings = await import("./ai-settings");
 
 let testDb: TestDb;
 setupTestDb((d) => (testDb = d));
@@ -33,10 +30,9 @@ let other: string;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3600_000);
 
 beforeEach(async () => {
-  listCaptionTracks.mockReset().mockResolvedValue(KO);
+  listCaptionTracks.mockReset().mockResolvedValue(KOREAN_TRACKS);
   checkIsShort.mockReset().mockResolvedValue(false);
-  me = await insertTestUser(testDb, "alice", { role: "owner" });
-  other = await insertTestUser(testDb, "bob");
+  [me, other] = await insertTestUsers(testDb);
   await testDb.insert(youtubeChannels).values({ channelId: CH, title: "뉴진스", subscriptionStatus: "pending" });
   await testDb.insert(youtubeFollows).values({ userId: me, channelId: CH });
 });
@@ -58,13 +54,13 @@ describe("YouTube 的快取讀取：標上讀到的資料表、用 db 效期", (
     expect(tagged()).toEqual(["youtube:channels", "youtube:follows", "youtube:translations", "youtube:videos"]);
   });
 
-  it("cachedSettingsView_只有末 4 碼：快取裡沒有金鑰原文也沒有密文", async () => {
-    await translation.saveSettings(me, { provider: "anthropic", keys: { anthropic: "sk-ant-secret-WXYZ" }, clear: [], models: {}, glossaryText: "" });
+  it("cachedSettingsView_只有前 8 碼：快取裡沒有金鑰原文也沒有密文", async () => {
+    await settings.saveSettings(me, { provider: "anthropic", keys: { anthropic: "sk-ant-secret-WXYZ" }, clear: [], models: {}, glossaryText: "" });
     const [row] = await testDb.select().from(youtubeSettings);
 
     const view = await cached.cachedSettingsView(me);
 
-    expect(view.keys.anthropic).toBe("WXYZ");
+    expect(view.keys.anthropic).toBe("sk-ant-s");
     expect(JSON.stringify(view)).not.toContain("sk-ant-secret");
     expect(JSON.stringify(view)).not.toContain(row.anthropicKey!);
     expect(tagged()).toEqual(["youtube:settings"]);
@@ -104,12 +100,12 @@ describe("YouTube 的快取讀取：標上讀到的資料表、用 db 效期", (
     expect(await cached.cachedTranslation(VIDEO)).toBeNull();
   });
 
-  it("cachedVideoTitle_只查得到自己追蹤頻道的影片：youtube:videos、youtube:follows", async () => {
+  it("cachedFollowedVideo_觀看頁的標題與頻道列共用；只查得到自己追蹤頻道的影片：youtube:videos、youtube:channels、youtube:follows", async () => {
     await testDb.insert(youtubeVideos).values({ videoId: VIDEO, channelId: CH, title: "새 영상" });
 
-    expect(await cached.cachedVideoTitle(me, VIDEO)).toBe("새 영상");
-    expect(await cached.cachedVideoTitle(other, VIDEO)).toBeNull();
-    expect(new Set(tagged())).toEqual(new Set(["youtube:follows", "youtube:videos"]));
+    expect(await cached.cachedFollowedVideo(me, VIDEO)).toEqual({ title: "새 영상", channelId: CH, channelTitle: "뉴진스", thumbnail: null });
+    expect(await cached.cachedFollowedVideo(other, VIDEO)).toBeNull();
+    expect(new Set(tagged())).toEqual(new Set(["youtube:channels", "youtube:follows", "youtube:videos"]));
   });
 
   it("cachedSavedVideos_讀了保留清單與翻譯狀態：youtube:saved_videos、youtube:translations；每個人各自一份", async () => {
@@ -123,7 +119,7 @@ describe("YouTube 的快取讀取：標上讀到的資料表、用 db 效期", (
 
   it("依使用者的快取：別人讀到的是自己的那一份", async () => {
     await testDb.insert(youtubeVideos).values({ videoId: VIDEO, channelId: CH, title: "새 영상", publishedAt: hoursAgo(1) });
-    await translation.saveSettings(me, { provider: "anthropic", keys: { anthropic: "sk-ant-secret-WXYZ" }, clear: [], models: {}, glossaryText: "" });
+    await settings.saveSettings(me, { provider: "anthropic", keys: { anthropic: "sk-ant-secret-WXYZ" }, clear: [], models: {}, glossaryText: "" });
 
     expect(await cached.cachedChannels(other)).toEqual([]);
     expect(await cached.cachedRecentVideos(other)).toEqual([]);

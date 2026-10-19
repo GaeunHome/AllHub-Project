@@ -48,7 +48,7 @@ export function YoutubePage({ info }: { info: ModuleInfo }) {
 function YoutubeLogo({ info }: { info: ModuleInfo }) {
   return (
     <h1 className="yt-logo">
-      <span className="yt-logo-mark">{info.icon ? <Icon src={info.icon} className="h-7 w-9" /> : <Icon name="play" className="size-7" />}</span>
+      <span className="yt-logo-mark"><Icon src={info.icon} className="h-7 w-9" /></span>
       {info.name}
     </h1>
   );

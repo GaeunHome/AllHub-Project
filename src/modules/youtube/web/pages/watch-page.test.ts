@@ -9,12 +9,12 @@ import type { WatchClient } from "../components/watch-client";
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/cached", { spy: true });
 
-const cached = mocksOf(await import("../../service/cached"), "cachedTranslation", "cachedMissingApiKeyMessage", "cachedVideoTitle");
+const cached = mocksOf(await import("../../service/cached"), "cachedTranslation", "cachedMissingApiKeyMessage", "cachedFollowedVideo");
 const { WatchLoader, WatchPage } = await import("./watch-page");
 const { PlayerSizeSync } = await import("../components/player-size-sync");
 
 const VIDEO = "dQw4w9WgXcQ";
-const INFO: ModuleInfo = { id: "youtube", name: "YouTube", href: "/youtube", description: "", accent: "red" };
+const INFO: ModuleInfo = { id: "youtube", name: "YouTube", href: "/youtube", description: "", icon: "/icons/brands/youtube.svg", accent: "red" };
 type ClientProps = Parameters<typeof WatchClient>[0];
 
 /** 觀看頁交給 WatchClient 的資料 只看元素的 props 不實際算繪播放器 */
@@ -36,7 +36,7 @@ beforeEach(() => {
   requireSession.mockReset();
   cached.cachedTranslation.mockReset().mockResolvedValue(null);
   cached.cachedMissingApiKeyMessage.mockReset().mockResolvedValue(null);
-  cached.cachedVideoTitle.mockReset().mockResolvedValue(null);
+  cached.cachedFollowedVideo.mockReset().mockResolvedValue(null);
 });
 
 describe("觀看頁：翻譯共用，但只有發起人或站長能重新翻譯或換字幕", () => {
@@ -105,7 +105,7 @@ describe("觀看頁：翻譯共用，但只有發起人或站長能重新翻譯�
 
     await clientProps();
 
-    expect(cached.cachedVideoTitle).toHaveBeenCalledWith(OTHER_SESSION.id, VIDEO);
+    expect(cached.cachedFollowedVideo).toHaveBeenCalledWith(OTHER_SESSION.id, VIDEO);
   });
 });
 

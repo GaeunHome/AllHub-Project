@@ -1,16 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ActionButton } from "@/core/ui/action-button";
 import { Dialog, useDialog } from "@/core/ui/dialog";
-import type { FormState } from "@/core/ui/form-message";
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { StatusChip } from "@/core/ui/status-chip";
 import type { ChecklistState } from "../../../lib/checklist";
 import type { DateKey } from "../../../lib/dates";
-import { formatMonth } from "../../../lib/month";
-import { skipOccurrenceAction } from "../../actions";
 import type { PendingAction, PendingEntry } from "../../dashboard-view";
 import type { ChecklistRow } from "../../overview-view";
 import { editRecurringPath } from "../../paths";
@@ -20,6 +16,7 @@ import { useOverviewNotice } from "../dashboard/overview-notice";
 import type { AccountOption, CategoryOption, SalaryAccountOption } from "../forms/options";
 import { SalaryForm } from "../forms/salary-dialog";
 import { ConfirmForm } from "../pending/confirm-form";
+import { SkipButton } from "../row-controls";
 
 const ACTION_LABELS: Record<PendingAction, string> = { bill: "填帳單", pay: "已繳", confirm: "確認", allocate: "入帳並分配" };
 
@@ -110,26 +107,11 @@ function EntryDialog({ entry, payFromAccounts, salaryAccounts, categories, today
   return null;
 }
 
-/** 略過也是處理掉這一期 先確認 修改打開每月固定頁的那一條 */
+/** 修改打開每月固定頁的那一條 */
 function RuleMenu({ name, rule, onSkipped }: { name: string; rule: NonNullable<PendingEntry["rule"]>; onSkipped: (message: string) => void }) {
-  const skip = async (previous: FormState, formData: FormData) => {
-    const result = await skipOccurrenceAction(previous, formData);
-    if (!result.error) onSkipped(result.message ?? `已略過「${name}」${formatMonth(rule.period)}`);
-    return result;
-  };
-
   return (
     <MoreMenu label={`「${name}」的選項`}>
-      <ActionButton
-        action={skip}
-        fields={{ ruleId: rule.ruleId, period: rule.period }}
-        confirmMessage={`略過「${name}」${formatMonth(rule.period)}這一期？這一期不會記帳。`}
-        formClassName="flex flex-col gap-1"
-        className="menu-item"
-      >
-        <Icon name="check-check" className="size-4" />
-        略過這一期
-      </ActionButton>
+      <SkipButton name={name} ruleId={rule.ruleId} period={rule.period} onSkipped={onSkipped} inMenu />
       <Link href={editRecurringPath(rule.ruleId)} className="menu-item">
         <Icon name="pencil" className="size-4" />
         修改

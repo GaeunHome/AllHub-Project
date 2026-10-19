@@ -3,6 +3,11 @@ import type { ReactNode } from "react";
 import { ExternalImage } from "@/core/ui/external-image";
 import { elementLabel } from "../../lib/characters";
 
+/** 伺服器與稀有度這類金色的標籤 */
+export function GoldChip({ children }: { children: ReactNode }) {
+  return <span className="chip border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-[var(--sr-gold-ink)]">{children}</span>;
+}
+
 /** 稀有度的底色跟遊戲一樣 五星金 四星紫 */
 export function rarityClass(rarity: number | null): string {
   if (rarity === 5) return "sr-five";

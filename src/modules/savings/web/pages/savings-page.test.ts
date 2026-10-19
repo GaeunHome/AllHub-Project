@@ -1,14 +1,11 @@
-import { readFileSync } from "node:fs";
-import { createElement, Fragment, type ReactElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createElement, type ReactNode } from "react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { markup as renderNode, mocksOf, textOf } from "@/dev/test-helpers";
 import type { SavingsAccount, SavingsCategory, SavingsHolding, SavingsRecurring } from "../../data/schema";
-import type { CardDailyFlow } from "../../lib/cards";
-import type { ChecklistItem } from "../../lib/checklist";
-import type { AccountMonthFlow, CategoryMonthTotal } from "../../lib/ledger";
+import { accountRow, checklistItem, dayFlowRow, flowRow as flow, ruleRow } from "../../dev/fixtures";
+import type { CategoryMonthTotal } from "../../lib/ledger";
 import type { Quote } from "../../lib/quotes";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
@@ -59,29 +56,9 @@ const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", desc
 const NOW = new Date("2026-10-15T04:00:00Z");
 const CREATED = new Date("2026-01-05T02:00:00Z");
 
-const globalsCss = readFileSync(new URL("../../../../app/globals.css", import.meta.url), "utf8");
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
-const render = async (node: Promise<ReactNode> | ReactNode) => renderToStaticMarkup(createElement(Fragment, null, (await node) as ReactElement));
+const render = async (node: Promise<ReactNode> | ReactNode) => renderNode(await node);
 
-const account = (fixture: Pick<SavingsAccount, "id" | "name" | "kind"> & Partial<SavingsAccount>): SavingsAccount => ({
-  userId: "u",
-  purposeId: null,
-  label: null,
-  cardStyle: null,
-  openingBalance: 0,
-  openingCost: null,
-  monthlyPlan: null,
-  targetAmount: null,
-  dueDay: null,
-  payFromAccountId: null,
-  active: true,
-  sortOrder: fixture.id,
-  createdAt: CREATED,
-  statementDay: null,
-  autopay: false,
-  cardNotifiedOn: null,
-  ...fixture,
-});
+const account = (values: Pick<SavingsAccount, "id" | "name" | "kind"> & Partial<SavingsAccount>) => accountRow({ createdAt: CREATED, ...values });
 const ACCOUNTS = [
   account({ id: 1, name: "台銀", kind: "deposit", label: "交割", openingBalance: 8300 }),
   account({ id: 2, name: "生活費帳戶", kind: "deposit", openingBalance: 86000 }),
@@ -101,34 +78,15 @@ const category = (id: number, name: string, kind: "income" | "expense", monthlyB
   icon,
 });
 const CATEGORIES = [category(1, "薪水", "income", null, "briefcase"), category(2, "餐飲", "expense", 6000, "utensils"), category(3, "交通", "expense", null, "bus")];
-const flow = (accountId: number, month: string, values: Partial<AccountMonthFlow>): AccountMonthFlow => ({ accountId, month, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
 const FLOWS = [flow(2, "2026-10", { income: 43000, expense: 5000 }), flow(6, "2026-09", { expense: 12480 }), flow(6, "2026-10", { expense: 7000 })];
 const total = (categoryId: number | null, kind: "income" | "expense", amount: number): CategoryMonthTotal => ({ categoryId, kind, month: "2026-10", amount });
 const TOTALS = [total(1, "income", 43000), total(2, "expense", 6500), total(3, "expense", 5500)];
-const dayFlow = (date: string, expense: number): CardDailyFlow => ({ accountId: 6, date, income: 0, expense, transferIn: 0, transferOut: 0, adjust: 0 });
-const CARD_FLOWS = [dayFlow("2026-09-20", 12480), dayFlow("2026-10-10", 7000)];
+const CARD_FLOWS = [dayFlowRow(6, "2026-09-20", { expense: 12480 }), dayFlowRow(6, "2026-10-10", { expense: 7000 })];
 const holding = (id: number, symbol: string, shares: number, cost: number): SavingsHolding => ({ id, userId: "u", accountId: 4, symbol, name: `${symbol} 名稱`, shares, cost, sortOrder: id, createdAt: CREATED });
 const HOLDINGS = [holding(1, "006208", 1000, 95000), holding(2, "0050", 100, 18000)];
 const quote = (symbol: string, closeCents: number): Quote => ({ symbol, name: symbol, closeCents, date: "2026-10-14", market: "twse" });
 const QUOTES = [quote("006208", 10650), quote("0050", 19500)];
-const rule = (fixture: Pick<SavingsRecurring, "id" | "kind" | "amount" | "accountId" | "dayOfMonth"> & Partial<SavingsRecurring>): SavingsRecurring => ({
-  userId: "u",
-  counterAccountId: null,
-  categoryId: null,
-  note: null,
-  active: true,
-  lastPostedMonth: "2026-09-01",
-  createdAt: CREATED,
-  name: null,
-  intervalMonths: 1,
-  startMonth: null,
-  holidayRule: "none",
-  mode: "confirm",
-  holdingId: null,
-  allocate: false,
-  lastNotifiedOn: null,
-  ...fixture,
-});
+const rule = (values: Pick<SavingsRecurring, "id" | "kind" | "amount" | "accountId" | "dayOfMonth"> & Partial<SavingsRecurring>) => ruleRow({ createdAt: CREATED, ...values });
 const RULES = [
   rule({ id: 1, name: "薪水", kind: "income", amount: 52000, accountId: 2, categoryId: 1, dayOfMonth: 20, allocate: true }),
   rule({ id: 2, kind: "transfer", amount: 5000, accountId: 1, counterAccountId: 4, holdingId: 1, dayOfMonth: 15 }),
@@ -166,7 +124,7 @@ const wholePage = async () =>
 
 describe("理財的總覽頁", () => {
   it("頁首是理財，分頁列照順序是總覽、紀錄、帳戶、投資、每月固定、設定，總覽是目前這一頁", () => {
-    const markup = renderToStaticMarkup(createElement(SavingsPage, { info: INFO }));
+    const markup = renderNode(createElement(SavingsPage, { info: INFO }));
     const tabs = [...markup.slice(markup.indexOf('aria-label="理財的頁面"')).matchAll(/<a [^>]*>(.*?)<\/a>/g)].map((m) => [m[0].match(/href="([^"]*)"/)?.[1], textOf(m[1]), m[0].includes('aria-current="page"')]);
 
     expect(markup).toMatch(/<h1[^>]*>理財<\/h1>/);
@@ -184,7 +142,7 @@ describe("理財的總覽頁", () => {
   it("整頁的視窗共用一個訊息範圍：新的成功訊息出現時，其他視窗留下的舊訊息就收起來", () => {
     vi.mocked(dialog.DialogMessageScope).mockClear();
 
-    renderToStaticMarkup(createElement(SavingsPage, { info: INFO }));
+    renderNode(createElement(SavingsPage, { info: INFO }));
 
     expect(dialog.DialogMessageScope).toHaveBeenCalledOnce();
   });
@@ -267,26 +225,12 @@ describe("這個月要做的事", () => {
   });
 
   it("照 loadChecklist 的資料一列一件，要處理的接上待處理的視窗；標題列寫還有幾件", async () => {
-    const item = (fixture: Pick<ChecklistItem, "key" | "title" | "date" | "state"> & Partial<ChecklistItem>): ChecklistItem => ({
-      kind: "recurring",
-      amount: 1000,
-      estimated: false,
-      doneOn: null,
-      carriedOver: false,
-      upcoming: false,
-      ruleId: null,
-      period: null,
-      cardId: null,
-      actionable: false,
-      cardStage: null,
-      ...fixture,
-    });
     const view = await overviewData.loadChecklist(OTHER_SESSION.id, NOW);
     overviewData.loadChecklist.mockResolvedValue({
       ...view,
       items: [
-        item({ key: "card:6:2026-10-05", title: "國泰卡", kind: "card", date: "2026-10-05", state: "todo", amount: 19480, estimated: true, cardId: 6, actionable: true, cardStage: "needs-bill" }),
-        item({ key: "recurring:3:2026-10", title: "Netflix", date: "2026-10-12", state: "auto-done", amount: 390, doneOn: "2026-10-12", ruleId: 3 }),
+        checklistItem({ key: "card:6:2026-10-05", title: "國泰卡", kind: "card", date: "2026-10-05", state: "todo", amount: 19480, estimated: true, cardId: 6, actionable: true, cardStage: "needs-bill" }),
+        checklistItem({ key: "recurring:3:2026-10", title: "Netflix", date: "2026-10-12", state: "auto-done", amount: 390, doneOn: "2026-10-12", ruleId: 3 }),
       ],
     });
 
@@ -323,11 +267,6 @@ describe("介面原則", () => {
 
     expect(markup.match(/class="btn-primary[ "]/g)?.length ?? 0).toBeLessThanOrEqual(1);
     expect(markup).not.toMatch(/fixed right-4/);
-  });
-
-  it("數字一出現就是最後的值：沒有從 0 往上數與進場動畫", async () => {
-    expect(await wholePage()).not.toMatch(/fin-count|fin-rise|--i:/);
-    expect(globalsCss).not.toMatch(/@keyframes fin-|\.fin-rise|\.fin-count/);
   });
 
   it("卡片標題不帶圖示，標題旁沒有裝飾用的圖示方塊", async () => {

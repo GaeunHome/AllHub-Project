@@ -1,7 +1,6 @@
 import { createElement, useActionState } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { form } from "@/dev/test-helpers";
+import { form, markup as render, textOf } from "@/dev/test-helpers";
 
 // 結果要送出後才有 所以直接給 useActionState 送出後的狀態看畫面
 // 其他照 React 原本的實作
@@ -10,7 +9,6 @@ vi.mock("../actions", () => ({ redeemCodeAction: vi.fn() }));
 
 const { RedeemPanel, RedeemResult, redeemFormAction } = await import("./redeem-panel");
 
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const panel = () => createElement(RedeemPanel, { accountId: 7, label: "台港澳服 · 開拓者（UID 900123456）" });
 /**
  * 表單最後面放結果框的那一格 取出 class 與裡面的內容
@@ -23,7 +21,7 @@ const resultSlot = (markup: string) => {
 
 describe("兌換碼", () => {
   it("還沒兌換：兌換到哪個帳號、輸入框與兌換鈕，沒有結果框", () => {
-    const markup = renderToStaticMarkup(panel());
+    const markup = render(panel());
 
     expect(markup).toMatch(/<input type="hidden" name="accountId" value="7"/);
     expect(markup).toContain('name="code"');
@@ -32,28 +30,28 @@ describe("兌換碼", () => {
   });
 
   it("成功：醒目的結果框（status），標題旁標出剛才兌換的碼（送出後輸入框會清空），下面是 HoYoLAB 的說明", () => {
-    const markup = renderToStaticMarkup(createElement(RedeemResult, { state: { message: "獎勵會寄到遊戲內信箱", code: "GIFT2026" } }));
+    const markup = render(createElement(RedeemResult, { state: { message: "獎勵會寄到遊戲內信箱", code: "GIFT2026" } }));
 
     expect(markup).toMatch(/^<div role="status" class="result-banner result-banner-success"/);
     expect(textOf(markup)).toBe("兌換成功GIFT2026獎勵會寄到遊戲內信箱");
   });
 
   it("失敗：alert 結果框，標題「兌換失敗」與原因", () => {
-    const markup = renderToStaticMarkup(createElement(RedeemResult, { state: { error: "兌換碼已過期", code: "EXPIRED1" } }));
+    const markup = render(createElement(RedeemResult, { state: { error: "兌換碼已過期", code: "EXPIRED1" } }));
 
     expect(markup).toMatch(/^<div role="alert" class="result-banner result-banner-error"/);
     expect(textOf(markup)).toBe("兌換失敗EXPIRED1兌換碼已過期");
   });
 
   it("沒有結果時不畫；不知道是哪一組碼時只寫結果", () => {
-    expect(renderToStaticMarkup(createElement(RedeemResult, { state: { code: "GIFT2026" } }))).toBe("");
-    expect(textOf(renderToStaticMarkup(createElement(RedeemResult, { state: { error: "請輸入兌換碼" } })))).toBe("兌換失敗請輸入兌換碼");
+    expect(render(createElement(RedeemResult, { state: { code: "GIFT2026" } }))).toBe("");
+    expect(textOf(render(createElement(RedeemResult, { state: { error: "請輸入兌換碼" } })))).toBe("兌換失敗請輸入兌換碼");
   });
 
   it("再按一次兌換：送出中先留著上一次的結果，新結果回來才換掉（不會先清空再出現，下面的內容也不會跳一下）", () => {
     vi.mocked(useActionState).mockReturnValueOnce([{ error: "兌換碼已過期", code: "EXPIRED1", seq: 1 }, vi.fn(), true]);
 
-    const markup = renderToStaticMarkup(panel());
+    const markup = render(panel());
 
     expect(textOf(markup)).toContain("兌換中…");
     expect(markup).toContain("result-banner-error");
@@ -61,7 +59,7 @@ describe("兌換碼", () => {
   });
 
   it("超寬螢幕跟簽到紀錄並排、卡片比內容高時：多出來的高度都給第一列（「兌換到」貼在它的底），輸入框與結果框接在下面；結果出現（一行或兩行）只在留好的位置裡長，不會推動輸入框", () => {
-    const markup = renderToStaticMarkup(panel());
+    const markup = render(panel());
 
     const formClasses = /<form[^>]*class="([^"]*)"/.exec(markup)![1].split(" ");
     expect(formClasses).toEqual(expect.arrayContaining(["2xl:grid", "2xl:grid-rows-[1fr_auto_auto]"]));
@@ -72,9 +70,9 @@ describe("兌換碼", () => {
   });
 
   it("結果框的位置先留好兩行說明的高度：卡片不夠高時結果框不會向上擠，輸入框不動；窄螢幕結果接在下面，沒有結果時不佔位", () => {
-    const before = resultSlot(renderToStaticMarkup(panel()));
+    const before = resultSlot(render(panel()));
     vi.mocked(useActionState).mockReturnValueOnce([{ message: "獎勵會寄到遊戲內信箱", code: "GIFT2026", seq: 1 }, vi.fn(), false]);
-    const after = resultSlot(renderToStaticMarkup(panel()));
+    const after = resultSlot(render(panel()));
 
     // 結果框高 內距 16×2 + 邊框 2 + 標題 24 + 間距 4 + 說明兩行 40 = 102px
     // 最長的說明是 cookie 少了兌換要用的欄位 在超寬螢幕是兩行

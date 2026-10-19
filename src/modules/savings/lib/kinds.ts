@@ -16,11 +16,16 @@ export const TRANSACTION_KIND_LABELS: Record<TransactionKind, string> = { expens
 export const ENTRY_KINDS = ["expense", "income", "transfer"] as const;
 export type EntryKind = (typeof ENTRY_KINDS)[number];
 
-/** 分類與用途存的顏色 畫面不再顯示 留著是因為資料庫的 check 與舊資料 */
+/** 分類存的顏色 畫面不顯示 留著是因為資料庫的 check 與舊資料 */
 export const PALETTE = ["blue", "teal", "green", "amber", "orange", "rose", "violet", "slate"] as const;
 export type PaletteColor = (typeof PALETTE)[number];
-/** 灰色留給未分類與未設定用途 新的分類與用途不用它 */
+/** 灰色留給未分類 新的分類不用它 */
 export const SELECTABLE_COLORS = PALETTE.filter((color) => color !== "slate");
+
+/** 新分類的顏色 先挑同一類還沒用過的 都用過了就照數量輪替 */
+export function nextFreeColor(used: readonly PaletteColor[]): PaletteColor {
+  return SELECTABLE_COLORS.find((color) => !used.includes(color)) ?? SELECTABLE_COLORS[used.length % SELECTABLE_COLORS.length];
+}
 
 export const NAME_MAX_LENGTH = 20;
 export const NOTE_MAX_LENGTH = 200;

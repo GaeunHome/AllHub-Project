@@ -4,8 +4,14 @@ import { captureErrorLog, form, loggedText, mocksOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/accounts", { spy: true });
+vi.mock("../service/checkin", { spy: true });
+vi.mock("../service/link", { spy: true });
 
-const service = mocksOf(await import("../service/accounts"), "linkAccount", "checkinAccount", "setStaminaThreshold", "setGameReminders", "removeAccount");
+const service = {
+  ...mocksOf(await import("../service/accounts"), "setStaminaThreshold", "setGameReminders", "removeAccount"),
+  ...mocksOf(await import("../service/checkin"), "checkinAccount"),
+  ...mocksOf(await import("../service/link"), "linkAccount"),
+};
 const { checkinAction, linkAccountAction, removeAccountAction, setGameRemindersAction, setThresholdAction } = await import("./actions");
 
 const dbError = () => Object.assign(new Error('Failed query: update "starrail_accounts" params: ltoken_v2=secret-detail'), { name: "DrizzleQueryError" });

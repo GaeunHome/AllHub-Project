@@ -1,8 +1,9 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { GameArt, LiveStream, StreamerProfile } from "../lib/visuals";
+import type { FollowedStreamer } from "../data/schema";
 import { twitchTags } from "./cache-tags";
-import { listFollowedStreamers, recentEvents, type FollowedStreamer } from "./streamers";
+import { listFollowedStreamers, recentEvents } from "./streamers";
 import { gameArt, liveStreams, streamerProfiles } from "./visuals";
 
 // 只給頁面用 寫入流程與排程要讀最新資料 直接用 streamers.ts

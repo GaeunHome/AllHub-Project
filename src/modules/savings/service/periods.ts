@@ -1,12 +1,12 @@
 import "server-only";
 import { and, eq, isNull, lt, or } from "drizzle-orm";
+import type { Executor } from "@/core/db";
 import { savingsRecurring, type SavingsRecurring } from "../data/schema";
 import { addDays, type DateKey } from "../lib/dates";
 import { dateToMonth, monthToDate, type MonthKey } from "../lib/month";
 import { PENDING_LOOKAHEAD_DAYS, occurrenceDate, pendingOccurrences, type RecurringLike } from "../lib/recurring";
 import { NOT_FOUND } from "../lib/validation";
 import { EARLIER_PERIOD_FIRST, PERIOD_DONE, PERIOD_NOT_DUE, PERIOD_NOT_PENDING, SavingsUserError } from "./errors";
-import type { Executor } from "./shared";
 
 // 固定收支的游標 自動記 確認 略過與發薪分配共用
 // 紀錄 holdings 與 transactions 都會用到 放在這裡才不會互相 import

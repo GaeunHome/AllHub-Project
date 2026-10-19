@@ -1,8 +1,10 @@
 // 角色詳情沒有公開文件 欄位依 genshin.py 整理 還沒用真實帳號驗證
 // 讀不到的給 null 並記下路徑 第一次接真實帳號時看 log 就知道哪裡不同
 
-import { elementIconUrl, pathIconUrl, propertyIconUrl } from "./game-icons";
-import { asRecord, bool, createMissing, image, number, text } from "./json";
+import { asRecord, boolOf, createMissing, numberOf, text } from "@/core/json";
+import { ELEMENTS, elementIconUrl, elementOf, pathIconUrl, pathOf, propertyIconUrl } from "./game-icons";
+import { image } from "./image";
+import { DATA_NOT_PUBLIC } from "./retcodes";
 import { interpretWith, type HoyolabResult } from "./responses";
 
 /**
@@ -57,8 +59,6 @@ export type StarrailCharacter = {
 
 export type CharacterList = { characters: StarrailCharacter[]; missing: string[] };
 
-/** 10102 是資料不公開 */
-const DATA_NOT_PUBLIC = 10102;
 const NOT_PUBLIC_HINT = "角色詳情沒有公開：到 HoYoLAB → 戰績 → 設定，打開角色詳情後再重新整理";
 
 export function interpretCharacters(json: unknown): HoyolabResult<CharacterList> {
@@ -92,19 +92,19 @@ export function parseCharacters(data: unknown): CharacterList {
   const relicStat = (value: unknown, path: string): RelicStat | null => {
     const stat = asRecord(value);
     if (!stat) return null;
-    const type = need(number(stat.property_type), `${path}.property_type`);
-    return { name: propertyName(type, true), value: need(text(stat.value), `${path}.value`), times: need(number(stat.times), `${path}.times`), icon: propertyIcon(type) };
+    const type = need(numberOf(stat.property_type), `${path}.property_type`);
+    return { name: propertyName(type, true), value: need(text(stat.value), `${path}.value`), times: need(numberOf(stat.times), `${path}.times`), icon: propertyIcon(type) };
   };
 
   const relic = (value: unknown, path: string): Relic | null => {
     const r = asRecord(value);
     if (!r) return null;
     return {
-      id: number(r.id),
-      pos: need(number(r.pos), `${path}.pos`),
+      id: numberOf(r.id),
+      pos: need(numberOf(r.pos), `${path}.pos`),
       name: need(text(r.name), `${path}.name`),
-      level: need(number(r.level), `${path}.level`),
-      rarity: need(number(r.rarity), `${path}.rarity`),
+      level: need(numberOf(r.level), `${path}.level`),
+      rarity: need(numberOf(r.rarity), `${path}.rarity`),
       icon: need(image(r.icon), `${path}.icon`),
       // 沒裝主屬性時是 null genshin.py 也略過
       mainStat: r.main_property === null ? null : relicStat(r.main_property, `${path}.main_property`),
@@ -118,25 +118,25 @@ export function parseCharacters(data: unknown): CharacterList {
     const equip = asRecord(value);
     if (!equip) return need(null, path);
     return {
-      id: number(equip.id),
+      id: numberOf(equip.id),
       name: need(text(equip.name), `${path}.name`),
-      level: need(number(equip.level), `${path}.level`),
-      superimposition: need(number(equip.rank), `${path}.rank`),
-      rarity: need(number(equip.rarity), `${path}.rarity`),
+      level: need(numberOf(equip.level), `${path}.level`),
+      superimposition: need(numberOf(equip.rank), `${path}.rank`),
+      rarity: need(numberOf(equip.rarity), `${path}.rarity`),
       icon: need(image(equip.icon), `${path}.icon`),
     };
   };
 
   const character = (value: unknown): StarrailCharacter[] => {
     const c = asRecord(value);
-    const id = number(c?.id);
+    const id = numberOf(c?.id);
     if (!c || id === null) {
       missing.add("avatar_list[].id");
       return [];
     }
     const at = (key: string) => `avatar_list[].${key}`;
     const element = need(text(c.element)?.toLowerCase() ?? null, at("element"));
-    const path = need(number(c.base_type), at("base_type"));
+    const path = need(numberOf(c.base_type), at("base_type"));
     const relics = [...listAt(c, "relics", at("relics")), ...listAt(c, "ornaments", at("ornaments"))]
       .flatMap((r) => relic(r, at("relics[]")) ?? [])
       .sort((a, b) => (a.pos ?? 99) - (b.pos ?? 99));
@@ -144,9 +144,9 @@ export function parseCharacters(data: unknown): CharacterList {
       {
         id,
         name: need(text(c.name), at("name")),
-        level: need(number(c.level), at("level")),
-        eidolon: need(number(c.rank), at("rank")),
-        rarity: need(number(c.rarity), at("rarity")),
+        level: need(numberOf(c.level), at("level")),
+        eidolon: need(numberOf(c.rank), at("rank")),
+        rarity: need(numberOf(c.rarity), at("rarity")),
         element,
         elementIcon: elementIconUrl(element),
         path,
@@ -160,17 +160,17 @@ export function parseCharacters(data: unknown): CharacterList {
           if (!rank) return [];
           return [
             {
-              pos: need(number(rank.pos), at("ranks[].pos")),
+              pos: need(numberOf(rank.pos), at("ranks[].pos")),
               name: need(text(rank.name), at("ranks[].name")),
               icon: need(image(rank.icon), at("ranks[].icon")),
-              unlocked: need(bool(rank.is_unlocked), at("ranks[].is_unlocked")),
+              unlocked: need(boolOf(rank.is_unlocked), at("ranks[].is_unlocked")),
             },
           ];
         }),
         stats: listAt(c, "properties", at("properties")).flatMap((value) => {
           const stat = asRecord(value);
           if (!stat) return [];
-          const type = need(number(stat.property_type), at("properties[].property_type"));
+          const type = need(numberOf(stat.property_type), at("properties[].property_type"));
           return [
             {
               type,
@@ -184,7 +184,7 @@ export function parseCharacters(data: unknown): CharacterList {
         }),
         traces: listAt(c, "skills", at("skills")).flatMap((value) => {
           const skill = asRecord(value);
-          const kind = TRACE_KINDS[number(skill?.point_type) ?? -1];
+          const kind = TRACE_KINDS[numberOf(skill?.point_type) ?? -1];
           if (!skill || !kind) {
             missing.add(at("skills[].point_type"));
             return [];
@@ -197,9 +197,9 @@ export function parseCharacters(data: unknown): CharacterList {
               name: need(text(stage?.name), at("skills[].skill_stages[].name")),
               // remake 是普攻 戰技這類短標籤 太長的不是標籤就不顯示
               typeLabel: remake && remake.length <= 8 ? remake : null,
-              level: need(number(skill.level), at("skills[].level")),
+              level: need(numberOf(skill.level), at("skills[].level")),
               icon: need(image(skill.item_url), at("skills[].item_url")),
-              activated: need(bool(skill.is_activated), at("skills[].is_activated")),
+              activated: need(boolOf(skill.is_activated), at("skills[].is_activated")),
             },
           ];
         }),
@@ -213,19 +213,17 @@ export function parseCharacters(data: unknown): CharacterList {
   return { characters, missing: missing.sorted() };
 }
 
-const ELEMENTS: Record<string, string> = { physical: "物理", fire: "火", ice: "冰", lightning: "雷", wind: "風", quantum: "量子", imaginary: "虛數" };
 /** 篩選選單的順序 */
 export const ELEMENT_ORDER = Object.keys(ELEMENTS);
-const PATHS = ["毀滅", "巡獵", "智識", "同諧", "虛無", "存護", "豐饒", "記憶", "歡愉"];
 const RELIC_SLOTS = ["頭部", "手部", "軀幹", "腳部", "位面球", "連結繩"];
 
 /** 認不得的屬性原樣顯示 HoYoLAB 新增屬性時至少看得到 */
 export function elementLabel(element: string | null): string | null {
-  return element === null ? null : (ELEMENTS[element.toLowerCase()] ?? element);
+  return element === null ? null : (elementOf(element)?.label ?? element);
 }
 
 export function pathLabel(path: number | null): string | null {
-  return path !== null && Number.isInteger(path) && path >= 1 && path <= PATHS.length ? PATHS[path - 1] : null;
+  return pathOf(path)?.label ?? null;
 }
 
 /**

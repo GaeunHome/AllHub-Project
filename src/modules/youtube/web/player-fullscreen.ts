@@ -20,7 +20,7 @@ export function fullscreenToggle(mode: FullscreenMode, nativeAvailable: boolean)
  * 頁內全螢幕時 html 不捲動 不用 :has 比對播放器
  * Activity 藏起來的頁面還留在文件裡 會連它一起算
  */
-export const PAGE_SCROLL_LOCK = "data-player-fullscreen";
+const PAGE_SCROLL_LOCK = "data-player-fullscreen";
 
 type ScrollRoot = { setAttribute(name: string, value: string): void; removeAttribute(name: string): void };
 

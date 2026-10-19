@@ -1,5 +1,5 @@
 import type { StatusBadge } from "@/core/ui/status-chip";
-import { subscriptionsHealthy } from "../lib/subscriptions";
+import { SUBSCRIPTION_FAILED, subscriptionsHealthy } from "../lib/subscriptions";
 
 const LABELS: Record<string, string> = {
   enabled: "正常",
@@ -12,14 +12,12 @@ const LABELS: Record<string, string> = {
   version_removed: "訂閱版本已停用",
 };
 
-const FAILURE_PREFIX = "訂閱失敗：";
-
 /** 主播的訂閱狀態標籤 失敗或撤銷這類收不到通知的一律紅色 原因放在 detail */
 export function subscriptionBadge(streamer: Parameters<typeof subscriptionsHealthy>[0]): StatusBadge {
   const raw = streamer.subscriptionStatus;
   if (!subscriptionsHealthy(streamer)) {
     if (!raw) return { label: "未訂閱", tone: "danger", detail: null };
-    if (raw.startsWith(FAILURE_PREFIX)) return { label: "訂閱失敗", tone: "danger", detail: describeSubscriptionStatus(raw.slice(FAILURE_PREFIX.length)) };
+    if (raw.startsWith(SUBSCRIPTION_FAILED)) return { label: "訂閱失敗", tone: "danger", detail: describeSubscriptionStatus(raw.slice(SUBSCRIPTION_FAILED.length)) };
     return { label: "訂閱異常", tone: "danger", detail: describeSubscriptionStatus(raw) };
   }
   const codes = raw?.split("；") ?? [];

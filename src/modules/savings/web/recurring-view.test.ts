@@ -1,27 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { accountRow, ruleRow } from "../dev/fixtures";
 import type { AccountBalance } from "../lib/ledger";
 import type { PendingRuleRow } from "../lib/pending";
-import { recurringDetail, recurringPageView, whenText, type RecurringSources } from "./recurring-view";
+import { recurringDetail } from "./format";
+import { recurringPageView, whenText, type RecurringSources } from "./recurring-view";
 
 // 今天是 2026-10-16 星期五 人事總處 2026 年辦公日曆表 10/9 週五放假 10/10 週六
 const TODAY = "2026-10-16";
 const CREATED = new Date("2026-08-01T02:00:00Z");
 
-const account = (id: number, name: string, kind: "deposit" | "investment" | "credit", fields: Record<string, unknown> = {}) => ({
-  id,
-  name,
-  kind,
-  purposeId: null,
-  openingBalance: 0,
-  openingCost: null,
-  monthlyPlan: null as number | null,
-  targetAmount: null as number | null,
-  payFromAccountId: null,
-  active: true,
-  sortOrder: id,
-  createdAt: CREATED,
-  ...fields,
-});
+const account = (id: number, name: string, kind: "deposit" | "investment" | "credit", fields: Partial<ReturnType<typeof accountRow>> = {}) => accountRow({ id, name, kind, createdAt: CREATED, ...fields });
 const ACCOUNTS = [
   account(1, "生活費帳戶", "deposit"),
   account(2, "台銀", "deposit", { monthlyPlan: 5000 }),
@@ -42,35 +30,14 @@ const BALANCES = new Map([
   [7, balance(500)],
 ]);
 const CATEGORIES = [
-  { id: 11, name: "房租", kind: "expense" as const, color: "orange" as const, monthlyBudget: null, icon: "house" },
-  { id: 12, name: "電費", kind: "expense" as const, color: "amber" as const, monthlyBudget: null, icon: null },
-  { id: 21, name: "薪水", kind: "income" as const, color: "green" as const, monthlyBudget: null, icon: "briefcase" },
+  { id: 11, name: "房租", kind: "expense" as const, monthlyBudget: null, icon: "house" },
+  { id: 12, name: "電費", kind: "expense" as const, monthlyBudget: null, icon: null },
+  { id: 21, name: "薪水", kind: "income" as const, monthlyBudget: null, icon: "briefcase" },
 ];
 const HOLDINGS = [{ id: 50, accountId: 6, symbol: "006208", name: "富邦台灣50", shares: 238, cost: 24000, sortOrder: 0 }];
 const QUOTES = [{ symbol: "006208", name: "富邦台灣50", closeCents: 10000, date: "2026-10-15", market: "twse" as const }];
 
-const rule = (id: number, fields: Partial<PendingRuleRow>): PendingRuleRow & { userId: string } => ({
-  id,
-  userId: "u",
-  kind: "expense",
-  name: null,
-  accountId: 1,
-  counterAccountId: null,
-  categoryId: 11,
-  amount: 15000,
-  dayOfMonth: 20,
-  intervalMonths: 1,
-  startMonth: null,
-  holidayRule: "none",
-  mode: "confirm",
-  holdingId: null,
-  allocate: false,
-  note: null,
-  active: true,
-  lastPostedMonth: "2026-09-01",
-  createdAt: CREATED,
-  ...fields,
-});
+const rule = (id: number, fields: Partial<PendingRuleRow>): PendingRuleRow & { userId: string } => ruleRow({ id, categoryId: 11, createdAt: CREATED, ...fields });
 // 10/10 是週六 10/9 放假 提前到 10/8
 const SALARY = rule(30, { kind: "income", name: "薪水", categoryId: 21, amount: 52000, dayOfMonth: 10, holidayRule: "before", allocate: true });
 const REGULAR = rule(31, { kind: "transfer", accountId: 2, counterAccountId: 6, categoryId: null, holdingId: 50, amount: 5000, dayOfMonth: 5, holidayRule: "after" });

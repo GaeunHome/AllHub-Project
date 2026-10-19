@@ -2,12 +2,16 @@ import type { CardBill } from "./cards";
 import { daysBetween, dueStatus, type DateKey, type DueStatus } from "./dates";
 import type { AccountKind, EntryKind, RecurringMode } from "./kinds";
 import type { MonthKey } from "./month";
-import { pendingOccurrences, recurringTitle, type RecurringLike } from "./recurring";
+import { pendingOccurrences, recurringNames, recurringTitle, type RecurringLike } from "./recurring";
 
 // 總覽的待處理 要確認的固定收支與信用卡帳單 自動記的不列
 
 /** needs-bill 是信用卡結帳了還沒填帳單 還沒有截止日 不算逾期 */
 export type PendingStatus = DueStatus | "needs-bill";
+
+/** 待處理的一列跟這個月要做的事的那一列 key 一樣 視窗的內容才找得到 */
+export const recurringKey = (ruleId: number, period: MonthKey) => `recurring:${ruleId}:${period}`;
+export const cardKey = (cardId: number, statementDate: DateKey) => `card:${cardId}:${statementDate}`;
 
 /** daysLeft 是離 date 幾天 過了是負的 amount 是預計金額或本期應繳 */
 type PendingBase = { key: string; date: DateKey; status: PendingStatus; daysLeft: number; name: string; amount: number };
@@ -37,11 +41,8 @@ export type PendingCard = PendingBase & {
   type: "card";
   accountId: number;
   payFromAccountId: number | null;
-  autopay: boolean;
   statementDate: DateKey;
   needsBill: boolean;
-  estimate: number;
-  billId: number | null;
 };
 
 export type PendingItem = PendingRecurring | PendingCard;
@@ -64,7 +65,7 @@ export type PendingRuleRow = RecurringLike & {
 
 /** 登入者自己的帳戶 分類與持股 名稱與停用狀態從這裡找 */
 export type PendingContext = {
-  accounts: { id: number; name: string; kind: AccountKind; active: boolean; payFromAccountId: number | null; autopay: boolean }[];
+  accounts: { id: number; name: string; kind: AccountKind; active: boolean; payFromAccountId: number | null }[];
   categories: { id: number; name: string }[];
   holdings: { id: number; symbol: string }[];
 };
@@ -75,11 +76,7 @@ export type PendingContext = {
  */
 export function pendingItems(rules: PendingRuleRow[], bills: CardBill[], today: DateKey, context: PendingContext): PendingItem[] {
   const accounts = new Map(context.accounts.map((account) => [account.id, account]));
-  const names = {
-    accounts: new Map(context.accounts.map((account) => [account.id, account.name])),
-    categories: new Map(context.categories.map((category) => [category.id, category.name])),
-    holdingSymbols: new Map(context.holdings.map((holding) => [holding.id, holding.symbol])),
-  };
+  const names = recurringNames(context);
   const usable = (id: number | null) => id === null || accounts.get(id)?.active === true;
 
   const recurring = rules.flatMap((rule): PendingRecurring[] => {
@@ -89,7 +86,7 @@ export function pendingItems(rules: PendingRuleRow[], bills: CardBill[], today: 
     return [
       {
         type: "recurring",
-        key: `recurring:${rule.id}:${oldest.period}`,
+        key: recurringKey(rule.id, oldest.period),
         date: oldest.date,
         status: dueStatus(oldest.date, today),
         daysLeft: daysBetween(today, oldest.date),
@@ -117,7 +114,7 @@ export function pendingItems(rules: PendingRuleRow[], bills: CardBill[], today: 
     return [
       {
         type: "card",
-        key: `card:${bill.accountId}:${bill.statementDate}`,
+        key: cardKey(bill.accountId, bill.statementDate),
         date,
         status: bill.status,
         daysLeft: daysBetween(today, date),
@@ -125,11 +122,8 @@ export function pendingItems(rules: PendingRuleRow[], bills: CardBill[], today: 
         amount: bill.needsBill ? bill.estimate : bill.remainingDue,
         accountId: account.id,
         payFromAccountId: account.payFromAccountId,
-        autopay: account.autopay,
         statementDate: bill.statementDate,
         needsBill: bill.needsBill,
-        estimate: bill.estimate,
-        billId: bill.billId,
       },
     ];
   });

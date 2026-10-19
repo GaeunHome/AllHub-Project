@@ -1,5 +1,5 @@
 {
-  "id": "94e6d365-2e79-4298-91d0-d8f547d3b9b2",
+  "id": "59d5a0ce-17f1-466e-a2d9-3113223cb743",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -553,6 +553,18 @@
           "type": "date",
           "primaryKey": false,
           "notNull": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "card_style": {
+          "name": "card_style",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -688,6 +700,10 @@
         "savings_accounts_autopay": {
           "name": "savings_accounts_autopay",
           "value": "not \"savings_accounts\".\"autopay\" or \"savings_accounts\".\"kind\" = 'credit'"
+        },
+        "savings_accounts_card_style": {
+          "name": "savings_accounts_card_style",
+          "value": "\"savings_accounts\".\"card_style\" is null or (\"savings_accounts\".\"kind\" = 'credit' and \"savings_accounts\".\"card_style\" in ('blue', 'green', 'purple', 'orange', 'black', 'silver'))"
         }
       },
       "isRLSEnabled": true
@@ -870,6 +886,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "icon": {
+          "name": "icon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {

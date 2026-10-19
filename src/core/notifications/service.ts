@@ -1,8 +1,9 @@
 import "server-only";
-import { and, count, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import { coreNotifications, type CoreNotification } from "../db/schema";
-import { RETENTION_DAYS, retentionCutoff } from "../retention";
+import { retentionCutoff } from "../retention";
+import { deleteExpired } from "../retention-cleanup";
 import type { NotificationFeed, NotificationItem, UnreadSummary } from "./types";
 
 /** 鈴鐺面板顯示的筆數 也是輪詢時順便帶回的筆數 */
@@ -11,7 +12,6 @@ const RECENT_LIMIT = 10;
 const LIST_LIMIT = 500;
 
 // 讀寫都只碰收件人自己的通知
-// user_id 是 null 的是空窗期舊程式寫的 沒人看得到 等清理排程刪掉
 const ownedBy = (userId: string) => eq(coreNotifications.userId, userId);
 // 清理排程可能晚點才跑 讀取時也套用保留期 畫面才跟保留規則一致
 const withinRetention = (now: Date) => gte(coreNotifications.createdAt, retentionCutoff(now));
@@ -100,9 +100,5 @@ export async function markAllNotificationsRead(userId: string, module?: string, 
 
 /** 只保留 RETENTION_DAYS 天 不分收件人與已讀未讀都刪 */
 export async function cleanupNotifications(now = new Date()): Promise<string> {
-  const deleted = await db()
-    .delete(coreNotifications)
-    .where(lt(coreNotifications.createdAt, retentionCutoff(now)))
-    .returning({ id: coreNotifications.id });
-  return `刪除 ${deleted.length} 筆超過 ${RETENTION_DAYS} 天的網站通知`;
+  return deleteExpired(coreNotifications.createdAt, "網站通知", now);
 }

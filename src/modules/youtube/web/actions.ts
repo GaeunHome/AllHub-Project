@@ -8,26 +8,17 @@ import { logError } from "@/core/errors";
 import { INVALID_FORM_MESSAGE, actionErrorMessage, formId, formText, runAction } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
 import { parseNotifyToggle } from "@/core/ui/notify-toggle-form";
-import { parseVideoId } from "../lib/parse";
+import { VIDEO_ID, parseVideoId } from "../lib/parse";
 import { watchPagePath } from "../lib/urls";
 import { AI_PROVIDER_IDS, isAiProvider } from "../lib/subtitles/providers";
+import { saveSettings } from "../service/ai-settings";
 import { youtubeTags } from "../service/cache-tags";
 import { cachedVideoInfo } from "../service/cached";
 import { checkFollowedVideoCaptions } from "../service/caption-status";
-import { YoutubeUserError, addChannel, removeChannel, renewSubscriptionsFor, setChannelNotify } from "../service/channels";
+import { addChannel, removeChannel, renewSubscriptionsFor, setChannelNotify } from "../service/channels";
+import { ApiKeySetupError } from "../service/errors";
 import { SAVED_FULL_MESSAGE, keepVideo, removeSavedVideo, type VideoSnapshot } from "../service/saved-videos";
-import {
-  ApiKeySetupError,
-  TranslationUserError,
-  continueTranslation,
-  restartTranslation,
-  retryTranslation,
-  saveSettings,
-  startTranslation,
-  uploadSubtitles,
-  type Progress,
-  type StartResult,
-} from "../service/translation";
+import { continueTranslation, restartTranslation, retryTranslation, startTranslation, uploadSubtitles, type Progress, type StartResult } from "../service/translation";
 import { readSubtitleFile } from "./upload";
 
 export type { FormState } from "@/core/ui/form-message";
@@ -42,15 +33,14 @@ function translationTags(input: string): CacheTag[] {
 }
 
 // 資料庫錯誤的 message 含 SQL 與金鑰密文這類參數 畫面只給摘要 log 只記種類
-const isUserError = (error: unknown) => error instanceof YoutubeUserError || error instanceof TranslationUserError;
 const scope = (action: string) => ({ module: "youtube", action });
-const run = (action: string, work: () => Promise<FormState | string | void>) => runAction(scope(action), isUserError, work);
-const userMessage = (error: unknown, action: string) => actionErrorMessage(scope(action), isUserError, error);
+const run = (action: string, work: () => Promise<FormState | string | void>) => runAction(scope(action), work);
+const userMessage = (error: unknown, action: string) => actionErrorMessage(scope(action), error);
 
 /** 表單送來的影片 id 只收 11 碼本身 不解析網址 */
 function formVideoId(formData: FormData): string | null {
   const raw = formText(formData, "videoId");
-  return parseVideoId(raw) === raw ? raw : null;
+  return VIDEO_ID.test(raw) ? raw : null;
 }
 
 /** 資料庫沒有的標題與頻道名稱沿用觀看頁讀過的 oEmbed 快取 不必再等一次外部請求 */

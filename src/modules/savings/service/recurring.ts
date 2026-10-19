@@ -1,11 +1,12 @@
 import "server-only";
-import { and, asc, eq, getTableColumns, inArray, isNull } from "drizzle-orm";
-import { db } from "@/core/db";
+import { and, asc, eq, getTableColumns, inArray } from "drizzle-orm";
+import { db, type Executor } from "@/core/db";
 import { coreUsers } from "@/core/db/schema";
+import { activeOwnerOf, lockUserRow } from "@/core/db/users";
 import { logError } from "@/core/errors";
 import { savingsAccounts, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions, type SavingsRecurring, type SavingsTransaction } from "../data/schema";
-import { MIN_DATE, taipeiToday, type DateKey } from "../lib/dates";
-import { accountStartDate } from "../lib/ledger";
+import { MIN_DATE, latestOf, taipeiToday, type DateKey } from "../lib/dates";
+import { accountIdsOf, accountStartDate } from "../lib/ledger";
 import { monthToDate } from "../lib/month";
 import { dueMonths, occurrenceDate } from "../lib/recurring";
 import { NOT_FOUND, isRowId, parseConfirmFields, parseOccurrenceFields, parseRecurringFields, type RecurringFieldName, type RecurringInput } from "../lib/validation";
@@ -14,7 +15,7 @@ import { NOT_CONFIRM_MODE, PAY_FROM_NOT_DEPOSIT, PERIOD_DONE, RECURRING_INACTIVE
 import { lockOwnHolding, recordBuy } from "./holdings";
 import { sendDueNotices } from "./notices";
 import { claimMonth, lockOwnRule, requireOldestPending } from "./periods";
-import { checkEntryReferences, heldInvestmentIds, lockUser, ownAccounts, rejectHeldInvestments, requireAccount, requireStarted, valid, type Executor } from "./shared";
+import { checkEntryReferences, heldInvestmentIds, ownAccounts, rejectHeldInvestments, requireAccount, requireStarted, valid } from "./shared";
 
 /** 表單的原始字串 交給 lib 解析 定期定額送 regular 或帶 holdingId 的 transfer */
 export type RecurringFields = Record<RecurringFieldName, string>;
@@ -90,8 +91,6 @@ export async function deleteRecurring(userId: string, id: number): Promise<boole
 
 type RuleParents = Pick<SavingsRecurring, "userId" | "accountId" | "counterAccountId" | "categoryId" | "holdingId">;
 
-const accountIdsOf = (rule: Pick<RuleParents, "accountId" | "counterAccountId">) => (rule.counterAccountId === null ? [rule.accountId] : [rule.accountId, rule.counterAccountId]);
-
 const sameParents = (rule: RuleParents, parents: RuleParents) =>
   rule.accountId === parents.accountId && rule.counterAccountId === parents.counterAccountId && rule.categoryId === parents.categoryId && rule.holdingId === parents.holdingId;
 
@@ -102,6 +101,11 @@ const parentColumns = {
   categoryId: savingsRecurring.categoryId,
   holdingId: savingsRecurring.holdingId,
 };
+
+/** key share 只擋刪除分類 刪除分類時的連帶修改會等它 */
+async function lockCategory(tx: Executor, id: number): Promise<void> {
+  await tx.select({ id: savingsCategories.id }).from(savingsCategories).where(eq(savingsCategories.id, id)).for("key share");
+}
 
 /**
  * 待處理按確認 寫一筆紀錄並把游標推到這一期 定期定額走買進
@@ -114,9 +118,9 @@ export async function confirmOccurrence(userId: string, fields: ConfirmFields, n
   if (!parents) throw new SavingsUserError(NOT_FOUND.recurring);
 
   return db().transaction(async (tx) => {
-    await lockUser(tx, userId);
+    await lockUserRow(tx, userId, "key share");
     const accounts = await ownAccounts(tx, userId, accountIdsOf(parents), "share");
-    if (parents.categoryId !== null) await tx.select({ id: savingsCategories.id }).from(savingsCategories).where(eq(savingsCategories.id, parents.categoryId)).for("key share");
+    if (parents.categoryId !== null) await lockCategory(tx, parents.categoryId);
     const holding = parents.holdingId === null ? null : await lockOwnHolding(tx, userId, parents.holdingId);
     const rule = await lockOwnRule(tx, userId, input.ruleId);
     // 鎖父列之後被改到別的帳戶 剛鎖的就不是它現在用的 請使用者重來
@@ -188,14 +192,14 @@ const NOTHING: PostResult = { posted: 0, skipped: 0, held: 0 };
  * for key share 只擋刪除 不擋同時記帳
  */
 async function lockParents(tx: Executor, parents: RuleParents): Promise<{ id: number; active: boolean; createdAt: Date }[]> {
-  await tx.select({ id: coreUsers.id }).from(coreUsers).where(eq(coreUsers.id, parents.userId)).for("key share");
+  await lockUserRow(tx, parents.userId, "key share");
   const accounts = await tx
     .select({ id: savingsAccounts.id, active: savingsAccounts.active, createdAt: savingsAccounts.createdAt })
     .from(savingsAccounts)
     .where(and(eq(savingsAccounts.userId, parents.userId), inArray(savingsAccounts.id, accountIdsOf(parents))))
     .orderBy(asc(savingsAccounts.id))
     .for("key share");
-  if (parents.categoryId !== null) await tx.select({ id: savingsCategories.id }).from(savingsCategories).where(eq(savingsCategories.id, parents.categoryId)).for("key share");
+  if (parents.categoryId !== null) await lockCategory(tx, parents.categoryId);
   return accounts;
 }
 
@@ -213,7 +217,7 @@ async function postRule(ruleId: number, today: DateKey): Promise<PostResult> {
     const [rule] = await tx
       .select(getTableColumns(savingsRecurring))
       .from(savingsRecurring)
-      .innerJoin(coreUsers, and(eq(coreUsers.id, savingsRecurring.userId), isNull(coreUsers.disabledAt)))
+      .innerJoin(coreUsers, activeOwnerOf(savingsRecurring.userId))
       .where(eq(savingsRecurring.id, ruleId))
       .for("update", { of: savingsRecurring });
     // 鎖父列之後被改到別的帳戶或分類 剛鎖的就不是它現在用的
@@ -238,7 +242,7 @@ async function postRule(ruleId: number, today: DateKey): Promise<PostResult> {
 
     // 紀錄不能早於帳戶開始記帳的那天
     // 改到後來才建立的帳戶時 之前的期別跟停用一樣略過但往前推
-    const start = accounts.map(accountStartDate).reduce((latest, date) => (date > latest ? date : latest), MIN_DATE);
+    const start = latestOf(accounts.map(accountStartDate)) ?? MIN_DATE;
     const result = { ...NOTHING };
     for (const month of months) {
       if (!(await claimMonth(tx, rule.id, month))) continue;
@@ -285,7 +289,7 @@ export async function postDueRecurring(now = new Date()): Promise<string> {
       createdAt: savingsRecurring.createdAt,
     })
     .from(savingsRecurring)
-    .innerJoin(coreUsers, and(eq(coreUsers.id, savingsRecurring.userId), isNull(coreUsers.disabledAt)))
+    .innerJoin(coreUsers, activeOwnerOf(savingsRecurring.userId))
     .orderBy(asc(savingsRecurring.id));
 
   const total: PostResult & { failed: number } = { ...NOTHING, failed: 0 };

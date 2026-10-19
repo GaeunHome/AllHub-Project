@@ -2,11 +2,11 @@
 
 import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
-import { CardHeader } from "@/core/ui/page-header";
 import { formatSignedTwd, formatTwd } from "../../../lib/money";
 import { choosableAccounts } from "../../form-math";
 import { SAVINGS_PATHS } from "../../paths";
-import { recurringDetail, type AllocationAccount, type AllocationLineView, type RecurringFormOptions, type SalaryView } from "../../recurring-view";
+import { recurringDetail } from "../../format";
+import type { AllocationAccount, AllocationLineView, RecurringFormOptions, SalaryView } from "../../recurring-view";
 import type { SalaryAccountOption } from "../forms/options";
 import { RecurringForm } from "../forms/recurring-form";
 import { Illustration } from "../illustration";
@@ -14,7 +14,8 @@ import { useRemovalNotice } from "../row-controls";
 import { useLinkedTrigger } from "../settings/open-from-link";
 import { IconTile } from "../visuals";
 import { AllocationForm } from "./allocation-form";
-import { RECURRING_LIST, RecurringRow } from "./recurring-row";
+import { RecurringRow } from "./recurring-row";
+import { RecurringSection } from "./recurring-section";
 
 type SalarySectionProps = {
   items: SalaryView[];
@@ -36,60 +37,49 @@ export function SalarySection({ items, form, salaryAccounts, allocationAccounts,
   const addTrigger = useLinkedTrigger(add, openAdd && canAdd, SAVINGS_PATHS.recurring);
 
   return (
-    <section aria-labelledby="savings-salary" className="card stack @container min-w-0 overflow-hidden">
-      <CardHeader
-        id="savings-salary"
-        actions={
-          items.length > 0 &&
-          canAdd && (
-            <button {...addTrigger} aria-label="新增薪水" className="btn-secondary btn-sm">
-              <Icon name="plus" className="size-4" />
-              新增
-            </button>
-          )
-        }
-      >
-        薪水
-      </CardHeader>
-      <DialogMessage {...add.messageProps} />
-      <DialogMessage {...notice.messageProps} />
-      <Dialog {...add.dialogProps} title="設定薪水">
-        <RecurringForm preset="salary" accounts={accounts} categories={form.categories} holdings={[]} today={form.today} onDone={add.done} onCancel={add.close} />
-      </Dialog>
-      {items.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
-          <Illustration name="no-recurring" className="w-32" />
-          <div className="flex flex-col items-center gap-3 sm:items-start">
-            <p className="text-ink">{canAdd ? "設定發薪日與入帳帳戶後，每個月到了會提醒你入帳，並照設定分配到各帳戶。" : "先新增銀行帳戶，才能設定薪水入帳到哪裡。"}</p>
-            {canAdd && (
-              <button {...addTrigger} className="btn-primary">
-                <Icon name="plus" className="size-4" />
-                設定薪水
-              </button>
-            )}
+    <RecurringSection
+      id="savings-salary"
+      title="薪水"
+      add={add}
+      addTrigger={items.length > 0 && canAdd ? addTrigger : undefined}
+      addLabel="新增薪水"
+      addTitle="設定薪水"
+      addForm={<RecurringForm preset="salary" accounts={accounts} categories={form.categories} holdings={[]} today={form.today} onDone={add.done} onCancel={add.close} />}
+      notice={notice}
+      empty={
+        items.length === 0 ? (
+          <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+            <Illustration name="no-recurring" className="w-32" />
+            <div className="flex flex-col items-center gap-3 sm:items-start">
+              <p className="text-ink">{canAdd ? "設定發薪日與入帳帳戶後，每個月到了會提醒你入帳，並照設定分配到各帳戶。" : "先新增銀行帳戶，才能設定薪水入帳到哪裡。"}</p>
+              {canAdd && (
+                <button {...addTrigger} className="btn-primary">
+                  <Icon name="plus" className="size-4" />
+                  設定薪水
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      ) : (
-        <ul className={RECURRING_LIST}>
-          {items.map((item) => (
-            <RecurringRow
-              key={item.id}
-              row={item}
-              leading={<IconTile name={item.icon} size="sm" />}
-              title={item.title}
-              detail={recurringDetail(item, item.when, item.receivingName ? [`入帳到${item.receivingName}`] : [])}
-              amountText={formatSignedTwd(item.amount)}
-              form={form}
-              salaryAccounts={salaryAccounts}
-              openFromLink={item.id === openEditId}
-              onNotice={notice.report}
-            >
-              <AllocationSummary item={item} accounts={allocationAccounts.filter((account) => account.id !== item.draft.accountId)} />
-            </RecurringRow>
-          ))}
-        </ul>
-      )}
-    </section>
+        ) : undefined
+      }
+    >
+      {items.map((item) => (
+        <RecurringRow
+          key={item.id}
+          row={item}
+          leading={<IconTile name={item.icon} size="sm" />}
+          title={item.title}
+          detail={recurringDetail(item, item.when, item.receivingName ? [`入帳到${item.receivingName}`] : [])}
+          amountText={formatSignedTwd(item.amount)}
+          form={form}
+          salaryAccounts={salaryAccounts}
+          openFromLink={item.id === openEditId}
+          onNotice={notice.report}
+        >
+          <AllocationSummary item={item} accounts={allocationAccounts.filter((account) => account.id !== item.draft.accountId)} />
+        </RecurringRow>
+      ))}
+    </RecurringSection>
   );
 }
 

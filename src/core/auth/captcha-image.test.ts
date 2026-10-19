@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CAPTCHA_ALPHABET, CAPTCHA_GLYPH_CHARS, CAPTCHA_LENGTH, generateCaptchaCode, renderCaptchaSvg } from "./captcha-image";
+import { CAPTCHA_GLYPH_CHARS, generateCaptchaCode, renderCaptchaSvg } from "./captcha-image";
+import { CAPTCHA_ALPHABET, CAPTCHA_LENGTH } from "./messages";
 
 describe("驗證碼的字", () => {
   it("5 個字，只從不容易看錯的字元裡挑（沒有 0／O／Q、1／I／L、2／Z、5／S、8／B）", () => {

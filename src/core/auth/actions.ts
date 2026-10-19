@@ -25,14 +25,12 @@ const loginLimiter = createFailureLimiter(LOCK_OPTIONS);
 const passwordLimiter = createFailureLimiter(LOCK_OPTIONS);
 const FAILURE_DELAY_MS = 1000;
 
-const lockedMessage = (retryAfterMs: number) => `錯誤次數太多，請 ${Math.ceil(retryAfterMs / 60_000)} 分鐘後再試`;
-
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const ip = clientIp((await headers()).get("x-forwarded-for"));
   // 每次送出都換一張驗證碼 被擋下的也一樣
   const captchaToken = await takeCaptchaToken("login");
   const gate = loginLimiter.check(ip);
-  if (!gate.allowed) return { error: lockedMessage(gate.retryAfterMs) };
+  if (!gate.allowed) return { error: tooManyAttempts(gate.retryAfterMs, "錯誤") };
 
   const username = formText(formData, "username");
   let user: Awaited<ReturnType<typeof authenticate>>;
@@ -110,9 +108,9 @@ export async function logout(): Promise<void> {
 export async function deleteAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const session = await requireSession();
   const gate = passwordLimiter.check(session.id);
-  if (!gate.allowed) return { error: lockedMessage(gate.retryAfterMs) };
+  if (!gate.allowed) return { error: tooManyAttempts(gate.retryAfterMs, "錯誤") };
 
-  const state = await runAction({ module: "auth", action: "刪除帳號" }, () => false, async () => {
+  const state = await runAction({ module: "auth", action: "刪除帳號" }, async () => {
     const result = await deleteOwnAccount(session.id, formText(formData, "password"));
     if (!result.ok) {
       if (result.reason === "wrong_password") passwordLimiter.recordFailure(session.id);
@@ -132,10 +130,10 @@ export async function changePasswordAction(_prev: FormState, formData: FormData)
   if (newPassword !== formText(formData, "confirmPassword")) return { error: "兩次輸入的新密碼不一樣" };
 
   const gate = passwordLimiter.check(session.id);
-  if (!gate.allowed) return { error: lockedMessage(gate.retryAfterMs) };
+  if (!gate.allowed) return { error: tooManyAttempts(gate.retryAfterMs, "錯誤") };
 
   // 密碼錯誤與不合規則會用結果回傳 丟出來的都是預期外的錯誤
-  return runAction({ module: "auth", action: "變更密碼" }, () => false, async () => {
+  return runAction({ module: "auth", action: "變更密碼" }, async () => {
     const result = await changePassword(session.id, formText(formData, "currentPassword"), newPassword);
     if (!result.ok) {
       if (result.reason === "wrong_password") passwordLimiter.recordFailure(session.id);

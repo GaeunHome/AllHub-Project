@@ -6,7 +6,7 @@ import { CardHeader } from "@/core/ui/page-header";
 import { formatTwd } from "../../../lib/money";
 import { formatMonth, formatMonthShort, type MonthKey } from "../../../lib/month";
 import { scalePercent, type NiceScale } from "../../chart-geometry";
-import { monthRecordsHref } from "../../dashboard-view";
+import { monthRecordsHref } from "../../paths";
 import { axisLabels, flowChart, readoutIndex, type FlowPoint } from "./trend-model";
 
 type TrendChartProps = {

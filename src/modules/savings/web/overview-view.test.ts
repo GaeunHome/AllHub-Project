@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { CardDailyFlow } from "../lib/cards";
-import type { ChecklistItem } from "../lib/checklist";
+import { accountRow, checklistItem as item, dayFlowRow, flowRow as flow } from "../dev/fixtures";
 import type { HoldingLike } from "../lib/holdings";
-import type { AccountMonthFlow, CategoryLike, CategoryMonthTotal } from "../lib/ledger";
+import type { CategoryLike, CategoryMonthTotal } from "../lib/ledger";
 import type { Quote } from "../lib/quotes";
 import { accountsState, type AccountsInput, type OverviewAccount, type PendingEntry } from "./dashboard-view";
 import { checklistRows, checklistSummary, heroView, monthView, quickActionsView } from "./overview-view";
@@ -10,21 +9,7 @@ import { checklistRows, checklistSummary, heroView, monthView, quickActionsView 
 const CREATED = new Date("2026-01-05T02:00:00Z");
 const TODAY = "2026-10-15";
 
-const account = (fixture: Pick<OverviewAccount, "id" | "name" | "kind"> & Partial<OverviewAccount>): OverviewAccount => ({
-  purposeId: null,
-  openingBalance: 0,
-  openingCost: null,
-  monthlyPlan: null,
-  targetAmount: null,
-  dueDay: null,
-  payFromAccountId: null,
-  active: true,
-  sortOrder: fixture.id,
-  createdAt: CREATED,
-  statementDay: null,
-  autopay: false,
-  ...fixture,
-});
+const account = (fixture: Pick<OverviewAccount, "id" | "name" | "kind"> & Partial<OverviewAccount>): OverviewAccount => accountRow({ createdAt: CREATED, ...fixture });
 
 const ACCOUNTS = [
   account({ id: 1, name: "台銀", kind: "deposit", openingBalance: 8300 }),
@@ -37,9 +22,7 @@ const ACCOUNTS = [
   account({ id: 9, name: "舊證券", kind: "investment", openingBalance: 7000, active: false }),
   account({ id: 10, name: "停卡", kind: "credit", openingBalance: -800, active: false }),
 ];
-const flow = (accountId: number, month: string, values: Partial<AccountMonthFlow>): AccountMonthFlow => ({ accountId, month, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
 const FLOWS = [flow(2, "2026-10", { income: 43000, expense: 5000 }), flow(6, "2026-09", { expense: 12480 }), flow(6, "2026-10", { expense: 7000 })];
-const dayFlow = (date: string, expense: number): CardDailyFlow => ({ accountId: 6, date, income: 0, expense, transferIn: 0, transferOut: 0, adjust: 0 });
 const holding = (id: number, symbol: string, shares: number, cost: number): HoldingLike => ({ id, accountId: 4, symbol, name: `${symbol} 名稱`, shares, cost, sortOrder: id });
 const quote = (symbol: string, closeCents: number): Quote => ({ symbol, name: symbol, closeCents, date: "2026-10-14", market: "twse" });
 
@@ -48,7 +31,7 @@ const input = (overrides: Partial<AccountsInput> = {}): AccountsInput => ({
   flows: FLOWS,
   holdings: [holding(1, "0050", 100, 18000), holding(2, "006208", 1000, 95000)],
   quotes: [quote("006208", 10650), quote("0050", 19500)],
-  cardFlows: [dayFlow("2026-09-20", 12480), dayFlow("2026-10-10", 7000)],
+  cardFlows: [dayFlowRow(6, "2026-09-20", { expense: 12480 }), dayFlowRow(6, "2026-10-10", { expense: 7000 })],
   cardBills: [],
   today: TODAY,
   ...overrides,
@@ -58,21 +41,10 @@ const heroOf = (overrides: Partial<AccountsInput> = {}) => {
   return heroView(data, accountsState(data));
 };
 
-describe("總資產大卡", () => {
-  it("總資產與下面一行：存款、投資（有持股的照收盤價，加上損益與收盤日期）、信用卡未繳；停用的帳戶不算", () => {
-    // 存款 8,300 + (86,000 + 43,000 - 5,000) 投資 1,000 × 106.50 + 100 × 195.00 + 50,000
-    // 損益 (126,000 - 113,000) + (50,000 - 45,000) 國泰卡未繳 12,480 + 7,000 台新卡 3,000
-    expect(heroOf()).toEqual({
-      total: 308300,
-      deposit: 132300,
-      investment: { value: 176000, profit: 18000, priced: true, quoteDate: "2026-10-14" },
-      cardOwed: 22480,
-    });
-  });
-
-  it("股價讀不到：持股先用成本算，標成讀不到、沒有收盤日期", () => {
-    // 投資 113,000 + 50,000 損益只剩沒有持股的 5,000
-    expect(heroOf({ quotes: null })).toMatchObject({ total: 295300, investment: { value: 163000, profit: 5000, priced: false, quoteDate: null } });
+describe("總資產大卡（合計的算法在 lib/ledger 的 assetSummary）", () => {
+  it("有持股的寫收盤日期；股價讀不到時標成讀不到、沒有收盤日期", () => {
+    expect(heroOf().investment).toMatchObject({ priced: true, quoteDate: "2026-10-14" });
+    expect(heroOf({ quotes: null }).investment).toMatchObject({ priced: false, quoteDate: null });
   });
 
   it("沒有那一類帳戶就不寫那一段", () => {
@@ -125,41 +97,28 @@ describe("我要…", () => {
   });
 });
 
-const item = (fixture: Pick<ChecklistItem, "key" | "title" | "date" | "state"> & Partial<ChecklistItem>): ChecklistItem => ({
-  kind: "recurring",
-  amount: 1000,
-  estimated: false,
-  doneOn: null,
-  carriedOver: false,
-  upcoming: false,
-  ruleId: null,
-  period: null,
-  cardId: null,
-  actionable: false,
-  cardStage: null,
-  ...fixture,
-});
 const entry = (key: string, action: "bill" | "pay" | "confirm" | "allocate"): PendingEntry => ({ row: { key, action }, rule: null });
 
 describe("這個月要做的事", () => {
+  // 照 monthChecklist 排好的順序 上個月沒做完的在最上面 其他照日期
   const ITEMS = [
-    item({ key: "recurring:3:2026-10", title: "電費", date: "2026-10-20", state: "todo", amount: 1800, ruleId: 3 }),
-    item({ key: "recurring:1:2026-10", title: "薪水", kind: "salary", date: "2026-10-10", state: "done", amount: 52000, doneOn: "2026-10-10", ruleId: 1 }),
-    item({ key: "recurring:4:2026-11", title: "房租收入", date: "2026-11-03", state: "todo", upcoming: true, ruleId: 4 }),
-    item({ key: "card:6:2026-10-05", title: "國泰卡", kind: "card", date: "2026-10-05", state: "todo", amount: 7000, estimated: true, cardId: 6, actionable: true, cardStage: "needs-bill" }),
-    item({ key: "card:7:2026-10-25", title: "台新卡", kind: "card", date: "2026-10-25", state: "todo", amount: null, cardId: 7, cardStage: "unbilled" }),
-    item({ key: "card:9:2026-09-15", title: "玉山卡", kind: "card", date: "2026-10-03", state: "done", amount: 2400, doneOn: "2026-10-01", cardId: 9, cardStage: "paid" }),
-    item({ key: "recurring:5:2026-10", title: "Netflix", date: "2026-10-12", state: "auto-done", amount: 390, doneOn: "2026-10-12", ruleId: 5 }),
     item({ key: "recurring:3:2026-09", title: "電費", date: "2026-09-20", state: "overdue", carriedOver: true, ruleId: 3, actionable: true }),
     item({ key: "recurring:7:2026-10", title: "健身房", date: "2026-10-01", state: "skipped", ruleId: 7 }),
-    item({ key: "recurring:8:2026-10", title: "手機費", date: "2026-10-28", state: "auto", amount: 599, ruleId: 8 }),
     item({ key: "recurring:9:2026-10", title: "保險", date: "2026-10-02", state: "done", doneOn: "2026-10-06", ruleId: 9 }),
+    item({ key: "card:9:2026-09-15", title: "玉山卡", kind: "card", date: "2026-10-03", state: "done", amount: 2400, doneOn: "2026-10-01", cardId: 9, cardStage: "paid" }),
+    item({ key: "card:6:2026-10-05", title: "國泰卡", kind: "card", date: "2026-10-05", state: "todo", amount: 7000, estimated: true, cardId: 6, actionable: true, cardStage: "needs-bill" }),
+    item({ key: "recurring:1:2026-10", title: "薪水", kind: "salary", date: "2026-10-10", state: "done", amount: 52000, doneOn: "2026-10-10", ruleId: 1 }),
+    item({ key: "recurring:5:2026-10", title: "Netflix", date: "2026-10-12", state: "auto-done", amount: 390, doneOn: "2026-10-12", ruleId: 5 }),
+    item({ key: "recurring:3:2026-10", title: "電費", date: "2026-10-20", state: "todo", amount: 1800, ruleId: 3 }),
+    item({ key: "card:7:2026-10-25", title: "台新卡", kind: "card", date: "2026-10-25", state: "todo", amount: null, cardId: 7, cardStage: "unbilled" }),
+    item({ key: "recurring:8:2026-10", title: "手機費", date: "2026-10-28", state: "auto", amount: 599, ruleId: 8 }),
+    item({ key: "recurring:4:2026-11", title: "房租收入", date: "2026-11-03", state: "todo", upcoming: true, ruleId: 4 }),
   ];
   const ENTRIES = [entry("card:6:2026-10-05", "bill"), entry("recurring:3:2026-10", "confirm"), entry("recurring:3:2026-09", "confirm"), entry("recurring:1:2026-10", "allocate")];
-  const rows = checklistRows({ items: ITEMS, entries: ENTRIES, today: TODAY }, new Set([4]));
+  const rows = checklistRows({ items: ITEMS, entries: ENTRIES, today: TODAY, incomeRules: new Set([4]) });
   const rowOf = (key: string) => rows.find((row) => row.key === key)!;
 
-  it("上個月沒做完的在最上面並標「上個月」，其他照日期，下個月初的在最後；信用卡寫結帳或截止", () => {
+  it("上個月沒做完的標「上個月」；做完的寫哪天完成，還沒到的寫還有幾天；信用卡寫結帳或截止", () => {
     expect(rows.map((row) => `${row.title} ${row.meta}`)).toEqual([
       "電費 上個月 · 9/20",
       "健身房 10/1 · 已略過",
@@ -197,7 +156,7 @@ describe("這個月要做的事", () => {
 });
 
 describe("本月收支", () => {
-  const category = (id: number, name: string, kind: "income" | "expense", icon: string | null, monthlyBudget: number | null = null): CategoryLike & { icon: string | null } => ({ id, name, kind, color: "blue", monthlyBudget, icon });
+  const category = (id: number, name: string, kind: "income" | "expense", icon: string | null, monthlyBudget: number | null = null): CategoryLike & { icon: string | null } => ({ id, name, kind, monthlyBudget, icon });
   const total = (categoryId: number | null, kind: "income" | "expense", amount: number, month = "2026-10"): CategoryMonthTotal => ({ categoryId, kind, month, amount });
   const CATEGORIES = [category(1, "薪水", "income", "briefcase"), category(2, "餐飲", "expense", "utensils", 6000), category(3, "交通", "expense", "bus")];
 

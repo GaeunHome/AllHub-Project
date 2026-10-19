@@ -1,7 +1,7 @@
 import "server-only";
 import { hasTwitchEnv } from "@/core/env";
 import { logError } from "@/core/errors";
-import { TwitchApiError, getGames, getLiveStreams, getUsersById } from "../lib/api";
+import { getGames, getLiveStreams, getUsersById } from "../lib/api";
 import { toGameArt, toLiveStream, toProfile, type GameArt, type LiveStream, type StreamerProfile } from "../lib/visuals";
 
 // 頭像 直播狀態與封面只是附加資訊 沒設定憑證或 Helix 出錯都回 null
@@ -15,7 +15,7 @@ async function fromHelix<T>(what: string, ids: string[], call: () => Promise<T[]
     return await call();
   } catch (error) {
     // 回應原文可能帶有設定內容 只記錯誤種類與狀態碼
-    logError("twitch", `${what}失敗`, error, ...(error instanceof TwitchApiError ? [error.status] : []));
+    logError("twitch", `${what}失敗`, error);
     return null;
   }
 }

@@ -1,54 +1,43 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { coreUsers } from "@/core/db/schema";
-import { insertTestUser, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, expiredTags, loggedText, mocksOf, resetNextCache } from "@/dev/test-helpers";
-import type { DailyNote } from "../lib/responses";
 import { starrailAccounts, starrailCheckinLogs } from "../data/schema";
+import { COOKIE, dailyNote, hoyolab, ok, role } from "../dev/fixtures";
 
-// HoYoLAB 的 client 整個換掉
-// 沒設定回應的呼叫只會拿到 undefined 不會連到真的 HoYoLAB
-const hoyolab = vi.hoisted(() => ({ fetchGameRoles: vi.fn(), fetchDailyNote: vi.fn(), fetchCheckinInfo: vi.fn(), signIn: vi.fn() }));
-vi.mock("../lib/hoyolab", () => hoyolab);
+vi.mock("../lib/hoyolab", async () => (await import("../dev/fixtures")).hoyolab);
 vi.mock("@/core/notify", { spy: true });
 
 stubCoreEnv();
 
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
-const service = await import("./accounts");
-const { checkin, checkinAll, checkStaminaAll, cleanupCheckinLogs, getDailyNote } = service;
+const accounts = await import("./accounts");
+const link = await import("./link");
+const checkins = await import("./checkin");
+const { checkStaminaAll, getDailyNote } = await import("./stamina");
+const { cleanupCheckinLogs } = await import("./maintenance");
+const { checkin, checkinAll } = checkins;
 
-const COOKIE = "ltoken_v2=v2_secret; ltuid_v2=42";
 // 台北週三中午 不是每日實訓 每週內容或終局挑戰的提醒時段 這裡只看開拓力
 const NOON = new Date("2026-10-21T04:00:00Z");
-const twoRoles = [
-  { uid: "900000001", nickname: "A", region: "prod_official_cht", regionName: null, level: 70 },
-  { uid: "800000002", nickname: "B", region: "prod_official_asia", regionName: null, level: 40 },
-];
-
-function note(stamina: number): DailyNote {
-  return {
-    stamina, maxStamina: 300, staminaRecoverSeconds: (300 - stamina) * 360, reserveStamina: 0,
-    expeditionsAccepted: 0, expeditionsTotal: 4, trainScore: 0, maxTrainScore: 500,
-    rogueScore: 0, maxRogueScore: 14000, cocoonRemaining: 3, cocoonLimit: 3,
-  };
-}
+const twoRoles = [role({ nickname: "A" }), role({ uid: "800000002", nickname: "B", region: "prod_official_asia", level: 40 })];
+const note = (stamina: number) => dailyNote({ stamina });
 
 const getDb = setupTestDb();
 let me: string;
 let other: string;
 
 /** 沒特別說的都是 me 在操作 */
-const linkAccount = (cookie: string, selection?: Parameters<typeof service.linkAccount>[2]) => service.linkAccount(me, cookie, selection);
-const checkinAccount = (id: number) => service.checkinAccount(me, id);
+const linkAccount = (cookie: string, selection?: Parameters<typeof link.linkAccount>[2]) => link.linkAccount(me, cookie, selection);
+const checkinAccount = (id: number) => checkins.checkinAccount(me, id);
 
 beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
+  [me, other] = await insertTestUsers(getDb());
   Object.values(hoyolab).forEach((fn) => fn.mockReset());
   notify.mockReset().mockResolvedValue(undefined);
-  hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: twoRoles, raw: {} });
+  hoyolab.fetchGameRoles.mockResolvedValue(ok(twoRoles));
 });
 
 describe("linkAccount（PGlite 整合）", () => {
@@ -78,8 +67,8 @@ describe("linkAccount（PGlite 整合）", () => {
 describe("checkinAll（PGlite 整合）", () => {
   it("同一個 HoYoLAB 帳號的多個角色_只簽到一次_只寫一筆紀錄", async () => {
     await linkAccount(COOKIE);
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: false, totalSignDay: 3 }, raw: {} });
-    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: false, totalSignDay: 3 }));
+    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, retcode: 0 });
 
     await checkinAll();
 
@@ -92,8 +81,8 @@ describe("checkinAll（PGlite 整合）", () => {
 
   it("簽到結果寫進網站通知：模組 starrail、各角色的結果、連到 HoYoLAB 簽到頁", async () => {
     await linkAccount(COOKIE);
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: false, totalSignDay: 3 }, raw: {} });
-    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: false, totalSignDay: 3 }));
+    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, retcode: 0 });
 
     await checkinAll();
 
@@ -109,26 +98,26 @@ describe("checkinAll（PGlite 整合）", () => {
 });
 
 describe("checkStaminaAll（PGlite 整合）", () => {
-  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [twoRoles[0]], raw: {} }));
+  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue(ok([twoRoles[0]])));
 
   it("超過門檻只通知一次_降回門檻以下後再超過會再通知", async () => {
     await linkAccount(COOKIE);
 
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(285), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(285)));
     await checkStaminaAll(NOON);
     await checkStaminaAll(NOON);
     expect(notify).toHaveBeenCalledOnce();
 
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(100), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(100)));
     await checkStaminaAll(NOON);
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(290), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(290)));
     await checkStaminaAll(NOON);
     expect(notify).toHaveBeenCalledTimes(2);
   });
 
   it("開拓力提醒寫進網站通知：模組 starrail、目前開拓力與回滿時間、連到星穹鐵道頁", async () => {
     await linkAccount(COOKIE);
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(285), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(285)));
 
     await checkStaminaAll(NOON);
 
@@ -140,7 +129,7 @@ describe("checkStaminaAll（PGlite 整合）", () => {
 
   it("同一小時的排程送了兩次、前一次還在寫通知時後一次就開始了_開拓力只通知一次", async () => {
     await linkAccount(COOKIE);
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(285), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(285)));
     let release!: () => void;
     notify.mockImplementationOnce(() => new Promise<void>((resolve) => (release = resolve)));
 
@@ -156,7 +145,7 @@ describe("checkStaminaAll（PGlite 整合）", () => {
   it("開拓力通知寫不進去_退回這一輪的認領，下一次排程再通知", async () => {
     captureErrorLog();
     await linkAccount(COOKIE);
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(285), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(285)));
     notify.mockRejectedValueOnce(new Error("db down"));
 
     await checkStaminaAll(NOON);
@@ -169,7 +158,7 @@ describe("checkStaminaAll（PGlite 整合）", () => {
 
   it("cookie 失效時標記帳號_不丟例外", async () => {
     await linkAccount(COOKIE);
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true, raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true });
 
     const summary = await checkStaminaAll(NOON);
 
@@ -181,7 +170,7 @@ describe("checkStaminaAll（PGlite 整合）", () => {
 
 describe("錯誤隔離（PGlite 整合）", () => {
   it("cookie 無法解密_getDailyNote 回提示並標記失效_不丟例外", async () => {
-    hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [twoRoles[0]], raw: {} });
+    hoyolab.fetchGameRoles.mockResolvedValue(ok([twoRoles[0]]));
     await linkAccount(COOKIE);
     await getDb().update(starrailAccounts).set({ cookieEncrypted: "bm90LWVuY3J5cHRlZA==" });
     const [account] = await getDb().select().from(starrailAccounts);
@@ -196,7 +185,7 @@ describe("錯誤隔離（PGlite 整合）", () => {
   });
 
   it("cookie 無法解密_checkin 回失敗並寫紀錄_不丟例外", async () => {
-    hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [twoRoles[0]], raw: {} });
+    hoyolab.fetchGameRoles.mockResolvedValue(ok([twoRoles[0]]));
     await linkAccount(COOKIE);
     await getDb().update(starrailAccounts).set({ cookieEncrypted: "bm90LWVuY3J5cHRlZA==" });
     const [account] = await getDb().select().from(starrailAccounts);
@@ -209,14 +198,14 @@ describe("錯誤隔離（PGlite 整合）", () => {
   });
 
   it("checkinAll_某個帳號丟例外_其他帳號照樣簽到並通知", async () => {
-    hoyolab.fetchGameRoles.mockResolvedValueOnce({ ok: true, data: [twoRoles[0]], raw: {} });
+    hoyolab.fetchGameRoles.mockResolvedValueOnce(ok([twoRoles[0]]));
     await linkAccount(COOKIE);
-    hoyolab.fetchGameRoles.mockResolvedValueOnce({ ok: true, data: [twoRoles[1]], raw: {} });
+    hoyolab.fetchGameRoles.mockResolvedValueOnce(ok([twoRoles[1]]));
     await linkAccount("ltoken_v2=v2_other; ltuid_v2=43");
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: false, totalSignDay: 1 }, raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: false, totalSignDay: 1 }));
     hoyolab.signIn
       .mockRejectedValueOnce(new Error("boom"))
-      .mockResolvedValueOnce({ result: "success", message: "簽到成功", cookieInvalid: false, raw: {} });
+      .mockResolvedValueOnce({ result: "success", message: "簽到成功", cookieInvalid: false, retcode: 0 });
 
     const summary = await checkinAll();
 
@@ -228,7 +217,7 @@ describe("錯誤隔離（PGlite 整合）", () => {
 
   it("checkStaminaAll_某個帳號丟例外_其他帳號照樣檢查", async () => {
     await linkAccount(COOKIE);
-    hoyolab.fetchDailyNote.mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce({ ok: true, data: note(100), raw: {} });
+    hoyolab.fetchDailyNote.mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce(ok(note(100)));
 
     const summary = await checkStaminaAll(NOON);
 
@@ -239,11 +228,11 @@ describe("錯誤隔離（PGlite 整合）", () => {
 });
 
 describe("簽到通知與失效標記（PGlite 整合）", () => {
-  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [twoRoles[0]], raw: {} }));
+  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue(ok([twoRoles[0]])));
 
   it("全部都是今天已簽到_不發通知", async () => {
     await linkAccount(COOKIE);
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: true, totalSignDay: 5 }, raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: true, totalSignDay: 5 }));
 
     await checkinAll();
 
@@ -254,7 +243,7 @@ describe("簽到通知與失效標記（PGlite 整合）", () => {
     await linkAccount(COOKIE);
     await getDb().update(starrailAccounts).set({ cookieInvalid: true });
     const [account] = await getDb().select().from(starrailAccounts);
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: true, totalSignDay: 5 }, raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: true, totalSignDay: 5 }));
 
     await checkin(account);
 
@@ -267,8 +256,8 @@ describe("簽到通知與失效標記（PGlite 整合）", () => {
     await linkAccount(COOKIE);
     await getDb().update(starrailAccounts).set({ cookieInvalid: true });
     const [account] = await getDb().select().from(starrailAccounts);
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: false, totalSignDay: 5 }, raw: {} });
-    hoyolab.signIn.mockResolvedValue({ result: "failed", message: "HoYoLAB cookie 已失效", cookieInvalid: true, raw: { retcode: -100 } });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: false, totalSignDay: 5 }));
+    hoyolab.signIn.mockResolvedValue({ result: "failed", message: "HoYoLAB cookie 已失效", cookieInvalid: true, retcode: -100 });
 
     await checkin(account);
 
@@ -305,19 +294,14 @@ describe("簽到通知與失效標記（PGlite 整合）", () => {
 });
 
 describe("簽到失敗的 log（PGlite 整合）", () => {
-  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [twoRoles[0]], raw: {} }));
+  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue(ok([twoRoles[0]])));
 
-  it("只記 retcode_不印 HoYoLAB 的原始回應", async () => {
+  it("只記 retcode_不印 HoYoLAB 的訊息與 cookie", async () => {
     const log = captureErrorLog();
     await linkAccount(COOKIE);
     const [account] = await getDb().select().from(starrailAccounts);
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: false, totalSignDay: 3 }, raw: {} });
-    hoyolab.signIn.mockResolvedValue({
-      result: "failed",
-      message: "HoYoLAB 回應錯誤（-10002：secret-detail）",
-      cookieInvalid: false,
-      raw: { retcode: -10002, message: "secret-detail", data: { echo: "ltoken_v2=v2_secret" } },
-    });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: false, totalSignDay: 3 }));
+    hoyolab.signIn.mockResolvedValue({ result: "failed", message: "HoYoLAB 回應錯誤（-10002：secret-detail）", cookieInvalid: false, retcode: -10002 });
 
     await checkin(account);
 
@@ -328,12 +312,12 @@ describe("簽到失敗的 log（PGlite 整合）", () => {
 });
 
 describe("checkinAccount（PGlite 整合）", () => {
-  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [twoRoles[0]], raw: {} }));
+  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue(ok([twoRoles[0]])));
 
   it("依 id 找到帳號_照常簽到", async () => {
     await linkAccount(COOKIE);
     const [account] = await getDb().select().from(starrailAccounts);
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: true, totalSignDay: 5 }, raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: true, totalSignDay: 5 }));
 
     expect(await checkinAccount(account.id)).toMatchObject({ ok: true, already: true });
     expect(await getDb().select().from(starrailCheckinLogs)).toHaveLength(1);
@@ -366,7 +350,7 @@ describe("cleanupCheckinLogs（PGlite 整合）", () => {
 });
 
 describe("每個人的帳號各自一份", () => {
-  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [twoRoles[0]], raw: {} }));
+  beforeEach(() => hoyolab.fetchGameRoles.mockResolvedValue(ok([twoRoles[0]])));
 
   it("連結的帳號記在連結的人名下", async () => {
     await linkAccount(COOKIE);
@@ -378,7 +362,7 @@ describe("每個人的帳號各自一份", () => {
     await linkAccount(COOKIE);
     const [before] = await getDb().select().from(starrailAccounts);
 
-    const result = await service.linkAccount(other, "ltoken_v2=v2_bob; ltuid_v2=42", "all");
+    const result = await link.linkAccount(other, "ltoken_v2=v2_bob; ltuid_v2=42", "all");
 
     expect(result).toEqual({ ok: false, error: "UID 900000001 已經被其他使用者連結了，同一個遊戲帳號只能連結在一個帳號底下" });
     const [after] = await getDb().select().from(starrailAccounts);
@@ -386,9 +370,9 @@ describe("每個人的帳號各自一份", () => {
   });
 
   it("選了好幾個角色、其中一個被別人連結_整批都不寫入", async () => {
-    hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [twoRoles[1]], raw: {} });
-    await service.linkAccount(other, COOKIE, "all");
-    hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: twoRoles, raw: {} });
+    hoyolab.fetchGameRoles.mockResolvedValue(ok([twoRoles[1]]));
+    await link.linkAccount(other, COOKIE, "all");
+    hoyolab.fetchGameRoles.mockResolvedValue(ok(twoRoles));
 
     expect(await linkAccount(COOKIE, "all")).toMatchObject({ ok: false, error: expect.stringContaining("800000002") });
     expect((await getDb().select().from(starrailAccounts)).map((a) => [a.uid, a.userId])).toEqual([["800000002", other]]);
@@ -402,34 +386,27 @@ describe("每個人的帳號各自一份", () => {
     expect((await getDb().select().from(starrailAccounts))[0]).toMatchObject({ userId: me, cookieInvalid: false });
   });
 
-  it("沒有擁有者的列（部署空窗期舊程式連結的）_重新連結就歸給連結的人", async () => {
-    await getDb().insert(starrailAccounts).values({ ltuid: "42", uid: "900000001", region: "prod_official_cht", cookieEncrypted: "v1:old" });
-
-    expect(await service.linkAccount(other, COOKIE, "all")).toMatchObject({ ok: true });
-    expect((await getDb().select().from(starrailAccounts))[0].userId).toBe(other);
-  });
-
   it("帳號清單與簽到紀錄只有自己的", async () => {
     await linkAccount(COOKIE);
     const [mine] = await getDb().select().from(starrailAccounts);
     await getDb().insert(starrailCheckinLogs).values({ accountId: mine.id, result: "success" });
 
-    expect(await service.listAccountViews(other)).toEqual([]);
-    expect(await service.recentCheckins(other, 20)).toEqual([]);
-    expect(await service.recentCheckins(other, 20, mine.id)).toEqual([]);
-    expect((await service.listAccountViews(me)).map((a) => a.uid)).toEqual(["900000001"]);
-    expect(await service.recentCheckins(me, 20, mine.id)).toHaveLength(1);
+    expect(await accounts.listAccountViews(other)).toEqual([]);
+    expect(await checkins.recentCheckins(other, 20)).toEqual([]);
+    expect(await checkins.recentCheckins(other, 20, mine.id)).toEqual([]);
+    expect((await accounts.listAccountViews(me)).map((a) => a.uid)).toEqual(["900000001"]);
+    expect(await checkins.recentCheckins(me, 20, mine.id)).toHaveLength(1);
   });
 
   it("用別人的帳號 id 簽到、設門檻、關提醒、移除、同步 cookie 狀態_都當作不存在，不呼叫 HoYoLAB、不改資料", async () => {
     await linkAccount(COOKIE);
     const [mine] = await getDb().select().from(starrailAccounts);
 
-    expect(await service.checkinAccount(other, mine.id)).toEqual({ ok: false, error: "找不到這個帳號", accountChanged: false });
-    expect(await service.setStaminaThreshold(other, mine.id, 100)).toBe(false);
-    expect(await service.setGameReminders(other, mine.id, false)).toBe(false);
-    expect(await service.syncCookieInvalid(other, mine.id, true)).toBe(false);
-    await service.removeAccount(other, mine.id);
+    expect(await checkins.checkinAccount(other, mine.id)).toEqual({ ok: false, error: "找不到這個帳號", accountChanged: false });
+    expect(await accounts.setStaminaThreshold(other, mine.id, 100)).toBe(false);
+    expect(await accounts.setGameReminders(other, mine.id, false)).toBe(false);
+    expect(await accounts.syncCookieInvalid(other, mine.id, true)).toBe(false);
+    await accounts.removeAccount(other, mine.id);
 
     expect(hoyolab.fetchCheckinInfo).not.toHaveBeenCalled();
     expect(await getDb().select().from(starrailCheckinLogs)).toHaveLength(0);
@@ -440,12 +417,12 @@ describe("每個人的帳號各自一份", () => {
     await linkAccount(COOKIE);
     const [mine] = await getDb().select().from(starrailAccounts);
 
-    expect(await service.setStaminaThreshold(me, mine.id, 100)).toBe(true);
-    expect(await service.setGameReminders(me, mine.id, false)).toBe(true);
-    expect((await service.listAccountViews(me))[0]).toMatchObject({ id: mine.id, gameReminders: false });
-    expect(await service.setGameReminders(me, mine.id, true)).toBe(true);
-    expect((await service.listAccountViews(me))[0]).toMatchObject({ id: mine.id, gameReminders: true });
-    await service.removeAccount(me, mine.id);
+    expect(await accounts.setStaminaThreshold(me, mine.id, 100)).toBe(true);
+    expect(await accounts.setGameReminders(me, mine.id, false)).toBe(true);
+    expect((await accounts.listAccountViews(me))[0]).toMatchObject({ id: mine.id, gameReminders: false });
+    expect(await accounts.setGameReminders(me, mine.id, true)).toBe(true);
+    expect((await accounts.listAccountViews(me))[0]).toMatchObject({ id: mine.id, gameReminders: true });
+    await accounts.removeAccount(me, mine.id);
 
     expect(await getDb().select().from(starrailAccounts)).toHaveLength(0);
   });
@@ -463,16 +440,16 @@ describe("每個人的帳號各自一份", () => {
 });
 
 describe("排程照常處理所有人的帳號，通知送給帳號的擁有者", () => {
-  async function linkFor(userId: string, role: (typeof twoRoles)[number], ltuid: string) {
-    hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [role], raw: {} });
-    await service.linkAccount(userId, `ltoken_v2=v2_${ltuid}; ltuid_v2=${ltuid}`, "all");
+  async function linkFor(userId: string, gameRole: (typeof twoRoles)[number], ltuid: string) {
+    hoyolab.fetchGameRoles.mockResolvedValue(ok([gameRole]));
+    await link.linkAccount(userId, `ltoken_v2=v2_${ltuid}; ltuid_v2=${ltuid}`, "all");
   }
 
   it("checkinAll_每個擁有者各收到一則，只列他自己的角色", async () => {
     await linkFor(me, twoRoles[0], "41");
     await linkFor(other, twoRoles[1], "42");
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: false, totalSignDay: 3 }, raw: {} });
-    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: false, totalSignDay: 3 }));
+    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, retcode: 0 });
 
     await checkinAll();
 
@@ -488,30 +465,21 @@ describe("排程照常處理所有人的帳號，通知送給帳號的擁有者"
   it("checkinAll_某個人的帳號都已簽到過_只有他不收通知", async () => {
     await linkFor(me, twoRoles[0], "41");
     await linkFor(other, twoRoles[1], "42");
-    hoyolab.fetchCheckinInfo.mockImplementation(async (cookie: string) => ({ ok: true, data: { isSigned: cookie.includes("v2_41"), totalSignDay: 3 }, raw: {} }));
-    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, raw: {} });
+    hoyolab.fetchCheckinInfo.mockImplementation(async (cookie: string) => ok({ isSigned: cookie.includes("v2_41"), totalSignDay: 3 }));
+    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, retcode: 0 });
 
     await checkinAll();
 
     expect(notify.mock.calls.map(([input]) => input.recipients)).toEqual([[other]]);
   });
 
-  it("沒有擁有者的帳號（部署空窗期舊程式連結的）_排程略過：不簽到也不通知", async () => {
-    await getDb().insert(starrailAccounts).values({ ltuid: "42", uid: "900000001", region: "prod_official_cht", cookieEncrypted: "v1:old" });
-
-    expect(await checkinAll()).toBe("沒有連結的帳號");
-    expect(await checkStaminaAll(NOON)).toBe("沒有連結的帳號");
-    expect(hoyolab.fetchCheckinInfo).not.toHaveBeenCalled();
-    expect(hoyolab.fetchDailyNote).not.toHaveBeenCalled();
-  });
-
   it("停用的帳號（凍結）_排程不用他的 cookie 簽到、查便箋或發開拓力提醒；帳號資料保留，恢復後照常", async () => {
     await linkFor(me, twoRoles[0], "41");
     await linkFor(other, twoRoles[1], "42");
     await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.id, other));
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: false, totalSignDay: 3 }, raw: {} });
-    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, raw: {} });
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(290), raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: false, totalSignDay: 3 }));
+    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, retcode: 0 });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(290)));
     const cookiesUsed = () => [hoyolab.fetchCheckinInfo, hoyolab.signIn, hoyolab.fetchDailyNote].flatMap((fn) => fn.mock.calls.map(([cookie]) => String(cookie)));
 
     await checkinAll();
@@ -529,7 +497,7 @@ describe("排程照常處理所有人的帳號，通知送給帳號的擁有者"
 
   it("checkStaminaAll_開拓力提醒只送給那個帳號的擁有者", async () => {
     await linkFor(other, twoRoles[0], "42");
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(290), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(290)));
 
     await checkStaminaAll(NOON);
 
@@ -541,8 +509,8 @@ describe("排程照常處理所有人的帳號，通知送給帳號的擁有者"
     captureErrorLog();
     await linkFor(me, twoRoles[0], "41");
     await linkFor(other, twoRoles[1], "42");
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: false, totalSignDay: 3 }, raw: {} });
-    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: false, totalSignDay: 3 }));
+    hoyolab.signIn.mockResolvedValue({ result: "success", message: "簽到成功", cookieInvalid: false, retcode: 0 });
     notify.mockRejectedValueOnce(new Error("boom"));
 
     await checkinAll();
@@ -553,13 +521,13 @@ describe("排程照常處理所有人的帳號，通知送給帳號的擁有者"
 
 describe("帳號的快取（starrail:accounts）只在帳號那一列真的改了才失效：HoYoLAB 的快取都標著它", () => {
   beforeEach(async () => {
-    hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [twoRoles[0]], raw: {} });
+    hoyolab.fetchGameRoles.mockResolvedValue(ok([twoRoles[0]]));
     await linkAccount(COOKIE);
     resetNextCache();
   });
 
   it("開拓力排程什麼都沒改（沒到門檻、cookie 正常）_不失效，頁面不用重查", async () => {
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(100), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(100)));
 
     await checkStaminaAll(NOON);
 
@@ -567,18 +535,18 @@ describe("帳號的快取（starrail:accounts）只在帳號那一列真的改�
   });
 
   it("開拓力排程寫了提醒狀態（通知或重設）_失效", async () => {
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(285), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(285)));
     await checkStaminaAll(NOON);
     expect(expiredTags()).toEqual(["starrail:accounts"]);
 
     resetNextCache();
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(100), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(100)));
     await checkStaminaAll(NOON);
     expect(expiredTags()).toEqual(["starrail:accounts"]);
   });
 
   it("開拓力排程發現 cookie 失效（標記從沒有變成有）_失效；下一小時還是失效、標記沒變_不再失效", async () => {
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true, raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true });
 
     await checkStaminaAll(NOON);
     expect(expiredTags()).toEqual(["starrail:accounts"]);
@@ -589,21 +557,21 @@ describe("帳號的快取（starrail:accounts）只在帳號那一列真的改�
   });
 
   it("簽到排程：標記沒變_不失效；簽到時發現 cookie 失效_失效", async () => {
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: true, totalSignDay: 5 }, raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: true, totalSignDay: 5 }));
     await checkinAll();
     expect(expiredTags()).toEqual([]);
 
     resetNextCache();
     captureErrorLog();
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true, raw: {} });
-    hoyolab.signIn.mockResolvedValue({ result: "failed", message: "HoYoLAB cookie 已失效", cookieInvalid: true, raw: { retcode: -100 } });
+    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true });
+    hoyolab.signIn.mockResolvedValue({ result: "failed", message: "HoYoLAB cookie 已失效", cookieInvalid: true, retcode: -100 });
     await checkinAll();
     expect(expiredTags()).toEqual(["starrail:accounts"]);
   });
 
   it("立即簽到回報帳號有沒有改（Server Action 依它決定要不要讓帳號的快取失效）", async () => {
     const [account] = await getDb().select().from(starrailAccounts);
-    hoyolab.fetchCheckinInfo.mockResolvedValue({ ok: true, data: { isSigned: true, totalSignDay: 5 }, raw: {} });
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: true, totalSignDay: 5 }));
     expect(await checkinAccount(account.id)).toMatchObject({ ok: true, accountChanged: false });
 
     await getDb().update(starrailAccounts).set({ cookieInvalid: true });

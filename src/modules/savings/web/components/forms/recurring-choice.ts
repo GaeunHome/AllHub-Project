@@ -28,8 +28,8 @@ export function entryKindOf(type: RecurringType): EntryKind {
 }
 
 /**
- * suggest 是新增的規則 換成定期定額或勾薪水時順便帶入建議的假日規則
- * 修改舊規則時不動使用者原本的設定
+ * suggest 是新增的規則 換成定期定額時順便帶入建議的假日規則
+ * 修改舊規則時不動使用者原本的設定 allocate 是薪水 照每月固定頁的那一區 表單上不能改
  */
 export type RecurringFormState = {
   type: RecurringType;
@@ -48,8 +48,7 @@ export type RecurringFormEvent =
   | { type: "startMonth"; value: MonthKey }
   | { type: "day"; value: number }
   | { type: "holidayRule"; value: HolidayRule }
-  | { type: "mode"; value: RecurringMode }
-  | { type: "allocate"; value: boolean };
+  | { type: "mode"; value: RecurringMode };
 
 /** 照原日時才換成建議的 使用者自己選過提前或延後就不動 */
 const suggested = (state: RecurringFormState, rule: HolidayRule): HolidayRule => (state.suggest && state.holidayRule === "none" ? rule : state.holidayRule);
@@ -71,9 +70,6 @@ export function recurringFormReducer(state: RecurringFormState, event: Recurring
       return { ...state, holidayRule: event.value };
     case "mode":
       return { ...state, mode: event.value };
-    case "allocate":
-      // 發薪日遇假日只能提前 不能延後
-      return { ...state, allocate: event.value, holidayRule: event.value ? suggested(state, "before") : state.holidayRule };
   }
 }
 
@@ -131,7 +127,8 @@ export function initialRecurringState(rule: RuleStart | undefined, preset: Recur
     allocate: false,
     suggest: true,
   };
-  if (preset === "salary") return recurringFormReducer(recurringFormReducer(blank, { type: "type", value: "income" }), { type: "allocate", value: true });
+  // 發薪日遇假日只能提前 不能延後
+  if (preset === "salary") return { ...blank, type: "income", allocate: true, holidayRule: "before" };
   if (preset === "regular-buy") return recurringFormReducer(blank, { type: "type", value: "regular" });
   return blank;
 }

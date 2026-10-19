@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fakeFetch, type FakeFetchCall } from "@/dev/fake-fetch";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
 import { fetchQuotes, findQuote } from "./quotes";
@@ -26,11 +26,6 @@ function exchanges(twse: Answer, tpex: Answer) {
 }
 
 const named = (quotes: { symbol: string }[]) => quotes.filter((quote) => ["0050", "006208", "00679B"].includes(quote.symbol));
-
-beforeEach(() => {
-  // 本機跑測試時可能設了假伺服器 這裡要看真正的網址
-  vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
-});
 
 describe("fetchQuotes（證交所與櫃買中心的收盤價）", () => {
   it("兩個清單都讀到_合在一起、complete 是 true；只打 OpenAPI 的兩個端點（不碰 www.twse.com.tw）", async () => {

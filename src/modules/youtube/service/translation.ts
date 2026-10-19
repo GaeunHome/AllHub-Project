@@ -1,19 +1,14 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, eq, lt, or, sql } from "drizzle-orm";
-import { decryptSecret, encryptSecret, needsReencrypt } from "@/core/crypto";
 import { db } from "@/core/db";
 import type { UserRole } from "@/core/db/schema";
-import { logError } from "@/core/errors";
-import { fetchVideoTitle } from "../lib/api";
-import { glossaryProblem, parseGlossary, parseVideoId, withCommas, type GlossaryEntry } from "../lib/parse";
-import { youtubeSettings, youtubeTranslations, type YoutubeTranslation } from "../data/schema";
+import { groupDigits } from "@/core/number";
+import { parseVideoId } from "../lib/parse";
+import { youtubeTranslations, type YoutubeTranslation } from "../data/schema";
 import {
-  AI_PROVIDER_IDS,
-  AI_PROVIDER_NAMES,
   AI_TIMEOUT_MS,
   AiError,
-  DEFAULT_MODELS,
   SubtitleParseError,
   countCompletedBatches,
   fetchKoreanCaptions,
@@ -21,11 +16,12 @@ import {
   pickNextBatch,
   planBatches,
   translateBatch,
-  type AiConfig,
-  type AiProvider,
   type Cue,
 } from "../lib/subtitles";
+import { currentAi, glossaryOf } from "./ai-settings";
 import { videoTitle } from "./channels";
+import { ApiKeySetupError, TranslationUserError } from "./errors";
+import { videoInfo } from "./visuals";
 
 /** Vercel 免費方案函式時限約 60 秒 留點餘裕 做不完就回進度 畫面會再呼叫一次 */
 const DEFAULT_BUDGET_MS = 40_000;
@@ -34,10 +30,6 @@ const LOCK_MS = AI_TIMEOUT_MS + 30_000;
 const CONTEXT_LINES = 3;
 /** 翻譯共用 接著翻的人要替整份字幕付費 太長多半是傳錯檔案 */
 const MAX_UPLOAD_CUES = 5000;
-
-export class TranslationUserError extends Error {}
-/** 金鑰沒設定或解不開只能到翻譯設定處理 畫面要附上設定頁連結 */
-export class ApiKeySetupError extends TranslationUserError {}
 
 /** 操作翻譯的人 重新翻譯與換字幕要看他是不是發起人或站長 */
 export type TranslationActor = { id: string; role: UserRole };
@@ -50,152 +42,11 @@ export function canManageTranslation(actor: TranslationActor, translation: Pick<
   return actor.role === "owner" || (translation.requestedBy !== null && translation.requestedBy === actor.id);
 }
 
-// 設定
-
-// 翻譯設定與 API Key 每人一列 userId 都是登入者 別人的設定讀不到也改不到
-const settingsRow = (userId: string) => eq(youtubeSettings.userId, userId);
-
-const KEY_COLUMNS = {
-  anthropic: { key: "anthropicKey", hint: "anthropicKeyHint", model: "anthropicModel" },
-  openai: { key: "openaiKey", hint: "openaiKeyHint", model: "openaiModel" },
-  gemini: { key: "geminiKey", hint: "geminiKeyHint", model: "geminiModel" },
-} as const;
-
-async function loadSettings(userId: string) {
-  const [row] = await db().select().from(youtubeSettings).where(settingsRow(userId));
-  return row;
-}
-
-export type SettingsView = {
-  provider: AiProvider;
-  /** 只有末 4 碼 null 代表沒設定 */
-  keys: Record<AiProvider, string | null>;
-  /** 空字串代表用 defaultModels 表單只放自訂值 存檔才不會把預設值寫死進資料庫 */
-  customModels: Record<AiProvider, string>;
-  defaultModels: Record<AiProvider, string>;
-  glossaryText: string;
-};
-
-export async function getSettingsView(userId: string): Promise<SettingsView> {
-  const row = await loadSettings(userId);
-  const pick = <T>(fn: (p: AiProvider) => T) => Object.fromEntries(AI_PROVIDER_IDS.map((p) => [p, fn(p)])) as Record<AiProvider, T>;
-  return {
-    provider: row?.provider ?? "anthropic",
-    keys: pick((p) => (row?.[KEY_COLUMNS[p].key] ? (row[KEY_COLUMNS[p].hint] ?? "") : null)),
-    customModels: pick((p) => row?.[KEY_COLUMNS[p].model] ?? ""),
-    defaultModels: { ...DEFAULT_MODELS },
-    glossaryText: (row?.glossary ?? []).map((g) => `${g.source}=${g.target}`).join("\n"),
-  };
-}
-
-export type SettingsInput = {
-  provider: AiProvider;
-  /** 空字串或沒給就不變更 */
-  keys: Partial<Record<AiProvider, string>>;
-  clear: AiProvider[];
-  /** 空字串代表改回預設 */
-  models: Partial<Record<AiProvider, string>>;
-  glossaryText: string;
-};
-
-export async function saveSettings(userId: string, input: SettingsInput): Promise<void> {
-  const glossary = parseGlossary(input.glossaryText);
-  const problem = glossaryProblem(glossary);
-  if (problem) throw new TranslationUserError(problem);
-  const values: Partial<typeof youtubeSettings.$inferInsert> = {
-    provider: input.provider,
-    glossary,
-    updatedAt: new Date(),
-  };
-  for (const provider of AI_PROVIDER_IDS) {
-    const columns = KEY_COLUMNS[provider];
-    const key = input.keys[provider]?.trim();
-    if (input.clear.includes(provider)) {
-      values[columns.key] = null;
-      values[columns.hint] = null;
-    } else if (key) {
-      values[columns.key] = encryptSecret(key);
-      values[columns.hint] = key.slice(-4);
-    }
-    const model = input.models[provider];
-    if (model !== undefined) values[columns.model] = model.trim() || null;
-  }
-
-  // id 由資料庫從 2 開始自動編號 不會撞到單人版固定的 1
-  await db()
-    .insert(youtubeSettings)
-    .values({ userId, ...values })
-    .onConflictDoUpdate({ target: youtubeSettings.userId, set: values });
-}
-
-const missingKeyMessage = (provider: AiProvider) => `還沒設定 ${AI_PROVIDER_NAMES[provider]} 的 API Key，請先到「翻譯設定」填入`;
-
-/** 觀看頁先確認 沒有金鑰就不自動翻譯 直接提示到設定頁填 不解密只看有沒有存 */
-export async function missingApiKeyMessage(userId: string): Promise<string | null> {
-  const row = await loadSettings(userId);
-  const provider = row?.provider ?? "anthropic";
-  return row?.[KEY_COLUMNS[provider].key] ? null : missingKeyMessage(provider);
-}
-
-/** 呼叫 AI 一律用這個人自己的 API Key 沒有就只能看別人翻好的部分 */
-async function currentAi(userId: string): Promise<{ ai: AiConfig; glossary: GlossaryEntry[] }> {
-  const row = await loadSettings(userId);
-  const provider = row?.provider ?? "anthropic";
-  const columns = KEY_COLUMNS[provider];
-  const encrypted = row?.[columns.key];
-  if (!row || !encrypted) throw new ApiKeySetupError(missingKeyMessage(provider));
-
-  let apiKey: string;
-  try {
-    apiKey = decryptSecret(encrypted);
-  } catch {
-    throw new ApiKeySetupError(
-      `${AI_PROVIDER_NAMES[provider]} 的 API Key 無法解密，請到「翻譯設定」重新填入（換過 ENCRYPTION_KEY 的話，把舊金鑰放進 ENCRYPTION_KEY_PREVIOUS 即可恢復）`,
-    );
-  }
-  return { ai: { provider, apiKey, model: row[columns.model] || DEFAULT_MODELS[provider] }, glossary: row.glossary };
-}
-
-/**
- * 換金鑰後把還沒用目前金鑰加密的 API Key 換掉 單把失敗不影響其他把
- * 沒有擁有者的列也處理 移除舊金鑰前要全部換好
- */
-export async function reencryptApiKeys(): Promise<string> {
-  const rows = await db().select().from(youtubeSettings).orderBy(youtubeSettings.id);
-  const stored = rows.flatMap((row) =>
-    AI_PROVIDER_IDS.flatMap((provider) => {
-      const encrypted = row[KEY_COLUMNS[provider].key];
-      return encrypted ? [{ id: row.id, provider, encrypted }] : [];
-    }),
-  );
-  if (stored.length === 0) return "沒有設定 API Key";
-
-  let reencrypted = 0;
-  let failed = 0;
-  for (const { id, provider, encrypted } of stored.filter((s) => needsReencrypt(s.encrypted))) {
-    const column = KEY_COLUMNS[provider].key;
-    try {
-      const values: Partial<typeof youtubeSettings.$inferInsert> = {};
-      values[column] = encryptSecret(decryptSecret(encrypted));
-      // 只在密文沒變時寫回 這期間在翻譯設定換上的新金鑰不能被舊的蓋掉
-      const [updated] = await db()
-        .update(youtubeSettings)
-        .set(values)
-        .where(and(eq(youtubeSettings.id, id), eq(youtubeSettings[column], encrypted)))
-        .returning({ id: youtubeSettings.id });
-      if (updated) reencrypted++;
-    } catch (error) {
-      failed++;
-      logError("youtube", "API Key 重新加密失敗", error, provider);
-    }
-  }
-  return `${stored.length} 把 API Key，重新加密 ${reencrypted} 把${failed ? `（${failed} 把失敗，詳見伺服器 log）` : ""}`;
-}
-
 // 翻譯紀錄
 
-function requireVideoId(videoId: string): string {
-  const id = parseVideoId(videoId);
+/** 收影片網址或 11 碼 id 看不懂就丟使用者錯誤 */
+function videoIdFromInput(input: string): string {
+  const id = parseVideoId(input);
   if (!id) throw new TranslationUserError("影片 ID 格式不正確");
   return id;
 }
@@ -205,9 +56,9 @@ export async function getTranslation(videoId: string): Promise<YoutubeTranslatio
   return row;
 }
 
-/** 追蹤中頻道的影片用清單上的標題 其他向 YouTube 查 */
+/** 追蹤中頻道的影片用清單上的標題 其他向 YouTube 查 讀不到存 null 不影響翻譯 */
 async function titleFor(videoId: string): Promise<string | null> {
-  return (await videoTitle(videoId)) ?? (await fetchVideoTitle(videoId));
+  return (await videoTitle(videoId)) ?? (await videoInfo(videoId))?.title ?? null;
 }
 
 /** 能不能蓋掉已有的翻譯寫成 SQL 條件放進同一個寫入 中間發起人換了也不會蓋錯 */
@@ -241,10 +92,6 @@ async function resetSource(userId: string, videoId: string, sourceKind: YoutubeT
   return written.length > 0;
 }
 
-async function glossaryOf(userId: string): Promise<GlossaryEntry[]> {
-  return (await loadSettings(userId))?.glossary ?? [];
-}
-
 const notManager = (action: string) => new TranslationUserError(`只有發起翻譯的人或站長可以${action}`);
 
 export type StartResult = { ok: true } | { ok: false; message: string; canUpload: true };
@@ -254,7 +101,7 @@ export type StartResult = { ok: true } | { ok: false; message: string; canUpload
  * 已經有紀錄就沿用 不論誰發起 不重複花錢
  */
 export async function startTranslation(userId: string, input: string): Promise<StartResult> {
-  const videoId = requireVideoId(input);
+  const videoId = videoIdFromInput(input);
   await currentAi(userId);
   if (await getTranslation(videoId)) return { ok: true };
 
@@ -268,7 +115,7 @@ export async function startTranslation(userId: string, input: string): Promise<S
 
 /** 還沒有翻譯時誰都能上傳並成為發起人 已經有了就會蓋掉大家看的 只有發起人或站長可以 */
 export async function uploadSubtitles(actor: TranslationActor, input: string, content: string): Promise<void> {
-  const videoId = requireVideoId(input);
+  const videoId = videoIdFromInput(input);
   let cues: Cue[];
   try {
     cues = parseSubtitles(content);
@@ -277,14 +124,14 @@ export async function uploadSubtitles(actor: TranslationActor, input: string, co
     throw error;
   }
   if (cues.length > MAX_UPLOAD_CUES) {
-    throw new TranslationUserError(`字幕最多 ${withCommas(MAX_UPLOAD_CUES)} 句（這個檔案有 ${withCommas(cues.length)} 句），請確認是不是這支影片的字幕`);
+    throw new TranslationUserError(`字幕最多 ${groupDigits(MAX_UPLOAD_CUES)} 句（這個檔案有 ${groupDigits(cues.length)} 句），請確認是不是這支影片的字幕`);
   }
   if (!(await resetSource(actor.id, videoId, "upload", cues, actor))) throw notManager("上傳字幕");
 }
 
 /** 失敗後保留已翻好的接著翻 要有自己的 API Key 才能按 之後續翻也用他的 */
 export async function retryTranslation(userId: string, input: string): Promise<void> {
-  const videoId = requireVideoId(input);
+  const videoId = videoIdFromInput(input);
   await currentAi(userId);
   await db()
     .update(youtubeTranslations)
@@ -294,7 +141,7 @@ export async function retryTranslation(userId: string, input: string): Promise<v
 
 /** 清空譯文從頭翻 只有發起人或站長可以 按的人成為新的發起人 專有名詞表換成他當下的設定 */
 export async function restartTranslation(actor: TranslationActor, input: string): Promise<void> {
-  const videoId = requireVideoId(input);
+  const videoId = videoIdFromInput(input);
   // 譯文在資料庫裡依當下的 source_cues 重建 先讀再寫的話中間換了字幕長度會對不上
   const emptyTranslation = sql`(select coalesce(jsonb_agg(null::jsonb), '[]'::jsonb) from jsonb_array_elements(${youtubeTranslations.sourceCues}))`;
   const restarted = await db()
@@ -378,7 +225,7 @@ export async function continueTranslation(
   input: string,
   { budgetMs = DEFAULT_BUDGET_MS, now = Date.now, positionMs }: ContinueOptions = {},
 ): Promise<Progress> {
-  const videoId = requireVideoId(input);
+  const videoId = videoIdFromInput(input);
   const existing = await getTranslation(videoId);
   if (!existing) throw new TranslationUserError("這支影片還沒開始翻譯");
   if (existing.status === "done" || existing.status === "failed") return progressOf(existing);

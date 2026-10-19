@@ -2,12 +2,10 @@ import { updateTag } from "next/cache";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch } from "@/dev/fake-fetch";
 import { setupTestDb } from "@/dev/test-db";
-import { stubCoreEnv, stubTwitchEnv, stubYoutubeEnv } from "@/dev/test-env";
+import { stubAllEnv } from "@/dev/test-env";
 import { expiredTags } from "@/dev/test-helpers";
 
-stubCoreEnv();
-stubTwitchEnv();
-stubYoutubeEnv();
+stubAllEnv();
 
 const { cronTasks } = await import("./cron");
 
@@ -34,6 +32,8 @@ const EXPECTED: Record<string, string[]> = {
   // 自動記的紀錄改了餘額與統計 固定收支記到的月份也往前推
   // 到期通知認領信用卡寄到哪一天
   "savings:recurring": ["savings:accounts", "savings:bills", "savings:recurring", "savings:transactions"],
+  // 只寫通知與認領紀錄 通知的 tag 由 notify 自己失效
+  "weather:rain": [],
 };
 
 beforeEach(() => {
@@ -43,7 +43,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 

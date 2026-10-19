@@ -1,12 +1,13 @@
-import type { ReactElement, ReactNode } from "react";
+import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { mocksOf, textOf } from "@/dev/test-helpers";
+import { findByType, savedVideo } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ after: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("../../service/cached", { spy: true });
 
 const cached = mocksOf(await import("../../service/cached"), "cachedSavedVideos", "cachedVideoInfo");
@@ -17,37 +18,14 @@ const { SavedVideoCard } = await import("../components/saved-video-card");
 const { SavedVideoList } = await import("../components/saved-video-list");
 const { SavedVideosLoader } = await import("./saved-page");
 
-type Video = { videoId: string; title: string | null; channelTitle: string | null; pinned: boolean; savedAt: Date; translationStatus: "queued" | "running" | "done" | "failed" | null };
 type CardProps = Parameters<typeof SavedVideoCard>[0];
 type Item = { id: string; text: string; card: ReactElement<CardProps> };
 type ListProps = { items: Item[]; limit: number };
 
-const savedVideo = (videoId: string, overrides: Partial<Video> = {}): Video => ({
-  videoId,
-  title: `影片 ${videoId}`,
-  channelTitle: "模擬頻道",
-  pinned: true,
-  savedAt: new Date(Date.now() - 3 * 3600_000),
-  translationStatus: null,
-  ...overrides,
-});
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+/** 標籤換成空白 比對前後有分隔的詞 */
+const spacedText = (markup: string) => textOf(markup, { spaced: true });
 const loaded = async () => (await SavedVideosLoader()) as ReactElement<ListProps>;
 const cardHtml = (item: Item) => renderToStaticMarkup(item.card);
-
-/** 只看伺服器元件回傳的元素樹 不實際算繪 */
-function findByType(node: ReactNode, type: unknown): ReactElement | undefined {
-  if (Array.isArray(node)) {
-    for (const child of node) {
-      const found = findByType(child, type);
-      if (found) return found;
-    }
-    return undefined;
-  }
-  if (!node || typeof node !== "object" || !("type" in node)) return undefined;
-  const element = node as ReactElement<{ children?: ReactNode }>;
-  return element.type === type ? element : findByType(element.props.children, type);
-}
 
 beforeEach(() => {
   requireSession.mockReset();
@@ -69,9 +47,9 @@ describe("已保留的影片（/youtube/saved）", () => {
 
     expect(page.type).toBe(EmptyState);
     const markup = renderToStaticMarkup(page);
-    expect(textOf(markup)).toContain("還沒有保留的影片");
-    expect(textOf(markup)).toContain("「保留」");
-    expect(textOf(markup)).toContain("翻譯");
+    expect(spacedText(markup)).toContain("還沒有保留的影片");
+    expect(spacedText(markup)).toContain("「保留」");
+    expect(spacedText(markup)).toContain("翻譯");
     expect(markup).toContain('href="/youtube"');
   });
 
@@ -97,15 +75,15 @@ describe("已保留的影片（/youtube/saved）", () => {
     const [pinned, auto, notYet] = (await loaded()).props.items.map(cardHtml);
 
     expect(pinned).toMatch(/<img[^>]*i\.ytimg\.com\/vi\/pinned00001\/mqdefault\.jpg/);
-    expect(textOf(pinned)).toContain("已翻譯");
-    expect(textOf(pinned)).toContain("影片 pinned00001");
-    expect(textOf(pinned)).toContain("模擬頻道");
-    expect(textOf(pinned)).toContain("手動保留");
-    expect(textOf(pinned)).toContain("3 小時前");
+    expect(spacedText(pinned)).toContain("已翻譯");
+    expect(spacedText(pinned)).toContain("影片 pinned00001");
+    expect(spacedText(pinned)).toContain("模擬頻道");
+    expect(spacedText(pinned)).toContain("手動保留");
+    expect(spacedText(pinned)).toContain("3 小時前");
     expect(pinned.match(/href="\/youtube\/watch\/pinned00001"/g)).toHaveLength(2);
-    expect(textOf(auto)).toContain("翻譯過");
+    expect(spacedText(auto)).toContain("翻譯過");
     expect(auto).toMatch(/yt-badge-danger[^>]*>[^<]*翻譯失敗/);
-    expect(textOf(notYet)).toContain("還沒翻譯");
+    expect(spacedText(notYet)).toContain("還沒翻譯");
   });
 
   it("選單裡的移除：送出的是這支影片，先跳確認（翻譯好的字幕不會刪）", async () => {
@@ -127,9 +105,9 @@ describe("已保留的影片（/youtube/saved）", () => {
     const [found, missing] = (await loaded()).props.items;
 
     expect(found.text).toBe("oEmbed 標題 oEmbed 頻道");
-    expect(textOf(cardHtml(found))).toContain("oEmbed 頻道");
+    expect(spacedText(cardHtml(found))).toContain("oEmbed 頻道");
     expect(missing.text).toBe("stillNone01");
-    expect(textOf(cardHtml(missing))).toContain("stillNone01");
+    expect(spacedText(cardHtml(missing))).toContain("stillNone01");
     expect(cached.cachedVideoInfo).toHaveBeenCalledTimes(2);
   });
 

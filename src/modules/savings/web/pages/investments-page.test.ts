@@ -1,9 +1,7 @@
-import { createElement, type ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { markup, mocksOf } from "@/dev/test-helpers";
+import { accountRow } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), usePathname: () => "/savings/investments" }));
@@ -17,39 +15,16 @@ vi.useFakeTimers({ now: new Date("2026-10-16T04:00:00Z"), toFake: ["Date"] });
 const cached = mocksOf(await import("../../service/cached"), "cachedAccounts", "cachedAccountFlows", "cachedHoldings", "cachedRecurring", "cachedCategories", "cachedQuotes");
 const { BrokerageList } = await import("../components/investments/brokerage-list");
 const { RegularBuyList } = await import("../components/recurring/regular-buy-list");
-const { InvestmentsPage, InvestmentsSection } = await import("./investments-page");
+const { InvestmentsSection } = await import("./investments-page");
 
-const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: true };
 const CREATED = new Date("2026-08-01T02:00:00Z");
-const account = (id: number, name: string, kind: "deposit" | "investment" | "credit", fields: Record<string, unknown> = {}) => ({
-  id,
-  userId: "u",
-  name,
-  kind,
-  label: null,
-  cardStyle: null,
-  purposeId: null,
-  openingBalance: 0,
-  openingCost: null,
-  monthlyPlan: null,
-  targetAmount: null,
-  dueDay: null,
-  statementDay: null,
-  payFromAccountId: null,
-  autopay: false,
-  cardNotifiedOn: null,
-  active: true,
-  sortOrder: id,
-  createdAt: CREATED,
-  ...fields,
-});
-const ACCOUNTS = [account(1, "台銀", "deposit"), account(9, "舊帳戶", "deposit", { active: false }), account(6, "臺銀證券", "investment")];
+const ACCOUNTS = [accountRow({ id: 1, name: "台銀", kind: "deposit" }), accountRow({ id: 9, name: "舊帳戶", kind: "deposit", active: false }), accountRow({ id: 6, name: "臺銀證券", kind: "investment" })];
 const HOLDINGS = [
   { id: 50, userId: "u", accountId: 6, symbol: "006208", name: "富邦台灣50", shares: 238, cost: 24000, sortOrder: 0, createdAt: CREATED },
   { id: 51, userId: "u", accountId: 6, symbol: "0050", name: "元大台灣50", shares: 100, cost: 15000, sortOrder: 1, createdAt: CREATED },
 ];
 
-const visit = async (search: Record<string, string | string[] | undefined> = {}) => renderToStaticMarkup((await InvestmentsSection({ searchParams: Promise.resolve(search) })) as ReactElement);
+const visit = async (search: Record<string, string | string[] | undefined> = {}) => markup(await InvestmentsSection({ searchParams: Promise.resolve(search) }));
 const listProps = () => vi.mocked(BrokerageList).mock.calls[0][0];
 
 beforeEach(() => {
@@ -65,12 +40,6 @@ beforeEach(() => {
 });
 
 describe("投資頁", () => {
-  it("頁首與分頁列（投資是目前這一頁）", () => {
-    const markup = renderToStaticMarkup(createElement(InvestmentsPage, { info: INFO, searchParams: Promise.resolve({}) }));
-
-    expect(markup).toMatch(/<a [^>]*aria-current="page"[^>]*href="\/savings\/investments"|<a [^>]*href="\/savings\/investments"[^>]*aria-current="page"/);
-  });
-
   it("用登入者（bob）的 id 讀資料", async () => {
     requireSession.mockResolvedValue(OTHER_SESSION);
 

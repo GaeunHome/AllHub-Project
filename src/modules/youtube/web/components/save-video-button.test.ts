@@ -1,11 +1,11 @@
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { form } from "@/dev/test-helpers";
+import { form, textOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ after: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("../actions", { spy: true });
 
 const actions = await import("../actions");
@@ -15,19 +15,20 @@ const VIDEO = "dQw4w9WgXcQ";
 type ButtonProps = { action: unknown; fields: Record<string, string>; confirmMessage?: string; "aria-label"?: string };
 const button = (saved: boolean) => SaveVideoButton({ videoId: VIDEO, saved }) as ReactElement<ButtonProps>;
 /** 只看按鈕上的字 表單旁邊還有 React 放的 <script> */
-const textOf = (saved: boolean) => renderToStaticMarkup(button(saved)).match(/<button[^>]*>([\s\S]*?)<\/button>/)?.[1].replace(/<[^>]+>/g, "");
+const buttonHtml = (markup: string) => markup.match(/<button[^>]*>([\s\S]*?)<\/button>/)?.[1] ?? "";
+const buttonText = (saved: boolean) => textOf(buttonHtml(renderToStaticMarkup(button(saved))));
 
 describe("觀看頁頻道列的「保留」", () => {
   it("還沒保留_顯示「保留」，按了是手動保留這支影片", () => {
     expect(button(false).props.action).toBe(actions.saveVideoAction);
     expect(button(false).props.fields).toEqual({ videoId: VIDEO });
-    expect(textOf(false)).toBe("保留");
+    expect(buttonText(false)).toBe("保留");
   });
 
   it("已經保留（手動保留或翻譯時自動加入的都一樣）_顯示「已保留」，再按一次移除；按錯了可以再按一次保留回來，所以不另外確認", () => {
     expect(button(true).props.action).toBe(actions.removeSavedVideoAction);
     expect(button(true).props.fields).toEqual({ videoId: VIDEO });
-    expect(textOf(true)).toBe("已保留");
+    expect(buttonText(true)).toBe("已保留");
     expect(button(true).props["aria-label"]).toMatch(/^已保留.*移除/);
     expect(button(true).props.confirmMessage).toBeUndefined();
   });
@@ -36,9 +37,7 @@ describe("觀看頁頻道列的「保留」", () => {
 describe("續翻時自動加入的結果（頁面不重繪）", () => {
   type ActionProps = { action: (previous: object, formData: FormData) => Promise<{ error?: string }> };
   const watchButton = (justSaved: string | null, saved = false) =>
-    renderToStaticMarkup(
-      createElement(AutoSavedContext, { value: { videoId: justSaved, clear: vi.fn() } }, createElement(WatchSaveButton, { videoId: VIDEO, saved })),
-    ).match(/<button[^>]*>([\s\S]*?)<\/button>/)?.[1].replace(/<[^>]+>/g, "");
+    textOf(buttonHtml(renderToStaticMarkup(createElement(AutoSavedContext, { value: { videoId: justSaved, clear: vi.fn() } }, createElement(WatchSaveButton, { videoId: VIDEO, saved })))));
 
   it("按「用我的 API Key 繼續翻譯」後這一頁剛把這支影片自動加入_伺服器算繪時還是「保留」，也當場顯示「已保留」", () => {
     expect(watchButton(VIDEO)).toBe("已保留");

@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { stubCoreEnv } from "@/dev/test-env";
-import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
+import { captureErrorLog, loggedText, mocksOf, textOf } from "@/dev/test-helpers";
 
 stubCoreEnv();
 
@@ -26,7 +26,6 @@ const { RegisterGate } = await import("./register-page");
 
 const render = async (params: Record<string, string | string[] | undefined>) =>
   renderToStaticMarkup((await RegisterGate({ searchParams: Promise.resolve(params) })) as ReactElement);
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 /** React 輸出的屬性順序跟寫法不一定一樣 所以找同時帶著這些屬性的 input */
 const hasInput = (markup: string, ...attributes: string[]) => (markup.match(/<input[^>]*>/g) ?? []).some((tag) => attributes.every((a) => tag.includes(a)));
 

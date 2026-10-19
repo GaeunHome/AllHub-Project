@@ -2,7 +2,7 @@ import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TEST_SESSION, requireOwner } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { mocksOf, textOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ connection: async () => {} }));
@@ -17,7 +17,6 @@ const { inviteResult } = await import("./create-invite-form");
 
 const DAY = 86_400_000;
 const at = (offsetMs: number) => new Date(Date.now() + offsetMs);
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const MEMBER_ID = "2a3b4c5d-6e7f-4a8b-9c0d-1e2f3a4b5c6d";
 const DISABLED_ID = "3b4c5d6e-7f8a-4b9c-8d0e-1f2a3b4c5d6e";
 

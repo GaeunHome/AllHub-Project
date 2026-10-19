@@ -1,11 +1,12 @@
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/core/db";
+import { lockUserRow } from "@/core/db/users";
 import { savingsAccounts, type SavingsAccount } from "../data/schema";
 import type { Direction } from "../lib/order";
 import { ALLOCATION_ACCOUNT_INVALID, NOT_FOUND, isRowId, parseAccountFields, parseAccountKind, parseAllocationFields, type AccountInput } from "../lib/validation";
 import { DUPLICATE_NAME, PAY_FROM_NOT_DEPOSIT, SavingsUserError } from "./errors";
-import { allOf, lockUser, moveWithin, nextSortOrder, valid, withUniqueName } from "./shared";
+import { allOf, moveWithin, nextSortOrder, valid, withUniqueName } from "./shared";
 
 // userId 一律是登入者 別人的 id 當作不存在
 
@@ -14,8 +15,6 @@ export type AccountFields = {
   name: string;
   /** deposit investment 或 credit 只在新增時有效 類型建立後不能改 */
   kind: string;
-  /** 不再使用 送來也不讀 */
-  purposeId?: string;
   /** 用途 例如生活費 空字串是沒填 */
   label: string;
   /** 只有信用卡有 卡面顏色 空字串是沒選 */
@@ -91,7 +90,7 @@ export async function updateAllocation(userId: string, lines: AllocationFields[]
   const ids = input.map((line) => line.accountId);
   return db().transaction(async (tx) => {
     // 一次鎖好幾個帳戶 先鎖使用者 刪除帳號時的連帶刪除才不會跟它互相等
-    await lockUser(tx, userId);
+    await lockUserRow(tx, userId, "key share");
     const accounts = await tx
       .select({ id: savingsAccounts.id, kind: savingsAccounts.kind })
       .from(savingsAccounts)

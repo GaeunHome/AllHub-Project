@@ -2,13 +2,14 @@ import "server-only";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/core/db";
 import { savingsCategories, type SavingsCategory } from "../data/schema";
+import { nextFreeColor } from "../lib/kinds";
 import type { Direction } from "../lib/order";
 import { NOT_FOUND, isRowId, parseCategoryFields, parseCategoryKind } from "../lib/validation";
 import { DUPLICATE_NAME, SavingsUserError } from "./errors";
 import { allOf, moveWithin, nextSortOrder, valid, withUniqueName } from "./shared";
 
 /** kind 只在新增時有效 monthlyBudget 只有支出能設 空字串是不設 icon 是 CATEGORY_ICONS 的名稱 空字串是沒選 */
-export type CategoryFields = { kind: string; name: string; color: string; monthlyBudget: string; icon: string };
+export type CategoryFields = { kind: string; name: string; monthlyBudget: string; icon: string };
 
 const own = (userId: string, id: number) => and(eq(savingsCategories.id, id), eq(savingsCategories.userId, userId));
 
@@ -25,10 +26,12 @@ export async function createCategory(userId: string, fields: CategoryFields): Pr
   const kind = valid(parseCategoryKind(fields.kind));
   const input = valid(parseCategoryFields(fields, kind));
   const sameKind = allOf(eq(savingsCategories.userId, userId), eq(savingsCategories.kind, kind));
+  // 畫面不顯示顏色 但資料表要一個 修改時不動
+  const used = await db().select({ color: savingsCategories.color }).from(savingsCategories).where(sameKind);
   const [category] = await withUniqueName(
     db()
       .insert(savingsCategories)
-      .values({ ...input, userId, kind, sortOrder: nextSortOrder(savingsCategories, sameKind) })
+      .values({ ...input, userId, kind, color: nextFreeColor(used.map((row) => row.color)), sortOrder: nextSortOrder(savingsCategories, sameKind) })
       .returning(),
     DUPLICATE_NAME.category,
   );

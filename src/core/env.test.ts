@@ -1,10 +1,11 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TEST_CORE_ENV as CORE, TEST_TWITCH_ENV as TWITCH, TEST_YOUTUBE_ENV as YOUTUBE } from "@/dev/test-env";
+import { TEST_CORE_ENV as CORE, TEST_TWITCH_ENV as TWITCH, TEST_YOUTUBE_ENV as YOUTUBE, stubAllEnv } from "@/dev/test-env";
 
-const OPTIONAL = ["DATABASE_POOL_MAX", "ENCRYPTION_KEY_PREVIOUS", "DEV_EXTERNAL_ORIGIN", "DEV_CAPTCHA_CODE"];
-const ALL_NAMES = [...new Set([...Object.keys(CORE), ...Object.keys(TWITCH), ...Object.keys(YOUTUBE), ...OPTIONAL])];
+const namesIn = (file: URL, pattern: RegExp) => [...new Set([...readFileSync(file, "utf8").matchAll(pattern)].map((m) => m[1]))];
+// env.ts 定義的每個變數 新模組加的也自動算進來
+const ALL_NAMES = namesIn(new URL("./env.ts", import.meta.url), /^\s+([A-Z][A-Z0-9_]*):/gm);
 
 // env.ts 會快取驗證結果 每個測試都要重新載入
 // 先清掉同名變數 本機 shell 設過的值才不會混進來
@@ -104,15 +105,22 @@ describe("值的驗證", () => {
 });
 
 describe("與 .env.example 一致", () => {
-  const namesIn = (file: URL, pattern: RegExp) => [...new Set([...readFileSync(file, "utf8").matchAll(pattern)].map((m) => m[1]))];
-
   it("env.ts 定義的變數_.env.example 都有列出_順序相同", () => {
-    const defined = namesIn(new URL("./env.ts", import.meta.url), /^\s+([A-Z][A-Z0-9_]*):/gm);
     // 用井號註解掉的範例也算有列出
     const documented = namesIn(new URL("../../.env.example", import.meta.url), /^#?\s*([A-Z][A-Z0-9_]*)=/gm);
 
-    expect(defined.length).toBeGreaterThanOrEqual(12);
-    expect(documented).toEqual(defined);
+    expect(ALL_NAMES.length).toBeGreaterThanOrEqual(12);
+    expect(documented).toEqual(ALL_NAMES);
+  });
+});
+
+describe("跨模組測試用的 stubAllEnv（src/dev/test-env.ts）", () => {
+  it("設好 env.ts 每一組要填的變數：新模組的環境變數忘了加進 test-env 時這裡會失敗", async () => {
+    const env = await loadEnv(stubAllEnv());
+    const groups = Object.entries(env as Record<string, unknown>).filter(([name, value]) => /^[a-z]+Env$/.test(name) && typeof value === "function") as [string, () => unknown][];
+
+    expect(groups.map(([name]) => name)).toEqual(expect.arrayContaining(["coreEnv", "twitchEnv", "youtubeEnv", "weatherEnv", "devEnv"]));
+    for (const [name, read] of groups) expect(read, name).not.toThrow();
   });
 });
 

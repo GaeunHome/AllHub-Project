@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useId, useReducer, useState, type ReactNode } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
+import { SegmentedControl } from "@/core/ui/segmented-control";
 import { HOLIDAY_RULES, HOLIDAY_RULE_LABELS, INTERVAL_LABELS, INTERVAL_MONTHS, NAME_MAX_LENGTH, RECURRING_MODES, RECURRING_MODE_LABELS, type RecurringMode } from "../../../lib/kinds";
 import { dateToMonth, formatMonth, monthToDate } from "../../../lib/month";
 import { createRecurringAction, updateRecurringAction } from "../../actions";
 import { defaultIncomeCategory, nextRunText } from "../../form-math";
 import { pickAccount, pickOtherAccount } from "../../last-used";
 import { SAVINGS_PATHS, type RecurringPreset } from "../../paths";
-import { Segmented } from "../segmented";
 import { TransferAccounts, useEntryChoice } from "./entry-form";
 import { AccountSelect, AmountField, CategoryChips, DayOfMonthSelect, FormButtons, type SelectableAccount } from "./fields";
 import type { CategoryOption, HoldingOption, RecurringDraft } from "./options";
@@ -98,7 +98,7 @@ export function RecurringForm(props: RecurringFormProps) {
       {/* 表單不再顯示備註 修改舊規則時原樣送回 */}
       {rule?.note && <input type="hidden" name="note" value={rule.note} />}
       <input type="hidden" name="kind" value={entryKindOf(form.type)} />
-      {types.length > 1 && <Segmented label="類型" options={typeOptions(types)} value={form.type} onChange={changeType} />}
+      {types.length > 1 && <SegmentedControl variant="field" label="類型" options={typeOptions(types)} value={form.type} onChange={changeType} />}
       {preset === "salary" && <input type="hidden" name="allocate" value="on" />}
       <label className="field">
         <span className="field-label">名稱（選填）</span>

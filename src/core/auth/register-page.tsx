@@ -3,6 +3,7 @@ import Link from "next/link";
 import { after, connection } from "next/server";
 import { Suspense } from "react";
 import { logError } from "../errors";
+import type { SearchParams } from "../module";
 import { formatTaipeiDateTime } from "../time";
 import { Icon } from "../ui/icon";
 import { LoadingState, Skeleton } from "../ui/skeleton";
@@ -15,8 +16,6 @@ import { clientIp } from "./rate-limit";
 import { captchaImageUrl, tooManyAttempts } from "./messages";
 import { RegisterForm } from "./register-form";
 import { INVITE_INVALID_MESSAGE } from "./registration";
-
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 /** 公開頁面 proxy 不擋 有效邀請碼才顯示表單 送出時 registerAction 會再檢查 */
 export function RegisterPage({ searchParams }: { searchParams: SearchParams }) {

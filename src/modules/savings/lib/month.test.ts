@@ -1,35 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
-import {
-  addMonths,
-  dateToMonth,
-  monthToDate,
-  parseMonth,
-  recentMonths,
-  resolveMonth,
-  selectableMonths,
-  taipeiMonth,
-} from "./month";
-
-describe("taipeiMonth", () => {
-  it("UTC 9/30 16:00 是台北 10/1 零點_算 10 月", () => {
-    expect(taipeiMonth(new Date("2026-09-30T16:00:00Z"))).toBe("2026-10");
-  });
-
-  it("UTC 9/30 15:59:59 是台北 9/30 23:59:59_還是 9 月", () => {
-    expect(taipeiMonth(new Date("2026-09-30T15:59:59Z"))).toBe("2026-09");
-  });
-
-  it("UTC 12/31 16:00 是台北隔年 1/1_跨年", () => {
-    expect(taipeiMonth(new Date("2026-12-31T16:00:00Z"))).toBe("2027-01");
-  });
-
-  it.each(ICU_VARIANTS)("ICU 版本不同（$name）_台北 9/1 還是 2026-09", (variant) => {
-    simulateIcu(variant);
-
-    expect(taipeiMonth(new Date("2026-08-31T16:00:00Z"))).toBe("2026-09");
-  });
-});
+import { addMonths, dateToMonth, monthToDate, parseMonth, recentMonths, resolveMonth, selectableMonths } from "./month";
 
 describe("parseMonth", () => {
   it.each(["2026-10", "2000-01", "2099-12"])("%s_合法", (raw) => {

@@ -1,9 +1,9 @@
 import { isValidElement, type ReactElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { markup, mocksOf, textOf } from "@/dev/test-helpers";
 import { parseDailyNote } from "../../lib/responses";
+import { accountView } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ after: vi.fn() }));
@@ -15,8 +15,7 @@ const accounts = mocksOf(await import("../../service/accounts"), "syncCookieInva
 const { after } = await import("next/server");
 const { AccountNote, StarrailNotes } = await import("./home-card");
 
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
-const view = (id: number, nickname: string, region = "prod_official_cht", cookieInvalid = false) => ({ id, uid: `80000000${id}`, nickname, region, level: 70, staminaAlertThreshold: null, cookieInvalid, autoRedeem: false, canAutoRedeem: false, gameReminders: true });
+const view = (id: number, nickname: string, region = "prod_official_cht") => accountView({ id, uid: `80000000${id}`, nickname, region });
 const IMG = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/mock/avatar";
 
 const fetchedAt = new Date();
@@ -33,8 +32,8 @@ const okNote = {
     max_train_score: 500,
   }),
   expeditions: [
-    { name: "看不見的手", status: "ongoing" as const, remainingSeconds: 15_120, avatars: [`${IMG}/1001.png`, `${IMG}/1002.png`], itemUrl: null },
-    { name: "陽光下的迷宮", status: "finished" as const, remainingSeconds: 0, avatars: [`${IMG}/1105.png`], itemUrl: null },
+    { name: "看不見的手", status: "ongoing" as const, remainingSeconds: 15_120, avatars: [`${IMG}/1001.png`, `${IMG}/1002.png`] },
+    { name: "陽光下的迷宮", status: "finished" as const, remainingSeconds: 0, avatars: [`${IMG}/1105.png`] },
   ],
   fetchedAt,
   cookieInvalid: false as const,
@@ -69,17 +68,17 @@ describe("首頁「即時便箋」（星穹鐵道）：帳號清單", () => {
   });
 
   it("還沒連結帳號_顯示連結的入口（到星穹鐵道頁）", async () => {
-    const markup = renderToStaticMarkup((await StarrailNotes()) as ReactElement);
+    const html = markup((await StarrailNotes()) as ReactElement);
 
-    expect(textOf(markup)).toContain("還沒有連結 HoYoLAB 帳號");
-    expect(markup).toMatch(/<a[^>]*href="\/starrail"[^>]*>.*連結帳號/);
+    expect(textOf(html)).toContain("還沒有連結 HoYoLAB 帳號");
+    expect(html).toMatch(/<a[^>]*href="\/starrail"[^>]*>.*連結帳號/);
   });
 
   it("有好幾個帳號_一個帳號一列，各自查便箋（慢的那個不會擋住其他帳號）", async () => {
     cached.cachedAccounts.mockResolvedValue([view(1, "開拓者"), view(2, "小號", "prod_official_asia")]);
 
     const tree = await StarrailNotes();
-    const text = textOf(renderToStaticMarkup(tree as ReactElement));
+    const text = textOf(markup(tree as ReactElement));
 
     expect(accountIdsIn(tree)).toEqual([1, 2]);
     // 便箋還在查的時候就先看得到是哪個帳號
@@ -91,7 +90,7 @@ describe("首頁「即時便箋」（星穹鐵道）：帳號清單", () => {
 });
 
 describe("首頁「即時便箋」：每個帳號的便箋", () => {
-  const note = async (account = view(1, "開拓者")) => renderToStaticMarkup((await AccountNote({ account })) as ReactElement);
+  const note = async (account = view(1, "開拓者")) => markup((await AccountNote({ account })) as ReactElement);
 
   it("用登入者的 id 加帳號 id 讀便箋", async () => {
     requireSession.mockResolvedValue(OTHER_SESSION);
@@ -102,8 +101,8 @@ describe("首頁「即時便箋」：每個帳號的便箋", () => {
   });
 
   it("開拓力（目前／上限、回滿時間）、後備開拓力、每日實訓、委託的角色圖與完成數，點帳號到星穹鐵道頁的那個帳號", async () => {
-    const markup = await note();
-    const text = textOf(markup);
+    const html = await note();
+    const text = textOf(html);
 
     expect(text).toContain("開拓力");
     expect(text).toMatch(/231\s*\/\s*300/);
@@ -114,13 +113,13 @@ describe("首頁「即時便箋」：每個帳號的便箋", () => {
     expect(text).toMatch(/400\s*\/\s*500/);
     expect(text).toMatch(/委託\s*4\s*\/\s*4/);
     expect(text).toContain("1 個已完成");
-    expect(markup).toContain(`${IMG}/1001.png`);
-    expect(markup).toContain(`${IMG}/1105.png`);
-    expect(markup).toContain('href="/starrail?account=1"');
+    expect(html).toContain(`${IMG}/1001.png`);
+    expect(html).toContain(`${IMG}/1105.png`);
+    expect(html).toContain('href="/starrail?account=1"');
   });
 
   it("HoYoLAB 查詢失敗_只在這一列顯示原因", async () => {
-    cached.cachedDailyNote.mockResolvedValue({ ok: false, message: "HoYoLAB 說查詢太頻繁，過幾分鐘再試（-110）", fetchedAt, cookieInvalid: false });
+    cached.cachedDailyNote.mockResolvedValue({ ok: false, message: "HoYoLAB 說查詢太頻繁，過幾分鐘再試（-110）", cookieInvalid: false });
 
     const text = textOf(await note());
 
@@ -129,12 +128,12 @@ describe("首頁「即時便箋」：每個帳號的便箋", () => {
   });
 
   it("cookie 失效_標示出來並連到星穹鐵道頁重新連結；跟帳號上的標記不同時，回應後才寫回", async () => {
-    cached.cachedDailyNote.mockResolvedValue({ ok: false, message: "HoYoLAB cookie 已失效，請重新登入 hoyolab.com 後貼上新的 cookie（-100：Please login）", fetchedAt, cookieInvalid: true });
+    cached.cachedDailyNote.mockResolvedValue({ ok: false, message: "HoYoLAB cookie 已失效，請重新登入 hoyolab.com 後貼上新的 cookie（-100：Please login）", cookieInvalid: true });
 
-    const markup = await note();
+    const html = await note();
 
-    expect(textOf(markup)).toContain("cookie 已失效");
-    expect(markup).toContain('href="/starrail?account=1"');
+    expect(textOf(html)).toContain("cookie 已失效");
+    expect(html).toContain('href="/starrail?account=1"');
     expect(after).toHaveBeenCalledTimes(1);
     expect(accounts.syncCookieInvalid).not.toHaveBeenCalled();
 

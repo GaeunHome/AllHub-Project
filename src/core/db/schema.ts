@@ -9,6 +9,8 @@ import { check, index, integer, pgTable, primaryKey, serial, text, timestamp, uu
 /** owner 是站長 member 是用邀請註冊的成員 權限一律讀資料庫 cookie 不帶角色 */
 export const USER_ROLES = ["owner", "member"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
+/** 畫面與 account CLI 顯示的角色名稱 */
+export const ROLE_LABELS: Record<UserRole, string> = { owner: "站長", member: "成員" };
 
 /** 第一個帳號是站長 用 npm run account 建立 其他人只能用邀請連結註冊 */
 export const coreUsers = pgTable(
@@ -86,8 +88,10 @@ export const coreNotifications = pgTable(
   "core_notifications",
   {
     id: serial("id").primaryKey(),
-    /** 收件人 可為 null 是給部署空窗期的舊程式 新程式一律指定也只讀自己的 */
-    userId: uuid("user_id").references(() => coreUsers.id, { onDelete: "cascade" }),
+    /** 收件人 每個人只讀寫自己的通知 刪除帳號時一起刪 */
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
     /** 發出通知的模組 id 例如 twitch 通知頁依此篩選 導覽列依此標未讀數 */
     module: text("module").notNull(),
     kind: text("kind").notNull(),
@@ -99,10 +103,9 @@ export const coreNotifications = pgTable(
     readAt: timestamp("read_at", { withTimezone: true }),
   },
   (t) => [
+    // 清理排程照建立時間刪 不分收件人
     index("core_notifications_created_at_idx").on(t.createdAt),
-    // 每 10 秒輪詢一次未讀數 只索引未讀的列
-    index("core_notifications_unread_idx").on(t.module).where(sql`${t.readAt} is null`),
-    // 多人化後讀取都先依收件人篩選 上面兩個舊索引等舊程式下線後再刪
+    // 讀取都先依收件人篩選 每 10 秒輪詢一次的未讀數只索引未讀的列
     index("core_notifications_user_created_at_idx").on(t.userId, t.createdAt),
     index("core_notifications_user_unread_idx").on(t.userId, t.module).where(sql`${t.readAt} is null`),
   ],

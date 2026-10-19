@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { DialogMessage } from "@/core/ui/dialog";
+import { Fact, FactList } from "@/core/ui/fact-list";
 import { CardHeader } from "@/core/ui/page-header";
 import { formatDay } from "../../../lib/dates";
 import { CATEGORY_KINDS, CATEGORY_KIND_LABELS, TRANSACTION_KINDS, TRANSACTION_KIND_LABELS } from "../../../lib/kinds";
@@ -9,9 +10,9 @@ import { UNCATEGORIZED_KEY, type MonthTotals } from "../../../lib/ledger";
 import { formatTwd } from "../../../lib/money";
 import type { ExpenseRow } from "../../dashboard-view";
 import { UNCATEGORIZED_LABEL } from "../../entry-display";
+import { pausedName } from "../../format";
 import { NO_FILTERS, filterRecords, groupByDate, hasFilters, recordTotals, type RecordFilters, type RecordItem } from "../../record-filter";
 import { ExpenseList } from "../dashboard/expense-list";
-import { Fact, FactList } from "../fact-list";
 import type { AccountChoice, CategoryOption } from "../forms/options";
 import { ListGroup, useRemovalNotice } from "../row-controls";
 import { RecordRow } from "./record-row";
@@ -76,7 +77,7 @@ export function RecordList({ records, accounts, categories, today, monthSwitcher
                   <option value="">帳戶</option>
                   {accounts.map((account) => (
                     <option key={account.id} value={account.id}>
-                      {account.active ? account.name : `${account.name}（已停用）`}
+                      {pausedName(account.name, account.active)}
                     </option>
                   ))}
                 </select>

@@ -1,4 +1,4 @@
-export type SubtitleMode = "zh" | "ko" | "both";
+import type { SubtitleMode } from "../lib/subtitles/format";
 
 /** 標在字幕那一行的 lang 字型才選得對 韓文換行也不會從詞中間斷開 */
 export type SubtitleLang = "zh-Hant" | "ko";

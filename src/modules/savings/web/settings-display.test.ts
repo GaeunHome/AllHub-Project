@@ -36,7 +36,7 @@ describe("刪除前的確認", () => {
   });
 });
 
-describe("sortByNextDate：設定頁的固定收支照下一期的日期排", () => {
+describe("sortByNextDate：每月固定頁的固定收支照下一期的日期排", () => {
   const rule = (id: number, nextDate: string | null, fields: { active?: boolean; accountPaused?: boolean } = {}) => ({ id, nextDate, active: true, accountPaused: false, ...fields });
 
   it("日期早的在前；同一天照建立的順序", () => {

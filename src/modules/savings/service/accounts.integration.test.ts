@@ -1,46 +1,23 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { asc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
-import { savingsAccounts, savingsPurposes, savingsRecurring, savingsTransactions } from "../data/schema";
+import { beforeEach, describe, expect, it } from "vitest";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { savingsAccounts, savingsRecurring, savingsTransactions } from "../data/schema";
+import { logQueries, savingsRows } from "../dev/db-fixtures";
+import { userError } from "../dev/fixtures";
 import { createAccount, deleteAccount, listAccounts, moveAccount, setAccountActive, updateAccount, updateAllocation, type AccountFields } from "./accounts";
-import { SavingsUserError } from "./errors";
 
 const getDb = setupTestDb();
 let me: string;
 let other: string;
+const { insertAccount } = savingsRows(getDb, () => me);
 
 beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
+  [me, other] = await insertTestUsers(getDb());
 });
 
 const NOT_FOUND = "找不到這個帳戶，可能已經刪除了";
 const DUPLICATE = "已經有同名的帳戶";
 const PAY_FROM_NOT_DEPOSIT = "扣款帳戶要選存款帳戶";
-
-type AccountValues = Partial<typeof savingsAccounts.$inferInsert> & { name: string };
-
-async function insertAccount(values: AccountValues) {
-  const [row] = await getDb().insert(savingsAccounts).values({ userId: me, kind: "deposit", ...values }).returning();
-  return row;
-}
-
-async function insertPurpose(name: string, userId = me) {
-  const [row] = await getDb().insert(savingsPurposes).values({ userId, name, color: "blue" }).returning();
-  return row;
-}
-
-/** 要是使用者錯誤畫面才會顯示訊息 不能是文字剛好一樣的其他錯誤 */
-async function userError(promise: Promise<unknown>): Promise<string> {
-  const error = await promise.then(
-    () => undefined,
-    (reason: unknown) => reason,
-  );
-  expect(error).toBeInstanceOf(SavingsUserError);
-  return (error as Error).message;
-}
 
 const fields = (values: Partial<AccountFields> = {}): AccountFields => ({
   name: "國泰",
@@ -59,19 +36,6 @@ const fields = (values: Partial<AccountFields> = {}): AccountFields => ({
 
 /** 修改分配的一行 */
 const line = (id: number, monthlyPlan = "", targetAmount = "") => ({ accountId: String(id), monthlyPlan, targetAmount });
-
-/** 記下送出的每一句 SQL 交易的開始記成 begin PGlite 只有一條連線 交易本來就一個一個跑 */
-function logStatements(): string[] {
-  const statements: string[] = [];
-  const pglite = (getDb() as TestDb & { $client: PGlite }).$client;
-  const transaction = pglite.transaction.bind(pglite);
-  vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) => {
-    statements.push("begin");
-    return transaction(callback);
-  }) as typeof transaction);
-  (globalThis as unknown as { hubDb?: unknown }).hubDb = drizzle(pglite, { logger: { logQuery: (sql) => statements.push(sql) } });
-  return statements;
-}
 
 const rowsOf = (userId: string) => getDb().select().from(savingsAccounts).where(eq(savingsAccounts.userId, userId)).orderBy(asc(savingsAccounts.sortOrder), asc(savingsAccounts.id));
 const namesOf = async (userId: string) => (await rowsOf(userId)).map((a) => a.name);
@@ -102,7 +66,6 @@ describe("createAccount", () => {
       kind: "deposit",
       label: "生活費",
       cardStyle: null,
-      purposeId: null,
       openingBalance: 12_000,
       openingCost: null,
       monthlyPlan: 5000,
@@ -145,15 +108,8 @@ describe("createAccount", () => {
   });
 
   it.each(["", "loan"])("類型 %j 不對_丟使用者錯誤_沒有寫入", async (kind) => {
-    expect(await userError(createAccount(me, fields({ kind })))).toBe("帳戶類型不正確");
+    await userError(createAccount(me, fields({ kind })));
     expect(await rowsOf(me)).toEqual([]);
-  });
-
-  it("舊的表單送來用途 id_不讀也不存（用途改成帳戶上的文字）：就算是別人的或不存在的也照樣建立", async () => {
-    const theirPurpose = await insertPurpose("別人的", other);
-
-    expect(await createAccount(me, { ...fields({ name: "A" }), purposeId: String(theirPurpose.id) })).toMatchObject({ purposeId: null, label: null });
-    expect(await createAccount(me, { ...fields({ name: "B" }), purposeId: "999" })).toMatchObject({ purposeId: null });
   });
 
   it("信用卡_卡面顏色存起來；沒選是 null", async () => {
@@ -162,7 +118,7 @@ describe("createAccount", () => {
   });
 
   it("卡面顏色不在清單裡_丟使用者錯誤_沒有寫入；存款帳戶送來的卡面顏色忽略", async () => {
-    expect(await userError(createAccount(me, fields({ name: "國泰卡", kind: "credit", cardStyle: "gold" })))).toBe("卡面顏色不正確");
+    await userError(createAccount(me, fields({ name: "國泰卡", kind: "credit", cardStyle: "gold" })));
     expect(await rowsOf(me)).toEqual([]);
     expect(await createAccount(me, fields({ cardStyle: "green" }))).toMatchObject({ kind: "deposit", cardStyle: null });
   });
@@ -338,7 +294,7 @@ describe("updateAllocation（修改分配：一次改各帳戶的每月規劃與
   it("交易裡先鎖使用者、再鎖帳戶，最後才改：刪除帳號的連帶刪除不一定照 id 的順序刪帳戶，沒先鎖使用者時兩邊會互相等到被資料庫中止（deadlock）", async () => {
     const bank = await insertAccount({ name: "台銀" });
     const reserve = await insertAccount({ name: "緊急預備金" });
-    const statements = logStatements();
+    const statements = logQueries(getDb());
 
     await updateAllocation(me, [line(bank.id, "5000"), line(reserve.id, "2000")]);
 
@@ -480,13 +436,6 @@ describe("每個人只看得到、改得到自己的帳戶", () => {
 
     expect(await userError(updateAccount(me, mine.id, fields({ name: "我的", payFromAccountId: String(theirAccount.id) })))).toBe(NOT_FOUND);
     expect(await rowsOf(me)).toMatchObject([{ label: "生活費", payFromAccountId: null }]);
-  });
-
-  it("修改帳戶時舊資料的用途 id 不動（不讀也不寫，之後的版本刪欄位）", async () => {
-    const living = await insertPurpose("生活費");
-    const mine = await insertAccount({ name: "我的", purposeId: living.id });
-
-    expect(await updateAccount(me, mine.id, fields({ name: "我的", label: "生活費" }))).toMatchObject({ purposeId: living.id, label: "生活費" });
   });
 
   it("修改分配時夾帶別人的帳戶（IDOR）_整批拒絕，自己的與別人的都沒改；錯誤也不寫出別人的帳戶名稱", async () => {

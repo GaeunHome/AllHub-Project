@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { captureErrorLog, form, loggedText } from "@/dev/test-helpers";
-import { actionErrorMessage, formFlag, formId, formText, formUuid, runAction } from "./form";
+import { UserError, actionErrorMessage, formFlag, formId, formText, formUuid, runAction } from "./form";
 
 class DemoUserError extends Error {}
+class StreamerNotFound extends UserError {}
 const isDemoUserError = (error: unknown) => error instanceof DemoUserError;
 const SCOPE = { module: "demo", action: "加入主播" };
 
@@ -68,6 +69,31 @@ describe("runAction", () => {
     expect(await runAction(titled, isDemoUserError, async () => Promise.reject(new TypeError("secret-detail")))).toEqual({ error: "原因不明（詳見伺服器 log）" });
     expect(log.mock.calls).toEqual([["[demo] 加入主播失敗", "TypeError"]]);
     expect(await runAction(titled, isDemoUserError, async () => Promise.reject(new DemoUserError("Twitch 帳號格式不正確")))).toEqual({ error: "Twitch 帳號格式不正確" });
+  });
+});
+
+describe("UserError：不給判斷時 runAction 預設就認它", () => {
+  it("UserError 與它的子類別_原樣顯示訊息、不記 log；其他錯誤照樣只給摘要", async () => {
+    const log = captureErrorLog();
+
+    expect(await runAction(SCOPE, async () => Promise.reject(new StreamerNotFound("找不到這位主播")))).toEqual({ error: "找不到這位主播" });
+    expect(await runAction(SCOPE, async () => Promise.reject(new UserError("Twitch 帳號格式不正確")))).toEqual({ error: "Twitch 帳號格式不正確" });
+    expect(log).not.toHaveBeenCalled();
+    expect(await runAction(SCOPE, async () => Promise.reject(new DemoUserError("secret-detail")))).toEqual({ error: "加入主播失敗（詳見伺服器 log）" });
+    expect(log.mock.calls).toEqual([["[demo] 加入主播失敗", "Error"]]);
+  });
+
+  it("另外給了判斷時_UserError 照樣原樣顯示，判斷認得的錯誤也原樣顯示", async () => {
+    expect(await runAction(SCOPE, isDemoUserError, async () => Promise.reject(new StreamerNotFound("找不到這位主播")))).toEqual({ error: "找不到這位主播" });
+    expect(await runAction(SCOPE, isDemoUserError, async () => Promise.reject(new DemoUserError("Twitch 回應：帳號已停權")))).toEqual({ error: "Twitch 回應：帳號已停權" });
+  });
+
+  it("actionErrorMessage 不給判斷時一樣只認 UserError", () => {
+    const log = captureErrorLog();
+
+    expect(actionErrorMessage(SCOPE, new StreamerNotFound("找不到這位主播"))).toBe("找不到這位主播");
+    expect(actionErrorMessage(SCOPE, new TypeError("secret-detail"))).toBe("加入主播失敗（詳見伺服器 log）");
+    expect(log.mock.calls).toEqual([["[demo] 加入主播失敗", "TypeError"]]);
   });
 });
 

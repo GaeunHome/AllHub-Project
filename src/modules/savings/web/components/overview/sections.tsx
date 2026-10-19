@@ -1,16 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { requireSession } from "@/core/auth";
+import { taipeiMonthKey } from "@/core/time";
 import { Icon } from "@/core/ui/icon";
 import { CardHeader } from "@/core/ui/page-header";
 import { formatSlashDate } from "../../../lib/dates";
 import { formatSignedTwd, formatTwd } from "../../../lib/money";
-import { taipeiMonth } from "../../../lib/month";
 import { cachedAccounts, cachedCategories, cachedCategoryTotals, cachedRecurring } from "../../../service/cached";
-import { categoryOptions, recordsHref, salaryAccountOptions } from "../../dashboard-view";
+import { categoryOptions, salaryAccountOptions } from "../../dashboard-view";
 import { loadAccounts, loadChecklist } from "../../overview-data";
 import { checklistRows, checklistSummary, heroView, monthView, quickActionsView, type HeroView } from "../../overview-view";
-import { SAVINGS_PATHS } from "../../paths";
+import { SAVINGS_PATHS, recordsHref } from "../../paths";
 import { ExpenseList } from "../dashboard/expense-list";
 import { TrendChart } from "../dashboard/trend-chart";
 import { flowSeries } from "../dashboard/trend-model";
@@ -40,14 +40,14 @@ export async function HeroSection() {
 
 function HeroParts({ hero }: { hero: HeroView }) {
   const parts = [
-    hero.deposit !== null && <span key="deposit">存款 {money(hero.deposit)}</span>,
+    hero.deposit !== null && <span key="deposit">存款 {money(formatTwd(hero.deposit))}</span>,
     hero.investment !== null && (
       <span key="investment">
-        投資 {money(hero.investment.value)}（{hero.investment.priced ? `損益 ${formatSignedTwd(hero.investment.profit)}` : "股價暫時讀不到"}
+        投資 {money(formatTwd(hero.investment.value))}（{hero.investment.priced ? `損益 ${formatSignedTwd(hero.investment.profit)}` : "股價暫時讀不到"}
         {hero.investment.priced && hero.investment.quoteDate !== null && `，${formatSlashDate(hero.investment.quoteDate)} 收盤`}）
       </span>
     ),
-    hero.cardOwed !== null && <span key="credit">信用卡未繳 {money(hero.cardOwed)}</span>,
+    hero.cardOwed !== null && <span key="credit">信用卡未繳 {money(formatTwd(hero.cardOwed))}</span>,
   ].filter(Boolean);
   if (parts.length === 0) return null;
   return (
@@ -66,7 +66,7 @@ function HeroParts({ hero }: { hero: HeroView }) {
   );
 }
 
-const money = (amount: number) => <span className="font-semibold text-ink tabular-nums">{formatTwd(amount)}</span>;
+const money = (text: string) => <span className="font-semibold text-ink tabular-nums">{text}</span>;
 
 /** 常用的動作 臨時的獎金這類不在每月固定裡的薪水收在 ⋮ */
 export async function QuickActionsSection() {
@@ -83,8 +83,8 @@ export async function QuickActionsSection() {
 /** 做完的打勾留著 沒有任何固定收支與信用卡時先請他去設定 */
 export async function ChecklistSection() {
   const user = await requireSession();
-  const [view, rules] = await Promise.all([loadChecklist(user.id, new Date()), cachedRecurring(user.id)]);
-  const rows = checklistRows(view, new Set(rules.filter((rule) => rule.kind === "income").map((rule) => rule.id)));
+  const view = await loadChecklist(user.id, new Date());
+  const rows = checklistRows(view);
   const { remaining } = checklistSummary(view.items);
 
   return (
@@ -125,7 +125,7 @@ function IllustratedNote({ illustration, text, children }: { illustration: "no-r
 export async function MonthSection() {
   const user = await requireSession();
   const [categories, totals] = await Promise.all([cachedCategories(user.id), cachedCategoryTotals(user.id)]);
-  const month = monthView(categories, totals, taipeiMonth(new Date()));
+  const month = monthView(categories, totals, taipeiMonthKey(new Date()));
   return (
     <section aria-labelledby="fin-month" className="card stack min-w-0 overflow-hidden">
       <CardHeader
@@ -140,13 +140,13 @@ export async function MonthSection() {
         本月收支
       </CardHeader>
       <p className="flex flex-wrap gap-x-2 gap-y-1 text-ink-soft">
-        <span>收入 {moneyText(formatSignedTwd(month.income))}</span>
+        <span>收入 {money(formatSignedTwd(month.income))}</span>
         <span aria-hidden>·</span>
-        <span>支出 {moneyText(formatTwd(month.expense))}</span>
+        <span>支出 {money(formatTwd(month.expense))}</span>
         <span aria-hidden>·</span>
         {/* 存下是負的就是花得比賺得多 寫成多花才不會看成少了負號 */}
         <span>
-          {month.saved < 0 ? "多花" : "存下"} {moneyText(formatTwd(Math.abs(month.saved)))}
+          {month.saved < 0 ? "多花" : "存下"} {money(formatTwd(Math.abs(month.saved)))}
         </span>
       </p>
       {month.rows.length === 0 ? <p className="text-ink-soft">本月還沒有支出</p> : <ExpenseList rows={month.rows} />}
@@ -154,12 +154,10 @@ export async function MonthSection() {
   );
 }
 
-const moneyText = (text: string) => <span className="font-semibold text-ink tabular-nums">{text}</span>;
-
 /** 到本月為止最多 12 個月 從帳戶建立或第一筆紀錄的月份開始 */
 export async function TrendSection() {
   const user = await requireSession();
   const [accounts, totals] = await Promise.all([cachedAccounts(user.id), cachedCategoryTotals(user.id)]);
-  const current = taipeiMonth(new Date());
-  return <TrendChart points={flowSeries(totals, accounts.map((account) => taipeiMonth(account.createdAt)), current)} current={current} />;
+  const current = taipeiMonthKey(new Date());
+  return <TrendChart points={flowSeries(totals, accounts.map((account) => taipeiMonthKey(account.createdAt)), current)} current={current} />;
 }

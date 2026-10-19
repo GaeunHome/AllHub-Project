@@ -1,9 +1,8 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { asc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
-import { savingsCategories, savingsPurposes } from "../data/schema";
+import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
+import { savingsCategories } from "../data/schema";
+import { logQueries, pgliteOf } from "../dev/db-fixtures";
 import { CATEGORY_ICON_NAMES, SELECTABLE_COLORS } from "../lib/kinds";
 import { setupDefaults } from "./setup";
 
@@ -13,11 +12,9 @@ let me: string;
 let other: string;
 
 beforeEach(async () => {
-  me = await insertTestUser(testDb, "alice", { role: "owner" });
-  other = await insertTestUser(testDb, "bob");
+  [me, other] = await insertTestUsers(testDb);
 });
 
-const purposesOf = async (userId: string) => (await testDb.select().from(savingsPurposes).where(eq(savingsPurposes.userId, userId))).map((p) => p.name);
 const categoriesOf = async (userId: string) =>
   (
     await testDb
@@ -35,28 +32,11 @@ const DEFAULT_CATEGORIES = [
   ["income", "薪水", "green", 0, null, "briefcase"],
 ];
 
-/** 取 setupTestDb 底下的 PGlite 因為 TestDb 的型別沒有列出 drizzle 的 $client */
-const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
-
-/** 記下送出的每一句 SQL 與交易的開始 */
-function logQueries(): string[] {
-  const queries: string[] = [];
-  const pglite = pgliteOf(testDb);
-  const transaction = pglite.transaction.bind(pglite);
-  vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) => {
-    queries.push("begin");
-    return transaction(callback);
-  }) as typeof transaction);
-  (globalThis as unknown as { hubDb?: unknown }).hubDb = drizzle(pglite, { logger: { logQuery: (query) => queries.push(query) } });
-  return queries;
-}
-
 describe("setupDefaults（開始使用）", () => {
-  it("什麼都沒有_建預設的分類（含顏色、順序與圖示）_回傳新建的數量；不再建用途（用途改成帳戶上的文字）", async () => {
+  it("什麼都沒有_建預設的分類（含顏色、順序與圖示）_回傳新建的數量", async () => {
     expect(await setupDefaults(me)).toEqual({ categories: 5 });
 
     expect(await categoriesOf(me)).toEqual(DEFAULT_CATEGORIES);
-    expect(await purposesOf(me)).toEqual([]);
   });
 
   it("預設分類的圖示都在選擇器上、顏色都是使用者可以選的（沒有留給未分類的灰色）_同一份清單裡顏色不重複", async () => {
@@ -127,7 +107,7 @@ describe("setupDefaults（開始使用）", () => {
   });
 
   it("數之前先在同一個交易裡鎖住這個使用者（core_users 那一列）：還沒有分類時沒有列可以鎖；PGlite 只有一條連線、交易本來就一個一個跑，所以直接看送出的 SQL", async () => {
-    const queries = logQueries();
+    const queries = logQueries(testDb);
 
     await setupDefaults(me);
 

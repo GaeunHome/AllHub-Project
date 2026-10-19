@@ -3,9 +3,9 @@
 import { useMemo, useReducer, type ReactNode } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback, type FormState } from "@/core/ui/form-message";
+import { SegmentedControl } from "@/core/ui/segmented-control";
 import { ENTRY_KINDS, TRANSACTION_KIND_LABELS, type EntryKind } from "../../../lib/kinds";
 import { lastAccountPref, lastTransferToPref, pickAccount, pickOtherAccount } from "../../last-used";
-import { Segmented } from "../segmented";
 import { cannotTransfer, entryChoiceReducer, entryStartDate, initialEntryChoice, transferOptions, type ChoiceStart } from "./entry-choice";
 import { AccountSelect, AmountField, CategoryChips, DateField, FormButtons, NoteField, type SelectableAccount } from "./fields";
 import type { CategoryOption, EntryDraft } from "./options";
@@ -35,7 +35,7 @@ function EntryFields({ choice, accounts, categories, amount, when }: { choice: E
   const isTransfer = choice.kind === "transfer";
   return (
     <>
-      <Segmented label="類型" name="kind" options={ENTRY_KIND_OPTIONS} value={choice.kind} onChange={choice.changeKind} />
+      <SegmentedControl variant="field" label="類型" name="kind" options={ENTRY_KIND_OPTIONS} value={choice.kind} onChange={choice.changeKind} />
       <AmountField name="amount" label="金額（元）" defaultValue={amount} required autoFocus large placeholder="0" />
       {isTransfer ? (
         choice.cannotTransfer ? (

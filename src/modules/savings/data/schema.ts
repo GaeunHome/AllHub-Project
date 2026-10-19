@@ -37,20 +37,6 @@ const owner = () =>
     .references(() => coreUsers.id, { onDelete: "cascade" });
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
-/** 已改用帳戶的 label 之後刪掉 */
-export const savingsPurposes = pgTable(
-  "savings_purposes",
-  {
-    id: serial("id").primaryKey(),
-    userId: owner(),
-    name: text("name").notNull(),
-    color: text("color").$type<PaletteColor>().notNull(),
-    sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: createdAt(),
-  },
-  (t) => [uniqueIndex("savings_purposes_user_name_idx").on(t.userId, t.name), check("savings_purposes_color", oneOf(t.color, PALETTE))],
-).enableRLS();
-
 /** 收入與支出的分類 只有支出能設預算 */
 export const savingsCategories = pgTable(
   "savings_categories",
@@ -82,8 +68,6 @@ export const savingsAccounts = pgTable(
     userId: owner(),
     name: text("name").notNull(),
     kind: text("kind").$type<AccountKind>().notNull(),
-    // 已改用 label 之後刪掉
-    purposeId: integer("purpose_id").references(() => savingsPurposes.id, { onDelete: "set null" }),
     // 開始記帳前就有的錢 信用卡存成負的未繳金額
     openingBalance: integer("opening_balance").notNull().default(0),
     // 投資帳戶開始記帳時的成本 之後轉進轉出加減在它上面 null 是跟起始市值一樣
@@ -108,7 +92,6 @@ export const savingsAccounts = pgTable(
   },
   (t) => [
     uniqueIndex("savings_accounts_user_name_idx").on(t.userId, t.name),
-    index("savings_accounts_purpose_id_idx").on(t.purposeId),
     index("savings_accounts_pay_from_account_id_idx").on(t.payFromAccountId),
     check("savings_accounts_kind", oneOf(t.kind, ACCOUNT_KINDS)),
     check("savings_accounts_opening_balance", sql`${t.openingBalance} between -${MAX} and ${MAX}`),
@@ -282,7 +265,6 @@ export const savingsTransactions = pgTable(
   ],
 ).enableRLS();
 
-export type SavingsPurpose = typeof savingsPurposes.$inferSelect;
 export type SavingsCategory = typeof savingsCategories.$inferSelect;
 export type SavingsAccount = typeof savingsAccounts.$inferSelect;
 export type SavingsHolding = typeof savingsHoldings.$inferSelect;

@@ -1,8 +1,9 @@
 import "server-only";
 import { z } from "zod";
-import { currentSession, type SessionUser } from "@/core/auth";
+import { currentSession, type SessionUser } from "../auth";
 import { expireTags } from "../cache";
 import { logError } from "../errors";
+import { MODULE_ID_PATTERN } from "../ids";
 import { notificationsTag } from "./cache-tags";
 import { cachedFeed } from "./cached";
 import { markAllNotificationsRead, markNotificationsRead } from "./service";
@@ -15,7 +16,7 @@ const MAX_IDS = 100;
 
 const markRequest = z.discriminatedUnion("action", [
   z.object({ action: z.literal("read"), ids: z.array(z.number().int().positive()).min(1).max(MAX_IDS) }),
-  z.object({ action: z.literal("read-all"), module: z.string().regex(/^[a-z][a-z0-9-]{0,31}$/).optional() }),
+  z.object({ action: z.literal("read-all"), module: z.string().regex(MODULE_ID_PATTERN).optional() }),
 ]);
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: NO_STORE });

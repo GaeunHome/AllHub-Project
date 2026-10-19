@@ -1,29 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { accountRow, flowRow } from "../dev/fixtures";
 import { investmentsView, type InvestmentsSources } from "./investments-view";
 
 const TODAY = "2026-10-16";
 const CREATED = new Date("2026-08-01T02:00:00Z");
 
-const account = (id: number, name: string, kind: "deposit" | "investment" | "credit", fields: Record<string, unknown> = {}) => ({
-  id,
-  userId: "u",
-  name,
-  kind,
-  label: null as string | null,
-  purposeId: null,
-  openingBalance: 0,
-  openingCost: null as number | null,
-  monthlyPlan: null,
-  targetAmount: null,
-  payFromAccountId: null,
-  statementDay: null,
-  dueDay: null,
-  autopay: false,
-  active: true,
-  sortOrder: id,
-  createdAt: CREATED,
-  ...fields,
-});
+const account = (id: number, name: string, kind: "deposit" | "investment" | "credit", fields: Partial<ReturnType<typeof accountRow>> = {}) => accountRow({ id, name, kind, createdAt: CREATED, ...fields });
 const ACCOUNTS = [
   account(1, "台銀", "deposit", { openingBalance: 50000 }),
   account(6, "臺銀證券", "investment", { label: "長期投資" }),
@@ -40,7 +22,7 @@ const QUOTES = [
   { symbol: "006208", name: "富邦台灣50", closeCents: 10650, date: "2026-10-15", market: "twse" as const },
   { symbol: "0050", name: "元大台灣50", closeCents: 19500, date: "2026-10-14", market: "twse" as const },
 ];
-const FLOWS = [{ accountId: 6, month: "2026-10", income: 0, expense: 0, transferIn: 39000, transferOut: 0, adjust: 0 }];
+const FLOWS = [flowRow(6, "2026-10", { transferIn: 39000 })];
 const RULES = [{ accountId: 1, counterAccountId: 6, holdingId: 50 }];
 const SOURCES: InvestmentsSources = { accounts: ACCOUNTS, flows: FLOWS, holdings: HOLDINGS, quotes: QUOTES, rules: RULES, today: TODAY };
 

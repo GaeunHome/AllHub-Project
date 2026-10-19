@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import type { ModuleAccent } from "../module";
 
-/** 標在 Activity 藏起來的頁面上 globals.css 換整頁樣式的選擇器才不會比對到它 */
+/** 標在 Activity 藏起來的頁面上 各模組 page-background.css 換整頁樣式的選擇器才不會比對到它 */
 export const ACTIVITY_HIDDEN = "data-activity-hidden";
 
 type Marked = { setAttribute(name: string, value: string): void; removeAttribute(name: string): void };

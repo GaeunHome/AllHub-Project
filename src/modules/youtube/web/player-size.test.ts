@@ -1,28 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { brokenStorage, fakeStorage } from "@/dev/fake-storage";
 import { PLAYER_SIZE_INIT_SCRIPT, THEATER_ATTRIBUTE, applyPlayerSize, readPlayerSize, savePlayerSize } from "./player-size";
-
-function fakeStorage(initial: Record<string, string> = {}) {
-  const data = new Map(Object.entries(initial));
-  return { data, getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => void data.set(key, value) };
-}
-
-afterEach(() => vi.unstubAllGlobals());
 
 describe("播放器大小偏好（一般／劇院模式）", () => {
   it("沒存過、或存的值認不得_用一般大小", () => {
     vi.stubGlobal("localStorage", fakeStorage({ "allhub:youtube:player-size": "huge" }));
 
-    expect(readPlayerSize()).toBe("default");
-  });
-
-  it("存進 localStorage；別的分頁切換了，這個分頁讀到新的值，不必重新整理", () => {
-    const storage = fakeStorage();
-    vi.stubGlobal("localStorage", storage);
-
-    savePlayerSize("theater");
-    expect(storage.data.get("allhub:youtube:player-size")).toBe("theater");
-
-    storage.data.set("allhub:youtube:player-size", "default");
     expect(readPlayerSize()).toBe("default");
   });
 });
@@ -64,13 +47,7 @@ describe("整頁載入的同步腳本：React 接手前就在 html 標上劇院�
   });
 
   it("localStorage 不能用（隱私模式）_不丟例外，維持一般大小", () => {
-    const blocked = {
-      getItem: () => {
-        throw new Error("SecurityError");
-      },
-    };
-
-    expect(runInitScript(blocked).has(THEATER_ATTRIBUTE)).toBe(false);
+    expect(runInitScript(brokenStorage).has(THEATER_ATTRIBUTE)).toBe(false);
   });
 });
 

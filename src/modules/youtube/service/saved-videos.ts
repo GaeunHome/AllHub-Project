@@ -1,10 +1,11 @@
 import "server-only";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/core/db";
-import { coreUsers } from "@/core/db/schema";
+import { lockUserRow } from "@/core/db/users";
 import { logError } from "@/core/errors";
 import { VIDEO_ID } from "../lib/parse";
-import { youtubeChannels, youtubeFollows, youtubeSavedVideos, youtubeTranslations, youtubeVideos, type TranslationStatus } from "../data/schema";
+import { youtubeSavedVideos, youtubeTranslations, type TranslationStatus } from "../data/schema";
+import { followedVideo } from "./video-list";
 
 /** 每人最多保留幾部 清單頁不分頁 在瀏覽器裡篩選 */
 export const SAVED_LIMIT = 15;
@@ -16,8 +17,8 @@ export type VideoSnapshot = { title: string | null; channelTitle: string | null 
 // 每個函式的 userId 都是登入者 只讀寫他自己的清單
 const ownRow = (userId: string, videoId: string) => and(eq(youtubeSavedVideos.userId, userId), eq(youtubeSavedVideos.videoId, videoId));
 
-/** Server Action 已經先擋過 這裡再確認一次只收 11 碼 */
-function requireVideoId(videoId: string): string {
+/** Server Action 已經先擋過 這裡再確認一次只收 11 碼本身 不解析網址 */
+function assertVideoId(videoId: string): string {
   if (!VIDEO_ID.test(videoId)) throw new Error("影片 ID 格式不正確");
   return videoId;
 }
@@ -27,14 +28,9 @@ function requireVideoId(videoId: string): string {
  * 頻道名稱只從自己追蹤的頻道拿 別人追蹤哪些頻道不能從這裡看出來
  */
 async function storedSnapshot(userId: string, videoId: string): Promise<VideoSnapshot> {
-  const [[translation], [followed]] = await Promise.all([
+  const [[translation], followed] = await Promise.all([
     db().select({ title: youtubeTranslations.title }).from(youtubeTranslations).where(eq(youtubeTranslations.videoId, videoId)),
-    db()
-      .select({ title: youtubeVideos.title, channelTitle: youtubeChannels.title })
-      .from(youtubeVideos)
-      .innerJoin(youtubeFollows, and(eq(youtubeFollows.channelId, youtubeVideos.channelId), eq(youtubeFollows.userId, userId)))
-      .leftJoin(youtubeChannels, eq(youtubeChannels.channelId, youtubeVideos.channelId))
-      .where(eq(youtubeVideos.videoId, videoId)),
+    followedVideo(userId, videoId),
   ]);
   return { title: translation?.title ?? followed?.title ?? null, channelTitle: followed?.channelTitle ?? null };
 }
@@ -65,14 +61,14 @@ export type KeepResult = "saved" | "full";
 
 /** 已經在清單裡就更新時間 手動保留時改成手動 滿了先擠掉最舊的自動項目 都是手動就不寫 */
 export async function keepVideo(userId: string, input: string, { pinned, lookup }: KeepOptions): Promise<KeepResult> {
-  const videoId = requireVideoId(input);
+  const videoId = assertVideoId(input);
   // 可能要向外讀標題 放在交易外面 不要拿著鎖等外部請求
   const snapshot = await snapshotOf(userId, videoId, lookup);
 
   return db().transaction(async (tx): Promise<KeepResult> => {
     // 鎖住這個使用者再數 同一個人同時保留好幾部時一個一個來
     // 只鎖清單的列擋不住同時新增的列 清單是空的時也沒有列可鎖
-    await tx.select({ id: coreUsers.id }).from(coreUsers).where(eq(coreUsers.id, userId)).for("no key update");
+    await lockUserRow(tx, userId, "no key update");
     const rows = await tx
       .select({ videoId: youtubeSavedVideos.videoId, pinned: youtubeSavedVideos.pinned })
       .from(youtubeSavedVideos)
@@ -115,7 +111,7 @@ export async function keepVideo(userId: string, input: string, { pinned, lookup 
 
 /** 回傳有沒有刪到 只動自己的清單 翻譯是共用的 不跟著刪 */
 export async function removeSavedVideo(userId: string, input: string): Promise<boolean> {
-  const videoId = requireVideoId(input);
+  const videoId = assertVideoId(input);
   const deleted = await db().delete(youtubeSavedVideos).where(ownRow(userId, videoId)).returning({ videoId: youtubeSavedVideos.videoId });
   return deleted.length > 0;
 }

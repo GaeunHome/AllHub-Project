@@ -50,17 +50,32 @@ export function taipeiDateKey(date: Date): string {
   return `${year}-${pad2(month)}-${pad2(day)}`;
 }
 
-const MINUTE_MS = 60_000;
+/** 例如 2026-01 伺服器是 UTC 月底晚上八點後會差一個月 所以照台北的日期取 */
+export function taipeiMonthKey(date: Date): string {
+  return taipeiDateKey(date).slice(0, 7);
+}
 
-/** 照 YouTube 卡片寫成 3 小時前 時鐘誤差算出未來時當成剛剛 */
-export function formatRelativeTime(date: Date, now: Date): string {
+const MINUTE_MS = 60_000;
+export const HOUR_MS = 60 * MINUTE_MS;
+export const DAY_MS = 24 * HOUR_MS;
+
+/** date 是台北日曆上 now 之後的第幾天 今天 0 明天 1 昨天 -1 不看幾點 */
+export function taipeiDayOffset(date: Date, now: Date): number {
+  return Math.round((Date.parse(taipeiDateKey(date)) - Date.parse(taipeiDateKey(now))) / DAY_MS);
+}
+
+/**
+ * 照 YouTube 卡片寫成 3 小時前 時鐘誤差算出未來時當成剛剛
+ * largestUnit 是最大寫到哪個單位 通知寫到天 例如 10 天前 影片再往上寫週 月 年
+ */
+export function formatRelativeTime(date: Date, now: Date, { largestUnit = "year" }: { largestUnit?: "day" | "year" } = {}): string {
   const minutes = Math.floor((now.getTime() - date.getTime()) / MINUTE_MS);
   if (minutes < 1) return "剛剛";
   if (minutes < 60) return `${minutes} 分鐘前`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours} 小時前`;
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} 天前`;
+  if (days < 7 || largestUnit === "day") return `${days} 天前`;
   if (days < 30) return `${Math.floor(days / 7)} 週前`;
   if (days < 365) return `${Math.min(11, Math.floor(days / 30))} 個月前`;
   return `${Math.floor(days / 365)} 年前`;

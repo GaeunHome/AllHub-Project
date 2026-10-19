@@ -59,7 +59,7 @@ export function SettingsPage({ info }: { info: ModuleInfo }) {
         <details className="disclosure text-sm">
           <summary>API Key 怎麼保存、什麼時候會產生費用？</summary>
           <ul className="flex list-disc flex-col gap-1 pl-5 leading-relaxed text-ink-soft">
-            <li>API Key 每個人各自設定，會加密後才存進資料庫，畫面上只顯示末 4 碼；刪除帳號時一起刪除。</li>
+            <li>API Key 每個人各自設定，會加密後才存進資料庫，畫面上只顯示前 8 碼；刪除帳號時一起刪除。</li>
             <li>翻譯好的字幕所有人共用：別人打開同一支影片時直接看得到，接著翻譯時用的是他自己的 API Key。</li>
             <li>只有在觀看頁播放影片（自動即時翻譯）或按「開始翻譯」時才會呼叫 AI、產生費用。</li>
             <li>新影片通知、排程與背景檢查都不會翻譯。</li>

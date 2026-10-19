@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountHref, pickAccount } from "./account-tabs";
+import { pickAccount } from "./account-tabs";
 
 const accounts = [{ id: 3 }, { id: 7 }];
 
@@ -17,11 +17,5 @@ describe("pickAccount：網址參數 ?account=<id> 選要看的帳號", () => {
 
   it("沒有帳號_null", () => {
     expect(pickAccount([], "7")).toBeNull();
-  });
-});
-
-describe("accountHref", () => {
-  it("帶上帳號 id", () => {
-    expect(accountHref(7)).toBe("/starrail?account=7");
   });
 });

@@ -77,7 +77,7 @@ export async function cachedHoldings(userId: string): Promise<SavingsHolding[]> 
   return listHoldings(userId);
 }
 
-/** since 每天往後推 key 每天換一次 查詢時 join 帳戶挑出信用卡 */
+/** since 每天往後推 key 每天換一次 查詢時看帳戶挑出信用卡 */
 export async function cachedCardFlows(userId: string, since: DateKey): Promise<CardDailyFlow[]> {
   "use cache: remote";
   cacheLife("db");

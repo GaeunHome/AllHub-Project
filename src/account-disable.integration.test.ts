@@ -1,19 +1,19 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { coreNotifications } from "@/core/db/schema";
-import { insertTestUser, setupTestDb } from "@/dev/test-db";
-import { stubCoreEnv, stubTwitchEnv, stubYoutubeEnv } from "@/dev/test-env";
+import { fakeFetch } from "@/dev/fake-fetch";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { stubAllEnv } from "@/dev/test-env";
 import { mocksOf } from "@/dev/test-helpers";
 import { savingsAccounts, savingsRecurring, savingsTransactions } from "@/modules/savings/data/schema";
 import { twitchFollows, twitchStreamers } from "@/modules/twitch/data/schema";
+import { weatherSettings } from "@/modules/weather/data/schema";
 import { youtubeChannels, youtubeFollows, youtubeSavedVideos } from "@/modules/youtube/data/schema";
 
-// 停用就是凍結 notify 不寫給他 追蹤與訂閱照樣保留 固定收支也不記
+// 停用就是凍結 notify 不寫給他 追蹤與訂閱照樣保留 固定收支不記 下雨提醒也不寄
 // core 不能 import 模組 所以跨模組的檢查放在 src 底下
 
-stubCoreEnv();
-stubTwitchEnv();
-stubYoutubeEnv();
+stubAllEnv();
 
 vi.mock("@/modules/twitch/lib/api", { spy: true });
 vi.mock("@/modules/youtube/lib/api", { spy: true });
@@ -25,6 +25,7 @@ const { listCaptionTracks } = mocksOf(await import("@/modules/youtube/lib/subtit
 const { handleNotification, syncSubscriptions } = await import("@/modules/twitch/service/streamers");
 const { handleFeed, renewSubscriptions } = await import("@/modules/youtube/service/channels");
 const { postDueRecurring } = await import("@/modules/savings/service/recurring");
+const { sendRainAlerts } = await import("@/modules/weather/service/rain-alerts");
 const { setUserDisabled } = await import("@/core/admin/service");
 
 const getDb = setupTestDb();
@@ -39,8 +40,7 @@ let member: string;
 const notificationsOf = async (userId: string) => (await getDb().select().from(coreNotifications).where(eq(coreNotifications.userId, userId))).map((n) => n.module);
 
 beforeEach(async () => {
-  owner = await insertTestUser(getDb(), "boss", { role: "owner" });
-  member = await insertTestUser(getDb(), "member");
+  [owner, member] = await insertTestUsers(getDb());
   twitchApi.getStreams.mockReset().mockResolvedValue([{ user_id: "42", title: "今天玩鐵道", game_name: "Honkai: Star Rail", started_at: "" }]);
   twitchApi.listSubscriptions.mockReset().mockResolvedValue([]);
   twitchApi.createSubscription.mockReset().mockImplementation(async (type: string, broadcasterId: string) => ({ id: `${type}-${broadcasterId}`, type, status: "enabled" }));
@@ -136,5 +136,30 @@ describe("停用＝凍結：資料全部保留，只是排程與通知不處理�
     expect(await postDueRecurring(now)).toBe("自動記帳 2 筆");
 
     expect(await datesOf(member)).toEqual(["2026-09-06", "2026-10-06"]);
+  });
+
+  it("天氣的下雨提醒：停用的人收不到，同縣市的其他人照常；恢復後照常收到", async () => {
+    // 台北 10/19 早上 6 點 10 分 今天白天降雨機率 80% 照氣象署 F-C0032-001 的格式手寫
+    const morning = new Date("2026-10-18T22:10:00Z");
+    const periods = [
+      ["2026-10-19T06:00:00+08:00", "2026-10-19T18:00:00+08:00", "陰短暫雨", "80"],
+      ["2026-10-19T18:00:00+08:00", "2026-10-20T06:00:00+08:00", "多雲", "30"],
+    ];
+    const element = (elementName: string, pick: (period: string[]) => string) => ({ elementName, time: periods.map((period) => ({ startTime: period[0], endTime: period[1], parameter: { parameterName: pick(period) } })) });
+    const forecast = { records: { location: [{ locationName: "臺北市", weatherElement: [element("Wx", (p) => p[2]), element("PoP", (p) => p[3]), element("MinT", () => "21"), element("CI", () => "舒適"), element("MaxT", () => "26")] }] } };
+    vi.stubGlobal("fetch", fakeFetch(() => Response.json(forecast)).impl);
+    await getDb().insert(weatherSettings).values([
+      { userId: owner, county: "臺北市" },
+      { userId: member, county: "臺北市" },
+    ]);
+    await setUserDisabled(owner, member, true);
+
+    expect(await sendRainAlerts(morning)).toBe("寄出 1 則下雨提醒");
+    expect(await notificationsOf(member)).toEqual([]);
+    expect(await notificationsOf(owner)).toEqual(["weather"]);
+
+    await setUserDisabled(owner, member, false);
+    expect(await sendRainAlerts(new Date(morning.getTime() + 30 * 60_000))).toBe("寄出 1 則下雨提醒，1 人今天已經提醒過");
+    expect(await notificationsOf(member)).toEqual(["weather"]);
   });
 });

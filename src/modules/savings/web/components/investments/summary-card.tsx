@@ -1,6 +1,6 @@
 import { formatSlashDate } from "../../../lib/dates";
 import { formatTwd } from "../../../lib/money";
-import { profitText } from "../../dashboard-view";
+import { profitText } from "../../format";
 import type { InvestmentSummary } from "../../investments-view";
 
 /** 一個大數字 下面一行寫成本與損益 讀不到股價時不寫損益 */

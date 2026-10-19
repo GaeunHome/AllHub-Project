@@ -1,43 +1,33 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { coreNotifications, coreUsers } from "@/core/db/schema";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { captureErrorLog, mocksOf } from "@/dev/test-helpers";
 import { savingsAccounts, savingsCardBills, savingsRecurring, savingsTransactions } from "../data/schema";
+import { dateParams, pgliteOf, savingsRows } from "../dev/db-fixtures";
 
 // 排程 savings:recurring 寄的到期通知 沒設定回應時 notify 照常寫進資料庫
 vi.mock("@/core/notify", { spy: true });
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
 const { postDueRecurring } = await import("./recurring");
 
-let testDb: TestDb;
-const getDb = setupTestDb((d) => (testDb = d));
+const getDb = setupTestDb();
 let me: string;
 let other: string;
 
 beforeEach(async () => {
   notify.mockReset();
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
+  [me, other] = await insertTestUsers(getDb());
 });
 
 /** 台北時間那天的 00:30 排程在這個時候跑 */
 const runAt = (date: string) => new Date(new Date(`${date}T00:30:00+08:00`).getTime());
 const CREATED = new Date("2026-08-01T04:00:00Z");
 
-async function insertAccount(values: Partial<typeof savingsAccounts.$inferInsert> & { name: string }) {
-  const [row] = await getDb().insert(savingsAccounts).values({ userId: me, kind: "deposit", createdAt: CREATED, ...values }).returning();
-  return row;
-}
-
-async function insertRule(values: Partial<typeof savingsRecurring.$inferInsert> & { accountId: number; dayOfMonth: number }) {
-  const [row] = await getDb()
-    .insert(savingsRecurring)
-    .values({ userId: me, kind: "expense", amount: 1800, mode: "confirm", createdAt: CREATED, lastPostedMonth: "2026-09-01", ...values })
-    .returning();
-  return row;
-}
+const { insertAccount, insertRule } = savingsRows(getDb, () => me, {
+  account: { createdAt: CREATED },
+  rule: { amount: 1800, mode: "confirm", createdAt: CREATED, lastPostedMonth: "2026-09-01" },
+});
 
 const notices = () =>
   getDb()
@@ -223,11 +213,10 @@ describe("信用卡：結帳隔天還沒填帳單、照帳單的截止日前 3 �
     await enterBill(taishin, "2026-10-15", "2026-10-23", 3500);
     const living = await insertAccount({ name: "生活費帳戶" });
     await insertRule({ accountId: living.id, dayOfMonth: 20, name: "電費" });
-    const query = vi.spyOn((testDb as TestDb & { $client: PGlite }).$client, "query");
+    const query = vi.spyOn(pgliteOf(getDb()), "query");
 
     expect(await postDueRecurring(runAt("2026-10-20"))).toBe("自動記帳 0 筆；通知 3 則");
 
-    const params = query.mock.calls.flatMap(([, values]) => (Array.isArray(values) ? values : []));
-    expect(params.filter((param) => param instanceof Date)).toEqual([]);
+    expect(dateParams(query)).toEqual([]);
   });
 });

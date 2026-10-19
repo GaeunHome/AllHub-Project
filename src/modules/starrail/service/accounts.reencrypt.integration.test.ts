@@ -1,12 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setupTestDb } from "@/dev/test-db";
+import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
-import { captureErrorLog, expiredTags, mocksOf } from "@/dev/test-helpers";
+import { captureErrorLog, expiredTags } from "@/dev/test-helpers";
 import { starrailAccounts } from "../data/schema";
+import { hoyolab } from "../dev/fixtures";
 
-vi.mock("../lib/hoyolab", { spy: true });
+vi.mock("../lib/hoyolab", async () => (await import("../dev/fixtures")).hoyolab);
 
 const CURRENT = randomBytes(32).toString("base64");
 const OLD = randomBytes(32).toString("base64");
@@ -14,18 +15,20 @@ const OLDER = randomBytes(32).toString("base64");
 
 stubCoreEnv({ ENCRYPTION_KEY: CURRENT, ENCRYPTION_KEY_PREVIOUS: `${OLD},${OLDER}` });
 
-const { fetchDailyNote } = mocksOf(await import("../lib/hoyolab"), "fetchDailyNote");
 const { createKeyring, decryptSecret, encrypt, encryptSecret, needsReencrypt } = await import("@/core/crypto");
-const { getDailyNote, reencryptCookies } = await import("./accounts");
+const { getDailyNote } = await import("./stamina");
+const { reencryptCookies } = await import("./maintenance");
 
 const getDb = setupTestDb();
+let owner: string;
 const cookie = (uid: string) => `ltoken_v2=v2_secret_${uid}; ltuid_v2=${uid}`;
 const insertAccount = (uid: string, cookieEncrypted: string) =>
-  getDb().insert(starrailAccounts).values({ ltuid: uid, uid, region: "prod_official_asia", cookieEncrypted }).returning();
+  getDb().insert(starrailAccounts).values({ userId: owner, ltuid: uid, uid, region: "prod_official_asia", cookieEncrypted }).returning();
 const storedCookie = async (uid: string) => (await getDb().select().from(starrailAccounts).where(eq(starrailAccounts.uid, uid)))[0].cookieEncrypted;
 
-beforeEach(() => {
-  fetchDailyNote.mockReset().mockResolvedValue({ ok: false, retcode: -1, message: "略過", cookieInvalid: false, raw: null });
+beforeEach(async () => {
+  owner = await insertTestUser(getDb(), "alice");
+  hoyolab.fetchDailyNote.mockReset().mockResolvedValue({ ok: false, retcode: -1, message: "略過", cookieInvalid: false });
 });
 
 describe("換金鑰後、重新加密前（PGlite 整合）", () => {
@@ -34,7 +37,7 @@ describe("換金鑰後、重新加密前（PGlite 整合）", () => {
 
     await getDailyNote(account);
 
-    expect(fetchDailyNote).toHaveBeenCalledWith(cookie("1"), "1", "prod_official_asia");
+    expect(hoyolab.fetchDailyNote).toHaveBeenCalledWith(cookie("1"), "1", "prod_official_asia");
     const [after] = await getDb().select().from(starrailAccounts);
     expect(after.cookieInvalid).toBe(false);
   });

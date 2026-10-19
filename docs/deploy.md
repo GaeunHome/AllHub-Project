@@ -7,7 +7,7 @@
 ```text
 你的電腦
 ├─ git push ──────▶ GitHub（AllHub-Project）
-│                    ├─ ci.yml：test → lint → build → typecheck
+│                    ├─ ci.yml：test ‖ lint → build → typecheck
 │                    ├─ db-migrate.yml：套用 migration ──Session pooler 5432──▶ Supabase
 │                    ├─ cron.yml：手動執行排程（Run workflow）──▶ Vercel
 │                    └─ 自動部署 ──▶ Vercel（函式在 hnd1 東京）
@@ -109,26 +109,41 @@ npm run account create
 ## 之後的部署
 
 - 推上 main 就會自動部署。`ci.yml` 在 PR 與 main 上都會跑測試、lint、建置與型別檢查。
-- 推上 main 時，Vercel 部署與 db-migrate 是同時進行的。所以 migration 要跟線上還在跑的舊程式相容：一律先擴充（新欄位可為 null 或有預設值、新表直接加，不刪也不改舊欄位），等舊程式不再上線之後的版本才收斂（刪舊欄位、改成 NOT NULL）。
+- 推上 main 時，Vercel 部署與 db-migrate 是同時進行的。所以 migration 要跟線上還在跑的舊程式相容：一律先擴充（新欄位可為 null 或有預設值、新表直接加，不刪也不改舊欄位），等舊程式不再上線之後的版本才收斂（刪舊欄位、改成 NOT NULL）。唯一的例外是 v0.1.8，見下面的〈從 v0.1.7 升級〉。
 - PR 的 Preview 部署沒有環境變數（密鑰只設在 Production），只用來確認能建置。
 - 一般的部署不會讓登入失效。只有換 `SESSION_SECRET`、改密碼或重建資料庫才會。
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
-- **之後可以收斂的欄位**：程式已經不讀寫的 `savings_accounts.purpose_id`、`savings_purposes`（用途改成帳戶上的文字），以及只在一張卡還沒有帳單時當截止日預設的 `savings_accounts.due_day`；要分兩版刪：v0.1.7 的查詢會明列這些欄位，所以下一版先從 schema 拿掉（程式不再讀寫，migration 手動去掉 DROP），再下一版才真的刪（刪除要在 `migrations.integration.test.ts` 明列允許）。
-- **從 v0.1.6 升級**：db-migrate 套用 `0001_finance_redesign`，一開始設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次（整批在同一個交易裡，不會套用一半）。
-  - 帳戶加上用途文字（照原本選的用途名稱填好）與信用卡的卡面顏色，分類加上圖示（名稱跟內建圖示的名稱一樣的自動補上）。只新增欄位，舊程式照樣能跑。出問題時可以回到 v0.1.6，只是用途文字、卡面顏色與分類圖示在舊版看不到，舊版新增的帳戶也不會有用途文字。
-  - 部署比 migration 先完成的那一兩分鐘，理財頁與首頁的理財卡片讀不到新的欄位會出錯，其他頁面與登入照常；這段時間用舊程式新增的帳戶不會有用途文字，到帳戶頁補上就好。
+- **之後可以收斂的欄位**：只在一張卡還沒有帳單時當截止日預設的 `savings_accounts.due_day`（程式只讀不寫）。不用它之後照舊分兩版刪：先從 schema 拿掉（程式不再讀寫，migration 手動去掉 DROP），再下一版才真的刪（刪除要在 `migrations.integration.test.ts` 明列允許）。
+- **從 v0.1.7 升級**：這一版的 migration 直接刪掉不再使用的欄位與表（使用者同意的例外，平常要分兩版），推送前先看完這一段。
+  - **推送之前**：
+    - 要顯示天氣，先在 Vercel 加上 `CWA_API_KEY`（中央氣象署）；空氣品質另外加 `MOENV_API_KEY`（環境部）。兩個都是選填、免費，Environments 只勾 **Production**，申請步驟見 [密鑰管理 › 天氣的授權碼](secrets.md#天氣的授權碼)。推送前填好，這次推送的部署就會帶著它們，不用再重新部署。
+    - 到 Vercel 的 **Settings** → **Functions** 確認 **Fluid Compute** 開著：新的排程 `weather:rain` 讀全台預報最多等 15 秒，關掉時排程只有 10 秒。
+    - 挑推送的時間：避開台北 0 點到 7 點（每天的排程大多在這段時間），推送當下也不要用網站，等 Vercel 部署與 db-migrate 都完成再用。
+  - **db-migrate 套用 `0001_weather_cleanup`**（上一版的 `0001_finance_redesign` 已經併進基準檔），一開始設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次：
+    - 新增天氣的表 `weather_settings`（每人選的縣市與早上的下雨通知開關）。
+    - 刪掉不再使用的欄位、表與索引：主播表與頻道表單人版的 `notify_enabled`、`youtube_settings` 的 `anthropic_key_hint`／`openai_key_hint`／`gemini_key_hint`（API Key 改成顯示前 8 碼，讀設定時解密後取）、`savings_accounts.purpose_id` 與 `savings_purposes`（用途改成帳戶上的文字）、沒有查詢用到的 `core_notifications_unread_idx`。
+    - `core_notifications`、`starrail_accounts`、`youtube_settings` 的 `user_id` 改成 NOT NULL：先刪掉 `user_id` 是 null 的列（多人化部署時舊程式寫的，新程式本來就不讀；刪掉的遊戲帳號的簽到紀錄與兌換碼跟著刪）。
+  - **代價**：db-migrate 跑完到新版部署完成之間（大約一兩分鐘），還在線上的 v0.1.7 讀寫到被刪的欄位會出錯：理財、Twitch、YouTube 的頁面顯示錯誤，webhook 也可能失敗（Twitch、YouTube 會重送）。這段時間碰到的排程也會失敗，隔天照常跑（理財的自動記帳會補記）。新版上線後就恢復。
+  - **不能回到 v0.1.7**：舊程式的查詢會明列被刪掉的欄位，回去之後理財、Twitch、YouTube 都會出錯。出問題時修好再推，不要用 Instant Rollback（見〈[回滾與部署保護](#回滾與部署保護)〉）。
+  - 首頁多一張天氣卡片。多一個排程 `weather:rain`（`vercel.json`，每天台北 06:00 那個小時），部署後 Vercel 自動登記：選了縣市、開著下雨通知的人，早上會下雨時收到「記得帶傘」。沒有 `CWA_API_KEY` 時它什麼都不做。
+  - 部署比 migration 先完成時，那一兩分鐘首頁的天氣卡片讀不到新的表會顯示「暫時讀不到」，其他卡片照常。
 - **部署的空窗期**：Vercel 部署與 db-migrate 同時進行，有一小段時間（通常一兩分鐘）程式與資料表的版本會對不上。建議部署當下先不要操作網站，兩邊都完成再用。
   - **部署比 migration 先完成**：新程式讀不到新的欄位或表，用到它們的頁面會出錯（改到帳號的表時登入也會失敗一下子），migration 跑完就恢復。
     - **webhook 的通知可能遺失**：這段時間 Twitch 的開台、YouTube 的新影片推送照樣會記下開台紀錄與影片，但新程式要讀的追蹤表還沒建好，通知發不出去，之後也不會補發。部署完成後的開台、新影片照常通知。
-  - **migration 比部署先完成**：舊程式照常運作；新增的欄位它不認得，寫入時用預設值。
-  - 之後的版本要收斂（刪掉主播表、頻道表單人版的 `notify_enabled`，把 `user_id` 改成 NOT NULL）時，要先處理掉多人化部署時舊程式寫入、`user_id` 是 null 的列。
+  - **migration 比部署先完成**：舊程式照常運作；新增的欄位它不認得，寫入時用預設值。例外是 v0.1.8：被刪掉的欄位舊程式讀寫會出錯（見上面的〈從 v0.1.7 升級〉）。
+  - 多人化部署時舊程式留下的欄位與資料，v0.1.8 已經收斂：刪掉主播表、頻道表單人版的 `notify_enabled`，先刪掉 `user_id` 是 null 的列，再把 `user_id` 改成 NOT NULL。
 
 ## 回滾與部署保護
 
 ### 有成員之後只能往前修，不能回滾到多人化以前的版本
 
-> 升級到 v0.1.6 之後也不能回滾到 v0.1.5：舊程式會把「到期請我確認」的固定收支照原日自動記帳（見〈[之後的部署](#之後的部署)〉）。下面說的是多人化以前的版本（v0.1.0）。
+> 其他不能回滾的版本（見〈[之後的部署](#之後的部署)〉）：
+>
+> - 升級到 v0.1.6 之後不能回到 v0.1.5：舊程式會把「到期請我確認」的固定收支照原日自動記帳。
+> - 升級到 v0.1.8 之後不能回到 v0.1.7：v0.1.8 的 migration 刪掉了 v0.1.7 的查詢還會用到的欄位與表，回去之後理財、Twitch、YouTube 都會出錯。Hobby 方案的 Instant Rollback 會回到上一個 production 部署（就是 v0.1.7），不要按。
+>
+> 下面說的是多人化以前的版本（v0.1.0）。
 
 - 一旦有成員（邀請了別人註冊），就不能把網站還原到 v0.1.0 或任何多人化以前的版本：不論是 Vercel 的 Instant Rollback、Promote 舊的部署，還是重新部署舊的 commit。出問題時修好程式再推上 main。
 - 原因：舊程式只有一個使用者，讀資料時不分擁有者、也不認得角色與停用。登入 cookie 的格式沒變，成員手上的 cookie 在舊版照樣有效，登入後看得到、改得到所有人的資料（包括站長的追蹤名單、記帳與 HoYoLAB 帳號），被停用的人也一樣進得去。

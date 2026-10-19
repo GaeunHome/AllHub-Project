@@ -1,23 +1,20 @@
-import type { PGlite } from "@electric-sql/pglite";
-import { asc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
-import { savingsAccounts, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions } from "../data/schema";
-import { SavingsUserError } from "./errors";
+import { eq } from "drizzle-orm";
+import { beforeEach, describe, expect, it } from "vitest";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { savingsRecurring, savingsTransactions } from "../data/schema";
+import { logQueries, savingsRows } from "../dev/db-fixtures";
+import { userError } from "../dev/fixtures";
 import { confirmOccurrence, skipOccurrence, type ConfirmFields } from "./recurring";
 import { allocateSalary, deleteTransaction, type SalaryFields } from "./transactions";
 
 // 待處理的確認與略過 照順序處理 每個人只能動自己的
 
-let testDb: TestDb;
-const getDb = setupTestDb((d) => (testDb = d));
+const getDb = setupTestDb();
 let me: string;
 let other: string;
 
 beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
+  [me, other] = await insertTestUsers(getDb());
 });
 
 // 台北時間 2026-10-15 中午
@@ -26,38 +23,17 @@ const CREATED = new Date("2026-08-01T04:00:00Z");
 
 const NOT_FOUND = "找不到這個固定收支，可能已經刪除了";
 
-async function insertAccount(values: Partial<typeof savingsAccounts.$inferInsert> & { name: string }) {
-  const [row] = await getDb().insert(savingsAccounts).values({ userId: me, kind: "deposit", createdAt: CREATED, ...values }).returning();
-  return row;
-}
-
-async function insertRule(values: Partial<typeof savingsRecurring.$inferInsert> & { accountId: number; dayOfMonth: number }) {
-  const [row] = await getDb()
-    .insert(savingsRecurring)
-    .values({ userId: me, kind: "expense", amount: 1800, mode: "confirm", createdAt: CREATED, ...values })
-    .returning();
-  return row;
-}
-
-async function userError(promise: Promise<unknown>): Promise<string> {
-  const error = await promise.then(
-    () => undefined,
-    (reason: unknown) => reason,
-  );
-  expect(error).toBeInstanceOf(SavingsUserError);
-  return (error as Error).message;
-}
-
-const transactions = () => getDb().select().from(savingsTransactions).orderBy(asc(savingsTransactions.id));
-const ruleOf = async (id: number) => (await getDb().select().from(savingsRecurring).where(eq(savingsRecurring.id, id)))[0];
-const holdingOf = async (id: number) => (await getDb().select().from(savingsHoldings).where(eq(savingsHoldings.id, id)))[0];
+const { insertAccount, insertCategory, insertHolding, insertRule, transactions, ruleOf, holdingOf } = savingsRows(getDb, () => me, {
+  account: { createdAt: CREATED },
+  rule: { amount: 1800, mode: "confirm", createdAt: CREATED },
+});
 
 const confirmFields = (ruleId: number, values: Partial<ConfirmFields> = {}): ConfirmFields => ({ ruleId: String(ruleId), period: "2026-10", amount: "1,652", date: "2026-10-15", note: "", shares: "", ...values });
 
 describe("confirmOccurrence（確認待處理的一期）", () => {
   it("寫一筆紀錄（帶固定收支與期別，金額可以跟預計不同，備註沒填用名稱）並把游標推到這一期", async () => {
     const living = await insertAccount({ name: "生活費帳戶" });
-    const [utilities] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "水電", color: "teal" }).returning();
+    const utilities = await insertCategory({ name: "水電", color: "teal" });
     const rule = await insertRule({ accountId: living.id, categoryId: utilities.id, name: "電費", dayOfMonth: 13, lastPostedMonth: "2026-09-01" });
 
     const { transaction } = await confirmOccurrence(me, confirmFields(rule.id, { date: "2026-10-14" }), NOW);
@@ -125,7 +101,7 @@ describe("confirmOccurrence（確認待處理的一期）", () => {
   it("一般轉帳的固定收支碰到有持股的投資帳戶_不能確認，也不寫入、游標不動", async () => {
     const living = await insertAccount({ name: "生活費帳戶" });
     const broker = await insertAccount({ name: "臺銀證券", kind: "investment" });
-    await getDb().insert(savingsHoldings).values({ userId: me, accountId: broker.id, symbol: "006208", name: "富邦台50", shares: 10, cost: 2500 });
+    await insertHolding({ accountId: broker.id, shares: 10, cost: 2500 });
     const rule = await insertRule({ kind: "transfer", accountId: living.id, counterAccountId: broker.id, dayOfMonth: 12, lastPostedMonth: "2026-09-01" });
 
     expect(await userError(confirmOccurrence(me, confirmFields(rule.id), NOW))).toBe("這個投資帳戶有持股：轉進轉出請用買進或賣出");
@@ -146,7 +122,7 @@ describe("confirmOccurrence（確認待處理的一期）", () => {
     async function regularBuy() {
       const bank = await insertAccount({ name: "台銀" });
       const broker = await insertAccount({ name: "臺銀證券", kind: "investment" });
-      const [etf] = await getDb().insert(savingsHoldings).values({ userId: me, accountId: broker.id, symbol: "006208", name: "富邦台50", shares: 101, cost: 22_754 }).returning();
+      const etf = await insertHolding({ accountId: broker.id, shares: 101, cost: 22_754 });
       const rule = await insertRule({ kind: "transfer", accountId: bank.id, counterAccountId: broker.id, holdingId: etf.id, amount: 5000, dayOfMonth: 5, holidayRule: "after", lastPostedMonth: "2026-09-01" });
       return { bank, broker, etf, rule };
     }
@@ -183,7 +159,7 @@ describe("confirmOccurrence（確認待處理的一期）", () => {
 
     it("先鎖使用者與帳戶，再鎖持股，最後鎖固定收支，然後才寫紀錄（跟刪除帳號、帳戶、持股的連帶刪改同一個順序）", async () => {
       const { rule } = await regularBuy();
-      const statements = logStatements();
+      const statements = logQueries(getDb());
 
       await confirmOccurrence(me, confirmFields(rule.id, { amount: "4916", shares: "19", date: "2026-10-05" }), NOW);
 
@@ -286,7 +262,7 @@ describe("刪除確認來的紀錄：游標退回去，待處理會再出現", (
   it("定期定額確認後刪掉_持股扣回、游標也退回", async () => {
     const bank = await insertAccount({ name: "台銀" });
     const broker = await insertAccount({ name: "臺銀證券", kind: "investment" });
-    const [etf] = await getDb().insert(savingsHoldings).values({ userId: me, accountId: broker.id, symbol: "006208", name: "富邦台50", shares: 101, cost: 22_754 }).returning();
+    const etf = await insertHolding({ accountId: broker.id, shares: 101, cost: 22_754 });
     const rule = await insertRule({ kind: "transfer", accountId: bank.id, counterAccountId: broker.id, holdingId: etf.id, amount: 5000, dayOfMonth: 5, lastPostedMonth: "2026-09-01" });
     const { transaction } = await confirmOccurrence(me, confirmFields(rule.id, { amount: "4916", shares: "19", date: "2026-10-05" }), NOW);
 
@@ -392,16 +368,3 @@ describe("發薪分配帶固定收支的那一期（待處理的入帳並分配�
     expect((await ruleOf(theirs.id)).lastPostedMonth).toBe("2026-09-01");
   });
 });
-
-/** 取 setupTestDb 底下的 PGlite 記下送出的每一句 SQL 交易的開始記成 begin */
-function logStatements(): string[] {
-  const statements: string[] = [];
-  const pglite = (testDb as TestDb & { $client: PGlite }).$client;
-  const transaction = pglite.transaction.bind(pglite);
-  vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) => {
-    statements.push("begin");
-    return transaction(callback);
-  }) as typeof transaction);
-  (globalThis as unknown as { hubDb?: unknown }).hubDb = drizzle(pglite, { logger: { logQuery: (sql) => statements.push(sql) } });
-  return statements;
-}

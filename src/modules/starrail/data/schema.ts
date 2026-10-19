@@ -9,11 +9,10 @@ export const starrailAccounts = pgTable(
   "starrail_accounts",
   {
     id: serial("id").primaryKey(),
-    /**
-     * 擁有者 可為 null 是為了部署空窗期的舊程式
-     * 新程式不處理這些列 重新連結就會歸給連結的人
-     */
-    userId: uuid("user_id").references(() => coreUsers.id, { onDelete: "cascade" }),
+    /** 擁有者 刪除帳號時一起刪 */
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
     ltuid: text("ltuid").notNull(),
     cookieEncrypted: text("cookie_encrypted").notNull(),
     uid: text("uid").notNull().unique(),

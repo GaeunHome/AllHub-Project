@@ -1,15 +1,16 @@
 import { Suspense } from "react";
 import { requireSession } from "@/core/auth";
-import type { ModuleInfo } from "@/core/module";
+import type { ModuleInfo, SearchParams } from "@/core/module";
 import { Icon } from "@/core/ui/icon";
 import { PageTheme } from "@/core/ui/page-theme";
 import { serverLabel } from "../../lib/roles";
 import { cachedAccounts, cachedRecentCheckins } from "../../service/cached";
 import { pickAccount } from "../account-tabs";
-import { AccountHeader, AccountSkeleton, AccountTabs, DailyNotePanel, DailyNoteSkeleton } from "../components/account-card";
+import { AccountHeader, AccountSkeleton, AccountTabs } from "../components/account-card";
 import { CalendarPanel, CalendarSkeleton } from "../components/calendar-panel";
 import { CharacterPanel, CharacterPanelSkeleton } from "../components/character-panel";
 import { CheckinLogList } from "../components/checkin-log-list";
+import { DailyNotePanel, DailyNoteSkeleton } from "../components/daily-note-panel";
 import { EndgamePanel, EndgameSkeleton } from "../components/endgame-panel";
 import { LedgerPanel, LedgerSkeleton } from "../components/ledger-panel";
 import { LinkAccountForm } from "../components/link-account-form";
@@ -17,8 +18,6 @@ import { LinkResultBanner, LinkResultProvider } from "../components/link-result"
 import { RedeemPanel } from "../components/redeem-panel";
 import { StarrailBanner } from "../components/starrail-banner";
 import { gameFont } from "../game-font";
-
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 // web 層不能 import 模組根目錄 圖示 名稱 點綴色由 src/app 從 info.ts 傳進來
 // theme-starrail 讓這頁不論外觀都是遊戲的深藍星空 鋪滿導覽列以下 導覽列不變

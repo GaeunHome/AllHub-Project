@@ -3,22 +3,23 @@ import { and, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { expireTags } from "@/core/cache";
 import { db } from "@/core/db";
 import { logError } from "@/core/errors";
+import { DAY_MS, HOUR_MS } from "@/core/time";
 import { hasChineseCaptions, listCaptionTracks } from "../lib/subtitles/captions";
-import { youtubeFollows, youtubeVideos, type ZhCaptionStatus } from "../data/schema";
+import { youtubeVideos, type ZhCaptionStatus } from "../data/schema";
 import { youtubeTags } from "./cache-tags";
-import { listedVideoIds, newestFirst } from "./video-list";
+import { followedVideo, listedVideoIds, newestFirst } from "./video-list";
 
 /**
  * 很多頻道上片後才補字幕 發布兩天內還沒有中文的影片 每小時重新檢查
  * 從沒檢查過的 例如追蹤時從 RSS 補的舊影片 不論多久都先檢查一次
  */
-const RECHECK_WINDOW_MS = 48 * 3600_000;
-const RECHECK_INTERVAL_MS = 3600_000;
+const RECHECK_WINDOW_MS = 48 * HOUR_MS;
+const RECHECK_INTERVAL_MS = HOUR_MS;
 /**
  * 檢查過但讀不到的多半是被擋 不論發布多久隔一天再試
  * 不會永遠停在字幕未確認 也不會一直打 YouTube
  */
-const UNKNOWN_RETRY_MS = 24 * 3600_000;
+const UNKNOWN_RETRY_MS = DAY_MS;
 // 一次發太多請求會被 YouTube 擋 所以每次有上限
 export const RECHECK_BATCH = 5;
 /**
@@ -26,10 +27,6 @@ export const RECHECK_BATCH = 5;
  * 剛發布的影片每小時到期 才不會一直把從沒檢查過的舊影片擠掉
  */
 const longestUncheckedFirst = [sql`${youtubeVideos.zhCaptionsCheckedAt} asc nulls first`, ...newestFirst];
-
-// 手動重新檢查只處理登入者追蹤的頻道 影片是共用的 結果所有追蹤者都看得到
-const followedBy = (userId: string) =>
-  inArray(youtubeVideos.channelId, db().select({ channelId: youtubeFollows.channelId }).from(youtubeFollows).where(eq(youtubeFollows.userId, userId)));
 
 /**
  * 寫回檢查結果並回傳目前狀態 影片已經被清掉回 null
@@ -44,12 +41,11 @@ export async function checkChineseCaptions(videoId: string, now = new Date()): P
 }
 
 /**
- * 影片清單的重新檢查中文字幕 只能檢查自己追蹤頻道的影片
+ * 影片清單的重新檢查中文字幕 只能檢查自己追蹤頻道的影片 影片是共用的 結果所有追蹤者都看得到
  * 別人的當作不在清單裡 回 null 也不對 YouTube 發請求
  */
 export async function checkFollowedVideoCaptions(userId: string, videoId: string, now = new Date()): Promise<ZhCaptionStatus | null> {
-  const [video] = await db().select({ id: youtubeVideos.id }).from(youtubeVideos).where(and(eq(youtubeVideos.videoId, videoId), followedBy(userId)));
-  return video ? checkChineseCaptions(videoId, now) : null;
+  return (await followedVideo(userId, videoId)) ? checkChineseCaptions(videoId, now) : null;
 }
 
 export type RecheckCandidate = { videoId: string; publishedAt: Date | null; zhCaptions: ZhCaptionStatus; zhCaptionsCheckedAt: Date | null };

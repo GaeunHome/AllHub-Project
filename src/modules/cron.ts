@@ -4,6 +4,7 @@ import { twitchCron } from "./twitch/cron";
 import { starrailCron } from "./starrail/cron";
 import { youtubeCron } from "./youtube/cron";
 import { savingsCron } from "./savings/cron";
+import { weatherCron } from "./weather/cron";
 
 /** 各模組的排程 key 會加上模組 id 前綴 例如 starrail:checkin */
 const registry: Record<string, Record<string, CronTask>> = {
@@ -11,6 +12,7 @@ const registry: Record<string, Record<string, CronTask>> = {
   starrail: starrailCron,
   youtube: youtubeCron,
   savings: savingsCron,
+  weather: weatherCron,
 };
 
 export const cronTasks: Record<string, CronTask> = Object.fromEntries(

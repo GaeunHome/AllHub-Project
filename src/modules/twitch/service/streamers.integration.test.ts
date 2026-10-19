@@ -1,10 +1,11 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { coreUsers } from "@/core/db/schema";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUser, insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
 import { TEST_TWITCH_ENV, stubTwitchEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 import { twitchFollows, twitchStreamEvents, twitchStreamers } from "../data/schema";
+import { ALICE_STREAM, ALICE_EVENT, ONLINE_SUBSCRIPTION, seedFollowedStreamer } from "../dev/fixtures";
 
 vi.mock("../lib/api", { spy: true });
 vi.mock("@/core/notify", { spy: true });
@@ -14,9 +15,6 @@ const { TwitchApiError } = await import("../lib/api");
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
 const { TwitchUserError, addStreamer, cleanupStreamEvents, handleNotification, listFollowedStreamers, recentEvents, setStreamerNotify, syncSubscriptionsFor } = await import("./streamers");
 
-const onlineSub = { id: "sub-on", type: "stream.online", version: "1", status: "enabled", condition: { broadcaster_user_id: "42" } };
-const onlineEvent = { broadcaster_user_id: "42", broadcaster_user_login: "alice", broadcaster_user_name: "Alice", started_at: "2026-10-07T09:00:00Z" };
-
 let testDb: TestDb;
 const getDb = setupTestDb((d) => (testDb = d));
 let me: string;
@@ -25,17 +23,15 @@ let streamerId: number;
 
 /** 預設只有 me 追蹤 alice 通知開著 */
 beforeEach(async () => {
-  getStreams.mockReset().mockResolvedValue([{ user_id: "42", title: "今天玩鐵道", game_name: "Honkai: Star Rail", started_at: "" }]);
+  getStreams.mockReset().mockResolvedValue([ALICE_STREAM]);
   notify.mockReset().mockResolvedValue(undefined);
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
-  [{ id: streamerId }] = await getDb().insert(twitchStreamers).values({ broadcasterId: "42", login: "alice", displayName: "Alice" }).returning();
-  await getDb().insert(twitchFollows).values({ userId: me, streamerId });
+  [me, other] = await insertTestUsers(getDb());
+  ({ id: streamerId } = await seedFollowedStreamer(getDb(), me));
 });
 
 describe("handleNotification（PGlite 整合）", () => {
   it("開台_寫入事件含標題分類_標記直播中_發通知", async () => {
-    await handleNotification("m1", onlineSub as never, onlineEvent as never);
+    await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     const [event] = await testDb.select().from(twitchStreamEvents);
     expect(event).toMatchObject({ messageId: "m1", type: "online", title: "今天玩鐵道", category: "Honkai: Star Rail" });
@@ -45,7 +41,7 @@ describe("handleNotification（PGlite 整合）", () => {
   });
 
   it("開台通知寫進網站通知：模組 twitch、直播標題與分類、連到 Twitch 頻道", async () => {
-    await handleNotification("m1", onlineSub as never, onlineEvent as never);
+    await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     expect(notify).toHaveBeenCalledWith({
       recipients: [me],
@@ -60,7 +56,7 @@ describe("handleNotification（PGlite 整合）", () => {
   it("關掉通知的主播_照樣記錄開台、直播中狀態與直播資訊_但不建立通知", async () => {
     await testDb.update(twitchFollows).set({ notifyEnabled: false });
 
-    await handleNotification("m1", onlineSub as never, onlineEvent as never);
+    await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     const [event] = await testDb.select().from(twitchStreamEvents);
     expect(event).toMatchObject({ messageId: "m1", type: "online", title: "今天玩鐵道", category: "Honkai: Star Rail" });
@@ -70,8 +66,8 @@ describe("handleNotification（PGlite 整合）", () => {
   });
 
   it("同一則通知重送_只處理一次_也不重查直播資訊", async () => {
-    await handleNotification("m1", onlineSub as never, onlineEvent as never);
-    await handleNotification("m1", onlineSub as never, onlineEvent as never);
+    await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
+    await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     expect(await testDb.select().from(twitchStreamEvents)).toHaveLength(1);
     expect(notify).toHaveBeenCalledOnce();
@@ -79,8 +75,8 @@ describe("handleNotification（PGlite 整合）", () => {
   });
 
   it("沒有追蹤的主播_不寫紀錄也不通知", async () => {
-    const stranger = { ...onlineEvent, broadcaster_user_id: "999", broadcaster_user_name: "Stranger" };
-    await handleNotification("m2", { ...onlineSub, condition: { broadcaster_user_id: "999" } } as never, stranger as never);
+    const stranger = { ...ALICE_EVENT, broadcaster_user_id: "999", broadcaster_user_name: "Stranger" };
+    await handleNotification("m2", { ...ONLINE_SUBSCRIPTION, condition: { broadcaster_user_id: "999" } }, stranger);
 
     expect(await testDb.select().from(twitchStreamEvents)).toHaveLength(0);
     expect(notify).not.toHaveBeenCalled();
@@ -89,7 +85,7 @@ describe("handleNotification（PGlite 整合）", () => {
 
   it("查直播資訊失敗_仍寫入事件並通知", async () => {
     getStreams.mockRejectedValue(new Error("boom"));
-    await handleNotification("m3", onlineSub as never, onlineEvent as never);
+    await handleNotification("m3", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     const [event] = await testDb.select().from(twitchStreamEvents);
     expect(event).toMatchObject({ messageId: "m3", title: null });
@@ -97,9 +93,9 @@ describe("handleNotification（PGlite 整合）", () => {
   });
 
   it("關台_取消直播中且不通知", async () => {
-    await handleNotification("m1", onlineSub as never, onlineEvent as never);
+    await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
     notify.mockClear();
-    await handleNotification("m4", { ...onlineSub, type: "stream.offline" } as never, onlineEvent as never);
+    await handleNotification("m4", { ...ONLINE_SUBSCRIPTION, type: "stream.offline" }, ALICE_EVENT);
 
     const [streamer] = await testDb.select().from(twitchStreamers);
     expect(streamer.isLive).toBe(false);
@@ -114,7 +110,7 @@ describe("handleNotification（PGlite 整合）", () => {
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ user_id: "42", title: "晚來的標題", game_name: "Just Chatting", started_at: "" }]);
 
-    await handleNotification("m5", onlineSub as never, onlineEvent as never, { sleep });
+    await handleNotification("m5", ONLINE_SUBSCRIPTION, ALICE_EVENT, { sleep });
 
     expect(getStreams).toHaveBeenCalledTimes(3);
     expect(sleep).toHaveBeenCalledTimes(2);
@@ -128,7 +124,7 @@ describe("handleNotification（PGlite 整合）", () => {
     const sleep = vi.fn().mockResolvedValue(undefined);
     getStreams.mockReset().mockResolvedValue([]);
 
-    await handleNotification("m6", onlineSub as never, onlineEvent as never, { sleep });
+    await handleNotification("m6", ONLINE_SUBSCRIPTION, ALICE_EVENT, { sleep });
 
     expect(getStreams).toHaveBeenCalledTimes(3);
     expect(notify).toHaveBeenCalledOnce();
@@ -140,7 +136,7 @@ describe("handleNotification（PGlite 整合）", () => {
       deferred = task;
     });
 
-    await handleNotification("m7", onlineSub as never, onlineEvent as never, { defer });
+    await handleNotification("m7", ONLINE_SUBSCRIPTION, ALICE_EVENT, { defer });
 
     expect(await testDb.select().from(twitchStreamEvents)).toHaveLength(1);
     const [streamer] = await testDb.select().from(twitchStreamers);
@@ -158,7 +154,7 @@ describe("開台後補資訊與通知失敗時，log 只記錯誤種類（messag
     const log = captureErrorLog();
     notify.mockRejectedValue(Object.assign(new Error('Failed query: insert into "core_notifications" params: secret-detail'), { name: "DrizzleQueryError" }));
 
-    await handleNotification("m8", onlineSub as never, onlineEvent as never);
+    await handleNotification("m8", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     expect(loggedText(log)).toContain("DrizzleQueryError");
     expect(loggedText(log)).not.toContain("secret-detail");
@@ -168,7 +164,7 @@ describe("開台後補資訊與通知失敗時，log 只記錯誤種類（messag
     const log = captureErrorLog();
     getStreams.mockRejectedValue(new TwitchApiError(500, "GET /streams失敗（500）：secret-detail"));
 
-    await handleNotification("m9", onlineSub as never, onlineEvent as never);
+    await handleNotification("m9", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     expect(loggedText(log)).toContain("500");
     expect(loggedText(log)).not.toContain("secret-detail");
@@ -178,7 +174,7 @@ describe("開台後補資訊與通知失敗時，log 只記錯誤種類（messag
     const log = captureErrorLog();
     getStreams.mockRejectedValue(new TypeError("fetch failed: secret-detail"));
 
-    await handleNotification("m10", onlineSub as never, onlineEvent as never);
+    await handleNotification("m10", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     expect(loggedText(log)).toContain("TypeError");
     expect(loggedText(log)).not.toContain("secret-detail");
@@ -229,11 +225,11 @@ describe("通知開關（PGlite 整合）", () => {
   it("關掉後再開台_不建立通知；重新打開後_下一次開台又會通知", async () => {
     const [streamer] = await listFollowedStreamers(me);
     await setStreamerNotify(me, streamer.id, false);
-    await handleNotification("m1", onlineSub as never, onlineEvent as never);
+    await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
     expect(notify).not.toHaveBeenCalled();
 
     await setStreamerNotify(me, streamer.id, true);
-    await handleNotification("m2", onlineSub as never, onlineEvent as never);
+    await handleNotification("m2", ONLINE_SUBSCRIPTION, ALICE_EVENT);
     expect(notify).toHaveBeenCalledOnce();
   });
 });
@@ -246,7 +242,7 @@ describe("每個人的追蹤各自一份（PGlite 整合）", () => {
       { userId: muted, streamerId, notifyEnabled: false },
     ]);
 
-    await handleNotification("m1", onlineSub as never, onlineEvent as never);
+    await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     expect(notify).toHaveBeenCalledOnce();
     expect([...notify.mock.calls[0][0].recipients].sort()).toEqual([me, other].sort());
@@ -255,7 +251,7 @@ describe("每個人的追蹤各自一份（PGlite 整合）", () => {
   it("沒有人追蹤的主播（例如最後一位追蹤者刪除了帳號）_照樣記錄開台，但不通知任何人", async () => {
     await getDb().delete(twitchFollows);
 
-    await handleNotification("m1", onlineSub as never, onlineEvent as never);
+    await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     expect(await testDb.select().from(twitchStreamEvents)).toHaveLength(1);
     expect(notify).not.toHaveBeenCalled();

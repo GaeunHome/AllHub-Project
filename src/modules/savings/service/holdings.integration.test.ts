@@ -1,23 +1,16 @@
-import type { PGlite } from "@electric-sql/pglite";
-import { asc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
-import { savingsAccounts, savingsHoldings, savingsRecurring, savingsTransactions } from "../data/schema";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { savingsAccounts, savingsHoldings, savingsRecurring } from "../data/schema";
+import { logQueries, savingsRows } from "../dev/db-fixtures";
+import { userError } from "../dev/fixtures";
 import type { Quote } from "../lib/quotes";
-import { SavingsUserError } from "./errors";
 import { addHolding, buyHolding, deleteHolding, listHoldings, sellHolding, updateHolding, type BuyFields, type QuoteLookup, type SellFields } from "./holdings";
 import { deleteTransaction, updateTransaction } from "./transactions";
 
-let testDb: TestDb;
-const getDb = setupTestDb((d) => (testDb = d));
+const getDb = setupTestDb();
 let me: string;
 let other: string;
-
-beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
-});
 
 // 台北時間 2026-10-15 中午
 const NOW = new Date("2026-10-15T04:00:00Z");
@@ -26,27 +19,11 @@ const CREATED = new Date("2026-08-01T04:00:00Z");
 const HOLDING_NOT_FOUND = "找不到這一檔持股，可能已經刪除了";
 const ACCOUNT_NOT_FOUND = "找不到這個帳戶，可能已經刪除了";
 
-async function insertAccount(values: Partial<typeof savingsAccounts.$inferInsert> & { name: string }) {
-  const [row] = await getDb().insert(savingsAccounts).values({ userId: me, kind: "deposit", createdAt: CREATED, ...values }).returning();
-  return row;
-}
+const { insertAccount, insertHolding, holdingOf, transactions } = savingsRows(getDb, () => me, { account: { createdAt: CREATED } });
 
-async function insertHolding(values: Partial<typeof savingsHoldings.$inferInsert> & { accountId: number }) {
-  const [row] = await getDb().insert(savingsHoldings).values({ userId: me, symbol: "006208", name: "富邦台50", shares: 12, cost: 3000, ...values }).returning();
-  return row;
-}
-
-async function userError(promise: Promise<unknown>): Promise<string> {
-  const error = await promise.then(
-    () => undefined,
-    (reason: unknown) => reason,
-  );
-  expect(error).toBeInstanceOf(SavingsUserError);
-  return (error as Error).message;
-}
-
-const holdingOf = async (id: number) => (await getDb().select().from(savingsHoldings).where(eq(savingsHoldings.id, id)))[0];
-const transactions = () => getDb().select().from(savingsTransactions).orderBy(asc(savingsTransactions.id));
+beforeEach(async () => {
+  [me, other] = await insertTestUsers(getDb());
+});
 
 /** 假的股價清單 代號在這裡面就找得到 */
 function lookupOf(quotes: Quote[], complete = true) {
@@ -196,7 +173,7 @@ describe("buyHolding（買進）", () => {
 
   it("先鎖使用者、再鎖帳戶（for share）、最後鎖持股（for update），然後才寫紀錄與改持股", async () => {
     const { bank, etf } = await setup();
-    const statements = logStatements();
+    const statements = logQueries(getDb());
 
     await buyHolding(me, buy(etf.id, bank.id), NOW);
 
@@ -320,16 +297,3 @@ describe("刪除與修改買賣紀錄", () => {
     expect(await holdingOf(etf.id)).toMatchObject({ shares: 31, cost: 7916 });
   });
 });
-
-/** 取 setupTestDb 底下的 PGlite 記下送出的每一句 SQL 交易的開始記成 begin */
-function logStatements(): string[] {
-  const statements: string[] = [];
-  const pglite = (testDb as TestDb & { $client: PGlite }).$client;
-  const transaction = pglite.transaction.bind(pglite);
-  vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) => {
-    statements.push("begin");
-    return transaction(callback);
-  }) as typeof transaction);
-  (globalThis as unknown as { hubDb?: unknown }).hubDb = drizzle(pglite, { logger: { logQuery: (sql) => statements.push(sql) } });
-  return statements;
-}

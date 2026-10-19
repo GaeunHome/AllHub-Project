@@ -1,6 +1,6 @@
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { markup, textOf } from "@/dev/test-helpers";
 import { CheckinLogList } from "./checkin-log-list";
 
 /** 跟資料庫讀出來的一樣新的在前 累計天數等於 id 看得出每一列是哪一筆 */
@@ -9,8 +9,7 @@ const logs = (count: number) =>
     const id = count - index;
     return { log: { id, result: "success", message: "簽到成功", totalSignDay: id, createdAt: new Date(Date.UTC(2026, 8, id, 16, 10)) } };
   });
-const render = (count: number) => renderToStaticMarkup(createElement(CheckinLogList, { logs: logs(count) }));
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
+const render = (count: number) => markup(createElement(CheckinLogList, { logs: logs(count) }));
 const rowCount = (markup: string) => markup.match(/<li[\s>]/g)?.length ?? 0;
 /** 切成 details 前面直接列出的部分與 details 本身 */
 const parts = (markup: string) => {

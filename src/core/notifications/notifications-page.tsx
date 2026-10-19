@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { requireSession } from "../auth";
-import type { ModuleInfo } from "../module";
+import type { ModuleInfo, SearchParams } from "../module";
 import { RETENTION_DAYS } from "../retention";
 import { Icon } from "../ui/icon";
 import { CardHeader, PageHeader } from "../ui/page-header";
@@ -9,8 +9,6 @@ import { cachedNotificationCounts, cachedNotificationList } from "./cached";
 import { NotificationList } from "./notification-list";
 import type { NotificationModule } from "./notification-summary";
 import { NotificationSettings } from "./settings";
-
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 // core 不能 import 模組 所以模組清單由 src/app 傳進來
 export function NotificationsPage({ modules, searchParams }: { modules: ModuleInfo[]; searchParams: SearchParams }) {

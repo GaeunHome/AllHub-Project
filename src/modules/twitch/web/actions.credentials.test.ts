@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch } from "@/dev/fake-fetch";
 import { stubTwitchEnv } from "@/dev/test-env";
 import { form, mocksOf } from "@/dev/test-helpers";
@@ -17,12 +17,7 @@ const tokenRejected = (status: number, body: string) =>
   fakeFetch(({ url }) => (url.includes("/oauth2/token") ? new Response(body, { status, headers: { "Content-Type": "application/json" } }) : Response.json({ data: [] })));
 
 beforeEach(() => {
-  vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
   takeCooldown.mockReset().mockResolvedValue(0);
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
 });
 
 describe("Twitch 應用程式的憑證填錯：表單直接說是哪個值不對、要改哪個環境變數", () => {
@@ -33,6 +28,7 @@ describe("Twitch 應用程式的憑證填錯：表單直接說是哪個值不對
 
     expect(error).toContain("Client ID 不對");
     expect(error).toContain("TWITCH_CLIENT_ID");
+    expect(error).not.toContain("TWITCH_CLIENT_SECRET");
   });
 
   it("同步訂閱時 Twitch 回 403 invalid client secret_說 Client Secret 不對", async () => {
@@ -42,5 +38,6 @@ describe("Twitch 應用程式的憑證填錯：表單直接說是哪個值不對
 
     expect(error).toContain("Client Secret 不對");
     expect(error).toContain("TWITCH_CLIENT_SECRET");
+    expect(error).not.toContain("TWITCH_CLIENT_ID");
   });
 });

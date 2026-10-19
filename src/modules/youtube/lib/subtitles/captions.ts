@@ -1,5 +1,6 @@
 import { errorKind } from "@/core/errors";
 import { VIDEO_ID } from "../parse";
+import { tidyLines } from "../text";
 import { isYoutubeHttpsUrl, youtubeWatchUrl } from "../urls";
 import { fetchYoutubePage } from "../youtube-fetch";
 import type { Cue } from "./format";
@@ -173,7 +174,7 @@ function json3ToCues(body: string): Cue[] | null {
     .map((e) => ({
       start: e.tStartMs!,
       end: e.tStartMs! + (e.dDurationMs ?? 0),
-      text: e.segs!.map((s) => s.utf8 ?? "").join("").split("\n").map((l) => l.trim()).filter(Boolean).join("\n"),
+      text: tidyLines(e.segs!.map((s) => s.utf8 ?? "").join("")),
     }))
     .filter((cue) => cue.text)
     // 寫進資料庫前排好 句子的位置就是譯文的編號 播放器也用二分搜尋

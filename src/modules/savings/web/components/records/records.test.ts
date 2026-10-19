@@ -1,11 +1,11 @@
-import { Fragment, createElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { markup as render, textOf } from "@/dev/test-helpers";
 import type { RecordItem } from "../../record-filter";
 
 // 視窗與選單關著時不算繪內容 換成直接算繪才看得到修改的表單與刪除鈕
 vi.mock("@/core/ui/dialog", { spy: true });
-vi.mock("@/core/ui/more-menu", () => ({ MoreMenu: ({ label, children }: { label: string; children: ReactNode }) => createElement("div", { "data-menu": label }, children) }));
+vi.mock("@/core/ui/more-menu", () => import("@/dev/more-menu-stub"));
 // 刪除鈕 要看交給它的 action 與確認訊息
 vi.mock("@/core/ui/action-button", { spy: true });
 vi.mock("../../actions", () => ({ deleteTransactionAction: vi.fn(), updateTransactionAction: vi.fn(), addTransactionAction: vi.fn() }));
@@ -59,9 +59,8 @@ const TRANSFER = record({ kind: "transfer", counterAccountId: 2, counterAccountN
 const ADJUST = record({ kind: "adjust", accountId: 2, accountName: "郵局", categoryId: null, categoryName: null, amount: -350, date: "2026-10-03", note: null });
 const BUY = record({ id: 80, kind: "transfer", counterAccountId: 4, counterAccountName: "臺銀證券", categoryId: null, categoryName: null, amount: 1000, date: "2026-10-08", note: "買進 006208 8 股", shares: 8, holdingSymbol: "006208", recurring: true, recurringName: "006208 定期定額" });
 
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
 const onDeleted = vi.fn();
-const row = (item: RecordItem) => renderToStaticMarkup(createElement("ul", null, createElement(RecordRow, { record: item, accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY, onDeleted })));
+const row = (item: RecordItem) => render(createElement("ul", null, createElement(RecordRow, { record: item, accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY, onDeleted })));
 /** 整列是打開修改視窗的按鈕 報讀器先念修改 */
 const rowButton = (markup: string) => markup.match(/<button[^>]*aria-haspopup="dialog"[^>]*>((?:(?!<\/button>)[\s\S])*)<\/button>/)?.[1];
 const fieldNames = (markup: string) => [...new Set([...markup.matchAll(/<(?:input|select|textarea)[^>]*name="([^"]+)"/g)].map((m) => m[1]))].sort();
@@ -206,7 +205,7 @@ describe("填帳單時補的紀錄", () => {
     expect(vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action)).toEqual([actions.updateTransactionAction]);
   });
 
-  it("刪掉補的那一筆＝撤銷這張帳單：確認訊息照實說，待處理會再請你填帳單", () => {
+  it("刪掉補的那一筆＝撤銷這張帳單：確認訊息照實說，總覽會再請你填帳單", () => {
     row(UNRECORDED);
 
     expect(deleteButton().confirmMessage).toContain("這張帳單會一起撤銷");
@@ -223,7 +222,7 @@ describe("填帳單時補的紀錄", () => {
 });
 
 describe("從待處理確認來的紀錄", () => {
-  it("刪掉後那一期會回到總覽的「這個月要做的事」（取代了待處理）：確認訊息照實說，不說無法復原", () => {
+  it("刪掉後那一期會回到總覽的「這個月要做的事」：確認訊息照實說，不說無法復原", () => {
     row({ ...SALARY, backToPending: true });
 
     expect(deleteButton().confirmMessage).toContain("這一期會回到總覽的「這個月要做的事」");
@@ -241,7 +240,7 @@ describe("從待處理確認來的紀錄", () => {
 describe("紀錄清單", () => {
   const MONTH_SWITCHER = createElement("nav", { "aria-label": "切換月份" }, "月份");
   const list = (records: RecordItem[], links: { initialAccount?: string; initialCategory?: string } = {}) =>
-    renderToStaticMarkup(createElement(RecordList, { records, accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY, monthSwitcher: MONTH_SWITCHER, monthLabel: "本月", ...links }));
+    render(createElement(RecordList, { records, accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY, monthSwitcher: MONTH_SWITCHER, monthLabel: "本月", ...links }));
   const selected = (markup: string, label: string) => markup.match(new RegExp(`<select aria-label="${label}"[^>]*>[\\s\\S]*?</select>`))?.[0].match(/<option[^>]*selected=""[^>]*>([^<]*)</)?.[1];
 
   it("工具列是月份切換與篩選；依日期分組、新的在前，今天那一組標「今天」；日期是頁首（h1）下一層的 h2", () => {
@@ -265,7 +264,7 @@ describe("紀錄清單", () => {
     expect(markup).toMatch(/<select aria-label="類型"[\s\S]*調整/);
   });
 
-  it("從總覽的帳戶詳情連過來（?account=）：一開始就篩選那個帳戶，轉入與轉出都算", () => {
+  it("從帳戶頁的卡片連過來（?account=）：一開始就篩選那個帳戶，轉入與轉出都算", () => {
     const markup = list([LUNCH, BUY, TRANSFER, ADJUST], { initialAccount: "2" });
 
     expect(selected(markup, "帳戶")).toBe("郵局");
@@ -310,7 +309,7 @@ describe("紀錄清單", () => {
       { key: "category:11", name: "餐飲", spent: 120, budget: 6000, barPercent: 2, over: 0, category: "11", href: "/savings/records?category=11" },
       { key: "uncategorized", name: "未分類", spent: 30, budget: null, barPercent: null, over: 0, category: "uncategorized", href: "/savings/records?category=uncategorized" },
     ];
-    const markup = renderToStaticMarkup(
+    const markup = render(
       createElement(RecordList, { records: [LUNCH, SALARY], accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY, monthSwitcher: MONTH_SWITCHER, monthLabel: "本月", month: { totals: { income: 43000, expense: 150, saved: 42850 }, expenses }, initialCategory: "11" }),
     );
     const panel = markup.slice(markup.indexOf('aria-labelledby="savings-month-panel"'));
@@ -321,7 +320,7 @@ describe("紀錄清單", () => {
   });
 
   it("這個月花的比賺的多_寫「多花」多少，不寫負的存下", () => {
-    const markup = renderToStaticMarkup(
+    const markup = render(
       createElement(RecordList, { records: [LUNCH], accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY, monthSwitcher: MONTH_SWITCHER, monthLabel: "本月", month: { totals: { income: 3000, expense: 12110, saved: -9110 }, expenses: [] } }),
     );
 

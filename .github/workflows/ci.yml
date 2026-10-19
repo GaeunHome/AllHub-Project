@@ -12,10 +12,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# 測試最久 拆成兩個同時跑的工作 建置不用排在測試後面
+# 公開 repo 的 Actions 不計分鐘 上限只是避免卡住的工作掛很久
 jobs:
-  check:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -28,6 +30,20 @@ jobs:
         run: npm ci
       - name: 測試
         run: npm test
+
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - name: 安裝套件
+        run: npm ci
       - name: Lint
         run: npm run lint
       - name: 建置

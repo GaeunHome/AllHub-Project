@@ -1,3 +1,5 @@
+import { decodeEntities } from "./text";
+
 // 頻道頁的 HTML 沒有公開格式 改版可能失效 讀不到就回 null 畫面退回文字頭像
 
 /** 只認 Google 的圖片網域 被擋時回的同意頁也有 og:image 但那是 YouTube 的通用圖 */
@@ -25,7 +27,7 @@ export function parseChannelAvatar(html: string): string | null {
 function ogImage(html: string): string | null {
   const tag = /<meta\b[^>]*\bproperty=["']og:image["'][^>]*>/i.exec(html)?.[0];
   const content = tag ? /\bcontent=["']([^"']*)["']/i.exec(tag)?.[1] : undefined;
-  return content ? decodeHtmlEntities(content) : null;
+  return content ? decodeEntities(content) : null;
 }
 
 function initialDataAvatar(html: string): string | null {
@@ -36,10 +38,6 @@ function initialDataAvatar(html: string): string | null {
   } catch {
     return null;
   }
-}
-
-function decodeHtmlEntities(value: string): string {
-  return value.replace(/&(amp|quot|#39|lt|gt);/g, (_, name: string) => ({ amp: "&", quot: '"', "#39": "'", lt: "<", gt: ">" })[name] ?? "");
 }
 
 function normalizeAvatar(candidate: string | null): string | null {

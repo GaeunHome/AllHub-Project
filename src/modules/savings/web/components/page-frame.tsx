@@ -21,7 +21,7 @@ export function SavingsPageFrame({ info, current, actions, children }: SavingsPa
       <div data-accent={info.accent} className="page-stack">
         {/* 分頁列跟頁首是一組 距離比區塊之間近 */}
         <div className="stack">
-          <PageHeader icon={info.icon && <Icon src={info.icon} />} title={info.name} actions={actions} />
+          <PageHeader icon={<Icon src={info.icon} />} title={info.name} actions={actions} />
           <SavingsNav current={current} />
         </div>
         {children}

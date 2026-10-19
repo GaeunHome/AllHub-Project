@@ -7,6 +7,7 @@ import type { StarrailAccountView } from "../../service/accounts";
 import { cachedCharacters } from "../../service/cached";
 import { characterAssetUrls } from "../character-assets";
 import { CharacterBrowser } from "./character-browser";
+import { LoadingTitle, PanelNotice } from "./panel-parts";
 
 /**
  * 角色列表每個帳號快取 30 分鐘 HoYoLAB 失敗時只在這一塊顯示錯誤
@@ -18,25 +19,18 @@ export async function CharacterPanel({ account }: { account: StarrailAccountView
 
   if (!result.ok || result.characters.length === 0) {
     return (
-      <section className="stack">
-        <h3 className="sr-title">角色</h3>
+      <PanelNotice title="角色">
         {result.ok ? <p className="sr-panel p-5 text-ink-soft sm:p-6">HoYoLAB 沒有回傳任何角色。</p> : <FormMessage tone="error">{result.message}</FormMessage>}
-      </section>
+      </PanelNotice>
     );
   }
   return <CharacterBrowser characters={characterAssetUrls(result.characters, externalAssetUrl)} fetchedLabel={formatTaipeiTime(result.fetchedAt, new Date())} />;
 }
 
-// 角色資料要等 HoYoLAB 回應 除了骨架也寫出正在做什麼
 export function CharacterPanelSkeleton() {
   return (
     <LoadingState label="向 HoYoLAB 查詢角色資料…" className="stack">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <h3 className="sr-title">角色</h3>
-        <span aria-hidden className="text-sm text-ink-soft">
-          向 HoYoLAB 查詢中…
-        </span>
-      </div>
+      <LoadingTitle title="角色" />
       <div className="grid grid-cols-4 gap-x-3 gap-y-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12">
         {Array.from({ length: 8 }, (_, i) => (
           <div key={i} className="flex flex-col gap-1.5">

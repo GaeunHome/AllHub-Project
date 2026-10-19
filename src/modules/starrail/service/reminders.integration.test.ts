@@ -5,12 +5,10 @@ import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, expiredTags, mocksOf, resetNextCache } from "@/dev/test-helpers";
 import type { ActCalendar, CalendarChallenge } from "../lib/calendar";
-import type { DailyNote } from "../lib/responses";
 import { starrailAccounts } from "../data/schema";
+import { COOKIE, dailyNote as note, hoyolab, ok, role, ROLE as TW } from "../dev/fixtures";
 
-// 沒設定回應的呼叫只會拿到 undefined 不會連到真的 HoYoLAB
-const hoyolab = vi.hoisted(() => ({ fetchGameRoles: vi.fn(), fetchDailyNote: vi.fn(), fetchActCalendar: vi.fn() }));
-vi.mock("../lib/hoyolab", () => hoyolab);
+vi.mock("../lib/hoyolab", async () => (await import("../dev/fixtures")).hoyolab);
 vi.mock("@/core/notify", { spy: true });
 vi.mock("@/core/crypto", { spy: true });
 
@@ -19,18 +17,10 @@ stubCoreEnv();
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
 const crypto = mocksOf(await import("@/core/crypto"), "decryptSecret");
 const { decryptSecret: realDecrypt } = await vi.importActual<typeof import("@/core/crypto")>("@/core/crypto");
-const { checkStaminaAll, linkAccount } = await import("./accounts");
+const { checkStaminaAll } = await import("./stamina");
+const { linkAccount } = await import("./link");
 
-const COOKIE = "ltoken_v2=v2_secret; ltuid_v2=42";
-const TW = { uid: "900000001", nickname: "開拓者", region: "prod_official_cht", regionName: null, level: 70 };
-const US = { uid: "600000001", nickname: "美服", region: "prod_official_usa", regionName: null, level: 70 };
-
-// 開拓力只有 100 不會發開拓力提醒 這裡只看其他提醒
-const note = (overrides: Partial<DailyNote> = {}): DailyNote => ({
-  stamina: 100, maxStamina: 300, staminaRecoverSeconds: 72_000, reserveStamina: 0, expeditionsAccepted: 4, expeditionsTotal: 4,
-  trainScore: 300, maxTrainScore: 500, rogueScore: 8000, maxRogueScore: 14000, cocoonRemaining: 2, cocoonLimit: 3,
-  ...overrides,
-});
+const US = role({ uid: "600000001", nickname: "美服", region: "prod_official_usa" });
 
 // 台港澳服週一 2026-10-19 04:00 是 UTC 2026-10-18 20:00
 const MONDAY_RESET = Date.parse("2026-10-18T20:00:00Z");
@@ -52,9 +42,10 @@ beforeEach(async () => {
   Object.values(hoyolab).forEach((fn) => fn.mockReset());
   notify.mockReset().mockResolvedValue(undefined);
   crypto.decryptSecret.mockReset();
-  hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [TW], raw: {} });
-  hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note(), raw: {} });
-  hoyolab.fetchActCalendar.mockResolvedValue({ ok: true, data: { calendar: calendar([]), missing: [] }, raw: {} });
+  hoyolab.fetchGameRoles.mockResolvedValue(ok([TW]));
+  // 便箋的開拓力是 100 不會發開拓力提醒 這裡只看其他提醒
+  hoyolab.fetchDailyNote.mockResolvedValue(ok(note()));
+  hoyolab.fetchActCalendar.mockResolvedValue(ok({ calendar: calendar([]), missing: [] }));
   await linkAccount(me, COOKIE, "all");
 });
 
@@ -74,7 +65,7 @@ describe("每日實訓：晚上九點（伺服器當地）還沒做完", () => {
 
   it("20:30 還不提醒；做完了不提醒", async () => {
     await checkStaminaAll(new Date("2026-10-15T12:30:00Z"));
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note({ trainScore: 500 }), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note({ trainScore: 500 })));
     await checkStaminaAll(new Date("2026-10-15T13:30:00Z"));
 
     expect(notify).not.toHaveBeenCalled();
@@ -82,7 +73,7 @@ describe("每日實訓：晚上九點（伺服器當地）還沒做完", () => {
 
   it("美服照美服的時間（UTC−5）：台北晚上九點半（美服早上八點半）不提醒，美服晚上九點半（UTC 隔天 02:30）才提醒", async () => {
     await getDb().delete(starrailAccounts);
-    hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [US], raw: {} });
+    hoyolab.fetchGameRoles.mockResolvedValue(ok([US]));
     await linkAccount(me, COOKIE, "all");
 
     await checkStaminaAll(new Date("2026-10-15T13:30:00Z"));
@@ -106,7 +97,7 @@ describe("提醒寫不進去（通知丟錯）", () => {
 });
 
 describe("每週內容：週日傍晚（週一 04:00 換週前）", () => {
-  beforeEach(() => hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note({ trainScore: 500 }), raw: {} }));
+  beforeEach(() => hoyolab.fetchDailyNote.mockResolvedValue(ok(note({ trainScore: 500 }))));
 
   it("模擬宇宙積分沒滿、歷戰餘響還有次數_週日 18:30 提醒一次，兩項都寫出來", async () => {
     await checkStaminaAll(new Date("2026-10-18T10:30:00Z"));
@@ -121,7 +112,7 @@ describe("每週內容：週日傍晚（週一 04:00 換週前）", () => {
 
   it("都做完了、或還沒到週日傍晚_不提醒", async () => {
     await checkStaminaAll(new Date("2026-10-17T12:00:00Z"));
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note({ trainScore: 500, rogueScore: 14000, cocoonRemaining: 0 }), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note({ trainScore: 500, rogueScore: 14000, cocoonRemaining: 0 })));
     await checkStaminaAll(new Date("2026-10-18T10:30:00Z"));
 
     expect(notify).not.toHaveBeenCalled();
@@ -129,10 +120,10 @@ describe("每週內容：週日傍晚（週一 04:00 換週前）", () => {
 });
 
 describe("終局挑戰：還剩一到兩天、進度沒滿（活動日曆）", () => {
-  beforeEach(() => hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note({ trainScore: 500 }), raw: {} }));
+  beforeEach(() => hoyolab.fetchDailyNote.mockResolvedValue(ok(note({ trainScore: 500 }))));
 
   it("週六 18:30（還剩 33.5 小時）提醒一次：用這個帳號的 cookie 查活動日曆，寫出進度", async () => {
-    hoyolab.fetchActCalendar.mockResolvedValue({ ok: true, data: { calendar: calendar([chaos()]), missing: [] }, raw: {} });
+    hoyolab.fetchActCalendar.mockResolvedValue(ok({ calendar: calendar([chaos()]), missing: [] }));
 
     await checkStaminaAll(new Date("2026-10-17T10:30:00Z"));
     await checkStaminaAll(new Date("2026-10-17T11:30:00Z"));
@@ -144,9 +135,9 @@ describe("終局挑戰：還剩一到兩天、進度沒滿（活動日曆）", (
   });
 
   it("同一期只提醒一次：隔天傍晚（剩不到一天、前一天的去重紀錄已經過了一天）也不再提醒", async () => {
-    hoyolab.fetchActCalendar.mockResolvedValue({ ok: true, data: { calendar: calendar([chaos()]), missing: [] }, raw: {} });
+    hoyolab.fetchActCalendar.mockResolvedValue(ok({ calendar: calendar([chaos()]), missing: [] }));
     // 每週內容也做完 週日傍晚才不會有每週的提醒
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note({ trainScore: 500, rogueScore: 14000, cocoonRemaining: 0 }), raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note({ trainScore: 500, rogueScore: 14000, cocoonRemaining: 0 })));
 
     await checkStaminaAll(new Date("2026-10-17T10:30:00Z"));
     await checkStaminaAll(new Date("2026-10-18T10:45:00Z"));
@@ -161,7 +152,7 @@ describe("終局挑戰：還剩一到兩天、進度沒滿（活動日曆）", (
   });
 
   it("拿滿了、這一期已完成_不提醒", async () => {
-    hoyolab.fetchActCalendar.mockResolvedValue({ ok: true, data: { calendar: calendar([chaos({ current: 36 }), chaos({ id: 2008, kind: "fiction", status: "finished" })]), missing: [] }, raw: {} });
+    hoyolab.fetchActCalendar.mockResolvedValue(ok({ calendar: calendar([chaos({ current: 36 }), chaos({ id: 2008, kind: "fiction", status: "finished" })]), missing: [] }));
 
     await checkStaminaAll(new Date("2026-10-17T10:30:00Z"));
 
@@ -170,7 +161,7 @@ describe("終局挑戰：還剩一到兩天、進度沒滿（活動日曆）", (
 
   it("活動日曆讀不到或出錯_不影響開拓力的結果，log 只記 retcode", async () => {
     const log = captureErrorLog();
-    hoyolab.fetchActCalendar.mockResolvedValueOnce({ ok: false, retcode: 10102, message: "資料沒有公開", cookieInvalid: false, raw: { secret: "raw-body" } });
+    hoyolab.fetchActCalendar.mockResolvedValueOnce({ ok: false, retcode: 10102, message: "資料沒有公開", cookieInvalid: false, body: "raw-body" });
 
     expect(await checkStaminaAll(new Date("2026-10-17T10:30:00Z"))).toContain("100/300");
 
@@ -184,8 +175,8 @@ describe("帳號設定的「每日、每週與終局提醒」", () => {
   it("關掉_每日實訓、每週內容與終局挑戰都不提醒，也不查活動日曆；開拓力提醒照門檻", async () => {
     await getDb().update(starrailAccounts).set({ gameReminders: false });
     // 開拓力 290 已經過了預設門檻 280
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: note({ stamina: 290 }), raw: {} });
-    hoyolab.fetchActCalendar.mockResolvedValue({ ok: true, data: { calendar: calendar([chaos()]), missing: [] }, raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note({ stamina: 290 })));
+    hoyolab.fetchActCalendar.mockResolvedValue(ok({ calendar: calendar([chaos()]), missing: [] }));
 
     // 台港澳服週六 21:30 是每日實訓與終局挑戰的時段 週日 18:30 是每週內容的時段
     await checkStaminaAll(new Date("2026-10-17T13:30:00Z"));
@@ -196,7 +187,7 @@ describe("帳號設定的「每日、每週與終局提醒」", () => {
   });
 
   it("開著（同樣的時段與進度）_三種都提醒", async () => {
-    hoyolab.fetchActCalendar.mockResolvedValue({ ok: true, data: { calendar: calendar([chaos()]), missing: [] }, raw: {} });
+    hoyolab.fetchActCalendar.mockResolvedValue(ok({ calendar: calendar([chaos()]), missing: [] }));
 
     await checkStaminaAll(new Date("2026-10-17T13:30:00Z"));
     await checkStaminaAll(new Date("2026-10-18T10:30:00Z"));
@@ -233,7 +224,7 @@ describe("提醒只給帳號的擁有者，停用的人凍結", () => {
 
   it("兩個人各自的帳號_各自收到自己的提醒", async () => {
     const other = await insertTestUser(getDb(), "bob");
-    hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [{ ...TW, uid: "900000002", nickname: "鮑勃" }], raw: {} });
+    hoyolab.fetchGameRoles.mockResolvedValue(ok([role({ uid: "900000002", nickname: "鮑勃" })]));
     await linkAccount(other, "ltoken_v2=v2_bob; ltuid_v2=43", "all");
 
     await checkStaminaAll(new Date("2026-10-15T13:30:00Z"));

@@ -3,13 +3,13 @@ import { TEST_SESSION } from "@/dev/session-stub";
 import { mocksOf } from "@/dev/test-helpers";
 
 vi.mock("next/server", () => ({ after: vi.fn() }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/translation", { spy: true });
 
 const translation = mocksOf(await import("../service/translation"), "continueTranslation", "startTranslation");
 const { continueTranslationAction, startTranslationAction } = await import("./actions");
-const { ApiKeySetupError, TranslationUserError } = await import("../service/translation");
+const { ApiKeySetupError, TranslationUserError } = await import("../service/errors");
 
 const VIDEO = "dQw4w9WgXcQ";
 const QUEUED = { status: "queued", done: 0, total: 8, error: null, translated: [] };

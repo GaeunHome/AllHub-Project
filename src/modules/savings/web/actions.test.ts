@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { INVALID_FORM_MESSAGE } from "@/core/form";
 import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
 import { captureErrorLog, form, mocksOf } from "@/dev/test-helpers";
+import { accountRow, ruleRow } from "../dev/fixtures";
+import type { AccountKind } from "../lib/kinds";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/accounts", { spy: true });
@@ -26,23 +28,8 @@ const allMocks = () => services.flatMap((service) => Object.values(service));
 const actions = await import("./actions");
 
 const NOW = new Date("2026-10-14T04:00:00Z");
-const account = (id: number, name: string, kind = "deposit") => ({
-  id,
-  userId: TEST_SESSION.id,
-  name,
-  kind,
-  purposeId: null,
-  openingBalance: 0,
-  openingCost: null,
-  monthlyPlan: null,
-  targetAmount: null,
-  dueDay: null,
-  payFromAccountId: null,
-  active: true,
-  sortOrder: id,
-  createdAt: NOW,
-});
-const category = (id: number, name: string, kind: "expense" | "income") => ({ id, userId: TEST_SESSION.id, kind, name, color: "orange", monthlyBudget: null, sortOrder: id, createdAt: NOW });
+const account = (id: number, name: string, kind: AccountKind = "deposit") => accountRow({ id, name, kind, userId: TEST_SESSION.id, createdAt: NOW });
+const category = (id: number, name: string, kind: "expense" | "income") => ({ id, userId: TEST_SESSION.id, kind, name, color: "orange" as const, monthlyBudget: null, sortOrder: id, createdAt: NOW, icon: null });
 const tx = (fields: Record<string, unknown>) => ({
   id: 70,
   userId: TEST_SESSION.id,
@@ -61,29 +48,7 @@ const tx = (fields: Record<string, unknown>) => ({
   recurringPeriod: null,
   ...fields,
 });
-const rule = (fields: Record<string, unknown>) => ({
-  id: 30,
-  userId: TEST_SESSION.id,
-  kind: "expense",
-  accountId: 1,
-  counterAccountId: null,
-  categoryId: 13,
-  amount: 15000,
-  dayOfMonth: 6,
-  note: null,
-  active: true,
-  lastPostedMonth: null,
-  createdAt: NOW,
-  name: null,
-  intervalMonths: 1,
-  startMonth: null,
-  holidayRule: "none",
-  mode: "auto",
-  holdingId: null,
-  allocate: false,
-  lastNotifiedOn: null,
-  ...fields,
-});
+const rule = (fields: Partial<ReturnType<typeof ruleRow>>) => ruleRow({ id: 30, userId: TEST_SESSION.id, categoryId: 13, dayOfMonth: 6, lastPostedMonth: null, createdAt: NOW, mode: "auto", ...fields });
 const holding = (fields: Record<string, unknown> = {}) => ({ id: 21, userId: TEST_SESSION.id, accountId: 4, symbol: "006208", name: "富邦台50", shares: 31, cost: 7916, sortOrder: 0, createdAt: NOW, ...fields });
 
 const CATHAY = account(1, "國泰");
@@ -203,8 +168,8 @@ const CASES: [string, Action, () => FormData, Mock][] = [
   ["moveAccountAction", actions.moveAccountAction, () => form({ id: "1", direction: "up" }), accounts.moveAccount],
   ["deleteAccountAction", actions.deleteAccountAction, () => form({ id: "1" }), accounts.deleteAccount],
   ["updateAllocationAction", actions.updateAllocationAction, () => allocationForm([["1", "5000", ""]]), accounts.updateAllocation],
-  ["createCategoryAction", actions.createCategoryAction, () => form({ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", icon: "utensils" }), categories.createCategory],
-  ["updateCategoryAction", actions.updateCategoryAction, () => form({ id: "11", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "6000", icon: "utensils" }), categories.updateCategory],
+  ["createCategoryAction", actions.createCategoryAction, () => form({ kind: "expense", name: "餐飲", monthlyBudget: "", icon: "utensils" }), categories.createCategory],
+  ["updateCategoryAction", actions.updateCategoryAction, () => form({ id: "11", kind: "expense", name: "餐飲", monthlyBudget: "6000", icon: "utensils" }), categories.updateCategory],
   ["moveCategoryAction", actions.moveCategoryAction, () => form({ id: "11", direction: "up" }), categories.moveCategory],
   ["deleteCategoryAction", actions.deleteCategoryAction, () => form({ id: "11" }), categories.deleteCategory],
   ["addTransactionAction", actions.addTransactionAction, () => form(ENTRY_FIELDS), transactions.addTransaction],
@@ -272,7 +237,7 @@ describe("id 與旗標的檢查：Server Action 可以被直接 POST", () => {
     ["setAccountActiveAction", actions.setAccountActiveAction, (id) => form({ id, active: "true" })],
     ["moveAccountAction", actions.moveAccountAction, (id) => form({ id, direction: "up" })],
     ["deleteAccountAction", actions.deleteAccountAction, (id) => form({ id })],
-    ["updateCategoryAction", actions.updateCategoryAction, (id) => form({ id, kind: "expense", name: "x", color: "blue", monthlyBudget: "" })],
+    ["updateCategoryAction", actions.updateCategoryAction, (id) => form({ id, kind: "expense", name: "x", monthlyBudget: "" })],
     ["moveCategoryAction", actions.moveCategoryAction, (id) => form({ id, direction: "up" })],
     ["deleteCategoryAction", actions.deleteCategoryAction, (id) => form({ id })],
     ["updateTransactionAction", actions.updateTransactionAction, (id) => form({ id, ...ENTRY_FIELDS })],
@@ -485,8 +450,8 @@ describe("持股、買賣、待處理與繳卡費：FormData 的欄位名稱照 
     ["createRecurringAction", () => actions.createRecurringAction({}, form(RULE_FIELDS)), () => recurring.createRecurring, [RULE_FIELDS]],
     ["createAccountAction（信用卡的卡面顏色；舊的表單送來繳款截止日與用途 id 也不交給 service）", () => actions.createAccountAction({}, form({ ...ACCOUNT_FIELDS, kind: "credit", cardStyle: "green", dueDay: "20", purposeId: "5", statementDay: "5", autopay: "on" })), () => accounts.createAccount, [{ ...ACCOUNT_FIELDS, kind: "credit", cardStyle: "green", statementDay: "5", autopay: "on" }]],
     ["updateAccountAction（舊的表單送來繳款截止日與用途 id 也不交給 service）", () => actions.updateAccountAction({}, form({ id: "3", ...ACCOUNT_FIELDS, kind: "credit", dueDay: "20", purposeId: "5", statementDay: "5" })), () => accounts.updateAccount, [3, { ...ACCOUNT_FIELDS, kind: "credit", statementDay: "5" }]],
-    ["createCategoryAction（圖示）", () => actions.createCategoryAction({}, form({ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "6,000", icon: "utensils" })), () => categories.createCategory, [{ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "6,000", icon: "utensils" }]],
-    ["updateCategoryAction（圖示）", () => actions.updateCategoryAction({}, form({ id: "11", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", icon: "coffee" })), () => categories.updateCategory, [11, { kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", icon: "coffee" }]],
+    ["createCategoryAction（圖示；舊的表單送來的顏色不交給 service，顏色由 service 給）", () => actions.createCategoryAction({}, form({ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "6,000", icon: "utensils" })), () => categories.createCategory, [{ kind: "expense", name: "餐飲", monthlyBudget: "6,000", icon: "utensils" }]],
+    ["updateCategoryAction（圖示；送來的顏色不交給 service，修改不動顏色）", () => actions.updateCategoryAction({}, form({ id: "11", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", icon: "coffee" })), () => categories.updateCategory, [11, { kind: "expense", name: "餐飲", monthlyBudget: "", icon: "coffee" }]],
   ] as const)("%s", async (_name, run, service, args) => {
     expect(await run()).not.toHaveProperty("error");
 

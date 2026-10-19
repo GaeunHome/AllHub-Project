@@ -1,20 +1,22 @@
 import Link from "next/link";
 import { requireSession } from "@/core/auth";
-import type { ModuleInfo } from "@/core/module";
+import type { ModuleInfo, SearchParams } from "@/core/module";
+import { taipeiMonthKey } from "@/core/time";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { taipeiToday } from "../../lib/dates";
 import { accountsWithHoldings } from "../../lib/holdings";
 import { earliestFlowMonth, monthTotals } from "../../lib/ledger";
-import { resolveMonth, selectableMonths, taipeiMonth } from "../../lib/month";
+import { resolveMonth, selectableMonths } from "../../lib/month";
 import type { PendingRuleRow } from "../../lib/pending";
+import { revertsPeriod } from "../../lib/recurring";
 import { cachedAccountFlows, cachedAccounts, cachedCategories, cachedCategoryTotals, cachedHoldings, cachedMonthTransactions, cachedRecurring } from "../../service/cached";
 import type { TransactionView } from "../../service/transactions";
 import { QuickAddButton } from "../components/forms/quick-add";
-import type { SearchParams } from "../components/month-href";
 import { MonthSwitcher } from "../components/month-switcher";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { RecordList } from "../components/records/record-list";
-import { categoryOptions, entryFormOptions, expenseRows, formExtras, periodLabel } from "../dashboard-view";
+import { categoryOptions, entryFormOptions, expenseRows, formExtras } from "../dashboard-view";
+import { periodLabel } from "../format";
 import { SAVINGS_PATHS } from "../paths";
 import { accountFilterFrom, categoryFilterFrom, type RecordItem } from "../record-filter";
 
@@ -22,10 +24,10 @@ import { accountFilterFrom, categoryFilterFrom, type RecordItem } from "../recor
  * 只交給瀏覽器畫面用得到的欄位 不帶 userId 與 createdAt
  * 刪掉待處理確認來的最後一期 伺服器會把它放回待處理 條件跟伺服器一樣
  */
-function toRecordItem(view: TransactionView, rules: ReadonlyMap<number, Pick<PendingRuleRow, "mode" | "lastPostedMonth">>, icons: ReadonlyMap<number, string | null>): RecordItem {
+function toRecordItem(view: TransactionView, rules: ReadonlyMap<number, Pick<PendingRuleRow, "kind" | "mode" | "lastPostedMonth">>, icons: ReadonlyMap<number, string | null>): RecordItem {
   const { id, kind, accountId, accountName, counterAccountId, counterAccountName, categoryId, categoryName, amount, date, note, recurring, recurringName, shares, holdingSymbol, cardBillId } = view;
   const rule = view.recurringId === null ? undefined : rules.get(view.recurringId);
-  const backToPending = view.recurringPeriod !== null && rule?.mode === "confirm" && rule.lastPostedMonth === view.recurringPeriod;
+  const backToPending = rule !== undefined && revertsPeriod(view, rule);
   const categoryIcon = categoryId === null ? null : (icons.get(categoryId) ?? null);
   return { id, kind, accountId, accountName, counterAccountId, counterAccountName, categoryId, categoryName, amount, date, note, recurring, recurringName, shares, holdingSymbol, cardBillId, backToPending, categoryIcon };
 }
@@ -50,7 +52,7 @@ export async function RecordsActions() {
 export async function RecordsSection({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireSession();
   const now = new Date();
-  const current = taipeiMonth(now);
+  const current = taipeiMonthKey(now);
   const params = await searchParams;
   const month = resolveMonth(params.month, current);
   const [accounts, categories, flows, transactions, totals, rules, holdings] = await Promise.all([

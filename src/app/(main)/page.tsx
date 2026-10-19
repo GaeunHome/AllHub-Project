@@ -7,6 +7,8 @@ import { StarrailHomeCard } from "@/modules/starrail/web/pages/home-card";
 import { twitchInfo } from "@/modules/twitch/info";
 import { TwitchHomeCard } from "@/modules/twitch/web/pages/home-card";
 import { youtubeInfo } from "@/modules/youtube/info";
+import { weatherInfo } from "@/modules/weather/info";
+import { WeatherHomeCard } from "@/modules/weather/web/pages/home-card";
 import { YoutubeHomeCard } from "@/modules/youtube/web/pages/home-card";
 
 export default function Page() {
@@ -20,7 +22,12 @@ export default function Page() {
         </>
       }
       half={<StarrailHomeCard info={starrailInfo} />}
-      compact={<SavingsHomeCard info={savingsInfo} />}
+      compact={
+        <>
+          <WeatherHomeCard info={weatherInfo} />
+          <SavingsHomeCard info={savingsInfo} />
+        </>
+      }
     />
   );
 }

@@ -13,7 +13,6 @@ import {
   NAME_MAX_LENGTH,
   NOTE_MAX_LENGTH,
   RECURRING_MODES,
-  SELECTABLE_COLORS,
   type AccountKind,
   type CardStyle,
   type CategoryIcon,
@@ -21,7 +20,6 @@ import {
   type EntryKind,
   type HolidayRule,
   type IntervalMonths,
-  type PaletteColor,
   type RecurringMode,
 } from "./kinds";
 import { accountStartDate, balanceFromFigure, type AccountLike } from "./ledger";
@@ -164,12 +162,6 @@ export function parseNote(raw: string): Parsed<string | null> {
 }
 
 const oneOf = <T extends string>(values: readonly T[], raw: string): T | null => ((values as readonly string[]).includes(raw) ? (raw as T) : null);
-
-/** 灰色留給未分類與未設定用途 表單送來也不收 */
-export function parseColor(raw: string): Parsed<PaletteColor> {
-  const color = oneOf(SELECTABLE_COLORS, raw);
-  return color ? ok(color) : fail("顏色不正確");
-}
 
 /** 沒選時畫面照信用卡建立的順序輪流 */
 function parseCardStyle(raw: string): Parsed<CardStyle | null> {
@@ -333,19 +325,17 @@ export function parseAllocationFields(lines: Fields<"accountId" | "monthlyPlan" 
   return ok(parsed);
 }
 
-export type CategoryInput = { name: string; color: PaletteColor; monthlyBudget: number | null; icon: CategoryIcon | null };
+export type CategoryInput = { name: string; monthlyBudget: number | null; icon: CategoryIcon | null };
 
-/** 只有支出能設預算 收入的忽略 */
-export function parseCategoryFields(fields: Fields<"name" | "color" | "monthlyBudget" | "icon">, kind: CategoryKind): Parsed<CategoryInput> {
+/** 只有支出能設預算 收入的忽略 顏色由 service 給 */
+export function parseCategoryFields(fields: Fields<"name" | "monthlyBudget" | "icon">, kind: CategoryKind): Parsed<CategoryInput> {
   const name = parseName(fields.name);
   if (!name.ok) return name;
-  const color = parseColor(fields.color);
-  if (!color.ok) return color;
   const monthlyBudget = kind === "expense" ? optional(fields.monthlyBudget, parseAmount) : ok(null);
   if (!monthlyBudget.ok) return monthlyBudget;
   const icon = parseCategoryIcon(fields.icon);
   if (!icon.ok) return icon;
-  return ok({ name: name.value, color: color.value, monthlyBudget: monthlyBudget.value, icon: icon.value });
+  return ok({ name: name.value, monthlyBudget: monthlyBudget.value, icon: icon.value });
 }
 
 type EntryCore = { kind: EntryKind; accountId: number; counterAccountId: number | null; categoryId: number | null; amount: number; note: string | null };

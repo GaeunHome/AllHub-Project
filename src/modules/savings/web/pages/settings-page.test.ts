@@ -1,9 +1,8 @@
-import { createElement, type ReactElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { markup as render, mocksOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), usePathname: () => "/savings/settings" }));
@@ -38,22 +37,15 @@ beforeEach(() => {
 });
 
 describe("理財的設定頁", () => {
-  it("頁首（理財）與分頁列（設定是目前這一頁）", () => {
-    const markup = renderToStaticMarkup(createElement(SettingsPage, { info: INFO }));
-
-    expect(markup).toMatch(/<h1[^>]*>理財<\/h1>/);
-    expect(markup).toMatch(/<a [^>]*aria-current="page"[^>]*href="\/savings\/settings"|<a [^>]*href="\/savings\/settings"[^>]*aria-current="page"/);
-  });
-
   it("帳戶與固定收支搬到自己的分頁：設定頁連過去（帳戶、投資、每月固定）", () => {
-    const markup = renderToStaticMarkup(createElement(SettingsPage, { info: INFO }));
+    const markup = render(createElement(SettingsPage, { info: INFO }));
     const below = markup.slice(markup.indexOf('data-slot="setup-result"'));
 
     expect(hrefs(below)).toEqual(expect.arrayContaining(["/savings/accounts", "/savings/investments", "/savings/recurring"]));
   });
 
   it("「開始使用」的成功訊息留在卡片外面（建好後卡片會換掉）", () => {
-    const markup = renderToStaticMarkup(createElement(SettingsPage, { info: INFO }));
+    const markup = render(createElement(SettingsPage, { info: INFO }));
 
     expect(markup).toMatch(/<div data-slot="setup-result">[\s\S]*載入分類…/);
   });
@@ -61,7 +53,7 @@ describe("理財的設定頁", () => {
   it("整頁的視窗共用一個訊息範圍：只留最新的一則成功訊息", () => {
     vi.mocked(dialog.DialogMessageScope).mockClear();
 
-    renderToStaticMarkup(createElement(SettingsPage, { info: INFO }));
+    render(createElement(SettingsPage, { info: INFO }));
 
     expect(dialog.DialogMessageScope).toHaveBeenCalledOnce();
   });
@@ -71,18 +63,18 @@ describe("分類", () => {
   it("用登入者（bob）的 id 讀", async () => {
     requireSession.mockResolvedValue(OTHER_SESSION);
 
-    renderToStaticMarkup((await CategoriesLoader()) as ReactElement);
+    render(await CategoriesLoader());
 
     expect(cached.cachedCategories).toHaveBeenCalledWith(OTHER_SESSION.id);
   });
 
-  it("交給卡片的分類帶圖示，不帶 userId", async () => {
-    renderToStaticMarkup((await CategoriesLoader()) as ReactElement);
+  it("交給卡片的分類帶圖示，不帶 userId 與顏色（顏色由伺服器給、畫面不顯示）", async () => {
+    render(await CategoriesLoader());
     const { categories } = vi.mocked(CategoriesCard).mock.calls[0][0];
 
     expect(categories).toEqual([
-      { id: 11, name: "餐飲", kind: "expense", color: "orange", monthlyBudget: 6000, icon: "utensils" },
-      { id: 21, name: "薪水", kind: "income", color: "green", monthlyBudget: null, icon: null },
+      { id: 11, name: "餐飲", kind: "expense", monthlyBudget: 6000, icon: "utensils" },
+      { id: 21, name: "薪水", kind: "income", monthlyBudget: null, icon: null },
     ]);
   });
 });

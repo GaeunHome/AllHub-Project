@@ -3,7 +3,7 @@ const KEPT_KEYS = ["ltoken_v2", "ltuid_v2", "ltmid_v2", "account_id_v2", "accoun
 
 /** 連結只要 ltoken_v2 與 ltuid_v2 這幾個沒貼的話有些功能不能用 */
 const RECOMMENDED_KEYS = ["ltmid_v2", "cookie_token_v2", "account_id_v2", "account_mid_v2"] as const;
-export type RecommendedKey = (typeof RECOMMENDED_KEYS)[number];
+type RecommendedKey = (typeof RECOMMENDED_KEYS)[number];
 
 /** 少了這個鍵可能不能用的功能 開拓月曆依 genshin.py issue 151 兌換碼依它的 redeem_code */
 const NEEDED_BY: Record<RecommendedKey, string[]> = {
@@ -17,7 +17,7 @@ const FEATURES = ["即時便箋", "開拓月曆", "兌換碼"];
 /** RFC 6265 的 cookie-octet 不合法的字元會讓錯誤訊息帶出整段 cookie 先擋下 */
 const COOKIE_OCTETS = /^[\x21\x23-\x2B\x2D-\x3A\x3C-\x5B\x5D-\x7E]+$/;
 
-export type ParsedCookie = { ok: true; cookie: string; ltuid: string; missing: RecommendedKey[] } | { ok: false; error: string };
+type ParsedCookie = { ok: true; cookie: string; ltuid: string; missing: RecommendedKey[] } | { ok: false; error: string };
 
 /** 接受 document.cookie 的分號格式或一行一個 錯誤訊息不帶任何 cookie 內容 */
 export function parseHoyolabCookie(input: string): ParsedCookie {

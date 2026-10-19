@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
-import { MIN_DATE, addDays, daysBetween, dueStatus, dueText, formatDay, formatSlashDate, lastDayOfMonth, parseDate, taipeiToday, weekdayOfDate } from "./dates";
+import { MIN_DATE, addDays, daysBetween, dueStatus, dueText, earliestOf, formatDay, formatSlashDate, lastDayOfMonth, latestOf, parseDate, taipeiToday, weekdayOfDate } from "./dates";
 
 describe("taipeiToday（台北時間的今天）", () => {
   it("UTC 10/13 16:00 是台北 10/14 零點_算 10/14", () => {
@@ -109,5 +109,19 @@ describe("dueStatus 與 dueText（到期的狀態與寫法）", () => {
 
   it("SPEC 的寫法：還有 5 天、今天、逾期 2 天", () => {
     expect([dueText(5), dueText(0), dueText(-2)]).toEqual(["還有 5 天", "今天", "逾期 2 天"]);
+  });
+});
+
+describe("latestOf 與 earliestOf（幾個日期或月份裡最晚、最早的）", () => {
+  it("略過不知道的（null、undefined）；都不知道時是 null", () => {
+    expect(latestOf(["2026-09-01", undefined, "2026-10-14", null, "2026-10-02"])).toBe("2026-10-14");
+    expect(earliestOf(["2026-09-01", undefined, "2026-10-14", null, "2026-10-02"])).toBe("2026-09-01");
+    expect(latestOf([undefined, null])).toBeNull();
+    expect(earliestOf([])).toBeNull();
+  });
+
+  it("月份也一樣_跨年照年份比", () => {
+    expect(latestOf(["2026-12", "2027-01", "2026-03"])).toBe("2027-01");
+    expect(earliestOf(["2026-12", "2027-01", "2026-03"])).toBe("2026-03");
   });
 });

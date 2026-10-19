@@ -4,8 +4,14 @@ import { captureErrorLog, form, mocksOf, updated } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/accounts", { spy: true });
+vi.mock("../service/checkin", { spy: true });
+vi.mock("../service/link", { spy: true });
 
-const service = mocksOf(await import("../service/accounts"), "linkAccount", "checkinAccount", "setStaminaThreshold", "setAutoRedeem", "setGameReminders", "removeAccount");
+const service = {
+  ...mocksOf(await import("../service/accounts"), "setStaminaThreshold", "setAutoRedeem", "setGameReminders", "removeAccount"),
+  ...mocksOf(await import("../service/checkin"), "checkinAccount"),
+  ...mocksOf(await import("../service/link"), "linkAccount"),
+};
 const { checkinAction, linkAccountAction, removeAccountAction, setAutoRedeemAction, setGameRemindersAction, setThresholdAction } = await import("./actions");
 
 beforeEach(() => {

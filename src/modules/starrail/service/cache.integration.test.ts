@@ -1,27 +1,21 @@
 import { eq } from "drizzle-orm";
 import { cacheLife, revalidateTag } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { resetNextCache, tagged } from "@/dev/test-helpers";
-import type { DailyNote } from "../lib/responses";
 import { starrailAccounts, starrailCheckinLogs } from "../data/schema";
+import { COOKIE, dailyNote, hoyolab, ok, ROLE } from "../dev/fixtures";
 
-const hoyolab = vi.hoisted(() => ({ fetchGameRoles: vi.fn(), fetchDailyNote: vi.fn(), fetchCheckinInfo: vi.fn(), signIn: vi.fn() }));
-vi.mock("../lib/hoyolab", () => hoyolab);
+vi.mock("../lib/hoyolab", async () => (await import("../dev/fixtures")).hoyolab);
 
 stubCoreEnv();
 
 const { cachedAccounts, cachedDailyNote, cachedRecentCheckins } = await import("./cached");
-const { linkAccount, syncCookieInvalid } = await import("./accounts");
+const { syncCookieInvalid } = await import("./accounts");
+const { linkAccount } = await import("./link");
 
-const COOKIE = "ltoken_v2=v2_secret_token; ltuid_v2=42";
-const ROLE = { uid: "900000001", nickname: "開拓者", region: "prod_official_cht", regionName: null, level: 70 };
-const NOTE: DailyNote = {
-  stamina: 231, maxStamina: 300, staminaRecoverSeconds: 24_840, reserveStamina: 1200,
-  expeditionsAccepted: 4, expeditionsTotal: 4, trainScore: 300, maxTrainScore: 500,
-  rogueScore: 8000, maxRogueScore: 14000, cocoonRemaining: 2, cocoonLimit: 3,
-};
+const NOTE = dailyNote();
 
 let testDb: TestDb;
 setupTestDb((d) => (testDb = d));
@@ -31,11 +25,11 @@ let other: string;
 const account = async () => (await testDb.select().from(starrailAccounts))[0];
 
 beforeEach(async () => {
-  me = await insertTestUser(testDb, "alice", { role: "owner" });
-  other = await insertTestUser(testDb, "bob");
+  [me, other] = await insertTestUsers(testDb);
   for (const fn of Object.values(hoyolab)) fn.mockReset();
-  hoyolab.fetchGameRoles.mockResolvedValue({ ok: true, data: [ROLE], raw: {} });
-  hoyolab.fetchDailyNote.mockResolvedValue({ ok: true, data: NOTE, raw: { cookie_echo: COOKIE } });
+  hoyolab.fetchGameRoles.mockResolvedValue(ok([ROLE]));
+  // 回應裡夾帶 cookie 也不能跟著進到快取
+  hoyolab.fetchDailyNote.mockResolvedValue({ ...ok(NOTE), echo: COOKIE });
   await linkAccount(me, COOKIE);
   resetNextCache();
 });
@@ -81,14 +75,14 @@ describe("cachedDailyNote：即時便箋短效期快取，參數只有帳號 id"
 
     expect(hoyolab.fetchDailyNote).toHaveBeenCalledWith(COOKIE, "900000001", "prod_official_cht");
     expect(result).toMatchObject({ ok: true, note: NOTE, cookieInvalid: false });
-    expect(result.fetchedAt).toBeInstanceOf(Date);
+    expect(result.ok && result.fetchedAt).toBeInstanceOf(Date);
     expect(JSON.stringify(result)).not.toContain("v2_secret_token");
     expect(tagged()).toEqual(["starrail:accounts"]);
     expect(cacheLife).toHaveBeenCalledWith("external");
   });
 
   it("HoYoLAB 說 cookie 失效_回報給呼叫端_快取函式裡不寫資料庫", async () => {
-    hoyolab.fetchDailyNote.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true, raw: {} });
+    hoyolab.fetchDailyNote.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true });
     const { id } = await account();
 
     expect(await cachedDailyNote(me, id)).toMatchObject({ ok: false, message: "cookie 已失效", cookieInvalid: true });

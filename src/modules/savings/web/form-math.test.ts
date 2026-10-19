@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SELECTABLE_COLORS } from "../lib/kinds";
-import { balanceHint, choosableAccounts, defaultIncomeCategory, latestDate, nextFreeColor, salaryFormReducer, salaryPreview, salaryStartDate, selectableColor, suggestLines } from "./form-math";
+import { balanceHint, choosableAccounts, defaultIncomeCategory, salaryFormReducer, salaryPreview, salaryStartDate, suggestLines } from "./form-math";
 
 describe("更新餘額的說明", () => {
   it("輸入銀行 App 上的餘額：寫出要記的調整是實際減記錄的（12,000 → 11,650 是 -$350）", () => {
@@ -124,40 +123,6 @@ describe("發薪分配", () => {
     it("換入帳帳戶_建議會跟著變，改過的金額全部清掉（薪水留著）", () => {
       expect(salaryFormReducer({ ...state, edits: { 2: "4000", 4: "1000" } }, { type: "receiving", id: 4 })).toEqual({ receivingId: 4, salaryText: "43000", edits: {} });
     });
-  });
-});
-
-describe("nextFreeColor：新增用途或分類時預設的顏色", () => {
-  it("挑還沒用過的第一個顏色", () => {
-    expect(nextFreeColor([])).toBe("blue");
-    expect(nextFreeColor(["blue", "teal"])).toBe("green");
-  });
-
-  it("灰色留給未分類與未設定用途：其他顏色都用過了也不會挑灰色", () => {
-    expect(nextFreeColor(["blue", "teal", "green", "amber", "orange", "rose", "violet"])).not.toBe("slate");
-    expect(nextFreeColor(["slate"])).toBe("blue");
-  });
-
-  it("七個可以選的顏色都用過了_照數量輪替", () => {
-    expect(nextFreeColor([...SELECTABLE_COLORS])).toBe("blue");
-    expect(nextFreeColor([...SELECTABLE_COLORS, "blue"])).toBe("teal");
-  });
-});
-
-describe("latestDate：幾個日期裡最晚的", () => {
-  it("略過不知道的（undefined）；都不知道時回 undefined", () => {
-    expect(latestDate(["2026-09-01", undefined, "2026-10-14", "2026-10-02"])).toBe("2026-10-14");
-    expect(latestDate([undefined])).toBeUndefined();
-  });
-});
-
-describe("selectableColor：修改時預先選好的顏色", () => {
-  it("原本的顏色還能選_用它", () => {
-    expect(selectableColor("teal", "blue")).toBe("teal");
-  });
-
-  it("以前存成灰色（現在留給未分類，伺服器不收）_改用還沒用過的顏色，不然一儲存就失敗", () => {
-    expect(selectableColor("slate", "amber")).toBe("amber");
   });
 });
 

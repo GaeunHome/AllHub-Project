@@ -3,10 +3,9 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { setupTestDb } from "@/dev/test-db";
 import { coreInvites, coreUsers } from "../db/schema";
+import { INVITE_DAY_OPTIONS, INVITE_USE_OPTIONS } from "./invite-rules";
 
 const {
-  INVITE_DAY_OPTIONS,
-  INVITE_USE_OPTIONS,
   InviteInputError,
   consumeInvite,
   createInvite,

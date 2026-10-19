@@ -5,10 +5,11 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { CardHeader } from "@/core/ui/page-header";
+import { SegmentedControl } from "@/core/ui/segmented-control";
 import type { EntryKind } from "../../../lib/kinds";
 import { formatTwd } from "../../../lib/money";
 import { addTransactionAction } from "../../actions";
-import { formatShares } from "../../dashboard-view";
+import { formatShares } from "../../format";
 import type { BalanceTarget, CardTarget, HoldingTarget, QuickActionsView } from "../../overview-view";
 import { SAVINGS_PATHS, addAccountPath } from "../../paths";
 import { BillForm } from "../accounts/card-bill";
@@ -17,7 +18,6 @@ import { EntryForm } from "../forms/entry-form";
 import { UpdateBalanceForm } from "../forms/update-balance";
 import { Illustration, type IllustrationName } from "../illustration";
 import { BuySellForm } from "../investments/holding-forms";
-import { Segmented } from "../segmented";
 import { Ticker } from "../visuals";
 
 export type ActionId = EntryKind | "card" | "trade" | "balance";
@@ -123,7 +123,8 @@ function CardForms({ card, view, back, onDone, onCancel }: { card: CardTarget; v
   return (
     <Picked name={card.name} detail={card.status} back={back} backLabel="換一張卡">
       {canPay && (
-        <Segmented
+        <SegmentedControl
+          variant="field"
           label="要做什麼"
           options={[
             { id: "bill", label: "填帳單" },
@@ -181,7 +182,8 @@ function TradeForms({ target, view, back, onDone, onCancel }: { target: HoldingT
   return (
     <Picked name={<HoldingName target={target} />} detail={target.accountName} back={back} backLabel="換一檔">
       {target.holding.shares > 0 && (
-        <Segmented
+        <SegmentedControl
+          variant="field"
           label="買進或賣出"
           options={[
             { id: "buy", label: "買進" },

@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { CAPTCHA_ALPHABET, CAPTCHA_LENGTH } from "./auth/messages";
 
 // 分組與順序跟 .env.example 一致
 // 各組用到時才驗證 沒用到的模組不必填
@@ -55,14 +56,23 @@ export const youtubeEnv = defineEnv(
   }),
 );
 
+// 天氣模組 都是選填 沒設時首頁的卡片說明要去哪裡申請
+export const weatherEnv = defineEnv(
+  "天氣模組",
+  z.object({
+    // 從網站複製時常多帶空白 原樣送出會被拒絕
+    CWA_API_KEY: z.string().trim().min(1).optional(),
+    MOENV_API_KEY: z.string().trim().min(1).optional(),
+  }),
+);
+
 // 本機測試 選填 production 會忽略
 const devSchema = z.object({
   DEV_EXTERNAL_ORIGIN: z.url().optional(),
-  // 給 E2E 固定圖形驗證碼
-  // 字元要跟 captcha-image.ts 的 CAPTCHA_ALPHABET 一致 字型只畫得出這些字
+  // 給 E2E 固定圖形驗證碼 字型只畫得出驗證碼用的字元
   DEV_CAPTCHA_CODE: z
     .string()
-    .regex(/^[ACDEFHJKMNPRTUVWXY34679]{5}$/, "要剛好 5 個驗證碼用的字元（大寫英文與數字，不含容易看錯的字）")
+    .regex(new RegExp(`^[${CAPTCHA_ALPHABET}]{${CAPTCHA_LENGTH}}$`), `要剛好 ${CAPTCHA_LENGTH} 個驗證碼用的字元（大寫英文與數字，不含容易看錯的字）`)
     .optional(),
 });
 

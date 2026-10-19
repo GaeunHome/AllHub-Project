@@ -34,6 +34,9 @@
 | HoYoLAB | 角色詳情的遺器副詞條 | 強化次數是固定的：+15 的遺器每件強化 5 次，最多的一條是連結繩的暴擊率 +5；頭部是暴擊率 +2、暴擊傷害 +1、攻擊力 +2；每件都有沒強化過的詞條（不顯示 +N）。等級低於 80 的角色（例如布洛妮婭、丹恆）腳部是 +12，只強化 4 次（暴擊率 +3、暴擊傷害 +1） |
 | HoYoLAB | 兌換碼 | `STARRAILGIFT` 或 `GIFT` 開頭成功（同一個 UID 第二次是已兌換）、`USED` 開頭已兌換、`EXPIRED` 開頭過期、`LEVEL` 開頭等級不足、`RISK` 開頭要求驗證（10035，自動兌換會整批停下），其他無效；同一個 UID 5 秒內再兌換是太頻繁。cookie 要有 `cookie_token_v2`（`account_id_v2` 沒貼時網站用 `ltuid_v2` 補上） |
 | HoYoLAB | 社群的兌換碼清單（hoyo-codes 的 `/codes?game=hkrpg`） | 自動兌換讀這份：`GIFTAUTO2026`、`GIFTLIVESTREAM`、`STARRAILGIFT` 第一次會成功（同一個 UID 第二次是已兌換），`OMEGA` 在假伺服器是無效，`EXPIREDCODE1` 過期。手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/starrail:redeem`，帳號要先在「帳號設定」打開自動兌換 |
+| 天氣 | 氣象署 F-C0032-001 | 時段照現在的台北時間算（從最近的 6 點或 18 點起三段）；帶 `locationName` 只回那個縣市，沒帶（早上的 `weather:rain`）回全部 22 個縣市。每個縣市照名稱固定一種天氣，現在與下一段的降雨機率決定卡片的提醒，見下表 |
+| 天氣 | 授權碼 `bad` 開頭（`CWA_API_KEY`、`MOENV_API_KEY`） | 回 401，像授權碼打錯 |
+| 天氣 | 環境部 aqx_p_432 | 只有臺北市、新北市、桃園市、臺中市、臺南市、高雄市、花蓮縣有測站：臺北市最差的是萬華（62）、新北市的汐止維修中（AQI 是空的）、臺中市 104 與臺南市 121 是對敏感族群不健康、高雄市 156 是對所有族群不健康；其他縣市沒有測站 |
 | 股價 | 證交所 `STOCK_DAY_ALL`、櫃買中心 `tpex_mainboard_quotes` | 收盤價照 2026-10-14 的真實回應（例如 `006208` 258.70、`0050` 113.00、`00679B` 25.05），日期是今天之前最近的平日；`00625K`、`00682U`、`00986B`、`2064` 沒有成交（畫面寫股價暫時讀不到）；另外補了各 120 檔示範股票（上市 `1101`～`1220`、上櫃 `3201`～`3320`），因為網站把不到 100 筆的清單當成讀不到；其他代號是找不到 |
 | YouTube | `@nobody` | 查無頻道；其他 `@帳號` 都會成功，hub 約 0.5 秒後回呼確認訂閱 |
 | YouTube | 頻道的 RSS feed | 每個頻道都有三支一般影片：3 小時前的 MV（影片 id `zhsubs` 開頭，有中文字幕）、30 小時前與 5 天前各一支，追蹤時會補進影片清單（別人已經追蹤的頻道只補超過 24 小時的），縮圖先標「檢查字幕中」，約 4 秒後自動換成檢查結果；另有 1 小時前與 2 天前的兩支 Shorts（影片 id `short` 開頭，連結是 `/shorts/`），不會列進清單，`youtube:cleanup` 也是讀這份 RSS 找 Shorts |
@@ -50,6 +53,17 @@
 | AI | 含 `bad` 的 API Key | 翻譯時得到「… API Key 無效或沒有權限…」：只顯示給用這把 Key 的人，共用的翻譯不會標成失敗 |
 
 影片 id 一定要剛好 11 碼（英數字、`_`、`-`），不然觀看頁會找不到影片。
+
+天氣卡片的提醒照假氣象署的現在與下一段（跟幾點看無關）。截圖時三種提醒用臺北市、高雄市、臺中市，看最擠的排版用臺南市：
+
+| 提醒 | 縣市（現在、下一段的降雨機率） |
+|---|---|
+| 記得帶傘（`umbrella`） | 臺北市（60%、40%）、新北市（20%、70%）、澎湖縣（70%、60%）、臺東縣（60%、40%）、新竹市與新竹縣（20%、70%） |
+| 帶把折傘（`maybe`） | 高雄市、基隆市、桃園市、雲林縣、嘉義市、嘉義縣、宜蘭縣、金門縣（40%、10%） |
+| 不用帶傘（`dry`） | 臺中市、苗栗縣、彰化縣、南投縣、屏東縣、花蓮縣、連江縣（10%、20%） |
+| 最壞情況（記得帶傘） | 臺南市（100%、90%）：天氣描述 11 個字（「多雲時晴午後短暫雷陣雨」）、舒適度 7 個字（「稍有寒意至舒適」），空氣品質是對敏感族群不健康（121），用來看卡片最擠時的排版 |
+
+手動跑早上的下雨提醒：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/weather:rain`。選了「記得帶傘」那一組縣市、開著下雨通知的人會收到「記得帶傘」；同一天（台北時間）再跑一次不會重寄，要再試一次就刪掉 `core_rate_limits` 裡 scope 是 `weather:rain` 的列。
 
 ## 模擬開台通知與新影片推送
 
@@ -103,11 +117,12 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
   - 整合測試用記憶體裡的 PGlite（`src/dev/test-db.ts`），不需要資料庫。
   - 測試不會對外部服務發請求：`src/dev/vitest-setup.ts` 把全域 `fetch` 換成只能連 localhost／127.0.0.1 的版本，其他目的地直接丟錯，錯誤訊息會說明怎麼換成替身（`fakeFetch` 傳給 `fetchImpl`、`vi.stubGlobal("fetch", …)`、`vi.mock(path, { spy: true })` 要設定回應）。
   - `docs/secrets.md` 產生亂數密鑰的那行指令，測試會實際執行，並用 `core/env.ts` 檢查每個值；改那行時測試也要通過。
-  - 共用的測試輔助（環境變數、登入狀態、假 fetch、`next/cache` 的 spy…）都在 `src/dev/`，用法見 CLAUDE.md。
-- **規則檢查**：`src/architecture.test.ts` 與 `src/cache-rules.test.ts` 檢查架構與快取規則（見 [架構](architecture.md)），包括 `process.env` 只出現在允許的地方。
-- **CI 的順序**：`ci.yml` 依序跑 test → lint → build → typecheck。`typecheck` 要用 build 產生的 `.next/types`，所以本機也要先 build。
+  - 共用的測試輔助都在 `src/dev/`，用法見 CLAUDE.md〈架構規則〉：環境變數（跨模組的測試用 `stubAllEnv()`）、測試帳號（`insertTestUsers()` 建站長 alice 與成員 bob）、登入狀態、`next/navigation` 與 ⋮ 選單的替身、假 fetch 與假 localStorage、算繪成 HTML 與取出看得到的字（`markup()`、`textOf()`）、直接呼叫假外部服務的 `mockRequest()`、`next/cache` 的 spy。模組自己的測試 fixture 放在模組的 `dev/`，只有測試能 import。
+  - `vi.stubGlobal` 換掉的全域（`fetch`、`localStorage`、`window`…）每個測試前自動還原（`vitest.config.mts` 的 `unstubGlobals`），測試不用自己還原；環境變數不自動還原。每個測試開始時 `DEV_EXTERNAL_ORIGIN` 是空的，本機 shell 設了假伺服器也不影響測試。
+- **規則檢查**：`src/architecture.test.ts` 與 `src/cache-rules.test.ts` 檢查架構與快取規則（見 [架構](architecture.md)），包括 `process.env` 只出現在允許的地方、Server Action 先確認登入、模組 id 一致。`src/modules/cron.test.ts` 檢查排程跟 `vercel.json` 一一對應，`src/account-deletion.integration.test.ts` 從資料庫的外鍵檢查刪除帳號時每張表都刪乾淨。
+- **CI 的順序**：`ci.yml` 的測試跟 lint → build → typecheck 是兩個同時跑的工作，各自最多 30 分鐘（公開 repo 的 Actions 不計分鐘，上限只是避免卡住的工作掛很久）。`typecheck` 要用 build 產生的 `.next/types`，所以本機也要先 build。
 - **在瀏覽器裡測試**：一律用 `next dev` 加上 `npm run mock:external` 與 `DEV_EXTERNAL_ORIGIN`。
-  - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、沒有持股的理財、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像、即時便箋與股價，只有還沒追蹤、沒連結帳號、沒有持股的使用者才不會對外；新增持股、`starrail:stamina`、`starrail:redeem` 也都會對外。
+  - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、沒有持股的理財、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像、即時便箋、股價與天氣，只有還沒追蹤、沒連結帳號、沒有持股、沒選縣市的使用者才不會對外；新增持股、`starrail:stamina`、`starrail:redeem`、`weather:rain` 也都會對外。
   - 可見的分頁大約每 10 秒向 `/api/notifications` 輪詢一次（背景分頁每 60 秒），模擬開台或新影片後最多等 10 秒，提示卡片就會出現。
 - **自動化測試觀看頁**：要先注入假的 `window.YT.Player`，否則瀏覽器會向 youtube.com 載入播放器。細節見 CLAUDE.md〈測試與 E2E〉。
 - **自動化點按**：用 Chrome DevTools Protocol 的 `Input.dispatchMouseEvent`（手機用 `Input.dispatchTouchEvent`）模擬真的滑鼠與手指，不要用 `element.click()`：它不經過命中測試、也不發 pointerdown，測不出「按下就把選單收起來」這類問題。

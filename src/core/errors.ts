@@ -22,7 +22,16 @@ export function connectionProblem(error: unknown, service: string): string | nul
   }
 }
 
-/** 印出 scope 與做什麼失敗 加上 uid 或狀態碼這類識別資訊與錯誤種類 */
+/** 外部服務回的 HTTP 狀態碼這類數字 只看 Error 的 status 欄位 */
+function statusOf(error: unknown): number[] {
+  const status = error instanceof Error ? (error as { status?: unknown }).status : undefined;
+  return typeof status === "number" ? [status] : [];
+}
+
+/**
+ * 印出 scope 與做什麼失敗 加上 uid 這類識別資訊與錯誤種類
+ * 錯誤帶數字的 status 時一起印 看得出是哪一種失敗
+ */
 export function logError(scope: string, what: string, error: unknown, ...context: Array<string | number | null>): void {
-  console.error(`[${scope}] ${what}`, ...context, errorKind(error));
+  console.error(`[${scope}] ${what}`, ...context, ...statusOf(error), errorKind(error));
 }

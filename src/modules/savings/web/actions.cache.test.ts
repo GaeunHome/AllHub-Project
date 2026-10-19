@@ -78,8 +78,8 @@ describe("理財的 Server Action：寫入成功後用 updateTag 讓改到的表
     // 帳戶的紀錄 含轉帳的另一邊 固定收支 持股與帳單跟著刪除
     ["deleteAccountAction", ["savings:accounts", "savings:bills", "savings:holdings", "savings:recurring", "savings:transactions"], () => actions.deleteAccountAction({}, form({ id: "1" }))],
     // 用了這個用途的帳戶改成未設定
-    ["createCategoryAction", ["savings:categories"], () => actions.createCategoryAction({}, form({ kind: "expense", name: "餐飲", color: "orange" }))],
-    ["updateCategoryAction", ["savings:categories"], () => actions.updateCategoryAction({}, form({ id: "11", name: "外食", color: "orange" }))],
+    ["createCategoryAction", ["savings:categories"], () => actions.createCategoryAction({}, form({ kind: "expense", name: "餐飲" }))],
+    ["updateCategoryAction", ["savings:categories"], () => actions.updateCategoryAction({}, form({ id: "11", name: "外食" }))],
     ["moveCategoryAction", ["savings:categories"], () => actions.moveCategoryAction({}, form({ id: "11", direction: "up" }))],
     // 紀錄與固定收支改成未分類
     ["deleteCategoryAction", ["savings:categories", "savings:recurring", "savings:transactions"], () => actions.deleteCategoryAction({}, form({ id: "11" }))],

@@ -1,8 +1,9 @@
 "use client";
 
 import { useId, useState } from "react";
+import { groupDigits } from "@/core/number";
 import { Icon } from "@/core/ui/icon";
-import { groupDigits, monthLabel, type Ledger } from "../../lib/ledger";
+import { monthLabel, type Ledger } from "../../lib/ledger";
 
 type LedgerViewProps = { ledgers: Ledger[]; current: string; fetchedLabel: string };
 

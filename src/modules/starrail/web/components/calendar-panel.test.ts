@@ -1,9 +1,9 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { markup, mocksOf } from "@/dev/test-helpers";
 import type { ActCalendar } from "../../lib/calendar";
+import { accountView } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/cached", { spy: true });
@@ -11,7 +11,7 @@ vi.mock("../../service/cached", { spy: true });
 const cached = mocksOf(await import("../../service/cached"), "cachedActCalendar");
 const { CalendarPanel } = await import("./calendar-panel");
 
-const account = { id: 3, uid: "900000003", nickname: "開拓者", region: "prod_official_cht", level: 70, staminaAlertThreshold: null, cookieInvalid: false, autoRedeem: false, canAutoRedeem: false, gameReminders: true };
+const account = accountView();
 const DAY = 86_400_000;
 const now = Date.now();
 const span = (endDays: number) => ({ startsAt: now - 10 * DAY, endsAt: now + endDays * DAY });
@@ -42,15 +42,14 @@ const CALENDAR: ActCalendar = {
   ],
 };
 
-const html = async () => renderToStaticMarkup((await CalendarPanel({ account })) as ReactElement);
+const html = async () => markup((await CalendarPanel({ account })) as ReactElement);
 
 beforeEach(() => {
   requireSession.mockReset();
-  cached.cachedActCalendar.mockReset().mockResolvedValue({ ok: true, calendar: CALENDAR, fetchedAt: new Date(now), cookieInvalid: false });
+  cached.cachedActCalendar.mockReset().mockResolvedValue({ ok: true, calendar: CALENDAR, fetchedAt: new Date(now) });
+  // 開發時圖片網址改寫到假伺服器 每個測試前 vitest-setup 會先清掉
   vi.stubEnv("DEV_EXTERNAL_ORIGIN", "http://127.0.0.1:4010");
 });
-
-afterEach(() => vi.unstubAllEnvs());
 
 describe("活動日曆", () => {
   it("用登入者的 id 加帳號 id 讀（別人的帳號 id 讀到的是找不到）", async () => {
@@ -86,7 +85,7 @@ describe("活動日曆", () => {
   });
 
   it("讀不到_只在這一塊顯示原因", async () => {
-    cached.cachedActCalendar.mockResolvedValue({ ok: false, message: "資料沒有公開：到 HoYoLAB → 戰績 → 設定，打開對應的公開設定（10102）", fetchedAt: new Date(now), cookieInvalid: false });
+    cached.cachedActCalendar.mockResolvedValue({ ok: false, message: "資料沒有公開：到 HoYoLAB → 戰績 → 設定，打開對應的公開設定（10102）" });
 
     expect(await html()).toContain("資料沒有公開");
   });

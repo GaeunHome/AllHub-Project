@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { MAX_AMOUNT, formatSignedTwd, formatTwd } from "./money";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { MAX_AMOUNT, formatNumber, formatSignedTwd, formatTwd } from "./money";
 
 describe("formatTwd", () => {
   it.each([
@@ -30,5 +30,15 @@ describe("formatSignedTwd（有方向的金額）", () => {
     [0, "$0"],
   ])("%i 元_顯示成 %s", (amount, expected) => {
     expect(formatSignedTwd(amount)).toBe(expected);
+  });
+});
+
+describe("金額與數字的寫法不看執行環境的語系資料", () => {
+  // 伺服器與瀏覽器的 ICU 不同時 Intl 的輸出會變 算繪出來就對不上
+  it("Intl.NumberFormat 輸出不同時_照樣是同一個寫法", () => {
+    const format = vi.spyOn(Intl.NumberFormat.prototype as { format: unknown }, "format", "get").mockImplementation(() => () => "１２３４");
+    onTestFinished(() => format.mockRestore());
+
+    expect([formatTwd(-1234), formatSignedTwd(1234), formatSignedTwd(0), formatNumber(1234)]).toEqual(["-$1,234", "+$1,234", "$0", "1,234"]);
   });
 });

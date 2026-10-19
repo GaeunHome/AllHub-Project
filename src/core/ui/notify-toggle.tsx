@@ -12,15 +12,17 @@ type NotifyToggleProps = {
   enabled: boolean;
   /** 給報讀器與提示文字用 例如主播或頻道名稱 */
   subject: string;
-  /** menu 是放在 ⋮ 選單裡的整列開關 文字加右側的開關圖示 */
-  variant?: "button" | "menu";
-};
+} & (
+  | { variant?: "button" }
+  /** menu 是放在 ⋮ 選單裡的整列開關 label 是那一列的文字 例如新影片通知 右側是開關圖示 */
+  | { variant: "menu"; label: string }
+);
 
 // 跟停用的按鈕一樣變淡
 const BUSY_CLASS = "aria-disabled:cursor-wait aria-disabled:opacity-55";
 
 /** 主播與頻道列表上的通知開關 先切換圖示再等伺服器 按下去立刻有反應 */
-export function NotifyToggle({ action, id, enabled, subject, variant = "button" }: NotifyToggleProps) {
+export function NotifyToggle({ action, id, enabled, subject, ...look }: NotifyToggleProps) {
   const [shown, setShown] = useOptimistic(enabled);
   const [state, formAction, pending] = useActionState(action, {});
 
@@ -36,12 +38,12 @@ export function NotifyToggle({ action, id, enabled, subject, variant = "button" 
     });
   };
 
-  if (variant === "menu") {
+  if (look.variant === "menu") {
     return (
       <div className="flex flex-col gap-1">
         <button type="button" role="switch" aria-checked={shown} aria-label={`${subject} 的通知`} aria-disabled={busy} onClick={toggle} className={`menu-item ${BUSY_CLASS}`}>
           <Icon name={shown ? "bell" : "bell-off"} className="size-4" />
-          <span className="flex-1">新影片通知</span>
+          <span className="flex-1">{look.label}</span>
           <span aria-hidden className="switch-visual" />
         </button>
         <InlineFeedback error={state.error} className="px-3" />

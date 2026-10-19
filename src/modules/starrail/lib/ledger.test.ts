@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupDigits, interpretLedger, ledgerMonthOf, monthLabel, parseLedger } from "./ledger";
+import { interpretLedger, ledgerMonthOf, monthLabel, parseLedger } from "./ledger";
 
 /**
  * 依 genshin.py 的 StarRailDiary 整理的 month_info 回應
@@ -110,14 +110,5 @@ describe("ledgerMonthOf：查詢用的月份（台北時間）", () => {
   it("台北的年月；UTC 還在上個月時也以台北為準", () => {
     expect(ledgerMonthOf(new Date("2026-10-08T04:00:00Z"))).toBe("202610");
     expect(ledgerMonthOf(new Date("2026-09-30T16:30:00Z"))).toBe("202610");
-  });
-});
-
-describe("groupDigits：數字加千分位", () => {
-  it("一般數字與負數", () => {
-    expect(groupDigits(0)).toBe("0");
-    expect(groupDigits(4250)).toBe("4,250");
-    expect(groupDigits(1234567)).toBe("1,234,567");
-    expect(groupDigits(-31)).toBe("-31");
   });
 });

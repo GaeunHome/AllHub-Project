@@ -1,0 +1,6 @@
+/* 由 globals.css 在 @layer 外面引入 跟全站的 :root 變數同一層 */
+/* 整頁的深色底只換背景 :root 的變數與 color-scheme 不動 導覽列維持原樣 */
+/* Activity 藏起來的頁面還在文件裡 排除 data-activity-hidden 底色才不會漏到別頁 */
+:root:has(.theme-twitch:not([data-activity-hidden])) body {
+  background-color: #0e0e10;
+}

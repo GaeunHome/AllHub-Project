@@ -8,6 +8,7 @@ import { Icon } from "@/core/ui/icon";
 import { PageTheme } from "@/core/ui/page-theme";
 import { PageHeader } from "@/core/ui/page-header";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
+import { YOUTUBE_PAGE_PATH } from "../../lib/urls";
 import { cachedSavedVideos, cachedVideoInfo } from "../../service/cached";
 import { SAVED_LIMIT, type SavedVideo } from "../../service/saved-videos";
 import { SavedVideoCard } from "../components/saved-video-card";
@@ -15,8 +16,6 @@ import { SavedVideoList } from "../components/saved-video-list";
 
 /** 寬螢幕一排最多 5 部 這一排的縮圖常常是 LCP 不延遲載入 */
 const FIRST_ROW = 5;
-// web 層不能讀根目錄的 info.ts 所以網址寫在這裡
-const YOUTUBE_PAGE = "/youtube";
 
 /** 保留時沒讀到標題或頻道的再試一次 oEmbed 讀過的有快取 還是沒有就顯示影片 id */
 async function withNames(videos: SavedVideo[]): Promise<SavedVideo[]> {
@@ -39,7 +38,7 @@ export async function SavedVideosLoader() {
         title="還沒有保留的影片"
         hint={`在觀看頁按頻道名稱旁的「保留」，按過翻譯的影片也會自動加進來（最多 ${SAVED_LIMIT} 部）`}
         action={
-          <Link href={YOUTUBE_PAGE} className="btn-secondary">
+          <Link href={YOUTUBE_PAGE_PATH} className="btn-secondary">
             回 YouTube 找影片
           </Link>
         }

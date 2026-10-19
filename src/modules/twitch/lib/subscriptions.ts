@@ -7,12 +7,15 @@ export function subscriptionsHealthy({ onlineSubscriptionId, offlineSubscription
   return Boolean(onlineSubscriptionId && offlineSubscriptionId && !subscriptionStatus?.includes("失敗"));
 }
 
+/** 訂閱失敗寫進狀態的開頭 畫面的標籤靠它認出失敗 後面接原因 */
+export const SUBSCRIPTION_FAILED = "訂閱失敗：";
+
 /**
  * 失敗原因會顯示在畫面上 只放中文摘要 原文可能夾帶 Twitch 的回應
  * 用名稱判斷 TwitchApiError 這裡才不用載入 server-only 的 api.ts
  */
 export function subscriptionFailure(error: unknown): string {
-  return `訂閱失敗：${connectionProblem(error, "Twitch") ?? twitchProblem(error)}`;
+  return `${SUBSCRIPTION_FAILED}${connectionProblem(error, "Twitch") ?? twitchProblem(error)}`;
 }
 
 function twitchProblem(error: unknown): string {

@@ -2,7 +2,8 @@ import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { mocksOf, textOf } from "@/dev/test-helpers";
+import { followedStreamer, liveStream } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/cached", { spy: true });
@@ -10,32 +11,10 @@ vi.mock("../../service/cached", { spy: true });
 const cached = mocksOf(await import("../../service/cached"), "cachedStreamers", "cachedStreamerProfiles", "cachedLiveStreams", "cachedGameArt");
 const { LiveNow } = await import("./home-card");
 
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const html = async () => renderToStaticMarkup((await LiveNow()) as ReactElement);
 
-const streamer = (id: number, login: string, isLive: boolean) => ({
-  id,
-  broadcasterId: String(1000 + id),
-  login,
-  displayName: login.toUpperCase(),
-  profileImageUrl: `https://static-cdn.jtvnw.net/jtv_user_pictures/${login}-db.png`,
-  onlineSubscriptionId: null,
-  offlineSubscriptionId: null,
-  subscriptionStatus: "enabled",
-  isLive,
-  notifyEnabled: true,
-  createdAt: new Date("2026-10-01T00:00:00Z"),
-});
-
-const liveStream = (userId: string, login: string) => ({
-  userId,
-  title: "今天玩鐵道",
-  gameId: "1351906",
-  gameName: "Honkai: Star Rail",
-  viewerCount: 1234,
-  startedAt: new Date(Date.now() - 95 * 60_000).toISOString(),
-  previewUrl: `https://static-cdn.jtvnw.net/previews-ttv/live_user_${login}-640x360.jpg`,
-});
+/** 資料庫存的頭像跟 Helix 的不同 看得出畫面用的是哪一個 */
+const streamer = (id: number, login: string, isLive: boolean) => followedStreamer(id, login, { isLive, profileImageUrl: `https://static-cdn.jtvnw.net/jtv_user_pictures/${login}-db.png` });
 
 beforeEach(() => {
   requireSession.mockReset();
@@ -77,7 +56,7 @@ describe("首頁「正在直播」（Twitch）", () => {
   it("Helix 查得到直播_頭像、預覽圖、觀看人數、開台多久、遊戲名稱，點了在新分頁開 Twitch；離線的不列", async () => {
     cached.cachedStreamers.mockResolvedValue([streamer(1, "alice", false), streamer(2, "bob", false)]);
     cached.cachedStreamerProfiles.mockResolvedValue([{ id: "1001", profileImageUrl: "https://static-cdn.jtvnw.net/jtv_user_pictures/alice-helix.png", offlineImageUrl: null }]);
-    cached.cachedLiveStreams.mockResolvedValue([liveStream("1001", "alice")]);
+    cached.cachedLiveStreams.mockResolvedValue([liveStream(1, "alice")]);
     cached.cachedGameArt.mockResolvedValue([{ id: "1351906", boxArtUrl: "https://static-cdn.jtvnw.net/ttv-boxart/1351906-72x96.jpg" }]);
 
     const markup = await html();
@@ -122,7 +101,7 @@ describe("首頁「正在直播」（Twitch）", () => {
   it("預覽圖都在卡片的第一排（首頁最上面）：立刻載入，不延遲", async () => {
     cached.cachedStreamers.mockResolvedValue([streamer(1, "alice", false), streamer(2, "bob", false)]);
     cached.cachedStreamerProfiles.mockResolvedValue([]);
-    cached.cachedLiveStreams.mockResolvedValue([liveStream("1001", "alice"), liveStream("1002", "bob")]);
+    cached.cachedLiveStreams.mockResolvedValue([liveStream(1, "alice"), liveStream(2, "bob")]);
     cached.cachedGameArt.mockResolvedValue([]);
 
     const previews = (await html()).match(/<img[^>]*live_user_[^>]*>/g)!;

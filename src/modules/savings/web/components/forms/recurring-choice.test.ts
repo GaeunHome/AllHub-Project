@@ -13,18 +13,13 @@ const state = (fields: Partial<RecurringFormState>): RecurringFormState => ({
   ...fields,
 });
 
-describe("換類型與勾薪水時建議的假日規則（只在新增時）", () => {
+describe("換類型時建議的假日規則（只在新增時）", () => {
   it("換成定期定額_遇假日改成延後（臺銀證券的扣款日遇假日順延到下一個交易日）", () => {
     expect(recurringFormReducer(state({}), { type: "type", value: "regular" }).holidayRule).toBe("after");
   });
 
-  it("勾薪水_遇假日改成提前（勞動部：發薪日遇假日可以提前，不能延後）", () => {
-    expect(recurringFormReducer(state({ type: "income" }), { type: "allocate", value: true }).holidayRule).toBe("before");
-  });
-
-  it("自己選過提前或延後_不被換掉", () => {
+  it("自己選過提前_不被換掉", () => {
     expect(recurringFormReducer(state({ holidayRule: "before" }), { type: "type", value: "regular" }).holidayRule).toBe("before");
-    expect(recurringFormReducer(state({ type: "income", holidayRule: "after" }), { type: "allocate", value: true }).holidayRule).toBe("after");
   });
 
   it("修改舊規則_不動原本的設定", () => {

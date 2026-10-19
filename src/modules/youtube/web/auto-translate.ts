@@ -4,8 +4,6 @@ const autoTranslate = createLocalPref({ key: "allhub:youtube:auto-translate", de
 
 export const readAutoTranslate = autoTranslate.read;
 
-export const saveAutoTranslate = autoTranslate.save;
-
 export function useAutoTranslate(): [boolean, (on: boolean) => void] {
   return [autoTranslate.useValue(), autoTranslate.save];
 }

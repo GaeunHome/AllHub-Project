@@ -1,13 +1,13 @@
-import { Fragment, createElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { markup as render, textOf } from "@/dev/test-helpers";
 import type { BillDraft, HoldingView, PendingEntry } from "../../dashboard-view";
 import type { ChecklistRow, QuickActionsView } from "../../overview-view";
 
 // 視窗與選單關著時不算繪內容 換掉才看得到裡面 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });
 vi.mock("@/core/ui/action-button", { spy: true });
-vi.mock("@/core/ui/more-menu", () => ({ MoreMenu: ({ children }: { children: ReactNode }) => createElement("div", { "data-menu": "" }, children) }));
+vi.mock("@/core/ui/more-menu", () => import("@/dev/more-menu-stub"));
 // Server Action 換成假的 只看每個表單接到哪一個
 vi.mock("../../actions", () =>
   Object.fromEntries(
@@ -38,8 +38,6 @@ const { QuickActions, QuickActionBody } = await import("./quick-actions");
 const { SetupChecklist } = await import("./setup-checklist");
 
 const TODAY = "2026-10-15";
-const render = (element: ReactNode) => renderToStaticMarkup(element as never);
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "");
 const valueOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0].match(/value="([^"]*)"/)?.[1];
 const formActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
 const linkTo = (markup: string, text: string) => markup.match(new RegExp(`<a [^>]*href="([^"]*)"[^>]*>(?:(?!</a>).)*${text}`))?.[1]?.replace(/&amp;/g, "&");

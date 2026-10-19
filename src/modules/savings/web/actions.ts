@@ -10,23 +10,23 @@ import { TRANSACTION_KIND_LABELS, type TransactionKind } from "../lib/kinds";
 import { formatNumber, formatSignedTwd, formatTwd } from "../lib/money";
 import { formatMonthShort } from "../lib/month";
 import type { Direction } from "../lib/order";
-import { recurringTitle, scheduleText } from "../lib/recurring";
+import { recurringNames, recurringTitle, scheduleText, type RecurringNames } from "../lib/recurring";
 import { parsePeriod } from "../lib/validation";
 import { createAccount, deleteAccount, listAccounts, moveAccount, setAccountActive, updateAccount, updateAllocation } from "../service/accounts";
 import { savingsTags } from "../service/cache-tags";
 import { enterCardBill, payCard } from "../service/cards";
 import { createCategory, deleteCategory, listCategories, moveCategory, updateCategory } from "../service/categories";
-import { SavingsUserError } from "../service/errors";
 import { addHolding, buyHolding, deleteHolding, listHoldings, sellHolding, updateHolding } from "../service/holdings";
 import { confirmOccurrence, createRecurring, deleteRecurring, setRecurringActive, skipOccurrence, updateRecurring } from "../service/recurring";
 import { setupDefaults } from "../service/setup";
 import { addTransaction, allocateSalary, deleteTransaction, updateBalance, updateTransaction } from "../service/transactions";
+import { plannedAmount } from "./format";
 
 // 表單的 id 只決定操作哪一筆 一律用登入者的 id 呼叫 service
 // 欄位名稱跟 service 一樣 原樣交給 service 驗證
 
 const ACCOUNT_FIELDS = ["name", "kind", "label", "cardStyle", "openingBalance", "openingCost", "monthlyPlan", "targetAmount", "payFromAccountId", "statementDay", "autopay"] as const;
-const CATEGORY_FIELDS = ["kind", "name", "color", "monthlyBudget", "icon"] as const;
+const CATEGORY_FIELDS = ["kind", "name", "monthlyBudget", "icon"] as const;
 const ENTRY_FIELDS = ["kind", "accountId", "counterAccountId", "categoryId", "amount", "date", "note"] as const;
 const RECURRING_FIELDS = [
   "kind",
@@ -64,24 +64,22 @@ function formDirection(formData: FormData): Direction | null {
 }
 
 // 寫入都是單一指令或交易 不會只寫一半 所以成功之後才讓 tag 失效
-const attempt = (action: string, work: () => Promise<FormState | string | void>) =>
-  runAction({ module: "savings", action }, (error) => error instanceof SavingsUserError, work);
+const attempt = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "savings", action }, work);
 
 type Names = {
   account: (id: number | null) => string;
   category: (id: number | null) => string | null;
-  maps: { accounts: Map<number, string>; categories: Map<number, string>; holdingSymbols: Map<number, string> };
+  maps: RecurringNames;
 };
 
 // 寫入前先讀好 寫入後才讀又讀不到的話 已經記好的帳會被說成失敗
 async function readNames(userId: string, { categories: withCategories = true, holdings: withHoldings = false } = {}): Promise<Names> {
   const [accounts, categories, holdings] = await Promise.all([listAccounts(userId), withCategories ? listCategories(userId) : [], withHoldings ? listHoldings(userId) : []]);
-  const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
-  const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
+  const maps = recurringNames({ accounts, categories, holdings });
   return {
-    account: (id) => (id === null ? undefined : accountNames.get(id)) ?? "帳戶",
-    category: (id) => (id === null ? null : (categoryNames.get(id) ?? null)),
-    maps: { accounts: accountNames, categories: categoryNames, holdingSymbols: new Map(holdings.map((holding) => [holding.id, holding.symbol])) },
+    account: (id) => (id === null ? undefined : maps.accounts.get(id)) ?? "帳戶",
+    category: (id) => (id === null ? null : (maps.categories.get(id) ?? null)),
+    maps,
   };
 }
 
@@ -91,8 +89,7 @@ type EntryShape = { kind: TransactionKind; accountId: number; counterAccountId: 
 function describeEntry(entry: EntryShape, names: Names): string {
   if (entry.kind === "transfer") return `${names.account(entry.accountId)} → ${names.account(entry.counterAccountId)} ${formatTwd(entry.amount)}`;
   const label = names.category(entry.categoryId) ?? entry.note ?? TRANSACTION_KIND_LABELS[entry.kind];
-  const amount = entry.kind === "income" ? formatSignedTwd(entry.amount) : formatTwd(entry.amount);
-  return `${label} ${amount}（${names.account(entry.accountId)}）`;
+  return `${label} ${plannedAmount(entry.kind, entry.amount)}（${names.account(entry.accountId)}）`;
 }
 
 async function move(formData: FormData, run: (id: number, direction: Direction) => Promise<void>, tag: CacheTag): Promise<FormState> {
@@ -295,8 +292,7 @@ type RuleShape = Parameters<typeof recurringTitle>[0] & Parameters<typeof schedu
 
 /** 成功訊息寫出名稱 排程與金額 看得出存的是哪一條 */
 function describeRule(rule: RuleShape, names: Names): string {
-  const amount = rule.kind === "income" ? formatSignedTwd(rule.amount) : formatTwd(rule.amount);
-  return `「${recurringTitle(rule, names.maps)}」${scheduleText(rule)} ${amount}`;
+  return `「${recurringTitle(rule, names.maps)}」${scheduleText(rule)} ${plannedAmount(rule.kind, rule.amount)}`;
 }
 
 export async function createRecurringAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -389,8 +385,7 @@ export async function confirmOccurrenceAction(_prev: FormState, formData: FormDa
     }
     const title = `已記下「${recurringTitle(rule, names.maps)}」`;
     if (transaction.kind === "transfer") return `${title}${names.account(transaction.accountId)} → ${names.account(transaction.counterAccountId)} ${formatTwd(transaction.amount)}`;
-    const amount = transaction.kind === "income" ? formatSignedTwd(transaction.amount) : formatTwd(transaction.amount);
-    return `${title}${amount}（${names.account(transaction.accountId)}）`;
+    return `${title}${plannedAmount(transaction.kind, transaction.amount)}（${names.account(transaction.accountId)}）`;
   });
 }
 

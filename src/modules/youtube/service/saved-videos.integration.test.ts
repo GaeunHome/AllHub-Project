@@ -2,10 +2,11 @@ import type { PGlite } from "@electric-sql/pglite";
 import { and, asc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
 import { youtubeChannels, youtubeFollows, youtubeSavedVideos, youtubeTranslations, youtubeVideos } from "../data/schema";
+import { CHANNEL_ID as CH, VIDEO_ID as VIDEO } from "../dev/fixtures";
 
 stubCoreEnv();
 
@@ -16,8 +17,6 @@ setupTestDb((d) => (testDb = d));
 let me: string;
 let other: string;
 
-const CH = "UC" + "a".repeat(22);
-const VIDEO = "dQw4w9WgXcQ";
 /** 11 碼的假影片 id 依序是 video000000 video000001 */
 const idOf = (i: number) => `video${String(i).padStart(6, "0")}`;
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000);
@@ -55,8 +54,7 @@ function logQueries(): string[] {
 }
 
 beforeEach(async () => {
-  me = await insertTestUser(testDb, "alice");
-  other = await insertTestUser(testDb, "bob");
+  [me, other] = await insertTestUsers(testDb);
 });
 
 describe("手動保留（觀看頁的「保留」）", () => {

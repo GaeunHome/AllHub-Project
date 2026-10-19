@@ -1,5 +1,5 @@
+import { latestOf } from "../../../lib/dates";
 import type { AccountKind, CategoryKind, EntryKind } from "../../../lib/kinds";
-import { latestDate } from "../../form-math";
 
 // 記帳與固定收支的欄位連動 不依賴 React 才能直接測
 
@@ -84,5 +84,5 @@ export function cannotTransfer(choice: EntryChoice): boolean {
 /** 開始記帳之前的日期伺服器不收 轉帳看比較晚開始的那個帳戶 */
 export function entryStartDate(choice: EntryChoice, accounts: readonly ChoiceAccount[]): string | undefined {
   const ids = choice.kind === "transfer" ? [choice.accountId, choice.counterId] : [choice.accountId];
-  return latestDate(ids.map((id) => accounts.find((account) => account.id === id)?.startDate));
+  return latestOf(ids.map((id) => accounts.find((account) => account.id === id)?.startDate)) ?? undefined;
 }

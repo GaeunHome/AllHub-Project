@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TEST_SESSION } from "@/dev/session-stub";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 import type { Endgame } from "../lib/endgame";
+import { accountView } from "../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ after: vi.fn() }));
@@ -12,22 +13,22 @@ const cached = mocksOf(await import("../service/cached"), "cachedDailyNote", "ca
 const accounts = mocksOf(await import("../service/accounts"), "syncCookieInvalid");
 const { after } = await import("next/server");
 const { syncCookieFlagAfter } = await import("./cookie-flag");
-const { DailyNotePanel } = await import("./components/account-card");
+const { DailyNotePanel } = await import("./components/daily-note-panel");
 const { CharacterPanel } = await import("./components/character-panel");
 const { EndgamePanel } = await import("./components/endgame-panel");
 const { LedgerPanel } = await import("./components/ledger-panel");
 const { LoadedAccountAvatar } = await import("./components/account-avatar");
 
 const fetchedAt = new Date();
-const account = (cookieInvalid: boolean) => ({ id: 3, uid: "900000003", nickname: "開拓者", region: "prod_official_cht", level: 70, staminaAlertThreshold: null, cookieInvalid, autoRedeem: false, canAutoRedeem: false, gameReminders: true });
-const failed = (cookieInvalid: boolean) => ({ ok: false as const, message: cookieInvalid ? "HoYoLAB cookie 已失效" : "HoYoLAB 說查詢太頻繁", fetchedAt, cookieInvalid });
+const account = (cookieInvalid: boolean) => accountView({ cookieInvalid });
+// 便箋讀不到時帶著 cookie 狀態 戰績類的結果沒有這個欄位 多給了畫面也不能理
+const failed = (cookieInvalid: boolean) => ({ ok: false as const, message: cookieInvalid ? "HoYoLAB cookie 已失效" : "HoYoLAB 說查詢太頻繁", cookieInvalid });
 const empty: Endgame = { mode: "chaos", hasData: false, name: null, begin: null, end: null, stars: null, maxFloor: null, battles: null, floors: [] };
-const endgameOk = { ok: true as const, endgame: empty, fetchedAt, cookieInvalid: false as const };
+const endgameOk = { ok: true as const, endgame: empty };
 const ledgerOk = {
   ok: true as const,
   ledger: { month: "202610", months: ["202610"], current: { jade: 0, passes: 0 }, today: { jade: null, passes: null }, sources: [] },
   fetchedAt,
-  cookieInvalid: false as const,
 };
 /** 執行排進 after() 的工作 正式環境要等回應送出後才跑 */
 const runAfter = async () => {
@@ -38,7 +39,7 @@ beforeEach(() => {
   vi.mocked(after).mockReset();
   accounts.syncCookieInvalid.mockReset().mockResolvedValue(true);
   cached.cachedDailyNote.mockReset().mockResolvedValue(failed(false));
-  cached.cachedCharacters.mockReset().mockResolvedValue({ ok: true, characters: [], fetchedAt, cookieInvalid: false });
+  cached.cachedCharacters.mockReset().mockResolvedValue({ ok: true, characters: [], fetchedAt });
   cached.cachedEndgame.mockReset().mockResolvedValue(endgameOk);
   cached.cachedLedger.mockReset().mockResolvedValue(ledgerOk);
   cached.cachedProfile.mockReset().mockResolvedValue(null);
@@ -97,7 +98,7 @@ describe("帳號的 cookie 失效標記只由即時便箋決定（排程的簽�
   const panels = [
     [
       "角色",
-      { ok: () => cached.cachedCharacters.mockResolvedValue({ ok: true, characters: [], fetchedAt, cookieInvalid: false }), fail: () => cached.cachedCharacters.mockResolvedValue(failed(true)) },
+      { ok: () => cached.cachedCharacters.mockResolvedValue({ ok: true, characters: [], fetchedAt }), fail: () => cached.cachedCharacters.mockResolvedValue(failed(true)) },
       (a: ReturnType<typeof account>) => CharacterPanel({ account: a }),
     ],
     ["終局戰績", { ok: () => cached.cachedEndgame.mockResolvedValue(endgameOk), fail: () => cached.cachedEndgame.mockResolvedValue(failed(true)) }, (a: ReturnType<typeof account>) => EndgamePanel({ account: a })],

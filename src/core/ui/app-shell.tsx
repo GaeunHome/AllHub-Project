@@ -10,7 +10,7 @@ import type { NavModule } from "./nav-links";
  */
 export function AppShell({ modules, children }: { modules: ModuleInfo[]; children: ReactNode }) {
   // 只把導覽列用得到的欄位交給 client 元件 說明文字不必送到瀏覽器
-  const navModules: NavModule[] = modules.map(({ id, name, href, icon, accent, notifies }) => ({ id, name, href, icon, accent, notifies }));
+  const navModules: NavModule[] = modules.map(({ id, name, href, icon, accent, notifies, homeOnly }) => ({ id, name, href, icon, accent, notifies, homeOnly }));
 
   return (
     <NotificationCenter modules={navModules}>

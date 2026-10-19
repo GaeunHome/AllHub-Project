@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
+import { SegmentedControl } from "@/core/ui/segmented-control";
 import { ACCOUNT_KINDS, ACCOUNT_KIND_LABELS, type AccountKind, type CardStyle } from "../../../lib/kinds";
 import { shownFigure } from "../../../lib/ledger";
 import { createAccountAction, updateAccountAction } from "../../actions";
+import { pausedName } from "../../format";
 import { CardStyleField } from "../accounts/card-face";
-import { Segmented } from "../segmented";
 import { AmountField, CheckboxField, DayOfMonthSelect, FormButtons, LabelField, NameField } from "./fields";
 
 /** 修改時帶入的原本設定 信用卡的 openingBalance 負的是欠款 正的是溢繳 */
@@ -80,7 +81,7 @@ export function AccountForm({ account, kind: fixedKind, payFromAccounts, onDone,
       ) : fixedKind ? (
         <input type="hidden" name="kind" value={fixedKind} />
       ) : (
-        <Segmented label="帳戶類型" name="kind" options={KIND_OPTIONS} value={kind} onChange={setKind} />
+        <SegmentedControl variant="field" label="帳戶類型" name="kind" options={KIND_OPTIONS} value={kind} onChange={setKind} />
       )}
       <NameField defaultValue={account?.name} placeholder={NAME_PLACEHOLDERS[kind]} />
       {kind !== "credit" && <LabelField defaultValue={account?.label} placeholder={LABEL_PLACEHOLDERS[kind]} />}
@@ -106,7 +107,7 @@ export function AccountForm({ account, kind: fixedKind, payFromAccounts, onDone,
                 <option value="">未設定</option>
                 {payFrom.map((option) => (
                   <option key={option.id} value={option.id}>
-                    {option.active ? option.name : `${option.name}（已停用）`}
+                    {pausedName(option.name, option.active)}
                   </option>
                 ))}
               </select>

@@ -1,13 +1,11 @@
 import { requireSession } from "@/core/auth";
-import type { ModuleInfo } from "@/core/module";
-import { CARD_FLOW_DAYS } from "../../lib/cards";
-import { addDays, taipeiToday } from "../../lib/dates";
-import { cachedAccountFlows, cachedAccounts, cachedCardBills, cachedCardFlows, cachedCategories, cachedHoldings, cachedRecurring } from "../../service/cached";
+import type { ModuleInfo, SearchParams } from "@/core/module";
+import { cachedCategories, cachedRecurring } from "../../service/cached";
 import { AccountsBoard } from "../components/accounts/accounts-board";
 import { AccountsPageSkeleton } from "../components/accounts/accounts-skeleton";
-import type { SearchParams } from "../components/month-href";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
-import { accountsPageView, accountsState, depositOptions, entryFormOptions, type AccountsInput } from "../dashboard-view";
+import { accountsPageView, depositOptions, entryFormOptions } from "../dashboard-view";
+import { loadAccounts } from "../overview-data";
 
 /**
  * 存款與信用卡 證券帳戶在投資頁 所以不查股價
@@ -15,19 +13,8 @@ import { accountsPageView, accountsState, depositOptions, entryFormOptions, type
  */
 export async function AccountsLoader({ searchParams }: { searchParams?: SearchParams } = {}) {
   const user = await requireSession();
-  const today = taipeiToday(new Date());
-  const [accounts, flows, holdings, categories, rules, params] = await Promise.all([
-    cachedAccounts(user.id),
-    cachedAccountFlows(user.id),
-    cachedHoldings(user.id),
-    cachedCategories(user.id),
-    cachedRecurring(user.id),
-    searchParams,
-  ]);
-  const hasCards = accounts.some((account) => account.kind === "credit");
-  const [cardFlows, cardBills] = await Promise.all([hasCards ? cachedCardFlows(user.id, addDays(today, -CARD_FLOW_DAYS)) : [], hasCards ? cachedCardBills(user.id) : []]);
-  const input: AccountsInput = { accounts, flows, holdings, quotes: null, cardFlows, cardBills, today };
-  const state = accountsState(input);
+  const [{ input, state }, categories, rules, params] = await Promise.all([loadAccounts(user.id, new Date(), { quotes: false }), cachedCategories(user.id), cachedRecurring(user.id), searchParams]);
+  const { accounts, today } = input;
   const add = params?.add;
 
   return (

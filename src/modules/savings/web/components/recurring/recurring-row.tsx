@@ -1,15 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ActionButton } from "@/core/ui/action-button";
 import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
-import type { FormState } from "@/core/ui/form-message";
-import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { StatusChip } from "@/core/ui/status-chip";
-import { formatMonth } from "../../../lib/month";
-import { deleteRecurringAction, setRecurringActiveAction, skipOccurrenceAction } from "../../actions";
-import { overdueBadge } from "../../dashboard-view";
+import { deleteRecurringAction, setRecurringActiveAction } from "../../actions";
+import { overdueBadge } from "../../format";
 import { choosableAccounts } from "../../form-math";
 import { SAVINGS_PATHS } from "../../paths";
 import type { RecurringFormOptions, RecurringRowView } from "../../recurring-view";
@@ -17,7 +13,7 @@ import type { SalaryAccountOption } from "../forms/options";
 import { RecurringForm } from "../forms/recurring-form";
 import { SalaryForm } from "../forms/salary-dialog";
 import { ConfirmForm } from "../pending/confirm-form";
-import { ActiveMenuItem, DeleteMenuItem } from "../row-controls";
+import { ActiveMenuItem, DeleteMenuItem, DialogMenuItem, SkipButton } from "../row-controls";
 import { useLinkedTrigger } from "../settings/open-from-link";
 
 /** 清單外框 寬螢幕時每一列共用欄寬 金額與按鈕才對得齊 */
@@ -76,10 +72,7 @@ export function RecurringRow({ row, leading, title, detail, amountText, form, sa
       </button>
       <div className="col-start-2 row-start-1 pr-3 sm:pr-4 @2xl:col-start-3">
         <MoreMenu label={`「${name}」的選項`}>
-          <button {...edit.triggerProps} className="menu-item">
-            <Icon name="pencil" className="size-4" />
-            修改
-          </button>
+          <DialogMenuItem trigger={edit.triggerProps} icon="pencil" label="修改" />
           {due && !skipOnRow && <SkipButton name={name} ruleId={row.id} period={due.period} onSkipped={onNotice} inMenu />}
           <ActiveMenuItem action={setRecurringActiveAction} id={row.id} active={draft.active} pausedHint="停用後不會再記帳或提醒，已經記好的紀錄會留著" />
           <DeleteMenuItem
@@ -121,29 +114,5 @@ export function RecurringRow({ row, leading, title, detail, amountText, form, sa
         </Dialog>
       )}
     </li>
-  );
-}
-
-type SkipButtonProps = { name: string; ruleId: number; period: string; onSkipped: (message: string) => void; inMenu?: boolean };
-
-/** 略過也是處理掉這一期 先確認 */
-function SkipButton({ name, ruleId, period, onSkipped, inMenu = false }: SkipButtonProps) {
-  const skip = async (previous: FormState, formData: FormData) => {
-    const result = await skipOccurrenceAction(previous, formData);
-    if (!result.error) onSkipped(result.message ?? `已略過「${name}」${formatMonth(period)}`);
-    return result;
-  };
-  return (
-    <ActionButton
-      action={skip}
-      fields={{ ruleId, period }}
-      confirmMessage={`略過「${name}」${formatMonth(period)}這一期？這一期不會記帳。`}
-      formClassName={inMenu ? "flex flex-col gap-1" : undefined}
-      aria-label={inMenu ? undefined : `略過這一期：${name}`}
-      className={inMenu ? "menu-item" : "btn-secondary btn-sm"}
-    >
-      {inMenu && <Icon name="check-check" className="size-4" />}
-      {inMenu ? "略過這一期" : "略過"}
-    </ActionButton>
   );
 }

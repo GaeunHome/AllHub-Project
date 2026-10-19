@@ -5,7 +5,8 @@ import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { formatSlashDate, type DateKey } from "../../../lib/dates";
 import { confirmOccurrenceAction } from "../../actions";
-import { priceText, type ConfirmDraft } from "../../dashboard-view";
+import type { ConfirmDraft } from "../../dashboard-view";
+import { priceText } from "../../format";
 import { SharesField } from "../investments/holding-forms";
 import { AmountField, DateField, FormButtons, NoteField } from "../forms/fields";
 

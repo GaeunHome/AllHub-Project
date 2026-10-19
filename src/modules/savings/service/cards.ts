@@ -1,10 +1,10 @@
 import "server-only";
 import { and, asc, desc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm";
-import { db } from "@/core/db";
+import { db, type Executor } from "@/core/db";
+import { lockUserRow } from "@/core/db/users";
 import { savingsAccounts, savingsCardBills, savingsTransactions, type SavingsAccount, type SavingsCardBill, type SavingsTransaction } from "../data/schema";
 import { billCutoff, billDifference, billPayments, fillStatementDate, isStatementDate, lastStatementDate, type CardDailyFlow, type CardStatement } from "../lib/cards";
-import { addDays, taipeiToday, type DateKey } from "../lib/dates";
-import type { TransactionKind } from "../lib/kinds";
+import { addDays, earliestOf, taipeiToday, type DateKey } from "../lib/dates";
 import { accountStartDate } from "../lib/ledger";
 import { MAX_AMOUNT } from "../lib/money";
 import { NOT_FOUND, checkBillDueDate, parseCardBillFields, parsePayCardFields } from "../lib/validation";
@@ -18,7 +18,7 @@ import {
   STATEMENT_DAY_MISMATCH,
   SavingsUserError,
 } from "./errors";
-import { lockUser, ownAccounts, requireAccount, requireCategory, requireStarted, valid, type AccountRef, type Executor } from "./shared";
+import { flowsBy, ownAccounts, requireAccount, requireCategory, requireStarted, valid, type AccountRef } from "./shared";
 
 // userId 一律是登入者 別人的 id 當作不存在
 // 鎖的順序 使用者 帳戶 分類 帳單 最後才寫紀錄 跟刪除帳號與帳戶的連帶刪除一樣
@@ -44,8 +44,6 @@ export type BillEntry = { bill: SavingsCardBill; card: CardRow; difference: numb
 type CardRow = Pick<SavingsAccount, "id" | "name" | "kind" | "active" | "openingBalance" | "statementDay" | "createdAt">;
 
 const t = savingsTransactions;
-// sum 的結果是 bigint 驅動程式回字串 所以用 mapWith 轉回數字
-const sumOf = (kind: TransactionKind) => sql<number>`coalesce(sum(${t.amount}) filter (where ${t.kind} = ${kind}), 0)`.mapWith(Number);
 
 const cardColumns = {
   id: savingsAccounts.id,
@@ -57,37 +55,11 @@ const cardColumns = {
   createdAt: savingsAccounts.createdAt,
 };
 
-/**
- * 信用卡每天的流量 since 當天也算 帳單只要看上次結帳日之後
- * 轉出算在 account_id 轉入算在 counter_account_id
- */
+/** 信用卡每天的流量 since 當天也算 帳單只要看上次結帳日之後 */
 export async function cardDailyFlows(userId: string, since: DateKey): Promise<CardDailyFlow[]> {
-  const card = (column: typeof t.accountId | typeof t.counterAccountId) => and(eq(savingsAccounts.id, column), eq(savingsAccounts.kind, "credit"));
-  const [outgoing, incoming] = await Promise.all([
-    db()
-      .select({ accountId: t.accountId, date: t.date, income: sumOf("income"), expense: sumOf("expense"), transferOut: sumOf("transfer"), adjust: sumOf("adjust") })
-      .from(t)
-      .innerJoin(savingsAccounts, card(t.accountId))
-      .where(and(eq(t.userId, userId), gte(t.date, since)))
-      .groupBy(t.accountId, t.date),
-    db()
-      .select({ accountId: t.counterAccountId, date: t.date, transferIn: sql<number>`sum(${t.amount})`.mapWith(Number) })
-      .from(t)
-      .innerJoin(savingsAccounts, card(t.counterAccountId))
-      .where(and(eq(t.userId, userId), eq(t.kind, "transfer"), gte(t.date, since)))
-      .groupBy(t.counterAccountId, t.date),
-  ]);
-
-  const flows = new Map<string, CardDailyFlow>();
-  const flowOf = (accountId: number, date: DateKey) => {
-    const key = `${accountId}|${date}`;
-    let flow = flows.get(key);
-    if (!flow) flows.set(key, (flow = { accountId, date, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0 }));
-    return flow;
-  };
-  for (const row of outgoing) Object.assign(flowOf(row.accountId, row.date), { income: row.income, expense: row.expense, transferOut: row.transferOut, adjust: row.adjust });
-  for (const row of incoming) if (row.accountId !== null) flowOf(row.accountId, row.date).transferIn = row.transferIn;
-  return [...flows.values()].sort((a, b) => a.date.localeCompare(b.date) || a.accountId - b.accountId);
+  const cards = db().select({ id: savingsAccounts.id }).from(savingsAccounts).where(eq(savingsAccounts.kind, "credit"));
+  const flows = await flowsBy(db(), t.date, (side) => and(eq(t.userId, userId), gte(t.date, since), inArray(side, cards)));
+  return flows.map(({ period, ...flow }) => ({ ...flow, date: period }));
 }
 
 /** 每張卡最新 5 張 照結帳日新到舊 繳了多少看結帳後轉進卡的錢 */
@@ -106,12 +78,9 @@ export async function listCardBills(userId: string): Promise<CardBillRecord[]> {
     .where(eq(savingsCardBills.userId, userId))
     .orderBy(asc(savingsCardBills.accountId), desc(savingsCardBills.statementDate), desc(savingsCardBills.id));
   const kept = [...Map.groupBy(rows, (row) => row.accountId).values()].map((bills) => bills.slice(0, KEPT_BILLS));
-  if (kept.length === 0) return [];
+  const earliest = earliestOf(kept.flat().map((row) => billCutoff(row, row.statementDate)));
+  if (earliest === null) return [];
 
-  const earliest = kept.flat().reduce((oldest, row) => {
-    const cutoff = billCutoff(row, row.statementDate);
-    return cutoff < oldest ? cutoff : oldest;
-  }, "9999-12-31");
   const payments = await db()
     .select({ accountId: t.counterAccountId, date: t.date, amount: t.amount })
     .from(t)
@@ -196,7 +165,7 @@ export async function enterCardBill(userId: string, fields: CardBillFields, now 
   const today = taipeiToday(now);
   const input = valid(parseCardBillFields(fields, today));
   return db().transaction(async (tx) => {
-    await lockUser(tx, userId);
+    await lockUserRow(tx, userId, "key share");
     const card = await lockCard(tx, userId, input.cardId);
     if (input.categoryId !== null) await requireCategory(tx, userId, input.categoryId, "expense", "key share");
     return { card, ...(await writeBill(tx, userId, card, input, today)) };
@@ -213,7 +182,7 @@ export async function payCard(
   const input = valid(parsePayCardFields(fields, today));
   return db().transaction(async (tx) => {
     // 先鎖使用者再鎖帳戶 新紀錄的外鍵也要鎖使用者 反了會跟刪除帳號互相等
-    await lockUser(tx, userId);
+    await lockUserRow(tx, userId, "key share");
     const accounts = await ownAccounts(tx, userId, [input.cardId, input.fromAccountId], "share");
     const cardRef = requireAccount(accounts, input.cardId, true);
     if (cardRef.kind !== "credit") throw new SavingsUserError(PAY_CARD_NOT_CREDIT);

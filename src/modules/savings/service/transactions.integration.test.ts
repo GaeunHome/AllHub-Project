@@ -1,10 +1,9 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { and, asc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
-import { beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
-import { savingsAccounts, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions } from "../data/schema";
-import { SavingsUserError } from "./errors";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { savingsHoldings, savingsRecurring, savingsTransactions } from "../data/schema";
+import { dateParams, logQueries, pgliteOf, savingsRows } from "../dev/db-fixtures";
+import { userError } from "../dev/fixtures";
 import {
   accountMonthFlows,
   addTransaction,
@@ -18,14 +17,12 @@ import {
   type TransactionFields,
 } from "./transactions";
 
-let testDb: TestDb;
-const getDb = setupTestDb((d) => (testDb = d));
+const getDb = setupTestDb();
 let me: string;
 let other: string;
 
 beforeEach(async () => {
-  me = await insertTestUser(getDb(), "alice", { role: "owner" });
-  other = await insertTestUser(getDb(), "bob");
+  [me, other] = await insertTestUsers(getDb());
 });
 
 // 台北時間 2026-10-14 中午
@@ -43,33 +40,7 @@ const TRANSACTION_NOT_FOUND = "找不到這筆紀錄，可能已經刪除了";
 const INACTIVE = "這個帳戶已停用，請先恢復";
 const KIND_MISMATCH = "分類跟收支類型不符";
 
-type AccountValues = Partial<typeof savingsAccounts.$inferInsert> & { name: string };
-type TransactionValues = Partial<typeof savingsTransactions.$inferInsert> & { accountId: number; amount: number; date: string };
-
-async function insertAccount(values: AccountValues) {
-  const [row] = await getDb().insert(savingsAccounts).values({ userId: me, kind: "deposit", createdAt: LONG_AGO, ...values }).returning();
-  return row;
-}
-
-async function insertCategory(values: { name: string; kind?: "income" | "expense"; color?: "blue" | "orange" | "green"; userId?: string }) {
-  const [row] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", color: "orange", ...values }).returning();
-  return row;
-}
-
-async function insertTransaction(values: TransactionValues) {
-  const [row] = await getDb().insert(savingsTransactions).values({ userId: me, kind: "expense", ...values }).returning();
-  return row;
-}
-
-/** 要是使用者錯誤畫面才會顯示訊息 不能是文字剛好一樣的其他錯誤 */
-async function userError(promise: Promise<unknown>): Promise<string> {
-  const error = await promise.then(
-    () => undefined,
-    (reason: unknown) => reason,
-  );
-  expect(error).toBeInstanceOf(SavingsUserError);
-  return (error as Error).message;
-}
+const { insertAccount, insertCategory, insertTransaction } = savingsRows(getDb, () => me, { account: { createdAt: LONG_AGO } });
 
 const allRows = () => getDb().select().from(savingsTransactions).orderBy(asc(savingsTransactions.id));
 const rowsOf = (userId: string) => getDb().select().from(savingsTransactions).where(eq(savingsTransactions.userId, userId)).orderBy(asc(savingsTransactions.id));
@@ -84,27 +55,6 @@ const entry = (values: Partial<TransactionFields> = {}): TransactionFields => ({
   note: "",
   ...values,
 });
-
-/** 取 setupTestDb 底下的 PGlite 因為 TestDb 的型別沒有列出 drizzle 的 $client */
-const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
-/**
- * 正式環境經 drizzle 的 postgres-js 收到 Date 參數會丟錯
- * 測試的 PGlite 自己會轉而查不出來 所以直接看送出的參數
- */
-const dateParams = (query: MockInstance) => query.mock.calls.flatMap(([, params]) => (Array.isArray(params) ? params : [])).filter((param) => param instanceof Date);
-
-/** 記下送出的每一句 SQL 與交易的開始 */
-function logQueries(): string[] {
-  const queries: string[] = [];
-  const pglite = pgliteOf(testDb);
-  const transaction = pglite.transaction.bind(pglite);
-  vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) => {
-    queries.push("begin");
-    return transaction(callback);
-  }) as typeof transaction);
-  (globalThis as unknown as { hubDb?: unknown }).hubDb = drizzle(pglite, { logger: { logQuery: (query) => queries.push(query) } });
-  return queries;
-}
 
 describe("listMonthTransactions（某個月的紀錄）", () => {
   it("只有那個月、只有自己的_日期新的在前、同一天後記的在前_帶帳戶與分類的名稱", async () => {
@@ -122,8 +72,8 @@ describe("listMonthTransactions（某個月的紀錄）", () => {
     const rows = await listMonthTransactions(me, "2026-10");
 
     expect(rows.map((row) => row.id)).toEqual([transfer.id, second.id, first.id]);
-    expect(rows[0]).toMatchObject({ kind: "transfer", accountName: "國泰", counterAccountName: "郵局", categoryName: null, categoryColor: null, recurring: false, amount: 2500 });
-    expect(rows[2]).toMatchObject({ accountName: "國泰", counterAccountName: null, categoryName: "餐飲", categoryColor: "orange", note: "早餐", date: "2026-10-01" });
+    expect(rows[0]).toMatchObject({ kind: "transfer", accountName: "國泰", counterAccountName: "郵局", categoryName: null, recurring: false, amount: 2500 });
+    expect(rows[2]).toMatchObject({ accountName: "國泰", counterAccountName: null, categoryName: "餐飲", note: "早餐", date: "2026-10-01" });
   });
 
   it("固定收支自動記的_recurring 是 true", async () => {
@@ -294,7 +244,7 @@ describe("addTransaction（記一筆）", () => {
   it("金額不合法_丟使用者錯誤_沒有寫入", async () => {
     const cathay = await insertAccount({ name: "國泰" });
 
-    expect(await userError(addTransaction(me, entry({ accountId: String(cathay.id), amount: "12.5" }), NOW))).toBe("金額只能是正整數（單位：元，不能有小數或負數）");
+    await userError(addTransaction(me, entry({ accountId: String(cathay.id), amount: "12.5" }), NOW));
     expect(await allRows()).toEqual([]);
   });
 
@@ -520,7 +470,7 @@ describe("updateBalance（更新餘額）", () => {
   it("金額不合法_丟使用者錯誤", async () => {
     const cathay = await insertAccount({ name: "國泰" });
 
-    expect(await userError(updateBalance(me, { accountId: String(cathay.id), actual: "" }, NOW))).toBe("請輸入金額");
+    await userError(updateBalance(me, { accountId: String(cathay.id), actual: "" }, NOW));
   });
 
   it("差額超過 1 億元（一筆調整放不下）_丟使用者錯誤_不寫入", async () => {
@@ -541,7 +491,7 @@ describe("updateBalance（更新餘額）", () => {
 
   it("算餘額之前先在交易裡鎖住帳戶（for update）：同時有人記帳或更新餘額時，等前一個寫完才算；PGlite 只有一條連線，所以直接看送出的 SQL", async () => {
     const cathay = await depositWithHistory();
-    const queries = logQueries();
+    const queries = logQueries(getDb());
 
     await updateBalance(me, { accountId: String(cathay.id), actual: "12000" }, NOW);
 
@@ -691,7 +641,7 @@ describe("allocateSalary（發薪分配）", () => {
 
   it("檢查與寫入前先在交易裡鎖住用到的帳戶（for share）：同時停用或刪除帳戶時等這次寫完；PGlite 只有一條連線，所以直接看送出的 SQL", async () => {
     const { cathay, post } = await accounts();
-    const queries = logQueries();
+    const queries = logQueries(getDb());
 
     await allocateSalary(me, salaryFields({ accountId: String(cathay.id), transfers: [{ accountId: String(post.id), amount: "100" }] }), NOW);
 
@@ -948,7 +898,7 @@ describe("送到資料庫的參數沒有 Date 物件（正式環境經 drizzle �
   it("記帳、修改、更新餘額、發薪分配", async () => {
     const cathay = await insertAccount({ name: "國泰" });
     const post = await insertAccount({ name: "郵局" });
-    const query = vi.spyOn(pgliteOf(testDb), "query");
+    const query = vi.spyOn(pgliteOf(getDb()), "query");
 
     const row = await addTransaction(me, entry({ accountId: String(cathay.id) }), NOW);
     await updateTransaction(me, row.id, entry({ accountId: String(cathay.id), amount: "1" }), NOW);

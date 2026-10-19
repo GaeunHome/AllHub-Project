@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { Suspense, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { externalAssetUrl } from "@/core/external-url";
 import { formatRelativeTime } from "@/core/time";
-import { Avatar } from "@/core/ui/avatar";
 import { ExternalImage } from "@/core/ui/external-image";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
@@ -87,9 +86,7 @@ export function VideoCard({ video, now, eager = false }: { video: FeedVideo; now
         <VideoThumbnail video={video} eager={eager} />
       </VideoLink>
       <div className="flex items-start gap-3">
-        <Suspense fallback={<Avatar src={externalAssetUrl(video.channelThumbnail)} name={channelName} size="sm" />}>
-          <ChannelAvatar channelRef={video.channelId} name={channelName} stored={video.channelThumbnail} size="sm" />
-        </Suspense>
+        <ChannelAvatar channelRef={video.channelId} name={channelName} stored={video.channelThumbnail} size="sm" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h3 className="text-base leading-snug font-semibold">
             <VideoLink video={video} className="line-clamp-2 text-ink">

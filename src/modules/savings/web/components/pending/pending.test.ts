@@ -1,6 +1,6 @@
-import { createElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { markup as render } from "@/dev/test-helpers";
 import type { ConfirmDraft, PayCardDraft } from "../../dashboard-view";
 
 // 只看表單送出什麼 其他照原本的實作
@@ -13,7 +13,6 @@ const { ConfirmForm } = await import("./confirm-form");
 const { PayCardForm } = await import("../accounts/pay-card-form");
 
 const TODAY = "2026-10-15";
-const render = (element: ReactNode) => renderToStaticMarkup(element as never);
 const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
 const valueOf = (markup: string, name: string) => inputOf(markup, name).match(/value="([^"]*)"/)?.[1];
 const selectedOption = (markup: string, name: string) => markup.match(new RegExp(`<select[^>]*name="${name}"[^>]*>[\\s\\S]*?</select>`))?.[0].match(/<option[^>]*selected=""[^>]*>([^<]*)<\/option>/)?.[1];

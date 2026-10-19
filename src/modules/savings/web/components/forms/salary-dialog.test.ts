@@ -1,6 +1,6 @@
-import { Fragment, createElement, useReducer, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { Fragment, createElement, useReducer } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { markup as render, textOf } from "@/dev/test-helpers";
 import type { SalaryPrefill } from "../../dashboard-view";
 
 // 視窗關著時不算繪內容 換掉 Dialog 才看得到裡面 其他照原本的實作
@@ -32,8 +32,6 @@ const ACCOUNTS = [
 ];
 const PREFILL: SalaryPrefill = { ruleId: 7, period: "2026-10", amount: 52000, accountId: 2, categoryId: 21, date: "2026-10-09" };
 
-const render = (element: ReactNode) => renderToStaticMarkup(element as never);
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&");
 const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
 const inputsOf = (markup: string, name: string) => [...markup.matchAll(new RegExp(`<input[^>]*name="${name}"[^>]*>`, "g"))].map((m) => m[0]);
 const selectOf = (markup: string, name: string) => markup.match(new RegExp(`<select[^>]*name="${name}"[^>]*>[\\s\\S]*?</select>`))?.[0] ?? "";

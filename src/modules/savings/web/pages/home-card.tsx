@@ -2,17 +2,17 @@ import Link from "next/link";
 import { requireSession } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { EmptyState } from "@/core/ui/empty-state";
+import { Fact, FactList } from "@/core/ui/fact-list";
 import { HomeCard } from "@/core/ui/home-card";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
+import { taipeiMonthKey } from "@/core/time";
 import { StatusChip } from "@/core/ui/status-chip";
 import type { ChecklistItem } from "../../lib/checklist";
 import { daysBetween, formatSlashDate } from "../../lib/dates";
 import { monthTotals } from "../../lib/ledger";
 import { formatTwd } from "../../lib/money";
-import { taipeiMonth } from "../../lib/month";
 import { cachedCategoryTotals } from "../../service/cached";
-import { Fact, FactList } from "../components/fact-list";
-import { overdueBadge } from "../dashboard-view";
+import { overdueBadge } from "../format";
 import { loadAccounts, loadChecklist } from "../overview-data";
 import { checklistSummary } from "../overview-view";
 import { SAVINGS_PATHS } from "../paths";
@@ -46,12 +46,12 @@ export async function FinanceSnapshot() {
     );
   }
 
-  const { expense } = monthTotals(totals, taipeiMonth(now));
+  const { expense } = monthTotals(totals, taipeiMonthKey(now));
   const { remaining, next } = checklistSummary(checklist.items);
   return (
     <FactList>
       <Fact label="總資產">
-        <span className="text-xl font-bold tracking-tight">{formatTwd(state.totalAssets)}</span>
+        <span className="text-xl font-bold tracking-tight">{formatTwd(state.summary.assets)}</span>
       </Fact>
       <Fact label="本月支出">
         <span className="font-medium">{formatTwd(expense)}</span>

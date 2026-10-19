@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { inOrder, fakeFetch as recordFetch, type FakeFetchCall } from "@/dev/fake-fetch";
 import { AiError, DEFAULT_MODELS, translateBatch, type AiConfig, type AiProvider } from "./translate";
 import type { Cue } from "./format";
@@ -34,8 +34,6 @@ const lines = (...l: string[]) => JSON.stringify({ lines: l });
 const ai = (provider: AiProvider): AiConfig => ({ provider, apiKey: KEY, model: DEFAULT_MODELS[provider] });
 const headersOf = (call: Call) => new Headers(call.init.headers);
 const promptText = (call: Call) => JSON.stringify(call.body);
-
-afterEach(() => vi.unstubAllEnvs());
 
 describe("translateBatch：各家請求格式", () => {
   it("Anthropic：x-api-key、anthropic-version、預設 claude-haiku-4-5、不送 temperature", async () => {

@@ -1,13 +1,29 @@
 import { parseChannelInput } from "./parse";
+import type { DownloadFormat } from "./download";
+import type { SubtitleMode } from "./subtitles/format";
+
+// service 與 web 不能讀根目錄的 info.ts 站內與 YouTube 的網址寫在這裡
+
+/** 站內的 YouTube 頁 */
+export const YOUTUBE_PAGE_PATH = "/youtube";
+
+/** 站內的翻譯觀看頁 */
+export const watchPagePath = (videoId: string) => `${YOUTUBE_PAGE_PATH}/watch/${videoId}`;
+
+/** 站內的已保留影片 */
+export const SAVED_VIDEOS_PATH = `${YOUTUBE_PAGE_PATH}/saved`;
+
+/** 下載翻好的字幕 web/routes/subtitle-download.ts 處理 */
+export const subtitleDownloadPath = (videoId: string, lang: SubtitleMode, format: DownloadFormat) => `/api/youtube/subtitles/${videoId}?format=${format}&lang=${lang}`;
 
 /** YouTube 上的影片頁 */
 export const youtubeWatchUrl = (videoId: string) => `https://www.youtube.com/watch?v=${videoId}`;
 
-/** 站內的翻譯觀看頁 service 與 web 不能讀根目錄的 info.ts 所以網址寫在這裡 */
-export const watchPagePath = (videoId: string) => `/youtube/watch/${videoId}`;
+/** YouTube 上的頻道頁 頻道 id 是 UC 開頭的那種 */
+export const youtubeChannelUrl = (channelId: string) => `https://www.youtube.com/channel/${channelId}`;
 
-/** 站內的已保留影片 */
-export const SAVED_VIDEOS_PATH = "/youtube/saved";
+/** YouTube 上 @handle 的頻道頁 handle 可以用各國文字 放進網址要編碼 */
+export const youtubeHandleUrl = (handle: string) => `https://www.youtube.com/@${encodeURIComponent(handle)}`;
 
 /**
  * 只收 YouTube 與子網域的 https 網址
@@ -32,5 +48,5 @@ export function youtubeChannelRef(input: string): string | null {
 export function youtubeChannelPageUrl(ref: string): string | null {
   const channel = parseChannelInput(ref);
   if (!channel) return null;
-  return channel.kind === "id" ? `https://www.youtube.com/channel/${channel.channelId}` : `https://www.youtube.com/@${encodeURIComponent(channel.handle)}`;
+  return channel.kind === "id" ? youtubeChannelUrl(channel.channelId) : youtubeHandleUrl(channel.handle);
 }

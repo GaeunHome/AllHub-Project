@@ -1,8 +1,7 @@
 import { createElement, type ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CardDailyFlow } from "../../../lib/cards";
-import type { AccountMonthFlow } from "../../../lib/ledger";
+import { markup, textOf } from "@/dev/test-helpers";
+import { accountRow, dayFlowRow, flowRow as flow } from "../../../dev/fixtures";
 import type { CardBillRecord } from "../../../service/cards";
 import type { AccountsInput, OverviewAccount } from "../../dashboard-view";
 
@@ -38,25 +37,7 @@ const { AccountsBoard } = await import("./accounts-board");
 
 const TODAY = "2026-10-15";
 const CREATED = new Date("2026-01-05T02:00:00Z");
-const textOf = (markup: string) => markup.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"');
-
-const account = (fixture: Pick<OverviewAccount, "id" | "name" | "kind"> & Partial<OverviewAccount>): OverviewAccount => ({
-  purposeId: null,
-  label: null,
-  cardStyle: null,
-  openingBalance: 0,
-  openingCost: null,
-  monthlyPlan: null,
-  targetAmount: null,
-  dueDay: null,
-  payFromAccountId: null,
-  active: true,
-  sortOrder: fixture.id,
-  createdAt: CREATED,
-  statementDay: null,
-  autopay: false,
-  ...fixture,
-});
+const account = (values: Pick<OverviewAccount, "id" | "name" | "kind"> & Partial<OverviewAccount>): OverviewAccount => accountRow({ createdAt: CREATED, ...values });
 
 const ACCOUNTS = [
   account({ id: 1, name: "台銀", kind: "deposit", label: "交割", openingBalance: 8300 }),
@@ -67,12 +48,10 @@ const ACCOUNTS = [
   account({ id: 8, name: "舊帳戶", kind: "deposit", openingBalance: 9000, active: false }),
   account({ id: 9, name: "舊卡", kind: "credit", active: false }),
 ];
-const flow = (accountId: number, month: string, values: Partial<AccountMonthFlow>): AccountMonthFlow => ({ accountId, month, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
-const dayFlow = (accountId: number, date: string, values: Partial<CardDailyFlow>): CardDailyFlow => ({ accountId, date, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
 // 國泰卡 9/20 刷 12,480 是 10/5 結帳的帳單 已經填了 台新卡 9/25 結帳的還沒填
 // 生活費帳戶每月轉 5,000 到台銀
 const FLOWS = [flow(6, "2026-09", { expense: 12480 }), flow(7, "2026-09", { expense: 3000 }), flow(2, "2026-10", { transferOut: 5000 }), flow(1, "2026-10", { transferIn: 5000 })];
-const CARD_FLOWS = [dayFlow(6, "2026-09-20", { expense: 12480 }), dayFlow(7, "2026-09-10", { expense: 3000 })];
+const CARD_FLOWS = [dayFlowRow(6, "2026-09-20", { expense: 12480 }), dayFlowRow(7, "2026-09-10", { expense: 3000 })];
 const BILLS: CardBillRecord[] = [{ id: 1, accountId: 6, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 12480, paid: 0, lastPaidOn: null }];
 const RULES = [
   { accountId: 2, counterAccountId: 1 },
@@ -84,7 +63,7 @@ const DEPOSITS = OPTIONS.accounts.filter((item) => item.kind === "deposit");
 const board = (overrides: Partial<AccountsInput> = {}, openAdd: "deposit" | "credit" | null = null) => {
   const input: AccountsInput = { accounts: ACCOUNTS, flows: FLOWS, holdings: [], quotes: null, cardFlows: CARD_FLOWS, cardBills: BILLS, today: TODAY, ...overrides };
   const view = accountsPageView(input, accountsState(input), RULES);
-  return renderToStaticMarkup(createElement(AccountsBoard, { view, context: { options: OPTIONS, depositAccounts: DEPOSITS, today: TODAY }, openAdd }) as never);
+  return markup(createElement(AccountsBoard, { view, context: { options: OPTIONS, depositAccounts: DEPOSITS, today: TODAY }, openAdd }));
 };
 const cardOf = (markup: string, name: string) => markup.split("<article").find((part) => part.includes(`>${name}</h3>`))?.split("</article>")[0] ?? "";
 const menuOf = (markup: string, name: string) => markup.match(new RegExp(`<menu-mock data-menu="「${name}」的選項">([\\s\\S]*?)</menu-mock>`))?.[1] ?? "";
@@ -170,7 +149,7 @@ describe("信用卡", () => {
   });
 
   it("繳清了：「填帳單」「已繳」都不放，寫本期已繳清", () => {
-    const paid = { cardBills: [{ ...BILLS[0], paid: 12480, lastPaidOn: "2026-10-12" }], flows: [...FLOWS, flow(6, "2026-10", { transferIn: 12480 })], cardFlows: [...CARD_FLOWS, dayFlow(6, "2026-10-12", { transferIn: 12480 })] };
+    const paid = { cardBills: [{ ...BILLS[0], paid: 12480, lastPaidOn: "2026-10-12" }], flows: [...FLOWS, flow(6, "2026-10", { transferIn: 12480 })], cardFlows: [...CARD_FLOWS, dayFlowRow(6, "2026-10-12", { transferIn: 12480 })] };
     const card = surfaceOf(cardOf(board(paid), "國泰卡"));
 
     expect(dialogButtons(card)).toEqual([]);

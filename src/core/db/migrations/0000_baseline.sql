@@ -74,6 +74,8 @@ CREATE TABLE "savings_accounts" (
 	"statement_day" smallint,
 	"autopay" boolean DEFAULT false NOT NULL,
 	"card_notified_on" date,
+	"label" text,
+	"card_style" text,
 	CONSTRAINT "savings_accounts_kind" CHECK ("savings_accounts"."kind" in ('deposit', 'investment', 'credit')),
 	CONSTRAINT "savings_accounts_opening_balance" CHECK ("savings_accounts"."opening_balance" between -100000000 and 100000000),
 	CONSTRAINT "savings_accounts_opening_cost" CHECK ("savings_accounts"."opening_cost" is null or ("savings_accounts"."kind" = 'investment' and "savings_accounts"."opening_cost" between 0 and 100000000)),
@@ -82,7 +84,8 @@ CREATE TABLE "savings_accounts" (
 	CONSTRAINT "savings_accounts_due_day" CHECK ("savings_accounts"."due_day" is null or ("savings_accounts"."kind" = 'credit' and "savings_accounts"."due_day" between 1 and 31)),
 	CONSTRAINT "savings_accounts_pay_from" CHECK ("savings_accounts"."pay_from_account_id" is null or ("savings_accounts"."kind" = 'credit' and "savings_accounts"."pay_from_account_id" <> "savings_accounts"."id")),
 	CONSTRAINT "savings_accounts_statement_day" CHECK ("savings_accounts"."statement_day" is null or ("savings_accounts"."kind" = 'credit' and "savings_accounts"."statement_day" between 1 and 31)),
-	CONSTRAINT "savings_accounts_autopay" CHECK (not "savings_accounts"."autopay" or "savings_accounts"."kind" = 'credit')
+	CONSTRAINT "savings_accounts_autopay" CHECK (not "savings_accounts"."autopay" or "savings_accounts"."kind" = 'credit'),
+	CONSTRAINT "savings_accounts_card_style" CHECK ("savings_accounts"."card_style" is null or ("savings_accounts"."kind" = 'credit' and "savings_accounts"."card_style" in ('blue', 'green', 'purple', 'orange', 'black', 'silver')))
 );
 --> statement-breakpoint
 ALTER TABLE "savings_accounts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
@@ -107,6 +110,7 @@ CREATE TABLE "savings_categories" (
 	"monthly_budget" integer,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"icon" text,
 	CONSTRAINT "savings_categories_kind" CHECK ("savings_categories"."kind" in ('expense', 'income')),
 	CONSTRAINT "savings_categories_color" CHECK ("savings_categories"."color" in ('blue', 'teal', 'green', 'amber', 'orange', 'rose', 'violet', 'slate')),
 	CONSTRAINT "savings_categories_budget" CHECK ("savings_categories"."monthly_budget" is null or ("savings_categories"."kind" = 'expense' and "savings_categories"."monthly_budget" between 1 and 100000000))

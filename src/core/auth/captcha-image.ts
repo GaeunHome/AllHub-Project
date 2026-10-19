@@ -1,11 +1,8 @@
 import "server-only";
 import { randomInt } from "node:crypto";
+import { CAPTCHA_ALPHABET, CAPTCHA_LENGTH } from "./messages";
 
 // 字畫成扭曲的 path 元素 SVG 裡沒有 text 也沒有字元 機器人讀不出答案
-
-/** 拿掉容易看錯的 0 O Q 1 I L 2 Z 5 S 8 B G 6 */
-export const CAPTCHA_ALPHABET = "ACDEFHJKMNPRTUVWXY34679";
-export const CAPTCHA_LENGTH = 5;
 
 type Point = readonly [number, number];
 type Glyph = readonly (readonly Point[])[];

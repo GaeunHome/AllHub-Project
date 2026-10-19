@@ -1,18 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
-import { Icon } from "@/core/ui/icon";
-import { CardHeader } from "@/core/ui/page-header";
+import { useDialog } from "@/core/ui/dialog";
 import { formatTwd } from "../../../lib/money";
 import { choosableAccounts } from "../../form-math";
 import { SAVINGS_PATHS } from "../../paths";
-import { recurringDetail, type RecurringFormOptions, type RegularBuyView } from "../../recurring-view";
+import { recurringDetail } from "../../format";
+import type { RecurringFormOptions, RegularBuyView } from "../../recurring-view";
 import { RecurringForm } from "../forms/recurring-form";
 import { useRemovalNotice } from "../row-controls";
 import { useLinkedTrigger } from "../settings/open-from-link";
 import { IconTile, Ticker } from "../visuals";
-import { RECURRING_LIST, RecurringRow } from "./recurring-row";
+import { RecurringRow } from "./recurring-row";
+import { RecurringSection } from "./recurring-section";
 
 type RegularBuyListProps = {
   items: RegularBuyView[];
@@ -35,45 +35,31 @@ export function RegularBuyList({ items, form, linkToInvestments = true, openAdd 
   const canAdd = holdings.length > 0 && deposits.length > 0;
 
   return (
-    <section aria-labelledby="savings-regular-buys" className="card stack @container min-w-0 overflow-hidden">
-      <CardHeader
-        id="savings-regular-buys"
-        actions={
-          canAdd && (
-            <button {...addTrigger} aria-label="新增定期定額" className="btn-secondary btn-sm">
-              <Icon name="plus" className="size-4" />
-              新增
-            </button>
-          )
-        }
-      >
-        定期定額
-      </CardHeader>
-      <DialogMessage {...add.messageProps} />
-      <DialogMessage {...notice.messageProps} />
-      <Dialog {...add.dialogProps} title="新增定期定額">
-        <RecurringForm preset="regular-buy" accounts={choosableAccounts(form.accounts)} categories={form.categories} holdings={holdings} today={form.today} onDone={add.done} onCancel={add.close} />
-      </Dialog>
-      {items.length === 0 ? (
-        <EmptyText canAdd={canAdd} hasHoldings={holdings.length > 0} linkToInvestments={linkToInvestments} />
-      ) : (
-        <ul className={RECURRING_LIST}>
-          {items.map((item) => (
-            <RecurringRow
-              key={item.id}
-              row={item}
-              leading={item.symbol ? <Ticker symbol={item.symbol} /> : <IconTile name="chart-line" size="sm" />}
-              title={item.draft.name ?? item.holdingName ?? item.title}
-              detail={recurringDetail(item, item.when, item.fromName ? [`從${item.fromName}扣`] : [])}
-              amountText={formatTwd(item.amount)}
-              form={form}
-              openFromLink={item.id === openEditId}
-              onNotice={notice.report}
-            />
-          ))}
-        </ul>
-      )}
-    </section>
+    <RecurringSection
+      id="savings-regular-buys"
+      title="定期定額"
+      add={add}
+      addTrigger={canAdd ? addTrigger : undefined}
+      addLabel="新增定期定額"
+      addTitle="新增定期定額"
+      addForm={<RecurringForm preset="regular-buy" accounts={choosableAccounts(form.accounts)} categories={form.categories} holdings={holdings} today={form.today} onDone={add.done} onCancel={add.close} />}
+      notice={notice}
+      empty={items.length === 0 ? <EmptyText canAdd={canAdd} hasHoldings={holdings.length > 0} linkToInvestments={linkToInvestments} /> : undefined}
+    >
+      {items.map((item) => (
+        <RecurringRow
+          key={item.id}
+          row={item}
+          leading={item.symbol ? <Ticker symbol={item.symbol} /> : <IconTile name="chart-line" size="sm" />}
+          title={item.draft.name ?? item.holdingName ?? item.title}
+          detail={recurringDetail(item, item.when, item.fromName ? [`從${item.fromName}扣`] : [])}
+          amountText={formatTwd(item.amount)}
+          form={form}
+          openFromLink={item.id === openEditId}
+          onNotice={notice.report}
+        />
+      ))}
+    </RecurringSection>
   );
 }
 

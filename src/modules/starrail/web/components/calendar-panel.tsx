@@ -10,6 +10,7 @@ import { challengeLabel, ongoingCalendar, type CalendarChallenge, type CalendarE
 import { formatRemaining, formatTaipeiTime } from "../../lib/responses";
 import type { StarrailAccountView } from "../../service/accounts";
 import { cachedActCalendar } from "../../service/cached";
+import { PanelNotice } from "./panel-parts";
 
 const TITLE_ID = "starrail-calendar-title";
 // 手機一欄 寬螢幕兩欄 超寬螢幕三塊並排
@@ -24,10 +25,9 @@ export async function CalendarPanel({ account }: { account: StarrailAccountView 
   const result = await cachedActCalendar(user.id, account.id);
   if (!result.ok) {
     return (
-      <section className="stack">
-        <h3 className="sr-title min-h-11">活動日曆</h3>
+      <PanelNotice title="活動日曆" tall>
         <FormMessage tone="error">{result.message}</FormMessage>
-      </section>
+      </PanelNotice>
     );
   }
   const now = new Date();
@@ -130,9 +130,9 @@ function WarpRow({ warp, now }: { warp: CalendarWarp; now: Date }) {
 /** 角色是圓形頭像 光錐是直的卡面 只露出上半部 */
 function WarpIcon({ item, lightCone }: { item: WarpItem; lightCone: boolean }) {
   const src = externalAssetUrl(item.icon);
-  if (!lightCone) return <Avatar src={src} name={item.name ?? "?"} size="sm" className="ring-2 ring-[#0b1030]" />;
+  if (!lightCone) return <Avatar src={src} name={item.name ?? "?"} size="sm" className="ring-2 ring-[var(--sr-avatar-ring)]" />;
   return (
-    <span className="relative size-9 shrink-0 overflow-hidden rounded-md bg-[#1f2547] ring-2 ring-[#0b1030]">
+    <span className="relative size-9 shrink-0 overflow-hidden rounded-md bg-[var(--sr-avatar-bg)] ring-2 ring-[var(--sr-avatar-ring)]">
       <ExternalImage
         src={src}
         alt=""

@@ -6,7 +6,7 @@ import { BackLink } from "@/core/ui/back-link";
 import { PageTheme } from "@/core/ui/page-theme";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { parseVideoId } from "../../lib/parse";
-import { cachedMissingApiKeyMessage, cachedTranslation, cachedVideoTitle } from "../../service/cached";
+import { cachedFollowedVideo, cachedMissingApiKeyMessage, cachedTranslation } from "../../service/cached";
 import { canManageTranslation, progressOf } from "../../service/translation";
 import { PlayerSizeSync } from "../components/player-size-sync";
 import { UpNext, UpNextSkeleton } from "../components/up-next";
@@ -22,7 +22,7 @@ export async function WatchLoader({ params, info }: { params: Promise<{ videoId:
   const translation = await cachedTranslation(videoId);
   // 已經翻完的影片用不到金鑰 不必提示
   const apiKeyMissing = translation?.status === "done" ? null : await cachedMissingApiKeyMessage(user.id);
-  const title = translation?.title ?? (await cachedVideoTitle(user.id, videoId)) ?? videoId;
+  const title = translation?.title ?? (await cachedFollowedVideo(user.id, videoId))?.title ?? videoId;
 
   return (
     <WatchClient

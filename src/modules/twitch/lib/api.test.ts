@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeFetch, hangUntilAborted } from "@/dev/fake-fetch";
 import { stubTwitchEnv } from "@/dev/test-env";
 
@@ -10,15 +10,11 @@ async function loadApi() {
   return import("./api");
 }
 
-const twitchServer = () =>
-  fakeFetch(({ url }) => (url.includes("/oauth2/token") ? Response.json({ access_token: "token", expires_in: 3600 }) : Response.json({ data: [] })));
+const twitchServer = (data: unknown[] = []) =>
+  fakeFetch(({ url }) => (url.includes("/oauth2/token") ? Response.json({ access_token: "token", expires_in: 3600 }) : Response.json({ data })));
 
-beforeEach(() => {
-  vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");
-});
-
+// AbortSignal.timeout 的 spy 要還原 全域的 fetch 由 vitest 設定自動換回
 afterEach(() => {
-  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -46,32 +42,59 @@ describe("Twitch API 的逾時", () => {
   });
 });
 
-describe("換 App Access Token 被拒：看得出是哪個值填錯時，直接說要改哪個環境變數", () => {
-  // Twitch 實際的回應 Client ID 不存在是 400 Client ID 對但 Secret 錯是 403
-  const tokenRejected = (status: number, body: string) =>
-    fakeFetch(({ url }) => (url.includes("/oauth2/token") ? new Response(body, { status, headers: { "Content-Type": "application/json" } }) : Response.json({ data: [] })));
+describe("畫面用的 Helix 查詢：一次查多位主播", () => {
+  it("getUsersById_多個 id 放在同一個請求", async () => {
+    const twitch = twitchServer([{ id: "1" }, { id: "2" }]);
+    vi.stubGlobal("fetch", twitch.impl);
+    const { getUsersById } = await loadApi();
 
-  it("400 invalid client_說 Client ID 不對，要改的是 TWITCH_CLIENT_ID", async () => {
-    vi.stubGlobal("fetch", tokenRejected(400, '{"status":400,"message":"invalid client"}').impl);
-    const { getUsersByLogin } = await loadApi();
-
-    const error = (await getUsersByLogin(["alice"]).catch((e: unknown) => e)) as Error;
-
-    expect(error).toMatchObject({ name: "TwitchApiError", status: 400 });
-    expect(error.message).toContain("Client ID 不對");
-    expect(error.message).toContain("TWITCH_CLIENT_ID");
-    expect(error.message).not.toContain("TWITCH_CLIENT_SECRET");
+    expect(await getUsersById(["1", "2"])).toEqual([{ id: "1" }, { id: "2" }]);
+    expect(twitch.urls.slice(1)).toEqual(["https://api.twitch.tv/helix/users?id=1&id=2"]);
   });
 
-  it("403 invalid client secret_說 Client Secret 不對，要改的是 TWITCH_CLIENT_SECRET", async () => {
-    vi.stubGlobal("fetch", tokenRejected(403, '{"status":403,"message":"invalid client secret"}').impl);
-    const { listSubscriptions } = await loadApi();
+  it("getLiveStreams_帶 first=100（預設只回 20 筆）", async () => {
+    const twitch = twitchServer();
+    vi.stubGlobal("fetch", twitch.impl);
+    const { getLiveStreams } = await loadApi();
 
-    const error = (await listSubscriptions().catch((e: unknown) => e)) as Error;
+    await getLiveStreams(["1", "2"]);
 
-    expect(error).toMatchObject({ name: "TwitchApiError", status: 403 });
-    expect(error.message).toContain("Client Secret 不對");
-    expect(error.message).toContain("TWITCH_CLIENT_SECRET");
-    expect(error.message).not.toContain("TWITCH_CLIENT_ID");
+    expect(twitch.urls.slice(1)).toEqual(["https://api.twitch.tv/helix/streams?user_id=1&user_id=2&first=100"]);
+  });
+
+  it("getGames_多個遊戲 id", async () => {
+    const twitch = twitchServer();
+    vi.stubGlobal("fetch", twitch.impl);
+    const { getGames } = await loadApi();
+
+    await getGames(["10", "20"]);
+
+    expect(twitch.urls.slice(1)).toEqual(["https://api.twitch.tv/helix/games?id=10&id=20"]);
+  });
+
+  it("超過 100 個 id_分批查詢再合併_重複的 id 只查一次", async () => {
+    const twitch = twitchServer([{ id: "x" }]);
+    vi.stubGlobal("fetch", twitch.impl);
+    const { getUsersById } = await loadApi();
+    const ids = Array.from({ length: 150 }, (_, i) => String(i));
+
+    const users = await getUsersById([...ids, "0", "1"]);
+
+    const helixCalls = twitch.urls.filter((url) => url.includes("/helix/"));
+    expect(helixCalls).toHaveLength(2);
+    expect(new URL(helixCalls[0]).searchParams.getAll("id")).toHaveLength(100);
+    expect(new URL(helixCalls[1]).searchParams.getAll("id")).toHaveLength(50);
+    expect(users).toHaveLength(2);
+  });
+
+  it("沒有 id_不發請求", async () => {
+    const twitch = twitchServer();
+    vi.stubGlobal("fetch", twitch.impl);
+    const { getGames, getLiveStreams, getUsersById } = await loadApi();
+
+    expect(await getUsersById([])).toEqual([]);
+    expect(await getLiveStreams([])).toEqual([]);
+    expect(await getGames([])).toEqual([]);
+    expect(twitch.urls).toEqual([]);
   });
 });
