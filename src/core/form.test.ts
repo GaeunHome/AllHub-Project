@@ -19,6 +19,12 @@ describe("表單欄位", () => {
     expect(formId(form({}), "id")).toBeNull();
   });
 
+  it("formId_超過 serial 範圍的回 null：資料表的 id 是 integer，更大的數字查資料庫會丟錯", () => {
+    expect(formId(form({ id: "2147483647" }), "id")).toBe(2147483647);
+    expect(formId(form({ id: "2147483648" }), "id")).toBeNull();
+    expect(formId(form({ id: "9007199254740991" }), "id")).toBeNull();
+  });
+
   it("formFlag_只認 true／false", () => {
     expect(formFlag(form({ enabled: "true" }), "enabled")).toBe(true);
     expect(formFlag(form({ enabled: "false" }), "enabled")).toBe(false);

@@ -10,13 +10,14 @@ const MODULES: ModuleInfo[] = [
   { id: "garden", name: "花園", href: "/garden", description: "新模組還沒有首頁卡片", icon: "/icons/ui/flower-2.svg" },
 ];
 
-const render = ({ withHalf = true }: { withHalf?: boolean } = {}) =>
+const render = ({ withHalf = true, compactOdd }: { withHalf?: boolean; compactOdd?: boolean } = {}) =>
   renderToStaticMarkup(
     createElement(HomePage, {
       modules: MODULES,
       wide: createElement(Fragment, null, createElement("p", { id: "wide-1" }, "整列寬的卡片"), createElement("p", { id: "wide-2" }, "另一張整列寬的卡片")),
       half: withHalf ? createElement("p", { id: "half" }, "超寬時佔半列的卡片") : undefined,
       compact: createElement(Fragment, null, createElement("p", { id: "compact-1" }, "並排的卡片"), createElement("p", { id: "compact-2" }, "另一張並排的卡片")),
+      compactOdd,
     }),
   );
 /** 未讀通知那張卡片的 class */
@@ -52,5 +53,13 @@ describe("首頁（core 只排版，卡片由 src/app 從各模組組合進來�
     expect(notificationCard(render())).toEqual(expect.arrayContaining(["sm:col-span-2", "2xl:col-span-1"]));
     expect(notificationCard(render({ withHalf: false }))).toContain("sm:col-span-2");
     expect(notificationCard(render({ withHalf: false }))).not.toContain("2xl:col-span-1");
+  });
+
+  // 提醒與倒數加入後並排的是三張 未讀通知跨欄的話提醒旁邊會空一格
+  it("並排的卡片是單數張（compactOdd）時未讀通知補滿最後一格：兩欄時不跨欄，超寬螢幕在 half 旁邊上下排時照樣一欄", () => {
+    const spans = (classes: string[]) => classes.filter((name) => name.includes("col-span"));
+
+    expect(spans(notificationCard(render({ compactOdd: true })))).toEqual([]);
+    expect(spans(notificationCard(render({ withHalf: false, compactOdd: true })))).toEqual([]);
   });
 });

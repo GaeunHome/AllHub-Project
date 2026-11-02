@@ -17,14 +17,17 @@ type HomePageProps = {
    */
   half?: ReactNode;
   /**
-   * 兩張並排等寬等高 超寬螢幕時在 half 旁邊上下排
-   * 最後固定是未讀通知 兩欄時獨佔一整列 前面兩張一列時旁邊才不會空一格
+   * 兩欄並排等寬等高 超寬螢幕時在 half 旁邊上下排
+   * 最後固定是未讀通知 雙數張時獨佔一整列 單數張時補滿最後一格 旁邊都不會空一格
    */
   compact: ReactNode;
+  /** compact 是單數張 未讀通知補滿最後一格 不用再獨佔一整列 */
+  compactOdd?: boolean;
 };
 
 /** core 不 import 模組 卡片由 src/app 組合進來 這裡只負責排版 */
-export function HomePage({ modules, wide, half, compact }: HomePageProps) {
+export function HomePage({ modules, wide, half, compact, compactOdd = false }: HomePageProps) {
+  const notificationSpan = compactOdd ? undefined : half ? "sm:col-span-2 2xl:col-span-1" : "sm:col-span-2";
   return (
     <div className="page-stack">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -49,10 +52,10 @@ export function HomePage({ modules, wide, half, compact }: HomePageProps) {
         {/* 寬卡片不並排 直播常只有一兩位 並排會被影片格拉高留下一大片空白 */}
         <div className="page-stack 2xl:col-span-2">{wide}</div>
         {half}
-        {/* 超寬螢幕時在 half 旁邊改上下排 兩張並排會比旁邊矮很多 底下留一大片空白 */}
+        {/* 超寬螢幕時在 half 旁邊改上下排 並排的話會比旁邊矮很多 底下留一大片空白 */}
         <div className={`grid grid-cols-1 gap-8 sm:grid-cols-2 ${half ? "2xl:grid-cols-1" : "2xl:col-span-2"}`}>
           {compact}
-          <HomeCard info={NOTIFICATIONS} title="未讀通知" skeleton={null} className={half ? "sm:col-span-2 2xl:col-span-1" : "sm:col-span-2"}>
+          <HomeCard info={NOTIFICATIONS} title="未讀通知" skeleton={null} className={notificationSpan}>
             <HomeNotifications />
           </HomeCard>
         </div>

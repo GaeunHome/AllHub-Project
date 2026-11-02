@@ -50,6 +50,15 @@ export function taipeiDateKey(date: Date): string {
   return `${year}-${pad2(month)}-${pad2(day)}`;
 }
 
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** YYYY-MM-DD 而且日曆上有這一天 2 月 30 日這種日期 Date 會自己進位或變成無效 換回字串對不上 */
+export function isRealDateKey(value: string): boolean {
+  if (!DATE_KEY_PATTERN.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value);
+}
+
 /** 例如 2026-01 伺服器是 UTC 月底晚上八點後會差一個月 所以照台北的日期取 */
 export function taipeiMonthKey(date: Date): string {
   return taipeiDateKey(date).slice(0, 7);

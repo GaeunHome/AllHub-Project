@@ -1,8 +1,8 @@
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, logQueries, setupTestDb } from "@/dev/test-db";
 import { savingsAccounts, savingsRecurring, savingsTransactions } from "../data/schema";
-import { logQueries, savingsRows } from "../dev/db-fixtures";
+import { savingsRows } from "../dev/db-fixtures";
 import { userError } from "../dev/fixtures";
 import { createAccount, deleteAccount, listAccounts, moveAccount, setAccountActive, updateAccount, updateAllocation, type AccountFields } from "./accounts";
 

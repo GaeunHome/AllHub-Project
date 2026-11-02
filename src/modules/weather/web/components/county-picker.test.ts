@@ -1,14 +1,14 @@
 import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TEST_SESSION, requireSession } from "@/dev/session-stub";
-import { markup as render, mocksOf } from "@/dev/test-helpers";
+import { markup as render, mocksOf, textOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/settings", { spy: true });
 
 const settings = mocksOf(await import("../../service/settings"), "saveSettings");
 const { saveSettingsAction } = await import("../actions");
-const { SettingsForm } = await import("./county-picker");
+const { SettingsForm, SettingsResult } = await import("./county-picker");
 
 /** 照瀏覽器送出表單的規則 有勾的 checkbox 才送 沒寫 value 時送 on 下拉選單送選中的那一個 */
 function submitted(markup: string): FormData {
@@ -35,14 +35,33 @@ beforeEach(() => {
   requireSession.mockResolvedValue(TEST_SESSION);
 });
 
+describe("卡片內容的外框（SettingsResult）", () => {
+  it("內容與訊息放在同一個 stack 裡：天氣卡片的內容靠它排間距", () => {
+    expect(render(createElement(SettingsResult, null, createElement("p", null, "內容")))).toBe('<div class="stack"><p>內容</p></div>');
+  });
+});
+
 describe("天氣設定視窗", () => {
-  it("第一次設定時早上的下雨通知預設勾選，不動直接儲存就是開", async () => {
-    expect(await submit(null)).toMatchObject({ rainAlert: true });
+  it("第一次設定時早上的下雨通知與天氣警特報通知都預設勾選，不動直接儲存就是開", async () => {
+    expect(await submit(null)).toMatchObject({ rainAlert: true, warningAlert: true });
   });
 
   it("打開時是存好的縣市與開關：關掉過的人直接儲存還是關", async () => {
-    expect(await submit({ county: "高雄市", rainAlert: false })).toEqual({ county: "高雄市", rainAlert: false });
+    expect(await submit({ county: "高雄市", rainAlert: false, warningAlert: false })).toEqual({ county: "高雄市", rainAlert: false, warningAlert: false });
     settings.saveSettings.mockClear();
-    expect(await submit({ county: "花蓮縣", rainAlert: true })).toEqual({ county: "花蓮縣", rainAlert: true });
+    expect(await submit({ county: "花蓮縣", rainAlert: true, warningAlert: true })).toEqual({ county: "花蓮縣", rainAlert: true, warningAlert: true });
+  });
+
+  it("兩個開關互不影響：只關掉天氣警特報的人，下雨通知還是開著；反過來也一樣", async () => {
+    expect(await submit({ county: "高雄市", rainAlert: true, warningAlert: false })).toEqual({ county: "高雄市", rainAlert: true, warningAlert: false });
+    settings.saveSettings.mockClear();
+    expect(await submit({ county: "高雄市", rainAlert: false, warningAlert: true })).toEqual({ county: "高雄市", rainAlert: false, warningAlert: true });
+  });
+
+  it("天氣警特報通知放在下雨通知下面", () => {
+    const text = textOf(render(createElement(SettingsForm, { settings: null, onDone: vi.fn(), onCancel: vi.fn() })));
+
+    expect(text.indexOf("早上會下雨時通知我")).toBeGreaterThanOrEqual(0);
+    expect(text.indexOf("天氣警特報通知")).toBeGreaterThan(text.indexOf("早上會下雨時通知我"));
   });
 });

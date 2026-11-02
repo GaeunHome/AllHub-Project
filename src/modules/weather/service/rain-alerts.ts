@@ -1,16 +1,12 @@
 import "server-only";
-import { eq } from "drizzle-orm";
 import { claimKey, sendOnceEach } from "@/core/claim";
-import { db } from "@/core/db";
-import { coreUsers } from "@/core/db/schema";
-import { activeOwnerOf } from "@/core/db/users";
 import { logError } from "@/core/errors";
 import { notify } from "@/core/notify";
 import { taipeiDateKey } from "@/core/time";
-import { weatherSettings } from "../data/schema";
-import { normalizeCounty, type County } from "../lib/counties";
+import type { County } from "../lib/counties";
 import { periodLabel, upcomingPeriods, type ForecastPeriod } from "../lib/forecast";
 import { rainOutlook } from "../lib/rain";
+import { recipientsByCounty } from "./recipients";
 import { fetchForecasts, weatherKeys } from "./weather";
 
 // 排程 weather:rain 台北早上 6 點多跑 會下雨就提醒開著通知的人帶傘
@@ -19,21 +15,6 @@ import { fetchForecasts, weatherKeys } from "./weather";
 // service 不能 import 模組根目錄的 info 模組 id 寫在這裡
 const MODULE_ID = "weather";
 const CLAIM_SCOPE = "weather:rain";
-
-/** 開著下雨通知 帳號也沒停用的人 照縣市分組 */
-async function recipientsByCounty(): Promise<Map<County, string[]>> {
-  const rows = await db()
-    .select({ userId: weatherSettings.userId, county: weatherSettings.county })
-    .from(weatherSettings)
-    .innerJoin(coreUsers, activeOwnerOf(weatherSettings.userId))
-    .where(eq(weatherSettings.rainAlert, true));
-  const groups = new Map<County, string[]>();
-  for (const row of rows) {
-    const county = normalizeCounty(row.county);
-    if (county) groups.set(county, [...(groups.get(county) ?? []), row.userId]);
-  }
-  return groups;
-}
 
 /** 縣市加上每一段的降雨機率 第一段寫完整 之後的只寫時段與百分比 讀不到的時段不寫 */
 function rainBody(county: County, periods: readonly ForecastPeriod[], now: Date): string {
@@ -57,7 +38,7 @@ function summary({ sent, already, failed, missing }: Tally & { missing: number }
 /** 看現在這一段與下一段 早上跑就是今天白天與今晚 降雨機率 50% 以上才寄 */
 export async function sendRainAlerts(now = new Date()): Promise<string> {
   if (!weatherKeys().forecast) return "沒有設定氣象署的授權碼，略過";
-  const groups = await recipientsByCounty();
+  const groups = await recipientsByCounty("rainAlert");
   if (groups.size === 0) return "沒有開著下雨提醒的人";
   const forecasts = await fetchForecasts([...groups.keys()]);
   if (forecasts === null) return "讀不到天氣預報，今天略過";

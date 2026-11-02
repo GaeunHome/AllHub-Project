@@ -6,6 +6,7 @@ import {
   formatTaipeiHourMinute,
   formatTaipeiHourMinuteSecond,
   formatTaipeiMonthDay,
+  isRealDateKey,
   taipeiDateKey,
   taipeiDayOffset,
   taipeiMonthKey,
@@ -102,6 +103,26 @@ describe("taipeiDayOffset：照台北的日曆算差幾天，不看幾點", () =
     ["2026-12-31T16:00:00Z", 73, "跨年也照日曆算：10 月還有 11 天、11 月 30 天、12 月 31 天，再加 1 月 1 日"],
   ])("%s → %d（%s）", (iso, expected) => {
     expect(taipeiDayOffset(new Date(iso), now)).toBe(expected);
+  });
+});
+
+describe("isRealDateKey：YYYY-MM-DD 而且日曆上真的有這一天", () => {
+  it.each(["2026-01-01", "2026-12-31", "2026-02-28", "2026-04-30", "1999-12-31"])("%s 是真的日期", (date) => {
+    expect(isRealDateKey(date)).toBe(true);
+  });
+
+  it.each(["2026-02-29", "2026-02-30", "2026-04-31", "2026-13-01", "2026-00-10", "2026-01-00", "2026-01-32"])("%s 日曆上沒有這一天", (date) => {
+    expect(isRealDateKey(date)).toBe(false);
+  });
+
+  it("閏年照西曆的規則：4 的倍數有 2/29，100 的倍數沒有，400 的倍數有", () => {
+    expect(isRealDateKey("2028-02-29")).toBe(true);
+    expect(isRealDateKey("2100-02-29")).toBe(false);
+    expect(isRealDateKey("2000-02-29")).toBe(true);
+  });
+
+  it.each(["", "明天", "2026-1-05", "2026-01-5", "26-01-05", "2026/01/05", "20260105", "2026-01-05T00:00:00Z", " 2026-01-05", "2026-01-05\n"])("格式不對（%j）不算", (date) => {
+    expect(isRealDateKey(date)).toBe(false);
   });
 });
 

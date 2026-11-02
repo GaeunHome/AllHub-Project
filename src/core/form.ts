@@ -11,10 +11,13 @@ export function formText(formData: FormData, name: string): string {
   return String(formData.get(name) ?? "");
 }
 
-/** 資料表的 serial id 不是安全範圍內的正整數就回 null */
+// serial 的上限 更大的數字查資料庫會丟錯
+const MAX_SERIAL_ID = 2_147_483_647;
+
+/** 資料表的 serial id 不是範圍內的正整數就回 null */
 export function formId(formData: FormData, name: string): number | null {
   const id = Number(formData.get(name));
-  return Number.isSafeInteger(id) && id > 0 ? id : null;
+  return Number.isInteger(id) && id > 0 && id <= MAX_SERIAL_ID ? id : null;
 }
 
 /** 帳號的 UUID 格式不對就回 null 不讓奇怪的字串進到查詢裡 */

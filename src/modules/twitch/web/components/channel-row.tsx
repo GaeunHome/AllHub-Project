@@ -18,7 +18,7 @@ type RowProps = { streamer: StreamerVisual<FollowedStreamer>; now: Date };
 
 /**
  * 照 Twitch 側欄的追蹤清單 直播中顯示遊戲與人數 離線的變灰
- * 點了打開滿版大面板 看預覽 訂閱狀態 通知開關與刪除
+ * 點了打開滿版大面板 看預覽 訂閱狀態 通知開關與取消追蹤
  */
 export function ChannelRow({ streamer: s, now }: RowProps) {
   const badge = subscriptionBadge(s);
@@ -61,7 +61,7 @@ export function ChannelRow({ streamer: s, now }: RowProps) {
 
 /**
  * 視窗的內容 在伺服器算繪好交給 DialogButton
- * 寬螢幕左邊是放大的預覽與直播資訊 右邊是通知 訂閱狀態 連結與刪除
+ * 寬螢幕左邊是放大的預覽與直播資訊 右邊是通知 訂閱狀態 連結與取消追蹤
  */
 export function ChannelDetail({ streamer: s, now }: RowProps) {
   const badge = subscriptionBadge(s);
@@ -135,7 +135,7 @@ export function ChannelDetail({ streamer: s, now }: RowProps) {
             className="btn-danger btn-sm"
           >
             <Icon name="trash-2" className="size-3.5" />
-            刪除
+            取消追蹤
           </ActionButton>
         </div>
       </aside>

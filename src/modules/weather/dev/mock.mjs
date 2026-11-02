@@ -1,4 +1,4 @@
-// 假的氣象署 F-C0032-001 與環境部 aqx_p_432 格式照真的回應
+// 假的氣象署 F-C0032-001 W-C0033-001 與環境部 aqx_p_432 格式照真的回應
 // 時段照現在的台北時間算 每個縣市的天氣不同 畫面看得出有沒有對應到
 
 const HOUR = 3_600_000;
@@ -63,6 +63,70 @@ export function forecastResponse(counties = COUNTIES, now = new Date()) {
   };
 }
 
+// 氣象署的縣市代碼 特報的回應會帶 網站沒有用到
+const GEOCODES = {
+  臺北市: "63",
+  新北市: "65",
+  基隆市: "10017",
+  桃園市: "68",
+  新竹市: "10018",
+  新竹縣: "10004",
+  苗栗縣: "10005",
+  臺中市: "66",
+  彰化縣: "10007",
+  南投縣: "10008",
+  雲林縣: "10009",
+  嘉義市: "10020",
+  嘉義縣: "10010",
+  臺南市: "67",
+  高雄市: "64",
+  屏東縣: "10013",
+  宜蘭縣: "10002",
+  花蓮縣: "10015",
+  臺東縣: "10014",
+  澎湖縣: "10016",
+  金門縣: "09020",
+  連江縣: "09007",
+};
+
+// 臺北市一種特報 多半今天結束 標籤只寫時間
+// 臺南市是最壞情況 四種特報的結束時間都不在今天 標籤最長 其他縣市沒有特報
+const WARNINGS = new Map([
+  ["臺北市", [["大雨", "特報", 3]]],
+  [
+    "臺南市",
+    [
+      ["海上陸上颱風", "警報", 48],
+      ["超大豪雨", "特報", 36],
+      ["陸上強風", "特報", 36],
+      ["濃霧", "特報", 30],
+    ],
+  ],
+]);
+
+/** 例如 2026-11-02 08:00:00 */
+const warningTime = (ms) => cwaTime(ms).replace("T", " ").replace("+08:00", "");
+
+export function warningResponse(counties = COUNTIES, now = new Date()) {
+  const start = now.getTime();
+  return {
+    success: "true",
+    result: { resource_id: "W-C0033-001" },
+    records: {
+      location: counties.map((county) => ({
+        locationName: county,
+        geocode: GEOCODES[county],
+        hazardConditions: {
+          hazards: (WARNINGS.get(county) ?? []).map(([phenomena, significance, hours]) => ({
+            info: { language: "zh-TW", phenomena, significance },
+            validTime: { startTime: warningTime(start), endTime: warningTime(start + hours * HOUR) },
+          })),
+        },
+      })),
+    },
+  };
+}
+
 // 每個縣市一到三個測站 臺北市最差的是萬華 新北市有一個維修中 AQI 是空的
 const STATIONS = [
   ["臺北市", "士林", "35"],
@@ -83,13 +147,19 @@ export function aqiResponse(now = new Date()) {
   return { fields: [], records: STATIONS.map(([county, sitename, aqi]) => ({ sitename, county, aqi, pollutant: "", status: "", publishtime })) };
 }
 
+const CWA_DATASETS = new Map([
+  ["/api/v1/rest/datastore/F-C0032-001", forecastResponse],
+  ["/api/v1/rest/datastore/W-C0033-001", warningResponse],
+]);
+
 /** Authorization 或 api_key 是 bad 開頭時回 401 像授權碼打錯 */
 export async function handle({ url, json }) {
-  if (url.pathname === "/api/v1/rest/datastore/F-C0032-001") {
+  const dataset = CWA_DATASETS.get(url.pathname);
+  if (dataset) {
     const key = url.searchParams.get("Authorization") ?? "";
     if (!key || key.startsWith("bad")) return json(401, { message: "Unauthorized" });
     const names = url.searchParams.get("locationName");
-    return json(200, forecastResponse(names ? names.split(",") : COUNTIES));
+    return json(200, dataset(names ? names.split(",") : COUNTIES));
   }
   if (url.pathname === "/api/v2/aqx_p_432") {
     const key = url.searchParams.get("api_key") ?? "";

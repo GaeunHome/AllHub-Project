@@ -5,12 +5,13 @@ import { fakeFetch } from "@/dev/fake-fetch";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { stubAllEnv } from "@/dev/test-env";
 import { mocksOf } from "@/dev/test-helpers";
-import { savingsAccounts, savingsRecurring, savingsTransactions } from "@/modules/savings/data/schema";
+import { remindersItems } from "@/modules/reminders/data/schema";
+import { savingsAccounts, savingsHoldings, savingsRecurring, savingsTransactions } from "@/modules/savings/data/schema";
 import { twitchFollows, twitchStreamers } from "@/modules/twitch/data/schema";
 import { weatherSettings } from "@/modules/weather/data/schema";
 import { youtubeChannels, youtubeFollows, youtubeSavedVideos } from "@/modules/youtube/data/schema";
 
-// 停用就是凍結 notify 不寫給他 追蹤與訂閱照樣保留 固定收支不記 下雨提醒也不寄
+// 停用就是凍結 notify 不寫給他 追蹤與訂閱照樣保留 固定收支不記 除權息 下雨 警特報與生活提醒也不寄
 // core 不能 import 模組 所以跨模組的檢查放在 src 底下
 
 stubAllEnv();
@@ -25,7 +26,10 @@ const { listCaptionTracks } = mocksOf(await import("@/modules/youtube/lib/subtit
 const { handleNotification, syncSubscriptions } = await import("@/modules/twitch/service/streamers");
 const { handleFeed, renewSubscriptions } = await import("@/modules/youtube/service/channels");
 const { postDueRecurring } = await import("@/modules/savings/service/recurring");
+const { sendDividendNotices } = await import("@/modules/savings/service/dividend-notices");
 const { sendRainAlerts } = await import("@/modules/weather/service/rain-alerts");
+const { sendWarningAlerts } = await import("@/modules/weather/service/warning-alerts");
+const { sendDailyReminders } = await import("@/modules/reminders/service/daily");
 const { setUserDisabled } = await import("@/core/admin/service");
 
 const getDb = setupTestDb();
@@ -138,6 +142,35 @@ describe("停用＝凍結：資料全部保留，只是排程與通知不處理�
     expect(await datesOf(member)).toEqual(["2026-09-06", "2026-10-06"]);
   });
 
+  it("理財的除權息通知：停用的人收不到、也不記下寄過，持有同一檔的其他人照常；恢復後照常收到", async () => {
+    // 台北 10/29 早上 8 點多 006208 11/18 除息每股 1.72 元 照證交所 TWT48U_ALL 的格式手寫
+    const morning = new Date("2026-10-29T00:10:00Z");
+    const rows = [{ Date: "1151118", Code: "006208", Name: "富邦台50", Exdividend: "息", StockDividendRatio: "", CashDividend: "1.720000" }];
+    vi.stubGlobal("fetch", fakeFetch(({ url }) => Response.json(url.includes("TWT48U_ALL") ? rows : [])).impl);
+    const [ownerBroker, memberBroker] = await getDb()
+      .insert(savingsAccounts)
+      .values([
+        { userId: owner, name: "元大證券", kind: "investment" },
+        { userId: member, name: "富邦證券", kind: "investment" },
+      ])
+      .returning();
+    await getDb()
+      .insert(savingsHoldings)
+      .values([
+        { userId: owner, accountId: ownerBroker.id, symbol: "006208", name: "富邦台50", shares: 1000, cost: 100_000 },
+        { userId: member, accountId: memberBroker.id, symbol: "006208", name: "富邦台50", shares: 300, cost: 30_000 },
+      ]);
+    await setUserDisabled(owner, member, true);
+
+    expect(await sendDividendNotices(morning)).toBe("寄出 1 則除權息通知");
+    expect(await notificationsOf(member)).toEqual([]);
+    expect(await notificationsOf(owner)).toEqual(["savings"]);
+
+    await setUserDisabled(owner, member, false);
+    expect(await sendDividendNotices(new Date(morning.getTime() + 30 * 60_000))).toBe("寄出 1 則除權息通知");
+    expect(await notificationsOf(member)).toEqual(["savings"]);
+  });
+
   it("天氣的下雨提醒：停用的人收不到，同縣市的其他人照常；恢復後照常收到", async () => {
     // 台北 10/19 早上 6 點 10 分 今天白天降雨機率 80% 照氣象署 F-C0032-001 的格式手寫
     const morning = new Date("2026-10-18T22:10:00Z");
@@ -161,5 +194,49 @@ describe("停用＝凍結：資料全部保留，只是排程與通知不處理�
     await setUserDisabled(owner, member, false);
     expect(await sendRainAlerts(new Date(morning.getTime() + 30 * 60_000))).toBe("寄出 1 則下雨提醒，1 人今天已經提醒過");
     expect(await notificationsOf(member)).toEqual(["weather"]);
+  });
+
+  it("天氣警特報：停用的人收不到，同縣市的其他人照常；恢復後照常收到", async () => {
+    // 台北 11/2 早上 10 點 照氣象署 W-C0033-001 的格式手寫 21 點才結束
+    const morning = new Date("2026-11-02T02:00:00Z");
+    const warning = { records: { location: [{ locationName: "臺北市", hazardConditions: { hazards: [{ info: { phenomena: "大雨", significance: "特報" }, validTime: { startTime: "2026-11-02 08:00:00", endTime: "2026-11-02 21:00:00" } }] } }] } };
+    vi.stubGlobal("fetch", fakeFetch(() => Response.json(warning)).impl);
+    await getDb().insert(weatherSettings).values([
+      { userId: owner, county: "臺北市" },
+      { userId: member, county: "臺北市" },
+    ]);
+    await setUserDisabled(owner, member, true);
+
+    expect(await sendWarningAlerts(morning)).toBe("寄出 1 則天氣警特報通知");
+    expect(await notificationsOf(member)).toEqual([]);
+    expect(await notificationsOf(owner)).toEqual(["weather"]);
+
+    await setUserDisabled(owner, member, false);
+    expect(await sendWarningAlerts(new Date(morning.getTime() + 30 * 60_000))).toBe("寄出 1 則天氣警特報通知，1 則今天已經提醒過");
+    expect(await notificationsOf(member)).toEqual(["weather"]);
+  });
+
+  it("提醒與倒數：停用的人不寄提醒、過期的也不刪，其他人照常；恢復後下一次排程才處理", async () => {
+    // 台北 11/2 早上 7 點 10 分 UTC 還是 11/1
+    const morning = new Date("2026-11-01T23:10:00Z");
+    await getDb().insert(remindersItems).values([
+      { userId: owner, title: "站長今天", date: "2026-11-02", notifyDaysBefore: 0 },
+      { userId: owner, title: "站長過期", date: "2026-11-01", notifyDaysBefore: 0 },
+      { userId: member, title: "成員今天", date: "2026-11-02", notifyDaysBefore: 0 },
+      { userId: member, title: "成員過期", date: "2026-11-01", notifyDaysBefore: 0 },
+    ]);
+    const titlesOf = async (userId: string) => (await getDb().select().from(remindersItems).where(eq(remindersItems.userId, userId))).map((item) => item.title).sort();
+    await setUserDisabled(owner, member, true);
+
+    expect(await sendDailyReminders(morning)).toBe("寄出 1 則提醒，刪除 1 個過期的提醒");
+    expect(await notificationsOf(member)).toEqual([]);
+    expect(await notificationsOf(owner)).toEqual(["reminders"]);
+    expect(await titlesOf(member)).toEqual(["成員今天", "成員過期"].sort());
+    expect(await titlesOf(owner)).toEqual(["站長今天"]);
+
+    await setUserDisabled(owner, member, false);
+    expect(await sendDailyReminders(new Date(morning.getTime() + 30 * 60_000))).toBe("寄出 1 則提醒，1 則今天已經寄過，刪除 1 個過期的提醒");
+    expect(await notificationsOf(member)).toEqual(["reminders"]);
+    expect(await titlesOf(member)).toEqual(["成員今天"]);
   });
 });

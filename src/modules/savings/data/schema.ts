@@ -157,6 +157,30 @@ export const savingsCardBills = pgTable(
 ).enableRLS();
 
 /**
+ * 持股的除權息通知寄到哪一步 一個人一檔一個除息日一列 有這一列就是寄過公布的那則
+ * 排程用條件式寫入認領 除息日過了就刪
+ */
+export const savingsDividendNotices = pgTable(
+  "savings_dividend_notices",
+  {
+    id: serial("id").primaryKey(),
+    userId: owner(),
+    symbol: text("symbol").notNull(),
+    exDate: date("ex_date", { mode: "string" }).notNull(),
+    // 公布時就有金額的那則也算寄過
+    amountNotified: boolean("amount_notified").notNull().default(false),
+    // 最後買進日的提醒
+    reminded: boolean("reminded").notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    // 開頭是 user_id 刪除帳號的連帶刪除也用得到
+    uniqueIndex("savings_dividend_notices_user_symbol_date_idx").on(t.userId, t.symbol, t.exDate),
+    check("savings_dividend_notices_symbol", sql`${t.symbol} ~ '${sql.raw(SYMBOL_PATTERN.source)}'`),
+  ],
+).enableRLS();
+
+/**
  * 固定收支 每 interval_months 個月一期 沒有那一天的月份是月底 再照假日規則調整
  * 自動記的由排程記帳 要確認的列在待處理
  */

@@ -1,8 +1,10 @@
 import type { UiIconName } from "@/core/ui/icon";
+import type { StatusBadge } from "@/core/ui/status-chip";
 import { aqiWarns, countyAqi, type Station } from "../lib/aqi";
 import type { County } from "../lib/counties";
 import { isNight, periodLabel, upcomingPeriods, type Forecast, type ForecastPeriod } from "../lib/forecast";
 import { rainOutlook, type RainLevel } from "../lib/rain";
+import { activeWarnings, warningEndText, type Warning } from "../lib/warnings";
 
 // 伺服器把預報整理成要顯示的文字 卡片只負責排版
 
@@ -32,6 +34,9 @@ export type Reminder = { level: RainLevel; title: string; detail: string };
 
 const REMINDER_TITLES = { umbrella: "記得帶傘", maybe: "帶把折傘", dry: "不用帶傘" } as const satisfies Record<RainLevel, string>;
 
+/** 卡片最上面的一個標籤 */
+export type WarningChip = Pick<StatusBadge, "label" | "tone">;
+
 /** 測站的發布時間只取時分 例如 2026/10/16 15:00:00 寫成 15:00 */
 const publishedHour = (value: string | null) => value?.match(/(\d{1,2}):(\d{2})/)?.[0] ?? null;
 
@@ -42,6 +47,8 @@ export type WeatherView = {
   next: PeriodView | null;
   /** 看現在這一段與下一段 讀不到預報或兩段的降雨機率都讀不到時是 null */
   reminder: Reminder | null;
+  /** 沒有特報或讀不到時是空的 */
+  warnings: WarningChip[];
   /** 沒設環境部的授權碼時是 undefined 讀不到是 null */
   air?: { level: string; aqi: number; site: string; time: string | null; warn: boolean } | null;
 };
@@ -58,7 +65,12 @@ function reminderOf(periods: readonly ForecastPeriod[], now: Date): Reminder | n
   return { level, title: REMINDER_TITLES[level], detail: `${periodLabel(new Date(peak.start), now)}降雨機率 ${peak.rain}%` };
 }
 
-export function weatherView(county: County, forecast: Forecast | null, stations: readonly Station[] | null | undefined, now: Date): WeatherView {
+/** 警報用最強的顏色 特報用警示色 */
+function warningChip({ label, severe, end }: Warning, now: Date): WarningChip {
+  return { label: end === null ? label : `${label} 到 ${warningEndText(end, now)}`, tone: severe ? "danger" : "warning" };
+}
+
+export function weatherView(county: County, forecast: Forecast | null, stations: readonly Station[] | null | undefined, now: Date, warnings: readonly Warning[] | null = null): WeatherView {
   // 提醒跟卡片看同樣的兩段 早上的通知也是這兩段
   const shown = forecast ? upcomingPeriods(forecast, now).slice(0, 2) : [];
   const [current, next] = shown;
@@ -68,6 +80,7 @@ export function weatherView(county: County, forecast: Forecast | null, stations:
     now: current ? periodView(current, now) : null,
     next: next ? periodView(next, now) : null,
     reminder: reminderOf(shown, now),
+    warnings: activeWarnings(warnings ?? [], now).map((warning) => warningChip(warning, now)),
     ...(air === undefined ? {} : { air: air && { level: air.level, aqi: air.aqi, site: air.site, time: publishedHour(air.publishedAt), warn: aqiWarns(air.aqi) } }),
   };
 }

@@ -118,6 +118,17 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
     expect(await notificationsOf(disabled)).toEqual([]);
   });
 
+  it("天氣警特報的開關不影響下雨提醒：關掉警特報、開著下雨通知的人照常收到", async () => {
+    stubWeatherEnv();
+    const alice = await insertTestUser(getDb(), "alice");
+    await getDb().insert(weatherSettings).values({ userId: alice, county: "臺北市", rainAlert: true, warningAlert: false });
+    serve(RAINY_MORNING);
+    const { sendRainAlerts } = await load();
+
+    expect(await sendRainAlerts(MORNING)).toBe("寄出 1 則下雨提醒");
+    expect(await notificationsOf(alice)).toHaveLength(1);
+  });
+
   it("沒有人開著下雨通知時不讀預報", async () => {
     stubWeatherEnv();
     await member("alice", "臺北市", false);

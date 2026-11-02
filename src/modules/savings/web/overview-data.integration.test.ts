@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { insertTestUser, insertTestUsers, setupTestDb } from "@/dev/test-db";
-import { pgliteOf, savingsRows } from "../dev/db-fixtures";
+import { insertTestUser, insertTestUsers, pgliteOf, setupTestDb } from "@/dev/test-db";
+import { savingsRows } from "../dev/db-fixtures";
 import { enterCardBill, payCard } from "../service/cards";
 import { confirmOccurrence, postDueRecurring, skipOccurrence } from "../service/recurring";
 import { loadChecklist } from "./overview-data";

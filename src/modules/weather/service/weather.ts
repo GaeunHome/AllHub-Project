@@ -4,15 +4,17 @@ import { readExternalJson } from "@/core/external-url";
 import { parseStations, type Station } from "../lib/aqi";
 import type { County } from "../lib/counties";
 import { parseForecast, type Forecast } from "../lib/forecast";
+import { parseWarnings, type Warning } from "../lib/warnings";
 
 // 授權碼只在伺服器用 不進快取的 key 也不進回傳值
 
 const FORECAST_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001";
+const WARNING_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0033-001";
 const AQI_URL = "https://data.moenv.gov.tw/api/v2/aqx_p_432";
 // 首頁在等 等不到就先顯示讀不到
 const TIMEOUT_MS = 8_000;
-// 早上的排程沒有人在等 全台的回應也比較大 多等一點
-const ALL_COUNTIES_TIMEOUT_MS = 15_000;
+// 排程沒有人在等 全台的回應也比較大 多等一點
+export const ALL_COUNTIES_TIMEOUT_MS = 15_000;
 
 /** 有沒有設定授權碼 沒有時卡片說明要去哪裡申請 */
 export function weatherKeys(): { forecast: boolean; airQuality: boolean } {
@@ -26,19 +28,19 @@ function readJson(url: URL, what: string, fetchImpl?: typeof fetch, timeoutMs = 
 }
 
 /** county 是 null 時不帶 locationName 氣象署回全部的縣市 */
-async function readForecastJson(county: County | null, fetchImpl: typeof fetch | undefined, timeoutMs?: number): Promise<unknown> {
+async function readCwaJson(endpoint: string, what: string, county: County | null, fetchImpl: typeof fetch | undefined, timeoutMs?: number): Promise<unknown> {
   const key = weatherEnv().CWA_API_KEY;
   if (!key) return null;
-  const url = new URL(FORECAST_URL);
+  const url = new URL(endpoint);
   url.searchParams.set("Authorization", key);
   if (county !== null) url.searchParams.set("locationName", county);
   url.searchParams.set("format", "JSON");
-  return readJson(url, "天氣預報", fetchImpl, timeoutMs);
+  return readJson(url, what, fetchImpl, timeoutMs);
 }
 
 /** 讀不到或沒有授權碼回 null 少了欄位時只記欄位名稱 */
 export async function fetchForecast(county: County, fetchImpl?: typeof fetch): Promise<Forecast | null> {
-  const json = await readForecastJson(county, fetchImpl);
+  const json = await readCwaJson(FORECAST_URL, "天氣預報", county, fetchImpl);
   if (json === null) return null;
   const { forecast, missing } = parseForecast(json, county);
   if (missing.length > 0) console.warn("[weather] 天氣預報少了欄位", missing.join(", "));
@@ -50,7 +52,7 @@ export async function fetchForecast(county: County, fetchImpl?: typeof fetch): P
  * 讀不到 沒有授權碼或一個縣市都解析不出來回 null
  */
 export async function fetchForecasts(counties: readonly County[], fetchImpl?: typeof fetch): Promise<Map<County, Forecast> | null> {
-  const json = await readForecastJson(null, fetchImpl, ALL_COUNTIES_TIMEOUT_MS);
+  const json = await readCwaJson(FORECAST_URL, "天氣預報", null, fetchImpl, ALL_COUNTIES_TIMEOUT_MS);
   if (json === null) return null;
   const forecasts = new Map<County, Forecast>();
   const missing = new Set<string>();
@@ -62,6 +64,18 @@ export async function fetchForecasts(counties: readonly County[], fetchImpl?: ty
   // 只記欄位名稱 不記縣市 看不出誰住哪裡
   if (missing.size > 0) console.warn("[weather] 天氣預報少了欄位", [...missing].join(", "));
   return forecasts.size > 0 ? forecasts : null;
+}
+
+/**
+ * county 是 null 時全台一次讀 回傳回應裡每個縣市的特報 沒有特報的是空陣列
+ * 讀不到或沒有授權碼回 null 少了欄位時只記欄位名稱 不記縣市 看不出誰住哪裡
+ */
+export async function fetchWarnings(county: County | null, fetchImpl?: typeof fetch, timeoutMs?: number): Promise<Map<County, Warning[]> | null> {
+  const json = await readCwaJson(WARNING_URL, "天氣警特報", county, fetchImpl, timeoutMs);
+  if (json === null) return null;
+  const { warnings, missing } = parseWarnings(json);
+  if (missing.length > 0) console.warn("[weather] 天氣警特報少了欄位", missing.join(", "));
+  return warnings;
 }
 
 /** 全台的測站一次讀完 各縣市共用同一份 */

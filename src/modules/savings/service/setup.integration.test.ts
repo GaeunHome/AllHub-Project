@@ -1,8 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUsers, logQueries, pgliteOf, setupTestDb, type TestDb } from "@/dev/test-db";
 import { savingsCategories } from "../data/schema";
-import { logQueries, pgliteOf } from "../dev/db-fixtures";
 import { CATEGORY_ICON_NAMES, SELECTABLE_COLORS } from "../lib/kinds";
 import { setupDefaults } from "./setup";
 

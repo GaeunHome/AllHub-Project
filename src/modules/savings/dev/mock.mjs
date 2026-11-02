@@ -1,4 +1,4 @@
-// 假的證交所與櫃買中心 OpenAPI 欄位與收盤價照 2026-10-14 的真實回應
+// 假的證交所與櫃買中心 OpenAPI 收盤價的欄位與價格照 2026-10-14 的真實回應
 // 日期換成今天之前最近的平日 像真的 API 一樣是前一個交易日
 
 /** 今天台北時間之前最近的週一到週五 例如 1151014 */
@@ -97,8 +97,82 @@ export function tpexQuotes(now) {
   );
 }
 
+// 除權除息預告表 TWT48U_ALL 與 tpex_exright_prepost 欄位照 2026-10-29 的真實回應
+// 日期照今天往後算 跟真的一樣也列最近已經過去的 遇到週末挪到週一
+
+/** 台北今天加 days 天 落在週末時挪到下週一 回民國年 例如 1151118 */
+function exDateAfter(days, now = new Date()) {
+  const taipei = new Date(now.getTime() + 8 * 3_600_000);
+  const day = new Date(Date.UTC(taipei.getUTCFullYear(), taipei.getUTCMonth(), taipei.getUTCDate() + days));
+  while (day.getUTCDay() === 0 || day.getUTCDay() === 6) day.setUTCDate(day.getUTCDate() + 1);
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${day.getUTCFullYear() - 1911}${pad(day.getUTCMonth() + 1)}${pad(day.getUTCDate())}`;
+}
+
+// 幾天後 代號 名稱 種類 現金股利 配股 現金增資的認購率 現金股利還沒公布時證交所是空字串
+// 00919 明天除息 平日看今天就是最後買進日 2882 只有權 是現金增資 0050 已經過去
+const TWSE_DIVIDENDS = [
+  [20, "006208", "富邦台50", "息", "1.720000", "", ""],
+  [6, "0056", "元大高股息", "息", "", "", ""],
+  [1, "00919", "群益台灣精選高息", "息", "0.540000", "", ""],
+  [3, "2881", "富邦金", "權息", "3.000000", "0.05000000", ""],
+  [10, "2882", "國泰金", "權", "0", "", "0.12365842"],
+  [14, "00878", "國泰永續高股息", "息", "0.400000", "", ""],
+  [-7, "0050", "元大台灣50", "息", "1.000000", "", ""],
+  [6, "8467", "波力-KY", "息", "2.000000", "", ""],
+];
+
+// 櫃買中心沒公布的現金股利是尚未公告 沒有的欄位是 0
+const TPEX_DIVIDENDS = [
+  [8, "00679B", "元大美債20年", "除息", "尚未公告", "0.00000000", "0.00000000"],
+  [4, "6488", "環球晶", "除權息", "2.50000000", "0.09999999", "0.00000000"],
+  [10, "3105", "穩懋", "除權", "0.00000000", "0.00000000", "0.10883356"],
+  [15, "8299", "群聯", "除息", "10.00000000", "0.00000000", "0.00000000"],
+  [-2, "00937B", "群益ESG投等債20+", "除息", "0.10000000", "0.00000000", "0.00000000"],
+  [14, "3680", "家登", "除息", "9.91474560", "0.00000000", "0.00000000"],
+];
+
+export function twseDividends(now) {
+  return TWSE_DIVIDENDS.map(([days, Code, Name, Exdividend, CashDividend, StockDividendRatio, SubscriptionRatio]) => ({
+    Date: exDateAfter(days, now),
+    Code,
+    Name,
+    Exdividend,
+    StockDividendRatio,
+    SubscriptionRatio,
+    SubscriptionPricePerShare: SubscriptionRatio ? "尚未公告" : "",
+    CashDividend,
+    SharesOffered: SubscriptionRatio ? "2000000.00" : "",
+    SharesEmpOwner: SubscriptionRatio ? "2000000.00" : "",
+    SharesholderOwner: SubscriptionRatio ? "16000000.00" : "",
+    StockHoldingRatio: SubscriptionRatio ? "98.92674000" : "",
+  }));
+}
+
+export function tpexDividends(now) {
+  return TPEX_DIVIDENDS.map(([days, SecuritiesCompanyCode, CompanyName, ExRrightsExDividend, CashDividend, StockDividendRatio, SubscriptionRatioToNewSharesIssued]) => {
+    const offering = SubscriptionRatioToNewSharesIssued !== "0.00000000";
+    return {
+      ExRrightsExDividendDate: exDateAfter(days, now),
+      SecuritiesCompanyCode,
+      CompanyName,
+      ExRrightsExDividend,
+      StockDividendRatio,
+      SubscriptionRatioToNewSharesIssued,
+      SubscriptionPricePerShare: offering ? "80.00" : "0.00",
+      CashDividend,
+      AllocatedForPublicUnderwriting: offering ? "1000000" : "0",
+      SubscribedByEmployees: offering ? "1500000" : "0",
+      SubscribedByExistingShareholders: offering ? "7500000" : "0",
+      SubscribedProRataInThousandShares: offering ? "81.62517242" : "0.00000000",
+    };
+  });
+}
+
 export function handle({ url, json }) {
   if (url.pathname === "/v1/exchangeReport/STOCK_DAY_ALL") return json(200, twseQuotes());
   if (url.pathname === "/openapi/v1/tpex_mainboard_quotes") return json(200, tpexQuotes());
+  if (url.pathname === "/v1/exchangeReport/TWT48U_ALL") return json(200, twseDividends());
+  if (url.pathname === "/openapi/v1/tpex_exright_prepost") return json(200, tpexDividends());
   return false;
 }

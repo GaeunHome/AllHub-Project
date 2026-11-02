@@ -27,15 +27,25 @@ describe("天氣設定", () => {
     settings.saveSettings.mockResolvedValue("高雄市");
     requireSession.mockResolvedValue(OTHER_SESSION);
 
-    expect((await saveSettingsAction({}, form({ county: "高雄市", rainAlert: "true", userId: TEST_SESSION.id }))).error).toBeUndefined();
-    expect(settings.saveSettings).toHaveBeenCalledWith(OTHER_SESSION.id, { county: "高雄市", rainAlert: true });
+    expect((await saveSettingsAction({}, form({ county: "高雄市", rainAlert: "true", warningAlert: "true", userId: TEST_SESSION.id }))).error).toBeUndefined();
+    expect(settings.saveSettings).toHaveBeenCalledWith(OTHER_SESSION.id, { county: "高雄市", rainAlert: true, warningAlert: true });
   });
 
   it("沒勾「早上會下雨時通知我」時存成關：沒勾的 checkbox 不會送出", async () => {
     settings.saveSettings.mockResolvedValue("臺北市");
 
     await saveSettingsAction({}, form({ county: "臺北市" }));
-    expect(settings.saveSettings).toHaveBeenCalledWith(TEST_SESSION.id, { county: "臺北市", rainAlert: false });
+    expect(settings.saveSettings).toHaveBeenCalledWith(TEST_SESSION.id, { county: "臺北市", rainAlert: false, warningAlert: false });
+  });
+
+  it("兩個開關各看各的欄位：只勾「天氣警特報通知」時下雨通知存成關，只勾下雨通知時警特報存成關", async () => {
+    settings.saveSettings.mockResolvedValue("臺北市");
+
+    await saveSettingsAction({}, form({ county: "臺北市", warningAlert: "true" }));
+    expect(settings.saveSettings).toHaveBeenLastCalledWith(TEST_SESSION.id, { county: "臺北市", rainAlert: false, warningAlert: true });
+
+    await saveSettingsAction({}, form({ county: "臺北市", rainAlert: "true" }));
+    expect(settings.saveSettings).toHaveBeenLastCalledWith(TEST_SESSION.id, { county: "臺北市", rainAlert: true, warningAlert: false });
   });
 
   it("不在清單的縣市：顯示原因，快取不失效", async () => {

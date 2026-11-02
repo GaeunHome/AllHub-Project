@@ -1,4 +1,5 @@
-import { dueText, formatSlashDate } from "../lib/dates";
+import { dueText, formatSlashDate, type DateKey } from "../lib/dates";
+import { DIVIDEND_KIND_LABELS, type DividendKind } from "../lib/dividends";
 import type { TransactionKind } from "../lib/kinds";
 import { formatNumber, formatSignedTwd, formatTwd } from "../lib/money";
 import { formatMonth, formatMonthShort, type MonthKey } from "../lib/month";
@@ -63,4 +64,15 @@ export function recurringDetail(row: Pick<RecurringRowView, "nextDate" | "due" |
     parts.push(`下一期 ${formatSlashDate(row.nextDate)}`);
   }
   return parts.join(" · ");
+}
+
+/** 除權息那一列名稱下面那一行 今天與明天直接寫 其他寫還有幾天 */
+export function dividendDateText({ exDate, kind, daysLeft, lastBuyToday }: { exDate: DateKey; kind: DividendKind; daysLeft: number; lastBuyToday: boolean }): string {
+  const date = formatSlashDate(exDate);
+  const label = DIVIDEND_KIND_LABELS[kind];
+  if (daysLeft === 0) return `${date} 今天${label}`;
+  // 週一除息時週五就是最後買進日 寫還有幾天會錯過
+  if (lastBuyToday) return `${date} ${label} · 今天最後買進`;
+  if (daysLeft === 1) return `${date} 明天${label}`;
+  return `${date} ${label} · ${dueText(daysLeft)}`;
 }

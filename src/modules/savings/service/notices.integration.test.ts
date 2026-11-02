@@ -1,10 +1,10 @@
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { coreNotifications, coreUsers } from "@/core/db/schema";
-import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, pgliteOf, setupTestDb } from "@/dev/test-db";
 import { captureErrorLog, mocksOf } from "@/dev/test-helpers";
 import { savingsAccounts, savingsCardBills, savingsRecurring, savingsTransactions } from "../data/schema";
-import { dateParams, pgliteOf, savingsRows } from "../dev/db-fixtures";
+import { dateParams, savingsRows } from "../dev/db-fixtures";
 
 // 排程 savings:recurring 寄的到期通知 沒設定回應時 notify 照常寫進資料庫
 vi.mock("@/core/notify", { spy: true });

@@ -5,8 +5,9 @@ import { Fact, FactList } from "@/core/ui/fact-list";
 import { HomeCard } from "@/core/ui/home-card";
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
+import { StatusChip } from "@/core/ui/status-chip";
 import type { RainLevel } from "../../lib/rain";
-import { cachedForecast, cachedSettings, cachedStations } from "../../service/cached";
+import { cachedForecast, cachedSettings, cachedStations, cachedWarnings } from "../../service/cached";
 import type { WeatherSettings } from "../../service/settings";
 import { weatherKeys } from "../../service/weather";
 import { CountyPicker, SettingsResult } from "../components/county-picker";
@@ -28,15 +29,15 @@ export async function WeatherSnapshot() {
   const user = await requireSession();
   const settings = await cachedSettings(user.id);
   if (settings === null) {
-    return <EmptyState compact icon="map-pin" title="選擇所在的縣市" hint="首頁會顯示那裡的天氣與空氣品質，會下雨時提醒帶傘" action={<CountyPicker settings={null} />} />;
+    return <EmptyState compact icon="map-pin" title="選擇所在的縣市" hint="首頁會顯示那裡的天氣、空氣品質與天氣特報，會下雨時提醒帶傘" action={<CountyPicker settings={null} />} />;
   }
   const keys = weatherKeys();
   if (!keys.forecast) {
     return <EmptyState compact icon="cloud-sun" title="還沒設定氣象署的授權碼" hint="站長在 Vercel 的環境變數加上 CWA_API_KEY 就會顯示" />;
   }
   const now = new Date();
-  const [forecast, stations] = await Promise.all([cachedForecast(settings.county), keys.airQuality ? cachedStations() : undefined]);
-  return <WeatherBody view={weatherView(settings.county, forecast, stations, now)} settings={settings} />;
+  const [forecast, stations, warnings] = await Promise.all([cachedForecast(settings.county), keys.airQuality ? cachedStations() : undefined, cachedWarnings(settings.county)]);
+  return <WeatherBody view={weatherView(settings.county, forecast, stations, now, warnings)} settings={settings} />;
 }
 
 /**
@@ -45,9 +46,22 @@ export async function WeatherSnapshot() {
  */
 const NOW_ROW = "grid gap-4 @min-[41rem]:grid-cols-[auto_minmax(14rem,1fr)] @min-[41rem]:gap-x-6";
 
+/**
+ * 超長的特報最寬到卡片內容 在標籤內換行 結束時間才看得到
+ * 圓角 12px 比一行的半高大 一行時還是膠囊 多行時字才不會超出轉角
+ */
+const WARNING_CHIP = "max-w-full rounded-xl whitespace-normal";
+
 function WeatherBody({ view, settings }: { view: WeatherView; settings: WeatherSettings }) {
   return (
     <div className="stack">
+      {view.warnings.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {view.warnings.map((warning) => (
+            <StatusChip key={warning.label} badge={warning} className={WARNING_CHIP} />
+          ))}
+        </div>
+      )}
       {view.now ? (
         <div className={view.reminder ? NOW_ROW : undefined}>
           <CurrentPeriod county={view.county} period={view.now} />

@@ -1,7 +1,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle, type PgliteDatabase } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { coreUsers, type UserRole } from "@/core/db/schema";
 import { OTHER_SESSION, TEST_SESSION } from "./session-stub";
 
@@ -56,3 +56,25 @@ export async function insertTestUsers(db: TestDb): Promise<[alice: string, bob: 
   const bob = await insertTestUser(db, OTHER_SESSION.username, { id: OTHER_SESSION.id, role: OTHER_SESSION.role });
   return [alice, bob];
 }
+
+/** 取 setupTestDb 底下的 PGlite TestDb 的型別沒有列出 drizzle 的 $client */
+export const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
+
+// PGlite 只有一條連線 交易本來就一個一個跑 要看的是送出的順序
+function recordQueries<T>(db: TestDb, begin: T, entry: (sql: string, params: unknown[]) => T): T[] {
+  const log: T[] = [];
+  const pglite = pgliteOf(db);
+  const transaction = pglite.transaction.bind(pglite);
+  vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) => {
+    log.push(begin);
+    return transaction(callback);
+  }) as typeof transaction);
+  (globalThis as unknown as { hubDb?: unknown }).hubDb = drizzle(pglite, { logger: { logQuery: (sql, params) => log.push(entry(sql, params)) } });
+  return log;
+}
+
+/** 換成會記下每句 SQL 的連線 BEGIN 由 PGlite 自己送 所以交易的開始另外記成 begin */
+export const logQueries = (db: TestDb): string[] => recordQueries(db, "begin", (sql) => sql);
+
+/** 跟 logQueries 一樣 另外記下參數 */
+export const logStatements = (db: TestDb): { sql: string; params: unknown[] }[] => recordQueries(db, { sql: "begin", params: [] }, (sql, params) => ({ sql, params }));

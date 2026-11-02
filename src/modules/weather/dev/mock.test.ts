@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { taipeiDateKey } from "@/core/time";
 import { mockRequest } from "@/dev/mock-request";
-import { aqiResponse, forecastResponse, handle, periodStarts } from "./mock.mjs";
+import { parseCwaTime } from "../lib/forecast";
+import { parseWarnings } from "../lib/warnings";
+import { aqiResponse, forecastResponse, handle, periodStarts, warningResponse } from "./mock.mjs";
 
 // 假伺服器要回真實格式的資料 網站照真的解析才看得到東西
 describe("氣象署與環境部的假回應", () => {
@@ -55,5 +58,65 @@ describe("氣象署與環境部的假回應", () => {
     for (const row of records) expect(Object.keys(row)).toEqual(expect.arrayContaining(["county", "sitename", "aqi", "publishtime"]));
     expect(records.some((row) => row.aqi === "")).toBe(true);
     expect(records[0].publishtime).toBe("2026/10/16 13:00:00");
+  });
+});
+
+describe("氣象署 W-C0033-001 的假回應", () => {
+  const request = (query: string) => mockRequest(handle, `/api/v1/rest/datastore/W-C0033-001?format=JSON${query}`);
+
+  it("授權碼是空的或 bad 開頭時回 401，像授權碼打錯", async () => {
+    expect((await request("")).status).toBe(401);
+    expect((await request("&Authorization=bad-key")).status).toBe(401);
+  });
+
+  it("跟氣象署一樣：帶 locationName 只回那個縣市，沒帶（排程全台一次讀）回全部 22 個縣市", async () => {
+    const names = async (query: string) => ((await request(`&Authorization=dev-cwa${query}`)).data as ReturnType<typeof warningResponse>).records.location.map((location) => location.locationName);
+
+    expect(await names("&locationName=臺南市")).toEqual(["臺南市"]);
+    const all = await names("");
+    expect(all).toHaveLength(22);
+    expect(new Set(all).size).toBe(22);
+  });
+
+  it("格式照官方欄位表與公開專案確認的路徑：hazardConditions.hazards[] 的 info 與 validTime，時間是台北時間的舊寫法", () => {
+    const [location] = warningResponse(["臺北市"], new Date("2026-11-02T05:20:00Z")).records.location;
+
+    expect(location.hazardConditions.hazards).toHaveLength(1);
+    const [hazard] = location.hazardConditions.hazards;
+    expect(hazard.info).toEqual({ language: "zh-TW", phenomena: "大雨", significance: "特報" });
+    expect(hazard.validTime.startTime).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:00:00$/);
+    expect(hazard.validTime.endTime).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:00:00$/);
+  });
+
+  it("截圖照這份挑縣市：臺北市大雨特報，臺南市是最壞情況（颱風警報、超大豪雨、陸上強風、濃霧），其他縣市沒有特報", () => {
+    const { warnings, missing } = parseWarnings(warningResponse(undefined, new Date("2026-11-02T05:20:00Z")));
+
+    expect(missing).toEqual([]);
+    expect(warnings?.get("臺北市")?.map(({ label, severe }) => [label, severe])).toEqual([["大雨特報", false]]);
+    expect(warnings?.get("臺南市")?.map(({ label, severe }) => [label, severe])).toEqual([
+      ["海上陸上颱風警報", true],
+      ["超大豪雨特報", false],
+      ["陸上強風特報", false],
+      ["濃霧特報", false],
+    ]);
+    expect(warnings?.get("高雄市")).toEqual([]);
+    expect(warnings?.get("臺中市")).toEqual([]);
+    const others = [...(warnings?.entries() ?? [])].filter(([county]) => county !== "臺北市" && county !== "臺南市");
+    expect(others).toHaveLength(20);
+    expect(others.every(([, list]) => list.length === 0)).toBe(true);
+  });
+
+  it("時間以現在為準：特報已經開始、還沒結束，半夜看也一樣；臺南市的結束時間不在今天，看得到最長的「到 M/D HH:mm」", () => {
+    for (const now of [new Date("2026-11-02T05:20:00Z"), new Date("2026-11-02T15:50:00Z"), new Date("2026-11-02T16:10:00Z")]) {
+      const response = warningResponse(undefined, now);
+      const { warnings } = parseWarnings(response);
+      const ends = [...(warnings?.values() ?? [])].flat().map((warning) => new Date(warning.end ?? 0));
+      const starts = response.records.location.flatMap((location) => location.hazardConditions.hazards.map((hazard) => parseCwaTime(hazard.validTime.startTime)));
+
+      expect(ends).toHaveLength(5);
+      for (const end of ends) expect(end.getTime()).toBeGreaterThan(now.getTime());
+      for (const start of starts) expect(new Date(start ?? "").getTime()).toBeLessThanOrEqual(now.getTime());
+      for (const warning of warnings?.get("臺南市") ?? []) expect(taipeiDateKey(new Date(warning.end ?? 0))).not.toBe(taipeiDateKey(now));
+    }
   });
 });

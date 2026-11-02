@@ -11,6 +11,7 @@ import {
   cachedCardFlows,
   cachedCategories,
   cachedCategoryTotals,
+  cachedDividends,
   cachedHoldings,
   cachedMonthTransactions,
   cachedQuotes,
@@ -193,6 +194,58 @@ describe("cachedQuotes（股價：不存資料庫，savings:external）", () => 
     vi.stubGlobal("fetch", fetch.impl);
 
     expect(await cachedQuotes([])).toEqual([]);
+    expect(fetch.impl).not.toHaveBeenCalled();
+  });
+});
+
+// 除權息預告表的形狀照真實的 只留用得到的欄位 預告表本來就只有幾十筆 不設最少筆數
+const TWSE_DIVIDENDS = [
+  { Date: "1151118", Code: "006208", Name: "富邦台50", Exdividend: "息", CashDividend: "1.720000" },
+  { Date: "1151106", Code: "0056", Name: "元大高股息", Exdividend: "息", CashDividend: "" },
+];
+const TPEX_DIVIDENDS = [{ ExRrightsExDividendDate: "1151110", SecuritiesCompanyCode: "00679B", CompanyName: "元大美債20年", ExRrightsExDividend: "除息", CashDividend: "尚未公告" }];
+
+describe("cachedDividends（除權息預告：不存資料庫，savings:external）", () => {
+  const answer = (twse: unknown, tpex: unknown) =>
+    fakeFetch(({ url }) => {
+      if (url.includes("TWT48U_ALL")) return twse instanceof Error ? Promise.reject(twse) : Response.json(twse);
+      if (url.includes("tpex_exright_prepost")) return tpex instanceof Error ? Promise.reject(tpex) : Response.json(tpex);
+      throw new Error(`沒有預期的網址 ${url}`);
+    });
+
+  it("只回傳要的代號（不分大小寫、重複的只算一次）_兩個來源都讀到時用 quotes 效期（一小時看一次）", async () => {
+    vi.stubGlobal("fetch", answer(TWSE_DIVIDENDS, TPEX_DIVIDENDS).impl);
+
+    expect(await cachedDividends(["006208", "00679b", "006208"])).toEqual([
+      { symbol: "00679B", exDate: "2026-11-10", kind: "cash", cashPerShare: null },
+      { symbol: "006208", exDate: "2026-11-18", kind: "cash", cashPerShare: "1.72" },
+    ]);
+    expect(tagged()).toEqual(["savings:external"]);
+    expect(cacheLife).toHaveBeenCalledWith("quotes");
+  });
+
+  it("只讀到一個來源_回傳讀到的，用短效期（external）幾分鐘後再試", async () => {
+    captureErrorLog();
+    vi.stubGlobal("fetch", answer(TWSE_DIVIDENDS, new TypeError("fetch failed")).impl);
+
+    expect((await cachedDividends(["006208", "00679B"]))?.map((event) => event.symbol)).toEqual(["006208"]);
+    expect(cacheLife).toHaveBeenCalledWith("external");
+    expect(cacheLife).not.toHaveBeenCalledWith("quotes");
+  });
+
+  it("兩個都讀不到_null（畫面寫暫時讀不到），用短效期", async () => {
+    captureErrorLog();
+    vi.stubGlobal("fetch", answer(new TypeError("fetch failed"), new TypeError("fetch failed")).impl);
+
+    expect(await cachedDividends(["006208"])).toBeNull();
+    expect(cacheLife).toHaveBeenCalledWith("external");
+  });
+
+  it("沒有持股（沒有代號）_不對外連線", async () => {
+    const fetch = answer(TWSE_DIVIDENDS, TPEX_DIVIDENDS);
+    vi.stubGlobal("fetch", fetch.impl);
+
+    expect(await cachedDividends([])).toEqual([]);
     expect(fetch.impl).not.toHaveBeenCalled();
   });
 });

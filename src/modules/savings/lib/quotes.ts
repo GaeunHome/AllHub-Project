@@ -1,3 +1,4 @@
+import { isRealDateKey } from "@/core/time";
 import type { DateKey } from "./dates";
 import { SYMBOL_PATTERN } from "./kinds";
 import { formatNumber } from "./money";
@@ -39,8 +40,7 @@ export function rocDateToKey(text: string): DateKey | null {
   if (!match) return null;
   const [, year, month, day] = match;
   const date = `${Number(year) + 1911}-${month}-${day}`;
-  const check = new Date(`${date}T00:00:00Z`);
-  return !Number.isNaN(check.getTime()) && check.toISOString().slice(0, 10) === date ? date : null;
+  return isRealDateKey(date) ? date : null;
 }
 
 const text = (row: Record<string, unknown>, key: string) => (typeof row[key] === "string" ? (row[key] as string) : "");

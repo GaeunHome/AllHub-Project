@@ -19,7 +19,9 @@ export function EmptyState({ icon = "flower-2", title, hint, action, compact = f
         <span className="icon-tile size-11 rounded-xl">
           <Icon name={icon} />
         </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        {/* 基準是 0 時按鈕永遠不換行 文字會擠成一字一行
+            太大的話半張卡片放不下 文字會掉到圖示下面 */}
+        <div className="flex min-w-0 flex-[1_1_7.5rem] flex-col gap-0.5">
           <p className="font-semibold text-ink">{title}</p>
           {hint && <p className="text-sm text-ink-soft">{hint}</p>}
         </div>

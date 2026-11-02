@@ -34,3 +34,18 @@ export function cwaLocation(locationName: string, slots: CwaSlot[]) {
 }
 
 export const cwaResponse = (...locations: ReturnType<typeof cwaLocation>[]) => ({ success: "true", records: { datasetDescription: "三十六小時天氣預報", location: locations } });
+
+/** 氣象署回應裡一個特報 沒給的欄位不放 */
+type CwaHazard = { phenomena?: string; significance?: string; start?: string; end?: string };
+
+/** 照氣象署 W-C0033-001 的格式寫一個縣市 */
+export const cwaWarningLocation = (locationName: string, hazards: CwaHazard[]) => ({
+  locationName,
+  geocode: "63",
+  hazardConditions: {
+    hazards: hazards.map(({ phenomena, significance, start, end }) => ({ info: { language: "zh-TW", phenomena, significance }, validTime: { startTime: start, endTime: end } })),
+  },
+});
+
+/** location 不一定照 cwaWarningLocation 寫 測試也要餵缺欄位的回應 */
+export const cwaWarningResponse = (...locations: unknown[]) => ({ success: "true", records: { location: locations } });

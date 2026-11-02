@@ -4,6 +4,7 @@ import type { SavingsAccount, SavingsCategory, SavingsHolding, SavingsRecurring 
 import type { CardDailyFlow } from "../lib/cards";
 import type { ChecklistRecord } from "../lib/checklist";
 import type { DateKey } from "../lib/dates";
+import type { DividendEvent } from "../lib/dividends";
 import type { AccountMonthFlow, CategoryMonthTotal } from "../lib/ledger";
 import type { MonthKey } from "../lib/month";
 import { quoteSymbols, type Quote } from "../lib/quotes";
@@ -11,6 +12,7 @@ import { listAccounts } from "./accounts";
 import { savingsTags } from "./cache-tags";
 import { cardDailyFlows, listCardBills, type CardBillRecord } from "./cards";
 import { listCategories } from "./categories";
+import { fetchDividends } from "./dividends";
 import { listHoldings } from "./holdings";
 import { fetchQuotes } from "./quotes";
 import { listRecurring } from "./recurring";
@@ -115,4 +117,28 @@ async function quotesOf(symbols: string[]): Promise<Quote[] | null> {
   else cacheLife("external");
   const wanted = new Set(symbols);
   return result.quotes.filter((quote) => wanted.has(quote.symbol));
+}
+
+/**
+ * 持股的除權息預告 只回傳這些代號的 兩個來源都讀不到時是 null
+ * 沒有持股時不呼叫外部服務 代號排序去重後才當快取 key
+ */
+export async function cachedDividends(symbols: readonly string[]): Promise<DividendEvent[] | null> {
+  const key = quoteSymbols(symbols);
+  return key.length === 0 ? [] : dividendsOf(key);
+}
+
+// 公司隨時會公布 跟收盤價一樣一小時看一次 只有一個來源讀到時用短效期 幾分鐘後再試
+async function dividendsOf(symbols: string[]): Promise<DividendEvent[] | null> {
+  "use cache: remote";
+  cacheTag(savingsTags.external);
+  const result = await fetchDividends();
+  if (!result.ok) {
+    cacheLife("external");
+    return null;
+  }
+  if (result.complete) cacheLife("quotes");
+  else cacheLife("external");
+  const wanted = new Set(symbols);
+  return result.events.filter((event) => wanted.has(event.symbol));
 }

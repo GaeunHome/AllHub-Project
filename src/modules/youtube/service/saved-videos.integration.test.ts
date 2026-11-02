@@ -1,8 +1,6 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { and, asc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUsers, logQueries, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
 import { youtubeChannels, youtubeFollows, youtubeSavedVideos, youtubeTranslations, youtubeVideos } from "../data/schema";
@@ -33,25 +31,6 @@ const rowsOf = (userId: string) => testDb.select().from(youtubeSavedVideos).wher
 const rowOf = async (userId: string, videoId: string) =>
   (await testDb.select().from(youtubeSavedVideos).where(and(eq(youtubeSavedVideos.userId, userId), eq(youtubeSavedVideos.videoId, videoId))))[0];
 const lookupOf = (snapshot: { title: string | null; channelTitle: string | null } | null) => vi.fn(async () => snapshot);
-
-/** setupTestDb 底下的 PGlite TestDb 的型別沒有列出 drizzle 的 $client */
-const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
-
-/**
- * 換成會記下每句 SQL 的連線 用同一個 PGlite 交易裡的也記得到
- * BEGIN 由 PGlite 自己送 所以開始交易時另外記一筆
- */
-function logQueries(): string[] {
-  const queries: string[] = [];
-  const pglite = pgliteOf(testDb);
-  const transaction = pglite.transaction.bind(pglite);
-  vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) => {
-    queries.push("begin");
-    return transaction(callback);
-  }) as typeof transaction);
-  (globalThis as unknown as { hubDb?: unknown }).hubDb = drizzle(pglite, { logger: { logQuery: (query) => queries.push(query) } });
-  return queries;
-}
 
 beforeEach(async () => {
   [me, other] = await insertTestUsers(testDb);
@@ -209,7 +188,7 @@ describe(`每人最多 ${SAVED_LIMIT} 部`, () => {
   });
 
   it("數之前先在同一個交易裡鎖住這個使用者（core_users 那一列）：只鎖清單的列擋不住同時新增的列；PGlite 只有一條連線、交易本來就一個一個跑，所以直接看送出的 SQL", async () => {
-    const queries = logQueries();
+    const queries = logQueries(testDb);
 
     await keepVideo(me, VIDEO, { pinned: true });
 

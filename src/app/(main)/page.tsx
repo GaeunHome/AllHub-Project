@@ -1,5 +1,7 @@
 import { HomePage } from "@/core/ui/home-page";
 import { modules } from "@/modules";
+import { remindersInfo } from "@/modules/reminders/info";
+import { RemindersHomeCard } from "@/modules/reminders/web/pages/home-card";
 import { savingsInfo } from "@/modules/savings/info";
 import { SavingsHomeCard } from "@/modules/savings/web/pages/home-card";
 import { starrailInfo } from "@/modules/starrail/info";
@@ -26,8 +28,10 @@ export default function Page() {
         <>
           <WeatherHomeCard info={weatherInfo} />
           <SavingsHomeCard info={savingsInfo} />
+          <RemindersHomeCard info={remindersInfo} />
         </>
       }
+      compactOdd
     />
   );
 }

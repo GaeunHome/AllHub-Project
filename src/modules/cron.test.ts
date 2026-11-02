@@ -27,6 +27,13 @@ describe("排程清單", () => {
     expect(crons).toContainEqual({ path: "/api/cron/savings:recurring", schedule: "30 16 * * *" });
   });
 
+  it("理財的除權息通知每天開盤前一次：vercel.json 只有一條、在台北 08:00 那個小時（UTC 0 點，Hobby 只保證那個小時內，9 點開盤前寄到）", () => {
+    const dividends = crons.filter((c) => c.path === "/api/cron/savings:dividends").map((c) => c.schedule);
+
+    expect(dividends).toHaveLength(1);
+    expect(dividends[0]).toMatch(/^\d{1,2} 0 \* \* \*$/);
+  });
+
   it("星穹鐵道的自動兌換每天一次：vercel.json 只有一條、每天固定的時間", () => {
     const redeem = crons.filter((c) => c.path === "/api/cron/starrail:redeem");
 
@@ -39,6 +46,28 @@ describe("排程清單", () => {
 
     expect(rain).toHaveLength(1);
     expect(rain[0]).toMatch(/^\d{1,2} 22 \* \* \*$/);
+  });
+
+  it("天氣警特報大約每小時檢查一次：vercel.json 每個 UTC 小時各一條（特報隨時會發，Hobby 每條一天最多一次）", () => {
+    const hours = crons
+      .filter((c) => c.path === "/api/cron/weather:warnings")
+      .map((c) => Number(c.schedule.match(/^\d{1,2} (\d{1,2}) \* \* \*$/)?.[1]))
+      .sort((a, b) => a - b);
+
+    expect(hours).toEqual(Array.from({ length: 24 }, (_, hour) => hour));
+  });
+
+  it("提醒與倒數每天兩次：vercel.json 在台北 07:00 與 12:00 那個小時各一條（UTC 23 點與 4 點，Hobby 只保證那個小時內；早上寄不出去的中午補寄，隔天項目就刪掉了）", () => {
+    const hours = crons
+      .filter((c) => c.path === "/api/cron/reminders:daily")
+      .map((c) => Number(c.schedule.match(/^\d{1,2} (\d{1,2}) \* \* \*$/)?.[1]))
+      .sort((a, b) => a - b);
+
+    expect(hours).toEqual([4, 23]);
+  });
+
+  it("排程總數在 Vercel 每個專案 100 條的上限內", () => {
+    expect(crons.length).toBeLessThanOrEqual(100);
   });
 
   it("開拓力提醒大約每小時跑一次：vercel.json 每個 UTC 小時各一條（Hobby 每條一天最多一次；GitHub Actions 的定時排程常漏跑，不再用）", () => {

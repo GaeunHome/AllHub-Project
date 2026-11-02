@@ -86,7 +86,7 @@ describe("追蹤的頻道的一列（Twitch）", () => {
     expect(text).toContain("Twitch 驗證失敗");
     expect(markup).toMatch(/<a[^>]*href="https:\/\/twitch\.tv\/hanabi"/);
     expect(markup).toMatch(/role="switch"[^>]*aria-checked="true"/);
-    expect(text).toContain("刪除");
+    expect(text).toContain("取消追蹤");
   });
 });
 
@@ -108,7 +108,7 @@ describe("主播詳情：滿版的大面板（Twitch）", () => {
     expect(textOf(stage)).toContain("開台 1 小時 35 分");
   });
 
-  it("寬螢幕：左邊是預覽與直播資訊，右邊一欄是通知開關、訂閱狀態、Twitch 連結與刪除", () => {
+  it("寬螢幕：左邊是預覽與直播資訊，右邊一欄是通知開關、訂閱狀態、Twitch 連結與取消追蹤", () => {
     const markup = detail({ isLive: true, live: live() });
     const grid = markup.match(/^<div class="([^"]*)"/)![1].split(/\s+/);
     const side = markup.slice(markup.indexOf("<aside"));
@@ -116,7 +116,7 @@ describe("主播詳情：滿版的大面板（Twitch）", () => {
     expect(grid).toEqual(expect.arrayContaining(["lg:grid-cols-[minmax(0,1fr)_22rem]"]));
     expect(side).toContain('role="switch"');
     expect(side).toContain("twitch.tv/hanabi");
-    expect(textOf(side)).toContain("刪除");
+    expect(textOf(side)).toContain("取消追蹤");
     expect(markup.indexOf("aspect-video")).toBeLessThan(markup.indexOf("<aside"));
   });
 

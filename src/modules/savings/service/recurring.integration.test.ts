@@ -1,10 +1,10 @@
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { coreUsers } from "@/core/db/schema";
-import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, logQueries, logStatements, pgliteOf, setupTestDb } from "@/dev/test-db";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
 import { savingsAccounts, savingsCategories, savingsRecurring, savingsTransactions } from "../data/schema";
-import { dateParams, logQueries, logStatements, pgliteOf, savingsRows } from "../dev/db-fixtures";
+import { dateParams, savingsRows } from "../dev/db-fixtures";
 import { userError } from "../dev/fixtures";
 import { createRecurring, deleteRecurring, listRecurring, postDueRecurring, setRecurringActive, updateRecurring, type RecurringFields } from "./recurring";
 

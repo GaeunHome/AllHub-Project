@@ -1,16 +1,12 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { asc, eq, getTableColumns } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
-import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUsers, pgliteOf, setupTestDb } from "@/dev/test-db";
 import { coreNotifications, coreUsers } from "./schema";
 
 const { activeOwnerOf, lockUserRow } = await import("./users");
 
 const getDb = setupTestDb();
-
-/** setupTestDb 底下的 PGlite TestDb 的型別沒有列出 drizzle 的 $client */
-const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
 
 describe("activeOwnerOf：停用＝凍結，排程只處理擁有者還能用的列", () => {
   it("只留擁有者沒停用的列，被停用的人的略過", async () => {

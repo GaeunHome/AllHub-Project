@@ -1,0 +1,89 @@
+"use client";
+
+import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
+import { Dialog, useDialog } from "@/core/ui/dialog";
+import { Icon } from "@/core/ui/icon";
+import { MoreMenu } from "@/core/ui/more-menu";
+import { useResultReport } from "@/core/ui/result-slot";
+import { StatusChip } from "@/core/ui/status-chip";
+import { deleteReminderAction } from "../actions";
+import type { DateLimits, ReminderRowView, RemindersView } from "../reminders-view";
+import { ReminderForm } from "./reminder-form";
+
+/** 最近的幾個直接列出 其他的收起來 整個撐滿卡片的左右 */
+export function ReminderList({ view }: { view: RemindersView }) {
+  const { shown, more, today, latest } = view;
+  return (
+    <div className="card-list">
+      <ReminderRows rows={shown} today={today} latest={latest} />
+      {more.length > 0 && (
+        <details className="disclosure">
+          {/* 整列都能點 焦點框畫在列裡面 */}
+          <summary className="card-row flex text-sm focus-visible:-outline-offset-2">還有 {more.length} 個</summary>
+          {/* 接著上面的列排下去 不要 disclosure 展開內容的上邊距 */}
+          <ReminderRows rows={more} today={today} latest={latest} className="mt-0 border-t border-line" />
+        </details>
+      )}
+    </div>
+  );
+}
+
+function ReminderRows({ rows, today, latest, className = "" }: DateLimits & { rows: ReminderRowView[]; className?: string }) {
+  return (
+    <ul className={`divide-y divide-line ${className}`}>
+      {rows.map((row) => (
+        <ReminderRow key={row.id} row={row} today={today} latest={latest} />
+      ))}
+    </ul>
+  );
+}
+
+/** 右邊的內距交給 ⋮ 圖示才跟卡片內容的右緣對齊 視窗放在選單外面才不會跟著收起 */
+function ReminderRow({ row, today, latest }: DateLimits & { row: ReminderRowView }) {
+  const edit = useDialog();
+  const report = useResultReport();
+  const done = (message: string | undefined) => {
+    edit.done();
+    // 改了日期可能搬到收起來的清單 這一列連 ⋮ 一起換掉 訊息與焦點都放外框
+    report(message, true);
+  };
+
+  return (
+    <li className="card-row flex min-h-14 items-center gap-3 pr-3 sm:pr-4">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p title={row.title} className="truncate font-medium text-ink">
+          {row.title}
+        </p>
+        <time dateTime={row.date} className="text-sm text-ink-soft tabular-nums">
+          {row.dateText}
+        </time>
+      </div>
+      {row.isToday ? <StatusChip badge={{ label: row.countdown, tone: "warning" }} className="shrink-0" /> : <span className="shrink-0 font-medium text-ink tabular-nums">{row.countdown}</span>}
+      <MoreMenu label={`「${row.title}」的選項`}>
+        <button
+          {...edit.triggerProps}
+          onClick={() => {
+            report(undefined);
+            edit.triggerProps.onClick();
+          }}
+          className="menu-item"
+        >
+          <Icon name="pencil" className="size-4" />
+          修改
+        </button>
+        <DeleteMenuItem
+          action={deleteReminderAction}
+          id={row.id}
+          confirmMessage={`確定刪除「${row.title}」？`}
+          label="刪除"
+          deletedMessage={`已刪除「${row.title}」`}
+          // 這一列會跟選單一起消失 訊息與焦點放外框
+          onDeleted={(message) => report(message, true)}
+        />
+      </MoreMenu>
+      <Dialog {...edit.dialogProps} title={`修改「${row.title}」`} size="sm">
+        <ReminderForm item={row} today={today} latest={latest} onDone={done} onCancel={edit.close} />
+      </Dialog>
+    </li>
+  );
+}

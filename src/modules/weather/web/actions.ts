@@ -11,7 +11,7 @@ import { saveSettings } from "../service/settings";
 export async function saveSettingsAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { id: userId } = await requireSession();
   return runAction({ module: "weather", action: "儲存天氣設定" }, async () => {
-    await saveSettings(userId, { county: formText(formData, "county"), rainAlert: formFlag(formData, "rainAlert") === true });
+    await saveSettings(userId, { county: formText(formData, "county"), rainAlert: formFlag(formData, "rainAlert") === true, warningAlert: formFlag(formData, "warningAlert") === true });
     updateTags(weatherTags.settings);
     return "已儲存";
   });

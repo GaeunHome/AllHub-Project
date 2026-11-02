@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { menuOf, outsideMenus } from "@/dev/more-menu-stub";
 import { markup as render, textOf } from "@/dev/test-helpers";
 import type { HoldingView } from "../../dashboard-view";
+import type { DividendRowView } from "../../dividends-view";
 import type { BrokerageView, InvestmentSummary } from "../../investments-view";
 
 // 視窗與選單關著時不算繪內容 換掉才看得到裡面 其他照原本的實作
@@ -38,6 +39,7 @@ const { AddHoldingForm, EditHoldingForm, BuySellForm } = await import("./holding
 const { BrokerageCard } = await import("./brokerage-card");
 const { BrokerageList } = await import("./brokerage-list");
 const { SummaryCard } = await import("./summary-card");
+const { DividendsCard } = await import("./dividends-card");
 
 const TODAY = "2026-10-15";
 const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
@@ -273,5 +275,30 @@ describe("投資的摘要", () => {
     expect(text).toContain("股價暫時讀不到");
     expect(text).not.toContain("損益");
     expect(text).not.toContain("收盤");
+  });
+});
+
+describe("除權息", () => {
+  const ROWS: DividendRowView[] = [
+    { symbol: "006208", name: "富邦台50", exDate: "2026-11-18", kind: "cash", daysLeft: 20, lastBuyToday: false, cashPerShare: "1.72", estimate: 1720 },
+    { symbol: "0056", name: "元大高股息", exDate: "2026-10-30", kind: "cash", daysLeft: 1, lastBuyToday: true, cashPerShare: null, estimate: null },
+    { symbol: "2882", name: "國泰金", exDate: "2026-11-06", kind: "stock", daysLeft: 8, lastBuyToday: false, cashPerShare: null, estimate: null },
+  ];
+
+  it("每一列寫代號、名稱、除息日與還有幾天；右邊是估計的金額與每股配息，還沒公布的寫出來，只有除權的不寫金額", () => {
+    const markup = render(createElement(DividendsCard, { view: { status: "ready", rows: ROWS } }));
+    const rows = [...markup.matchAll(/<li[^>]*>[\s\S]*?<\/li>/g)].map(([li]) => textOf(li, { spaced: true }).trim());
+
+    expect(rows).toEqual([
+      "006208 富邦台50 11/18 除息 · 還有 20 天 估計 $1,720 每股配息 1.72 元",
+      "0056 元大高股息 10/30 除息 · 今天最後買進 金額還沒公布",
+      "2882 國泰金 11/6 除權 · 還有 8 天",
+    ]);
+  });
+
+  it("預告表讀不到_說暫時讀不到、稍後再看", () => {
+    const text = textOf(render(createElement(DividendsCard, { view: { status: "unavailable" } })));
+
+    expect(text).toContain("除權息預告暫時讀不到，稍後再看");
   });
 });

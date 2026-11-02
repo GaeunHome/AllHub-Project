@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, logQueries, setupTestDb } from "@/dev/test-db";
 import { savingsRecurring, savingsTransactions } from "../data/schema";
-import { logQueries, savingsRows } from "../dev/db-fixtures";
+import { savingsRows } from "../dev/db-fixtures";
 import { userError } from "../dev/fixtures";
 import { confirmOccurrence, skipOccurrence, type ConfirmFields } from "./recurring";
 import { allocateSalary, deleteTransaction, type SalaryFields } from "./transactions";

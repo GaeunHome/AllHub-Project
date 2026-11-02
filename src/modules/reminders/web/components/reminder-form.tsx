@@ -1,0 +1,66 @@
+"use client";
+
+import { useId } from "react";
+import { useDialogForm } from "@/core/ui/dialog";
+import { FormFeedback } from "@/core/ui/form-message";
+import { Icon } from "@/core/ui/icon";
+import { DEFAULT_NOTIFY, NOTIFY_OPTIONS, notifyValueOf } from "../../lib/rules";
+import type { ReminderItem } from "../../service/items";
+import { createReminderAction, updateReminderAction } from "../actions";
+import type { DateLimits } from "../reminders-view";
+
+type ReminderFormProps = DateLimits & {
+  /** 修改時傳那一個提醒 沒傳是新增 */
+  item?: ReminderItem;
+  onDone: (message: string | undefined) => void;
+  onCancel: () => void;
+};
+
+/**
+ * 瀏覽器只先擋空白與範圍 標題與日期以伺服器的驗證為準 today 由伺服器照台北時間算好
+ * 標題不設 maxLength 它算 UTF-16 單位 emoji 打不到規則的字數
+ */
+export function ReminderForm({ item, today, latest, onDone, onCancel }: ReminderFormProps) {
+  const { state, pending, formProps } = useDialogForm(item ? updateReminderAction : createReminderAction, onDone);
+  const dateId = useId();
+
+  return (
+    <form {...formProps} className="stack">
+      {item && <input type="hidden" name="id" value={item.id} />}
+      <label className="field">
+        <span className="field-label">標題</span>
+        <input name="title" required defaultValue={item?.title} placeholder="例如：繳房屋稅、媽媽生日" autoComplete="off" data-autofocus className="input" />
+      </label>
+      <div className="field">
+        <label htmlFor={dateId} className="field-label">
+          日期
+        </label>
+        <input id={dateId} type="date" name="date" required defaultValue={item?.date} min={today} max={latest} aria-describedby={`${dateId}-hint`} className="input" />
+        <p id={`${dateId}-hint`} className="text-sm text-ink-soft">
+          日期過了隔天會自動刪除
+        </p>
+      </div>
+      <label className="field">
+        <span className="field-label">通知</span>
+        <select name="notifyDaysBefore" defaultValue={item ? notifyValueOf(item.notifyDaysBefore) : DEFAULT_NOTIFY} className="input">
+          {NOTIFY_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {/* 成功就關掉視窗 這裡只放錯誤 重送時先收起上一次的 */}
+      {!pending && <FormFeedback state={{ error: state.error }} />}
+      <div className="button-row justify-end">
+        <button type="button" className="btn-ghost" onClick={onCancel} disabled={pending}>
+          取消
+        </button>
+        <button type="submit" className="btn-primary" disabled={pending}>
+          <Icon name={item ? "check" : "plus"} className="size-4" />
+          {pending ? "儲存中…" : item ? "儲存" : "新增"}
+        </button>
+      </div>
+    </form>
+  );
+}

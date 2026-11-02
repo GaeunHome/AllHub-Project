@@ -1,12 +1,10 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { asc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/pglite";
-import { vi, type MockInstance } from "vitest";
+import type { MockInstance } from "vitest";
 import type { TestDb } from "@/dev/test-db";
 import { savingsAccounts, savingsCategories, savingsHoldings, savingsRecurring, savingsTransactions } from "../data/schema";
 
-// 整合測試寫進測試資料庫的假資料與看送出 SQL 的工具 只有測試檔能 import
-// 跟 fixtures.ts 分開 只算畫面與 lib 的測試不必載入 PGlite
+// 整合測試寫進測試資料庫的假資料 只有測試檔能 import
+// 跟 fixtures.ts 分開 只算畫面與 lib 的測試不必載入資料表
 
 type Insert<T extends { $inferInsert: unknown }> = Partial<T["$inferInsert"]>;
 
@@ -40,28 +38,6 @@ export function savingsRows(getDb: () => TestDb, owner: () => string, defaults: 
     holdingOf: async (id: number) => first(await getDb().select().from(savingsHoldings).where(eq(savingsHoldings.id, id))),
   };
 }
-
-/** 取 setupTestDb 底下的 PGlite TestDb 的型別沒有列出 drizzle 的 $client */
-export const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
-
-// PGlite 只有一條連線 交易本來就一個一個跑 要看的是送出的順序
-function recordQueries<T>(db: TestDb, begin: T, entry: (sql: string, params: unknown[]) => T): T[] {
-  const log: T[] = [];
-  const pglite = pgliteOf(db);
-  const transaction = pglite.transaction.bind(pglite);
-  vi.spyOn(pglite, "transaction").mockImplementation(((callback: Parameters<typeof transaction>[0]) => {
-    log.push(begin);
-    return transaction(callback);
-  }) as typeof transaction);
-  (globalThis as unknown as { hubDb?: unknown }).hubDb = drizzle(pglite, { logger: { logQuery: (sql, params) => log.push(entry(sql, params)) } });
-  return log;
-}
-
-/** 記下送出的每一句 SQL 交易的開始記成 begin */
-export const logQueries = (db: TestDb): string[] => recordQueries(db, "begin", (sql) => sql);
-
-/** 跟 logQueries 一樣 另外記下參數 */
-export const logStatements = (db: TestDb): { sql: string; params: unknown[] }[] => recordQueries(db, { sql: "begin", params: [] }, (sql, params) => ({ sql, params }));
 
 /**
  * 正式環境經 drizzle 的 postgres-js 收到 Date 參數會丟錯

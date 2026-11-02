@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, logQueries, setupTestDb } from "@/dev/test-db";
 import { savingsAccounts, savingsHoldings, savingsRecurring } from "../data/schema";
-import { logQueries, savingsRows } from "../dev/db-fixtures";
+import { savingsRows } from "../dev/db-fixtures";
 import { userError } from "../dev/fixtures";
 import type { Quote } from "../lib/quotes";
 import { addHolding, buyHolding, deleteHolding, listHoldings, sellHolding, updateHolding, type BuyFields, type QuoteLookup, type SellFields } from "./holdings";

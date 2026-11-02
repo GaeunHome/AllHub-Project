@@ -1,4 +1,4 @@
-import { DAY_MS, taipeiDateKey } from "@/core/time";
+import { DAY_MS, isRealDateKey, taipeiDateKey } from "@/core/time";
 import type { MonthKey } from "./month";
 
 /** 台北時間的 YYYY-MM-DD 字串 跟資料庫的 date 欄位與日期輸入框同一種格式 */
@@ -7,7 +7,6 @@ export type DateKey = string;
 // 更早的日期多半是打錯 資料庫也有同樣的 check
 export const MIN_DATE: DateKey = "2000-01-01";
 
-const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 
 // 伺服器是 UTC 晚上八點後會差一天 所以今天用台北時間算
@@ -22,12 +21,7 @@ export function lastDayOfMonth(month: MonthKey): number {
 
 /** 擋掉格式錯 早於 MIN_DATE 以及 2 月 30 日這種不存在的日期 */
 export function parseDate(raw: unknown): DateKey | null {
-  if (typeof raw !== "string") return null;
-  const match = DATE_PATTERN.exec(raw);
-  if (!match) return null;
-  const [, year, month, day] = match;
-  if (Number(month) < 1 || Number(month) > 12 || Number(day) < 1 || Number(day) > lastDayOfMonth(`${year}-${month}`)) return null;
-  return raw >= MIN_DATE ? raw : null;
+  return typeof raw === "string" && isRealDateKey(raw) && raw >= MIN_DATE ? raw : null;
 }
 
 /** 月日加上括號裡的星期 */

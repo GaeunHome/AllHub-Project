@@ -109,29 +109,27 @@ npm run account create
 ## 之後的部署
 
 - 推上 main 就會自動部署。`ci.yml` 在 PR 與 main 上都會跑測試、lint、建置與型別檢查。
-- 推上 main 時，Vercel 部署與 db-migrate 是同時進行的。所以 migration 要跟線上還在跑的舊程式相容：一律先擴充（新欄位可為 null 或有預設值、新表直接加，不刪也不改舊欄位），等舊程式不再上線之後的版本才收斂（刪舊欄位、改成 NOT NULL）。唯一的例外是 v0.1.8，見下面的〈從 v0.1.7 升級〉。
+- 推上 main 時，Vercel 部署與 db-migrate 是同時進行的。所以 migration 要跟線上還在跑的舊程式相容：一律先擴充（新欄位可為 null 或有預設值、新表直接加，不刪也不改舊欄位），等舊程式不再上線之後的版本才收斂（刪舊欄位、改成 NOT NULL）。唯一的例外是 v0.1.8（直接刪了舊欄位，說明在 `v0.1.8` 標籤的 `docs/deploy.md`）。
 - PR 的 Preview 部署沒有環境變數（密鑰只設在 Production），只用來確認能建置。
 - 一般的部署不會讓登入失效。只有換 `SESSION_SECRET`、改密碼或重建資料庫才會。
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
 - **之後可以收斂的欄位**：只在一張卡還沒有帳單時當截止日預設的 `savings_accounts.due_day`（程式只讀不寫）。不用它之後照舊分兩版刪：先從 schema 拿掉（程式不再讀寫，migration 手動去掉 DROP），再下一版才真的刪（刪除要在 `migrations.integration.test.ts` 明列允許）。
-- **從 v0.1.7 升級**：這一版的 migration 直接刪掉不再使用的欄位與表（使用者同意的例外，平常要分兩版），推送前先看完這一段。
-  - **推送之前**：
-    - 要顯示天氣，先在 Vercel 加上 `CWA_API_KEY`（中央氣象署）；空氣品質另外加 `MOENV_API_KEY`（環境部）。兩個都是選填、免費，Environments 只勾 **Production**，申請步驟見 [密鑰管理 › 天氣的授權碼](secrets.md#天氣的授權碼)。推送前填好，這次推送的部署就會帶著它們，不用再重新部署。
-    - 到 Vercel 的 **Settings** → **Functions** 確認 **Fluid Compute** 開著：新的排程 `weather:rain` 讀全台預報最多等 15 秒，關掉時排程只有 10 秒。
-    - 挑推送的時間：避開台北 0 點到 7 點（每天的排程大多在這段時間），推送當下也不要用網站，等 Vercel 部署與 db-migrate 都完成再用。
-  - **db-migrate 套用 `0001_weather_cleanup`**（上一版的 `0001_finance_redesign` 已經併進基準檔），一開始設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次：
-    - 新增天氣的表 `weather_settings`（每人選的縣市與早上的下雨通知開關）。
-    - 刪掉不再使用的欄位、表與索引：主播表與頻道表單人版的 `notify_enabled`、`youtube_settings` 的 `anthropic_key_hint`／`openai_key_hint`／`gemini_key_hint`（API Key 改成顯示前 8 碼，讀設定時解密後取）、`savings_accounts.purpose_id` 與 `savings_purposes`（用途改成帳戶上的文字）、沒有查詢用到的 `core_notifications_unread_idx`。
-    - `core_notifications`、`starrail_accounts`、`youtube_settings` 的 `user_id` 改成 NOT NULL：先刪掉 `user_id` 是 null 的列（多人化部署時舊程式寫的，新程式本來就不讀；刪掉的遊戲帳號的簽到紀錄與兌換碼跟著刪）。
-  - **代價**：db-migrate 跑完到新版部署完成之間（大約一兩分鐘），還在線上的 v0.1.7 讀寫到被刪的欄位會出錯：理財、Twitch、YouTube 的頁面顯示錯誤，webhook 也可能失敗（Twitch、YouTube 會重送）。這段時間碰到的排程也會失敗，隔天照常跑（理財的自動記帳會補記）。新版上線後就恢復。
-  - **不能回到 v0.1.7**：舊程式的查詢會明列被刪掉的欄位，回去之後理財、Twitch、YouTube 都會出錯。出問題時修好再推，不要用 Instant Rollback（見〈[回滾與部署保護](#回滾與部署保護)〉）。
-  - 首頁多一張天氣卡片。多一個排程 `weather:rain`（`vercel.json`，每天台北 06:00 那個小時），部署後 Vercel 自動登記：選了縣市、開著下雨通知的人，早上會下雨時收到「記得帶傘」。沒有 `CWA_API_KEY` 時它什麼都不做。
-  - 部署比 migration 先完成時，那一兩分鐘首頁的天氣卡片讀不到新的表會顯示「暫時讀不到」，其他卡片照常。
+- **從 v0.1.8 升級**：一般的升級，新增兩張表與一個欄位，推送前不用另外設定。
+  - **db-migrate 套用 `0001_dividends_reminders`**（上一版的 `0001_weather_cleanup` 已經併進基準檔），一開始設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次：
+    - 新增 `savings_dividend_notices`（除權息通知寄過哪些：一個人一檔一個除息日一列，過了除息日就刪）。
+    - 新增 `reminders_items`（提醒與倒數，日期過了由排程刪掉）。
+    - `weather_settings` 多一個 `warning_alert`（警特報通知的開關，預設開），不刪也不改舊欄位。
+  - 多一個排程 `savings:dividends`（`vercel.json`，每天台北 08:00 那個小時、開盤前），部署後 Vercel 自動登記：讀證交所與櫃買中心的除權息預告表（OpenAPI，不用授權碼），寄持股的除權息通知。
+  - 多一個排程 `reminders:daily`（每天台北 07:00 與 12:00 那個小時，共 2 條）：寄到期的提醒，再刪掉日期過了的項目。
+  - 多一個排程 `weather:warnings`（同一個路徑每個 UTC 小時各一條，共 24 條，`vercel.json` 合計 63 條，上限 100 條）：讀全台的天氣警特報，用原本的 `CWA_API_KEY`，沒設定就略過。
+  - 投資頁多一張除權息卡片，跟收盤價一起讀同樣兩個來源的預告表。
+  - 部署比 migration 先完成時，投資頁照常（頁面不讀寄送紀錄的表）；首頁的天氣與提醒與倒數兩張卡片讀不到新的欄位與表，那一兩分鐘顯示讀不到，其他卡片照常。剛好碰到排程的話那一次會失敗，下一次照常跑。
+  - 要退回 v0.1.8 時可以用 Instant Rollback：舊程式不認得新的表與欄位，留著不影響，寫入時新欄位用預設值。
 - **部署的空窗期**：Vercel 部署與 db-migrate 同時進行，有一小段時間（通常一兩分鐘）程式與資料表的版本會對不上。建議部署當下先不要操作網站，兩邊都完成再用。
   - **部署比 migration 先完成**：新程式讀不到新的欄位或表，用到它們的頁面會出錯（改到帳號的表時登入也會失敗一下子），migration 跑完就恢復。
     - **webhook 的通知可能遺失**：這段時間 Twitch 的開台、YouTube 的新影片推送照樣會記下開台紀錄與影片，但新程式要讀的追蹤表還沒建好，通知發不出去，之後也不會補發。部署完成後的開台、新影片照常通知。
-  - **migration 比部署先完成**：舊程式照常運作；新增的欄位它不認得，寫入時用預設值。例外是 v0.1.8：被刪掉的欄位舊程式讀寫會出錯（見上面的〈從 v0.1.7 升級〉）。
+  - **migration 比部署先完成**：舊程式照常運作；新增的欄位它不認得，寫入時用預設值。例外是 v0.1.8：被刪掉的欄位舊程式讀寫會出錯（說明在 `v0.1.8` 標籤的 `docs/deploy.md`）。
   - 多人化部署時舊程式留下的欄位與資料，v0.1.8 已經收斂：刪掉主播表、頻道表單人版的 `notify_enabled`，先刪掉 `user_id` 是 null 的列，再把 `user_id` 改成 NOT NULL。
 
 ## 回滾與部署保護

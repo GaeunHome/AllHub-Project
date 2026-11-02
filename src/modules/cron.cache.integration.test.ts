@@ -32,8 +32,13 @@ const EXPECTED: Record<string, string[]> = {
   // 自動記的紀錄改了餘額與統計 固定收支記到的月份也往前推
   // 到期通知認領信用卡寄到哪一天
   "savings:recurring": ["savings:accounts", "savings:bills", "savings:recurring", "savings:transactions"],
+  // 只寫通知與寄過的記號 畫面不讀那張表 通知的 tag 由 notify 自己失效
+  "savings:dividends": [],
   // 只寫通知與認領紀錄 通知的 tag 由 notify 自己失效
   "weather:rain": [],
+  "weather:warnings": [],
+  // 過期的提醒會被刪掉 首頁卡片讀的是同一張表
+  "reminders:daily": ["reminders:items"],
 };
 
 beforeEach(() => {

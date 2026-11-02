@@ -1,8 +1,8 @@
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, pgliteOf, setupTestDb } from "@/dev/test-db";
 import { savingsAccounts, savingsCardBills, savingsCategories, savingsTransactions } from "../data/schema";
-import { dateParams, pgliteOf, savingsRows } from "../dev/db-fixtures";
+import { dateParams, savingsRows } from "../dev/db-fixtures";
 import { userError } from "../dev/fixtures";
 import { cardBill } from "../lib/cards";
 import { accountBalances } from "../lib/ledger";

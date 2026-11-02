@@ -1,7 +1,6 @@
-import type { PGlite } from "@electric-sql/pglite";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { insertTestUser, insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUser, insertTestUsers, pgliteOf, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubYoutubeEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 import { youtubeChannels, youtubeFollows, youtubeSettings, youtubeTranslations, youtubeVideos } from "../data/schema";
@@ -47,8 +46,6 @@ beforeEach(async () => {
   return () => vi.useRealTimers();
 });
 
-/** setupTestDb 底下的 PGlite TestDb 的型別沒有列出 drizzle 的 $client */
-const pgliteOf = (db: TestDb) => (db as TestDb & { $client: PGlite }).$client;
 /**
  * 正式環境的 postgres-js 不轉 Date 參數 跟欄位比較時 drizzle 才會轉
  * 測試用的 PGlite 會自己轉而查不出來 所以直接看送出的參數

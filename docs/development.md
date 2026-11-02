@@ -37,7 +37,9 @@
 | 天氣 | 氣象署 F-C0032-001 | 時段照現在的台北時間算（從最近的 6 點或 18 點起三段）；帶 `locationName` 只回那個縣市，沒帶（早上的 `weather:rain`）回全部 22 個縣市。每個縣市照名稱固定一種天氣，現在與下一段的降雨機率決定卡片的提醒，見下表 |
 | 天氣 | 授權碼 `bad` 開頭（`CWA_API_KEY`、`MOENV_API_KEY`） | 回 401，像授權碼打錯 |
 | 天氣 | 環境部 aqx_p_432 | 只有臺北市、新北市、桃園市、臺中市、臺南市、高雄市、花蓮縣有測站：臺北市最差的是萬華（62）、新北市的汐止維修中（AQI 是空的）、臺中市 104 與臺南市 121 是對敏感族群不健康、高雄市 156 是對所有族群不健康；其他縣市沒有測站 |
+| 天氣 | 氣象署 W-C0033-001（警特報） | 時間是現在這個整點起算；帶 `locationName` 只回那個縣市，沒帶回 22 個。臺北市：大雨特報，3 小時後結束（深夜會跨日）。臺南市：最壞情況，海上陸上颱風警報、超大豪雨特報、陸上強風特報、濃霧特報，結束時間都不在今天。其他縣市沒有特報 |
 | 股價 | 證交所 `STOCK_DAY_ALL`、櫃買中心 `tpex_mainboard_quotes` | 收盤價照 2026-10-14 的真實回應（例如 `006208` 258.70、`0050` 113.00、`00679B` 25.05），日期是今天之前最近的平日；`00625K`、`00682U`、`00986B`、`2064` 沒有成交（畫面寫股價暫時讀不到）；另外補了各 120 檔示範股票（上市 `1101`～`1220`、上櫃 `3201`～`3320`），因為網站把不到 100 筆的清單當成讀不到；其他代號是找不到 |
+| 除權息 | 證交所 `TWT48U_ALL`、櫃買中心 `tpex_exright_prepost` | 欄位照 2026-10-29 的真實回應，除息日照今天往後算（落在週末挪到週一）：`006208` 20 天後除息每股 1.72 元、`0056` 6 天後（金額還沒公布）、`00919` 明天（平日看今天就是最後買進日）、`2881` 3 天後除權息、`2882` 10 天後只有除權（現金增資）、`00878` 14 天後；上櫃 `00679B` 8 天後（尚未公告）、`6488` 4 天後除權息、`3105` 10 天後只有除權、`8299` 15 天後；`0050`、`00937B` 是已經過去的。記這幾檔持股就看得到投資頁的除權息卡片；手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/savings:dividends` |
 | YouTube | `@nobody` | 查無頻道；其他 `@帳號` 都會成功，hub 約 0.5 秒後回呼確認訂閱 |
 | YouTube | 頻道的 RSS feed | 每個頻道都有三支一般影片：3 小時前的 MV（影片 id `zhsubs` 開頭，有中文字幕）、30 小時前與 5 天前各一支，追蹤時會補進影片清單（別人已經追蹤的頻道只補超過 24 小時的），縮圖先標「檢查字幕中」，約 4 秒後自動換成檢查結果；另有 1 小時前與 2 天前的兩支 Shorts（影片 id `short` 開頭，連結是 `/shorts/`），不會列進清單，`youtube:cleanup` 也是讀這份 RSS 找 Shorts |
 | YouTube | `@noavatar` 開頭（例如 `@noavatar_studio`） | 頻道頁沒有頭像，畫面退回文字頭像 |
@@ -63,7 +65,7 @@
 | 不用帶傘（`dry`） | 臺中市、苗栗縣、彰化縣、南投縣、屏東縣、花蓮縣、連江縣（10%、20%） |
 | 最壞情況（記得帶傘） | 臺南市（100%、90%）：天氣描述 11 個字（「多雲時晴午後短暫雷陣雨」）、舒適度 7 個字（「稍有寒意至舒適」），空氣品質是對敏感族群不健康（121），用來看卡片最擠時的排版 |
 
-手動跑早上的下雨提醒：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/weather:rain`。選了「記得帶傘」那一組縣市、開著下雨通知的人會收到「記得帶傘」；同一天（台北時間）再跑一次不會重寄，要再試一次就刪掉 `core_rate_limits` 裡 scope 是 `weather:rain` 的列。
+手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/weather:rain`（警特報是 `weather:warnings`，提醒與倒數是 `reminders:daily`）。選了「記得帶傘」那一組縣市、開著下雨通知的人會收到「記得帶傘」；同一天（台北時間）再跑一次不會重寄，要再試一次就刪掉 `core_rate_limits` 裡 scope 是 `weather:rain` 的列（警特報是 `weather:warning`，一天從台北 6 點算起；提醒與倒數是 `reminders:due`）。
 
 ## 模擬開台通知與新影片推送
 
@@ -122,7 +124,7 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
 - **規則檢查**：`src/architecture.test.ts` 與 `src/cache-rules.test.ts` 檢查架構與快取規則（見 [架構](architecture.md)），包括 `process.env` 只出現在允許的地方、Server Action 先確認登入、模組 id 一致。`src/modules/cron.test.ts` 檢查排程跟 `vercel.json` 一一對應，`src/account-deletion.integration.test.ts` 從資料庫的外鍵檢查刪除帳號時每張表都刪乾淨。
 - **CI 的順序**：`ci.yml` 的測試跟 lint → build → typecheck 是兩個同時跑的工作，各自最多 30 分鐘（公開 repo 的 Actions 不計分鐘，上限只是避免卡住的工作掛很久）。`typecheck` 要用 build 產生的 `.next/types`，所以本機也要先 build。
 - **在瀏覽器裡測試**：一律用 `next dev` 加上 `npm run mock:external` 與 `DEV_EXTERNAL_ORIGIN`。
-  - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、沒有持股的理財、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像、即時便箋、股價與天氣，只有還沒追蹤、沒連結帳號、沒有持股、沒選縣市的使用者才不會對外；新增持股、`starrail:stamina`、`starrail:redeem`、`weather:rain` 也都會對外。
+  - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、沒有持股的理財、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像、即時便箋、股價、天氣與警特報，只有還沒追蹤、沒連結帳號、沒有持股、沒選縣市的使用者才不會對外；新增持股、有持股的投資頁（股價與除權息預告）、`starrail:stamina`、`starrail:redeem`、`weather:rain`、`weather:warnings`、`savings:dividends` 也都會對外。
   - 可見的分頁大約每 10 秒向 `/api/notifications` 輪詢一次（背景分頁每 60 秒），模擬開台或新影片後最多等 10 秒，提示卡片就會出現。
 - **自動化測試觀看頁**：要先注入假的 `window.YT.Player`，否則瀏覽器會向 youtube.com 載入播放器。細節見 CLAUDE.md〈測試與 E2E〉。
 - **自動化點按**：用 Chrome DevTools Protocol 的 `Input.dispatchMouseEvent`（手機用 `Input.dispatchTouchEvent`）模擬真的滑鼠與手指，不要用 `element.click()`：它不經過命中測試、也不發 pointerdown，測不出「按下就把選單收起來」這類問題。

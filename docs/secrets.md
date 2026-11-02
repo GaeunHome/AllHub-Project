@@ -31,7 +31,7 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 | `PUBLIC_BASE_URL` | 網站網址，例如 `https://allhub-project.vercel.app` | Vercel；GitHub Secrets 的 `HUB_URL` 填同一個網址 |
 | `TWITCH_CLIENT_ID`、`TWITCH_CLIENT_SECRET` | Twitch 開發者後台（見 [模組設定與使用](modules.md#twitch)） | Vercel |
 | `TWITCH_EVENTSUB_SECRET`、`YOUTUBE_WEBSUB_SECRET` | 兩個 webhook 的簽章密鑰，用上面的指令產生 | Vercel |
-| `CWA_API_KEY` | 選填，中央氣象署的授權碼，首頁的天氣卡片與早上的下雨提醒用（見下方〈天氣的授權碼〉）；沒填時卡片說明要設定、不發下雨提醒 | Vercel |
+| `CWA_API_KEY` | 選填，中央氣象署的授權碼，首頁的天氣卡片、早上的下雨提醒與天氣警特報用（見下方〈天氣的授權碼〉）；沒填時卡片說明要設定、不發下雨與警特報提醒 | Vercel |
 | `MOENV_API_KEY` | 選填，環境部的 API Key，天氣卡片的空氣品質用（見下方〈天氣的授權碼〉）；沒填時不顯示空氣品質 | Vercel |
 | AI API Key、HoYoLAB cookie | 在網站上填，加密後存在資料庫，不是環境變數 | — |
 
@@ -39,7 +39,7 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 
 兩個都是免費的，申請時只要電子郵件。拿到後貼到 Vercel 的環境變數，重新部署就會出現在首頁的天氣卡片。
 
-**中央氣象署（`CWA_API_KEY`，天氣、溫度、降雨機率與早上的下雨提醒）**
+**中央氣象署（`CWA_API_KEY`，天氣、溫度、降雨機率、早上的下雨提醒與天氣警特報）**
 
 1. 打開 [氣象會員登入](https://opendata.cwa.gov.tw/userLogin)（[氣象資料開放平臺](https://opendata.cwa.gov.tw)右上角的「登入／註冊」），還沒有帳號就按「加入會員」。
 2. 同意申請同意書，填電子郵件與密碼，到信箱點確認信。
