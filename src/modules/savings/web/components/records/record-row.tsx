@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
+import { Dialog, useDialog } from "@/core/ui/dialog";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { formatDay } from "../../../lib/dates";
 import { formatNumber } from "../../../lib/money";
@@ -12,7 +12,7 @@ import { BillRowForm } from "../forms/bill-row-form";
 import { EntryForm } from "../forms/entry-form";
 import type { AccountChoice, CategoryOption } from "../forms/options";
 import { TradeForm } from "../forms/trade-form";
-import { DeleteMenuItem, LIST_ROW_MESSAGE } from "../row-controls";
+import { DeleteMenuItem } from "../row-controls";
 import { IconTile, Ticker } from "../visuals";
 
 type RecordRowProps = {
@@ -20,12 +20,11 @@ type RecordRowProps = {
   accounts: readonly AccountChoice[];
   categories: readonly CategoryOption[];
   today: string;
-  /** 刪除後這一列會跟選單一起消失 訊息交給清單上方 */
-  onDeleted: (message: string) => void;
 };
 
-// 手機兩行 寬螢幕排成一行 名稱固定寬 說明在中間一欄 每一列才對齊
-const ROW_GRID = "grid min-h-14 min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-3 pr-2 pl-5 text-left sm:pl-6 lg:grid-cols-[auto_minmax(0,16rem)_minmax(0,1fr)_auto]";
+// 手機兩行 帳戶靠左備註靠右 寬螢幕排成一行 名稱與帳戶固定寬 每一列才對齊
+const ROW_GRID =
+  "grid min-h-14 min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-3 pr-2 pl-5 text-left sm:pl-6 lg:grid-cols-[auto_minmax(0,14rem)_minmax(0,10rem)_minmax(0,1fr)_auto]";
 
 /** 刪掉後會連動的事寫在確認裡 沒有連動才是無法復原 */
 function deleteConsequence(record: RecordItem, trade: boolean): string {
@@ -40,13 +39,13 @@ function deleteConsequence(record: RecordItem, trade: boolean): string {
 const NOT_EDITABLE = { adjust: "更新餘額的調整不能修改；記錯了可以刪除，再更新一次餘額。", bill: "帳單差額不能修改；要改請重填這一期的帳單。" };
 
 /** 點一列修改 刪除收在 ⋮ 調整只能刪除 */
-export function RecordRow({ record, accounts, categories, today, onDeleted }: RecordRowProps) {
+export function RecordRow({ record, accounts, categories, today }: RecordRowProps) {
   const edit = useDialog();
   // 信用卡的調整照未繳的方向寫 要知道帳戶類型
   const accountKind = accounts.find((account) => account.id === record.accountId)?.kind;
   const title = recordTitle(record, accountKind);
   const amount = signedAmount(record.kind, record.amount, accountKind);
-  const detail = recordDetails(record).join(" · ");
+  const { account, note } = recordDetails(record);
   const trade = isTrade(record);
   // 調整只能刪除 不能修改
   const entryKind = record.kind === "adjust" ? null : record.kind;
@@ -59,8 +58,13 @@ export function RecordRow({ record, accounts, categories, today, onDeleted }: Re
       <span className="col-start-2 row-start-1 flex min-w-0 items-center gap-1.5 font-medium text-ink">
         {trade && record.holdingSymbol ? <TradeTitle shares={record.shares ?? 0} symbol={record.holdingSymbol} /> : <span className="truncate">{title}</span>}
       </span>
-      {detail && <span className="col-start-2 row-start-2 truncate text-sm text-ink-soft lg:col-start-3 lg:row-start-1">{detail}</span>}
-      <span className="col-start-3 row-span-2 row-start-1 text-right font-medium text-ink tabular-nums lg:col-start-4 lg:row-span-1">{amount}</span>
+      {(account || note) && (
+        <span className="col-span-2 col-start-2 row-start-2 flex min-w-0 justify-between gap-3 text-sm text-ink-soft lg:contents">
+          {account && <span className="min-w-0 truncate lg:col-start-3 lg:row-start-1">{account}</span>}
+          {note && <span className="min-w-0 truncate text-right lg:col-start-4 lg:row-start-1 lg:text-left">{note}</span>}
+        </span>
+      )}
+      <span className="col-start-3 row-start-1 text-right font-medium text-ink tabular-nums lg:col-start-5">{amount}</span>
     </>
   );
 
@@ -84,12 +88,10 @@ export function RecordRow({ record, accounts, categories, today, onDeleted }: Re
               confirmMessage={`確定刪除 ${formatDay(record.date)}的「${title} ${amount}」？${deleteConsequence(record, trade)}`}
               label="刪除這筆紀錄"
               deletedMessage={`已刪除：${title} ${amount}`}
-              onDeleted={onDeleted}
             />
           </MoreMenu>
         </div>
       </div>
-      <DialogMessage {...edit.messageProps} className={LIST_ROW_MESSAGE} />
       {entryKind && (
         <Dialog {...edit.dialogProps} title={trade ? `修改「${title}」` : "修改紀錄"}>
           {trade ? (

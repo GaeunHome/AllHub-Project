@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { inOrder, fakeFetch as recordFetch, type FakeFetchCall } from "@/dev/fake-fetch";
-import { AiError, DEFAULT_MODELS, translateBatch, type AiConfig, type AiProvider } from "./translate";
+import { AiError, translateBatch, type AiConfig, type AiProvider } from "./translate";
 import type { Cue } from "./format";
+import { DEFAULT_MODELS } from "./models";
 
 const cues: Cue[] = [
   { start: 0, end: 1000, text: "안녕하세요" },
@@ -36,7 +37,7 @@ const headersOf = (call: Call) => new Headers(call.init.headers);
 const promptText = (call: Call) => JSON.stringify(call.body);
 
 describe("translateBatch：各家請求格式", () => {
-  it("Anthropic：x-api-key、anthropic-version、預設 claude-haiku-4-5、不送 temperature", async () => {
+  it("Anthropic：x-api-key、anthropic-version、預設 claude-haiku-5-5、不送 temperature", async () => {
     const { impl, calls } = fakeFetch([ok("anthropic", lines("Jisoo 我是", "BLACKPINK\n加油"))]);
 
     const result = await translateBatch({ cues, batch, ai: ai("anthropic"), glossary, fetchImpl: impl });
@@ -46,7 +47,7 @@ describe("translateBatch：各家請求格式", () => {
     expect(calls[0].init.method).toBe("POST");
     expect(headersOf(calls[0]).get("x-api-key")).toBe(KEY);
     expect(headersOf(calls[0]).get("anthropic-version")).toBe("2023-06-01");
-    expect(calls[0].body.model).toBe("claude-haiku-4-5");
+    expect(calls[0].body.model).toBe("claude-haiku-5-5");
     expect(calls[0].body).not.toHaveProperty("temperature");
     expect(calls[0].body.max_tokens).toEqual(expect.any(Number));
   });

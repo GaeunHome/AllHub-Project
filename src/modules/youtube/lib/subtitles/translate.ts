@@ -8,13 +8,6 @@ import { AI_PROVIDER_NAMES, type AiProvider } from "./providers";
 export type { AiProvider } from "./providers";
 export type AiConfig = { provider: AiProvider; apiKey: string; model: string };
 
-/** Claude 選便宜的 Haiku OpenAI 與 Gemini 的模型換得很快 這兩個只是建議值 */
-export const DEFAULT_MODELS: Record<AiProvider, string> = {
-  anthropic: "claude-haiku-4-5",
-  openai: "gpt-4.1-mini",
-  gemini: "gemini-3.8-flash",
-};
-
 /** 單次呼叫 AI 含讀完回應的上限 翻譯鎖的期限要比這個長 */
 export const AI_TIMEOUT_MS = 120_000;
 

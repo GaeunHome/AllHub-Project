@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { accountRow, ruleRow } from "../dev/fixtures";
 import type { AccountBalance } from "../lib/ledger";
 import type { PendingRuleRow } from "../lib/pending";
-import { recurringDetail } from "./format";
+import { recurringNext } from "./format";
 import { recurringPageView, whenText, type RecurringSources } from "./recurring-view";
 
 // 今天是 2026-10-16 星期五 人事總處 2026 年辦公日曆表 10/9 週五放假 10/10 週六
@@ -157,19 +157,20 @@ describe("交給瀏覽器的內容", () => {
   });
 });
 
-describe("recurringDetail：名稱下面那一行", () => {
-  const detailOf = (id: number) => {
-    const row = view().others.find((item) => item.id === id);
-    return row ? recurringDetail(row, row.schedule) : "";
-  };
+describe("recurringNext：金額下面那幾行（要處理的那一期或下一期）", () => {
+  const nextOf = (id: number) => recurringNext(view().others.find((item) => item.id === id)!);
 
-  it("要處理的那一期寫日期與還有幾天；逾期的改用標籤，這一行只寫日期；之後還有的寫還有幾期", () => {
-    expect(detailOf(32)).toBe("每月 20 日 · 到期請我確認 · 10/20 到期 · 還有 4 天");
-    expect(detailOf(37)).toBe("每月 1 日 · 到期請我確認 · 9/1 · 還有 1 期");
+  it("要處理的那一期寫日期與還有幾天；逾期的天數在標籤上，這裡只寫日期；之後還有的寫還有幾期", () => {
+    expect(nextOf(32)).toEqual(["10/20 到期", "還有 4 天"]);
+    expect(nextOf(37)).toEqual(["9/1 到期", "還有 1 期"]);
+  });
+
+  it("今天到期的直接寫今天", () => {
+    expect(recurringNext({ paused: null, nextDate: TODAY, due: { period: "2026-10", date: TODAY, status: "today", daysLeft: 0, laterCount: 0, confirm: null, salary: null } })).toEqual(["10/16 今天到期"]);
   });
 
   it("還不用處理的寫下一期；停用的不寫", () => {
-    expect(detailOf(33)).toBe("每 2 個月 20 日 · 到期請我確認 · 下一期 11/20");
-    expect(detailOf(35)).toBe("每月 20 日 · 到期請我確認");
+    expect(nextOf(33)).toEqual(["下一期 11/20"]);
+    expect(nextOf(35)).toEqual([]);
   });
 });

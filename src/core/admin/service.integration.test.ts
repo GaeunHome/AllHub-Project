@@ -2,9 +2,9 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { setupTestDb } from "@/dev/test-db";
 import { hashPassword } from "../auth/credentials";
-import { coreInvites, coreUsers } from "../db/schema";
+import { coreInvites, coreModuleDenials, coreUsers } from "../db/schema";
 
-const { AdminUserError, deleteUser, listLockedUsers, listUsers, setUserDisabled, unlockUser } = await import("./service");
+const { AdminUserError, deleteUser, listLockedUsers, listModuleDenials, listUsers, setModuleAccess, setUserDisabled, unlockUser } = await import("./service");
 const { authenticate, findSessionUser } = await import("../auth/users");
 
 const getDb = setupTestDb();
@@ -21,13 +21,13 @@ async function createUser(username: string, extra: Partial<typeof coreUsers.$inf
 const userRow = async (id: string) => (await getDb().select().from(coreUsers).where(eq(coreUsers.id, id)))[0];
 
 describe("listUsers", () => {
-  it("依建立時間排列_只有帳號、角色、建立時間與停用時間，不含密碼雜湊", async () => {
+  it("依建立時間排列_只有帳號、暱稱、角色、建立時間與停用時間，不含密碼雜湊", async () => {
     const owner = await createUser("owner", { role: "owner", createdAt: new Date("2026-01-01T00:00:00Z") });
-    const bob = await createUser("bob", { createdAt: new Date("2026-02-01T00:00:00Z"), disabledAt: NOW });
+    const bob = await createUser("bob", { nickname: "小明", createdAt: new Date("2026-02-01T00:00:00Z"), disabledAt: NOW });
 
     expect(await listUsers()).toEqual([
-      { id: owner.id, username: "owner", role: "owner", createdAt: new Date("2026-01-01T00:00:00Z"), disabledAt: null },
-      { id: bob.id, username: "bob", role: "member", createdAt: new Date("2026-02-01T00:00:00Z"), disabledAt: NOW },
+      { id: owner.id, username: "owner", nickname: null, role: "owner", createdAt: new Date("2026-01-01T00:00:00Z"), disabledAt: null },
+      { id: bob.id, username: "bob", nickname: "小明", role: "member", createdAt: new Date("2026-02-01T00:00:00Z"), disabledAt: NOW },
     ]);
     expect(JSON.stringify(await listUsers())).not.toContain("secret-hash");
   });
@@ -130,5 +130,62 @@ describe("unlockUser", { timeout: 30_000 }, () => {
     expect(await unlockUser(bob.id)).toBe(true);
 
     expect(await authenticate("bob", password)).toEqual({ id: bob.id, sessionVersion: 1 });
+  });
+});
+
+describe("模組權限", () => {
+  const denials = () => getDb().select({ userId: coreModuleDenials.userId, moduleId: coreModuleDenials.moduleId }).from(coreModuleDenials);
+
+  it("預設全部能用：資料表一列都沒有；關掉才記一列，恢復就刪掉", async () => {
+    const bob = await createUser("bob");
+    expect(await denials()).toEqual([]);
+
+    expect(await setModuleAccess(bob.id, "savings", false)).toBe(true);
+    expect(await denials()).toEqual([{ userId: bob.id, moduleId: "savings" }]);
+
+    expect(await setModuleAccess(bob.id, "savings", true)).toBe(true);
+    expect(await denials()).toEqual([]);
+  });
+
+  it("重複關掉、重複恢復都沒有錯，也不會多一列", async () => {
+    const bob = await createUser("bob");
+
+    await setModuleAccess(bob.id, "savings", false);
+    await setModuleAccess(bob.id, "savings", false);
+    expect(await denials()).toHaveLength(1);
+
+    await setModuleAccess(bob.id, "savings", true);
+    expect(await setModuleAccess(bob.id, "savings", true)).toBe(true);
+    expect(await denials()).toEqual([]);
+  });
+
+  it("只改那個人的那個模組，別人與別的模組不受影響", async () => {
+    const bob = await createUser("bob");
+    const carol = await createUser("carol");
+    await setModuleAccess(bob.id, "savings", false);
+    await setModuleAccess(bob.id, "twitch", false);
+    await setModuleAccess(carol.id, "savings", false);
+
+    await setModuleAccess(bob.id, "savings", true);
+
+    expect(await listModuleDenials()).toEqual(
+      expect.arrayContaining([
+        { userId: bob.id, moduleId: "twitch" },
+        { userId: carol.id, moduleId: "savings" },
+      ]),
+    );
+    expect(await listModuleDenials()).toHaveLength(2);
+  });
+
+  it("站長一律全部能用：不能關掉，也不寫入", async () => {
+    const owner = await createUser("owner", { role: "owner" });
+
+    await expect(setModuleAccess(owner.id, "savings", false)).rejects.toBeInstanceOf(AdminUserError);
+    expect(await denials()).toEqual([]);
+  });
+
+  it("帳號已經不在_回 false，不寫入", async () => {
+    expect(await setModuleAccess("6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f", "savings", false)).toBe(false);
+    expect(await denials()).toEqual([]);
   });
 });

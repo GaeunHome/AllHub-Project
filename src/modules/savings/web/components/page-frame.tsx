@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import type { ModuleInfo } from "@/core/module";
 import { CardErrorBoundary } from "@/core/ui/card-error-boundary";
-import { DialogMessageScope } from "@/core/ui/dialog";
+import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
 import { PageHeader } from "@/core/ui/page-header";
 import { SavingsNav, type SavingsSection } from "./savings-nav";
@@ -14,19 +14,17 @@ type SavingsPageFrameProps = {
   children: ReactNode;
 };
 
-/** 視窗都會留下成功訊息 同一頁只留最新一則 */
+/** 整頁的外框一直都在 按鈕或那一列不見而附近沒有外框時焦點落在這裡 */
 export function SavingsPageFrame({ info, current, actions, children }: SavingsPageFrameProps) {
   return (
-    <DialogMessageScope>
-      <div data-accent={info.accent} className="page-stack">
-        {/* 分頁列跟頁首是一組 距離比區塊之間近 */}
-        <div className="stack">
-          <PageHeader icon={<Icon src={info.icon} />} title={info.name} actions={actions} />
-          <SavingsNav current={current} />
-        </div>
-        {children}
+    <div data-accent={info.accent} {...FOCUS_FRAME} className="page-stack">
+      {/* 分頁列跟頁首是一組 距離比區塊之間近 */}
+      <div className="stack">
+        <PageHeader icon={<Icon src={info.icon} />} title={info.name} actions={actions} />
+        <SavingsNav current={current} />
       </div>
-    </DialogMessageScope>
+      {children}
+    </div>
   );
 }
 

@@ -154,7 +154,7 @@ describe("觸發按鈕都宣告了自己會打開彈出層（popupLayerOpen 靠�
   });
 
   it("鈴鐺：面板是 role=dialog，宣告 aria-haspopup=dialog", () => {
-    const trigger = triggerOf(renderToStaticMarkup(createElement(HeaderMenus, null, createElement(NotificationBell))), "通知");
+    const trigger = triggerOf(renderToStaticMarkup(createElement(HeaderMenus, null, createElement(NotificationBell, { alertSettings: null }))), "通知");
 
     expect(trigger).toContain('aria-haspopup="dialog"');
     expect(trigger).toContain('aria-expanded="false"');

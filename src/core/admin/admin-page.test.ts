@@ -3,22 +3,28 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TEST_SESSION, requireOwner } from "@/dev/session-stub";
 import { mocksOf, textOf } from "@/dev/test-helpers";
+import type { ModuleInfo } from "../module";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ connection: async () => {} }));
 vi.mock("./cached", () => ({ cachedUsers: vi.fn(), cachedInvites: vi.fn() }));
-vi.mock("./service", () => ({ listLockedUsers: vi.fn() }));
-vi.mock("./actions", () => ({ createInviteAction: vi.fn(), revokeInviteAction: vi.fn(), setUserDisabledAction: vi.fn(), deleteUserAction: vi.fn(), unlockUserAction: vi.fn() }));
+vi.mock("./service", () => ({ listLockedUsers: vi.fn(), listModuleDenials: vi.fn() }));
+vi.mock("./actions", () => ({ createInviteAction: vi.fn(), revokeInviteAction: vi.fn(), setUserDisabledAction: vi.fn(), deleteUserAction: vi.fn(), unlockUserAction: vi.fn(), setModuleAccessAction: vi.fn() }));
 
 const cached = mocksOf(await import("./cached"), "cachedUsers", "cachedInvites");
-const service = mocksOf(await import("./service"), "listLockedUsers");
-const { AdminPage, InviteSection, UserSection } = await import("./admin-page");
+const service = mocksOf(await import("./service"), "listLockedUsers", "listModuleDenials");
+const { AdminPage, InviteSection, ModuleAccessSection, UserSection } = await import("./admin-page");
 const { inviteResult } = await import("./create-invite-form");
 
 const DAY = 86_400_000;
 const at = (offsetMs: number) => new Date(Date.now() + offsetMs);
 const MEMBER_ID = "2a3b4c5d-6e7f-4a8b-9c0d-1e2f3a4b5c6d";
 const DISABLED_ID = "3b4c5d6e-7f8a-4b9c-8d0e-1f2a3b4c5d6e";
+const MODULES: ModuleInfo[] = [
+  { id: "twitch", name: "Twitch", href: "/twitch", description: "追蹤主播", icon: "/icons/brands/twitch.svg" },
+  { id: "savings", name: "理財", href: "/savings", description: "記帳", icon: "/icons/ui/wallet.svg" },
+  { id: "weather", name: "天氣", href: "/", description: "只有首頁卡片", icon: "/icons/ui/cloud-sun.svg", homeOnly: true },
+];
 
 const invite = (overrides: Record<string, unknown>) => ({
   id: 1,
@@ -35,12 +41,13 @@ const invite = (overrides: Record<string, unknown>) => ({
 beforeEach(() => {
   requireOwner.mockReset();
   cached.cachedUsers.mockReset().mockResolvedValue([
-    { id: TEST_SESSION.id, username: "alice", role: "owner", createdAt: new Date("2026-01-02T03:04:00Z"), disabledAt: null },
-    { id: MEMBER_ID, username: "bob", role: "member", createdAt: new Date("2026-10-01T00:00:00Z"), disabledAt: null },
-    { id: DISABLED_ID, username: "carol", role: "member", createdAt: new Date("2026-10-02T00:00:00Z"), disabledAt: new Date("2026-10-05T00:00:00Z") },
+    { id: TEST_SESSION.id, username: "alice", nickname: null, role: "owner", createdAt: new Date("2026-01-02T03:04:00Z"), disabledAt: null },
+    { id: MEMBER_ID, username: "bob", nickname: "小明", role: "member", createdAt: new Date("2026-10-01T00:00:00Z"), disabledAt: null },
+    { id: DISABLED_ID, username: "carol", nickname: null, role: "member", createdAt: new Date("2026-10-02T00:00:00Z"), disabledAt: new Date("2026-10-05T00:00:00Z") },
   ]);
   cached.cachedInvites.mockReset().mockResolvedValue([]);
   service.listLockedUsers.mockReset().mockResolvedValue([]);
+  service.listModuleDenials.mockReset().mockResolvedValue([]);
 });
 
 describe("管理頁：使用者", () => {
@@ -73,6 +80,69 @@ describe("管理頁：使用者", () => {
     expect(text).toContain("停用");
     expect(text).toContain("恢復");
     expect(text).toContain("刪除");
+  });
+});
+
+describe("管理頁：暱稱", () => {
+  it("使用者清單同時顯示暱稱與帳號名稱；站長不能幫別人改暱稱", async () => {
+    const markup = renderToStaticMarkup((await UserSection()) as ReactElement);
+    const bobRow = markup.split("<li").find((row) => row.includes("bob"))!;
+
+    expect(textOf(bobRow)).toContain("小明");
+    expect(markup).not.toMatch(/name="nickname"/);
+  });
+});
+
+describe("管理頁：模組權限", () => {
+  const html = async () => renderToStaticMarkup((await ModuleAccessSection({ modules: MODULES })) as ReactElement);
+  /** 表格裡某個人某個模組的勾選框 */
+  const checkbox = (markup: string, label: string) => markup.match(new RegExp(`<input[^>]*aria-label="${label}"[^>]*>`))![0];
+
+  it("成員打開管理頁_導回首頁，不讀資料", async () => {
+    requireOwner.mockRejectedValue(new Error("NEXT_REDIRECT:/"));
+
+    await expect(ModuleAccessSection({ modules: MODULES })).rejects.toThrow("NEXT_REDIRECT:/");
+    expect(service.listModuleDenials).not.toHaveBeenCalled();
+    expect(cached.cachedUsers).not.toHaveBeenCalled();
+  });
+
+  it("標題與表格都等確認是站長才出現：一開始的外框（成員也會先看到）沒有權限的文字", () => {
+    requireOwner.mockReturnValue(new Promise(() => {}));
+    cached.cachedInvites.mockReturnValue(new Promise(() => {}));
+
+    expect(textOf(renderToStaticMarkup(AdminPage({ modules: MODULES }) as ReactElement))).not.toContain("權限");
+  });
+
+  it("列是帳號、欄是模組（含只有首頁卡片的天氣），暱稱與帳號名稱都看得到", async () => {
+    const markup = await html();
+    const text = textOf(markup, { spaced: true });
+
+    expect(markup.match(/<th[^>]*scope="col"/g)).toHaveLength(MODULES.length + 1);
+    expect(markup.match(/<th[^>]*scope="row"/g)).toHaveLength(3);
+    for (const name of ["Twitch", "理財", "天氣", "alice", "bob", "小明", "carol"]) expect(text).toContain(name);
+  });
+
+  it("預設全部勾選；被關掉的模組沒有勾", async () => {
+    service.listModuleDenials.mockResolvedValue([{ userId: MEMBER_ID, moduleId: "savings" }]);
+
+    const markup = await html();
+
+    expect(checkbox(markup, "小明：理財")).not.toContain("checked");
+    expect(checkbox(markup, "小明：Twitch")).toContain("checked");
+    expect(checkbox(markup, "carol：理財")).toContain("checked");
+  });
+
+  it("站長那一列勾選而且不能改；就算資料庫有紀錄也一樣", async () => {
+    service.listModuleDenials.mockResolvedValue([{ userId: TEST_SESSION.id, moduleId: "savings" }]);
+
+    const box = checkbox(await html(), "alice：理財");
+
+    expect(box).toContain("checked");
+    expect(box).toContain("disabled");
+  });
+
+  it("成員那一列可以改", async () => {
+    expect(checkbox(await html(), "小明：理財")).not.toContain("disabled");
   });
 });
 
@@ -138,9 +208,9 @@ describe("建立邀請後的畫面（inviteResult）", () => {
   const LINK = "https://hub.example.com/register?code=new";
   const created = { message: "已建立邀請連結：7 天內可以註冊 1 個帳號。", link: LINK };
 
-  it("還沒建立或出錯：不開視窗，錯誤顯示在表單下方", () => {
-    expect(inviteResult({}, undefined)).toEqual({ dialogOpen: false, canReopen: false, feedback: {} });
-    expect(inviteResult({ error: "建立邀請連結失敗（詳見伺服器 log）" }, undefined)).toEqual({ dialogOpen: false, canReopen: false, feedback: { error: "建立邀請連結失敗（詳見伺服器 log）" } });
+  it("還沒建立或出錯：不開視窗，也沒有「再看一次連結」（錯誤照樣顯示在表單下方）", () => {
+    expect(inviteResult({}, undefined)).toEqual({ dialogOpen: false, canReopen: false });
+    expect(inviteResult({ error: "建立邀請連結失敗（詳見伺服器 log）" }, undefined)).toEqual({ dialogOpen: false, canReopen: false });
   });
 
   it("再建立一條：新的連結照樣自動打開", () => {
@@ -150,7 +220,7 @@ describe("建立邀請後的畫面（inviteResult）", () => {
 
 describe("管理頁的外框", () => {
   it("寬螢幕：邀請連結與使用者兩欄等寬（邀請清單的每一列不會擠成三行），頁首撐滿；排欄不靠第幾個子元素", () => {
-    const page = AdminPage() as ReactElement<{ className: string; children: ReactNode[] }>;
+    const page = AdminPage({ modules: MODULES }) as ReactElement<{ className: string; children: ReactNode[] }>;
     const classes = page.props.className.split(" ");
 
     expect(classes).toEqual(expect.arrayContaining(["xl:grid", "xl:grid-cols-2", "xl:items-start"]));

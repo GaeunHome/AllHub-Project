@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { HomeCard } from "@/core/ui/home-card";
 import { pickLiveNow } from "../../lib/visuals";
@@ -19,7 +19,7 @@ export function TwitchHomeCard({ info }: { info: ModuleInfo }) {
  * 沒有 Twitch 憑證時照 EventSub 記下的開台狀態列出 不顯示錯誤
  */
 export async function LiveNow() {
-  const user = await requireSession();
+  const user = await requireModule("twitch");
   const visuals = await followedStreamerVisuals(user.id);
   if (visuals.length === 0) return <NoFollowedStreamers />;
   const { shown, more } = pickLiveNow(visuals);

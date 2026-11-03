@@ -21,11 +21,14 @@ export function entryTitle(entry: EntryNames, accountKind?: AccountKind): string
   return entry.categoryName ?? entry.note ?? UNCATEGORIZED_LABEL;
 }
 
-/** 名稱下面那行 轉帳的帳戶已經在名稱裡 備註當了名稱就改寫未分類 */
-export function entryDetails(entry: EntryNames): string[] {
-  if (entry.kind === "transfer") return entry.note ? [entry.note] : [];
-  if (uncategorized(entry) && entry.note) return [UNCATEGORIZED_LABEL, entry.accountName];
-  return entry.note ? [entry.accountName, entry.note] : [entry.accountName];
+/** 名稱下面的兩欄 帳戶一欄 備註一欄 沒有就是 null */
+export type EntryDetails = { account: string | null; note: string | null };
+
+/** 轉帳的帳戶已經在名稱裡 備註當了名稱就改寫未分類 */
+export function entryDetails(entry: EntryNames): EntryDetails {
+  if (entry.kind === "transfer") return { account: null, note: entry.note || null };
+  if (uncategorized(entry) && entry.note) return { account: entry.accountName, note: UNCATEGORIZED_LABEL };
+  return { account: entry.accountName, note: entry.note || null };
 }
 
 /** 買賣持股的紀錄 shares 買進是正的 賣出是負的 持股刪掉後沒有代號 */
@@ -37,7 +40,7 @@ export function isTrade(record: TradeNames & { kind: TransactionKind }): boolean
 
 export function tradeTitle({ shares, holdingSymbol }: TradeNames): string {
   const count = formatNumber(Math.abs(shares ?? 0));
-  return `${(shares ?? 0) > 0 ? "買進" : "賣出"}${holdingSymbol ? ` ${holdingSymbol}` : ""} · ${count} 股`;
+  return `${(shares ?? 0) > 0 ? "買進" : "賣出"}${holdingSymbol ? ` ${holdingSymbol}` : ""} ${count} 股`;
 }
 
 // 比對時去掉空白與千分位 預設備註寫法稍有不同也認得出來
@@ -65,14 +68,15 @@ export function recordTitle(record: EntryNames & TradeNames, accountKind?: Accou
 type RecordNames = EntryNames & TradeNames & { recurring: boolean; recurringName: string | null };
 
 /**
- * 紀錄頁名稱下面那一行 買賣寫從哪個帳戶到哪個帳戶
+ * 紀錄頁名稱下面的兩欄 買賣的帳戶寫從哪裡到哪裡
  * 固定收支記的寫規則的名稱 跟名稱或備註重複 或規則沒有名稱時寫固定收支
  */
-export function recordDetails(record: RecordNames): string[] {
-  const parts = isTrade(record) ? [`${record.accountName} → ${record.counterAccountName ?? "已刪除的帳戶"}`, ...(record.note && !isDefaultTradeNote(record) ? [record.note] : [])] : entryDetails(record);
-  if (!record.recurring) return parts;
+export function recordDetails(record: RecordNames): EntryDetails {
+  const details = isTrade(record) ? { account: `${record.accountName} → ${record.counterAccountName ?? "已刪除的帳戶"}`, note: record.note && !isDefaultTradeNote(record) ? record.note : null } : entryDetails(record);
+  if (!record.recurring) return details;
   const name = record.recurringName;
-  return [...parts, name === null || name === record.note || name === recordTitle(record) ? "固定收支" : name];
+  const rule = name === null || name === record.note || name === recordTitle(record) ? "固定收支" : name;
+  return { ...details, note: details.note ? `${details.note}（${rule}）` : rule };
 }
 
 /**

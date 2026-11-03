@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { externalAssetUrl } from "@/core/external-url";
 import { formatTaipeiDateTime } from "@/core/time";
 import { Avatar } from "@/core/ui/avatar";
@@ -7,11 +7,11 @@ import { cacheKeyIds } from "../../lib/visuals";
 import { cachedRecentEvents, cachedStreamerProfiles, cachedStreamers } from "../../service/cached";
 
 export async function RecentEvents() {
-  const user = await requireSession();
+  const user = await requireModule("twitch");
   const [events, streamers] = await Promise.all([cachedRecentEvents(user.id, 20), cachedStreamers(user.id)]);
 
   if (events.length === 0) {
-    return <EmptyState icon="radio" title="還沒有收到開關台通知" hint="追蹤的主播開台或關台時，紀錄會出現在這裡" />;
+    return <EmptyState icon="radio" title="還沒有開台紀錄" hint="追蹤的主播開台時，紀錄會出現在這裡" />;
   }
 
   // 用追蹤中主播的 id 查頭像 跟主播列表共用同一份快取
@@ -27,7 +27,6 @@ export async function RecentEvents() {
           {/* 只有一行時跟頭像垂直置中 兩行時從頭像的頂端開始 */}
           <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center gap-1.5">
             <div className="flex min-w-0 items-center gap-2">
-              <span className={e.type === "online" ? "chip chip-brand shrink-0" : "chip shrink-0"}>{e.type === "online" ? "開台" : "關台"}</span>
               <span className="truncate font-semibold text-ink">{e.displayName}</span>
               <time dateTime={e.receivedAt.toISOString()} className="ml-auto shrink-0 text-[0.8125rem] whitespace-nowrap text-ink-soft tabular-nums">
                 {formatTaipeiDateTime(e.receivedAt)}

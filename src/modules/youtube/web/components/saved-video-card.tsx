@@ -54,7 +54,7 @@ export function SavedVideoCard({ video, now, eager }: { video: SavedVideo; now: 
             action={removeSavedVideoAction}
             fields={{ videoId: video.videoId }}
             confirmMessage={`從已保留的影片移除「${title}」？翻譯好的字幕會留著，之後打開同一支影片還看得到。`}
-            formClassName="flex flex-col gap-1"
+            formClassName="flex flex-col"
             pendingLabel={
               <>
                 <Icon name="trash-2" className="size-4" />

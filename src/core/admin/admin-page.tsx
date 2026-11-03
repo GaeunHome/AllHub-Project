@@ -1,17 +1,20 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { requireOwner } from "../auth";
+import type { ModuleInfo } from "../module";
+import { FOCUS_FRAME } from "../ui/focus-frame";
 import { Icon } from "../ui/icon";
 import { CardHeader, PageHeader } from "../ui/page-header";
 import { ListSkeleton, LoadingState, Skeleton } from "../ui/skeleton";
 import { cachedInvites, cachedUsers } from "./cached";
 import { CreateInviteForm } from "./create-invite-form";
 import { InviteList } from "./invite-list";
-import { listLockedUsers } from "./service";
+import { ModuleAccessTable } from "./module-access-table";
+import { listLockedUsers, listModuleDenials } from "./service";
 import { UserList } from "./user-list";
 
 /** 導覽列只是藏起入口 讀資料與 Server Action 都會用 requireOwner 再確認 */
-export function AdminPage() {
+export function AdminPage({ modules }: { modules: ModuleInfo[] }) {
   return (
     // 寬螢幕兩欄等寬 不把表單拉滿整個畫面 邀請清單每列才不會擠成三行
     <div className="page-stack xl:grid xl:grid-cols-2 xl:items-start xl:[&>:first-child]:col-span-2">
@@ -26,7 +29,8 @@ export function AdminPage() {
         </Suspense>
       </section>
 
-      <section aria-labelledby="admin-users" className="card stack">
+      {/* 刪掉一個帳號後那一列不見 焦點落在這張卡片 */}
+      <section aria-labelledby="admin-users" {...FOCUS_FRAME} className="card stack">
         <CardHeader id="admin-users" icon={<Icon name="users" />}>
           使用者
         </CardHeader>
@@ -34,6 +38,11 @@ export function AdminPage() {
           <UserSection />
         </Suspense>
       </section>
+
+      {/* 標題也在裡面 成員打開這一頁時先出現的外框不能有權限的字 */}
+      <Suspense fallback={<ModuleAccessSkeleton />}>
+        <ModuleAccessSection modules={modules} />
+      </Suspense>
     </div>
   );
 }
@@ -57,6 +66,27 @@ export async function UserSection() {
   await connection();
   const [users, locked] = await Promise.all([cachedUsers(), listLockedUsers(new Date())]);
   return <UserList users={users} currentUserId={owner.id} lockedUntil={new Map(locked.map((user) => [user.id, user.lockedUntil]))} />;
+}
+
+export async function ModuleAccessSection({ modules }: { modules: ModuleInfo[] }) {
+  await requireOwner();
+  const [users, denials] = await Promise.all([cachedUsers(), listModuleDenials()]);
+  return (
+    <section aria-labelledby="admin-modules" className="card stack min-w-0 xl:col-span-2">
+      <CardHeader id="admin-modules" icon={<Icon name="shield" />}>
+        模組權限
+      </CardHeader>
+      <ModuleAccessTable users={users} modules={modules} denials={denials} />
+    </section>
+  );
+}
+
+function ModuleAccessSkeleton() {
+  return (
+    <div className="card xl:col-span-2">
+      <ListSkeleton rows={3} />
+    </div>
+  );
 }
 
 function InviteSectionSkeleton() {

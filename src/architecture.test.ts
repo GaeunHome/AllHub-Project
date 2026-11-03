@@ -286,7 +286,7 @@ describe("架構規則", () => {
 
   // 模組 id 是通知的 module 提醒偏好與 localStorage 的 key 認領與冷卻的 scope
   // 寫錯一個字 提醒方式的開關就對不到那個模組的通知 log 也分不出是誰
-  it("模組 id 一致：info.id、通知與 log 的 module、認領與冷卻的 scope 前綴、allhub: 開頭的 localStorage key 都等於資料夾名稱", async () => {
+  it("模組 id 一致：info.id、通知與 log 的 module、權限檢查（requireModule、canUseModule、activeOwnerOf）、認領與冷卻的 scope 前綴、allhub: 開頭的 localStorage key 都等於資料夾名稱", async () => {
     const SCOPE_FIRST = ["claimOnce", "releaseOnce", "takeCooldown"];
     const SCOPE_OPTION = ["sendOnce", "sendOnceEach", "recordAttempt", "checkAttempts"];
     const problems: string[] = [];
@@ -324,6 +324,11 @@ describe("架構規則", () => {
           const [arg] = node.arguments;
           const callee = node.expression.text;
           if (callee === "logError") check(arg ?? node, "logError 的 scope", valueOf(arg), valueOf(arg) === place.id);
+          if (callee === "requireModule") check(arg ?? node, "requireModule 的模組 id", valueOf(arg), valueOf(arg) === place.id);
+          if (callee === "canUseModule" || callee === "activeOwnerOf") {
+            const moduleId = node.arguments[1];
+            check(moduleId ?? node, `${callee} 的模組 id`, valueOf(moduleId), valueOf(moduleId) === place.id);
+          }
           if (SCOPE_FIRST.includes(callee)) check(arg ?? node, "scope", valueOf(arg), isScope(valueOf(arg)));
           if (SCOPE_OPTION.includes(callee)) {
             const option = arg && ts.isObjectLiteralExpression(arg) ? arg.properties.find((p) => p.name?.getText(sourceFile) === "scope") : undefined;
@@ -345,17 +350,24 @@ describe("架構規則", () => {
 
   // 規則寫在 CLAUDE.md 的安全 Server Action 可以被直接 POST
   // 只有 requireSession 會比對資料庫 擋下改過密碼的舊 cookie 與停用的帳號
-  it("Server Action（use server 檔的每個 export）第一個敘述是 await requireSession() 或 requireOwner()；不用登入的只有 login、registerAction、logout", () => {
+  // 模組的 action 還要擋下被關掉模組的人 所以一律 requireModule
+  it("Server Action（use server 檔的每個 export）第一個敘述：模組的是 await requireModule(\"<模組 id>\")，core 的是 await requireSession() 或 requireOwner()；不用登入的只有 login、registerAction、logout", () => {
     const NO_LOGIN = new Set(["core/auth/actions.ts login", "core/auth/actions.ts registerAction", "core/auth/actions.ts logout"]);
-    const LOGIN_FIRST = /^(?:(?:const|let)\s+[^=]+=\s*)?await\s+require(?:Session|Owner)\(\s*\);?$/;
+    const ASSIGNED = String.raw`^(?:(?:const|let)\s+[^=]+=\s*)?await\s+`;
+    const LOGIN_FIRST = new RegExp(`${ASSIGNED}require(?:Session|Owner)\\(\\s*\\);?$`);
+    const MODULE_FIRST = (id: string) => new RegExp(`${ASSIGNED}requireModule\\(\\s*["']${id}["']\\s*\\);?$`);
     const problems: string[] = [];
     const serverFiles = files.filter((file) => !isTest(file) && /["']use server["']/.test(read(file)));
     for (const file of serverFiles) {
       const sourceFile = syntaxOf(file);
+      const place = placeOf(file);
+      const moduleId = place.zone === "module" ? place.id : null;
+      const expected = moduleId ? MODULE_FIRST(moduleId) : LOGIN_FIRST;
+      const wanted = moduleId ? `await requireModule("${moduleId}")` : "await requireSession() 或 await requireOwner()";
       const checkBody = (name: string, body: ts.ConciseBody | undefined, node: ts.Node) => {
         if (NO_LOGIN.has(`${file} ${name}`)) return;
         const first = body && ts.isBlock(body) ? body.statements[0]?.getText(sourceFile).replace(/\s+/g, " ") : undefined;
-        if (!first || !LOGIN_FIRST.test(first)) problems.push(`${file}:${lineOf(sourceFile, node)} ${name}：第一個敘述要是 await requireSession() 或 await requireOwner()（現在是 ${first ?? "沒有函式本體"}）`);
+        if (!first || !expected.test(first)) problems.push(`${file}:${lineOf(sourceFile, node)} ${name}：第一個敘述要是 ${wanted}（現在是 ${first ?? "沒有函式本體"}）`);
       };
       // 寫在函式裡的 use server 這條規則看不到 一律放在開頭有 use server 的檔案
       const visit = (node: ts.Node) => {
@@ -392,8 +404,55 @@ describe("架構規則", () => {
       }
     }
     // 先確認真的掃到 Server Action 規則才不會因為沒掃到東西而空轉
-    expect(serverFiles).toEqual(expect.arrayContaining(["core/auth/actions.ts", "core/admin/actions.ts"]));
+    expect(serverFiles).toEqual(expect.arrayContaining(["core/auth/actions.ts", "core/admin/actions.ts", "modules/savings/web/actions.ts"]));
     expect(problems).toEqual([]);
+  });
+
+  // 規則寫在 CLAUDE.md 的權限 沒有權限的模組等於凍結 只靠導覽列藏起來擋不住直接打開網址
+  describe("模組的權限檢查", () => {
+    const moduleWeb = files.filter((file) => {
+      const place = placeOf(file);
+      return place.zone === "module" && place.layer === "web" && !isTest(file);
+    });
+    const callsIn = (file: string): string[] => {
+      const sourceFile = syntaxOf(file);
+      const names: string[] = [];
+      const visit = (node: ts.Node) => {
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) names.push(node.expression.text);
+        ts.forEachChild(node, visit);
+      };
+      visit(sourceFile);
+      return names;
+    };
+    /** 這個檔案加上它一路用到的同模組 web 檔案 */
+    const reachable = (file: string, seen = new Set<string>()): Set<string> => {
+      seen.add(file);
+      for (const i of allImports) if (i.from === file && !i.typeOnly && moduleWeb.includes(i.target) && !seen.has(i.target)) reachable(i.target, seen);
+      return seen;
+    };
+
+    it("模組的 web 層不用 requireSession、requireOwner，一律 requireModule", () => {
+      const problems = moduleWeb.flatMap((file) => callsIn(file).filter((name) => name === "requireSession" || name === "requireOwner").map((name) => `${file}：${name}() 要改成 requireModule("<模組 id>")`));
+
+      expect(moduleWeb.length).toBeGreaterThan(0);
+      expect(problems).toEqual([]);
+    });
+
+    it("每個頁面與首頁卡片（含它用到的元件）都有 requireModule", () => {
+      const pages = moduleWeb.filter((file) => /\/web\/pages\/[^/]+\.tsx$/.test(file));
+      const problems = pages.filter((page) => ![...reachable(page)].some((file) => callsIn(file).includes("requireModule"))).map((page) => `${page}：沒有 requireModule`);
+
+      expect(pages.length).toBeGreaterThan(0);
+      expect(problems).toEqual([]);
+    });
+
+    it("回應登入者的 Route Handler（用 currentSession 的）也檢查 canUseModule", () => {
+      const routes = moduleWeb.filter((file) => file.includes("/web/routes/") && callsIn(file).includes("currentSession"));
+      const problems = routes.filter((file) => !callsIn(file).includes("canUseModule")).map((file) => `${file}：沒有權限時要回 403`);
+
+      expect(routes.length).toBeGreaterThan(0);
+      expect(problems).toEqual([]);
+    });
   });
 
   // 規則寫在 CLAUDE.md 的 form.ts 加了 use server 每個 export 都會變成可以直接 POST 的 action
@@ -676,6 +735,19 @@ describe("架構規則", () => {
     // 規則才不會因為沒掃到東西而空轉
     expect(read("core/notifications/center.tsx")).toMatch(/(?<![\w.$])fetch\(API/);
     expect(problems).toEqual([]);
+  });
+
+  // 規則寫在 CLAUDE.md 的程式碼慣例 結果一律用 core/ui/toast 的提示視窗
+  // 原生的會擋住整個頁面 樣子也跟網站不一樣
+  it("正式程式不用原生的 alert()：成功與失敗的提示一律用 core/ui/toast 的提示視窗", () => {
+    const offenders = files
+      .filter((file) => !isTest(file))
+      .flatMap((file) =>
+        read(file)
+          .split("\n")
+          .flatMap((line, i) => (/(?<![\w.$])(?:(?:globalThis|window|self)\.)?alert\s*\(/.test(line) ? [`${file}:${i + 1} ${line.trim()}`] : [])),
+      );
+    expect(offenders).toEqual([]);
   });
 
   it("資料表只定義在 core/db/schema.ts 與各模組的 data/schema.ts（drizzle.config.ts 只收這些檔案），表名加前綴", () => {

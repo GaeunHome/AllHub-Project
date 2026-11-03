@@ -4,9 +4,9 @@ import { CardHeader } from "@/core/ui/page-header";
 import { perShareText } from "../../../lib/dividends";
 import { formatTwd } from "../../../lib/money";
 import type { DividendRowView, DividendsView } from "../../dividends-view";
-import { dividendDateText } from "../../format";
+import { dividendDateLines } from "../../format";
 import { ListRow } from "../row-controls";
-import { Ticker } from "../visuals";
+import { Lines, Ticker } from "../visuals";
 
 /** 估計的金額在上面 只有除權的看不出會配多少 右邊不寫 */
 function amountOf(row: DividendRowView): ReactNode {
@@ -38,7 +38,7 @@ export function DividendsCard({ view }: { view: DividendsView }) {
                   <span className="min-w-0">{row.name}</span>
                 </span>
               }
-              detail={dividendDateText(row)}
+              detail={<Lines lines={dividendDateLines(row)} />}
               amount={amountOf(row)}
             />
           ))}

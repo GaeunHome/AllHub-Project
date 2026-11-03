@@ -1,6 +1,8 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ActionButton } from "@/core/ui/action-button";
 import { Icon } from "@/core/ui/icon";
+import { InfoTip } from "@/core/ui/info-tip";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { checkinAction, removeAccountAction, setAutoRedeemAction, setGameRemindersAction, setThresholdAction } from "../actions";
 import { serverLabel } from "../../lib/roles";
@@ -71,7 +73,7 @@ export function AccountHeader({ account }: { account: StarrailAccountView }) {
         </summary>
         {/* 移除放在最後 手機上排成一欄時不夾在兩個設定中間 */}
         <div className="stack">
-          <div className="grid items-start gap-4 lg:grid-cols-2">
+          <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
             <AutoRedeemSetting account={account} />
             <GameRemindersSetting account={account} />
           </div>
@@ -112,21 +114,34 @@ export function AccountHeader({ account }: { account: StarrailAccountView }) {
   );
 }
 
+/** 開關旁的 i 圓圈收著說明 跟開關一樣高才對齊 */
+function SettingWithTip({ tipLabel, tip, children }: { tipLabel: string; tip: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start gap-1">
+      {children}
+      <span className="flex h-11 items-center">
+        <InfoTip label={tipLabel}>{tip}</InfoTip>
+      </span>
+    </div>
+  );
+}
+
 /**
  * 每天把社群整理的新兌換碼送到這個帳號 cookie 少了兌換要用的鍵時不能打開
  * 已經打開的照樣可以關掉
  */
 export function AutoRedeemSetting({ account }: { account: StarrailAccountView }) {
-  const hintId = `auto-redeem-hint-${account.id}`;
   const locked = !account.canAutoRedeem && !account.autoRedeem;
   return (
-    <div className="flex flex-col items-start gap-1.5">
+    <SettingWithTip
+      tipLabel="關於自動兌換"
+      tip={account.canAutoRedeem ? "每天中午把社群整理的新兌換碼用這個帳號兌換，兌換成功會通知你。" : "需要 cookie 裡的 cookie_token_v2：用「新增帳號或更新 cookie」重新貼上完整的 cookie。"}
+    >
       <ActionButton
         action={setAutoRedeemAction}
         fields={{ accountId: account.id, enabled: String(!account.autoRedeem) }}
         role="switch"
         aria-checked={account.autoRedeem}
-        aria-describedby={hintId}
         disabled={locked}
         formClassName="flex flex-col items-start gap-1"
         className="btn-secondary"
@@ -134,36 +149,26 @@ export function AutoRedeemSetting({ account }: { account: StarrailAccountView })
         <span aria-hidden className="switch-visual" />
         自動兌換新的兌換碼
       </ActionButton>
-      <p id={hintId} className="text-ink-soft">
-        {account.canAutoRedeem
-          ? "每天中午把社群整理的新兌換碼用這個帳號兌換，兌換成功會通知你。"
-          : "需要 cookie 裡的 cookie_token_v2：用「新增帳號或更新 cookie」重新貼上完整的 cookie。"}
-      </p>
-    </div>
+    </SettingWithTip>
   );
 }
 
 /** 開拓力提醒另外看門檻 這裡只管每日實訓 每週內容與終局挑戰 */
 export function GameRemindersSetting({ account }: { account: StarrailAccountView }) {
-  const hintId = `game-reminders-hint-${account.id}`;
   return (
-    <div className="flex flex-col items-start gap-1.5">
+    <SettingWithTip tipLabel="關於每日、每週與終局提醒" tip="每日實訓、每週內容快重置還沒做完，或終局挑戰快結束還沒拿滿時通知你；開拓力提醒看門檻。">
       <ActionButton
         action={setGameRemindersAction}
         fields={{ accountId: account.id, enabled: String(!account.gameReminders) }}
         role="switch"
         aria-checked={account.gameReminders}
-        aria-describedby={hintId}
         formClassName="flex flex-col items-start gap-1"
         className="btn-secondary"
       >
         <span aria-hidden className="switch-visual" />
         每日、每週與終局提醒
       </ActionButton>
-      <p id={hintId} className="text-ink-soft">
-        每日實訓、每週內容快重置還沒做完，或終局挑戰快結束還沒拿滿時通知你；開拓力提醒看門檻。
-      </p>
-    </div>
+    </SettingWithTip>
   );
 }
 

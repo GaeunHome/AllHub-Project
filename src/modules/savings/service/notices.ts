@@ -111,7 +111,7 @@ export async function sendDueNotices(today: DateKey): Promise<NoticeResult> {
   const rules = await db()
     .select(getTableColumns(savingsRecurring))
     .from(savingsRecurring)
-    .innerJoin(coreUsers, activeOwnerOf(savingsRecurring.userId))
+    .innerJoin(coreUsers, activeOwnerOf(savingsRecurring.userId, "savings"))
     .where(and(eq(savingsRecurring.mode, "confirm"), eq(savingsRecurring.active, true)))
     .orderBy(asc(savingsRecurring.id));
   for (const rule of rules) {
@@ -135,7 +135,7 @@ export async function sendDueNotices(today: DateKey): Promise<NoticeResult> {
       cardNotifiedOn: savingsAccounts.cardNotifiedOn,
     })
     .from(savingsAccounts)
-    .innerJoin(coreUsers, activeOwnerOf(savingsAccounts.userId))
+    .innerJoin(coreUsers, activeOwnerOf(savingsAccounts.userId, "savings"))
     .where(and(eq(savingsAccounts.kind, "credit"), eq(savingsAccounts.active, true)))
     .orderBy(asc(savingsAccounts.userId), asc(savingsAccounts.id));
   const byUser = Map.groupBy(cards, (card) => card.userId);

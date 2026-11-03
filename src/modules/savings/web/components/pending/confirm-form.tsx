@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
+import { Fact, FactList } from "@/core/ui/fact-list";
 import { FormFeedback } from "@/core/ui/form-message";
 import { formatSlashDate, type DateKey } from "../../../lib/dates";
 import { confirmOccurrenceAction } from "../../actions";
@@ -25,7 +26,13 @@ export function ConfirmForm({ draft, today, onDone, onCancel }: ConfirmFormProps
     <form {...formProps} className="stack">
       <input type="hidden" name="ruleId" value={draft.ruleId} />
       <input type="hidden" name="period" value={draft.period} />
-      <p className="text-ink-soft">{draft.where}</p>
+      <FactList>
+        {draft.where.map((fact) => (
+          <Fact key={fact.label} label={fact.label}>
+            {fact.value}
+          </Fact>
+        ))}
+      </FactList>
       {buy ? (
         <div className="field">
           <div className="grid gap-4 sm:grid-cols-2">

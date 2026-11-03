@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { externalAssetUrl } from "@/core/external-url";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { ENDGAME_MODES, type EndgameSchedule } from "../../lib/endgame";
@@ -14,7 +14,7 @@ const SCHEDULES: EndgameSchedule[] = ["current", "previous"];
  * 角色名字從同一份快取的角色資料對照 帳號的 cookie 失效標記只由即時便箋決定
  */
 export async function EndgamePanel({ account }: { account: StarrailAccountView }) {
-  const user = await requireSession();
+  const user = await requireModule("starrail");
   const requests = ENDGAME_MODES.flatMap((mode) => SCHEDULES.map((schedule) => ({ mode, schedule })));
   const [results, characters] = await Promise.all([
     Promise.all(requests.map(({ mode, schedule }) => cachedEndgame(user.id, account.id, mode, schedule))),

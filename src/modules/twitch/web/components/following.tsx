@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { EmptyState } from "@/core/ui/empty-state";
 import { SectionTitle } from "@/core/ui/page-header";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
@@ -7,14 +7,14 @@ import { ChannelRow } from "./channel-row";
 import { LiveCard } from "./live-card";
 
 // auto-fit 收掉沒用到的欄 直播的人少時卡片撐滿 不會空下一兩欄
-// 欄寬看這一欄本身 超寬螢幕右邊多了開關台紀錄 這欄反而比較窄
+// 欄寬看這一欄本身 超寬螢幕右邊多了開台紀錄 這欄反而比較窄
 const LIVE_GRID = "grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-x-4 gap-y-8";
 // 第一排最多四張 預覽圖常常是 LCP 立刻載入 後面的延遲
 const EAGER_PREVIEWS = 4;
 
 /** 追蹤中區塊 寬螢幕左邊是頻道清單 右邊是直播卡片 手機上直播的排前面 */
 export async function Following() {
-  const user = await requireSession();
+  const user = await requireModule("twitch");
   const visuals = await followedStreamerVisuals(user.id);
 
   if (visuals.length === 0) {

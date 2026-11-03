@@ -1,6 +1,7 @@
 import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { markup as render, textOf } from "@/dev/test-helpers";
+import { toasts } from "@/dev/toast-stub";
 import type { BillDraft, HoldingView, PendingEntry } from "../../dashboard-view";
 import type { ChecklistRow, QuickActionsView } from "../../overview-view";
 
@@ -27,8 +28,8 @@ vi.mock("../../actions", () =>
     ].map((name) => [name, vi.fn()]),
   ),
 );
-const report = vi.fn();
-vi.mock("../dashboard/overview-notice", () => ({ useOverviewNotice: () => report }));
+// 成功的訊息看跳出什麼提示
+vi.mock("@/core/ui/toast", () => import("@/dev/toast-stub"));
 
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
@@ -48,7 +49,6 @@ const DEPOSITS = [
 ];
 
 beforeEach(() => {
-  report.mockClear();
   vi.mocked(dialog.useDialogForm).mockClear();
   vi.mocked(ActionButton).mockClear();
   vi.mocked(dialog.Dialog).mockImplementation(({ children }) => createElement(Fragment, null, children));
@@ -63,11 +63,11 @@ describe("這個月要做的事", () => {
     confirm: {
       row: entryRow("recurring:3:2026-10", "confirm"),
       rule: { ruleId: 3, period: "2026-10" },
-      confirm: { ruleId: 3, period: "2026-10", name: "電費", kind: "expense", amount: 1800, date: TODAY, minDate: "2026-01-05", where: "生活費帳戶 · 帳單", notePlaceholder: "留空會寫「電費」", regularBuy: null },
+      confirm: { ruleId: 3, period: "2026-10", name: "電費", kind: "expense", amount: 1800, date: TODAY, minDate: "2026-01-05", where: [{ label: "帳戶", value: "生活費帳戶" }, { label: "分類", value: "帳單" }], notePlaceholder: "留空會寫「電費」", regularBuy: null },
     },
     allocate: { row: entryRow("recurring:1:2026-10", "allocate"), rule: { ruleId: 1, period: "2026-10" }, salary: { ruleId: 1, period: "2026-10", amount: 52000, accountId: 2, categoryId: null, date: "2026-10-10" } },
   };
-  const row = (key: string, title: string, state: ChecklistRow["state"], entry: PendingEntry | null = null, badge: ChecklistRow["badge"] = null): ChecklistRow => ({ key, title, state, meta: "", amountText: "$1", badge, entry });
+  const row = (key: string, title: string, state: ChecklistRow["state"], entry: PendingEntry | null = null, badge: ChecklistRow["badge"] = null): ChecklistRow => ({ key, title, state, date: "10/5", note: null, amountText: "$1", badge, entry });
   const ROWS = [
     row("card:7:2026-09-25", "台新卡", "overdue", ENTRIES.pay, { label: "逾期 20 天", tone: "danger" }),
     row("card:6:2026-10-05", "國泰卡", "todo", ENTRIES.bill),
@@ -97,13 +97,24 @@ describe("這個月要做的事", () => {
     expect(textOf(markup)).toContain("逾期 20 天");
   });
 
-  it("已繳、填帳單、入帳並分配、確認成功後那一列的按鈕會不見：訊息交給外面的 OverviewNotice", () => {
+  it("日期與狀態各佔一格，不用符號串在一起", () => {
+    const markup = list([{ ...ROWS[1], date: "10/5 已結帳", note: "待填帳單" }]);
+
+    expect(textOf(markup, { spaced: true })).toContain("國泰卡 10/5 已結帳 待填帳單");
+  });
+
+  it("已繳、填帳單、入帳並分配、確認成功後那一列的按鈕會不見：關掉視窗，訊息用提示視窗", () => {
     list();
     const forms = vi.mocked(dialog.useDialogForm).mock.calls;
 
     expect(forms.map(([action]) => action)).toEqual([actions.payCardAction, expect.any(Function), actions.allocateSalaryAction, actions.confirmOccurrenceAction]);
     forms.forEach(([, onDone], i) => onDone(`訊息 ${i}`, {}));
-    expect(report.mock.calls).toEqual([["訊息 0"], ["訊息 1"], ["訊息 2"], ["訊息 3"]]);
+    expect(toasts.map((toast) => [toast.tone, toast.title])).toEqual([
+      ["success", "訊息 0"],
+      ["success", "訊息 1"],
+      ["success", "訊息 2"],
+      ["success", "訊息 3"],
+    ]);
   });
 
   it("還沒填帳單的卡打開的是填帳單（不是繳款），截止日先填好預設", async () => {
@@ -117,18 +128,17 @@ describe("這個月要做的事", () => {
     expect(actions.enterCardBillAction).toHaveBeenCalledWith({}, filled);
   });
 
-  it("固定收支的 ⋮：略過這一期先確認，送出規則與那一期，成功後訊息也交給外面；修改打開每月固定頁的那一條；信用卡沒有 ⋮", async () => {
+  it("固定收支的 ⋮：略過這一期先確認，送出規則與那一期，結果用提示視窗；修改打開每月固定頁的那一條；信用卡沒有 ⋮", () => {
     const markup = list();
     const skips = vi.mocked(ActionButton).mock.calls.map(([props]) => props);
-    vi.mocked(actions.skipOccurrenceAction).mockResolvedValue({ message: "已略過" });
 
     expect(skips.map((props) => props.fields)).toEqual([
       { ruleId: 1, period: "2026-10" },
       { ruleId: 3, period: "2026-10" },
     ]);
     expect(skips[0].confirmMessage).toContain("2026 年 10 月");
-    await skips[0].action({}, new FormData());
-    expect(report).toHaveBeenCalledWith("已略過");
+    expect(skips[0].action).toBe(actions.skipOccurrenceAction);
+    expect(skips[0].successMessage).toContain("已略過「薪水」");
     expect([...markup.matchAll(/<a [^>]*href="([^"]*)"[^>]*>(?:(?!<\/a>).)*修改/g)].map((m) => m[1])).toEqual(["/savings/recurring?edit=1", "/savings/recurring?edit=3"]);
   });
 });
@@ -150,7 +160,7 @@ const holding = (id: number, symbol: string): HoldingView => ({
 const card = (id: number, name: string, needsBill: boolean) => ({
   id,
   name,
-  status: needsBill ? "10/5 已結帳 · 待填帳單" : "10/20 截止",
+  status: needsBill ? ["結帳日 10/5", "待填帳單"] : ["截止日 10/20"],
   needsBill,
   bill: { cardId: id, cardName: name, estimate: 7000, statementDate: "2026-10-05", dueDate: "2026-10-27", payFromAccountId: 2, minDate: "2026-01-05" },
   pay: { cardId: id, cardName: name, amount: 7000, payFromAccountId: 2, minDate: "2026-01-05" },
@@ -190,12 +200,18 @@ describe("我要…", () => {
     expect(formActions()).toEqual([actions.addTransactionAction, actions.addTransactionAction, actions.addTransactionAction]);
   });
 
-  it("信用卡有兩張以上：先選哪一張，還沒有表單", () => {
+  it("信用卡有兩張以上：先選哪一張，還沒有表單；每張卡的狀態分行寫", () => {
     const markup = body("card");
 
-    expect(textOf(markup)).toContain("國泰卡");
+    expect(textOf(markup, { spaced: true })).toContain("國泰卡 結帳日 10/5 待填帳單");
     expect(textOf(markup)).toContain("台新卡");
     expect(formActions()).toEqual([]);
+  });
+
+  it("買賣股票要先選：哪個帳戶與目前幾股分行寫", () => {
+    const second = { holding: holding(2, "0050"), accountName: "元大證券", minDate: "2026-01-05" };
+
+    expect(textOf(body("trade", { holdings: [...VIEW.holdings, second] }), { spaced: true })).toContain("0050 0050 名稱 元大證券 目前 1,000 股");
   });
 
   it("只有一張卡時直接打開表單：還沒填這一期的帳單是填帳單，填了是繳卡費", async () => {
@@ -264,6 +280,13 @@ describe("開始設定", () => {
 
     expect(linkTo(markup, "新增銀行帳戶")).toBe("/savings/accounts?add=deposit");
     expect(linkTo(markup, "設定薪水")).toBe("/savings/recurring?add=salary");
+  });
+
+  it("已完成幾步與說明分兩行", () => {
+    const markup = setup(["deposit"]);
+    const lines = [...markup.split("</header>")[0].matchAll(/<p[^>]*>(.*?)<\/p>/g)].map((m) => textOf(m[1]));
+
+    expect(lines).toEqual(["已完成 1/5", "照著做一遍，之後每個月照「這個月要做的事」做就好。"]);
   });
 
   it("還沒有分類時，清單上面先有「開始使用」建預設分類", async () => {

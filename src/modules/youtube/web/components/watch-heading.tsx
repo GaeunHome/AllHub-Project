@@ -1,5 +1,5 @@
 import { cache, type ReactNode } from "react";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { externalAssetUrl } from "@/core/external-url";
 import { Avatar } from "@/core/ui/avatar";
 import { Icon } from "@/core/ui/icon";
@@ -40,7 +40,7 @@ export function WatchTitleText({ title }: { title: string }) {
 }
 
 export async function WatchTitle({ videoId, title }: { videoId: string; title: string }) {
-  const user = await requireSession();
+  const user = await requireModule("youtube");
   const meta = await watchMeta(user.id, videoId);
   // 沒翻譯過也不是追蹤中頻道的影片只知道 id 有 oEmbed 的標題就換上
   return <WatchTitleText title={title === videoId && meta.title ? meta.title : title} />;
@@ -73,7 +73,7 @@ function ChannelIdentity({ avatar, name, url, action }: ChannelIdentityProps) {
 
 /** 頻道列的左半邊 頭像 頻道名稱與保留按鈕 右半邊是翻譯的膠囊按鈕 */
 export async function WatchChannel({ videoId }: { videoId: string }) {
-  const user = await requireSession();
+  const user = await requireModule("youtube");
   const [{ channel }, saved] = await Promise.all([watchMeta(user.id, videoId), cachedSavedVideos(user.id)]);
   const action = <WatchSaveButton videoId={videoId} saved={saved.some((video) => video.videoId === videoId)} />;
   if (!channel) return <ChannelIdentity avatar={<Avatar src={null} name="?" size="md" />} name={null} action={action} />;

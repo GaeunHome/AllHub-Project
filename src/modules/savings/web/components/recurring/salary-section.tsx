@@ -1,16 +1,15 @@
 "use client";
 
-import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
+import { Dialog, useDialog } from "@/core/ui/dialog";
+import { Fact, FactList } from "@/core/ui/fact-list";
 import { Icon } from "@/core/ui/icon";
 import { formatSignedTwd, formatTwd } from "../../../lib/money";
 import { choosableAccounts } from "../../form-math";
 import { SAVINGS_PATHS } from "../../paths";
-import { recurringDetail } from "../../format";
 import type { AllocationAccount, AllocationLineView, RecurringFormOptions, SalaryView } from "../../recurring-view";
 import type { SalaryAccountOption } from "../forms/options";
 import { RecurringForm } from "../forms/recurring-form";
 import { Illustration } from "../illustration";
-import { useRemovalNotice } from "../row-controls";
 import { useLinkedTrigger } from "../settings/open-from-link";
 import { IconTile } from "../visuals";
 import { AllocationForm } from "./allocation-form";
@@ -29,7 +28,6 @@ type SalarySectionProps = {
 /** 每條薪水寫出入帳後怎麼分配 到期時入帳並分配在列上 */
 export function SalarySection({ items, form, salaryAccounts, allocationAccounts, openAdd = false, openEditId = null }: SalarySectionProps) {
   const add = useDialog();
-  const notice = useRemovalNotice();
   const accounts = choosableAccounts(form.accounts);
   // 跟表單一樣 薪水不能入帳到信用卡與有持股的投資帳戶
   const canAdd = accounts.some((account) => account.kind !== "credit" && !account.withHoldings);
@@ -45,7 +43,6 @@ export function SalarySection({ items, form, salaryAccounts, allocationAccounts,
       addLabel="新增薪水"
       addTitle="設定薪水"
       addForm={<RecurringForm preset="salary" accounts={accounts} categories={form.categories} holdings={[]} today={form.today} onDone={add.done} onCancel={add.close} />}
-      notice={notice}
       empty={
         items.length === 0 ? (
           <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
@@ -69,12 +66,11 @@ export function SalarySection({ items, form, salaryAccounts, allocationAccounts,
           row={item}
           leading={<IconTile name={item.icon} size="sm" />}
           title={item.title}
-          detail={recurringDetail(item, item.when, item.receivingName ? [`入帳到${item.receivingName}`] : [])}
+          detail={item.receivingName ? [item.when, `入帳到${item.receivingName}`] : [item.when]}
           amountText={formatSignedTwd(item.amount)}
           form={form}
           salaryAccounts={salaryAccounts}
           openFromLink={item.id === openEditId}
-          onNotice={notice.report}
         >
           <AllocationSummary item={item} accounts={allocationAccounts.filter((account) => account.id !== item.draft.accountId)} />
         </RecurringRow>
@@ -107,26 +103,21 @@ function AllocationSummary({ item, accounts }: { item: SalaryView; accounts: All
       {item.allocation.length === 0 ? (
         <p className="text-ink">還沒有設定：薪水會全部留在「{item.receivingName}」。</p>
       ) : (
-        <dl className="flex flex-col divide-y divide-line">
+        <FactList>
           {item.allocation.map((line) => {
             const note = lineNote(line);
             return (
-              <div key={line.accountId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-0.5 py-2">
-                <dt className="min-w-0 text-ink">
-                  {line.name}
-                  {note && <span className="text-ink-soft"> · {note}</span>}
-                </dt>
-                <dd className="font-medium text-ink tabular-nums">{formatTwd(line.suggested)}</dd>
-              </div>
+              <Fact key={line.accountId} label={<span className="text-ink">{line.name}</span>}>
+                {note && <span className="text-ink-soft">{note}</span>}
+                <span className="font-medium">{formatTwd(line.suggested)}</span>
+              </Fact>
             );
           })}
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-0.5 py-2">
-            <dt className="text-ink">{over ? "分出去的比預計的薪水多" : `留在${item.receivingName}`}</dt>
-            <dd className={`font-medium tabular-nums ${over ? "text-danger" : "text-ink"}`}>{formatTwd(Math.abs(item.remainder))}</dd>
-          </div>
-        </dl>
+          <Fact label={<span className="text-ink">{over ? "分出去的比預計的薪水多" : `留在${item.receivingName}`}</span>}>
+            <span className={over ? "font-medium text-danger" : "font-medium"}>{formatTwd(Math.abs(item.remainder))}</span>
+          </Fact>
+        </FactList>
       )}
-      <DialogMessage {...edit.messageProps} />
       <Dialog {...edit.dialogProps} title="修改分配" size="lg">
         <AllocationForm accounts={accounts} receivingName={item.receivingName} onDone={edit.done} onCancel={edit.close} />
       </Dialog>

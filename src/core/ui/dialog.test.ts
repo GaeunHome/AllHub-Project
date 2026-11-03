@@ -2,9 +2,14 @@ import fs from "node:fs";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { toasts } from "@/dev/toast-stub";
 import { textOf } from "@/dev/test-helpers";
 import type { FormState } from "./form-message";
-import { Dialog, DialogButton, DialogMessage, dialogFormAction, dialogReducer, isBackdropClick, returnFocusTarget, shownMessage, showDialog, useDialog, useDialogForm } from "./dialog";
+
+vi.mock("./toast", () => import("@/dev/toast-stub"));
+
+const { Dialog, DialogButton, dialogFormAction, isBackdropClick, returnFocusTarget, showDialog, useDialog, useDialogForm } = await import("./dialog");
+const { keepFocusInFrame } = await import("./focus-frame");
 
 const amountInput = createElement("input", { name: "amount" });
 type DialogProps = Parameters<typeof Dialog>[0];
@@ -130,7 +135,6 @@ describe("按鈕＋彈出視窗（DialogButton、useDialog）", () => {
         null,
         createElement("button", { ...dialog.triggerProps, className: "btn-secondary" }, "記一筆"),
         createElement(Dialog, { ...dialog.dialogProps, title: "記一筆" } as DialogProps, amountInput),
-        dialog.message && createElement("span", null, dialog.message),
       );
     }
 
@@ -144,15 +148,42 @@ describe("按鈕＋彈出視窗（DialogButton、useDialog）", () => {
     expect(markup).toMatch(new RegExp(`<dialog[^>]*id="${controls}"`));
     expect(markup).not.toContain('name="amount"');
   });
+
+  it("打開視窗的按鈕在成功後跟著不見（例如填了帳單後換成已繳）：焦點交給最近的外框，不掉到 body", () => {
+    let trigger: ReturnType<typeof useDialog>["triggerProps"] | undefined;
+    function Probe() {
+      trigger = useDialog().triggerProps;
+      return null;
+    }
+
+    renderToStaticMarkup(createElement(Probe));
+
+    expect(trigger!.ref).toBe(keepFocusInFrame);
+  });
 });
 
-describe("成功後留下的訊息（DialogMessage）", () => {
-  it("沒有訊息時什麼都不畫；有訊息時是成功的 FormMessage（status，圖示與底色）", () => {
-    expect(renderToStaticMarkup(createElement(DialogMessage, {}))).toBe("");
+describe("視窗裡的表單成功後（useDialog 的 done）", () => {
+  /** 算繪一次 拿到 useDialog 回傳的 done */
+  function doneOf() {
+    let done: ReturnType<typeof useDialog>["done"] | undefined;
+    function Probe() {
+      done = useDialog().done;
+      return null;
+    }
+    renderToStaticMarkup(createElement(Probe));
+    return done!;
+  }
 
-    const markup = renderToStaticMarkup(createElement(DialogMessage, { message: "已記錄：餐飲 $120" }));
-    expect(markup).toMatch(/^<p role="status" class="form-message form-message-success">/);
-    expect(textOf(markup)).toBe("已記錄：餐飲 $120");
+  it("關掉視窗，成功的訊息用提示視窗，不留在按鈕旁邊或頁面上", () => {
+    doneOf()("已記錄：餐飲 $120");
+
+    expect(toasts).toEqual([{ tone: "success", title: "已記錄：餐飲 $120" }]);
+  });
+
+  it("沒有訊息：只關掉視窗，不跳提示", () => {
+    doneOf()();
+
+    expect(toasts).toEqual([]);
   });
 });
 
@@ -184,7 +215,7 @@ describe("視窗裡的表單送出後（dialogFormAction）", () => {
     expect(onDone).not.toHaveBeenCalled();
   });
 
-  it("成功：帶著訊息呼叫 onDone（關掉視窗、把訊息留在按鈕旁邊）", async () => {
+  it("成功：帶著訊息呼叫 onDone（關掉視窗、訊息交給提示視窗）", async () => {
     const onDone = vi.fn();
     const formData = new FormData();
     const action = returning<FormState>({ message: "已記錄 $3,000" });
@@ -215,21 +246,6 @@ describe("視窗裡的表單送出後（dialogFormAction）", () => {
   });
 });
 
-describe("按鈕與視窗的狀態（dialogReducer）", () => {
-  it("打開：清掉上一次的成功訊息", () => {
-    expect(dialogReducer({ open: false, message: "已記錄 $3,000" }, { type: "open" })).toEqual({ open: true, message: undefined });
-  });
-
-  it("成功（done）：關掉視窗並留下這次的訊息", () => {
-    expect(dialogReducer({ open: true }, { type: "done", message: "已儲存「旅遊基金」" })).toEqual({ open: false, message: "已儲存「旅遊基金」" });
-  });
-
-  it("取消（close）：只關掉視窗，不動訊息", () => {
-    expect(dialogReducer({ open: true, message: "已記錄 $3,000" }, { type: "close" })).toEqual({ open: false, message: "已記錄 $3,000" });
-    expect(dialogReducer({ open: true }, { type: "close" })).toEqual({ open: false });
-  });
-});
-
 describe("關掉視窗後焦點放哪裡（returnFocusTarget）", () => {
   const element = (isConnected: boolean) => ({ isConnected });
 
@@ -239,7 +255,7 @@ describe("關掉視窗後焦點放哪裡（returnFocusTarget）", () => {
     expect(returnFocusTarget(true, trigger, element(true))).toBe(trigger);
   });
 
-  it("按鈕已經不見了（例如記滿後「記一筆」消失）：改放到備援的位置（結果訊息），不掉到 body", () => {
+  it("按鈕已經不見了（例如記滿後「記一筆」消失）：改放到備援的位置（打開時按鈕所在的外框），不掉到 body", () => {
     const fallback = element(true);
 
     expect(returnFocusTarget(true, element(false), fallback)).toBe(fallback);
@@ -251,23 +267,8 @@ describe("關掉視窗後焦點放哪裡（returnFocusTarget）", () => {
     expect(returnFocusTarget(true, null, null)).toBeNull();
   });
 
-  it("焦點已經被別的地方接走（例如連結帳號後的結果橫幅）：不搶回來", () => {
+  it("焦點已經被別的地方接走（例如瀏覽器已經還給按鈕）：不搶回來", () => {
     expect(returnFocusTarget(false, element(true), element(true))).toBeNull();
-  });
-});
-
-describe("同一頁只留最新一則成功訊息（shownMessage）", () => {
-  it("沒有包在範圍裡：照樣顯示自己的訊息", () => {
-    expect(shownMessage("已記錄 $3,000", "row-1", null)).toBe("已記錄 $3,000");
-  });
-
-  it("最新的一則是自己：顯示", () => {
-    expect(shownMessage("已記錄 $3,000", "row-1", { latest: "row-1" })).toBe("已記錄 $3,000");
-  });
-
-  it("後來別的視窗也成功了，或範圍被清空（頁面被藏起來）：不顯示，免得舊訊息越積越多、內容過期", () => {
-    expect(shownMessage("已記錄 $3,000", "row-1", { latest: "row-2" })).toBeUndefined();
-    expect(shownMessage("已記錄 $3,000", "row-1", { latest: null })).toBeUndefined();
   });
 });
 

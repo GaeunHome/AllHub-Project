@@ -67,12 +67,14 @@ export async function setStreamerNotify(userId: string, streamerId: number, enab
   return updated.length > 0;
 }
 
-/** 只列自己追蹤中主播的紀錄 別人追蹤誰不能從這裡看出來 */
+/**
+ * 只列自己追蹤中主播的開台紀錄 別人追蹤誰不能從這裡看出來
+ * 以前留下的關台列要 14 天後才清掉 所以這裡濾掉 不佔筆數的名額
+ */
 export async function recentEvents(userId: string, limit = 20) {
   return db()
     .select({
       id: twitchStreamEvents.id,
-      type: twitchStreamEvents.type,
       title: twitchStreamEvents.title,
       category: twitchStreamEvents.category,
       receivedAt: twitchStreamEvents.receivedAt,
@@ -84,6 +86,7 @@ export async function recentEvents(userId: string, limit = 20) {
     .from(twitchStreamEvents)
     .innerJoin(twitchStreamers, eq(twitchStreamers.broadcasterId, twitchStreamEvents.broadcasterId))
     .innerJoin(twitchFollows, and(eq(twitchFollows.streamerId, twitchStreamers.id), eq(twitchFollows.userId, userId)))
+    .where(eq(twitchStreamEvents.type, "online"))
     .orderBy(desc(twitchStreamEvents.receivedAt))
     .limit(limit);
 }
@@ -275,12 +278,13 @@ export async function handleNotification(
   event: StreamEvent,
   { defer, sleep = wait }: NotificationOptions = {},
 ): Promise<void> {
-  const type = subscription.type === "stream.online" ? "online" : subscription.type === "stream.offline" ? "offline" : null;
-  if (!type) return;
+  if (subscription.type !== "stream.online" && subscription.type !== "stream.offline") return;
 
   // 主播已經刪了但 Twitch 上的訂閱還沒刪掉時會收到 直接忽略
   const [tracked] = await db().select({ id: twitchStreamers.id }).from(twitchStreamers).where(eq(twitchStreamers.broadcasterId, event.broadcaster_user_id));
   if (!tracked) return;
+
+  if (subscription.type === "stream.offline") return markOffline(tracked.id);
 
   // 先用 message_id 佔位去重 Twitch 重送時就不會重查或重複通知
   const [inserted] = await db()
@@ -288,18 +292,16 @@ export async function handleNotification(
     .values({
       messageId,
       broadcasterId: event.broadcaster_user_id,
-      type,
+      type: "online",
       startedAt: event.started_at ? new Date(event.started_at) : undefined,
     })
     .onConflictDoNothing({ target: twitchStreamEvents.messageId })
     .returning({ id: twitchStreamEvents.id });
   if (!inserted) return;
 
-  await db().update(twitchStreamers).set({ isLive: type === "online" }).where(eq(twitchStreamers.id, tracked.id));
-  // webhook 寫入後下一個請求就要看到開關台 不能先給舊的
+  await db().update(twitchStreamers).set({ isLive: true }).where(eq(twitchStreamers.id, tracked.id));
+  // webhook 寫入後下一個請求就要看到開台 不能先給舊的
   expireTags(twitchTags.events, twitchTags.streamers);
-
-  if (type !== "online") return;
 
   const announce = async () => {
     try {
@@ -310,6 +312,16 @@ export async function handleNotification(
   };
   if (defer) defer(announce);
   else await announce();
+}
+
+/** 關台只改直播中 不留紀錄也不通知 重送或本來就不是直播中時沒有寫入 不讓快取失效 */
+async function markOffline(streamerId: number): Promise<void> {
+  const updated = await db()
+    .update(twitchStreamers)
+    .set({ isLive: false })
+    .where(and(eq(twitchStreamers.id, streamerId), eq(twitchStreamers.isLive, true)))
+    .returning({ id: twitchStreamers.id });
+  if (updated.length > 0) expireTags(twitchTags.streamers);
 }
 
 /**
@@ -351,11 +363,11 @@ async function announceOnline(eventId: number, streamerId: number, event: Stream
 }
 
 /**
- * 開關台紀錄只留最近 RETENTION_DAYS 天
+ * 開台紀錄只留最近 RETENTION_DAYS 天 以前留下的關台列也一起清掉
  * EventSub 只收 10 分鐘內的訊息 刪舊紀錄不影響 message id 去重
  */
 export async function cleanupStreamEvents(now = new Date()): Promise<string> {
-  return deleteExpired(twitchStreamEvents.receivedAt, "開台／關台紀錄", now);
+  return deleteExpired(twitchStreamEvents.receivedAt, "開台紀錄", now);
 }
 
 export async function handleRevocation(subscription: EventSubSubscription): Promise<void> {

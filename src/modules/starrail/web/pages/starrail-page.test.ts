@@ -14,8 +14,6 @@ vi.mock("../../service/cached", { spy: true });
 
 const cached = mocksOf(await import("../../service/cached"), "cachedAccounts");
 const { AccountArea, StarrailPage } = await import("./starrail-page");
-const { AccountTabs } = await import("../components/account-card");
-const { LinkResultBanner, LinkResultProvider } = await import("../components/link-result");
 const { StarrailBanner } = await import("../components/starrail-banner");
 const { PageTheme } = await import("@/core/ui/page-theme");
 
@@ -62,32 +60,19 @@ describe("星穹鐵道頁：一次只看自己的一個帳號", () => {
   });
 });
 
-/** 元素樹裡依出現順序列出的元素類型 */
-function typesIn(node: ReactNode, found: unknown[] = []): unknown[] {
-  if (Array.isArray(node)) node.forEach((child) => typesIn(child, found));
-  else if (isValidElement<{ children?: ReactNode }>(node)) {
-    found.push(node.type);
-    typesIn(node.props.children, found);
+/** 元素樹裡每個元素的 className */
+function classNamesIn(node: ReactNode, found: string[] = []): string[] {
+  if (Array.isArray(node)) node.forEach((child) => classNamesIn(child, found));
+  else if (isValidElement<{ className?: string; children?: ReactNode }>(node)) {
+    if (node.props.className) found.push(node.props.className);
+    classNamesIn(node.props.children, found);
   }
   return found;
 }
 
-describe("連結帳號的結果", () => {
-  it("顯示在帳號分頁上方：只交給選到的帳號（剛連結的那個才會顯示）", async () => {
-    const tree = await area("2");
-    const types = typesIn(tree);
-
-    expect(types).toContain(LinkResultBanner);
-    expect(types.indexOf(LinkResultBanner)).toBeLessThan(types.indexOf(AccountTabs));
-    expect([...accountIdsIn(tree)]).toEqual([2]);
-  });
-
-  it("整個帳號區包在同一份結果裡：頁面最下面的視窗、還沒有帳號時的整頁表單都交得到帳號分頁上方", () => {
-    const page = StarrailPage({ info: { id: "starrail", name: "星穹鐵道", href: "/starrail", description: "", icon: "/icons/ui/train-front.svg" }, searchParams: Promise.resolve({}) });
-    const types = typesIn(page);
-
-    expect(types).toContain(LinkResultProvider);
-    expect(types.indexOf(LinkResultProvider)).toBeLessThan(types.indexOf(AccountArea));
+describe("兌換碼的結果", () => {
+  it("改用提示視窗：跟簽到紀錄並排的那一列不再替結果框改兌換碼的格線", async () => {
+    expect(classNamesIn(await area("2")).filter((name) => /grid-rows/.test(name))).toEqual([]);
   });
 });
 

@@ -54,12 +54,10 @@ export function SetupChecklist({ view }: { view: SetupView }) {
           <h2 id={headingId} className="text-lg font-semibold text-ink">
             開始設定
           </h2>
-          <p className="text-ink-soft">
-            <span className="font-medium text-ink">
-              已完成 {done}/{view.status.length}
-            </span>
-            <span className="fin-setup-open">{required ? " · 先新增一個帳戶，總資產與每個月要做的事就會出現在這裡。" : " · 照著做一遍，之後每個月照「這個月要做的事」做就好。"}</span>
+          <p className="font-medium text-ink">
+            已完成 {done}/{view.status.length}
           </p>
+          <p className="fin-setup-open text-ink-soft">{required ? "先新增一個帳戶，總資產與每個月要做的事就會出現在這裡。" : "照著做一遍，之後每個月照「這個月要做的事」做就好。"}</p>
         </div>
         {!required && (
           <>

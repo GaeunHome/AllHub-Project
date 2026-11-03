@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { after } from "next/server";
 import { Suspense } from "react";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { logError } from "@/core/errors";
 import type { ModuleInfo } from "@/core/module";
 import { EmptyState } from "@/core/ui/empty-state";
@@ -55,7 +55,7 @@ function YoutubeLogo({ info }: { info: ModuleInfo }) {
 }
 
 export async function YoutubeHome() {
-  const user = await requireSession();
+  const user = await requireModule("youtube");
   const [channels, videos, candidates, saved] = await Promise.all([
     cachedChannels(user.id),
     cachedRecentVideos(user.id),

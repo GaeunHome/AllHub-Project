@@ -17,6 +17,10 @@
   background: linear-gradient(90deg, var(--sr-gold), transparent);
   pointer-events: none;
 }
+/* 切角連 fixed 的內容一起裁 說明框開著時先拿掉 才不會被切掉或被下一塊面板蓋住 */
+.sr-panel:has(.info-tip-button[aria-expanded="true"]) {
+  clip-path: none;
+}
 /* 星穹鐵道的彈出視窗自己畫星空底 主題 class 只能放在 PageTheme 上 */
 /* 背景暗一點並模糊 寬螢幕跟面板一樣切角 */
 .sr-dialog {

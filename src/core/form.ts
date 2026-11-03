@@ -40,7 +40,7 @@ export class UserError extends Error {}
 
 /**
  * module 是 log 的前綴 action 用在 log 與畫面上的摘要
- * titled 給標題已經寫了失敗的 ResultBanner
+ * titled 給標題已經寫了失敗的提示視窗
  */
 export type ActionScope = { module: string; action: string; titled?: boolean };
 
@@ -58,7 +58,7 @@ export function actionErrorMessage(scope: ActionScope, ...args: [unknown] | [IsU
   const [isUserError, error] = args.length === 1 ? [undefined, args[0]] : args;
   if (error instanceof UserError || (error instanceof Error && isUserError?.(error))) return error.message;
   logError(scope.module, `${scope.action}失敗`, error);
-  // 結果框的標題已經寫了失敗 說明再寫一次就重複了
+  // 提示視窗的標題已經寫了失敗 說明再寫一次就重複了
   return scope.titled ? "原因不明（詳見伺服器 log）" : `${scope.action}失敗（詳見伺服器 log）`;
 }
 

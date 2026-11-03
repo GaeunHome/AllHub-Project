@@ -8,10 +8,8 @@ export function RecheckCaptionsButton({ videoId }: { videoId: string }) {
     <ActionButton
       action={recheckCaptionsAction}
       fields={{ videoId }}
-      formClassName="flex flex-col gap-1"
+      formClassName="flex flex-col"
       className="menu-item"
-      showMessage="inline"
-      feedbackClassName="px-3 pb-1"
       pendingLabel={
         <>
           <Icon name="refresh-cw" className="size-4 motion-safe:animate-spin" />

@@ -1,11 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
+import { Dialog, useDialog } from "@/core/ui/dialog";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { StatusChip } from "@/core/ui/status-chip";
 import { deleteRecurringAction, setRecurringActiveAction } from "../../actions";
-import { overdueBadge } from "../../format";
+import { overdueBadge, recurringNext } from "../../format";
 import { choosableAccounts } from "../../form-math";
 import { SAVINGS_PATHS } from "../../paths";
 import type { RecurringFormOptions, RecurringRowView } from "../../recurring-view";
@@ -15,6 +15,7 @@ import { SalaryForm } from "../forms/salary-dialog";
 import { ConfirmForm } from "../pending/confirm-form";
 import { ActiveMenuItem, DeleteMenuItem, DialogMenuItem, SkipButton } from "../row-controls";
 import { useLinkedTrigger } from "../settings/open-from-link";
+import { Lines } from "../visuals";
 
 /** 清單外框 寬螢幕時每一列共用欄寬 金額與按鈕才對得齊 */
 export const RECURRING_LIST = "card-list @2xl:grid @2xl:grid-cols-[minmax(0,1fr)_auto_auto] @2xl:gap-x-2";
@@ -27,7 +28,8 @@ type RecurringRowProps = {
   /** 名稱前面的小圖 分類圖示或股票代號 */
   leading: ReactNode;
   title: ReactNode;
-  detail: string;
+  /** 名稱下面的幾行 排程與記帳方式 或從哪個帳戶扣 */
+  detail: readonly string[];
   amountText: string;
   form: RecurringFormOptions;
   /** 薪水入帳並分配要的帳戶 */
@@ -36,14 +38,12 @@ type RecurringRowProps = {
   skipOnRow?: boolean;
   /** 從別頁的修改連過來 打開一次修改的視窗 */
   openFromLink?: boolean;
-  /** 刪除或略過後按鈕會不見 訊息交給清單外面 */
-  onNotice: (message: string) => void;
   /** 列下面多放的內容 例如薪水的分配 */
   children?: ReactNode;
 };
 
 /** 點名稱修改 到期的動作直接放在列上 停用與刪除收在 ⋮ */
-export function RecurringRow({ row, leading, title, detail, amountText, form, salaryAccounts = [], skipOnRow = false, openFromLink = false, onNotice, children }: RecurringRowProps) {
+export function RecurringRow({ row, leading, title, detail, amountText, form, salaryAccounts = [], skipOnRow = false, openFromLink = false, children }: RecurringRowProps) {
   const edit = useDialog();
   const settle = useDialog();
   const editTrigger = useLinkedTrigger(edit, openFromLink, SAVINGS_PATHS.recurring);
@@ -53,11 +53,12 @@ export function RecurringRow({ row, leading, title, detail, amountText, form, sa
   // 報讀器與確認視窗用規則的名稱 定期定額沒取名時是代號加定期定額
   const name = row.title;
   const badge = row.paused === "rule" ? "已停用" : row.paused === "account" ? "帳戶已停用" : null;
+  const next = recurringNext(row);
 
   return (
     // 列下面還有內容時不整列變色 不然看起來整塊都能點
     <li className={children ? ROW : `${ROW} transition-colors hover:bg-surface-muted`}>
-      <button {...editTrigger} className="card-row flex min-h-14 min-w-0 cursor-pointer items-center gap-3 pr-0 text-left focus-visible:-outline-offset-2 sm:pr-0">
+      <button {...editTrigger} className="card-row flex min-h-14 min-w-0 cursor-pointer items-start gap-3 pr-0 text-left focus-visible:-outline-offset-2 sm:pr-0">
         <span className="sr-only">修改：</span>
         {leading}
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -66,14 +67,24 @@ export function RecurringRow({ row, leading, title, detail, amountText, form, sa
             {badge && <span className="chip">{badge}</span>}
             {overdue && due && <StatusChip badge={overdueBadge(due.daysLeft)} />}
           </span>
-          <span className="text-sm break-words text-ink-soft">{detail}</span>
+          <span className="text-sm break-words text-ink-soft">
+            <Lines lines={detail} />
+          </span>
         </span>
-        <span className="shrink-0 text-right font-medium text-ink tabular-nums">{amountText}</span>
+        {/* 左邊是怎麼記 右邊是多少錢與什麼時候 */}
+        <span className="flex shrink-0 flex-col items-end gap-0.5 text-right tabular-nums">
+          <span className="font-medium text-ink">{amountText}</span>
+          {next.length > 0 && (
+            <span className="text-sm text-ink-soft">
+              <Lines lines={next} />
+            </span>
+          )}
+        </span>
       </button>
       <div className="col-start-2 row-start-1 pr-3 sm:pr-4 @2xl:col-start-3">
         <MoreMenu label={`「${name}」的選項`}>
           <DialogMenuItem trigger={edit.triggerProps} icon="pencil" label="修改" />
-          {due && !skipOnRow && <SkipButton name={name} ruleId={row.id} period={due.period} onSkipped={onNotice} inMenu />}
+          {due && !skipOnRow && <SkipButton name={name} ruleId={row.id} period={due.period} inMenu />}
           <ActiveMenuItem action={setRecurringActiveAction} id={row.id} active={draft.active} pausedHint="停用後不會再記帳或提醒，已經記好的紀錄會留著" />
           <DeleteMenuItem
             action={deleteRecurringAction}
@@ -81,7 +92,6 @@ export function RecurringRow({ row, leading, title, detail, amountText, form, sa
             confirmMessage={`確定刪除「${name} ${amountText}」？已經記好的紀錄會留著。`}
             label="刪除"
             deletedMessage={`已刪除「${name}」`}
-            onDeleted={onNotice}
           />
         </MoreMenu>
       </div>
@@ -90,12 +100,10 @@ export function RecurringRow({ row, leading, title, detail, amountText, form, sa
           <button {...settle.triggerProps} aria-label={`${settleLabel}：${name}`} className="btn-secondary btn-sm">
             {settleLabel}
           </button>
-          {skipOnRow && <SkipButton name={name} ruleId={row.id} period={due.period} onSkipped={onNotice} />}
+          {skipOnRow && <SkipButton name={name} ruleId={row.id} period={due.period} />}
         </div>
       )}
       {children && <div className="col-span-full px-5 pb-4 sm:px-6">{children}</div>}
-      <DialogMessage {...edit.messageProps} className="col-span-full px-5 pb-3 sm:px-6" />
-      <DialogMessage {...settle.messageProps} className="col-span-full px-5 pb-3 sm:px-6" />
       <Dialog {...edit.dialogProps} title={`修改「${name}」`}>
         <RecurringForm
           rule={draft}

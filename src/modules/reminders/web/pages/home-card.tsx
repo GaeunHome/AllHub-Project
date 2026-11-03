@@ -1,8 +1,7 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { EmptyState } from "@/core/ui/empty-state";
 import { HomeCard } from "@/core/ui/home-card";
-import { ResultSlot } from "@/core/ui/result-slot";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { cachedReminders } from "../../service/cached";
 import { AddReminder } from "../components/add-reminder";
@@ -13,16 +12,13 @@ import { remindersView } from "../reminders-view";
 export function RemindersHomeCard({ info }: { info: ModuleInfo }) {
   return (
     <HomeCard info={info} title="提醒與倒數" skeleton={<RemindersSkeleton />}>
-      {/* 空狀態與清單都包在裡面 訊息才不會跟著空狀態或刪掉的那一列不見 */}
-      <ResultSlot>
-        <RemindersSnapshot />
-      </ResultSlot>
+      <RemindersSnapshot />
     </HomeCard>
   );
 }
 
 export async function RemindersSnapshot() {
-  const user = await requireSession();
+  const user = await requireModule("reminders");
   const items = await cachedReminders(user.id);
   const view = remindersView(items, new Date());
   const { today, latest } = view;

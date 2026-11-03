@@ -125,7 +125,6 @@ export function ChannelDetail({ streamer: s, now }: RowProps) {
             action={removeStreamerAction}
             fields={{ id: s.id }}
             confirmMessage={`確定不再追蹤「${s.displayName}」？`}
-            alertMessage
             pendingLabel={
               <>
                 <Icon name="trash-2" className="size-3.5" />

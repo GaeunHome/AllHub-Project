@@ -12,7 +12,6 @@ vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), replace: vi.fn() }), usePathname: () => "/savings" }));
 vi.mock("../../service/cached", { spy: true });
 vi.mock("../overview-data", { spy: true });
-vi.mock("@/core/ui/dialog", { spy: true });
 // 只看總覽把什麼交給表單 表單送出另外測
 vi.mock("../actions", () =>
   Object.fromEntries(
@@ -47,7 +46,6 @@ const cached = mocksOf(
   "cachedRecurringRecords",
 );
 const overviewData = mocksOf(await import("../overview-data"), "loadAccounts", "loadChecklist");
-const dialog = await import("@/core/ui/dialog");
 const { SavingsPage, SavingsOverview } = await import("./savings-page");
 const sections = await import("../components/overview/sections");
 
@@ -57,6 +55,7 @@ const NOW = new Date("2026-10-15T04:00:00Z");
 const CREATED = new Date("2026-01-05T02:00:00Z");
 
 const render = async (node: Promise<ReactNode> | ReactNode) => renderNode(await node);
+const factsOf = (markup: string) => [...markup.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2])]);
 
 const account = (values: Pick<SavingsAccount, "id" | "name" | "kind"> & Partial<SavingsAccount>) => accountRow({ createdAt: CREATED, ...values });
 const ACCOUNTS = [
@@ -139,12 +138,10 @@ describe("理財的總覽頁", () => {
     expect(textOf(markup)).toContain("載入總覽…");
   });
 
-  it("整頁的視窗共用一個訊息範圍：新的成功訊息出現時，其他視窗留下的舊訊息就收起來", () => {
-    vi.mocked(dialog.DialogMessageScope).mockClear();
+  it("這個月要做的事處理完那一列的按鈕會不見：焦點交給一直都在的整頁外框（訊息改用提示視窗）", () => {
+    const markup = renderNode(createElement(SavingsPage, { info: INFO }));
 
-    renderNode(createElement(SavingsPage, { info: INFO }));
-
-    expect(dialog.DialogMessageScope).toHaveBeenCalledOnce();
+    expect(markup).toMatch(/^<div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入總覽…/);
   });
 
   it("由上而下：開始設定、總資產、我要…、這個月要做的事、本月收支、每月收支、怎麼用", async () => {
@@ -194,13 +191,28 @@ describe("開始設定", () => {
 });
 
 describe("總資產", () => {
-  it("總資產是啟用中的存款加投資市值（有持股時用股數 × 收盤價）；下面一行寫存款、投資與損益、收盤日期、信用卡未繳", async () => {
-    const text = textOf(await render(sections.HeroSection()));
+  it("總資產是啟用中的存款加投資市值（有持股時用股數 × 收盤價）；存款、投資、損益與收盤日期、信用卡未繳各一列", async () => {
+    const markup = await render(sections.HeroSection());
+    const text = textOf(markup);
 
     // 8,300 + (86,000 + 43,000 - 5,000) + 1,000 × 106.50 + 100 × 195.00 停用的與信用卡不算
     expect(text).toContain("總資產$258,300");
     // 損益 126,000 - 113,000 國泰卡 12,480 + 7,000
-    expect(text).toContain("存款 $132,300·投資 $126,000（損益 +$13,000，10/14 收盤）·信用卡未繳 $19,480");
+    expect(factsOf(markup)).toEqual([
+      ["存款", "$132,300"],
+      ["投資", "$126,000"],
+      ["損益（10/14 收盤）", "+$13,000"],
+      ["信用卡未繳", "$19,480"],
+    ]);
+  });
+
+  it("股價讀不到：寫暫時讀不到，不寫損益與收盤日期", async () => {
+    cached.cachedQuotes.mockResolvedValue(null);
+
+    const facts = factsOf(await render(sections.HeroSection()));
+
+    expect(facts).toContainEqual(["股價", "暫時讀不到"]);
+    expect(facts.map(([label]) => label).join()).not.toContain("損益");
   });
 
   it("沒有持股時不查股價；有持股時用排序去重的代號查", async () => {
@@ -243,11 +255,15 @@ describe("這個月要做的事", () => {
 });
 
 describe("本月收支", () => {
-  it("一行寫收入、支出與存下；支出分類照金額排，有預算的寫已用與預算，點一列到紀錄頁篩好那個分類", async () => {
+  it("收入、支出與存下各一列；支出分類照金額排，有預算的寫已用與預算，點一列到紀錄頁篩好那個分類", async () => {
     const markup = await render(sections.MonthSection());
     const rows = [...markup.matchAll(/<li><a [^>]*href="([^"]*)"[^>]*>(.*?)<\/a><\/li>/g)].map((m) => [m[1], textOf(m[2])]);
 
-    expect(textOf(markup)).toContain("收入 +$43,000·支出 $12,000·存下 $31,000");
+    expect(factsOf(markup)).toEqual([
+      ["收入", "+$43,000"],
+      ["支出", "$12,000"],
+      ["存下", "$31,000"],
+    ]);
     expect(rows).toEqual([
       ["/savings/records?category=2", "餐飲超過 $500$6,500 / $6,000"],
       ["/savings/records?category=3", "交通$5,500"],
@@ -257,7 +273,7 @@ describe("本月收支", () => {
   it("這個月花的比賺的多：寫「多花」多少，不寫負的存下", async () => {
     cached.cachedCategoryTotals.mockResolvedValue([total(1, "income", 3000), total(2, "expense", 12110)]);
 
-    expect(textOf(await render(sections.MonthSection()))).toContain("多花 $9,110");
+    expect(factsOf(await render(sections.MonthSection()))).toContainEqual(["多花", "$9,110"]);
   });
 });
 

@@ -1,9 +1,12 @@
 import { beforeEach, vi } from "vitest";
 import * as nextCache from "./next-cache-stub";
+import { toasts } from "./toast-stub";
 
 beforeEach(() => {
   // 每個測試都從沒有 next/cache 呼叫紀錄的狀態開始 測試檔不用自己清
   for (const spy of Object.values(nextCache)) spy.mockReset();
+  // 提示視窗的替身也一樣 上一個測試跳出的不算
+  toasts.length = 0;
   // 本機跑測試時 shell 可能設了假伺服器 externalFetch 就會改寫網址
   // 先清掉 測試看到的是真正的網址 要用假伺服器的測試自己再設
   vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");

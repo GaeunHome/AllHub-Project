@@ -4,25 +4,27 @@ import { startTransition, useActionState, useId, useLayoutEffect, useRef, useSta
 import { INVITE_DAY_OPTIONS, INVITE_NOTE_MAX_LENGTH, INVITE_USE_OPTIONS } from "../auth/invite-rules";
 import { CopyButton } from "../ui/copy-button";
 import { Dialog } from "../ui/dialog";
-import { FormFeedback, FormMessage, type FormState } from "../ui/form-message";
+import { FormFeedback, FormMessage } from "../ui/form-message";
 import { Icon } from "../ui/icon";
+import { useToast } from "../ui/toast";
 import { createInviteAction, type InviteFormState } from "./actions";
 
 // legend 預設壓在 fieldset 邊框上又不吃 gap 浮動後才跟一般標籤一樣排
 const LEGEND_CLASS = "field-label float-left";
 
-export type InviteResult = { dialogOpen: boolean; canReopen: boolean; feedback: FormState };
+export type InviteResult = { dialogOpen: boolean; canReopen: boolean };
+
+/** 關掉視窗後提示一次 連結還能再看一次 */
+const CLOSED_MESSAGE = "已建立邀請連結，可以在下面的清單撤銷";
 
 /**
  * 新連結自動開視窗 關掉後留著再看一次連結 不必用確認擋著關閉
  * 建立下一條失敗時錯誤顯示在表單下方
  */
 export function inviteResult(state: InviteFormState, closedLink: string | undefined): InviteResult {
-  if (!state.link) return { dialogOpen: false, canReopen: false, feedback: state };
+  if (!state.link) return { dialogOpen: false, canReopen: false };
   // 視窗開著時按鈕也留在背景 關掉後焦點才有地方放
-  const dialogOpen = state.link !== closedLink;
-  const feedback = state.error ? { error: state.error } : dialogOpen ? {} : { message: "已建立邀請連結，可以在下面的清單撤銷" };
-  return { dialogOpen, canReopen: true, feedback };
+  return { dialogOpen: state.link !== closedLink, canReopen: true };
 }
 
 /** 建立失敗時留著上一條連結 資料庫只存雜湊 弄丟就拿不回來 */
@@ -42,12 +44,15 @@ function inviteFormAction(previous: InviteFormState, payload: FormData | ForgetL
 }
 
 export function CreateInviteForm() {
+  const toast = useToast();
   const [state, action, pending] = useActionState<InviteFormState, FormData | ForgetLink>(inviteFormAction, {});
   // 記下關掉的是哪一條 建立下一條時才會照樣自動打開
   const [closedLink, setClosedLink] = useState<string>();
   const result = inviteResult(state, closedLink);
   const dialogId = useId();
   const reopenRef = useRef<HTMLButtonElement>(null);
+  // 再看一次後關掉不用再提示
+  const announcedLink = useRef<string>(undefined);
   const shownLink = useRef(state.link);
   useLayoutEffect(() => {
     shownLink.current = state.link;
@@ -56,6 +61,8 @@ export function CreateInviteForm() {
   useLayoutEffect(
     () => () => {
       const link = shownLink.current;
+      // 視窗跟著關掉 不要在換到的那一頁跳出已建立的提示
+      announcedLink.current = link;
       if (link) startTransition(() => action({ forget: link }));
     },
     [action],
@@ -92,14 +99,14 @@ export function CreateInviteForm() {
         </label>
         {result.canReopen ? (
           <div className="button-row">
-            <FormFeedback state={result.feedback} />
+            <FormFeedback state={state} />
             <button ref={reopenRef} type="button" aria-haspopup="dialog" aria-expanded={result.dialogOpen} aria-controls={dialogId} onClick={() => setClosedLink(undefined)} className="btn-secondary btn-sm">
               <Icon name="link" className="size-4" />
               再看一次連結
             </button>
           </div>
         ) : (
-          <FormFeedback state={result.feedback} />
+          <FormFeedback state={state} />
         )}
         <button disabled={pending} className="btn-primary self-start">
           <Icon name="plus" className="size-4" />
@@ -114,6 +121,10 @@ export function CreateInviteForm() {
         onClose={() => {
           setClosedLink(state.link);
           reopenRef.current?.focus();
+          if (state.link && announcedLink.current !== state.link) {
+            announcedLink.current = state.link;
+            toast.success(CLOSED_MESSAGE);
+          }
         }}
         title="邀請連結已建立"
         icon={<Icon name="link" />}

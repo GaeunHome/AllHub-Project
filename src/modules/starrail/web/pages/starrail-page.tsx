@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo, SearchParams } from "@/core/module";
 import { Icon } from "@/core/ui/icon";
 import { PageTheme } from "@/core/ui/page-theme";
@@ -14,7 +14,6 @@ import { DailyNotePanel, DailyNoteSkeleton } from "../components/daily-note-pane
 import { EndgamePanel, EndgameSkeleton } from "../components/endgame-panel";
 import { LedgerPanel, LedgerSkeleton } from "../components/ledger-panel";
 import { LinkAccountForm } from "../components/link-account-form";
-import { LinkResultBanner, LinkResultProvider } from "../components/link-result";
 import { RedeemPanel } from "../components/redeem-panel";
 import { StarrailBanner } from "../components/starrail-banner";
 import { gameFont } from "../game-font";
@@ -25,12 +24,9 @@ export function StarrailPage({ info, searchParams }: { info: ModuleInfo; searchP
   return (
     <PageTheme accent={info.accent} className={`theme-starrail ${gameFont.variable} page-stack`}>
       <StarrailBanner info={info} />
-      {/* 連結的表單在最下面 結果顯示在帳號分頁上方 兩邊共用同一份 */}
-      <LinkResultProvider>
-        <Suspense fallback={<AccountSkeleton />}>
-          <AccountArea searchParams={searchParams} />
-        </Suspense>
-      </LinkResultProvider>
+      <Suspense fallback={<AccountSkeleton />}>
+        <AccountArea searchParams={searchParams} />
+      </Suspense>
     </PageTheme>
   );
 }
@@ -40,7 +36,7 @@ export function StarrailPage({ info, searchParams }: { info: ModuleInfo; searchP
  * 只從自己的帳號裡選 別人的 id 當作不存在
  */
 export async function AccountArea({ searchParams }: { searchParams: SearchParams }) {
-  const user = await requireSession();
+  const user = await requireModule("starrail");
   const accounts = await cachedAccounts(user.id);
   const account = pickAccount(accounts, (await searchParams).account);
   if (!account) {
@@ -58,7 +54,6 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
   return (
     <div className="page-stack">
       <div className="stack">
-        <LinkResultBanner accountId={account.id} />
         <AccountTabs accounts={accounts} selectedId={account.id} />
         <AccountHeader account={account} />
       </div>
@@ -82,8 +77,7 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
         </Suspense>
       </div>
       {/* 超寬螢幕時兌換碼跟簽到紀錄並排 同一列的卡片等高撐滿整格 */}
-      {/* 展開更早的紀錄時兌換碼的第一列改成照內容高 回到上方 */}
-      <div className="grid gap-8 2xl:grid-cols-2 [&>section>.sr-panel]:flex-1 2xl:has-[details[open]]:[&>section>form.sr-panel]:grid-rows-[auto_auto_1fr]">
+      <div className="grid gap-8 2xl:grid-cols-2 [&>section>.sr-panel]:flex-1">
         <RedeemPanel key={`redeem-${account.id}`} accountId={account.id} label={`${serverLabel(account.region)} · ${account.nickname ?? "開拓者"}（UID ${account.uid}）`} />
         <Suspense key={`checkins-${account.id}`} fallback={null}>
           <CheckinLogs accountId={account.id} />
@@ -95,7 +89,7 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
 }
 
 async function CheckinLogs({ accountId }: { accountId: number }) {
-  const user = await requireSession();
+  const user = await requireModule("starrail");
   const logs = await cachedRecentCheckins(user.id, accountId);
   if (logs.length === 0) return null;
   return <CheckinLogList logs={logs} />;

@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { ResultBanner } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
+import { useToast, type ToastApi } from "@/core/ui/toast";
 import { normalizeRedeemCode } from "../../lib/redeem";
 import { redeemCodeAction, type FormState } from "../actions";
 import { GoldChip } from "./sr-visuals";
@@ -11,19 +11,20 @@ import { GoldChip } from "./sr-visuals";
 const COOLDOWN_SECONDS = 5;
 
 /**
- * 送出後輸入框會清空 所以結果帶著剛才兌換的碼
- * seq 每次加一 同樣的結果再出現時也換新的結果框 報讀器才會再念
+ * 結果用提示視窗 標題寫結果與剛才兌換的碼 送出後輸入框會清空
+ * 碼照伺服器同一套規則整理 標的就是實際送出的碼
  */
-type RedeemState = FormState & { code?: string; seq?: number };
-
-/** 結果帶著跟伺服器同一套整理過的碼 畫面標的就是實際送出的碼 */
-export function redeemFormAction(action: (previous: FormState, formData: FormData) => Promise<FormState>, onSubmitted: () => void) {
-  return async (previous: RedeemState, formData: FormData): Promise<RedeemState> => {
+export function redeemFormAction(action: (previous: FormState, formData: FormData) => Promise<FormState>, toast: ToastApi, onSubmitted: () => void) {
+  return async (previous: FormState, formData: FormData): Promise<FormState> => {
     const result = await action(previous, formData);
     onSubmitted();
+    const reason = result.error ?? result.message;
+    if (!reason) return result;
     const normalized = normalizeRedeemCode(String(formData.get("code") ?? ""));
-    const seq = (previous.seq ?? 0) + 1;
-    return normalized.ok ? { ...result, code: normalized.code, seq } : { ...result, seq };
+    const title = `${result.error ? "兌換失敗" : "兌換成功"}${normalized.ok ? `：${normalized.code}` : ""}`;
+    if (result.error) toast.error(title, reason);
+    else toast.success(title, reason);
+    return result;
   };
 }
 
@@ -31,8 +32,9 @@ type RedeemPanelProps = { accountId: number; label: string };
 
 /** 跟官方兌換頁一樣只有輸入框 兌換到頁面上選的帳號 碼與結果都不存 */
 export function RedeemPanel({ accountId, label }: RedeemPanelProps) {
+  const toast = useToast();
   const [cooldown, setCooldown] = useState(0);
-  const [state, action, pending] = useActionState<RedeemState, FormData>(redeemFormAction(redeemCodeAction, () => setCooldown(COOLDOWN_SECONDS)), {});
+  const [, action, pending] = useActionState<FormState, FormData>(redeemFormAction(redeemCodeAction, toast, () => setCooldown(COOLDOWN_SECONDS)), {});
 
   // 每秒倒數一次 數到 0 就停 離開頁面時清掉計時器
   useEffect(() => {
@@ -44,11 +46,9 @@ export function RedeemPanel({ accountId, label }: RedeemPanelProps) {
   return (
     <section className="stack">
       <h3 className="sr-title">兌換碼</h3>
-      {/* 超寬螢幕跟簽到紀錄並排時多的高度給第一列 結果框長高不推動輸入框
-          上下都用 1fr 的話兩列會一樣高 整列平白變高 */}
-      <form action={action} className="sr-panel stack p-5 sm:p-6 2xl:grid 2xl:grid-rows-[1fr_auto_auto]">
+      <form action={action} className="sr-panel stack p-5 sm:p-6">
         <input type="hidden" name="accountId" value={accountId} />
-        <p className="flex flex-wrap items-center gap-2 text-sm text-ink-soft 2xl:self-end">
+        <p className="flex flex-wrap items-center gap-2 text-sm text-ink-soft">
           兌換到
           <GoldChip>{label}</GoldChip>
         </p>
@@ -71,31 +71,7 @@ export function RedeemPanel({ accountId, label }: RedeemPanelProps) {
             {pending ? "兌換中…" : cooldown > 0 ? `請等 ${cooldown} 秒` : "兌換"}
           </button>
         </div>
-        {/* 超寬螢幕先留好兩行說明的高度 結果出現時才不會把輸入框往上擠
-            窄螢幕沒有結果時不佔位 送出中留著上次的結果 */}
-        <div className="max-2xl:empty:hidden 2xl:min-h-[6.375rem]">
-          <RedeemResult key={state.seq} state={state} />
-        </div>
       </form>
     </section>
-  );
-}
-
-/** 結果要一眼看得到 成功或失敗寫在標題 旁邊標出剛才兌換的碼 */
-export function RedeemResult({ state }: { state: RedeemState }) {
-  const { code } = state;
-  if (!state.error && !state.message) return null;
-  return (
-    <ResultBanner
-      tone={state.error ? "error" : "success"}
-      title={
-        <span className="flex flex-wrap items-center gap-2">
-          {state.error ? "兌換失敗" : "兌換成功"}
-          {code && <span className="chip font-mono tracking-widest">{code}</span>}
-        </span>
-      }
-    >
-      {state.error ?? state.message}
-    </ResultBanner>
   );
 }

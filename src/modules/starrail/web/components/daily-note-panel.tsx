@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { externalAssetUrl } from "@/core/external-url";
 import { ExternalImage } from "@/core/ui/external-image";
 import { FormMessage } from "@/core/ui/form-message";
@@ -13,7 +13,7 @@ import { LoadingTitle } from "./panel-parts";
 
 /** 即時便箋快取最多 5 分鐘 HoYoLAB 失敗時只在這一塊顯示錯誤 */
 export async function DailyNotePanel({ account }: { account: StarrailAccountView }) {
-  const user = await requireSession();
+  const user = await requireModule("starrail");
   const result = await cachedDailyNote(user.id, account.id);
   syncCookieFlagAfter(user.id, account, result.cookieInvalid);
   return (

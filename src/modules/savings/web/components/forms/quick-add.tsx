@@ -1,11 +1,10 @@
 "use client";
 
-import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
+import { Dialog, useDialog } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
 import type { EntryKind } from "../../../lib/kinds";
 import { addTransactionAction } from "../../actions";
 import { EntryForm } from "./entry-form";
-import { ROW_MESSAGE_CLASS } from "./fields";
 import type { EntryFormOptions } from "./options";
 
 export type QuickAddButtonProps = EntryFormOptions & {
@@ -31,7 +30,6 @@ export function QuickAddButton({ accounts, categories, today, accountId, default
         <Icon name="plus" className="size-4" />
         {label}
       </button>
-      <DialogMessage {...dialog.messageProps} className={ROW_MESSAGE_CLASS} />
       <Dialog {...dialog.dialogProps} title="記一筆">
         <EntryForm
           accounts={accounts}

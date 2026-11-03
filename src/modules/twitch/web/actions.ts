@@ -1,6 +1,6 @@
 "use server";
 
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { updateTags } from "@/core/cache";
 import { INVALID_FORM_MESSAGE, formId, formText, runAction } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
@@ -19,7 +19,7 @@ const run = (action: string, work: () => Promise<FormState | string | void>) => 
 // 一律用登入者的 id 呼叫 service 表單送來的主播 id 只決定操作哪一位
 
 export async function addStreamerAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("twitch");
   try {
     return await run("加入主播", async () => `已加入 ${(await addStreamer(userId, formText(formData, "login"))).displayName}`);
   } finally {
@@ -29,7 +29,7 @@ export async function addStreamerAction(_prev: FormState, formData: FormData): P
 }
 
 export async function removeStreamerAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("twitch");
   const id = formId(formData, "id");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   try {
@@ -44,7 +44,7 @@ export async function removeStreamerAction(_prev: FormState, formData: FormData)
 }
 
 export async function syncAction(): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("twitch");
   try {
     return await run("同步訂閱", () => syncSubscriptionsFor(userId));
   } finally {
@@ -54,7 +54,7 @@ export async function syncAction(): Promise<FormState> {
 
 /** 每位主播各自的通知開關 記在自己的追蹤上 關掉時開台照樣記錄只是不通知 */
 export async function setStreamerNotifyAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("twitch");
   const toggle = parseNotifyToggle(formData);
   if (!toggle) return { error: INVALID_FORM_MESSAGE };
   try {

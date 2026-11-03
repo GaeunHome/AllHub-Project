@@ -64,8 +64,8 @@ export function heroView({ accounts }: Pick<AccountsInput, "accounts">, { summar
   };
 }
 
-/** status 與 needsBill 跟帳戶頁那張卡一樣 needsBill 是先打開填帳單 */
-export type CardTarget = { id: number; name: string; status: string; needsBill: boolean; bill: BillDraft; pay: PayCardDraft };
+/** status 是帳戶頁那張卡的狀態 一項一行 needsBill 是先打開填帳單 */
+export type CardTarget = { id: number; name: string; status: string[]; needsBill: boolean; bill: BillDraft; pay: PayCardDraft };
 
 /** minDate 是證券帳戶開始記帳的那天 買賣不能更早 */
 export type HoldingTarget = { holding: HoldingView; accountName: string; minDate: DateKey };
@@ -96,7 +96,8 @@ export function quickActionsView(input: AccountsInput, state: AccountsState, cat
   const startDates = new Map(entry.accounts.map((account) => [account.id, account.startDate ?? input.today]));
   const cardTarget = (detail: CreditDetail): CardTarget => {
     const status = cardStatusView(detail);
-    return { id: detail.id, name: detail.name, status: [status.text, status.badge?.label].filter(Boolean).join(" · "), needsBill: status.action === "bill", bill: detail.bill, pay: detail.pay };
+    const lines = [...status.facts.map(({ label, value }) => `${label} ${value}`), ...(status.badge ? [status.badge.label] : [])];
+    return { id: detail.id, name: detail.name, status: lines, needsBill: status.action === "bill", bill: detail.bill, pay: detail.pay };
   };
 
   return {
@@ -118,8 +119,10 @@ export type ChecklistRow = {
   key: string;
   title: string;
   state: ChecklistState;
-  /** 日期與狀態寫成一行 */
-  meta: string;
+  /** 日期 上個月沒做完的標出來 */
+  date: string;
+  /** 狀態 例如待填帳單 逾期的改用標籤所以常常是 null */
+  note: string | null;
   amountText: string;
   /** 只有逾期的有標籤 */
   badge: ReturnType<typeof overdueBadge> | null;
@@ -182,12 +185,12 @@ export function checklistRows(view: Pick<ChecklistView, "items" | "entries" | "t
   return view.items.map((item) => {
     const entry = isToDo(item) && item.actionable ? (entries.get(item.key) ?? null) : null;
     const income = item.kind === "salary" || (item.ruleId !== null && view.incomeRules.has(item.ruleId));
-    const note = stateNote(item, view.today);
     return {
       key: item.key,
       title: item.title,
       state: item.state,
-      meta: [item.carriedOver ? "上個月" : null, dateLabel(item), note].filter((part) => part !== null).join(" · "),
+      date: item.carriedOver ? `上個月 ${dateLabel(item)}` : dateLabel(item),
+      note: stateNote(item, view.today),
       amountText: amountText(item, income ? "income" : "expense"),
       badge: item.state === "overdue" ? overdueBadge(daysBetween(view.today, item.date)) : null,
       entry,

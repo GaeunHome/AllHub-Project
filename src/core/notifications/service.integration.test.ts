@@ -133,14 +133,14 @@ describe("markAllNotificationsRead", () => {
   it("全部標成已讀", async () => {
     await seed({ module: "twitch" }, { module: "youtube" });
 
-    expect(await markAllNotificationsRead(me, undefined, NOW)).toBe(2);
+    expect(await markAllNotificationsRead(me, {}, NOW)).toBe(2);
     expect(await unreadSummary(me, NOW)).toEqual({ total: 0, byModule: {} });
   });
 
   it("指定模組_只標那個模組", async () => {
     await seed({ module: "twitch" }, { module: "youtube" });
 
-    expect(await markAllNotificationsRead(me, "twitch", NOW)).toBe(1);
+    expect(await markAllNotificationsRead(me, { module: "twitch" }, NOW)).toBe(1);
     expect(await unreadSummary(me, NOW)).toEqual({ total: 1, byModule: { youtube: 1 } });
   });
 });
@@ -190,7 +190,7 @@ describe("每個人只看得到、改得到自己的通知", () => {
     await seedOthers();
     await seed({ module: "twitch", title: "我的" });
 
-    expect(await markAllNotificationsRead(me, undefined, NOW)).toBe(1);
+    expect(await markAllNotificationsRead(me, {}, NOW)).toBe(1);
     expect(await unreadSummary(other, NOW)).toEqual({ total: 1, byModule: { twitch: 1 } });
   });
 

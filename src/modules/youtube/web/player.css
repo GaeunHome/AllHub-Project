@@ -121,6 +121,10 @@ html[data-player-fullscreen] {
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
+/* 全螢幕的按鈕寫出離開全螢幕 比一般的按鈕寬 字幕再讓開一點 */
+.player-frame:not([data-fullscreen="off"]) .subtitle-line {
+  max-width: min(80%, 100cqw - 18.5rem);
+}
 .subtitle-line:lang(ko) {
   word-break: keep-all;
 }
@@ -143,16 +147,16 @@ html[data-player-fullscreen] {
   color: rgb(255 255 255 / 0.75);
   background-color: rgb(255 255 255 / 0.15);
 }
-/* 按鈕放在右側中間 避開 YouTube 上方的分享與下方的控制列和略過廣告 */
+/* 按鈕放在右下角 YouTube 控制列的正上方 控制列最高約 4.5rem 全螢幕時位置一樣 */
+/* 上下排只佔右邊一欄 字幕兩側留的空位讓得開 略過廣告也只蓋到右邊一小段 */
 .player-controls {
   position: absolute;
-  top: 50%;
   right: 0.75rem;
+  bottom: 4.5rem;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 0.5rem;
-  translate: 0 -50%;
   transition: opacity 150ms ease;
 }
 .player-control {
@@ -172,12 +176,6 @@ html[data-player-fullscreen] {
 /* 全螢幕時寫出離開全螢幕 iPhone 的頁內全螢幕沒有 Esc 可按 */
 .player-control-labeled {
   @apply inline-flex w-auto gap-1.5 px-4 text-sm font-semibold;
-}
-/* 直拿手機全螢幕時上下留黑 按鈕移到影片上方的黑色區域 不壓在字幕上 */
-@container (orientation: portrait) {
-  .player-controls {
-    top: 25%;
-  }
 }
 /* 滑過播放器 暫停或鍵盤移到按鈕上才出現 觸控裝置沒有滑過所以一直顯示 */
 @media (hover: hover) {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ActionButton } from "@/core/ui/action-button";
+import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { NotifyToggle } from "@/core/ui/notify-toggle";
@@ -40,9 +41,10 @@ function SavedVideosLink({ count }: { count: number }) {
   );
 }
 
+/** 取消追蹤後那一列不見 焦點落在一直都在的訂閱內容 */
 function ChannelList({ channels }: { channels: FollowedChannel[] }) {
   return (
-    <nav aria-labelledby="youtube-subscriptions" className="stack min-w-0">
+    <nav aria-labelledby="youtube-subscriptions" {...FOCUS_FRAME} className="stack min-w-0">
       <div className="flex items-start justify-between gap-3">
         {/* 跟右邊的續訂一樣高 文字垂直置中 */}
         <h2 id="youtube-subscriptions" className="flex min-h-9 items-center text-base font-semibold text-ink pointer-coarse:min-h-11">
@@ -106,8 +108,7 @@ function ChannelEntry({ channel }: { channel: FollowedChannel }) {
         action={removeChannelAction}
         fields={{ id: channel.id }}
         confirmMessage={`確定不再追蹤「${channel.title}」？`}
-        alertMessage
-        formClassName="flex flex-col gap-1"
+        formClassName="flex flex-col"
         pendingLabel={
           <>
             <Icon name="trash-2" className="size-4" />

@@ -1,12 +1,13 @@
-import { createElement } from "react";
+import { createElement, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../auth", () => ({ requireSession: vi.fn(() => new Promise(() => {})) }));
+vi.mock("../auth", () => ({ requireSession: vi.fn(() => new Promise(() => {})), usableModules: vi.fn(() => new Promise(() => {})) }));
 vi.mock("../auth/actions", () => ({ logout: vi.fn() }));
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
 const { AppShell } = await import("./app-shell");
+const { ToastProvider } = await import("./toast");
 
 type ShellProps = Parameters<typeof AppShell>[0];
 const props: Omit<ShellProps, "children"> = { modules: [] };
@@ -36,5 +37,30 @@ describe("版面外框（AppShell）", () => {
     expect(markup).not.toContain("max-w-5xl");
     expect(main).toContain("mx-auto");
     expect(Number(maxWidth.match(/^max-w-\[(\d+(?:\.\d+)?)rem\]$/)?.[1] ?? 0)).toBeGreaterThanOrEqual(100);
+  });
+});
+
+describe("提示視窗與焦點（AppShell）", () => {
+  /** 元素樹裡依出現順序列出的元素類型 */
+  function typesIn(node: ReactNode, found: unknown[] = []): unknown[] {
+    if (Array.isArray(node)) node.forEach((child) => typesIn(child, found));
+    else if (isValidElement<{ children?: ReactNode }>(node)) {
+      found.push(node.type);
+      typesIn(node.props.children, found);
+    }
+    return found;
+  }
+
+  it("ToastProvider 包在版面的外框上、頁面外面：換頁或 Activity 藏起頁面時提示還在", () => {
+    const tree = AppShell({ modules: [], children: createElement("p", null, "頁面內容") });
+
+    expect(typesIn(tree)).toContain(ToastProvider);
+  });
+
+  it("main 是焦點的外框：按鈕或那一列不見、附近又沒有外框時，焦點至少落在這裡，不掉到 body", () => {
+    const main = renderShell().match(/<main[^>]*>/)![0];
+
+    expect(main).toContain("data-focus-frame");
+    expect(main).toContain('tabindex="-1"');
   });
 });

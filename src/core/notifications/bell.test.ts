@@ -1,4 +1,4 @@
-import { createElement, useState, useSyncExternalStore } from "react";
+import { Fragment, createElement, useState, useSyncExternalStore } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { NotificationModule } from "./notification-summary";
@@ -14,6 +14,7 @@ const { useHeaderMenuRoot } = await import("../ui/header-menus");
 const { useNotificationCenter } = await import("./center");
 const { useAlertPref, useAnyAlertPref } = await import("./prefs");
 const { NotificationBell } = await import("./bell");
+const { AlertSwitchTable, BrowserPermissionNotice } = await import("./settings");
 
 const MODULES: NotificationModule[] = [
   { id: "twitch", name: "Twitch", icon: "/icons/brands/twitch.svg", accent: "violet" },
@@ -35,7 +36,9 @@ function renderBell({ expanded, view = "list" }: { expanded: boolean; view?: "li
   });
   // 面板裡第一個 useState 是畫面的切換
   if (expanded) vi.mocked(useState).mockReturnValueOnce([view, vi.fn()]);
-  const markup = renderToStaticMarkup(createElement(NotificationBell));
+  // 提醒方式由伺服器照權限挑好模組 傳進來的就是看得到的那些
+  const alertSettings = createElement(Fragment, null, createElement(AlertSwitchTable, { modules: MODULES }), createElement(BrowserPermissionNotice, { modules: MODULES }));
+  const markup = renderToStaticMarkup(createElement(NotificationBell, { alertSettings }));
   return { markup, button: markup.match(/<button[^>]*aria-label="通知[^"]*"[^>]*>/)![0] };
 }
 

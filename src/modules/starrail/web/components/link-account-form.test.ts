@@ -2,16 +2,16 @@ import { Fragment, createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { router } from "@/dev/navigation-stub";
 import { form, markup as render } from "@/dev/test-helpers";
+import { toasts } from "@/dev/toast-stub";
 
 vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 // 視窗關著時內容不算繪 換掉 DialogButton 才看得到裡面的表單
 // 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });
-vi.mock("./link-result", { spy: true });
+vi.mock("@/core/ui/toast", () => import("@/dev/toast-stub"));
 vi.mock("../actions", () => ({ linkAccountAction: vi.fn() }));
 
 const dialog = await import("@/core/ui/dialog");
-const linkResult = await import("./link-result");
 const { linkAccountAction } = await import("../actions");
 const { LinkAccountForm, RoleChooser } = await import("./link-account-form");
 
@@ -58,16 +58,13 @@ const LINKED = { message: "已連結 開拓者（台港澳服，900000001）", w
 
 describe("連結帳號的表單送出後", () => {
   const done = vi.fn();
-  const show = vi.fn();
   /** 這次算繪交給 useDialogForm 的 Server Action 完成處理與完成了沒的判斷 */
   const formArgs = () => vi.mocked(dialog.useDialogForm).mock.calls.at(-1) as unknown as FormArgs;
 
   beforeEach(() => {
     done.mockReset();
-    show.mockReset();
     router.push.mockReset();
     vi.mocked(dialog.useDialogForm).mockClear();
-    vi.mocked(linkResult.useShowLinkResult).mockReturnValue(show);
     vi.mocked(dialog.DialogButton).mockImplementation(({ children }) =>
       createElement(Fragment, null, typeof children === "function" ? (children as (controls: Controls) => ReactNode)({ done, close: vi.fn() }) : children),
     );
@@ -91,24 +88,27 @@ describe("連結帳號的表單送出後", () => {
     expect(isDone!(LINKED)).toBe(true);
   });
 
-  it("視窗裡連結好了：關掉視窗（按鈕旁不再留訊息）、結果交給帳號分頁上方的橫幅、導向剛連結的帳號", () => {
+  it("視窗裡連結好了：關掉視窗（按鈕旁不留訊息）、結果用提示視窗（cookie 少了建議的鍵時另外一則提醒）、導向剛連結的帳號並捲回最上面", () => {
     render(createElement(LinkAccountForm, { defaultOpen: false }));
     const [, onDone] = formArgs();
 
     onDone(LINKED.message, LINKED);
 
     expect(done).toHaveBeenCalledExactlyOnceWith();
-    expect(show).toHaveBeenCalledExactlyOnceWith({ accountId: 9, message: LINKED.message, warning: LINKED.warning });
-    expect(router.push).toHaveBeenCalledExactlyOnceWith("/starrail?account=9", { scroll: false });
+    expect(toasts).toEqual([
+      { tone: "success", title: LINKED.message },
+      { tone: "warning", title: LINKED.warning },
+    ]);
+    expect(router.push).toHaveBeenCalledExactlyOnceWith("/starrail?account=9");
   });
 
-  it("還沒有帳號時的整頁表單連結好了：一樣交給橫幅並導向剛連結的帳號", () => {
+  it("還沒有帳號時的整頁表單連結好了：一樣用提示視窗並導向剛連結的帳號；沒有要提醒的就只有一則", () => {
     render(createElement(LinkAccountForm, { defaultOpen: true }));
     const [, onDone] = formArgs();
 
     onDone("已連結 開拓者（台港澳服，900000001）", { message: "已連結 開拓者（台港澳服，900000001）", accountId: 4 });
 
-    expect(show).toHaveBeenCalledExactlyOnceWith({ accountId: 4, message: "已連結 開拓者（台港澳服，900000001）", warning: undefined });
-    expect(router.push).toHaveBeenCalledExactlyOnceWith("/starrail?account=4", { scroll: false });
+    expect(toasts).toEqual([{ tone: "success", title: "已連結 開拓者（台港澳服，900000001）" }]);
+    expect(router.push).toHaveBeenCalledExactlyOnceWith("/starrail?account=4");
   });
 });

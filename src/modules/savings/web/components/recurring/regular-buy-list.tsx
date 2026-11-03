@@ -5,10 +5,8 @@ import { useDialog } from "@/core/ui/dialog";
 import { formatTwd } from "../../../lib/money";
 import { choosableAccounts } from "../../form-math";
 import { SAVINGS_PATHS } from "../../paths";
-import { recurringDetail } from "../../format";
 import type { RecurringFormOptions, RegularBuyView } from "../../recurring-view";
 import { RecurringForm } from "../forms/recurring-form";
-import { useRemovalNotice } from "../row-controls";
 import { useLinkedTrigger } from "../settings/open-from-link";
 import { IconTile, Ticker } from "../visuals";
 import { RecurringRow } from "./recurring-row";
@@ -29,7 +27,6 @@ type RegularBuyListProps = {
 export function RegularBuyList({ items, form, linkToInvestments = true, openAdd = false, openEditId = null }: RegularBuyListProps) {
   const add = useDialog();
   const addTrigger = useLinkedTrigger(add, openAdd, SAVINGS_PATHS.recurring);
-  const notice = useRemovalNotice();
   const holdings = choosableAccounts(form.holdings);
   const deposits = form.accounts.filter((account) => account.active && account.kind === "deposit");
   const canAdd = holdings.length > 0 && deposits.length > 0;
@@ -43,7 +40,6 @@ export function RegularBuyList({ items, form, linkToInvestments = true, openAdd 
       addLabel="新增定期定額"
       addTitle="新增定期定額"
       addForm={<RecurringForm preset="regular-buy" accounts={choosableAccounts(form.accounts)} categories={form.categories} holdings={holdings} today={form.today} onDone={add.done} onCancel={add.close} />}
-      notice={notice}
       empty={items.length === 0 ? <EmptyText canAdd={canAdd} hasHoldings={holdings.length > 0} linkToInvestments={linkToInvestments} /> : undefined}
     >
       {items.map((item) => (
@@ -52,11 +48,10 @@ export function RegularBuyList({ items, form, linkToInvestments = true, openAdd 
           row={item}
           leading={item.symbol ? <Ticker symbol={item.symbol} /> : <IconTile name="chart-line" size="sm" />}
           title={item.draft.name ?? item.holdingName ?? item.title}
-          detail={recurringDetail(item, item.when, item.fromName ? [`從${item.fromName}扣`] : [])}
+          detail={item.fromName ? [item.when, `從${item.fromName}扣`] : [item.when]}
           amountText={formatTwd(item.amount)}
           form={form}
           openFromLink={item.id === openEditId}
-          onNotice={notice.report}
         />
       ))}
     </RecurringSection>

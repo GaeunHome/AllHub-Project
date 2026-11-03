@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { decryptSecret, encryptSecret, reencryptEach } from "@/core/crypto";
 import { db } from "@/core/db";
 import { glossaryProblem, parseGlossary, type GlossaryEntry } from "../lib/parse";
-import { AI_PROVIDER_IDS, AI_PROVIDER_NAMES, DEFAULT_MODELS, DEFAULT_PROVIDER, type AiConfig, type AiProvider } from "../lib/subtitles";
+import { AI_PROVIDER_IDS, AI_PROVIDER_NAMES, DEFAULT_MODELS, DEFAULT_PROVIDER, modelOptions, type AiConfig, type AiProvider } from "../lib/subtitles";
 import { youtubeSettings } from "../data/schema";
 import { ApiKeySetupError, TranslationUserError } from "./errors";
 
@@ -24,6 +24,11 @@ async function loadSettings(userId: string) {
   return row;
 }
 
+/** 實際會用的模型 沒存過的用預設 */
+function modelOf(row: Awaited<ReturnType<typeof loadSettings>>, provider: AiProvider): string {
+  return row?.[KEY_COLUMNS[provider].model] || DEFAULT_MODELS[provider];
+}
+
 /** 解開後只留前 8 碼 解不開時回空字串 例如換了 ENCRYPTION_KEY 卻沒留舊的 */
 function keyPrefix(encrypted: string): string {
   try {
@@ -37,9 +42,8 @@ export type SettingsView = {
   provider: AiProvider;
   /** 只有前 8 碼 null 代表沒設定 空字串是存了但解不開 */
   keys: Record<AiProvider, string | null>;
-  /** 空字串代表用 defaultModels 表單只放自訂值 存檔才不會把預設值寫死進資料庫 */
-  customModels: Record<AiProvider, string>;
-  defaultModels: Record<AiProvider, string>;
+  /** 實際會用的模型 下拉選單一進去就選好它 */
+  models: Record<AiProvider, string>;
   glossaryText: string;
 };
 
@@ -52,8 +56,7 @@ export async function getSettingsView(userId: string): Promise<SettingsView> {
       const encrypted = row?.[KEY_COLUMNS[p].key];
       return encrypted ? keyPrefix(encrypted) : null;
     }),
-    customModels: pick((p) => row?.[KEY_COLUMNS[p].model] ?? ""),
-    defaultModels: { ...DEFAULT_MODELS },
+    models: pick((p) => modelOf(row, p)),
     glossaryText: (row?.glossary ?? []).map((g) => `${g.source}=${g.target}`).join("\n"),
   };
 }
@@ -63,7 +66,7 @@ export type SettingsInput = {
   /** 空字串或沒給就不變更 */
   keys: Partial<Record<AiProvider, string>>;
   clear: AiProvider[];
-  /** 空字串代表改回預設 */
+  /** 沒給就不變更 只收清單裡的或這個人原本存的 */
   models: Partial<Record<AiProvider, string>>;
   glossaryText: string;
 };
@@ -72,6 +75,7 @@ export async function saveSettings(userId: string, input: SettingsInput): Promis
   const glossary = parseGlossary(input.glossaryText);
   const problem = glossaryProblem(glossary);
   if (problem) throw new TranslationUserError(problem);
+  const row = await loadSettings(userId);
   const values: Partial<typeof youtubeSettings.$inferInsert> = {
     provider: input.provider,
     glossary,
@@ -83,7 +87,12 @@ export async function saveSettings(userId: string, input: SettingsInput): Promis
     if (input.clear.includes(provider)) values[columns.key] = null;
     else if (key) values[columns.key] = encryptSecret(key);
     const model = input.models[provider];
-    if (model !== undefined) values[columns.model] = model.trim() || null;
+    if (model === undefined) continue;
+    // Server Action 可以被直接 POST 不能只靠下拉選單
+    if (!modelOptions(provider, modelOf(row, provider)).some((option) => option.id === model)) {
+      throw new TranslationUserError(`請從清單選擇 ${AI_PROVIDER_NAMES[provider]} 的模型`);
+    }
+    values[columns.model] = model;
   }
 
   // id 由資料庫從 2 開始自動編號 不會撞到單人版固定的 1
@@ -118,7 +127,7 @@ export async function currentAi(userId: string): Promise<{ ai: AiConfig; glossar
       `${AI_PROVIDER_NAMES[provider]} 的 API Key 無法解密，請到「翻譯設定」重新填入（換過 ENCRYPTION_KEY 的話，把舊金鑰放進 ENCRYPTION_KEY_PREVIOUS 即可恢復）`,
     );
   }
-  return { ai: { provider, apiKey, model: row[columns.model] || DEFAULT_MODELS[provider] }, glossary: row.glossary };
+  return { ai: { provider, apiKey, model: modelOf(row, provider) }, glossary: row.glossary };
 }
 
 /** 發起翻譯時存下這份 之後誰接著翻都用它 */

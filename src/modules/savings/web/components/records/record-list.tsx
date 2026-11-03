@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { DialogMessage } from "@/core/ui/dialog";
 import { Fact, FactList } from "@/core/ui/fact-list";
+import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { CardHeader } from "@/core/ui/page-header";
 import { formatDay } from "../../../lib/dates";
 import { CATEGORY_KINDS, CATEGORY_KIND_LABELS, TRANSACTION_KINDS, TRANSACTION_KIND_LABELS } from "../../../lib/kinds";
@@ -14,7 +14,7 @@ import { pausedName } from "../../format";
 import { NO_FILTERS, filterRecords, groupByDate, hasFilters, recordTotals, type RecordFilters, type RecordItem } from "../../record-filter";
 import { ExpenseList } from "../dashboard/expense-list";
 import type { AccountChoice, CategoryOption } from "../forms/options";
-import { ListGroup, useRemovalNotice } from "../row-controls";
+import { ListGroup } from "../row-controls";
 import { RecordRow } from "./record-row";
 
 type RecordListProps = {
@@ -46,7 +46,6 @@ export function RecordList({ records, accounts, categories, today, monthSwitcher
     setSeenLink(linkKey);
     if (initialAccount !== "" || initialCategory !== "") setFilters(linked);
   }
-  const removal = useRemovalNotice();
   const firstFilter = useRef<HTMLSelectElement>(null);
 
   const shown = filterRecords(records, filters);
@@ -62,9 +61,8 @@ export function RecordList({ records, accounts, categories, today, monthSwitcher
   const pickCategory = (category: string) => setFilters({ ...filters, category: filters.category === category ? "" : category });
 
   return (
-    // 刪除的訊息固定放最上面 刪掉最後一筆換成空狀態時訊息與焦點還在
-    <div className="stack">
-      <DialogMessage {...removal.messageProps} />
+    // 外框一直都在 刪掉最後一筆換成空狀態時焦點也有地方去
+    <div {...FOCUS_FRAME} className="stack">
       {/* 超寬螢幕清單限寬 旁邊固定放這個月的合計 */}
       <div className="flex flex-col gap-8 2xl:flex-row 2xl:items-start">
         <div className="stack min-w-0 flex-1 xl:max-w-5xl">
@@ -111,10 +109,16 @@ export function RecordList({ records, accounts, categories, today, monthSwitcher
             <p className="text-ink">{monthLabel}還沒有紀錄。</p>
           ) : (
             <>
-              <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 text-ink tabular-nums">
-                <p>
-                  {filtered && `篩選後 ${shown.length} 筆（共 ${records.length} 筆） · `}收入 {formatTwd(totals.income)} · 支出 {formatTwd(totals.expense)}
-                </p>
+              <div className="flex min-h-9 flex-wrap items-center gap-x-6 gap-y-1 text-ink tabular-nums">
+                {filtered && (
+                  <p>
+                    篩選後 {shown.length} 筆（共 {records.length} 筆）
+                  </p>
+                )}
+                <dl className="flex flex-wrap gap-x-6 gap-y-1">
+                  <RecordTotal label="收入" amount={totals.income} />
+                  <RecordTotal label="支出" amount={totals.expense} />
+                </dl>
                 {filtered && (
                   <button type="button" onClick={clearFilters} className="btn-ghost btn-sm">
                     清除篩選
@@ -138,7 +142,7 @@ export function RecordList({ records, accounts, categories, today, monthSwitcher
                       }
                     >
                       {group.records.map((record) => (
-                        <RecordRow key={record.id} record={record} accounts={accounts} categories={categories} today={today} onDeleted={removal.report} />
+                        <RecordRow key={record.id} record={record} accounts={accounts} categories={categories} today={today} />
                       ))}
                     </ListGroup>
                   ))}
@@ -149,6 +153,15 @@ export function RecordList({ records, accounts, categories, today, monthSwitcher
         </div>
         {month && records.length > 0 && <MonthPanel label={monthLabel} month={month} selected={filters.category} onSelect={pickCategory} />}
       </div>
+    </div>
+  );
+}
+
+function RecordTotal({ label, amount }: { label: string; amount: number }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <dt className="text-ink-soft">{label}</dt>
+      <dd>{formatTwd(amount)}</dd>
     </div>
   );
 }

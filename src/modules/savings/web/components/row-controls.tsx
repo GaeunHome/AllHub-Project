@@ -1,8 +1,8 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ActionButton } from "@/core/ui/action-button";
-import { useDialog } from "@/core/ui/dialog";
+import type { useDialog } from "@/core/ui/dialog";
 import type { FormState } from "@/core/ui/form-message";
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { formatMonth } from "../../lib/month";
@@ -28,7 +28,7 @@ type ListRowProps = {
   /** 報讀器先念的動作 例如修改 */
   actionLabel?: string;
   menu?: ReactNode;
-  /** 成功訊息與視窗 放在按鈕外面 按鈕裡不能再放按鈕 */
+  /** 視窗放在按鈕外面 按鈕裡不能再放按鈕 */
   children?: ReactNode;
 };
 
@@ -70,9 +70,6 @@ export function ListRow({ title, detail, amount, badge, muted = false, trigger, 
   );
 }
 
-/** 修改成功的訊息接在那一列下面 左右跟列的文字對齊 */
-export const LIST_ROW_MESSAGE = "px-5 pb-3 sm:px-6";
-
 type ListGroupProps = {
   id: string;
   /** 上面沒有區段標題時用 h2 例如紀錄頁的日期 */
@@ -103,13 +100,13 @@ export function MoveMenuItems({ action, id, isFirst, isLast }: { action: RowActi
   return (
     <>
       {!isFirst && (
-        <ActionButton action={action} fields={{ id, direction: "up" }} formClassName="flex flex-col gap-1" className="menu-item">
+        <ActionButton action={action} fields={{ id, direction: "up" }} formClassName="flex flex-col" className="menu-item">
           <Icon name="arrow-up" className="size-4" />
           上移
         </ActionButton>
       )}
       {!isLast && (
-        <ActionButton action={action} fields={{ id, direction: "down" }} formClassName="flex flex-col gap-1" className="menu-item">
+        <ActionButton action={action} fields={{ id, direction: "down" }} formClassName="flex flex-col" className="menu-item">
           <Icon name="arrow-down" className="size-4" />
           下移
         </ActionButton>
@@ -118,49 +115,19 @@ export function MoveMenuItems({ action, id, isFirst, isLast }: { action: RowActi
   );
 }
 
-/**
- * 成功後按鈕會跟著那一列或整張卡片消失
- * 所以訊息留在外面還在的地方 焦點移到訊息上 不掉到 body
- */
-export function useRemovalNotice() {
-  const notice = useDialog();
-  const messageRef = useRef<HTMLParagraphElement>(null);
-  const [focusRequest, setFocusRequest] = useState(0);
-
-  // 訊息畫出來後才拿得到元素 不管那一列早或晚一次更新消失 焦點都會落在訊息上
-  useLayoutEffect(() => {
-    if (focusRequest > 0) messageRef.current?.focus();
-  }, [focusRequest]);
-
-  return {
-    /** 展開在清單外面的 DialogMessage 上 */
-    messageProps: { message: notice.message, ref: messageRef },
-    report: (message: string) => {
-      notice.done(message);
-      setFocusRequest((count) => count + 1);
-    },
-  };
-}
-
 type ActiveMenuItemProps = {
   action: RowAction;
   id: number;
   active: boolean;
   pausedHint: string;
-  /** 停用或恢復後這一列會搬到別的清單 成功時呼叫 讓外面留訊息 */
-  onChanged?: () => void;
+  /** 停用或恢復後這一列會搬到別的清單 成功時提示這句 */
+  changedMessage?: string;
 };
 
 /** 停用後資料都留著 隨時可以恢復 */
-export function ActiveMenuItem({ action, id, active, pausedHint, onChanged }: ActiveMenuItemProps) {
-  const run = async (previous: FormState, formData: FormData) => {
-    const result = await action(previous, formData);
-    if (!result.error) onChanged?.();
-    return result;
-  };
-
+export function ActiveMenuItem({ action, id, active, pausedHint, changedMessage }: ActiveMenuItemProps) {
   return (
-    <ActionButton action={run} fields={{ id, active: String(!active) }} title={active ? pausedHint : undefined} formClassName="flex flex-col gap-1" className="menu-item">
+    <ActionButton action={action} fields={{ id, active: String(!active) }} title={active ? pausedHint : undefined} successMessage={changedMessage} formClassName="flex flex-col" className="menu-item">
       <Icon name={active ? "eye-off" : "eye"} className="size-4" />
       {active ? "停用" : "恢復"}
     </ActionButton>
@@ -177,21 +144,17 @@ export function DialogMenuItem({ trigger, icon, label }: { trigger: DialogTrigge
   );
 }
 
-type SkipButtonProps = { name: string; ruleId: number; period: string; onSkipped: (message: string) => void; inMenu?: boolean };
+type SkipButtonProps = { name: string; ruleId: number; period: string; inMenu?: boolean };
 
-/** 略過也是處理掉這一期 先確認 按完這一期的按鈕會不見 訊息交給外面 */
-export function SkipButton({ name, ruleId, period, onSkipped, inMenu = false }: SkipButtonProps) {
-  const skip = async (previous: FormState, formData: FormData) => {
-    const result = await skipOccurrenceAction(previous, formData);
-    if (!result.error) onSkipped(result.message ?? `已略過「${name}」${formatMonth(period)}`);
-    return result;
-  };
+/** 略過也是處理掉這一期 先確認 按完這一期的按鈕會不見 結果用提示視窗 */
+export function SkipButton({ name, ruleId, period, inMenu = false }: SkipButtonProps) {
   return (
     <ActionButton
-      action={skip}
+      action={skipOccurrenceAction}
       fields={{ ruleId, period }}
       confirmMessage={`略過「${name}」${formatMonth(period)}這一期？這一期不會記帳。`}
-      formClassName={inMenu ? "flex flex-col gap-1" : undefined}
+      successMessage={`已略過「${name}」${formatMonth(period)}`}
+      formClassName={inMenu ? "flex flex-col" : undefined}
       aria-label={inMenu ? undefined : `略過這一期：${name}`}
       className={inMenu ? "menu-item" : "btn-secondary btn-sm"}
     >

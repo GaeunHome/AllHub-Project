@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Fact, FactList } from "@/core/ui/fact-list";
@@ -10,23 +10,20 @@ import type { RainLevel } from "../../lib/rain";
 import { cachedForecast, cachedSettings, cachedStations, cachedWarnings } from "../../service/cached";
 import type { WeatherSettings } from "../../service/settings";
 import { weatherKeys } from "../../service/weather";
-import { CountyPicker, SettingsResult } from "../components/county-picker";
+import { CountyPicker } from "../components/county-picker";
 import { weatherView, type PeriodView, type Reminder, type WeatherView } from "../weather-view";
 
 // web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
 export function WeatherHomeCard({ info }: { info: ModuleInfo }) {
   return (
     <HomeCard info={info} title="天氣" skeleton={<WeatherSkeleton />}>
-      {/* 每一種狀態都包在裡面 沒有授權碼的說明也是 存好的訊息才不會跟著空狀態不見 */}
-      <SettingsResult>
-        <WeatherSnapshot />
-      </SettingsResult>
+      <WeatherSnapshot />
     </HomeCard>
   );
 }
 
 export async function WeatherSnapshot() {
-  const user = await requireSession();
+  const user = await requireModule("weather");
   const settings = await cachedSettings(user.id);
   if (settings === null) {
     return <EmptyState compact icon="map-pin" title="選擇所在的縣市" hint="首頁會顯示那裡的天氣、空氣品質與天氣特報，會下雨時提醒帶傘" action={<CountyPicker settings={null} />} />;

@@ -8,6 +8,8 @@ import { requireSession } from ".";
 import { logout } from "./actions";
 import { ChangePasswordForm } from "./change-password-form";
 import { DeleteAccountForm } from "./delete-account-form";
+import { displayNameOf } from "./nickname";
+import { NicknameButton } from "./nickname-button";
 
 export function AccountPage() {
   return (
@@ -35,16 +37,20 @@ export async function AccountSections() {
         <div className="flex min-w-40 flex-1 flex-col gap-1">
           <p className="text-sm text-ink-soft">目前登入的帳號</p>
           <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-ink">
-            {user.username}
+            <span className="break-all">{displayNameOf(user)}</span>
             <span className={isOwner ? "chip chip-brand" : "chip"}>{ROLE_LABELS[user.role]}</span>
           </p>
+          {user.nickname && <p className="text-sm break-all text-ink-soft">帳號名稱：{user.username}</p>}
         </div>
-        <form action={logout}>
-          <button className="btn-secondary">
-            <Icon name="log-out" className="size-4" />
-            登出這台裝置
-          </button>
-        </form>
+        <div className="button-row">
+          <NicknameButton nickname={user.nickname} />
+          <form action={logout}>
+            <button className="btn-secondary">
+              <Icon name="log-out" className="size-4" />
+              登出這台裝置
+            </button>
+          </form>
+        </div>
       </section>
 
       <section aria-labelledby="account-password" className="card stack xl:row-span-2">

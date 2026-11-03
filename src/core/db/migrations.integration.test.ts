@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 const MIGRATIONS = "src/core/db/migrations";
 const BASELINE = "0000_baseline";
 // 正式資料庫最後套用的 migration 的時間戳記
-const LAST_APPLIED_BEFORE_BASELINE = 1792422589278;
+const LAST_APPLIED_BEFORE_BASELINE = 1793584920567;
 const cleanups: Array<() => Promise<void> | void> = [];
 
 afterEach(async () => {
@@ -139,6 +139,19 @@ describe("基準檔之後的 migration 都只擴充（明列的收斂例外除�
 describe("模組內資料之間的外鍵與唯一限制", { timeout: 30_000 }, () => {
   beforeEach(async () => {
     await migrate(db, { migrationsFolder: MIGRATIONS });
+  });
+
+  it("模組權限每人每個模組一列，刪除帳號時一起刪；舊程式不帶暱稱的寫法照樣寫得進去（暱稱是 null）", async () => {
+    const { boss } = USERS;
+    await insertUser(boss, "boss");
+    expect(await one(`select "nickname" from "core_users" where "id" = $1`, [boss])).toEqual({ nickname: null });
+
+    await client.query(`insert into "core_module_denials" ("user_id", "module_id") values ($1, 'savings')`, [boss]);
+    await expect(client.query(`insert into "core_module_denials" ("user_id", "module_id") values ($1, 'savings')`, [boss])).rejects.toThrow();
+    await client.query(`insert into "core_module_denials" ("user_id", "module_id") values ($1, 'twitch')`, [boss]);
+
+    await client.query(`delete from "core_users" where "id" = $1`, [boss]);
+    expect(await one(`select count(*)::int as n from "core_module_denials"`)).toEqual({ n: 0 });
   });
 
   it("保留的影片每人每支一列；試過的兌換碼每個遊戲帳號每個碼一列，移除遊戲帳號或刪除帳號時一起刪", async () => {

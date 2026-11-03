@@ -1,19 +1,20 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
 import { matchesQuery } from "../saved-filter";
 
 /** text 是篩選用的標題與頻道名稱 card 由伺服器算繪好傳進來 */
 export type SavedItem = { id: string; text: string; card: ReactNode };
 
-/** 最多 15 部 搜尋只在瀏覽器裡篩選 不必再問伺服器 */
+/** 最多 15 部 搜尋只在瀏覽器裡篩選 不必再問伺服器 移除後焦點落在清單外框 */
 export function SavedVideoList({ items, limit }: { items: SavedItem[]; limit: number }) {
   const [query, setQuery] = useState("");
   const shown = items.filter((item) => matchesQuery(item.text, query));
 
   return (
-    <div className="stack">
+    <div {...FOCUS_FRAME} className="stack">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
         <div className="relative min-w-0 flex-1 basis-64 sm:max-w-md">
           <Icon name="search" className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted" />

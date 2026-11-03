@@ -1,12 +1,15 @@
 "use client";
 
 import { useActionState, useOptimistic, startTransition } from "react";
-import { InlineFeedback, type FormState } from "./form-message";
+import { BUSY_CLASS } from "./action-button";
+import type { FormState } from "./form-message";
 import { Icon } from "./icon";
 import { notifyToggleFormData } from "./notify-toggle-form";
+import { useToast } from "./toast";
+import { withToast } from "./toast-queue";
 
 type NotifyToggleProps = {
-  /** 模組的 Server Action 用 parseNotifyToggle 解析 自己負責 requireSession */
+  /** 模組的 Server Action 用 parseNotifyToggle 解析 自己負責 requireModule */
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
   id: number;
   enabled: boolean;
@@ -18,13 +21,11 @@ type NotifyToggleProps = {
   | { variant: "menu"; label: string }
 );
 
-// 跟停用的按鈕一樣變淡
-const BUSY_CLASS = "aria-disabled:cursor-wait aria-disabled:opacity-55";
-
-/** 主播與頻道列表上的通知開關 先切換圖示再等伺服器 按下去立刻有反應 */
+/** 主播與頻道列表上的通知開關 先切換圖示再等伺服器 按下去立刻有反應 失敗時用提示視窗 */
 export function NotifyToggle({ action, id, enabled, subject, ...look }: NotifyToggleProps) {
+  const toast = useToast();
   const [shown, setShown] = useOptimistic(enabled);
-  const [state, formAction, pending] = useActionState(action, {});
+  const [, formAction, pending] = useActionState<FormState, FormData>(withToast(toast, action), {});
 
   // 送出中不設 disabled 停用的按鈕會丟掉焦點 在視窗裡會跑到視窗外
   // 改成標 aria-disabled 並不理重複的點擊
@@ -40,33 +41,27 @@ export function NotifyToggle({ action, id, enabled, subject, ...look }: NotifyTo
 
   if (look.variant === "menu") {
     return (
-      <div className="flex flex-col gap-1">
-        <button type="button" role="switch" aria-checked={shown} aria-label={`${subject} 的通知`} aria-disabled={busy} onClick={toggle} className={`menu-item ${BUSY_CLASS}`}>
-          <Icon name={shown ? "bell" : "bell-off"} className="size-4" />
-          <span className="flex-1">{look.label}</span>
-          <span aria-hidden className="switch-visual" />
-        </button>
-        <InlineFeedback error={state.error} className="px-3" />
-      </div>
+      <button type="button" role="switch" aria-checked={shown} aria-label={`${subject} 的通知`} aria-disabled={busy} onClick={toggle} className={`menu-item ${BUSY_CLASS}`}>
+        <Icon name={shown ? "bell" : "bell-off"} className="size-4" />
+        <span className="flex-1">{look.label}</span>
+        <span aria-hidden className="switch-visual" />
+      </button>
     );
   }
 
   return (
-    <div className="flex shrink-0 flex-col items-end gap-1">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={shown}
-        aria-label={`${subject} 的通知`}
-        title={shown ? "通知開啟中，點一下關閉" : "通知已關閉，點一下開啟"}
-        aria-disabled={busy}
-        onClick={toggle}
-        className={`${shown ? "btn-secondary btn-sm btn-icon sm:w-auto sm:px-3" : "btn-ghost btn-sm btn-icon text-muted sm:w-auto sm:px-3"} ${BUSY_CLASS}`}
-      >
-        <Icon name={shown ? "bell" : "bell-off"} className="size-4" />
-        <span className="sr-only sm:not-sr-only">{shown ? "通知" : "靜音"}</span>
-      </button>
-      <InlineFeedback error={state.error} className="max-w-48 text-right" />
-    </div>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={shown}
+      aria-label={`${subject} 的通知`}
+      title={shown ? "通知開啟中，點一下關閉" : "通知已關閉，點一下開啟"}
+      aria-disabled={busy}
+      onClick={toggle}
+      className={`${shown ? "btn-secondary btn-sm btn-icon sm:w-auto sm:px-3" : "btn-ghost btn-sm btn-icon text-muted sm:w-auto sm:px-3"} ${BUSY_CLASS}`}
+    >
+      <Icon name={shown ? "bell" : "bell-off"} className="size-4" />
+      <span className="sr-only sm:not-sr-only">{shown ? "通知" : "靜音"}</span>
+    </button>
   );
 }

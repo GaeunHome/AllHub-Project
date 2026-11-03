@@ -3,11 +3,15 @@
 import { useActionState } from "react";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
+import { useToast } from "@/core/ui/toast";
+import { withToast } from "@/core/ui/toast-queue";
 import { addStreamerAction, syncAction, type FormState } from "../actions";
 
+/** 輸入錯了留在輸入框下面 成功與同步的結果用提示視窗 */
 export function AddStreamerForm() {
-  const [state, action, pending] = useActionState<FormState, FormData>(addStreamerAction, {});
-  const [syncState, sync, syncing] = useActionState<FormState>(syncAction, {});
+  const toast = useToast();
+  const [state, action, pending] = useActionState<FormState, FormData>(withToast(toast, addStreamerAction, { errors: false }), {});
+  const [, sync, syncing] = useActionState<FormState>(withToast(toast, () => syncAction()), {});
 
   return (
     <div className="stack">
@@ -27,7 +31,6 @@ export function AddStreamerForm() {
         </form>
       </div>
       {!pending && <FormFeedback state={state} />}
-      {!syncing && <FormFeedback state={syncState} />}
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { unstable_rethrow } from "next/navigation";
 import { useActionState } from "react";
 import { FormFeedback, type FormState } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
+import { useToast } from "@/core/ui/toast";
+import { withToast } from "@/core/ui/toast-queue";
 import { classifyYoutubeInput } from "../../lib/parse";
 import { addChannelAction, openVideoAction } from "../actions";
 
@@ -11,9 +13,12 @@ const INVALID = "請貼 YouTube 頻道網址、@帳號或影片網址";
 
 /**
  * 像 YouTube 的搜尋列 貼影片網址開觀看頁 貼頻道網址或 @帳號就追蹤
- * 兩個 Server Action 仍各自驗證
+ * 兩個 Server Action 仍各自驗證 追蹤好了用提示視窗 錯誤留在輸入框下方
  */
 export function YoutubeSearchBar() {
+  const toast = useToast();
+  const openVideo = withToast(toast, openVideoAction, { errors: false });
+  const addChannel = withToast(toast, addChannelAction, { errors: false });
   const [state, action, pending] = useActionState<FormState, FormData>(async (previous, formData) => {
     const text = String(formData.get("q") ?? "");
     const input = classifyYoutubeInput(text);
@@ -21,7 +26,7 @@ export function YoutubeSearchBar() {
     const data = new FormData();
     data.set(input.kind === "video" ? "url" : "channel", text);
     try {
-      return input.kind === "video" ? await openVideoAction(previous, data) : await addChannelAction(previous, data);
+      return input.kind === "video" ? await openVideo(previous, data) : await addChannel(previous, data);
     } catch (thrown) {
       // 開觀看頁或登入逾時的轉址交回給 Next 斷線這類錯誤留在輸入框下方
       unstable_rethrow(thrown);

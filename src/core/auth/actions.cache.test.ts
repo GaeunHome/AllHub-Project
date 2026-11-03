@@ -29,9 +29,9 @@ vi.mock("./captcha", { spy: true });
 
 const registration = mocksOf(await import("./registration"), "registerMember");
 const attempts = mocksOf(await import("./attempts"), "checkAttempts", "recordAttempt");
-const users = mocksOf(await import("./users"), "deleteOwnAccount", "findSessionUser");
+const users = mocksOf(await import("./users"), "deleteOwnAccount", "findSessionUser", "updateNickname");
 const captcha = mocksOf(await import("./captcha"), "takeCaptchaToken", "verifyCaptcha");
-const { deleteAccountAction, registerAction } = await import("./actions");
+const { deleteAccountAction, registerAction, updateNicknameAction } = await import("./actions");
 const { SESSION_COOKIE, signSession } = await import("./session");
 
 const PASSWORD = "plum blossom 2026";
@@ -45,6 +45,7 @@ beforeEach(async () => {
   registration.registerMember.mockReset().mockResolvedValue({ ok: true, id: USER_ID, sessionVersion: 1 });
   users.findSessionUser.mockReset().mockResolvedValue({ id: USER_ID, username: "alice", role: "member" });
   users.deleteOwnAccount.mockReset().mockResolvedValue({ ok: true });
+  users.updateNickname.mockReset().mockResolvedValue({ ok: true, nickname: "小明" });
   captcha.takeCaptchaToken.mockReset().mockResolvedValue("captcha-token");
   captcha.verifyCaptcha.mockReset().mockResolvedValue(true);
 });
@@ -61,6 +62,23 @@ describe("帳號的 Server Action：寫入後用 updateTag 讓管理頁的清單
     expect(updated()).toEqual([...tags].sort());
     expect(revalidateTag).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  // 管理頁的使用者清單與模組權限表格都顯示暱稱
+  it("updateNicknameAction_管理頁的清單失效", async () => {
+    await updateNicknameAction({}, form({ nickname: "小明" }));
+
+    expect(updated()).toEqual(["core:users"]);
+    expect(revalidateTag).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("更新暱稱失敗（超過字數）_沒有寫入就不失效", async () => {
+    users.updateNickname.mockResolvedValue({ ok: false, error: "暱稱最多 20 個字" });
+
+    await updateNicknameAction({}, form({ nickname: "一".repeat(21) }));
+
+    expect(updateTag).not.toHaveBeenCalled();
   });
 
   it("註冊失敗（邀請無效）_沒有寫入就不失效", async () => {

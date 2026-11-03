@@ -1,7 +1,7 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { updateTags, type CacheTag } from "@/core/cache";
 import { INVALID_FORM_MESSAGE, formFlag, formId, formText, runAction } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
@@ -131,7 +131,7 @@ async function remove(formData: FormData, action: string, run: (id: number) => P
 }
 
 export async function setupAction(): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("建立預設的分類", async () => {
     const created = await setupDefaults(userId);
     if (created.categories === 0) {
@@ -145,7 +145,7 @@ export async function setupAction(): Promise<FormState> {
 }
 
 export async function createAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("新增帳戶", async () => {
     const account = await createAccount(userId, readFields(formData, ACCOUNT_FIELDS));
     updateTags(savingsTags.accounts);
@@ -154,7 +154,7 @@ export async function createAccountAction(_prev: FormState, formData: FormData):
 }
 
 export async function updateAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   const id = formId(formData, "id");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return attempt("儲存帳戶", async () => {
@@ -166,7 +166,7 @@ export async function updateAccountAction(_prev: FormState, formData: FormData):
 
 /** 每個帳戶一個 accountId 欄位 金額欄位的名稱帶上它 例如 monthlyPlan:3 */
 export async function updateAllocationAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   const lines = formData.getAll("accountId").map((raw) => {
     const accountId = String(raw);
     return { accountId, monthlyPlan: formText(formData, `monthlyPlan:${accountId}`), targetAmount: formText(formData, `targetAmount:${accountId}`) };
@@ -180,23 +180,23 @@ export async function updateAllocationAction(_prev: FormState, formData: FormDat
 }
 
 export async function setAccountActiveAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return setActive(formData, (active) => (active ? "恢復帳戶" : "停用帳戶"), (id, active) => setAccountActive(userId, id, active), savingsTags.accounts);
 }
 
 export async function moveAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return move(formData, (id, direction) => moveAccount(userId, id, direction), savingsTags.accounts);
 }
 
 export async function deleteAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   // 紀錄 固定收支 持股與帳單跟著刪 轉帳的另一邊也是
   return remove(formData, "刪除帳戶", (id) => deleteAccount(userId, id), [savingsTags.accounts, savingsTags.transactions, savingsTags.recurring, savingsTags.holdings, savingsTags.bills]);
 }
 
 export async function createCategoryAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("新增分類", async () => {
     const category = await createCategory(userId, readFields(formData, CATEGORY_FIELDS));
     updateTags(savingsTags.categories);
@@ -205,7 +205,7 @@ export async function createCategoryAction(_prev: FormState, formData: FormData)
 }
 
 export async function updateCategoryAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   const id = formId(formData, "id");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return attempt("儲存分類", async () => {
@@ -216,18 +216,18 @@ export async function updateCategoryAction(_prev: FormState, formData: FormData)
 }
 
 export async function moveCategoryAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return move(formData, (id, direction) => moveCategory(userId, id, direction), savingsTags.categories);
 }
 
 export async function deleteCategoryAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   // 紀錄與固定收支改成未分類
   return remove(formData, "刪除分類", (id) => deleteCategory(userId, id), [savingsTags.categories, savingsTags.transactions, savingsTags.recurring]);
 }
 
 export async function addTransactionAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("記帳", async () => {
     const names = await readNames(userId);
     const entry = await addTransaction(userId, readFields(formData, ENTRY_FIELDS));
@@ -237,7 +237,7 @@ export async function addTransactionAction(_prev: FormState, formData: FormData)
 }
 
 export async function updateTransactionAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   const id = formId(formData, "id");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return attempt("儲存紀錄", async () => {
@@ -249,14 +249,14 @@ export async function updateTransactionAction(_prev: FormState, formData: FormDa
 }
 
 export async function deleteTransactionAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   // 買賣紀錄會還原持股 確認來的紀錄會把待處理退回去 帳單補的那一筆連帳單一起刪
   return remove(formData, "刪除紀錄", (id) => deleteTransaction(userId, id), [savingsTags.transactions, savingsTags.holdings, savingsTags.recurring, savingsTags.bills]);
 }
 
 /** 信用卡與有持股的投資帳戶 service 會擋下 只剩存款的餘額與投資的市值 */
 export async function updateBalanceAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("更新餘額", async () => {
     const { account, delta } = await updateBalance(userId, { accountId: formText(formData, "accountId"), actual: formText(formData, "actual") });
     // 跟記錄的一樣時 service 不寫入 畫面也不必重算
@@ -268,7 +268,7 @@ export async function updateBalanceAction(_prev: FormState, formData: FormData):
 
 /** 轉出的帳戶與金額每個帳戶一組 數量對不上就是表單被改過 */
 export async function allocateSalaryAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   const accountIds = formData.getAll("transferAccountId").map(String);
   const amounts = formData.getAll("transferAmount").map(String);
   if (accountIds.length !== amounts.length) return { error: INVALID_FORM_MESSAGE };
@@ -292,11 +292,11 @@ type RuleShape = Parameters<typeof recurringTitle>[0] & Parameters<typeof schedu
 
 /** 成功訊息寫出名稱 排程與金額 看得出存的是哪一條 */
 function describeRule(rule: RuleShape, names: Names): string {
-  return `「${recurringTitle(rule, names.maps)}」${scheduleText(rule)} ${plannedAmount(rule.kind, rule.amount)}`;
+  return `「${recurringTitle(rule, names.maps)}」${scheduleText(rule)}，${plannedAmount(rule.kind, rule.amount)}`;
 }
 
 export async function createRecurringAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("新增固定收支", async () => {
     const names = await readNames(userId, { holdings: true });
     const rule = await createRecurring(userId, readFields(formData, RECURRING_FIELDS));
@@ -306,7 +306,7 @@ export async function createRecurringAction(_prev: FormState, formData: FormData
 }
 
 export async function updateRecurringAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   const id = formId(formData, "id");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return attempt("儲存固定收支", async () => {
@@ -318,18 +318,18 @@ export async function updateRecurringAction(_prev: FormState, formData: FormData
 }
 
 export async function setRecurringActiveAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return setActive(formData, (active) => (active ? "恢復固定收支" : "停用固定收支"), (id, active) => setRecurringActive(userId, id, active), savingsTags.recurring);
 }
 
 export async function deleteRecurringAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   // 自動記的紀錄留著 但 recurring_id 改成 null 紀錄上的自動標籤跟著拿掉
   return remove(formData, "刪除固定收支", (id) => deleteRecurring(userId, id), [savingsTags.recurring, savingsTags.transactions]);
 }
 
 export async function createHoldingAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("新增持股", async () => {
     const holding = await addHolding(userId, readFields(formData, HOLDING_FIELDS));
     updateTags(savingsTags.holdings);
@@ -338,7 +338,7 @@ export async function createHoldingAction(_prev: FormState, formData: FormData):
 }
 
 export async function updateHoldingAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   const id = formId(formData, "id");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return attempt("儲存持股", async () => {
@@ -349,13 +349,13 @@ export async function updateHoldingAction(_prev: FormState, formData: FormData):
 }
 
 export async function deleteHoldingAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   // 定期定額跟著刪 買賣紀錄留著但沒有代號了
   return remove(formData, "刪除持股", (id) => deleteHolding(userId, id), [savingsTags.holdings, savingsTags.recurring, savingsTags.transactions]);
 }
 
 export async function buyHoldingAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("記下買進", async () => {
     const { holding, transaction } = await buyHolding(userId, readFields(formData, BUY_FIELDS));
     updateTags(savingsTags.holdings, savingsTags.transactions);
@@ -364,7 +364,7 @@ export async function buyHoldingAction(_prev: FormState, formData: FormData): Pr
 }
 
 export async function sellHoldingAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("記下賣出", async () => {
     const { holding, transaction } = await sellHolding(userId, readFields(formData, SELL_FIELDS));
     updateTags(savingsTags.holdings, savingsTags.transactions);
@@ -373,7 +373,7 @@ export async function sellHoldingAction(_prev: FormState, formData: FormData): P
 }
 
 export async function confirmOccurrenceAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("確認固定收支", async () => {
     const names = await readNames(userId, { holdings: true });
     const { rule, transaction } = await confirmOccurrence(userId, readFields(formData, CONFIRM_FIELDS));
@@ -390,7 +390,7 @@ export async function confirmOccurrenceAction(_prev: FormState, formData: FormDa
 }
 
 export async function skipOccurrenceAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("略過這一期", async () => {
     const names = await readNames(userId, { holdings: true });
     const fields = readFields(formData, SKIP_FIELDS);
@@ -409,7 +409,7 @@ function billDifferenceText(difference: number): string {
 }
 
 export async function enterCardBillAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("填帳單", async () => {
     const { bill, card, difference } = await enterCardBill(userId, readFields(formData, CARD_BILL_FIELDS));
     updateTags(savingsTags.bills, savingsTags.transactions);
@@ -418,7 +418,7 @@ export async function enterCardBillAction(_prev: FormState, formData: FormData):
 }
 
 export async function payCardAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("savings");
   return attempt("記下繳卡費", async () => {
     const { transaction, card, bill, difference } = await payCard(userId, readFields(formData, PAY_CARD_FIELDS));
     // 一起填了帳單時帳單也變了

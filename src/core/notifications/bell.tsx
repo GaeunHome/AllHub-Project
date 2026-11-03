@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CountBadge } from "../ui/count-badge";
 import { useHeaderMenuRoot } from "../ui/header-menus";
 import { Icon } from "../ui/icon";
 import { useNotificationCenter } from "./center";
 import { relativeTime } from "./format";
 import { NotificationSummary } from "./notification-summary";
-import { AlertSettingsHelp, AlertSwitchTable, BrowserPermissionNotice } from "./settings";
 
-export function NotificationBell() {
+/** alertSettings 是提醒方式的內容 伺服器照權限挑好模組 算繪好傳進來 */
+export function NotificationBell({ alertSettings }: { alertSettings: ReactNode }) {
   const { feed, ringCount } = useNotificationCenter();
   // 跟帳號選單共用開關 打開一個時另一個收起
   const { expanded, toggle, close, rootRef, buttonRef } = useHeaderMenuRoot("notifications");
@@ -38,19 +38,18 @@ export function NotificationBell() {
       </button>
 
       {/* 收起時整個卸載 下次打開一律回到通知清單 */}
-      {expanded && <NotificationPanel id={panelId} onClose={close} />}
+      {expanded && <NotificationPanel id={panelId} alertSettings={alertSettings} onClose={close} />}
     </div>
   );
 }
 
-function NotificationPanel({ id, onClose }: { id: string; onClose: () => void }) {
+function NotificationPanel({ id, alertSettings, onClose }: { id: string; alertSettings: ReactNode; onClose: () => void }) {
   const { feed, modules, open, markAllRead } = useNotificationCenter();
   const [view, setView] = useState<"list" | "settings">("list");
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const switched = useRef(false);
   const total = feed.unread.total;
-  const moduleList = [...modules.values()];
 
   // 切換畫面時原本的按鈕會消失 焦點移到對應的按鈕 鍵盤才不會掉回頁首
   // 剛打開面板時不搶焦點
@@ -112,11 +111,7 @@ function NotificationPanel({ id, onClose }: { id: string; onClose: () => void })
             </button>
             <h2 className="flex-1 font-semibold text-ink">提醒方式</h2>
           </div>
-          <div className="flex flex-col gap-4 overflow-y-auto overscroll-contain p-4">
-            <AlertSwitchTable modules={moduleList} />
-            <AlertSettingsHelp />
-            <BrowserPermissionNotice modules={moduleList} />
-          </div>
+          <div className="flex flex-col gap-4 overflow-y-auto overscroll-contain p-4">{alertSettings}</div>
         </>
       )}
       <Link

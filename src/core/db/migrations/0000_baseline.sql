@@ -56,6 +56,18 @@ CREATE TABLE "core_users" (
 );
 --> statement-breakpoint
 ALTER TABLE "core_users" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "reminders_items" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"user_id" uuid NOT NULL,
+	"title" text NOT NULL,
+	"date" date NOT NULL,
+	"notify_days_before" integer,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "reminders_items_notify_days" CHECK ("reminders_items"."notify_days_before" in (0, 1, 3, 7, 14, 30))
+);
+--> statement-breakpoint
+ALTER TABLE "reminders_items" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "savings_accounts" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -116,6 +128,18 @@ CREATE TABLE "savings_categories" (
 );
 --> statement-breakpoint
 ALTER TABLE "savings_categories" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "savings_dividend_notices" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"user_id" uuid NOT NULL,
+	"symbol" text NOT NULL,
+	"ex_date" date NOT NULL,
+	"amount_notified" boolean DEFAULT false NOT NULL,
+	"reminded" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "savings_dividend_notices_symbol" CHECK ("savings_dividend_notices"."symbol" ~ '^[0-9A-Z]{4,6}$')
+);
+--> statement-breakpoint
+ALTER TABLE "savings_dividend_notices" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "savings_holdings" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -277,6 +301,7 @@ CREATE TABLE "weather_settings" (
 	"county" text NOT NULL,
 	"rain_alert" boolean DEFAULT true NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"warning_alert" boolean DEFAULT true NOT NULL,
 	CONSTRAINT "weather_settings_county" CHECK ("weather_settings"."county" in ('臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣'))
 );
 --> statement-breakpoint
@@ -368,11 +393,13 @@ CREATE TABLE "youtube_videos" (
 ALTER TABLE "youtube_videos" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "core_invites" ADD CONSTRAINT "core_invites_created_by_core_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "core_notifications" ADD CONSTRAINT "core_notifications_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "reminders_items" ADD CONSTRAINT "reminders_items_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "savings_accounts" ADD CONSTRAINT "savings_accounts_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "savings_accounts" ADD CONSTRAINT "savings_accounts_pay_from_account_id_savings_accounts_id_fk" FOREIGN KEY ("pay_from_account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "savings_card_bills" ADD CONSTRAINT "savings_card_bills_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "savings_card_bills" ADD CONSTRAINT "savings_card_bills_account_id_savings_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "savings_categories" ADD CONSTRAINT "savings_categories_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "savings_dividend_notices" ADD CONSTRAINT "savings_dividend_notices_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "savings_holdings" ADD CONSTRAINT "savings_holdings_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "savings_holdings" ADD CONSTRAINT "savings_holdings_account_id_savings_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -403,11 +430,14 @@ CREATE INDEX "core_notifications_created_at_idx" ON "core_notifications" USING b
 CREATE INDEX "core_notifications_user_created_at_idx" ON "core_notifications" USING btree ("user_id","created_at");--> statement-breakpoint
 CREATE INDEX "core_notifications_user_unread_idx" ON "core_notifications" USING btree ("user_id","module") WHERE "core_notifications"."read_at" is null;--> statement-breakpoint
 CREATE INDEX "core_rate_limits_window_started_at_idx" ON "core_rate_limits" USING btree ("window_started_at");--> statement-breakpoint
+CREATE INDEX "reminders_items_user_date_idx" ON "reminders_items" USING btree ("user_id","date");--> statement-breakpoint
+CREATE INDEX "reminders_items_date_idx" ON "reminders_items" USING btree ("date");--> statement-breakpoint
 CREATE UNIQUE INDEX "savings_accounts_user_name_idx" ON "savings_accounts" USING btree ("user_id","name");--> statement-breakpoint
 CREATE INDEX "savings_accounts_pay_from_account_id_idx" ON "savings_accounts" USING btree ("pay_from_account_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "savings_card_bills_account_statement_idx" ON "savings_card_bills" USING btree ("account_id","statement_date");--> statement-breakpoint
 CREATE INDEX "savings_card_bills_user_id_idx" ON "savings_card_bills" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "savings_categories_user_kind_name_idx" ON "savings_categories" USING btree ("user_id","kind","name");--> statement-breakpoint
+CREATE UNIQUE INDEX "savings_dividend_notices_user_symbol_date_idx" ON "savings_dividend_notices" USING btree ("user_id","symbol","ex_date");--> statement-breakpoint
 CREATE UNIQUE INDEX "savings_holdings_account_symbol_idx" ON "savings_holdings" USING btree ("account_id","symbol");--> statement-breakpoint
 CREATE INDEX "savings_holdings_user_id_idx" ON "savings_holdings" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "savings_recurring_user_id_idx" ON "savings_recurring" USING btree ("user_id");--> statement-breakpoint

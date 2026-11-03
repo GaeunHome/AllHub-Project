@@ -62,9 +62,9 @@ export async function setCookieInvalid(accountId: number, invalid: boolean, chan
   return updated.length > 0;
 }
 
-/** 擁有者被停用時凍結 排程不用他的 cookie 簽到或查便箋 */
+/** 擁有者被停用或被關掉星穹鐵道時凍結 排程不用他的 cookie 簽到或查便箋 */
 export async function listAccounts(): Promise<StarrailAccount[]> {
-  return db().select(getTableColumns(starrailAccounts)).from(starrailAccounts).innerJoin(coreUsers, activeOwnerOf(starrailAccounts.userId)).orderBy(starrailAccounts.id);
+  return db().select(getTableColumns(starrailAccounts)).from(starrailAccounts).innerJoin(coreUsers, activeOwnerOf(starrailAccounts.userId, "starrail")).orderBy(starrailAccounts.id);
 }
 
 /** 單一帳號出錯不能中斷整批排程 錯誤細節只進 log */

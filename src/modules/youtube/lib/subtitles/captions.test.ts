@@ -241,3 +241,84 @@ describe("fetchKoreanCaptions", () => {
     expect(calls[0]).toBe(`http://127.0.0.1:4010/watch?v=${VIDEO}`);
   });
 });
+
+describe("fetchKoreanCaptions：第二個來源（InnerTube 的 ANDROID 用戶端）", () => {
+  // 手動診斷量到的 觀看頁給的網址帶 exp=xpe 要 PO token 下載回 200 但是空的
+  const NEEDS_TOKEN = "https://www.youtube.com/api/timedtext?v=x&lang=ko&exp=xpo,xpe";
+  const DOWNLOADABLE = "https://www.youtube.com/api/timedtext?v=x&lang=ko&fmt=srv3";
+  const BOT_CHECK = { playabilityStatus: { status: "LOGIN_REQUIRED", reason: "Sign in to confirm you're not a bot" } };
+  const CUES = json3([{ tStartMs: 0, dDurationMs: 1000, segs: [{ utf8: "안녕" }] }]);
+  const CAPTIONS = { ok: true, kind: "manual", language: "ko", cues: [{ start: 0, end: 1000, text: "안녕" }] };
+
+  const korean = (baseUrl: string) => playable([{ languageCode: "ko", baseUrl }]);
+  const player = (body: unknown) => () => Response.json(body);
+  const empty = () => new Response("", { status: 200 });
+
+  it("觀看頁的字幕網址要 PO token、下載回空內容_改用第二個來源給的網址下載，一樣是 json3", async () => {
+    const { impl, calls } = fakeFetch([
+      [/\/watch\?v=/, html(watchPage(korean(NEEDS_TOKEN)))],
+      [/\/youtubei\/v1\/player/, player(korean(DOWNLOADABLE))],
+      [/timedtext.*exp=/, empty],
+      [/timedtext/, json(CUES)],
+    ]);
+
+    expect(await fetchKoreanCaptions(VIDEO, { fetchImpl: impl })).toEqual(CAPTIONS);
+
+    const download = new URL(calls.at(-1)!);
+    expect(download.searchParams.get("exp")).toBeNull();
+    expect(download.searchParams.getAll("fmt")).toEqual(["json3"]);
+  });
+
+  it("觀看頁被擋_用第二個來源給的網址下載", async () => {
+    const { impl } = fakeFetch([
+      [/\/watch\?v=/, html(watchPage(BOT_CHECK))],
+      [/\/youtubei\/v1\/player/, player(korean(DOWNLOADABLE))],
+      [/timedtext/, json(CUES)],
+    ]);
+
+    expect(await fetchKoreanCaptions(VIDEO, { fetchImpl: impl })).toEqual(CAPTIONS);
+  });
+
+  it("觀看頁的字幕網址下載得到_不問第二個來源", async () => {
+    const { impl, calls } = fakeFetch([
+      [/\/watch\?v=/, html(watchPage(korean(DOWNLOADABLE)))],
+      [/\/youtubei\/v1\/player/, player(korean(NEEDS_TOKEN))],
+      [/timedtext/, json(CUES)],
+    ]);
+
+    expect(await fetchKoreanCaptions(VIDEO, { fetchImpl: impl })).toEqual(CAPTIONS);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("第二個來源的網址也回空內容 → blocked，只試一輪", async () => {
+    const { impl, calls } = fakeFetch([
+      [/\/watch\?v=/, html(watchPage(korean(NEEDS_TOKEN)))],
+      [/\/youtubei\/v1\/player/, player(korean(DOWNLOADABLE))],
+      [/timedtext/, empty],
+    ]);
+
+    expect(await fetchKoreanCaptions(VIDEO, { fetchImpl: impl })).toMatchObject({ ok: false, reason: "blocked" });
+    expect(calls).toHaveLength(4);
+  });
+
+  it("只有第二個來源讀得到、它的網址回空內容 → blocked，不再回頭問一次", async () => {
+    const { impl, calls } = fakeFetch([
+      [/\/watch\?v=/, html(watchPage(BOT_CHECK))],
+      [/\/youtubei\/v1\/player/, player(korean(DOWNLOADABLE))],
+      [/timedtext/, empty],
+    ]);
+
+    expect(await fetchKoreanCaptions(VIDEO, { fetchImpl: impl })).toMatchObject({ ok: false, reason: "blocked" });
+    expect(calls).toHaveLength(3);
+  });
+
+  it("第二個來源給的字幕網址不是 YouTube 的 → error，不送出請求", async () => {
+    const { impl, calls } = fakeFetch([
+      [/\/watch\?v=/, html(watchPage(BOT_CHECK))],
+      [/\/youtubei\/v1\/player/, player(korean("https://evil.example.com/api/timedtext?lang=ko"))],
+    ]);
+
+    expect(await fetchKoreanCaptions(VIDEO, { fetchImpl: impl })).toMatchObject({ ok: false, reason: "error" });
+    expect(calls).toHaveLength(2);
+  });
+});

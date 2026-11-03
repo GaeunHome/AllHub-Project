@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { markup as render } from "@/dev/test-helpers";
+import { markup as render, textOf } from "@/dev/test-helpers";
 import type { ConfirmDraft, PayCardDraft } from "../../dashboard-view";
 
 // 只看表單送出什麼 其他照原本的實作
@@ -29,7 +29,7 @@ const CONFIRM: ConfirmDraft = {
   amount: 5000,
   date: TODAY,
   minDate: "2026-01-05",
-  where: "台銀 → 臺銀證券",
+  where: [{ label: "帳戶", value: "台銀 → 臺銀證券" }],
   notePlaceholder: "留空會寫「買進 006208 N 股」",
   regularBuy: { symbol: "006208", name: "富邦台50", closeCents: 10650, quoteDate: "2026-10-14", estimate: { shares: 46, cost: 4900 } },
 };
@@ -55,6 +55,16 @@ describe("確認固定收支", () => {
     expect(valueOf(markup, "shares")).toBeUndefined();
     expect(valueOf(markup, "amount")).toBeUndefined();
     expect(markup).toContain("暫時讀不到股價");
+  });
+
+  it("記到哪裡分開寫：帳戶與分類各一列", () => {
+    const markup = confirm({ ...CONFIRM, kind: "expense", regularBuy: null, where: [{ label: "帳戶", value: "生活費帳戶" }, { label: "分類", value: "水電" }] });
+    const facts = [...markup.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2])]);
+
+    expect(facts).toEqual([
+      ["帳戶", "生活費帳戶"],
+      ["分類", "水電"],
+    ]);
   });
 
   it("一般的收支：金額先填預計的，可以改；沒有股數", () => {

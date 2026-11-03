@@ -1,10 +1,14 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { textOf } from "@/dev/test-helpers";
-import { UnreadDigestList } from "./home-notifications";
+import { mocksOf, textOf } from "@/dev/test-helpers";
+import { HomeNotifications, UnreadDigestList } from "./home-notifications";
 import type { NotificationModule } from "./notification-summary";
 import type { NotificationItem } from "./types";
+
+vi.mock("./center", { spy: true });
+
+const { useNotificationCenter } = mocksOf(await import("./center"), "useNotificationCenter");
 
 const NOW = new Date("2026-10-08T12:00:00Z");
 const MODULES = new Map<string, NotificationModule>([["twitch", { id: "twitch", name: "Twitch", icon: "/icons/brands/twitch.svg", accent: "violet" }]]);
@@ -24,6 +28,15 @@ const render = (props: Partial<Parameters<typeof UnreadDigestList>[0]>) =>
   renderToStaticMarkup(createElement(UnreadDigestList, { loaded: true, items: [], more: 0, modules: MODULES, now: NOW, onOpen: vi.fn(), ...props }));
 
 describe("首頁的未讀通知摘要", () => {
+  it("伺服器算繪一律先畫載入中：首頁卡片串流進來時輪詢可能已經讀好，瀏覽器接手的第一次要跟伺服器畫的一樣（不然 hydration 不一致）", () => {
+    useNotificationCenter.mockReturnValue({ feed: { unread: { total: 1, byModule: { twitch: 1 } }, recent: [item(1, "Alice 開台了", 3)] }, loaded: true, latestId: 1, ringCount: 0, modules: MODULES, open: vi.fn(), markRead: vi.fn(), markAllRead: vi.fn() } as never);
+
+    const markup = renderToStaticMarkup(createElement(HomeNotifications));
+
+    expect(markup).toContain('aria-busy="true"');
+    expect(textOf(markup)).not.toContain("Alice 開台了");
+  });
+
   it("還沒抓到第一次的通知_顯示載入中，不先說沒有未讀", () => {
     const markup = render({ loaded: false });
 

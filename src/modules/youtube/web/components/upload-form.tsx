@@ -4,6 +4,8 @@ import { unstable_rethrow } from "next/navigation";
 import { useActionState } from "react";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
+import { useToast } from "@/core/ui/toast";
+import { withToast } from "@/core/ui/toast-queue";
 import { uploadSubtitlesAction, type FormState } from "../actions";
 import { prepareUpload } from "../upload";
 
@@ -16,12 +18,14 @@ export function UploadToggle({ open, controls, onToggle }: { open: boolean; cont
   );
 }
 
+/** 檔案不對時錯誤留在表單下面 上傳好了用提示視窗 */
 export function UploadForm({ id, videoId }: { id: string; videoId: string }) {
+  const upload = withToast(useToast(), uploadSubtitlesAction, { errors: false });
   const [state, action, pending] = useActionState<FormState, FormData>(async (previous, formData) => {
     const prepared = await prepareUpload(formData);
     if ("error" in prepared) return prepared;
     try {
-      return await uploadSubtitlesAction(previous, prepared.formData);
+      return await upload(previous, prepared.formData);
     } catch (thrown) {
       // 斷線或伺服器拒收時留在表單上顯示 不讓整頁變成錯誤畫面
       unstable_rethrow(thrown);

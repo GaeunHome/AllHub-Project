@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { DialogMessage } from "@/core/ui/dialog";
+import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import type { DateKey } from "../../../lib/dates";
 import type { InvestmentsView } from "../../investments-view";
 import { SAVINGS_PATHS } from "../../paths";
 import { AddAccountButton } from "../accounts/add-account-button";
 import type { AccountOption } from "../forms/options";
 import { Illustration } from "../illustration";
-import { useRemovalNotice } from "../row-controls";
 import { BrokerageCard } from "./brokerage-card";
 
 type BrokerageListProps = {
@@ -20,15 +19,13 @@ type BrokerageListProps = {
   openAdd: boolean;
 };
 
-/** 停用或刪除帳戶後那張卡片會不見 訊息放在清單上面還在的地方 */
+/** 停用或刪除帳戶後那張卡片會不見 焦點交給一直都在的清單外框 */
 export function BrokerageList({ view, depositAccounts, payFromAccounts, today, openAdd }: BrokerageListProps) {
-  const removal = useRemovalNotice();
   const addButton = <AddAccountButton kind="investment" payFromAccounts={payFromAccounts} openFromLink={openAdd} cleanHref={SAVINGS_PATHS.investments} />;
 
   if (view.brokerages.length === 0) {
     return (
-      <div className="stack">
-        <DialogMessage {...removal.messageProps} />
+      <div {...FOCUS_FRAME} className="stack">
         <section aria-labelledby="savings-no-brokerage" className="card flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
           <Illustration name="no-holdings" className="w-36" />
           <div className="flex flex-col items-center gap-3 sm:items-start">
@@ -45,10 +42,9 @@ export function BrokerageList({ view, depositAccounts, payFromAccounts, today, o
   }
 
   return (
-    <div className="stack">
-      <DialogMessage {...removal.messageProps} />
+    <div {...FOCUS_FRAME} className="stack">
       {view.brokerages.map((brokerage) => (
-        <BrokerageCard key={brokerage.id} brokerage={brokerage} depositAccounts={depositAccounts} payFromAccounts={payFromAccounts} today={today} onRemoved={removal.report} />
+        <BrokerageCard key={brokerage.id} brokerage={brokerage} depositAccounts={depositAccounts} payFromAccounts={payFromAccounts} today={today} />
       ))}
       <div className="button-row">{addButton}</div>
       <PausedNote count={view.pausedCount} />

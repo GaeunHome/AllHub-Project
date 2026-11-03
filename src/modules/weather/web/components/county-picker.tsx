@@ -4,38 +4,21 @@ import type { ReactNode } from "react";
 import { Dialog, useDialog, useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
-import { ResultSlot, useResultReport } from "@/core/ui/result-slot";
 import { COUNTIES } from "../../lib/counties";
 import type { WeatherSettings } from "../../service/settings";
 import { saveSettingsAction } from "../actions";
 
-/** 卡片內容的外框 空狀態被換掉時存好的訊息還在 內容與訊息靠 stack 排間距 */
-export function SettingsResult({ children }: { children: ReactNode }) {
-  return (
-    <div className="stack">
-      <ResultSlot>{children}</ResultSlot>
-    </div>
-  );
-}
-
-/** 還沒選縣市時是主要按鈕 選過之後是卡片底下的小按鈕 打開的是同一個視窗 */
+/**
+ * 還沒選縣市時是主要按鈕 選過之後是卡片底下的小按鈕 打開的是同一個視窗
+ * 第一次選縣市時這個按鈕會跟著空狀態不見 焦點交給首頁卡片
+ */
 export function CountyPicker({ settings }: { settings: WeatherSettings | null }) {
   const dialog = useDialog();
-  const report = useResultReport();
-  const done = (message: string | undefined) => {
-    dialog.done();
-    // 第一次選縣市時這個按鈕會跟著空狀態不見 焦點才移到訊息
-    report(message, settings === null);
-  };
 
   return (
     <>
       <button
         {...dialog.triggerProps}
-        onClick={() => {
-          report(undefined);
-          dialog.triggerProps.onClick();
-        }}
         // 只看得到設定兩個字 報讀器要知道是哪一張卡片的設定
         aria-label={settings ? "天氣設定" : undefined}
         // 小按鈕用負邊距抵掉內距 字跟卡片內容的右邊線對齊
@@ -51,7 +34,7 @@ export function CountyPicker({ settings }: { settings: WeatherSettings | null })
         )}
       </button>
       <Dialog {...dialog.dialogProps} title="天氣設定" size="sm">
-        {dialog.open && <SettingsForm settings={settings} onDone={done} onCancel={dialog.close} />}
+        {dialog.open && <SettingsForm settings={settings} onDone={dialog.done} onCancel={dialog.close} />}
       </Dialog>
     </>
   );

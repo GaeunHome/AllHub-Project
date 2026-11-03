@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo, SearchParams } from "@/core/module";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { taipeiToday } from "../../lib/dates";
@@ -6,6 +6,8 @@ import { heldShares } from "../../lib/dividends";
 import { accountBalances } from "../../lib/ledger";
 import { quoteSymbols } from "../../lib/quotes";
 import { cachedAccountFlows, cachedAccounts, cachedCategories, cachedDividends, cachedHoldings, cachedQuotes, cachedRecurring } from "../../service/cached";
+import { BIG_FIGURE, BIG_FIGURE_FACTS } from "../components/dashboard/layout";
+import { FactsSkeleton } from "../components/dashboard/skeletons";
 import { BrokerageList } from "../components/investments/brokerage-list";
 import { DividendsCard } from "../components/investments/dividends-card";
 import { SummaryCard } from "../components/investments/summary-card";
@@ -21,7 +23,7 @@ import { recurringPageView } from "../recurring-view";
  * 沒有持股時不查股價與除權息預告
  */
 export async function InvestmentsSection({ searchParams }: { searchParams: SearchParams }) {
-  const user = await requireSession();
+  const user = await requireModule("savings");
   const today = taipeiToday(new Date());
   const [accounts, flows, holdings, rules, categories, params] = await Promise.all([
     cachedAccounts(user.id),
@@ -75,10 +77,12 @@ export async function InvestmentsSection({ searchParams }: { searchParams: Searc
 function InvestmentsSkeleton() {
   return (
     <LoadingState label="載入投資…" className="page-stack 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_28rem] 2xl:grid-rows-[auto_1fr] 2xl:items-start">
-      <div className="card flex flex-col gap-2 2xl:col-start-2 2xl:row-start-1">
-        <Skeleton className="h-5 w-20" />
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-5 w-64" />
+      <div className={`card ${BIG_FIGURE} 2xl:col-start-2 2xl:row-start-1`}>
+        <div className="flex min-w-0 flex-col gap-2">
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-10 w-48" />
+        </div>
+        <FactsSkeleton widths={["w-24", "w-32", "w-16"]} className={BIG_FIGURE_FACTS} />
       </div>
       <div className="card stack 2xl:col-start-1 2xl:row-span-2 2xl:row-start-1">
         <Skeleton className="h-6 w-32" />

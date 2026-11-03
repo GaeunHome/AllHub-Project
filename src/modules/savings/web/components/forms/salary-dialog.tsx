@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useId, useReducer } from "react";
-import { Dialog, DialogMessage, useDialog, useDialogForm } from "@/core/ui/dialog";
+import { Dialog, useDialog, useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
@@ -14,7 +14,7 @@ import { confirmDate, defaultIncomeCategory, salaryFormReducer, salaryPreview, s
 import { lastSalaryAccountPref, pickAccount } from "../../last-used";
 import { SAVINGS_PATHS } from "../../paths";
 import { DialogMenuItem } from "../row-controls";
-import { AccountSelect, AmountField, DateField, FormButtons, NoteField, ROW_MESSAGE_CLASS } from "./fields";
+import { AccountSelect, AmountField, DateField, FormButtons, NoteField } from "./fields";
 import type { CategoryOption, SalaryAccountOption } from "./options";
 
 export type SalaryProps = { accounts: SalaryAccountOption[]; categories: CategoryOption[]; today: string };
@@ -22,10 +22,7 @@ export type SalaryProps = { accounts: SalaryAccountOption[]; categories: Categor
 /** 薪水只能進存款或投資帳戶 */
 export const canReceiveSalary = (accounts: readonly SalaryAccountOption[]) => accounts.some((account) => account.kind !== "credit");
 
-/**
- * 常用動作卡片標題列 ⋮ 裡的薪水入帳並分配 給臨時發的獎金這類不在固定收支裡的
- * 成功訊息獨佔標題列的最後一整列
- */
+/** 常用動作卡片標題列 ⋮ 裡的薪水入帳並分配 給臨時發的獎金這類不在固定收支裡的 */
 export function SalaryMenu({ accounts, categories, today }: SalaryProps) {
   const dialog = useDialog();
   if (!canReceiveSalary(accounts)) return null;
@@ -35,7 +32,6 @@ export function SalaryMenu({ accounts, categories, today }: SalaryProps) {
       <MoreMenu label="更多記帳方式">
         <DialogMenuItem trigger={dialog.triggerProps} icon="banknote" label="薪水入帳並分配" />
       </MoreMenu>
-      <DialogMessage {...dialog.messageProps} className={ROW_MESSAGE_CLASS} />
       <Dialog {...dialog.dialogProps} title="薪水入帳並分配" size="lg">
         <SalaryForm accounts={accounts} categories={categories} today={today} onDone={dialog.done} onCancel={dialog.close} />
       </Dialog>

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, notInArray, sql } from "drizzle-orm";
 import { db } from "../db";
 import { coreNotifications, type CoreNotification } from "../db/schema";
 import { retentionCutoff } from "../retention";
@@ -89,11 +89,13 @@ export async function markNotificationsRead(userId: string, ids: number[], now =
   return updated.length;
 }
 
-export async function markAllNotificationsRead(userId: string, module?: string, now = new Date()): Promise<number> {
+/** hidden 是這個人被關掉的模組 看不到的通知不能被標掉 恢復後才照常是未讀 */
+export async function markAllNotificationsRead(userId: string, { module, hidden = [] }: { module?: string; hidden?: Iterable<string> } = {}, now = new Date()): Promise<number> {
+  const skipped = [...hidden];
   const updated = await db()
     .update(coreNotifications)
     .set({ readAt: now })
-    .where(and(ownedBy(userId), isNull(coreNotifications.readAt), module ? eq(coreNotifications.module, module) : undefined))
+    .where(and(ownedBy(userId), isNull(coreNotifications.readAt), module ? eq(coreNotifications.module, module) : undefined, skipped.length > 0 ? notInArray(coreNotifications.module, skipped) : undefined))
     .returning({ id: coreNotifications.id });
   return updated.length;
 }

@@ -2,7 +2,7 @@ import { asc, eq, getTableColumns } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
 import { insertTestUsers, pgliteOf, setupTestDb } from "@/dev/test-db";
-import { coreNotifications, coreUsers } from "./schema";
+import { coreModuleDenials, coreNotifications, coreUsers } from "./schema";
 
 const { activeOwnerOf, lockUserRow } = await import("./users");
 
@@ -21,10 +21,42 @@ describe("activeOwnerOf：停用＝凍結，排程只處理擁有者還能用的
     const rows = await db
       .select(getTableColumns(coreNotifications))
       .from(coreNotifications)
-      .innerJoin(coreUsers, activeOwnerOf(coreNotifications.userId))
+      .innerJoin(coreUsers, activeOwnerOf(coreNotifications.userId, "demo"))
       .orderBy(asc(coreNotifications.id));
 
     expect(rows.map((row) => row.title)).toEqual(["給 alice"]);
+  });
+
+  it("沒有這個模組權限的人也凍結，別的模組不受影響；只記不能用的，沒有紀錄就是能用", async () => {
+    const db = getDb();
+    const [alice, bob] = await insertTestUsers(db);
+    await db.insert(coreModuleDenials).values({ userId: bob, moduleId: "demo" });
+    await db.insert(coreNotifications).values([
+      { userId: alice, module: "demo", kind: "demo", title: "給 alice" },
+      { userId: bob, module: "demo", kind: "demo", title: "給 bob" },
+    ]);
+    const titlesFor = async (moduleId: string) =>
+      (
+        await db
+          .select(getTableColumns(coreNotifications))
+          .from(coreNotifications)
+          .innerJoin(coreUsers, activeOwnerOf(coreNotifications.userId, moduleId))
+          .orderBy(asc(coreNotifications.id))
+      ).map((row) => row.title);
+
+    expect(await titlesFor("demo")).toEqual(["給 alice"]);
+    expect(await titlesFor("other")).toEqual(["給 alice", "給 bob"]);
+  });
+
+  it("站長一律能用：就算資料庫裡有紀錄也不算", async () => {
+    const db = getDb();
+    const [alice] = await insertTestUsers(db);
+    await db.insert(coreModuleDenials).values({ userId: alice, moduleId: "demo" });
+    await db.insert(coreNotifications).values({ userId: alice, module: "demo", kind: "demo", title: "給 alice" });
+
+    const rows = await db.select(getTableColumns(coreNotifications)).from(coreNotifications).innerJoin(coreUsers, activeOwnerOf(coreNotifications.userId, "demo"));
+
+    expect(rows).toHaveLength(1);
   });
 });
 

@@ -11,7 +11,7 @@ import { remindersItems } from "../data/schema";
 import { countdownText, daysUntil, formatDate } from "../lib/countdown";
 
 // 排程 reminders:daily 台北 7 點多與 12 點多各跑一次 先寄今天要寄的 再刪日期過了的
-// 中午那一次補寄早上寄不出去的 停用的帳號凍結 不寄也不刪 恢復後的下一次排程才處理
+// 中午那一次補寄早上寄不出去的 停用或被關掉模組的人凍結 不寄也不刪 恢復後的下一次排程才處理
 
 // service 不能 import 模組根目錄的 info 模組 id 寫在這裡
 const MODULE_ID = "reminders";
@@ -20,7 +20,7 @@ const CLAIM_SCOPE = "reminders:due";
 type DueItem = { id: number; userId: string; title: string; date: string };
 
 /**
- * 擁有者沒停用 今天是當天或提前那天的項目 提前的日子過了就只剩當天
+ * 擁有者還能用 今天是當天或提前那天的項目 提前的日子過了就只剩當天
  * 通知新的在上面 首頁未讀只顯示最新幾則 所以日子近的排後面 最後寫入
  */
 async function dueItems(today: string): Promise<DueItem[]> {
@@ -29,7 +29,7 @@ async function dueItems(today: string): Promise<DueItem[]> {
   return db()
     .select({ id: remindersItems.id, userId: remindersItems.userId, title: remindersItems.title, date: remindersItems.date })
     .from(remindersItems)
-    .innerJoin(coreUsers, activeOwnerOf(remindersItems.userId))
+    .innerJoin(coreUsers, activeOwnerOf(remindersItems.userId, MODULE_ID))
     .where(and(isNotNull(remindersItems.notifyDaysBefore), or(isDay, isAdvanceDay)))
     .orderBy(desc(remindersItems.date), desc(remindersItems.id));
 }
@@ -49,7 +49,7 @@ function sendDue(item: DueItem, today: string, now: Date): Promise<boolean> {
 }
 
 async function deleteExpiredItems(today: string): Promise<number> {
-  const owner = db().select({ id: coreUsers.id }).from(coreUsers).where(activeOwnerOf(remindersItems.userId));
+  const owner = db().select({ id: coreUsers.id }).from(coreUsers).where(activeOwnerOf(remindersItems.userId, MODULE_ID));
   const deleted = await db()
     .delete(remindersItems)
     .where(and(lt(remindersItems.date, today), exists(owner)))

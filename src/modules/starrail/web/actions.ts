@@ -1,6 +1,6 @@
 "use server";
 
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { updateTags } from "@/core/cache";
 import { INVALID_FORM_MESSAGE, formFlag, formId, formText, runAction } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
@@ -20,14 +20,14 @@ export type LinkState = FormState & { roles?: RoleChoice[]; warning?: string; ac
 const done = (result: Outcome<{ message: string }>): FormState => (result.ok ? { message: result.message } : { error: result.error });
 // 輸入與 HoYoLAB 的錯誤由 service 用結果回傳 丟出來的都是預期外的錯誤
 const run = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "starrail", action }, work);
-// 簽到 門檻 兌換的結果框標題已經寫了失敗 預期外的錯誤只寫原因不明
+// 簽到 門檻 兌換的提示視窗標題已經寫了失敗 預期外的錯誤只寫原因不明
 const runTitled = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "starrail", action, titled: true }, work);
 
 // 連結與簽到逐個角色寫入 失敗時可能只完成一部分 所以在 finally 讓 tag 失效
 // 一律用登入者的 id 呼叫 service 表單送來的帳號 id 只決定操作哪一個
 
 export async function linkAccountAction(_prev: LinkState, formData: FormData): Promise<LinkState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("starrail");
   const cookie = formText(formData, "cookie").trim();
   if (!cookie) return { error: "請貼上 cookie" };
   // cookie 只留在瀏覽器的表單裡 第二步跟勾選的 UID 一起再送一次
@@ -54,7 +54,7 @@ export async function linkAccountAction(_prev: LinkState, formData: FormData): P
 }
 
 export async function checkinAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("starrail");
   const id = formId(formData, "accountId");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   // 預期外的錯誤時不知道改了沒有 當作改了
@@ -72,7 +72,7 @@ export async function checkinAction(_prev: FormState, formData: FormData): Promi
 }
 
 export async function setThresholdAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("starrail");
   const raw = formText(formData, "threshold").trim();
   const threshold = raw === "" ? null : Number(raw);
   if (threshold !== null && (!Number.isInteger(threshold) || threshold < 0 || threshold > 1000)) {
@@ -92,7 +92,7 @@ export async function setThresholdAction(_prev: FormState, formData: FormData): 
 
 /** 打開時 service 會先確認 cookie 有兌換要用的鍵 單一指令 成功後才讓帳號的快取失效 */
 export async function setAutoRedeemAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("starrail");
   const id = formId(formData, "accountId");
   const enabled = formFlag(formData, "enabled");
   if (id === null || enabled === null) return { error: INVALID_FORM_MESSAGE };
@@ -106,7 +106,7 @@ export async function setAutoRedeemAction(_prev: FormState, formData: FormData):
 
 /** 每日實訓 每週內容與終局挑戰的提醒 單一指令 成功後才讓帳號的快取失效 */
 export async function setGameRemindersAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("starrail");
   const id = formId(formData, "accountId");
   const enabled = formFlag(formData, "enabled");
   if (id === null || enabled === null) return { error: INVALID_FORM_MESSAGE };
@@ -119,7 +119,7 @@ export async function setGameRemindersAction(_prev: FormState, formData: FormDat
 
 // 兌換不寫資料庫 cookie 失效標記也不動 所以不用讓快取失效
 export async function redeemCodeAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("starrail");
   const id = formId(formData, "accountId");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return runTitled("兌換", async () => {
@@ -128,7 +128,7 @@ export async function redeemCodeAction(_prev: FormState, formData: FormData): Pr
 }
 
 export async function removeAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("starrail");
   const id = formId(formData, "accountId");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   try {

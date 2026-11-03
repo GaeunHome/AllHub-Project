@@ -12,7 +12,6 @@ import type { ChecklistRow } from "../../overview-view";
 import { editRecurringPath } from "../../paths";
 import { BillForm } from "../accounts/card-bill";
 import { PayCardForm } from "../accounts/pay-card-form";
-import { useOverviewNotice } from "../dashboard/overview-notice";
 import type { AccountOption, CategoryOption, SalaryAccountOption } from "../forms/options";
 import { SalaryForm } from "../forms/salary-dialog";
 import { ConfirmForm } from "../pending/confirm-form";
@@ -56,27 +55,25 @@ export function MonthChecklist({ rows, ...context }: MonthChecklistProps) {
   );
 }
 
-/** 處理完按鈕會不見 成功訊息交給外面的 OverviewNotice */
+/** 處理完按鈕會不見 結果用提示視窗 焦點交給外面的卡片 */
 function ChecklistItemRow({ row, payFromAccounts, salaryAccounts, categories, today }: { row: ChecklistRow } & Omit<MonthChecklistProps, "rows">) {
   const dialog = useDialog();
-  const report = useOverviewNotice();
   const finished = FINISHED.includes(row.state);
   const mark = MARKS[row.state];
   const { entry } = row;
   const label = entry ? ACTION_LABELS[entry.row.action] : null;
-  const done = (message: string | undefined) => {
-    dialog.done();
-    if (message) report(message);
-  };
 
   return (
     <li className="card-row grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 @xl:col-span-4 @xl:grid-cols-subgrid">
       <Icon name={mark.icon} className={`col-start-1 row-span-2 row-start-1 size-5 self-start @xl:self-center ${mark.className}`} />
       <span className={`col-start-2 row-start-1 font-medium break-words ${finished ? "text-ink-soft" : "text-ink"}`}>{row.title}</span>
-      {/* 窄的時候逾期的標籤放在日期這一行 一列才只有兩行 */}
-      <span className="col-start-2 row-start-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-soft">
-        {row.meta}
-        {row.badge && <StatusChip badge={row.badge} className="@xl:hidden" />}
+      {/* 日期與狀態各一欄 每一列才對齊 太窄時上下排 窄的時候逾期的標籤放在狀態這一欄 */}
+      <span className="col-start-2 row-start-2 grid gap-x-3 gap-y-0.5 text-sm text-ink-soft @md:grid-cols-[6.5rem_minmax(0,1fr)]">
+        <span className="tabular-nums">{row.date}</span>
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {row.note}
+          {row.badge && <StatusChip badge={row.badge} className="@xl:hidden" />}
+        </span>
       </span>
       <span className="col-start-3 row-start-1 flex items-center justify-end gap-2 @xl:row-span-2">
         {row.badge && <StatusChip badge={row.badge} className="hidden @xl:inline-flex" />}
@@ -88,9 +85,9 @@ function ChecklistItemRow({ row, payFromAccounts, salaryAccounts, categories, to
             <button {...dialog.triggerProps} aria-label={`${label}：${row.title}`} className="btn-secondary btn-sm">
               {label}
             </button>
-            {entry.rule ? <RuleMenu name={row.title} rule={entry.rule} onSkipped={report} /> : <span aria-hidden className="block size-9 pointer-coarse:size-11" />}
+            {entry.rule ? <RuleMenu name={row.title} rule={entry.rule} /> : <span aria-hidden className="block size-9 pointer-coarse:size-11" />}
             <Dialog {...dialog.dialogProps} title={`${label}：${row.title}`} size={entry.salary ? "lg" : "md"}>
-              <EntryDialog entry={entry} payFromAccounts={payFromAccounts} salaryAccounts={salaryAccounts} categories={categories} today={today} onDone={done} onCancel={dialog.close} />
+              <EntryDialog entry={entry} payFromAccounts={payFromAccounts} salaryAccounts={salaryAccounts} categories={categories} today={today} onDone={dialog.done} onCancel={dialog.close} />
             </Dialog>
           </>
         )}
@@ -108,10 +105,10 @@ function EntryDialog({ entry, payFromAccounts, salaryAccounts, categories, today
 }
 
 /** 修改打開每月固定頁的那一條 */
-function RuleMenu({ name, rule, onSkipped }: { name: string; rule: NonNullable<PendingEntry["rule"]>; onSkipped: (message: string) => void }) {
+function RuleMenu({ name, rule }: { name: string; rule: NonNullable<PendingEntry["rule"]> }) {
   return (
     <MoreMenu label={`「${name}」的選項`}>
-      <SkipButton name={name} ruleId={rule.ruleId} period={rule.period} onSkipped={onSkipped} inMenu />
+      <SkipButton name={name} ruleId={rule.ruleId} period={rule.period} inMenu />
       <Link href={editRecurringPath(rule.ruleId)} className="menu-item">
         <Icon name="pencil" className="size-4" />
         修改

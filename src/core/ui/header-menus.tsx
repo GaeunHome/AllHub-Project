@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { createContext, Suspense, use, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { closeMenu, toggleMenu } from "./menu-state";
+import { useOutsidePress } from "./outside-press";
 
 export type HeaderMenuId = "notifications" | "account";
 
@@ -73,22 +74,16 @@ export function useHeaderMenuRoot(id: HeaderMenuId) {
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
+  useOutsidePress(expanded, rootRef, close);
   useEffect(() => {
     if (!expanded) return;
-    const closeOutside = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) close();
-    };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       close();
       buttonRef.current?.focus();
     };
-    document.addEventListener("pointerdown", closeOutside);
     document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
+    return () => document.removeEventListener("keydown", closeOnEscape);
   }, [expanded, close]);
 
   return { expanded, toggle, close, rootRef, buttonRef };

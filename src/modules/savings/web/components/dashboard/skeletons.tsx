@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
-import { OVERVIEW_COLUMNS, OVERVIEW_LEFT, OVERVIEW_RIGHT, OVERVIEW_TOP } from "./layout";
+import { BIG_FIGURE, BIG_FIGURE_FACTS, OVERVIEW_COLUMNS, OVERVIEW_LEFT, OVERVIEW_RIGHT, OVERVIEW_TOP } from "./layout";
 
 // 骨架跟內容用同一份排版常數 串流進來時才不會跳
 // 整頁骨架拼起來時只有最外層報載入中 live region 不巢狀
@@ -25,12 +25,28 @@ const Header = () => (
   </div>
 );
 
+/** 跟 FactList 一樣高 每個寬度一列 */
+export function FactsSkeleton({ widths, className = "" }: { widths: string[]; className?: string }) {
+  return (
+    <div className={`flex flex-col divide-y divide-line ${className}`.trim()}>
+      {widths.map((width, i) => (
+        <div key={i} className="flex min-h-11 items-center justify-between gap-4 py-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className={`h-5 ${width}`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function HeroSkeleton({ label = "載入總資產…" }: SkeletonProps) {
   return (
-    <Frame label={label} className="fin-hero card flex min-w-0 flex-col justify-center gap-2">
-      <Skeleton className="h-5 w-14" />
-      <Skeleton className="h-10 w-56 max-w-full sm:h-12" />
-      <Skeleton className="h-5 w-80 max-w-full" />
+    <Frame label={label} className={`fin-hero card ${BIG_FIGURE}`}>
+      <div className="flex min-w-0 flex-col gap-2">
+        <Skeleton className="h-5 w-14" />
+        <Skeleton className="h-10 w-56 max-w-full sm:h-12" />
+      </div>
+      <FactsSkeleton widths={["w-24", "w-24", "w-20"]} className={BIG_FIGURE_FACTS} />
     </Frame>
   );
 }
@@ -72,7 +88,7 @@ export function MonthSkeleton({ label = "載入本月收支…" }: SkeletonProps
   return (
     <Frame label={label} className="card stack min-w-0">
       <Header />
-      <Skeleton className="h-5 w-72 max-w-full" />
+      <FactsSkeleton widths={["w-24", "w-20", "w-20"]} />
       <div className="card-list">
         {[0, 1, 2].map((i) => (
           <div key={i} className="card-row flex items-center gap-3">

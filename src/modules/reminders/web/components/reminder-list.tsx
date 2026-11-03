@@ -4,7 +4,6 @@ import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
 import { Dialog, useDialog } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
-import { useResultReport } from "@/core/ui/result-slot";
 import { StatusChip } from "@/core/ui/status-chip";
 import { deleteReminderAction } from "../actions";
 import type { DateLimits, ReminderRowView, RemindersView } from "../reminders-view";
@@ -38,15 +37,12 @@ function ReminderRows({ rows, today, latest, className = "" }: DateLimits & { ro
   );
 }
 
-/** 右邊的內距交給 ⋮ 圖示才跟卡片內容的右緣對齊 視窗放在選單外面才不會跟著收起 */
+/**
+ * 右邊的內距交給 ⋮ 圖示才跟卡片內容的右緣對齊 視窗放在選單外面才不會跟著收起
+ * 改了日期可能搬到收起來的清單 這一列連 ⋮ 一起換掉 焦點交給首頁卡片
+ */
 function ReminderRow({ row, today, latest }: DateLimits & { row: ReminderRowView }) {
   const edit = useDialog();
-  const report = useResultReport();
-  const done = (message: string | undefined) => {
-    edit.done();
-    // 改了日期可能搬到收起來的清單 這一列連 ⋮ 一起換掉 訊息與焦點都放外框
-    report(message, true);
-  };
 
   return (
     <li className="card-row flex min-h-14 items-center gap-3 pr-3 sm:pr-4">
@@ -60,14 +56,7 @@ function ReminderRow({ row, today, latest }: DateLimits & { row: ReminderRowView
       </div>
       {row.isToday ? <StatusChip badge={{ label: row.countdown, tone: "warning" }} className="shrink-0" /> : <span className="shrink-0 font-medium text-ink tabular-nums">{row.countdown}</span>}
       <MoreMenu label={`「${row.title}」的選項`}>
-        <button
-          {...edit.triggerProps}
-          onClick={() => {
-            report(undefined);
-            edit.triggerProps.onClick();
-          }}
-          className="menu-item"
-        >
+        <button {...edit.triggerProps} className="menu-item">
           <Icon name="pencil" className="size-4" />
           修改
         </button>
@@ -77,12 +66,10 @@ function ReminderRow({ row, today, latest }: DateLimits & { row: ReminderRowView
           confirmMessage={`確定刪除「${row.title}」？`}
           label="刪除"
           deletedMessage={`已刪除「${row.title}」`}
-          // 這一列會跟選單一起消失 訊息與焦點放外框
-          onDeleted={(message) => report(message, true)}
         />
       </MoreMenu>
       <Dialog {...edit.dialogProps} title={`修改「${row.title}」`} size="sm">
-        <ReminderForm item={row} today={today} latest={latest} onDone={done} onCancel={edit.close} />
+        <ReminderForm item={row} today={today} latest={latest} onDone={edit.done} onCancel={edit.close} />
       </Dialog>
     </li>
   );

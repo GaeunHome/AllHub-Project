@@ -290,6 +290,10 @@
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
+  /* main 只是按鈕不見時焦點的備援位置 不在整頁外面畫框 */
+  [data-app-shell]:focus-visible {
+    outline: none;
+  }
 
   code {
     border-radius: 0.375em;
@@ -545,6 +549,20 @@
     border-color: var(--focus);
     box-shadow: 0 0 0 3px var(--ring);
   }
+  /* 下拉選單自己畫箭頭 離右邊框跟文字離左邊框一樣遠 右邊內距讓開它 */
+  /* 用字色的變數畫 淺色深色與主題頁都跟著換 */
+  select.input {
+    appearance: none;
+    padding-right: 2rem;
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position:
+      right 1.1875rem center,
+      right 0.875rem center;
+    background-size: 0.3125rem 0.3125rem;
+    background-repeat: no-repeat;
+  }
   .input[type="file"] {
     @apply py-1.5 pl-1.5;
     cursor: pointer;
@@ -639,7 +657,7 @@
   .form-message > .icon {
     @apply mt-0.5 size-4;
   }
-  /* 跟按鈕排在同一列的訊息 例如 DialogMessage 要跟按鈕垂直置中 */
+  /* 跟按鈕排在同一列的錯誤 例如儲存鈕旁邊的 要跟按鈕垂直置中 */
   .button-row > .form-message {
     align-self: center;
   }
@@ -651,42 +669,6 @@
     color: var(--success);
     background-color: var(--success-soft);
   }
-  /* ResultBanner 是點了要一眼看到的結果 圖示與標題用狀態色 說明維持深色字 */
-  .result-banner {
-    @apply flex items-start gap-3 rounded-xl p-4;
-    border: 1px solid var(--line);
-  }
-  .result-banner > .icon {
-    @apply size-6 shrink-0;
-  }
-  .result-banner-title {
-    @apply text-base font-semibold;
-  }
-  .result-banner-success {
-    border-color: var(--success-line);
-    background-color: var(--success-soft);
-  }
-  .result-banner-success > .icon,
-  .result-banner-success .result-banner-title {
-    color: var(--success);
-  }
-  .result-banner-error {
-    border-color: var(--danger-line);
-    background-color: var(--danger-soft);
-  }
-  .result-banner-error > .icon,
-  .result-banner-error .result-banner-title {
-    color: var(--danger);
-  }
-  .result-banner-warning {
-    border-color: var(--warning-line);
-    background-color: var(--warning-soft);
-  }
-  .result-banner-warning > .icon,
-  .result-banner-warning .result-banner-title {
-    color: var(--warning);
-  }
-
   .choice-card {
     @apply flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium;
     border: 1px solid var(--line-strong);
@@ -1024,6 +1006,50 @@
     background-color: var(--surface-muted);
   }
 
+  /* 全站的提示視窗 core/ui/toast.tsx 外層是 popover 放在 top layer 蓋得過彈出視窗 */
+  /* 在導覽列下方置中 不擋頁首的按鈕 也不跟右下角的通知卡片疊在一起 手機左右留 16px */
+  .toast-layer {
+    @apply flex flex-col gap-2;
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 4.75rem);
+    right: 1rem;
+    bottom: auto;
+    left: 1rem;
+    width: auto;
+    max-width: 26rem;
+    height: auto;
+    margin: 0 auto;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    color: var(--ink);
+    background: transparent;
+    pointer-events: none;
+    /* 不支援 popover 的瀏覽器照樣在頁面上層 */
+    z-index: 80;
+  }
+  .toast-list {
+    @apply flex flex-col gap-2;
+  }
+  .toast-card {
+    @apply pointer-events-auto flex items-start gap-3 rounded-xl py-3 pr-2 pl-4;
+    border: 1px solid var(--line);
+    background-color: var(--surface-solid);
+    box-shadow: var(--elevation-lift);
+  }
+  .toast-card > .icon {
+    @apply mt-0.5;
+  }
+  .toast-card-success > .icon {
+    color: var(--success);
+  }
+  .toast-card-warning > .icon {
+    color: var(--warning);
+  }
+  .toast-card-error > .icon {
+    color: var(--danger);
+  }
+
   .switch {
     @apply relative inline-flex h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full;
     border: 1px solid var(--line-strong);
@@ -1281,6 +1307,9 @@
     .toast {
       animation: toast-in 240ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
     }
+    .toast-card-entering {
+      animation: toast-drop 200ms ease-out;
+    }
     .bell-ringing {
       transform-origin: 50% 8%;
       animation: bell-ring 900ms ease-in-out;
@@ -1323,6 +1352,13 @@
   from {
     opacity: 0;
     transform: translateY(0.75rem) scale(0.97);
+  }
+}
+
+@keyframes toast-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
   }
 }
 

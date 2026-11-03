@@ -3,7 +3,7 @@ import { and, eq, gte, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { expireTags } from "@/core/cache";
 import { db } from "@/core/db";
 import { logError } from "@/core/errors";
-import { DAY_MS, HOUR_MS } from "@/core/time";
+import { HOUR_MS } from "@/core/time";
 import { hasChineseCaptions, listCaptionTracks } from "../lib/subtitles/captions";
 import { youtubeVideos, type ZhCaptionStatus } from "../data/schema";
 import { youtubeTags } from "./cache-tags";
@@ -16,10 +16,10 @@ import { followedVideo, listedVideoIds, newestFirst } from "./video-list";
 const RECHECK_WINDOW_MS = 48 * HOUR_MS;
 const RECHECK_INTERVAL_MS = HOUR_MS;
 /**
- * 檢查過但讀不到的多半是被擋 不論發布多久隔一天再試
- * 不會永遠停在字幕未確認 也不會一直打 YouTube
+ * 檢查過但讀不到的多半是被擋 不論發布多久隔 6 小時再試
+ * 很快就換成真正的結果 也不會一直打 YouTube
  */
-const UNKNOWN_RETRY_MS = DAY_MS;
+const UNKNOWN_RETRY_MS = 6 * HOUR_MS;
 // 一次發太多請求會被 YouTube 擋 所以每次有上限
 export const RECHECK_BATCH = 5;
 /**
@@ -34,6 +34,8 @@ const longestUncheckedFirst = [sql`${youtubeVideos.zhCaptionsCheckedAt} asc null
  */
 export async function checkChineseCaptions(videoId: string, now = new Date()): Promise<ZhCaptionStatus | null> {
   const result = await listCaptionTracks(videoId);
+  // 正式環境被擋的情況本機量不到 留原因代碼才查得到
+  if (!result.ok) console.warn(`[youtube] 讀不到字幕清單：${result.reason}`);
   // 這次抓不到多半是被擋 不代表字幕變了 保留之前的結果 只更新檢查時間
   const values = result.ok ? { zhCaptions: hasChineseCaptions(result.tracks) ? ("yes" as const) : ("no" as const), zhCaptionsCheckedAt: now } : { zhCaptionsCheckedAt: now };
   const [row] = await db().update(youtubeVideos).set(values).where(eq(youtubeVideos.videoId, videoId)).returning({ zhCaptions: youtubeVideos.zhCaptions });

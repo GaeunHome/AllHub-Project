@@ -1,6 +1,6 @@
 "use server";
 
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { updateTags } from "@/core/cache";
 import { formId, formText, runAction } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
@@ -18,7 +18,7 @@ function itemIdOf(formData: FormData): number {
 }
 
 export async function createReminderAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("reminders");
   return runAction({ module: "reminders", action: "新增提醒" }, async () => {
     const { title } = await createItem(userId, fieldsOf(formData));
     updateTags(remindersTags.items);
@@ -27,7 +27,7 @@ export async function createReminderAction(_prev: FormState, formData: FormData)
 }
 
 export async function updateReminderAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("reminders");
   return runAction({ module: "reminders", action: "修改提醒" }, async () => {
     const { title } = await updateItem(userId, itemIdOf(formData), fieldsOf(formData));
     updateTags(remindersTags.items);
@@ -36,7 +36,7 @@ export async function updateReminderAction(_prev: FormState, formData: FormData)
 }
 
 export async function deleteReminderAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("reminders");
   return runAction({ module: "reminders", action: "刪除提醒" }, async () => {
     const { title } = await deleteItem(userId, itemIdOf(formData));
     updateTags(remindersTags.items);

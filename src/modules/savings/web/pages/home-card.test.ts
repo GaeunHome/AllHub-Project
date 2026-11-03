@@ -77,7 +77,7 @@ describe("首頁的理財卡片", () => {
     for (const fn of [cached.cachedAccounts, cached.cachedAccountFlows, cached.cachedCategoryTotals, cached.cachedRecurring, cached.cachedHoldings, cached.cachedCardBills, loadChecklist]) expect(fn.mock.calls[0][0]).toBe(OTHER_SESSION.id);
   });
 
-  it("總資產（跟總覽同一個算法）、本月支出（上個月的不算）、這個月還有幾件要做與最近一件的名稱和日期", async () => {
+  it("總資產（跟總覽同一個算法）、本月支出（上個月的不算）、這個月還有幾件要做、下一件的名稱和日期，各一列", async () => {
     // 照 loadChecklist 排好的順序
     await checklistWith([
       item({ key: "recurring:2:2026-10", title: "Netflix", date: "2026-10-02", state: "auto-done", doneOn: "2026-10-02" }),
@@ -89,7 +89,8 @@ describe("首頁的理財卡片", () => {
     expect(rowsOf(await html())).toEqual([
       ["總資產", "$156,500"],
       ["本月支出", "$12,000"],
-      ["這個月", "還有 2 件要做 · 國泰卡 10/5"],
+      ["這個月", "還有 2 件要做"],
+      ["下一件", "國泰卡 10/5"],
     ]);
   });
 
@@ -99,13 +100,16 @@ describe("首頁的理財卡片", () => {
       item({ key: "card:4:2026-10-05", title: "國泰卡", kind: "card", date: "2026-10-05", state: "todo", cardStage: "needs-bill" }),
     ]);
 
-    expect(rowsOf(await html())[2]).toEqual(["這個月", "還有 2 件要做 · 電費 9/20逾期 25 天"]);
+    expect(rowsOf(await html()).slice(2)).toEqual([
+      ["這個月", "還有 2 件要做"],
+      ["下一件", "電費 9/20逾期 25 天"],
+    ]);
   });
 
   it("都做完了_寫沒有要做的事", async () => {
     await checklistWith([item({ key: "recurring:2:2026-10", title: "Netflix", date: "2026-10-02", state: "auto-done", doneOn: "2026-10-02" })]);
 
-    expect(rowsOf(await html())[2]).toEqual(["這個月", "沒有要做的事"]);
+    expect(rowsOf(await html()).slice(2)).toEqual([["這個月", "沒有要做的事"]]);
   });
 
   it("還沒有帳戶_顯示開始設定的入口（到理財頁）", async () => {

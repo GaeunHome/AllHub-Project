@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
+import { Fact, FactList } from "@/core/ui/fact-list";
 import { FormFeedback } from "@/core/ui/form-message";
 import { formatSlashDate, type DateKey } from "../../../lib/dates";
 import { buyHoldingAction, createHoldingAction, sellHoldingAction, updateHoldingAction } from "../../actions";
@@ -107,10 +108,10 @@ export function BuySellForm({ side, holding, accounts, today, minDate, onDone, o
   return (
     <form {...formProps} className="stack">
       <input type="hidden" name="holdingId" value={holding.id} />
-      <p className="text-ink-soft">
-        目前 {formatShares(holding.shares)}
-        {holding.closeCents !== null && holding.quoteDate !== null && ` · ${formatSlashDate(holding.quoteDate)} 收盤 ${priceText(holding.closeCents)}`}
-      </p>
+      <FactList>
+        <Fact label="目前持股">{formatShares(holding.shares)}</Fact>
+        {holding.closeCents !== null && holding.quoteDate !== null && <Fact label={`${formatSlashDate(holding.quoteDate)} 收盤`}>{priceText(holding.closeCents)}</Fact>}
+      </FactList>
       <div className="grid gap-4 sm:grid-cols-2">
         <SharesField label={buy ? "買進股數" : "賣出股數"} autoFocus />
         <AmountField name="amount" label={buy ? "實際扣款（含手續費）" : "實際入帳"} required />

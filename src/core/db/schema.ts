@@ -19,6 +19,8 @@ export const coreUsers = pgTable(
     // 用 UUID 不用流水號 資料庫重建後新帳號才不會撞到舊 cookie 裡的 id
     id: uuid("id").primaryKey().defaultRandom(),
     username: text("username").notNull().unique(),
+    /** 顯示用的名字 沒填就顯示帳號名稱 登入一律用帳號名稱 */
+    nickname: text("nickname"),
     /** scrypt$N$r$p$salt$hash 參數記在字串裡 之後調整參數舊雜湊仍能驗證 */
     passwordHash: text("password_hash").notNull(),
     /** 改密碼時遞增 cookie 帶的版本不符就失效 其他裝置因此登出 */
@@ -39,6 +41,22 @@ export const coreUsers = pgTable(
     check("core_users_role_valid", sql`${t.role} in ('owner', 'member')`),
     check("core_users_failed_logins_non_negative", sql`${t.failedLogins} >= 0`),
   ],
+).enableRLS();
+
+/**
+ * 只記不能用的 預設全部能用 之後新增的模組自動開放
+ * module_id 不設外鍵 模組清單在程式裡 沒有資料表
+ */
+export const coreModuleDenials = pgTable(
+  "core_module_denials",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    moduleId: text("module_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.moduleId] })],
 ).enableRLS();
 
 /** 只存邀請碼的 sha256 原文只在建立時顯示一次 資料庫外洩也拿不到可用的連結 */

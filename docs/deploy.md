@@ -115,7 +115,12 @@ npm run account create
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
 - **之後可以收斂的欄位**：只在一張卡還沒有帳單時當截止日預設的 `savings_accounts.due_day`（程式只讀不寫）。不用它之後照舊分兩版刪：先從 schema 拿掉（程式不再讀寫，migration 手動去掉 DROP），再下一版才真的刪（刪除要在 `migrations.integration.test.ts` 明列允許）。
-- **從 v0.1.8 升級**：一般的升級，新增兩張表與一個欄位，推送前不用另外設定。
+- **從 v0.1.9 升級**：一般的升級，新增一張表與一個欄位，推送前不用另外設定。
+  - **db-migrate 套用 `0001_module_access`**（上一版的 `0001_dividends_reminders` 已經併進基準檔），一開始設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次：新增 `core_module_denials`（模組權限，只記不能用的）與 `core_users.nickname`（暱稱，可以是空的），不刪也不改舊欄位。
+  - 部署比 migration 先完成時：登入檢查照常（暱稱欄位還不存在時當成沒有），但管理頁的模組權限、改暱稱與成員每次讀權限都要用新的表，那一兩分鐘會出錯，migration 跑完就恢復。所以這一版一定要確認 db-migrate 成功（上一版曾經因為 `npm ci` 失敗而沒跑）。
+  - 沒有新的排程與環境變數。
+  - 要退回 v0.1.9 時可以用 Instant Rollback：舊程式不認得新的表與欄位，留著不影響。
+- **從 v0.1.8 升級到 v0.1.9**：一般的升級，新增兩張表與一個欄位，推送前不用另外設定。
   - **db-migrate 套用 `0001_dividends_reminders`**（上一版的 `0001_weather_cleanup` 已經併進基準檔），一開始設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次：
     - 新增 `savings_dividend_notices`（除權息通知寄過哪些：一個人一檔一個除息日一列，過了除息日就刪）。
     - 新增 `reminders_items`（提醒與倒數，日期過了由排程刪掉）。

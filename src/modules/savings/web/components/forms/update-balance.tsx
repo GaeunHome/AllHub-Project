@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogMessage, useDialog, useDialogForm } from "@/core/ui/dialog";
+import { Dialog, useDialog, useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { formatTwd } from "../../../lib/money";
 import { updateBalanceAction } from "../../actions";
 import { balanceHint } from "../../form-math";
-import { AmountField, FormButtons, ROW_MESSAGE_CLASS } from "./fields";
+import { AmountField, FormButtons } from "./fields";
 
 /** 信用卡照帳單繳 有持股的投資帳戶照股價算 都不能更新餘額 */
 export type BalanceAccount = { id: number; name: string; kind: "deposit" | "investment"; balance: number };
@@ -27,7 +27,6 @@ export function UpdateBalanceButton({ account }: UpdateBalanceButtonProps) {
         <Icon name="scale" className="size-4" />
         {label}
       </button>
-      <DialogMessage {...dialog.messageProps} className={ROW_MESSAGE_CLASS} />
       <Dialog {...dialog.dialogProps} title={`更新「${account.name}」`} size="sm">
         <UpdateBalanceForm account={account} onDone={dialog.done} onCancel={dialog.close} />
       </Dialog>

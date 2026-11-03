@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fakeFetch as recordFetch } from "@/dev/fake-fetch";
+import { byUrl, fakeFetch as recordFetch } from "@/dev/fake-fetch";
 import { hasChineseCaptions, listCaptionTracks, type CaptionTrackInfo } from "./captions";
 
 const VIDEO = "dQw4w9WgXcQ";
@@ -57,6 +57,12 @@ describe("listCaptionTracks", () => {
     expect(await listCaptionTracks(VIDEO, { fetchImpl: impl })).toMatchObject({ ok: false, reason: "blocked" });
   });
 
+  it("YouTube 的提示是韓文（送 Accept-Language: ko-KR）_一樣認得出要求驗證 → blocked", async () => {
+    const page = watchPage({ playabilityStatus: { status: "LOGIN_REQUIRED", reason: "봇이 아님을 확인하려면 로그인하세요" } });
+
+    expect(await listCaptionTracks(VIDEO, { fetchImpl: fakeFetch(html(page)).impl })).toMatchObject({ ok: false, reason: "blocked" });
+  });
+
   it("HTTP 429 → blocked；影片頁面讀取失敗 → unavailable", async () => {
     expect(await listCaptionTracks(VIDEO, { fetchImpl: fakeFetch(html("Too Many Requests", 429)).impl })).toMatchObject({ ok: false, reason: "blocked" });
     expect(await listCaptionTracks(VIDEO, { fetchImpl: fakeFetch(html("oops", 500)).impl })).toMatchObject({ ok: false, reason: "unavailable" });
@@ -84,6 +90,95 @@ describe("listCaptionTracks", () => {
     await listCaptionTracks(VIDEO, { fetchImpl: impl });
 
     expect(calls[0]).toBe(`http://127.0.0.1:4010/watch?v=${VIDEO}`);
+  });
+});
+
+describe("listCaptionTracks：觀看頁讀不到時改問第二個來源（InnerTube 的 ANDROID 用戶端）", () => {
+  const BOT_CHECK = { playabilityStatus: { status: "LOGIN_REQUIRED", reason: "Sign in to confirm you're not a bot" } };
+  const json = (body: unknown) => () => Response.json(body);
+  const refused = () => {
+    throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+  };
+  const sources = (watch: () => Response, player: () => Response) =>
+    recordFetch(
+      byUrl([
+        [/\/watch\?v=/, watch],
+        [/\/youtubei\/v1\/player/, player],
+      ]),
+    );
+  const WITH_CHINESE = playable([track("ko"), track("zh-TW")]);
+  const LISTED = { ok: true, tracks: [info("ko"), info("zh-TW")] };
+
+  it.each([
+    ["要求驗證不是機器人", html(watchPage(BOT_CHECK))],
+    ["HTTP 429", html("Too Many Requests", 429)],
+    ["被導到同意頁、沒有播放資訊", html('<form action="https://consent.youtube.com/save">')],
+    ["讀取失敗（HTTP 500）", html("oops", 500)],
+    ["連線逾時", refused],
+  ])("觀看頁%s_第二個來源讀得到字幕清單就算成功", async (_name, watch) => {
+    const { impl } = sources(watch, json(WITH_CHINESE));
+
+    expect(await listCaptionTracks(VIDEO, { fetchImpl: impl })).toEqual(LISTED);
+  });
+
+  it("第二個來源用 POST 問 youtubei/v1/player，帶影片 id 與 ANDROID 用戶端；不帶 cookie，網址也沒有金鑰", async () => {
+    const { impl, calls } = sources(html(watchPage(BOT_CHECK)), json(WITH_CHINESE));
+
+    await listCaptionTracks(VIDEO, { fetchImpl: impl });
+
+    expect(calls).toHaveLength(2);
+    expect(calls[1].url).toBe("https://www.youtube.com/youtubei/v1/player?prettyPrint=false");
+    expect(calls[1].init.method).toBe("POST");
+    expect(calls[1].body).toMatchObject({ videoId: VIDEO, context: { client: { clientName: "ANDROID" } } });
+    expect(new Headers(calls[1].init.headers).get("cookie")).toBeNull();
+  });
+
+  it("觀看頁讀得到_不問第二個來源", async () => {
+    const { impl, calls } = sources(html(watchPage(WITH_CHINESE)), json(playable(null)));
+
+    expect(await listCaptionTracks(VIDEO, { fetchImpl: impl })).toEqual(LISTED);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("觀看頁讀得到、影片沒有任何字幕_是空清單，不問第二個來源", async () => {
+    const { impl, calls } = sources(html(watchPage(playable(null))), json(WITH_CHINESE));
+
+    expect(await listCaptionTracks(VIDEO, { fetchImpl: impl })).toEqual({ ok: true, tracks: [] });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("第二個來源回影片沒有任何字幕_是空清單（不是失敗）", async () => {
+    const { impl } = sources(html(watchPage(BOT_CHECK)), json(playable(null)));
+
+    expect(await listCaptionTracks(VIDEO, { fetchImpl: impl })).toEqual({ ok: true, tracks: [] });
+  });
+
+  it.each([
+    ["也要求驗證", json(BOT_CHECK)],
+    ["HTTP 429", html("Too Many Requests", 429)],
+    ["回的不是 JSON", html("<html>blocked</html>")],
+    ["回的 JSON 不是播放資訊（當成沒有字幕的話會誤判成沒有中文）", json({ error: { code: 400 } })],
+    ["連線逾時", refused],
+  ])("兩個都讀不到（第二個來源%s）→ 失敗，原因照觀看頁的", async (_name, player) => {
+    const { impl } = sources(html(watchPage(BOT_CHECK)), player);
+
+    expect(await listCaptionTracks(VIDEO, { fetchImpl: impl })).toMatchObject({ ok: false, reason: "blocked" });
+  });
+
+  it("影片 ID 格式錯誤_兩個來源都不問", async () => {
+    const { impl, calls } = sources(html(""), json(WITH_CHINESE));
+
+    expect(await listCaptionTracks("bad id!", { fetchImpl: impl })).toMatchObject({ ok: false, reason: "error" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("第二個來源的請求也經過 externalUrl（開發時導向假伺服器，不會打到真的 YouTube）", async () => {
+    vi.stubEnv("DEV_EXTERNAL_ORIGIN", "http://127.0.0.1:4010");
+    const { impl, calls } = sources(html(watchPage(BOT_CHECK)), json(WITH_CHINESE));
+
+    await listCaptionTracks(VIDEO, { fetchImpl: impl });
+
+    expect(calls[1].url).toBe("http://127.0.0.1:4010/youtubei/v1/player?prettyPrint=false");
   });
 });
 

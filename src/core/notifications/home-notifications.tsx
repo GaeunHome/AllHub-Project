@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import { EmptyState } from "../ui/empty-state";
 import { LoadingState, Skeleton } from "../ui/skeleton";
 import { useNotificationCenter } from "./center";
@@ -12,9 +13,13 @@ import { unreadDigest } from "./unread";
 /** 跟鈴鐺用同一份輪詢資料 在哪邊標已讀兩邊都一起更新 不必另外向伺服器要 */
 export function HomeNotifications() {
   const { feed, loaded, modules, open } = useNotificationCenter();
+  const hydrated = useSyncExternalStore(noSubscribe, () => true, () => false);
   const { items, more } = unreadDigest(feed);
-  return <UnreadDigestList loaded={loaded} items={items} more={more} modules={modules} onOpen={open} />;
+  // 卡片串流進來時輪詢可能已經讀好 接手的第一次照伺服器畫載入中 不然 hydration 對不上
+  return <UnreadDigestList loaded={hydrated && loaded} items={items} more={more} modules={modules} onOpen={open} />;
 }
+
+const noSubscribe = () => () => {};
 
 type UnreadDigestListProps = {
   loaded: boolean;

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { HomeCard } from "@/core/ui/home-card";
 import type { StarrailAccountView } from "../../service/accounts";
@@ -18,7 +18,7 @@ export function StarrailHomeCard({ info }: { info: ModuleInfo }) {
 
 /** 自己的帳號一個一列 每列各自用 Suspense 向 HoYoLAB 查 慢的不會擋住其他帳號 */
 export async function StarrailNotes() {
-  const user = await requireSession();
+  const user = await requireModule("starrail");
   const accounts = await cachedAccounts(user.id);
   if (accounts.length === 0) return <NoLinkedAccount />;
 
@@ -37,7 +37,7 @@ export async function StarrailNotes() {
 
 /** 跟星穹鐵道頁讀同一份快取 5 分鐘的即時便箋 */
 export async function AccountNote({ account }: { account: StarrailAccountView }) {
-  const user = await requireSession();
+  const user = await requireModule("starrail");
   const result = await cachedDailyNote(user.id, account.id);
   syncCookieFlagAfter(user.id, account, result.cookieInvalid);
   return <AccountNoteRow account={account} result={result} now={new Date()} />;

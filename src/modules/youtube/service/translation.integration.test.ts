@@ -180,7 +180,7 @@ describe("continueTranslation", () => {
     expect(row.translated[0]).toBe("中 문장 0");
     expect(row.translated[125]).toBeNull();
     expect(row.provider).toBe("anthropic");
-    expect(row.model).toBe("claude-haiku-4-5");
+    expect(row.model).toBe("claude-haiku-5-5");
   });
 
   it("全部翻完_狀態 done_回傳完整譯文", async () => {
@@ -192,7 +192,7 @@ describe("continueTranslation", () => {
   it("把金鑰、模型、專有名詞與前後各 3 句傳給翻譯", async () => {
     await continueTranslation(VIDEO, { now });
     const second = translateBatch.mock.calls[1][0];
-    expect(second.ai).toEqual({ provider: "anthropic", apiKey: "sk-ant-secret-1234", model: "claude-haiku-4-5" });
+    expect(second.ai).toEqual({ provider: "anthropic", apiKey: "sk-ant-secret-1234", model: "claude-haiku-5-5" });
     expect(second.glossary).toEqual([{ source: "지수", target: "Jisoo" }]);
     expect(second.batch).toEqual({ start: 30, end: 60 });
     expect(second.context).toEqual({ before: ["문장 27", "문장 28", "문장 29"], after: ["문장 60", "문장 61", "문장 62"] });
@@ -496,7 +496,7 @@ describe("翻譯共用：同一支影片所有人看同一份", () => {
     await translation.continueTranslation(other, VIDEO, { now });
 
     const [args] = translateBatch.mock.calls[0];
-    expect(args.ai).toEqual({ provider: "openai", apiKey: "sk-openai-other-4321", model: "gpt-4.1-mini" });
+    expect(args.ai).toEqual({ provider: "openai", apiKey: "sk-openai-other-4321", model: "gpt-6-luna" });
     expect(args.glossary).toEqual([{ source: "지수", target: "Jisoo" }]);
   });
 

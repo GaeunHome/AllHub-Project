@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
+import { Dialog, useDialog } from "@/core/ui/dialog";
 import { MoreMenu } from "@/core/ui/more-menu";
 import type { DateKey } from "../../../lib/dates";
 import { formatTwd } from "../../../lib/money";
@@ -20,17 +20,15 @@ type HoldingsProps = {
   today: DateKey;
   /** 投資帳戶開始記帳的那天 買賣的日期不能更早 */
   minDate: DateKey;
-  /** 刪掉最後一檔時整個清單會不見 訊息交給外面 */
-  onDeleted: (message: string) => void;
 };
 
-// 夠寬時排成有欄位名稱的表格 每一欄的數字對齊 窄的時候名稱與數字兩行 按鈕在下面靠右
+// 夠寬時排成有欄位名稱的表格 每一欄的數字對齊 窄的時候左邊名稱與股價 右邊市值與損益 按鈕在下面靠右
 const TABLE = "@4xl:grid @4xl:grid-cols-[auto_minmax(0,1fr)_repeat(5,auto)_auto_auto] @4xl:gap-x-4";
 const ROW = "@4xl:col-span-full @4xl:grid-cols-subgrid @4xl:gap-x-4";
 const NUMBER_HEADERS = ["股數", "均價", "收盤", "市值", "損益"];
 
 /** 每檔的股數 均價 市值與損益 買進賣出在列上 修改與刪除收在 ⋮ */
-export function Holdings({ holdings, accounts, today, minDate, onDeleted }: HoldingsProps) {
+export function Holdings({ holdings, accounts, today, minDate }: HoldingsProps) {
   const headingId = useId();
   return (
     <section aria-labelledby={headingId} className="stack @container">
@@ -51,7 +49,7 @@ export function Holdings({ holdings, accounts, today, minDate, onDeleted }: Hold
           <span />
         </li>
         {holdings.map((holding) => (
-          <HoldingRow key={holding.id} holding={holding} accounts={accounts} today={today} minDate={minDate} onDeleted={onDeleted} />
+          <HoldingRow key={holding.id} holding={holding} accounts={accounts} today={today} minDate={minDate} />
         ))}
       </ul>
     </section>
@@ -61,7 +59,7 @@ export function Holdings({ holdings, accounts, today, minDate, onDeleted }: Hold
 type HoldingRowProps = Omit<HoldingsProps, "holdings"> & { holding: HoldingView };
 
 /** 視窗放在選單外面 選單收起時才不會一起卸載 */
-function HoldingRow({ holding, accounts, today, minDate, onDeleted }: HoldingRowProps) {
+function HoldingRow({ holding, accounts, today, minDate }: HoldingRowProps) {
   const buy = useDialog();
   const sell = useDialog();
   const edit = useDialog();
@@ -79,17 +77,11 @@ function HoldingRow({ holding, accounts, today, minDate, onDeleted }: HoldingRow
         </span>
         <span className="min-w-0 truncate font-medium text-ink @4xl:col-start-2 @4xl:row-start-1 @4xl:whitespace-normal">{holding.name}</span>
       </span>
-      <span className="col-start-1 row-start-2 text-sm text-ink-soft @4xl:contents @4xl:text-base @4xl:text-ink">
+      <span className="col-start-1 row-start-2 flex flex-col text-sm text-ink-soft @4xl:contents @4xl:text-base @4xl:text-ink">
         <span className="tabular-nums @4xl:col-start-3 @4xl:row-start-1 @4xl:text-right">{formatShares(holding.shares)}</span>
-        <span aria-hidden="true" className="@4xl:hidden">
-          {" · "}
-        </span>
         <span className="tabular-nums @4xl:col-start-4 @4xl:row-start-1 @4xl:text-right">
           <span className="@4xl:sr-only">均價 </span>
           {average ?? "—"}
-        </span>
-        <span aria-hidden="true" className="@4xl:hidden">
-          {" · "}
         </span>
         <span className="tabular-nums @4xl:col-start-5 @4xl:row-start-1 @4xl:text-right">
           {close ? (
@@ -106,7 +98,7 @@ function HoldingRow({ holding, accounts, today, minDate, onDeleted }: HoldingRow
         <span className="sr-only">市值 </span>
         {formatTwd(holding.value)}
       </span>
-      <span className="col-start-2 row-start-2 text-right text-sm text-ink tabular-nums @4xl:col-start-7 @4xl:row-start-1 @4xl:text-base">
+      <span className="col-start-2 row-start-2 self-start text-right text-sm text-ink tabular-nums @4xl:col-start-7 @4xl:row-start-1 @4xl:self-center @4xl:text-base">
         {holding.priced && (
           <>
             <span className="sr-only">損益 </span>
@@ -144,14 +136,10 @@ function HoldingRow({ holding, accounts, today, minDate, onDeleted }: HoldingRow
               confirmMessage={`確定刪除「${label}」？買賣紀錄會留著，這一檔的定期定額會一起刪除。`}
               label="刪除"
               deletedMessage={`已刪除「${label}」`}
-              onDeleted={onDeleted}
             />
           </MoreMenu>
         </div>
       </div>
-      <DialogMessage {...buy.messageProps} className="col-span-full" />
-      <DialogMessage {...sell.messageProps} className="col-span-full" />
-      <DialogMessage {...edit.messageProps} className="col-span-full" />
       <Dialog {...buy.dialogProps} title={`買進 ${label}`}>
         <BuySellForm side="buy" holding={holding} accounts={accounts} today={today} minDate={minDate} onDone={buy.done} onCancel={buy.close} />
       </Dialog>

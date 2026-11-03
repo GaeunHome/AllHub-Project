@@ -1,12 +1,16 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { requireSession } from "../auth";
+import { requireSession, usableModules } from "../auth";
+import { displayNameOf } from "../auth/nickname";
+import { pageModules } from "../module";
 import { NotificationBell } from "../notifications/bell";
+import { BellAlertSettings } from "../notifications/usable-settings";
 import { AccountMenu, AccountMenuLink } from "./account-menu";
 import { HeaderMenus } from "./header-menus";
 import { Icon } from "./icon";
 import { LiveClock } from "./live-clock";
-import { NavLinkList, NavLinks, type NavModule } from "./nav-links";
+import { NavLinks, type NavModule } from "./nav-links";
+import { Skeleton } from "./skeleton";
 
 /** 導覽列與內容共用的外框 左右邊線才對齊 超寬螢幕才置中 免得一行拉太長 */
 export const SHELL_FRAME = "mx-auto w-full max-w-[120rem] px-4 sm:px-6 lg:px-8";
@@ -25,21 +29,27 @@ export function AppHeader({ modules }: { modules: NavModule[] }) {
           <span className="hidden text-xl font-bold tracking-tight text-ink lg:inline">AllHub</span>
         </Link>
         <nav aria-label="模組" className="nav-scroll no-scrollbar -my-1 min-w-0 flex-1 overflow-x-auto py-1">
-          {/* 觀看頁是動態路由 預先算繪時不知道網址 先放沒有高亮的版本 */}
-          <Suspense fallback={<NavLinkList modules={modules} pathname={null} />}>
-            <NavLinks modules={modules} />
+          {/* 能用哪些模組要讀資料庫 先放一樣大的空格 被關掉的模組不會先閃出來 */}
+          <Suspense fallback={<NavSkeleton count={pageModules(modules).length} />}>
+            <UsableNavLinks modules={modules} />
           </Suspense>
         </nav>
         <HeaderMenus>
           <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
             {/* 跟鈴鐺與帳號同一組 手機上不會被擠掉 放不下時改由導覽膠囊橫捲 */}
             <LiveClock />
-            <NotificationBell />
+            <NotificationBell
+              alertSettings={
+                <Suspense fallback={null}>
+                  <BellAlertSettings modules={modules} />
+                </Suspense>
+              }
+            />
             {/* 只有帳號名稱要等資料庫 按鈕與選單都能先算繪好 */}
             <AccountMenu
               username={
                 <Suspense fallback={<span aria-hidden className="skeleton inline-block h-3 w-14 align-middle" />}>
-                  <SignedInUsername />
+                  <SignedInName />
                 </Suspense>
               }
               ownerItems={
@@ -55,10 +65,27 @@ export function AppHeader({ modules }: { modules: NavModule[] }) {
   );
 }
 
+/** 導覽列的模組按鈕 骨架照按鈕的大小 手機上只有圖示 */
+function NavSkeleton({ count }: { count: number }) {
+  return (
+    <ul aria-hidden className="flex w-max items-center gap-1 sm:gap-1.5">
+      {Array.from({ length: count }, (_, i) => (
+        <li key={i} className="shrink-0">
+          <Skeleton className="h-9 w-10 rounded-lg sm:w-24" />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** 只是不顯示入口 模組的頁面與 Server Action 都會再用 requireModule 檢查 */
+export async function UsableNavLinks({ modules }: { modules: NavModule[] }) {
+  return <NavLinks modules={await usableModules(modules)} />;
+}
+
 /** 跟版面的 SessionGuard 在同一次請求裡 requireSession 只查一次資料庫 */
-async function SignedInUsername() {
-  const { username } = await requireSession();
-  return username;
+export async function SignedInName() {
+  return displayNameOf(await requireSession());
 }
 
 /** 只是不顯示入口 管理頁與它的 Server Action 都會再用 requireOwner 檢查 */

@@ -97,6 +97,19 @@ const syncEvents = () => {
   });
 };
 
+/** 觀看頁與 InnerTube 都用這個擋 雲端主機被當成機器人時回的 */
+const BOT_CHECK = { playabilityStatus: { status: "LOGIN_REQUIRED", reason: "Sign in to confirm you're not a bot" } };
+/**
+ * 兩個來源的字幕清單一樣 只有網址不同
+ * 跟真的 YouTube 一樣 觀看頁給的網址帶 exp 要 PO token 下載回 200 但是空的
+ */
+const playerResponse = (v, { needsToken }) => {
+  const track = (languageCode, kind) => ({ languageCode, ...(kind ? { kind, vssId: `a.${languageCode}` } : { vssId: `.${languageCode}` }), baseUrl: `https://www.youtube.com/api/timedtext?v=${v}&lang=${languageCode}${kind ? `&kind=${kind}` : ""}${needsToken ? "&exp=xpe" : ""}` });
+  const chinese = v.startsWith("zhsubs") || v.startsWith("botcheck") ? [track("zh-TW")] : v.startsWith("zhauto") ? [track("zh", "asr")] : [];
+  const tracks = v.startsWith("nocaptions") ? [] : [track("ko"), ...chinese];
+  return { playabilityStatus: { status: "OK" }, captions: { playerCaptionsTracklistRenderer: { captionTracks: tracks } } };
+};
+
 export function handle({ req, url, body, json, text, image, redirect }) {
   // YouTube
   if (url.pathname.startsWith("/@")) {
@@ -128,13 +141,16 @@ export function handle({ req, url, body, json, text, image, redirect }) {
   }
   if (url.pathname === "/watch") {
     const v = url.searchParams.get("v") ?? "";
-    const track = (languageCode, kind) => ({ languageCode, ...(kind ? { kind, vssId: `a.${languageCode}` } : { vssId: `.${languageCode}` }), baseUrl: `https://www.youtube.com/api/timedtext?v=${v}&lang=${languageCode}${kind ? `&kind=${kind}` : ""}` });
-    const chinese = v.startsWith("zhsubs") ? [track("zh-TW")] : v.startsWith("zhauto") ? [track("zh", "asr")] : [];
-    const tracks = v.startsWith("nocaptions") ? [] : [track("ko"), ...chinese];
-    const player = { playabilityStatus: { status: "OK" }, captions: { playerCaptionsTracklistRenderer: { captionTracks: tracks } } };
+    const player = v.startsWith("botcheck") || v.startsWith("blocked") ? BOT_CHECK : playerResponse(v, { needsToken: true });
     return text(200, `<html><body><script>var ytInitialPlayerResponse = ${JSON.stringify(player)};</script></body></html>`, "text/html");
   }
+  // 觀看頁讀不到時的第二個來源 影片 id 開頭 blocked 的這裡也被擋 字幕狀態是 unknown
+  if (url.pathname === "/youtubei/v1/player" && req.method === "POST") {
+    const v = JSON.parse(body).videoId ?? "";
+    return json(200, v.startsWith("blocked") ? BOT_CHECK : playerResponse(v, { needsToken: false }));
+  }
   if (url.pathname === "/api/timedtext") {
+    if (url.searchParams.has("exp")) return text(200, "", "application/json");
     if (url.searchParams.get("v")?.startsWith("syncsubs")) return json(200, { events: syncEvents() });
     return json(200, { events: Object.keys(KOREAN_LINES).map((utf8, i) => ({ tStartMs: i * 2000, dDurationMs: 1900, segs: [{ utf8 }] })) });
   }

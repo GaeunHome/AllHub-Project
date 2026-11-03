@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { expireTags, updateTags, type CacheTag } from "@/core/cache";
 import { logError } from "@/core/errors";
 import { INVALID_FORM_MESSAGE, actionErrorMessage, formId, formText, runAction } from "@/core/form";
@@ -62,7 +62,7 @@ async function keepTranslated(userId: string, input: string): Promise<boolean> {
 }
 
 export async function addChannelAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   try {
     return await run("加入頻道", async () => `已加入 ${(await addChannel(userId, formText(formData, "channel"))).title}`);
   } finally {
@@ -72,7 +72,7 @@ export async function addChannelAction(_prev: FormState, formData: FormData): Pr
 }
 
 export async function removeChannelAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   const id = formId(formData, "id");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   try {
@@ -87,7 +87,7 @@ export async function removeChannelAction(_prev: FormState, formData: FormData):
 }
 
 export async function renewAction(): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   try {
     return await run("續訂", () => renewSubscriptionsFor(userId));
   } finally {
@@ -97,7 +97,7 @@ export async function renewAction(): Promise<FormState> {
 
 /** 通知開關記在自己的追蹤上 關掉時新影片照樣記錄 只是不通知自己 */
 export async function setChannelNotifyAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   const toggle = parseNotifyToggle(formData);
   if (!toggle) return { error: INVALID_FORM_MESSAGE };
   try {
@@ -115,7 +115,7 @@ const RECHECK_MESSAGES = {
 
 /** 很多頻道上片後才補字幕 所以清單上可以重新檢查 只能檢查自己追蹤頻道的影片 */
 export async function recheckCaptionsAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   const videoId = formVideoId(formData);
   if (!videoId) return { error: INVALID_FORM_MESSAGE };
   try {
@@ -129,7 +129,7 @@ export async function recheckCaptionsAction(_prev: FormState, formData: FormData
 }
 
 export async function openVideoAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  await requireSession();
+  await requireModule("youtube");
   const videoId = parseVideoId(formText(formData, "url"));
   if (!videoId) return { error: "看不懂這個網址，請貼 YouTube 影片網址" };
   redirect(watchPagePath(videoId));
@@ -139,7 +139,7 @@ export async function openVideoAction(_prev: FormState, formData: FormData): Pro
 export type SettingsFormState = FormState & { glossaryText?: string };
 
 export async function saveSettingsAction(_prev: SettingsFormState, formData: FormData): Promise<SettingsFormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   const provider = formText(formData, "provider");
   if (!isAiProvider(provider)) return { error: "請選擇 AI 供應商" };
 
@@ -171,7 +171,7 @@ const settingsFlag = (error: unknown) => (error instanceof ApiKeySetupError ? { 
 // 有寫入才讓保留清單失效
 
 export async function startTranslationAction(videoId: string): Promise<StartState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   const tags = translationTags(videoId);
   try {
     const result = await startTranslation(userId, videoId);
@@ -185,7 +185,7 @@ export async function startTranslationAction(videoId: string): Promise<StartStat
 }
 
 export async function uploadSubtitlesAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const user = await requireSession();
+  const user = await requireModule("youtube");
   const file = await readSubtitleFile(formData.get("file"));
   if ("error" in file) return { error: file.error };
   const videoId = formText(formData, "videoId");
@@ -214,7 +214,7 @@ export type ContinueResult = Progress & { saved?: true };
  * 只決定要不要加進自己的保留清單 續翻本身照原本的規則
  */
 export async function continueTranslationAction(videoId: string, positionMs?: number, join?: boolean): Promise<ContinueResult | ContinueActionError> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   // Server Action 可以被直接 POST 播放位置不是正常的毫秒數就當成沒有
   const position = typeof positionMs === "number" && Number.isFinite(positionMs) && positionMs >= 0 ? positionMs : undefined;
   let saved = false;
@@ -236,7 +236,7 @@ export async function continueTranslationAction(videoId: string, positionMs?: nu
 }
 
 export async function retryTranslationAction(videoId: string): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   const tags = translationTags(videoId);
   try {
     return await run("重試", async () => {
@@ -249,7 +249,7 @@ export async function retryTranslationAction(videoId: string): Promise<FormState
 }
 
 export async function restartTranslationAction(videoId: string): Promise<FormState> {
-  const user = await requireSession();
+  const user = await requireModule("youtube");
   const tags = translationTags(videoId);
   try {
     return await run("重新翻譯", async () => {
@@ -263,7 +263,7 @@ export async function restartTranslationAction(videoId: string): Promise<FormSta
 
 /** 手動保留的不會被擠掉 滿了先擠掉最舊的自動項目 全是手動的就請使用者先移除一部 */
 export async function saveVideoAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   const videoId = formVideoId(formData);
   if (!videoId) return { error: INVALID_FORM_MESSAGE };
   return run("保留影片", async () => {
@@ -274,7 +274,7 @@ export async function saveVideoAction(_prev: FormState, formData: FormData): Pro
 
 /** 例如在別的分頁移除過 已經不在清單裡也算成功 畫面更新成實際狀態 翻譯不跟著刪 */
 export async function removeSavedVideoAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireSession();
+  const { id: userId } = await requireModule("youtube");
   const videoId = formVideoId(formData);
   if (!videoId) return { error: INVALID_FORM_MESSAGE };
   return run("移除保留的影片", async () => {

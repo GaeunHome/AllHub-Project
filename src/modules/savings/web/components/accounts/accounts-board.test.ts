@@ -15,7 +15,7 @@ vi.mock("../../actions", () =>
   ),
 );
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/savings/accounts" }));
-// 停用與刪除的訊息要看交給誰
+// 停用與刪除成功時提示的那句要看交給誰
 vi.mock("../row-controls", { spy: true });
 // 網址的 add 參數要看交給哪一個新增按鈕
 vi.mock("./add-account-button", { spy: true });
@@ -78,7 +78,7 @@ beforeEach(() => {
   vi.mocked(dialog.useDialogForm).mockClear();
   vi.mocked(ActionButton).mockClear();
   vi.mocked(AddAccountButton).mockClear();
-  vi.mocked(rowControls.useRemovalNotice).mockRestore();
+  vi.mocked(rowControls.DeleteMenuItem).mockClear();
   vi.mocked(dialog.Dialog).mockImplementation(({ title, children }) => createElement("dialog-mock", { "data-title": typeof title === "string" ? title : "" }, children));
 });
 
@@ -124,7 +124,19 @@ describe("存款的卡片", () => {
   });
 });
 
+const factsOf = (markup: string) => [...markup.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2])]);
+
 describe("信用卡", () => {
+  it("卡面下面的狀態分開寫：本期應繳與截止各一列；要處理的標籤接在最後一列的值後面", () => {
+    const markup = board();
+
+    expect(factsOf(surfaceOf(cardOf(markup, "國泰卡")))).toEqual([
+      ["本期應繳", "$12,480"],
+      ["截止日", "10/20（還有 5 天）"],
+    ]);
+    expect(factsOf(surfaceOf(cardOf(markup, "台新卡")))).toEqual([["結帳日", "9/25待填帳單"]]);
+  });
+
   it("卡上直接放現在要按的：結帳了還沒填帳單是「填帳單」，填了還沒繳是「已繳」；「記一筆刷卡」一直都在", () => {
     const markup = board();
     const cathay = surfaceOf(cardOf(markup, "國泰卡"));
@@ -203,6 +215,13 @@ describe("已停用的帳戶", () => {
     expect(cardOf(markup, "舊帳戶")).toBe("");
   });
 
+  it("類型與用途分開寫：名稱旁是用途，下面是類型", () => {
+    const paused = ACCOUNTS.map((item) => (item.id === 8 ? { ...item, label: "退休" } : item));
+    const row = board({ accounts: paused }).split('<details class="disclosure">')[1].split("</li>")[0];
+
+    expect(textOf(row, { spaced: true })).toContain("舊帳戶 退休 存款");
+  });
+
   it("恢復送出的是啟用；停用送出的是停用", () => {
     board();
     const fieldsOf = (id: number) => vi.mocked(ActionButton).mock.calls.map(([props]) => props.fields).filter((fields) => fields.id === id && "active" in fields);
@@ -222,16 +241,17 @@ describe("刪除與停用", () => {
     expect(confirms.find((message) => message.includes("「緊急預備金 A」"))).toContain("還沒有任何紀錄");
   });
 
-  it("停用、恢復或刪除後卡片會換地方或不見：訊息交給最上面不會消失的位置", async () => {
-    const report = vi.fn();
-    vi.mocked(rowControls.useRemovalNotice).mockReturnValue({ messageProps: { message: undefined, ref: { current: null } }, report });
-    vi.mocked(actions.setAccountActiveAction).mockResolvedValue({});
-    board();
+  it("停用、恢復或刪除後卡片會換地方或不見：結果用提示視窗（伺服器沒給訊息時寫出做了什麼），焦點交給一直都在的存款與信用卡兩區", () => {
+    const markup = board();
 
-    expect(vi.mocked(rowControls.DeleteMenuItem).mock.calls.every(([props]) => props.onDeleted === report)).toBe(true);
     const pause = vi.mocked(ActionButton).mock.calls.find(([props]) => props.fields.id === 1 && "active" in props.fields)![0];
-    await pause.action({}, new FormData());
-    expect(report).toHaveBeenCalledWith(expect.stringContaining("已停用「台銀」"));
+    const restore = vi.mocked(ActionButton).mock.calls.find(([props]) => props.fields.id === 8 && "active" in props.fields)![0];
+    expect(pause.action).toBe(actions.setAccountActiveAction);
+    expect(pause.successMessage).toContain("已停用「台銀」");
+    expect(restore.successMessage).toContain("已恢復「舊帳戶」");
+    expect(vi.mocked(rowControls.DeleteMenuItem).mock.calls.map(([props]) => props.deletedMessage)).toEqual(expect.arrayContaining(["已刪除「台銀」", "已刪除「舊帳戶」"]));
+    expect(markup).toMatch(/<section aria-labelledby="fin-deposits"[^>]*data-focus-frame=""[^>]*tabindex="-1"/);
+    expect(markup).toMatch(/<section aria-labelledby="fin-cards"[^>]*data-focus-frame=""[^>]*tabindex="-1"/);
   });
 });
 

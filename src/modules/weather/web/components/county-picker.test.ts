@@ -8,7 +8,7 @@ vi.mock("../../service/settings", { spy: true });
 
 const settings = mocksOf(await import("../../service/settings"), "saveSettings");
 const { saveSettingsAction } = await import("../actions");
-const { SettingsForm, SettingsResult } = await import("./county-picker");
+const { SettingsForm } = await import("./county-picker");
 
 /** 照瀏覽器送出表單的規則 有勾的 checkbox 才送 沒寫 value 時送 on 下拉選單送選中的那一個 */
 function submitted(markup: string): FormData {
@@ -33,12 +33,6 @@ beforeEach(() => {
   settings.saveSettings.mockReset();
   settings.saveSettings.mockResolvedValue("臺北市");
   requireSession.mockResolvedValue(TEST_SESSION);
-});
-
-describe("卡片內容的外框（SettingsResult）", () => {
-  it("內容與訊息放在同一個 stack 裡：天氣卡片的內容靠它排間距", () => {
-    expect(render(createElement(SettingsResult, null, createElement("p", null, "內容")))).toBe('<div class="stack"><p>內容</p></div>');
-  });
 });
 
 describe("天氣設定視窗", () => {

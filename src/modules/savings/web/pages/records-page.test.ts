@@ -11,7 +11,6 @@ import { addMonths } from "../../lib/month";
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("../../service/cached", { spy: true });
-vi.mock("@/core/ui/dialog", { spy: true });
 // 刪除鈕在 ⋮ 選單裡 選單關著時不算繪 換掉才看得到每一筆的確認訊息
 vi.mock("@/core/ui/action-button", { spy: true });
 vi.mock("@/core/ui/more-menu", () => ({ MoreMenu: ({ children }: { children: ReactNode }) => createElement("div", null, children) }));
@@ -21,7 +20,6 @@ vi.mock("../components/forms/quick-add", () => ({
 }));
 
 const cached = mocksOf(await import("../../service/cached"), "cachedAccounts", "cachedCategories", "cachedAccountFlows", "cachedMonthTransactions", "cachedCategoryTotals", "cachedRecurring", "cachedHoldings");
-const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
 const { RecordsPage, RecordsSection, RecordsActions } = await import("./records-page");
 
@@ -84,12 +82,10 @@ describe("理財的紀錄頁", () => {
     expect(textOf(render(createElement(RecordsPage, { info: INFO, searchParams: params() })))).toContain("載入紀錄…");
   });
 
-  it("整頁的視窗共用一個訊息範圍：只留最新的一則成功訊息", () => {
-    vi.mocked(dialog.DialogMessageScope).mockClear();
+  it("刪掉一筆後那一列不見：焦點交給一直都在的整頁外框（訊息改用提示視窗）", () => {
+    const markup = render(createElement(RecordsPage, { info: INFO, searchParams: params() }));
 
-    render(createElement(RecordsPage, { info: INFO, searchParams: params() }));
-
-    expect(dialog.DialogMessageScope).toHaveBeenCalledOnce();
+    expect(markup).toMatch(/^<div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入紀錄…/);
   });
 
   it("用登入者的 id 讀帳戶、分類、月份與那個月的紀錄", async () => {
@@ -146,7 +142,7 @@ describe("理財的紀錄頁", () => {
   it("那個月的紀錄交給清單（名稱、帳戶、備註），篩選列出所有帳戶（停用的也在）", async () => {
     const markup = await section();
 
-    expect(textOf(markup)).toContain("國泰 · 午餐");
+    expect(textOf(markup, { spaced: true })).toContain("國泰 午餐");
     expect(markup).toContain("舊帳戶（已停用）");
   });
 

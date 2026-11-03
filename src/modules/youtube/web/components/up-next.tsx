@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { formatRelativeTime } from "@/core/time";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { parseVideoId } from "../../lib/parse";
@@ -8,7 +8,7 @@ import { VideoLink, VideoThumbnail, channelNameOf } from "./video-card";
 
 /** 觀看頁右側的接下來播放 手機在下方 其他最近的影片用縮圖在左的小卡片 */
 export async function UpNext({ params }: { params: Promise<{ videoId: string }> }) {
-  const user = await requireSession();
+  const user = await requireModule("youtube");
   const current = parseVideoId((await params).videoId) ?? "";
   const videos = upNext(await cachedRecentVideos(user.id), current);
   if (videos.length === 0) return null;

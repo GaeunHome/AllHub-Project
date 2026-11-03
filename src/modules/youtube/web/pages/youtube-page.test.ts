@@ -49,7 +49,7 @@ describe("YouTube 頁：剛追蹤的頻道補進來的影片，背景檢查完�
     expect(cached.cachedRecheckCandidates).toHaveBeenCalledWith(OTHER_SESSION.id);
   });
 
-  it("字幕都檢查過了（包括讀不到的「字幕未確認」）_不自動重新整理", async () => {
+  it("字幕都檢查過了（包括讀不到的）_不自動重新整理", async () => {
     cached.cachedRecentVideos.mockResolvedValue([video("checked0001"), video("unknown0001", { zhCaptions: "unknown" }), video("zhsubs00001", { zhCaptions: "yes" })]);
 
     expect(findByType(await YoutubeHome(), CaptionCheckRefresh)).toBeUndefined();

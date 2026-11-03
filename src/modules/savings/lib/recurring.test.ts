@@ -237,11 +237,11 @@ describe("previousOccurrenceMonth（刪除確認來的紀錄時游標退回前�
   });
 });
 
-describe("scheduleText（設定頁的排程文字）", () => {
+describe("scheduleText（成功訊息裡的排程，是一行字）", () => {
   it.each([
-    [{ dayOfMonth: 10, intervalMonths: 1, holidayRule: "before", mode: "confirm" }, "每月 10 日 · 遇假日提前 · 到期請我確認"],
-    [{ dayOfMonth: 5, intervalMonths: 2, holidayRule: "none", mode: "auto" }, "每 2 個月 5 日 · 自動記帳"],
-  ] as const)("%j_%s（SPEC 的例子）", (fields, expected) => {
+    [{ dayOfMonth: 10, intervalMonths: 1, holidayRule: "before", mode: "confirm" }, "每月 10 日，遇假日提前，到期請我確認"],
+    [{ dayOfMonth: 5, intervalMonths: 2, holidayRule: "none", mode: "auto" }, "每 2 個月 5 日，自動記帳"],
+  ] as const)("%j_%s", (fields, expected) => {
     expect(scheduleText({ ...fields, startMonth: "2026-08-01", createdAt: createdOn("2026-08-01") })).toBe(expected);
   });
 });

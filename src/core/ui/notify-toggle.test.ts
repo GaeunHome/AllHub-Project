@@ -1,10 +1,13 @@
 import { createElement, useActionState, useOptimistic, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { toasts } from "@/dev/toast-stub";
 
 // 送出中要點了之後才有 直接給 useActionState 一個送出中的狀態
 // 其他照 React 原本的實作
 vi.mock("react", { spy: true });
+// 直接呼叫元件時沒有 React 的 context 提示視窗換成替身
+vi.mock("./toast", () => import("@/dev/toast-stub"));
 
 const { NotifyToggle } = await import("./notify-toggle");
 
@@ -77,5 +80,22 @@ describe("⋮ 選單裡的通知開關（variant menu）", () => {
 
     expect(markup).toContain("開台通知");
     expect(markup).toMatch(/<button[^>]*role="switch"[^>]*aria-label="Hanabi 的通知"/);
+  });
+});
+
+describe("通知開關（NotifyToggle）失敗時", () => {
+  it.each(["button", "menu"] as const)("%s：錯誤用提示視窗，不留在開關旁邊或選單裡", async (variant) => {
+    let submit: ((previous: object, formData: FormData) => Promise<object>) | undefined;
+    vi.mocked(useActionState).mockImplementationOnce(((action: typeof submit) => {
+      submit = action;
+      return [{}, vi.fn(), false];
+    }) as never);
+    const action = vi.fn(async () => ({ error: "找不到這位主播，請重新整理頁面" }));
+
+    const markup = renderToStaticMarkup(createElement(NotifyToggle, { ...variants[variant], action }));
+    await submit!({}, new FormData());
+
+    expect(toasts).toEqual([{ tone: "error", title: "找不到這位主播，請重新整理頁面" }]);
+    expect(markup).not.toContain('role="alert"');
   });
 });

@@ -59,8 +59,7 @@ const TRANSFER = record({ kind: "transfer", counterAccountId: 2, counterAccountN
 const ADJUST = record({ kind: "adjust", accountId: 2, accountName: "郵局", categoryId: null, categoryName: null, amount: -350, date: "2026-10-03", note: null });
 const BUY = record({ id: 80, kind: "transfer", counterAccountId: 4, counterAccountName: "臺銀證券", categoryId: null, categoryName: null, amount: 1000, date: "2026-10-08", note: "買進 006208 8 股", shares: 8, holdingSymbol: "006208", recurring: true, recurringName: "006208 定期定額" });
 
-const onDeleted = vi.fn();
-const row = (item: RecordItem) => render(createElement("ul", null, createElement(RecordRow, { record: item, accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY, onDeleted })));
+const row = (item: RecordItem) => render(createElement("ul", null, createElement(RecordRow, { record: item, accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY })));
 /** 整列是打開修改視窗的按鈕 報讀器先念修改 */
 const rowButton = (markup: string) => markup.match(/<button[^>]*aria-haspopup="dialog"[^>]*>((?:(?!<\/button>)[\s\S])*)<\/button>/)?.[1];
 const fieldNames = (markup: string) => [...new Set([...markup.matchAll(/<(?:input|select|textarea)[^>]*name="([^"]+)"/g)].map((m) => m[1]))].sort();
@@ -72,20 +71,19 @@ beforeEach(() => {
   vi.mocked(dialog.useDialogForm).mockClear();
   vi.mocked(ActionButton).mockClear();
   vi.mocked(actions.deleteTransactionAction).mockReset();
-  onDeleted.mockClear();
   vi.mocked(dialog.Dialog).mockImplementation(({ children }) => createElement(Fragment, null, children));
 });
 
 describe("紀錄的一列", () => {
-  it("點一列就是修改：名稱、帳戶與備註、帶 - 的金額都在按鈕裡，報讀器先念「修改」", () => {
-    expect(textOf(rowButton(row(LUNCH)) ?? "")).toBe("修改：餐飲國泰 · 午餐-$120");
+  it("點一列就是修改：名稱、帳戶、備註、帶 - 的金額各自分開都在按鈕裡，報讀器先念「修改」", () => {
+    expect(textOf(rowButton(row(LUNCH)) ?? "", { spaced: true }).trim()).toBe("修改： 餐飲 國泰 午餐 -$120");
   });
 
   it("收入帶 +；固定收支記的寫規則的名稱（跟名稱重複時寫固定收支），是一般文字不是標籤", () => {
     const markup = row(SALARY);
 
-    expect(textOf(rowButton(markup) ?? "")).toBe("修改：薪水國泰 · 固定收支+$43,000");
-    expect(textOf(rowButton(row({ ...SALARY, recurringName: "十月薪水" })) ?? "")).toBe("修改：薪水國泰 · 十月薪水+$43,000");
+    expect(textOf(rowButton(markup) ?? "", { spaced: true }).trim()).toBe("修改： 薪水 國泰 固定收支 +$43,000");
+    expect(textOf(rowButton(row({ ...SALARY, recurringName: "十月薪水" })) ?? "", { spaced: true }).trim()).toBe("修改： 薪水 國泰 十月薪水 +$43,000");
     expect(markup).not.toContain('class="chip');
   });
 
@@ -130,23 +128,12 @@ describe("紀錄的一列", () => {
     expect(deleteButton().confirmMessage).toBe("確定刪除 10 月 14 日（三）的「餐飲 -$120」？刪除後無法復原。");
   });
 
-  it("刪除成功：這一列會跟選單一起消失，訊息交給清單上方（伺服器沒給訊息時寫出刪了哪一筆）", async () => {
-    vi.mocked(actions.deleteTransactionAction).mockResolvedValue({});
-    row(LUNCH);
-    const data = new FormData();
-    data.set("id", "70");
-
-    expect(await deleteButton().action({}, data)).toEqual({});
-    expect(actions.deleteTransactionAction).toHaveBeenCalledWith({}, data);
-    expect(onDeleted).toHaveBeenCalledWith("已刪除：餐飲 -$120");
-  });
-
-  it("刪除失敗：錯誤留在選單裡，不交給清單上方", async () => {
-    vi.mocked(actions.deleteTransactionAction).mockResolvedValue({ error: "刪除紀錄失敗（詳見伺服器 log）" });
+  it("刪除：送到 deleteTransactionAction，結果用提示視窗（伺服器沒給訊息時寫出刪了哪一筆）", () => {
     row(LUNCH);
 
-    expect(await deleteButton().action({}, new FormData())).toEqual({ error: "刪除紀錄失敗（詳見伺服器 log）" });
-    expect(onDeleted).not.toHaveBeenCalled();
+    expect(deleteButton().action).toBe(actions.deleteTransactionAction);
+    expect(deleteButton().fields).toEqual({ id: 70 });
+    expect(deleteButton().successMessage).toBe("已刪除：餐飲 -$120");
   });
 });
 
@@ -154,7 +141,7 @@ describe("買賣持股的紀錄", () => {
   it("一列寫「買進 006208 8 股」（代號跟投資頁一樣是代號的樣子）與從哪個帳戶到哪個帳戶、定期定額的名稱", () => {
     vi.mocked(Ticker).mockClear();
 
-    expect(textOf(rowButton(row(BUY)) ?? "")).toBe("修改：買進 006208 8 股國泰 → 臺銀證券 · 006208 定期定額$1,000");
+    expect(textOf(rowButton(row(BUY)) ?? "")).toBe("修改：買進 006208 8 股國泰 → 臺銀證券006208 定期定額$1,000");
     expect(vi.mocked(Ticker).mock.calls.map(([props]) => props.symbol)).toEqual(["006208"]);
   });
 
@@ -188,7 +175,7 @@ describe("買賣持股的紀錄", () => {
   it("刪除的確認說明持股會跟著還原", () => {
     row(BUY);
 
-    expect(deleteButton().confirmMessage).toBe("確定刪除 10 月 8 日（四）的「買進 006208 · 8 股 $1,000」？持股的股數和成本會跟著還原。");
+    expect(deleteButton().confirmMessage).toBe("確定刪除 10 月 8 日（四）的「買進 006208 8 股 $1,000」？持股的股數和成本會跟著還原。");
   });
 });
 
@@ -291,8 +278,18 @@ describe("紀錄清單", () => {
   });
 
   it("下面一行寫收入與支出的合計：只算收入與支出（轉帳、買賣與調整不算），篩選後跟著篩選結果", () => {
-    expect(textOf(list([LUNCH, BUY, SALARY, TRANSFER, ADJUST]))).toContain("收入 $43,000 · 支出 $120");
-    expect(textOf(list([LUNCH, SALARY], { initialCategory: "11" }))).toContain("篩選後 1 筆（共 2 筆） · 收入 $0 · 支出 $120");
+    const totalsOf = (markup: string) => [...markup.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2])]);
+    const filtered = list([LUNCH, SALARY], { initialCategory: "11" });
+
+    expect(totalsOf(list([LUNCH, BUY, SALARY, TRANSFER, ADJUST]))).toEqual([
+      ["收入", "$43,000"],
+      ["支出", "$120"],
+    ]);
+    expect(totalsOf(filtered)).toEqual([
+      ["收入", "$0"],
+      ["支出", "$120"],
+    ]);
+    expect(textOf(filtered)).toContain("篩選後 1 筆（共 2 筆）");
   });
 
   it("這個月沒有紀錄：寫一行字，沒有篩選與合計，月份切換還在", () => {
@@ -301,7 +298,7 @@ describe("紀錄清單", () => {
     expect(textOf(markup)).toContain("本月還沒有紀錄。");
     expect(markup).toContain('aria-label="切換月份"');
     expect(markup).not.toContain('aria-label="篩選紀錄"');
-    expect(textOf(markup)).not.toContain("收入 $");
+    expect(textOf(markup)).not.toContain("收入$");
   });
 
   it("超寬螢幕的側欄寫這個月的合計與各分類的支出，不跟著篩選；正在篩選的分類標成按下", () => {
@@ -327,15 +324,7 @@ describe("紀錄清單", () => {
     expect(textOf(markup)).toContain("多花$9,110");
   });
 
-  it("刪除的訊息放在清單最上面（刪掉最後一筆、清單換成空狀態時也在同一個位置）", () => {
-    const messages = () => vi.mocked(dialog.DialogMessage).mock.calls.length;
-
-    vi.mocked(dialog.DialogMessage).mockClear();
-    list([LUNCH]);
-    expect(messages()).toBeGreaterThan(0);
-
-    vi.mocked(dialog.DialogMessage).mockClear();
-    list([]);
-    expect(messages()).toBe(1);
+  it("刪掉一筆後那一列不見：焦點交給清單的外框（刪掉最後一筆、清單換成空狀態時外框還在）", () => {
+    for (const records of [[LUNCH], []]) expect(list(records)).toMatch(/^<div data-focus-frame="" tabindex="-1" class="stack">/);
   });
 });

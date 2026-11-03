@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { externalAssetUrl } from "@/core/external-url";
 import { FormMessage } from "@/core/ui/form-message";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
@@ -14,7 +14,7 @@ import { LoadingTitle, PanelNotice } from "./panel-parts";
  * 帳號的 cookie 失效標記只由即時便箋決定 這裡不動
  */
 export async function CharacterPanel({ account }: { account: StarrailAccountView }) {
-  const user = await requireSession();
+  const user = await requireModule("starrail");
   const result = await cachedCharacters(user.id, account.id);
 
   if (!result.ok || result.characters.length === 0) {

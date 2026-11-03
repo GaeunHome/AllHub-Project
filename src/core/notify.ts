@@ -3,6 +3,7 @@ import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import { expireTags } from "./cache";
 import { db } from "./db";
 import { coreNotifications, coreUsers } from "./db/schema";
+import { canUseModuleSql } from "./db/users";
 import { MODULE_ID_PATTERN, USER_ID_PATTERN } from "./ids";
 import { notificationsTag } from "./notifications/cache-tags";
 import { linkTarget } from "./notifications/links";
@@ -24,12 +25,12 @@ export async function notify({ recipients, module, kind, title, body = "", url }
 
   const values = { module, kind, title: title.trim(), body: body.trim(), url: linkTarget(url)?.href ?? null };
   // 只寫給還在的帳號並鎖到寫完 剛刪除帳號的人略過 才不會因外鍵錯誤害其他人收不到
-  // 停用的帳號是凍結 也不寫
+  // 停用的帳號與被關掉這個模組的人是凍結 也不寫
   const inserted = await db().transaction(async (tx) => {
     const users = await tx
       .select({ id: coreUsers.id })
       .from(coreUsers)
-      .where(and(inArray(coreUsers.id, userIds), isNull(coreUsers.disabledAt)))
+      .where(and(inArray(coreUsers.id, userIds), isNull(coreUsers.disabledAt), canUseModuleSql(module)))
       .for("key share");
     if (users.length === 0) return 0;
     const rows = await tx

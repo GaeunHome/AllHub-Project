@@ -29,11 +29,11 @@ async function heldSharesByUser(): Promise<Map<string, HeldShares[]>> {
   const accounts = await db()
     .select({ userId: savingsAccounts.userId, id: savingsAccounts.id, kind: savingsAccounts.kind, active: savingsAccounts.active })
     .from(savingsAccounts)
-    .innerJoin(coreUsers, activeOwnerOf(savingsAccounts.userId));
+    .innerJoin(coreUsers, activeOwnerOf(savingsAccounts.userId, "savings"));
   const holdings = await db()
     .select({ userId: savingsHoldings.userId, accountId: savingsHoldings.accountId, symbol: savingsHoldings.symbol, name: savingsHoldings.name, shares: savingsHoldings.shares })
     .from(savingsHoldings)
-    .innerJoin(coreUsers, activeOwnerOf(savingsHoldings.userId))
+    .innerJoin(coreUsers, activeOwnerOf(savingsHoldings.userId, "savings"))
     .orderBy(asc(savingsHoldings.userId), asc(savingsHoldings.id));
   const accountsOf = Map.groupBy(accounts, (account) => account.userId);
   const byUser = new Map<string, HeldShares[]>();

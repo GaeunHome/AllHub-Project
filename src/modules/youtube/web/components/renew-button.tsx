@@ -8,10 +8,8 @@ export function RenewButton() {
     <ActionButton
       action={renewAction}
       fields={{}}
-      formClassName="flex flex-col items-end gap-2"
       className="yt-pill yt-pill-sm"
       title="重新訂閱快到期或失敗的頻道"
-      showMessage="block"
       pendingLabel={
         <>
           <Icon name="refresh-cw" className="size-4 motion-safe:animate-spin" />

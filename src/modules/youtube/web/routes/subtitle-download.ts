@@ -1,4 +1,4 @@
-import { currentSession } from "@/core/auth";
+import { canUseModule, currentSession } from "@/core/auth";
 import { buildSubtitleFile, parseDownloadQuery } from "../../lib/download";
 import { parseVideoId } from "../../lib/parse";
 import { getTranslation } from "../../service/translation";
@@ -8,7 +8,9 @@ import { getTranslation } from "../../service/translation";
  * Route Handler 不轉址 直接回 401
  */
 export async function GET(request: Request, { params }: RouteContext<"/api/youtube/subtitles/[videoId]">) {
-  if (!(await currentSession())) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const session = await currentSession();
+  if (!session) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await canUseModule(session, "youtube"))) return Response.json({ error: "forbidden" }, { status: 403 });
   const videoId = parseVideoId((await params).videoId);
   const query = parseDownloadQuery(new URL(request.url).searchParams);
   if (!videoId || !query) return Response.json({ error: "參數不正確" }, { status: 400 });

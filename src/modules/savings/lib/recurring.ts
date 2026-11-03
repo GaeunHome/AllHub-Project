@@ -127,10 +127,10 @@ export function scheduleDay(rule: Pick<RecurringLike, "dayOfMonth" | "intervalMo
   return rule.intervalMonths === 12 ? `每年 ${Number(firstPeriod(rule).slice(5, 7))} 月 ${rule.dayOfMonth} 日` : `${intervalLabel(rule.intervalMonths)} ${rule.dayOfMonth} 日`;
 }
 
-/** 設定頁每一列的排程 日期 假日規則與記帳方式各一段 */
+/** 成功訊息裡的排程 只有一行字 日期 假日規則與記帳方式各一段 */
 export function scheduleText(rule: Pick<RecurringLike, "dayOfMonth" | "intervalMonths" | "startMonth" | "holidayRule" | "createdAt"> & { mode: RecurringMode }): string {
   const holiday = rule.holidayRule === "before" ? ["遇假日提前"] : rule.holidayRule === "after" ? ["遇假日延後"] : [];
-  return [scheduleDay(rule), ...holiday, RECURRING_MODE_LABELS[rule.mode]].join(" · ");
+  return [scheduleDay(rule), ...holiday, RECURRING_MODE_LABELS[rule.mode]].join("，");
 }
 
 /** 名稱都從登入者自己的資料找 不會寫出別人的帳戶 */

@@ -48,6 +48,7 @@ const selectedOption = (markup: string, name: string) =>
   markup.match(new RegExp(`<select[^>]*name="${name}"[^>]*>[\\s\\S]*?</select>`))?.[0].match(/<option[^>]*selected=""[^>]*>([^<]*)<\/option>/)?.[1];
 const fieldNames = (markup: string) => [...new Set([...markup.matchAll(/<(?:input|select)[^>]*name="([^"]+)"/g)].map((m) => m[1]))].sort();
 const formActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
+const factsOf = (markup: string) => [...markup.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2])]);
 const buttonsOf = (markup: string) => [...markup.matchAll(/<button[^>]*>((?:(?!<\/button>)[\s\S])*)<\/button>/g)].map((m) => textOf(m[1]).trim());
 
 const DEPOSITS = [
@@ -99,7 +100,10 @@ describe("持股的表單", () => {
 
     expect(fieldNames(markup)).toEqual(["amount", "date", "fromAccountId", "holdingId", "note", "shares"]);
     expect(selectedOption(markup, "fromAccountId")).toBe("台銀");
-    expect(textOf(markup)).toContain("目前 1,000 股 · 10/14 收盤 $106.50");
+    expect(factsOf(markup)).toEqual([
+      ["目前持股", "1,000 股"],
+      ["10/14 收盤", "$106.50"],
+    ]);
     expect(formActions()).toEqual([actions.buyHoldingAction]);
   });
 
@@ -113,17 +117,17 @@ describe("持股的表單", () => {
 });
 
 describe("持股清單", () => {
-  const holdings = (list: HoldingView[] = [HOLDING]) => render(createElement(Holdings, { holdings: list, accounts: DEPOSITS, today: TODAY, minDate: "2026-01-05", onDeleted: vi.fn() }));
+  const holdings = (list: HoldingView[] = [HOLDING]) => render(createElement(Holdings, { holdings: list, accounts: DEPOSITS, today: TODAY, minDate: "2026-01-05" }));
   const MENU = "「006208 富邦台50」的選項";
 
   it("每檔寫代號、名稱、股數、均價（95,000 元買 1,000 股是 $95.00）、收盤價、市值與損益（只寫正負號，括號是半形）", () => {
-    expect(textOf(holdings())).toContain("006208富邦台501,000 股 · 均價 $95.00 · 收盤 $106.50市值 $106,500損益 +$11,500 (+12.1%)");
+    expect(textOf(holdings(), { spaced: true })).toContain("006208 富邦台50 1,000 股 均價 $95.00 收盤 $106.50 市值 $106,500 損益 +$11,500 (+12.1%)");
   });
 
   it("讀不到股價：寫「股價暫時讀不到」，市值先用成本，不寫損益", () => {
     const text = textOf(holdings([{ ...HOLDING, priced: false, closeCents: null, quoteDate: null, value: 95000, profit: 0, profitPercent: 0 }]));
 
-    expect(text).toContain("均價 $95.00 · 股價暫時讀不到市值 $95,000");
+    expect(text).toContain("均價 $95.00股價暫時讀不到市值 $95,000");
     expect(text).not.toMatch(/損益 [+-]?\$/);
   });
 
@@ -211,7 +215,7 @@ const NO_HOLDINGS: BrokerageView = {
 };
 
 describe("證券帳戶", () => {
-  const card = (brokerage: BrokerageView) => render(createElement(BrokerageCard, { brokerage, depositAccounts: DEPOSITS, payFromAccounts: [], today: TODAY, onRemoved: vi.fn() }));
+  const card = (brokerage: BrokerageView) => render(createElement(BrokerageCard, { brokerage, depositAccounts: DEPOSITS, payFromAccounts: [], today: TODAY }));
 
   it("名稱、用途文字、合計市值；讀不到股價時說明（市值先用成本算）", () => {
     const text = textOf(card(BROKERAGE));
@@ -262,11 +266,15 @@ describe("證券帳戶清單", () => {
 describe("投資的摘要", () => {
   const SUMMARY: InvestmentSummary = { value: 64847, cost: 57000, profit: 7847, profitPercent: 13.8, priced: true, quoteDate: "2026-10-15", accounts: 2 };
 
-  it("總市值是大字；下面一行寫成本、損益（±$ 與 ±%，半形括號）與收盤日", () => {
-    const text = textOf(render(createElement(SummaryCard, { summary: SUMMARY })));
+  it("總市值是大字；成本、損益（±$ 與 ±%，半形括號）與收盤日各一列", () => {
+    const markup = render(createElement(SummaryCard, { summary: SUMMARY }));
 
-    expect(text).toContain("$64,847");
-    expect(text).toContain("成本 $57,000 · 損益 +$7,847 (+13.8%) · 10/15 收盤");
+    expect(textOf(markup)).toContain("$64,847");
+    expect(factsOf(markup)).toEqual([
+      ["成本", "$57,000"],
+      ["損益", "+$7,847\u00a0(+13.8%)"],
+      ["收盤日", "10/15"],
+    ]);
   });
 
   it("讀不到股價_寫「股價暫時讀不到」，不寫損益與收盤日", () => {
@@ -290,9 +298,9 @@ describe("除權息", () => {
     const rows = [...markup.matchAll(/<li[^>]*>[\s\S]*?<\/li>/g)].map(([li]) => textOf(li, { spaced: true }).trim());
 
     expect(rows).toEqual([
-      "006208 富邦台50 11/18 除息 · 還有 20 天 估計 $1,720 每股配息 1.72 元",
-      "0056 元大高股息 10/30 除息 · 今天最後買進 金額還沒公布",
-      "2882 國泰金 11/6 除權 · 還有 8 天",
+      "006208 富邦台50 11/18 除息 還有 20 天 估計 $1,720 每股配息 1.72 元",
+      "0056 元大高股息 10/30 除息 今天最後買進 金額還沒公布",
+      "2882 國泰金 11/6 除權 還有 8 天",
     ]);
   });
 

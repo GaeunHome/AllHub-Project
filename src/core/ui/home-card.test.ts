@@ -31,6 +31,15 @@ describe("首頁卡片的外框（core/ui/home-card）", () => {
   });
 });
 
+describe("首頁卡片是焦點的外框", () => {
+  it("卡片裡的按鈕跟著空狀態被換掉、或那一列刪掉時，焦點落在不會消失的卡片上（程式放得了焦點，Tab 不會停在這裡）", () => {
+    const section = card(createElement("p", null, "內容")).match(/<section[^>]*>/)![0];
+
+    expect(section).toContain("data-focus-frame");
+    expect(section).toContain('tabindex="-1"');
+  });
+});
+
 describe("卡片出錯時（CardError）", () => {
   it("不顯示錯誤內容（可能夾帶 SQL 參數或憑證），只說這張卡片暫時讀不到，可以重試", () => {
     const markup = renderToStaticMarkup(CardError({}, { error: new Error("password=hunter2 select * from core_users"), retry: vi.fn(), reset: vi.fn() }) as ReactElement);

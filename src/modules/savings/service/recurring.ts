@@ -217,7 +217,7 @@ async function postRule(ruleId: number, today: DateKey): Promise<PostResult> {
     const [rule] = await tx
       .select(getTableColumns(savingsRecurring))
       .from(savingsRecurring)
-      .innerJoin(coreUsers, activeOwnerOf(savingsRecurring.userId))
+      .innerJoin(coreUsers, activeOwnerOf(savingsRecurring.userId, "savings"))
       .where(eq(savingsRecurring.id, ruleId))
       .for("update", { of: savingsRecurring });
     // 鎖父列之後被改到別的帳戶或分類 剛鎖的就不是它現在用的
@@ -289,7 +289,7 @@ export async function postDueRecurring(now = new Date()): Promise<string> {
       createdAt: savingsRecurring.createdAt,
     })
     .from(savingsRecurring)
-    .innerJoin(coreUsers, activeOwnerOf(savingsRecurring.userId))
+    .innerJoin(coreUsers, activeOwnerOf(savingsRecurring.userId, "savings"))
     .orderBy(asc(savingsRecurring.id));
 
   const total: PostResult & { failed: number } = { ...NOTHING, failed: 0 };

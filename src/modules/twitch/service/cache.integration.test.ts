@@ -54,17 +54,26 @@ describe("EventSub webhook：寫入後讓 tag 失效（expire: 0）", () => {
     expect(expiredTags()).toEqual(["core:notifications", "twitch:events"]);
   });
 
-  it("關台_紀錄與直播中狀態失效", async () => {
+  it("關台_只有直播中狀態失效：不再寫紀錄列，紀錄不用重讀", async () => {
+    await testDb.update(twitchStreamers).set({ isLive: true });
+
     await handleNotification("m2", offlineSub, ALICE_EVENT);
 
-    expect(expiredTags()).toEqual(["twitch:events", "twitch:streamers"]);
+    expect(expiredTags()).toEqual(["twitch:streamers"]);
   });
 
   it("Twitch 重送同一則通知_沒有寫入就不失效", async () => {
+    await testDb.update(twitchStreamers).set({ isLive: true });
     await handleNotification("m1", offlineSub, ALICE_EVENT);
     vi.mocked(revalidateTag).mockReset();
 
     await handleNotification("m1", offlineSub, ALICE_EVENT);
+
+    expect(expiredTags()).toEqual([]);
+  });
+
+  it("主播本來就不是直播中_收到關台沒有寫入就不失效", async () => {
+    await handleNotification("m2", offlineSub, ALICE_EVENT);
 
     expect(expiredTags()).toEqual([]);
   });

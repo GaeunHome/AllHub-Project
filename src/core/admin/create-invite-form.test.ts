@@ -2,12 +2,14 @@ import { createElement, isValidElement, useActionState, useId, useLayoutEffect, 
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { textOf } from "@/dev/test-helpers";
+import { toasts } from "@/dev/toast-stub";
 import { Dialog } from "../ui/dialog";
 
 // 連結要送出後才有 直接給 useActionState 送出後的狀態看畫面
 // 其他 hook 照 React 原本的實作
 vi.mock("react", { spy: true });
 vi.mock("./actions", () => ({ createInviteAction: vi.fn() }));
+vi.mock("../ui/toast", () => import("@/dev/toast-stub"));
 
 const { CreateInviteForm, keepLastLink } = await import("./create-invite-form");
 const { createInviteAction } = await import("./actions");
@@ -125,7 +127,7 @@ describe("建立邀請連結後的畫面", () => {
     expect(text).not.toContain("只會顯示這一次");
   });
 
-  it("關掉視窗後：視窗收起、「再看一次連結」標著沒展開，表單下方說已建立", () => {
+  it("關掉視窗後：視窗收起、「再看一次連結」標著沒展開；表單下方不留成功的字（改用提示視窗）", () => {
     created();
     vi.mocked(useState).mockReturnValueOnce([LINK, vi.fn()]);
 
@@ -133,7 +135,19 @@ describe("建立邀請連結後的畫面", () => {
 
     expect(reopenButtonOf(markup)).toContain('aria-expanded="false"');
     expect(markup).not.toContain('aria-label="邀請連結"');
-    expect(textOf(markup)).toContain("已建立邀請連結，可以在下面的清單撤銷");
+    expect(textOf(markup)).not.toContain("已建立邀請連結");
+  });
+
+  it("關掉視窗時用提示視窗說已建立、可以在下面的清單撤銷；再看一次後關掉不再提示", () => {
+    created();
+    vi.mocked(useState).mockReturnValueOnce([undefined, vi.fn()]);
+    vi.mocked(useId).mockReturnValueOnce("invite-dialog");
+
+    const dialog = find(callDirectly(), (type) => type === Dialog)!;
+    (dialog.props.onClose as () => void)();
+    (dialog.props.onClose as () => void)();
+
+    expect(toasts).toEqual([{ tone: "success", title: "已建立邀請連結，可以在下面的清單撤銷" }]);
   });
 
   it("關掉視窗時記下是哪一條（不再自動打開）；「再看一次連結」清掉紀錄、重新打開", () => {
@@ -150,6 +164,15 @@ describe("建立邀請連結後的畫面", () => {
     expect(setClosedLink).toHaveBeenLastCalledWith(LINK);
     (reopen.props.onClick as () => void)();
     expect(setClosedLink).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it("第一次建立就失敗：錯誤顯示在表單下方（對著欄位修改），沒有「再看一次連結」", () => {
+    created({ error: "建立邀請連結失敗（詳見伺服器 log）" });
+
+    const markup = renderToStaticMarkup(createElement(CreateInviteForm));
+
+    expect(markup).toMatch(/role="alert"[^>]*>.*建立邀請連結失敗/);
+    expect(markup).not.toContain("再看一次連結");
   });
 
   it("建立下一條失敗：錯誤顯示在表單下方，上一條連結還能再看一次", () => {
@@ -204,6 +227,20 @@ describe("離開這一頁就看不到連結（Activity 把頁面藏起來時）"
 
   it("藏起來時忘掉畫面上的那一條連結：回到這一頁（上一頁或導覽列的連結）就沒了，跟畫面上寫的一樣", () => {
     expect(hide(CREATED)).toHaveBeenCalledExactlyOnceWith({ forget: LINK });
+  });
+
+  it("藏起來時視窗跟著關掉：不會在換到的那一頁跳出「已建立邀請連結」的提示", () => {
+    vi.mocked(useActionState).mockReturnValueOnce([CREATED, vi.fn(), false]);
+    vi.mocked(useState).mockReturnValueOnce([undefined, vi.fn()]);
+    vi.mocked(useId).mockReturnValueOnce("invite-dialog");
+    const effects: EffectCallback[] = [];
+
+    const tree = callDirectly(effects);
+    const cleanups = effects.map((effect) => effect());
+    for (const cleanup of cleanups) cleanup?.();
+    (find(tree, (type) => type === Dialog)!.props.onClose as () => void)();
+
+    expect(toasts).toEqual([]);
   });
 
   it("還沒建立連結時藏起來：不送任何東西（按鈕不會閃一下「建立中…」）", () => {

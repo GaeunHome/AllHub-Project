@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo, SearchParams } from "@/core/module";
 import { cachedCategories, cachedRecurring } from "../../service/cached";
 import { AccountsBoard } from "../components/accounts/accounts-board";
@@ -12,7 +12,7 @@ import { loadAccounts } from "../overview-data";
  * 從別頁連過來帶 add=deposit 或 credit 時打開新增的視窗
  */
 export async function AccountsLoader({ searchParams }: { searchParams?: SearchParams } = {}) {
-  const user = await requireSession();
+  const user = await requireModule("savings");
   const [{ input, state }, categories, rules, params] = await Promise.all([loadAccounts(user.id, new Date(), { quotes: false }), cachedCategories(user.id), cachedRecurring(user.id), searchParams]);
   const { accounts, today } = input;
   const add = params?.add;

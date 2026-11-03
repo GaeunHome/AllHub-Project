@@ -2,9 +2,12 @@ import { Fragment, createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FormState } from "@/core/ui/form-message";
 import { markup as render, textOf } from "@/dev/test-helpers";
+import { toasts } from "@/dev/toast-stub";
 
 // 視窗關著時不算繪內容 換掉 Dialog 才看得到裡面 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });
+// 成功的訊息看跳出什麼提示
+vi.mock("@/core/ui/toast", () => import("@/dev/toast-stub"));
 // 一個按鈕的表單 要拿到交給它的 action
 vi.mock("@/core/ui/action-button", { spy: true });
 // Server Action 換成假的 只看每個表單接到哪一個
@@ -25,11 +28,10 @@ const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
 const actions = await import("../../actions");
 const { lastAccountPref } = await import("../../last-used");
-const { ROW_MESSAGE_CLASS } = await import("./fields");
 const { QuickAddButton } = await import("./quick-add");
 const { EntryForm } = await import("./entry-form");
 const { UpdateBalanceButton } = await import("./update-balance");
-const { SetupButton, SetupResultSlot } = await import("./setup-button");
+const { SetupButton } = await import("./setup-button");
 const { AccountForm } = await import("./account-form");
 const { CategoryForm } = await import("./category-form");
 const { RecurringForm } = await import("./recurring-form");
@@ -57,7 +59,6 @@ const fieldNames = (markup: string) => [...new Set([...markup.matchAll(/<(?:inpu
 const formActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
 /** 視窗表單送完後交給 onDone 的那一段 是 useDialogForm 的第二個參數 */
 const formOnDone = (index = 0) => vi.mocked(dialog.useDialogForm).mock.calls[index][1];
-const messageClasses = () => vi.mocked(dialog.DialogMessage).mock.calls.map(([props]) => props.className);
 const describedHint = (markup: string, name: string) => {
   const describedBy = inputOf(markup, name).match(/aria-describedby="([^"]+)"/)?.[1];
   return describedBy ? textOf(markup.match(new RegExp(`<p id="${describedBy}"[^>]*>([\\s\\S]*?)</p>`))?.[1] ?? "") : "";
@@ -65,7 +66,6 @@ const describedHint = (markup: string, name: string) => {
 
 beforeEach(() => {
   vi.mocked(dialog.useDialogForm).mockClear();
-  vi.mocked(dialog.DialogMessage).mockClear();
   vi.mocked(ActionButton).mockClear();
   done.onDone.mockClear();
   vi.mocked(dialog.Dialog).mockImplementation(({ children }) => createElement(Fragment, null, children));
@@ -157,14 +157,13 @@ describe("記一筆（快速記帳）", () => {
     expect(markup).toMatch(/<button disabled="" class="btn-primary">/);
   });
 
-  it("成功訊息獨佔所在那排按鈕的最後一整列，不把旁邊的按鈕拆開（總覽工具列、帳戶卡片）", () => {
-    render(createElement(QuickAddButton, OPTIONS));
+  it("記錄成功：關掉視窗，訊息用提示視窗，不留在總覽工具列或帳戶卡片那排按鈕裡", () => {
+    const markup = render(createElement(QuickAddButton, OPTIONS));
 
-    expect(messageClasses()).toEqual([ROW_MESSAGE_CLASS]);
-  });
+    formOnDone()("已記錄：餐飲 $120（國泰）", {});
 
-  it("一整列的訊息：排在最後、佔滿寬度，對齊跟著那一排（靠右的工具列訊息也靠右，按鈕不會被擠到左邊）", () => {
-    expect(ROW_MESSAGE_CLASS.split(" ")).toEqual(expect.arrayContaining(["basis-full", "order-last", "flex", "[justify-content:inherit]"]));
+    expect(toasts).toEqual([{ tone: "success", title: "已記錄：餐飲 $120（國泰）" }]);
+    expect(markup).not.toMatch(/role="status"/);
   });
 
   it("從信用卡的帳戶卡片打開、換成轉帳：繳卡費是存款轉到卡，卡是轉入；轉出是卡設定的扣款帳戶", () => {
@@ -253,10 +252,12 @@ describe("更新餘額", () => {
     expect(markup).toMatch(/aria-label="更新餘額：國泰"/);
   });
 
-  it("成功訊息獨佔帳戶卡片那排按鈕的最後一整列", () => {
+  it("更新成功：關掉視窗，訊息用提示視窗，不留在帳戶卡片那排按鈕裡", () => {
     render(createElement(UpdateBalanceButton, { account: { id: 1, name: "國泰", kind: "deposit", balance: 0 } }));
 
-    expect(messageClasses()).toEqual([ROW_MESSAGE_CLASS]);
+    formOnDone()("已更新「國泰」：調整 +$500", {});
+
+    expect(toasts).toEqual([{ tone: "success", title: "已更新「國泰」：調整 +$500" }]);
   });
 
   it("存款：只收數字，手機跳數字鍵盤；說明寫在欄位下面", () => {
@@ -268,50 +269,12 @@ describe("更新餘額", () => {
 });
 
 describe("開始使用", () => {
-  const setupRun = () => vi.mocked(ActionButton).mock.calls[0][0].action;
-
-  it("一個按鈕的表單，送到 setupAction", async () => {
-    vi.mocked(actions.setupAction).mockResolvedValue({ message: "已建立 3 個用途、5 個分類" });
-    vi.stubGlobal("window", { alert: vi.fn() });
+  it("一個按鈕的表單，送到 setupAction：成功與失敗都由它用提示視窗顯示（卡片會被伺服器換掉，不用原生的提示）", () => {
     const markup = render(createElement(SetupButton));
 
     expect(markup).toMatch(/^<form/);
     expect(textOf(markup)).toContain("開始使用");
-    expect(await setupRun()({}, new FormData())).toEqual({ message: "已建立 3 個用途、5 個分類" });
-    expect(actions.setupAction).toHaveBeenCalledOnce();
-  });
-
-  it("成功後整張卡片會被伺服器拿掉：外面有留訊息的位置（SetupResultSlot）就交給它，不跳提示視窗", async () => {
-    vi.mocked(actions.setupAction).mockResolvedValue({ message: "已建立 3 個用途、5 個分類" });
-    const alert = vi.fn();
-    vi.stubGlobal("window", { alert });
-
-    render(createElement(SetupResultSlot, null, createElement(SetupButton)));
-    await setupRun()({}, new FormData());
-
-    expect(alert).not.toHaveBeenCalled();
-  });
-
-  it("外面沒有留訊息的位置_成功訊息改用提示視窗（跟 Twitch、YouTube 選單裡的刪除一樣），不會沒有回饋", async () => {
-    vi.mocked(actions.setupAction).mockResolvedValue({ message: "已建立 3 個用途、5 個分類" });
-    const alert = vi.fn();
-    vi.stubGlobal("window", { alert });
-
-    render(createElement(SetupButton));
-    await setupRun()({}, new FormData());
-
-    expect(alert).toHaveBeenCalledWith("已建立 3 個用途、5 個分類");
-  });
-
-  it("失敗_錯誤留在按鈕旁邊，不跳提示", async () => {
-    vi.mocked(actions.setupAction).mockResolvedValue({ error: "建立預設的用途與分類失敗（詳見伺服器 log）" });
-    const alert = vi.fn();
-    vi.stubGlobal("window", { alert });
-
-    render(createElement(SetupButton));
-
-    expect(await setupRun()({}, new FormData())).toEqual({ error: "建立預設的用途與分類失敗（詳見伺服器 log）" });
-    expect(alert).not.toHaveBeenCalled();
+    expect(vi.mocked(ActionButton).mock.calls[0][0].action).toBe(actions.setupAction);
   });
 });
 

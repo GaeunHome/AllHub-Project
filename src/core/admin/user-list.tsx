@@ -1,3 +1,4 @@
+import { displayNameOf } from "../auth/nickname";
 import { ROLE_LABELS, type UserRole } from "../db/schema";
 import { formatTaipeiDateTime, formatTaipeiHourMinute } from "../time";
 import { ActionButton } from "../ui/action-button";
@@ -31,7 +32,8 @@ export function UserList({ users, currentUserId, lockedUntil }: { users: Managed
               </span>
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <p className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold break-all">{user.username}</span>
+                  <span className="font-semibold break-all">{displayNameOf(user)}</span>
+                  {user.nickname && <span className="break-all">{user.username}</span>}
                   {self && <span>（你）</span>}
                   <span className={ROLE_CHIP[user.role]}>{ROLE_LABELS[user.role]}</span>
                   {user.disabledAt && <span className="chip chip-danger">已停用</span>}

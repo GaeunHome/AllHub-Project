@@ -3,9 +3,11 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { coreEnv } from "../env";
+import { canUseModule, deniedModules } from "./module-access";
 import { SESSION_COOKIE, SESSION_DAYS, signSession, verifySessionToken } from "./session";
 import { findSessionUser, type SessionUser } from "./users";
 
+export { canUseModule, deniedModules } from "./module-access";
 export type { SessionUser, UserRole } from "./users";
 
 export async function createSession(userId: string, version: number): Promise<void> {
@@ -45,4 +47,20 @@ export async function requireOwner(): Promise<SessionUser> {
   const session = await requireSession();
   if (session.role !== "owner") redirect("/");
   return session;
+}
+
+/**
+ * 模組的 Server Action 頁面與首頁卡片都要呼叫 導覽列藏起來擋不住直接打開網址
+ * 權限每次從資料庫讀 不能用時導回首頁 不說明原因 沒有權限的模組就是看不到
+ */
+export async function requireModule(moduleId: string): Promise<SessionUser> {
+  const session = await requireSession();
+  if (!(await canUseModule(session, moduleId))) redirect("/");
+  return session;
+}
+
+/** 導覽列 首頁與提醒方式只列這個人能用的模組 順序不變 */
+export async function usableModules<T extends { id: string }>(modules: readonly T[]): Promise<T[]> {
+  const denied = await deniedModules(await requireSession());
+  return modules.filter((module) => !denied.has(module.id));
 }

@@ -1,15 +1,24 @@
 import "server-only";
-import { and, eq, isNull, type SQL } from "drizzle-orm";
+import { and, eq, isNull, not, or, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type { Executor } from ".";
-import { coreUsers } from "./schema";
+import { coreModuleDenials, coreUsers } from "./schema";
 
 /**
- * 停用的帳號凍結 排程只處理擁有者還沒停用的列
- * 用法 innerJoin(coreUsers, activeOwnerOf(weatherSettings.userId))
+ * 查詢裡的 coreUsers 能不能用這個模組 站長一律能用
+ * 只記不能用的 沒有紀錄就是能用 之後新增的模組自動開放
  */
-export function activeOwnerOf(userId: PgColumn): SQL {
-  return and(eq(coreUsers.id, userId), isNull(coreUsers.disabledAt))!;
+export function canUseModuleSql(moduleId: string): SQL {
+  const denied = sql`exists (select 1 from ${coreModuleDenials} where ${coreModuleDenials.userId} = ${coreUsers.id} and ${coreModuleDenials.moduleId} = ${moduleId})`;
+  return or(eq(coreUsers.role, "owner"), not(denied))!;
+}
+
+/**
+ * 停用的帳號與被關掉這個模組的人都凍結 排程只處理擁有者還能用的列
+ * 用法 innerJoin(coreUsers, activeOwnerOf(weatherSettings.userId, "weather"))
+ */
+export function activeOwnerOf(userId: PgColumn, moduleId: string): SQL {
+  return and(eq(coreUsers.id, userId), isNull(coreUsers.disabledAt), canUseModuleSql(moduleId))!;
 }
 
 /**

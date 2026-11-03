@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setupTestDb } from "@/dev/test-db";
 import { coreInvites, coreUsers } from "../db/schema";
@@ -7,7 +7,7 @@ import { hashPassword, verifyPassword } from "./credentials";
 // 包一層 spy 確認帳號不存在時也有呼叫驗證 跑假的 scrypt
 vi.mock("./credentials", { spy: true });
 
-const { authenticate, changePassword, deleteOwnAccount, findSessionUser, hasAnyUser } = await import("./users");
+const { authenticate, changePassword, deleteOwnAccount, findSessionUser, hasAnyUser, updateNickname } = await import("./users");
 
 const getDb = setupTestDb();
 const FAST = { N: 1024, r: 8, p: 1 };
@@ -109,16 +109,29 @@ describe("authenticate", () => {
 });
 
 describe("findSessionUser", () => {
+  it("部署時新程式比 migration 先上線，資料表還沒有暱稱欄位：登入檢查照常，暱稱當成沒有", async () => {
+    const user = await createUser();
+    await getDb().execute(sql`alter table core_users drop column nickname`);
+
+    expect(await findSessionUser({ userId: user.id, version: 1 })).toEqual({ id: user.id, username: "alice", nickname: null, role: "member" });
+  });
+
+  it("有暱稱時讀得到：照常回傳字串", async () => {
+    const user = await createUser("alice", PASSWORD, FAST, { nickname: "小明" });
+
+    expect((await findSessionUser({ userId: user.id, version: 1 }))?.nickname).toBe("小明");
+  });
+
   it("id 與 session 版本都相符_回傳使用者", async () => {
     const user = await createUser();
 
-    expect(await findSessionUser({ userId: user.id, version: 1 })).toEqual({ id: user.id, username: "alice", role: "member" });
+    expect(await findSessionUser({ userId: user.id, version: 1 })).toEqual({ id: user.id, username: "alice", nickname: null, role: "member" });
   });
 
   it("帶回資料庫裡的角色（權限一律以資料庫為準，cookie 不帶角色）", async () => {
     const owner = await createOwner();
 
-    expect(await findSessionUser({ userId: owner.id, version: 1 })).toEqual({ id: owner.id, username: "owner", role: "owner" });
+    expect(await findSessionUser({ userId: owner.id, version: 1 })).toEqual({ id: owner.id, username: "owner", nickname: null, role: "owner" });
   });
 
   it("帳號已停用_回 null（舊 cookie 立刻失效）", async () => {
@@ -359,5 +372,50 @@ describe("deleteOwnAccount", () => {
 
     expect(await deleteOwnAccount("6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f", PASSWORD)).toMatchObject({ ok: false, reason: "not_found" });
     expect(verifyPassword).toHaveBeenCalledWith(PASSWORD, null);
+  });
+});
+
+describe("updateNickname", () => {
+  it("存正規化後的暱稱；清空回到 null", async () => {
+    const user = await createUser();
+
+    expect(await updateNickname(user.id, "  小明　的  帳號 ")).toEqual({ ok: true, nickname: "小明 的 帳號" });
+    expect((await userRow(user.id)).nickname).toBe("小明 的 帳號");
+
+    expect(await updateNickname(user.id, "   ")).toEqual({ ok: true, nickname: null });
+    expect((await userRow(user.id)).nickname).toBeNull();
+  });
+
+  it("超過 20 個字被拒絕，原本的暱稱留著", async () => {
+    const user = await createUser("alice", PASSWORD, FAST, { nickname: "小明" });
+
+    expect(await updateNickname(user.id, "一".repeat(21))).toEqual({ ok: false, error: expect.any(String) });
+    expect((await userRow(user.id)).nickname).toBe("小明");
+  });
+
+  it("只改傳進來的那個人，別人的暱稱不動", async () => {
+    const alice = await createUser("alice");
+    const bob = await createUser("bob", PASSWORD, FAST, { nickname: "小明" });
+
+    await updateNickname(alice.id, "小美");
+
+    expect((await userRow(alice.id)).nickname).toBe("小美");
+    expect((await userRow(bob.id)).nickname).toBe("小明");
+  });
+
+  it("改暱稱後帳號名稱與登入不受影響：帳號名稱可以登入、暱稱不行，舊 cookie 照樣有效", async () => {
+    const user = await createUser();
+    const before = await userRow(user.id);
+
+    await updateNickname(user.id, "小明");
+
+    expect(await userRow(user.id)).toMatchObject({ username: "alice", passwordHash: before.passwordHash, sessionVersion: before.sessionVersion });
+    expect(await authenticate("alice", PASSWORD)).toMatchObject({ id: user.id });
+    expect(await authenticate("小明", PASSWORD)).toBeNull();
+    expect(await findSessionUser({ userId: user.id, version: before.sessionVersion })).toEqual({ id: user.id, username: "alice", nickname: "小明", role: "member" });
+  });
+
+  it("帳號已經不在_回失敗", async () => {
+    expect(await updateNickname("6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f", "小明")).toEqual({ ok: false, error: expect.any(String) });
   });
 });

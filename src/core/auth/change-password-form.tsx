@@ -4,6 +4,8 @@ import { useActionState, useId } from "react";
 import { FormFeedback, type FormState } from "../ui/form-message";
 import { Icon } from "../ui/icon";
 import { PasswordInput } from "../ui/password-input";
+import { useToast } from "../ui/toast";
+import { withToast } from "../ui/toast-queue";
 import { changePasswordAction } from "./actions";
 import { PASSWORD_MIN_LENGTH } from "./password-rules";
 
@@ -13,8 +15,10 @@ const FIELDS = [
   { name: "confirmPassword", label: "再輸入一次新密碼", autoComplete: "new-password" },
 ] as const;
 
+/** 錯誤留在欄位下面 對著欄位修改 成功用提示視窗 */
 export function ChangePasswordForm({ username }: { username: string }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(changePasswordAction, {});
+  const toast = useToast();
+  const [state, action, pending] = useActionState<FormState, FormData>(withToast(toast, changePasswordAction, { errors: false }), {});
   const id = useId();
 
   return (

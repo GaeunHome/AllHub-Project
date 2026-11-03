@@ -6,12 +6,12 @@ import type { SettingsView } from "../../service/ai-settings";
 vi.mock("../actions", () => ({ saveSettingsAction: vi.fn() }));
 
 const { SettingsForm } = await import("./settings-form");
+const { AI_MODELS } = await import("../../lib/subtitles/models");
 
 const SETTINGS: SettingsView = {
   provider: "anthropic",
   keys: { anthropic: "sk-ant-a", openai: null, gemini: null },
-  customModels: { anthropic: "", openai: "", gemini: "" },
-  defaultModels: { anthropic: "claude-haiku-4-5", openai: "gpt-4.1-mini", gemini: "gemini-3.8-flash" },
+  models: { anthropic: "claude-haiku-5-5", openai: "gpt-6-luna", gemini: "gemini-3.8-flash" },
   glossaryText: "민지=珉池",
 };
 
@@ -57,5 +57,43 @@ describe("翻譯設定的表單：API Key 只顯示前 8 碼", () => {
     const [anthropic] = keyInputs({ anthropic: "", openai: null, gemini: null });
 
     expect(anthropic).toContain('placeholder="已設定（無法解密，請重新填入）"');
+  });
+});
+
+describe("翻譯設定的表單：模型是下拉選單", () => {
+  /** 每家的下拉選單 選項的值與字 還有選好的是哪一個 */
+  const modelSelect = (provider: string, settings: SettingsView = SETTINGS) => {
+    const markup = renderToStaticMarkup(createElement(SettingsForm, { settings }));
+    const inner = new RegExp(`<select[^>]*name="model_${provider}"[^>]*>(.*?)</select>`).exec(markup)?.[1] ?? "";
+    const options = [...inner.matchAll(/<option([^>]*)>([^<]*)<\/option>/g)].map(([, attributes, label]) => ({ value: /value="([^"]*)"/.exec(attributes)?.[1], selected: attributes.includes("selected"), label }));
+    return { markup, options, values: options.map((option) => option.value), selected: options.filter((option) => option.selected).map((option) => option.value) };
+  };
+
+  it("選項跟著供應商：每家的卡片只列自己的模型，不是文字輸入框，也沒有空的選項可以留空", () => {
+    const { markup, values: claude } = modelSelect("anthropic");
+
+    expect(claude).toEqual(AI_MODELS.anthropic.map((model) => model.id));
+    expect(modelSelect("openai").values).toEqual(AI_MODELS.openai.map((model) => model.id));
+    expect(modelSelect("gemini").values).toEqual(AI_MODELS.gemini.map((model) => model.id));
+    expect(claude).not.toContain("");
+    expect(markup).not.toMatch(/<input[^>]*name="model_/);
+    expect(markup).not.toContain("留空使用預設");
+  });
+
+  it("一進去就選好目前的模型", () => {
+    expect(modelSelect("openai").selected).toEqual(["gpt-6-luna"]);
+    expect(modelSelect("anthropic", { ...SETTINGS, models: { ...SETTINGS.models, anthropic: "claude-opus-5-5" } }).selected).toEqual(["claude-opus-5-5"]);
+  });
+
+  it("以前存的自訂模型不在清單裡：多一個「目前設定：<模型 id>」的選項並選好它，不會被洗掉", () => {
+    const { options, selected } = modelSelect("openai", { ...SETTINGS, models: { ...SETTINGS.models, openai: "gpt-custom-2025" } });
+
+    expect(selected).toEqual(["gpt-custom-2025"]);
+    expect(options.find((option) => option.value === "gpt-custom-2025")?.label).toBe("目前設定：gpt-custom-2025");
+    expect(options).toHaveLength(AI_MODELS.openai.length + 1);
+  });
+
+  it("目前的模型在清單裡：不多一個選項", () => {
+    expect(modelSelect("gemini").options.map((option) => option.label).join()).not.toContain("目前設定");
   });
 });

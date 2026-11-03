@@ -84,12 +84,12 @@ describe("定期定額（投資頁與每月固定頁共用）", () => {
     return render(createElement(RegularBuyList, { items: view.regularBuys, form: view.form, ...props }));
   };
 
-  it("每一列：代號、哪一檔、排程、從哪個帳戶扣、扣款金額", () => {
-    const text = textOf(list());
+  it("每一列：代號、哪一檔、排程、從哪個帳戶扣、扣款金額；排程與扣款帳戶各一行", () => {
+    const text = textOf(list(), { spaced: true });
 
     expect(text).toContain("006208");
     expect(text).toContain("富邦台灣50");
-    expect(text).toContain("每月 5 日（遇假日延後） · 從台銀扣");
+    expect(text).toContain("每月 5 日（遇假日延後） 從台銀扣");
     expect(text).toContain("$5,000");
   });
 
@@ -142,11 +142,24 @@ describe("其他固定收支", () => {
     expect(confirms()).toContainEqual(expect.stringContaining("紀錄會留著"));
   });
 
-  it("每一列：分類的圖示、名稱、排程與下一期；自動記帳的不用處理，列上沒有按鈕", () => {
+  it("每一列：分類的圖示、名稱、排程與記帳方式在左邊，金額與下一期在右邊；自動記帳的不用處理，列上沒有按鈕", () => {
     const markup = list([NETFLIX]);
 
-    expect(textOf(markup)).toContain("每月 12 日 · 自動記帳 · 下一期 11/12");
+    const text = textOf(markup, { spaced: true });
+
+    expect(text).toContain("每月 12 日 自動記帳");
+    expect(text).toContain("$390 下一期 11/12");
     expect(buttonsOf(outsideMenus(markup)).filter((text) => text === "確認" || text === "略過")).toEqual([]);
+  });
+
+  it("要處理的那一期寫在金額下面：到期日與還有幾天分兩行", () => {
+    expect(textOf(list([RENT]), { spaced: true })).toContain("$15,000 10/20 到期 還有 4 天");
+  });
+
+  it("排程遇假日的寫在括號裡，記帳方式另外一行", () => {
+    const shifted = rule(38, { name: "管理費", holidayRule: "after" });
+
+    expect(textOf(list([shifted]), { spaced: true })).toContain("每月 20 日（遇假日延後） 到期請我確認");
   });
 
   it("停用的標「已停用」，可以從 ⋮ 恢復", () => {
@@ -182,9 +195,9 @@ describe("薪水", () => {
   };
 
   it("每條薪水寫發薪日（遇假日提前）、入帳到哪個帳戶與預計金額", () => {
-    const text = textOf(section());
+    const text = textOf(section(), { spaced: true });
 
-    expect(text).toContain("每月 10 日（遇假日提前） · 入帳到生活費帳戶");
+    expect(text).toContain("每月 10 日（遇假日提前） 入帳到生活費帳戶");
     expect(text).toContain("+$52,000");
   });
 
@@ -204,6 +217,16 @@ describe("薪水", () => {
     expect(text).toContain("台銀$5,000");
     expect(text).toMatch(/緊急預備金 A[^$]*\$1,500/);
     expect(text).toContain("留在生活費帳戶$45,500");
+  });
+
+  it("分配的說明跟帳戶分開：帳戶是標籤，說明與金額是值（使用者說圓點間隔很醜）", () => {
+    const facts = [...section().matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2], { spaced: true }).trim()]);
+
+    expect(facts).toEqual([
+      ["台銀", "$5,000"],
+      ["緊急預備金 A", "離目標 $10,000 只差這些 $1,500"],
+      ["留在生活費帳戶", "$45,500"],
+    ]);
   });
 
   it("修改分配：每個帳戶送 accountId、monthlyPlan:<id>、targetAmount:<id>，送到 updateAllocationAction；入帳帳戶不在裡面", () => {

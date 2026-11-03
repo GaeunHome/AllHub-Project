@@ -1,5 +1,6 @@
+import { isNull } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { OTHER_SESSION, TEST_SESSION, currentSession } from "@/dev/session-stub";
+import { OTHER_SESSION, TEST_SESSION, currentSession, deniedModules } from "@/dev/session-stub";
 import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { captureErrorLog } from "@/dev/test-helpers";
 import { coreNotifications } from "../db/schema";
@@ -13,6 +14,7 @@ const ORIGIN = "https://hub.example.com";
 
 beforeEach(async () => {
   currentSession.mockReset();
+  deniedModules.mockReset();
   await insertTestUser(getDb(), TEST_SESSION.username, { id: TEST_SESSION.id, role: "owner" });
   await insertTestUser(getDb(), OTHER_SESSION.username, { id: OTHER_SESSION.id });
 });
@@ -59,6 +61,18 @@ describe("GET /api/notifications（輪詢用）", () => {
     expect(body.recent[0]).toMatchObject({ module: "youtube", read: false });
   });
 
+  it("被關掉的模組的通知看不到：未讀數與最近通知都拿掉，資料庫裡留著", async () => {
+    await seed(2, "twitch");
+    await seed(1, "savings");
+    deniedModules.mockResolvedValue(new Set(["savings"]));
+
+    const body = await (await GET()).json();
+
+    expect(body.unread).toEqual({ total: 2, byModule: { twitch: 2 } });
+    expect(body.recent.map((item: { module: string }) => item.module)).toEqual(["twitch", "twitch"]);
+    expect(await getDb().select().from(coreNotifications)).toHaveLength(3);
+  });
+
   it("資料庫出錯_500 只回摘要_log 只記錯誤種類", async () => {
     const log = captureErrorLog();
     currentSession.mockRejectedValue(Object.assign(new Error("db-secret in message"), { name: "PostgresError" }));
@@ -72,6 +86,16 @@ describe("GET /api/notifications（輪詢用）", () => {
 });
 
 describe("POST /api/notifications（標為已讀）", () => {
+  it("回傳的未讀數也不含被關掉的模組", async () => {
+    const [a] = await seed(2, "twitch");
+    await seed(1, "savings");
+    deniedModules.mockResolvedValue(new Set(["savings"]));
+
+    const body = await (await post({ action: "read", ids: [a.id] })).json();
+
+    expect(body.unread).toEqual({ total: 1, byModule: { twitch: 1 } });
+  });
+
   it("指定 id 標成已讀_回傳更新後的未讀數與最近通知", async () => {
     const [a, b] = await seed(3);
 
@@ -89,6 +113,18 @@ describe("POST /api/notifications（標為已讀）", () => {
 
     expect((await (await post({ action: "read-all", module: "twitch" })).json()).unread).toEqual({ total: 1, byModule: { youtube: 1 } });
     expect((await (await post({ action: "read-all" })).json()).unread).toEqual({ total: 0, byModule: {} });
+  });
+
+  it("全部標成已讀_被關掉的模組的通知不動：看不到的不會被標掉，恢復後照常是未讀", async () => {
+    await seed(2, "twitch");
+    await seed(1, "savings");
+    deniedModules.mockResolvedValue(new Set(["savings"]));
+
+    await post({ action: "read-all" });
+    await post({ action: "read-all", module: "savings" });
+
+    const unread = await getDb().select({ module: coreNotifications.module }).from(coreNotifications).where(isNull(coreNotifications.readAt));
+    expect(unread.map((row) => row.module)).toEqual(["savings"]);
   });
 
   it("沒登入_401_不變更", async () => {

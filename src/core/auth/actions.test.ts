@@ -28,13 +28,13 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const users = vi.hoisted(() => ({ authenticate: vi.fn(), changePassword: vi.fn(), findSessionUser: vi.fn(), hasAnyUser: vi.fn(), deleteOwnAccount: vi.fn() }));
+const users = vi.hoisted(() => ({ authenticate: vi.fn(), changePassword: vi.fn(), findSessionUser: vi.fn(), hasAnyUser: vi.fn(), deleteOwnAccount: vi.fn(), updateNickname: vi.fn() }));
 vi.mock("./users", () => users);
 // 驗證碼本身另外測 這裡預設答對 專心測登入流程
 vi.mock("./captcha", { spy: true });
 
 const captcha = mocksOf(await import("./captcha"), "takeCaptchaToken", "verifyCaptcha");
-const { changePasswordAction, deleteAccountAction, login, logout } = await import("./actions");
+const { changePasswordAction, deleteAccountAction, login, logout, updateNicknameAction } = await import("./actions");
 const { SESSION_COOKIE, signSession, verifySessionToken } = await import("./session");
 
 let ipSeq = 0;
@@ -275,6 +275,45 @@ describe("deleteAccountAction", () => {
 
     expect(await deleteAccountAction({}, form({ password: PASSWORD }))).toEqual({ error: "刪除帳號失敗（詳見伺服器 log）" });
     expect(request.jar.has(SESSION_COOKIE)).toBe(true);
+  });
+});
+
+describe("updateNicknameAction", () => {
+  async function loggedIn() {
+    request.jar.set(SESSION_COOKIE, { value: await signSession({ userId: USER_ID, version: 1 }, SECRET) });
+    users.findSessionUser.mockResolvedValue({ id: USER_ID, username: "alice", nickname: null, role: "member" });
+  }
+
+  it("沒登入_導向登入頁_不寫入", async () => {
+    users.findSessionUser.mockResolvedValue(null);
+
+    await expect(updateNicknameAction({}, form({ nickname: "小明" }))).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(users.updateNickname).not.toHaveBeenCalled();
+  });
+
+  it("只能改自己：使用者 id 來自 session，表單多帶別人的 id 也沒有用；不用輸入密碼", async () => {
+    await loggedIn();
+    users.updateNickname.mockResolvedValue({ ok: true, nickname: "小明" });
+
+    const state = await updateNicknameAction({}, form({ nickname: "小明", userId: "1d2c3b4a-5e6f-4a7b-8c9d-0e1f2a3b4c5d" }));
+
+    expect(state.error).toBeUndefined();
+    expect(users.updateNickname).toHaveBeenCalledExactlyOnceWith(USER_ID, "小明");
+  });
+
+  it("規則不符_原因回給表單", async () => {
+    await loggedIn();
+    users.updateNickname.mockResolvedValue({ ok: false, error: "暱稱最多 20 個字" });
+
+    expect(await updateNicknameAction({}, form({ nickname: "一".repeat(21) }))).toEqual({ error: "暱稱最多 20 個字" });
+  });
+
+  it("資料庫出錯_回摘要不丟例外", async () => {
+    captureErrorLog();
+    await loggedIn();
+    users.updateNickname.mockRejectedValue(new Error("db down"));
+
+    expect(await updateNicknameAction({}, form({ nickname: "小明" }))).toEqual({ error: "更新暱稱失敗（詳見伺服器 log）" });
   });
 });
 

@@ -1,12 +1,13 @@
 import "server-only";
 import { z } from "zod";
-import { currentSession, type SessionUser } from "../auth";
+import { currentSession, deniedModules, type SessionUser } from "../auth";
 import { expireTags } from "../cache";
 import { logError } from "../errors";
 import { MODULE_ID_PATTERN } from "../ids";
 import { notificationsTag } from "./cache-tags";
 import { cachedFeed } from "./cached";
 import { markAllNotificationsRead, markNotificationsRead } from "./service";
+import { withoutModules } from "./visible";
 
 // 用 Route Handler 不用 Server Action 因為每個分頁一次只送一個 Server Action
 // 觀看頁翻譯一批要幾十秒 輪詢不能排在它後面
@@ -21,9 +22,12 @@ const markRequest = z.discriminatedUnion("action", [
 
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: NO_STORE });
 
+/** 權限每次讀最新 快取的通知不分模組 回應前才濾掉 */
+const feedOf = async (user: SessionUser) => json(withoutModules(await cachedFeed(user.id), await deniedModules(user)));
+
 /** session 失效時回 401 例如在別的裝置改了密碼 前端就停止輪詢 */
 export async function GET(): Promise<Response> {
-  return withSession(async (user) => json(await cachedFeed(user.id)));
+  return withSession(feedOf);
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -36,10 +40,10 @@ export async function POST(request: Request): Promise<Response> {
     if (!parsed.success) return json({ error: "內容格式不正確" }, 400);
     // 只改登入者自己的通知 送來別人的 id 不會有效果
     if (parsed.data.action === "read") await markNotificationsRead(user.id, parsed.data.ids);
-    else await markAllNotificationsRead(user.id, parsed.data.module);
+    else await markAllNotificationsRead(user.id, { module: parsed.data.module, hidden: await deniedModules(user) });
     // 同一請求裡失效過的 tag 會讓下面直接讀新資料 回傳的未讀數就是標完之後的
     expireTags(notificationsTag);
-    return json(await cachedFeed(user.id));
+    return feedOf(user);
   });
 }
 

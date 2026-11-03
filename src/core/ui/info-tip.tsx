@@ -2,7 +2,9 @@
 
 import { useEffect, useId, useLayoutEffect, useReducer, useRef, type FocusEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Icon } from "./icon";
+import { useOutsidePress } from "./outside-press";
 import { POPUP_TRIGGER } from "./popup-layer";
+import { placeNear, type Box, type Size } from "./popup-position";
 
 export type InfoTipState = { hover: boolean; focus: boolean; pinned: boolean; dismissed: boolean };
 export type InfoTipEvent = "hover" | "unhover" | "focus" | "blur" | "toggle" | "escape" | "outside" | "reset";
@@ -45,15 +47,9 @@ const GAP = 6;
 /** 跟手機的頁面左右內距一樣 */
 const EDGE = 16;
 
-type Box = { left: number; right: number; top: number; bottom: number };
-type Size = { width: number; height: number };
-
 /** 置中放在按鈕下方 左右留 EDGE 不超出畫面 下方放不下才改放上方 */
 export function placeInfoTip(anchor: Box, tip: Size, viewport: Size): { left: number; top: number } {
-  const left = Math.max(EDGE, Math.min((anchor.left + anchor.right) / 2 - tip.width / 2, viewport.width - EDGE - tip.width));
-  const below = anchor.bottom + GAP;
-  const above = anchor.top - GAP - tip.height;
-  const top = below + tip.height <= viewport.height - EDGE || above < EDGE ? below : above;
+  const { left, top } = placeNear(anchor, tip, viewport, { left: (anchor.left + anchor.right) / 2 - tip.width / 2, gap: GAP, edge: EDGE });
   return { left: Math.round(left), top: Math.round(top) };
 }
 
@@ -89,23 +85,15 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
     };
   }, [visible]);
 
+  // 點外面或焦點移到外面就收起 iPhone 點按鈕不給焦點 只靠失去焦點收不起來
+  useOutsidePress(visible, rootRef, () => dispatch("outside"), true);
   useEffect(() => {
     if (!visible) return;
-    // 點外面或焦點移到外面就收起 iPhone 點按鈕不給焦點 只靠失去焦點收不起來
-    const onOutside = (event: Event) => {
-      if (!rootRef.current?.contains(event.target as Node)) dispatch("outside");
-    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") dispatch("escape");
     };
-    document.addEventListener("pointerdown", onOutside);
-    document.addEventListener("focusin", onOutside);
     document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onOutside);
-      document.removeEventListener("focusin", onOutside);
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [visible]);
 
   // Activity 藏起頁面或卸載時收起 回來時才不會留著上次點開的說明

@@ -1,11 +1,9 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { remainingSteps } from "../../lib/setup";
 import { cachedAccounts, cachedCategories, cachedRecurring } from "../../service/cached";
 import { OVERVIEW_COLUMNS, OVERVIEW_LEFT, OVERVIEW_RIGHT, OVERVIEW_TOP } from "../components/dashboard/layout";
-import { OverviewNotice } from "../components/dashboard/overview-notice";
 import { ChecklistSkeleton, HeroSkeleton, MonthSkeleton, OverviewSkeleton, QuickActionsSkeleton, TrendSkeleton } from "../components/dashboard/skeletons";
-import { SetupResultSlot } from "../components/forms/setup-button";
 import { HowTo } from "../components/overview/how-to";
 import { OverviewPrefsSync } from "../components/overview/overview-prefs-sync";
 import { ChecklistSection, HeroSection, MonthSection, QuickActionsSection, TrendSection } from "../components/overview/sections";
@@ -32,28 +30,18 @@ export function SavingsPage({ info }: { info: ModuleInfo }) {
  * 還沒有帳戶時只有開始設定
  */
 export async function SavingsOverview() {
-  const user = await requireSession();
+  const user = await requireModule("savings");
   const [accounts, categories, rules] = await Promise.all([cachedAccounts(user.id), cachedCategories(user.id), cachedRecurring(user.id)]);
   const setup = setupView(accounts, rules, categories);
   const pending = remainingSteps(setup.status, []);
 
-  if (setup.required) {
-    // 按了開始使用後那一行會不見 訊息與焦點留在不會消失的外框裡
-    return (
-      <SetupResultSlot>
-        <SetupChecklist view={setup} />
-      </SetupResultSlot>
-    );
-  }
+  // 按了開始使用後那一行會不見 焦點交給頁面的外框
+  if (setup.required) return <SetupChecklist view={setup} />;
 
   return (
     <>
       <OverviewPrefsSync pending={pending} />
-      {pending.length > 0 && (
-        <SetupResultSlot>
-          <SetupChecklist view={setup} />
-        </SetupResultSlot>
-      )}
+      {pending.length > 0 && <SetupChecklist view={setup} />}
       <div className={OVERVIEW_TOP}>
         <StreamSection fallback={<HeroSkeleton />}>
           <HeroSection />
@@ -62,24 +50,21 @@ export async function SavingsOverview() {
           <QuickActionsSection />
         </StreamSection>
       </div>
-      {/* 處理完那一列的按鈕會不見 訊息放在兩欄上面 撐滿整頁寬 */}
-      <OverviewNotice>
-        <div className={OVERVIEW_COLUMNS}>
-          <div className={OVERVIEW_LEFT}>
-            <StreamSection fallback={<ChecklistSkeleton />}>
-              <ChecklistSection />
-            </StreamSection>
-          </div>
-          <div className={OVERVIEW_RIGHT}>
-            <StreamSection fallback={<MonthSkeleton />}>
-              <MonthSection />
-            </StreamSection>
-            <StreamSection fallback={<TrendSkeleton />}>
-              <TrendSection />
-            </StreamSection>
-          </div>
+      <div className={OVERVIEW_COLUMNS}>
+        <div className={OVERVIEW_LEFT}>
+          <StreamSection fallback={<ChecklistSkeleton />}>
+            <ChecklistSection />
+          </StreamSection>
         </div>
-      </OverviewNotice>
+        <div className={OVERVIEW_RIGHT}>
+          <StreamSection fallback={<MonthSkeleton />}>
+            <MonthSection />
+          </StreamSection>
+          <StreamSection fallback={<TrendSkeleton />}>
+            <TrendSection />
+          </StreamSection>
+        </div>
+      </div>
       <HowTo />
     </>
   );

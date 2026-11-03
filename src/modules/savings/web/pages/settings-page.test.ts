@@ -1,4 +1,4 @@
-import { createElement, type ReactNode } from "react";
+import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
@@ -7,17 +7,12 @@ import { markup as render, mocksOf } from "@/dev/test-helpers";
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), usePathname: () => "/savings/settings" }));
 vi.mock("../../service/cached", { spy: true });
-vi.mock("@/core/ui/dialog", { spy: true });
 // 卡片換成只記下收到什麼的替身 這裡只檢查設定頁讀了誰的資料與怎麼整理
 vi.mock("../components/settings/categories-card", () => ({ CategoriesCard: vi.fn(() => null) }));
-vi.mock("../components/forms/setup-button", () => ({
-  SetupResultSlot: ({ children }: { children?: ReactNode }) => createElement("div", { "data-slot": "setup-result" }, children),
-}));
 
 const { redirect } = await import("next/navigation");
 const cached = mocksOf(await import("../../service/cached"), "cachedCategories");
 const { CategoriesCard } = await import("../components/settings/categories-card");
-const dialog = await import("@/core/ui/dialog");
 const { SettingsPage, CategoriesLoader, LegacyLinkRedirect } = await import("./settings-page");
 
 const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: true };
@@ -39,23 +34,15 @@ beforeEach(() => {
 describe("理財的設定頁", () => {
   it("帳戶與固定收支搬到自己的分頁：設定頁連過去（帳戶、投資、每月固定）", () => {
     const markup = render(createElement(SettingsPage, { info: INFO }));
-    const below = markup.slice(markup.indexOf('data-slot="setup-result"'));
+    const below = markup.slice(markup.indexOf("載入分類…"));
 
     expect(hrefs(below)).toEqual(expect.arrayContaining(["/savings/accounts", "/savings/investments", "/savings/recurring"]));
   });
 
-  it("「開始使用」的成功訊息留在卡片外面（建好後卡片會換掉）", () => {
+  it("「開始使用」成功後分類的卡片會換掉：焦點交給一直都在的整頁外框（訊息改用提示視窗）", () => {
     const markup = render(createElement(SettingsPage, { info: INFO }));
 
-    expect(markup).toMatch(/<div data-slot="setup-result">[\s\S]*載入分類…/);
-  });
-
-  it("整頁的視窗共用一個訊息範圍：只留最新的一則成功訊息", () => {
-    vi.mocked(dialog.DialogMessageScope).mockClear();
-
-    render(createElement(SettingsPage, { info: INFO }));
-
-    expect(dialog.DialogMessageScope).toHaveBeenCalledOnce();
+    expect(markup).toMatch(/^<div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入分類…/);
   });
 });
 

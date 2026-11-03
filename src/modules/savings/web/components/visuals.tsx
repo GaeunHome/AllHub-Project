@@ -1,7 +1,7 @@
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { ACCOUNT_KIND_ICONS, ACCOUNT_KIND_LABELS, type AccountKind } from "../../lib/kinds";
 
-// 各頁共用的小圖 一律中性色
+// 各頁共用的小元件 一律中性色
 
 const TILE_SIZE = { sm: "size-8 [&>.icon]:size-4", md: "size-10 [&>.icon]:size-5" } as const;
 
@@ -17,6 +17,20 @@ export function IconTile({ name, size = "md", label }: { name: UiIconName; size?
 /** 旁邊沒寫類型時加 labelled 讓報讀器念出來 */
 export function AccountKindTile({ kind, size, labelled = false }: { kind: AccountKind; size?: keyof typeof TILE_SIZE; labelled?: boolean }) {
   return <IconTile name={ACCOUNT_KIND_ICONS[kind]} size={size} label={labelled ? ACCOUNT_KIND_LABELS[kind] : undefined} />;
+}
+
+/** 要分開寫的幾件事 一件一行 不用符號串在一起 */
+export function Lines({ lines }: { lines: readonly string[] }) {
+  return (
+    <span className="flex flex-col">
+      {lines.map((line) => (
+        // 只在空格與括號前換行 遇假日延後這種詞才不會被拆開 真的放不下才隨處斷
+        <span key={line} className="break-keep wrap-anywhere">
+          {line}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 /** 股票代號 */

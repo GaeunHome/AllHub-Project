@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo, SearchParams } from "@/core/module";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { parseRowId } from "../../lib/validation";
 import { cachedCategories } from "../../service/cached";
-import { SetupResultSlot } from "../components/forms/setup-button";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { CategoriesCard } from "../components/settings/categories-card";
 import { SAVINGS_PATHS, editRecurringPath } from "../paths";
@@ -24,7 +23,7 @@ export async function LegacyLinkRedirect({ searchParams }: { searchParams?: Sear
 }
 
 export async function CategoriesLoader() {
-  const user = await requireSession();
+  const user = await requireModule("savings");
   const categories = await cachedCategories(user.id);
   return <CategoriesCard categories={categories.map(({ id, name, kind, monthlyBudget, icon }) => ({ id, name, kind, monthlyBudget, icon }))} />;
 }
@@ -61,12 +60,10 @@ export function SettingsPage({ info, searchParams }: { info: ModuleInfo; searchP
       <Suspense fallback={null}>
         <LegacyLinkRedirect searchParams={searchParams} />
       </Suspense>
-      {/* 開始使用成功後卡片會換掉 訊息留在外面這一層 */}
-      <SetupResultSlot>
-        <StreamSection fallback={<CategoriesSkeleton />}>
-          <CategoriesLoader />
-        </StreamSection>
-      </SetupResultSlot>
+      {/* 開始使用成功後卡片會換掉 焦點交給頁面的外框 */}
+      <StreamSection fallback={<CategoriesSkeleton />}>
+        <CategoriesLoader />
+      </StreamSection>
       <p className="text-ink">
         帳戶在
         <Link href={SAVINGS_PATHS.accounts} className="link">

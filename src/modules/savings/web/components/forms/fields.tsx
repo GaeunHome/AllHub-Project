@@ -226,12 +226,6 @@ export function CheckboxField({ name, label, defaultChecked, checked, onCheckedC
   );
 }
 
-/**
- * 成功訊息獨佔最後一整列 才不會把同一排的按鈕拆開
- * 對齊跟著那一排 靠右的工具列訊息也靠右
- */
-export const ROW_MESSAGE_CLASS = "flex basis-full order-last [justify-content:inherit]";
-
 type FormButtonsProps = { pending: boolean; onCancel: () => void; label: string; pendingLabel: string; icon?: UiIconName; disabled?: boolean };
 
 /** 取消不會送出表單 送出中兩個都停用 */

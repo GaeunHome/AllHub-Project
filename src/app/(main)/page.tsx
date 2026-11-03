@@ -17,21 +17,16 @@ export default function Page() {
   return (
     <HomePage
       modules={modules}
-      wide={
-        <>
-          <TwitchHomeCard info={twitchInfo} />
-          <YoutubeHomeCard info={youtubeInfo} />
-        </>
-      }
-      half={<StarrailHomeCard info={starrailInfo} />}
-      compact={
-        <>
-          <WeatherHomeCard info={weatherInfo} />
-          <SavingsHomeCard info={savingsInfo} />
-          <RemindersHomeCard info={remindersInfo} />
-        </>
-      }
-      compactOdd
+      top={[
+        { id: weatherInfo.id, card: <WeatherHomeCard info={weatherInfo} /> },
+        { id: remindersInfo.id, card: <RemindersHomeCard info={remindersInfo} /> },
+      ]}
+      wide={[
+        { id: twitchInfo.id, card: <TwitchHomeCard info={twitchInfo} /> },
+        { id: youtubeInfo.id, card: <YoutubeHomeCard info={youtubeInfo} /> },
+      ]}
+      half={[{ id: starrailInfo.id, card: <StarrailHomeCard info={starrailInfo} /> }]}
+      compact={[{ id: savingsInfo.id, card: <SavingsHomeCard info={savingsInfo} /> }]}
     />
   );
 }

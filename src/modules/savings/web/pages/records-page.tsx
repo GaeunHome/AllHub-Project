@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo, SearchParams } from "@/core/module";
 import { taipeiMonthKey } from "@/core/time";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
@@ -34,10 +34,10 @@ function toRecordItem(view: TransactionView, rules: ReadonlyMap<number, Pick<Pen
 
 /**
  * 頁首的記一筆 手機也用這一顆 沒有帳戶時不顯示
- * 寬螢幕靠右 成功訊息排在按鈕下一行也靠右
+ * 寬螢幕靠右
  */
 export async function RecordsActions() {
-  const user = await requireSession();
+  const user = await requireModule("savings");
   const [accounts, categories, holdings] = await Promise.all([cachedAccounts(user.id), cachedCategories(user.id), cachedHoldings(user.id)]);
   const options = entryFormOptions(accounts, categories, taipeiToday(new Date()), accountsWithHoldings(holdings));
   if (options.accounts.length === 0) return null;
@@ -48,9 +48,9 @@ export async function RecordsActions() {
   );
 }
 
-/** 先 requireSession 再讀自己的資料 */
+/** 先 requireModule 再讀自己的資料 */
 export async function RecordsSection({ searchParams }: { searchParams: SearchParams }) {
-  const user = await requireSession();
+  const user = await requireModule("savings");
   const now = new Date();
   const current = taipeiMonthKey(now);
   const params = await searchParams;

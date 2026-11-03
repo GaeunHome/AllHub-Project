@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { byUrl, fakeFetch } from "@/dev/fake-fetch";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { captureErrorLog, mocksOf } from "@/dev/test-helpers";
 import { youtubeChannels, youtubeFollows, youtubeVideos } from "../data/schema";
@@ -61,6 +62,58 @@ describe("checkChineseCaptions", () => {
 
   it("不在影片清單裡的影片_回 null、不寫入", async () => {
     expect(await checkChineseCaptions("zzzzzzzzzzz", NOW)).toBeNull();
+  });
+});
+
+describe("checkChineseCaptions 接上真的字幕清單：觀看頁被擋時還有第二個來源，兩個都讀不到才是 unknown", () => {
+  const BOT_CHECK = { playabilityStatus: { status: "LOGIN_REQUIRED", reason: "Sign in to confirm you're not a bot" } };
+  const watchPage = (player: unknown) => `<html><script>var ytInitialPlayerResponse = ${JSON.stringify(player)};</script></html>`;
+  const WITH_CHINESE = { playabilityStatus: { status: "OK" }, captions: { playerCaptionsTracklistRenderer: { captionTracks: [{ languageCode: "zh-TW", vssId: ".zh-TW", baseUrl: "https://www.youtube.com/api/timedtext?lang=zh-TW" }] } } };
+
+  const stubYoutube = (player: unknown) =>
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch(
+        byUrl([
+          [/\/watch\?v=/, () => new Response(watchPage(BOT_CHECK))],
+          [/\/youtubei\/v1\/player/, () => Response.json(player)],
+        ]),
+      ).impl,
+    );
+
+  beforeEach(async () => {
+    const { listCaptionTracks: real } = await vi.importActual<typeof import("../lib/subtitles/captions")>("../lib/subtitles/captions");
+    listCaptionTracks.mockImplementation((videoId: string) => real(videoId));
+  });
+
+  it("觀看頁被擋、第二個來源讀得到中文字幕 → yes", async () => {
+    await insertVideos({ videoId: "aaaaaaaaaaa" });
+    stubYoutube(WITH_CHINESE);
+
+    expect(await checkChineseCaptions("aaaaaaaaaaa", NOW)).toBe("yes");
+    expect(await videoRow("aaaaaaaaaaa")).toMatchObject({ zhCaptions: "yes", zhCaptionsCheckedAt: NOW });
+  });
+
+  it("兩個都被擋 → unknown，記下檢查時間；log 只有原因代碼，不寫影片網址與 YouTube 的回應", async () => {
+    await insertVideos({ videoId: "aaaaaaaaaaa" });
+    stubYoutube(BOT_CHECK);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    expect(await checkChineseCaptions("aaaaaaaaaaa", NOW)).toBe("unknown");
+
+    expect(await videoRow("aaaaaaaaaaa")).toMatchObject({ zhCaptions: "unknown", zhCaptionsCheckedAt: NOW });
+    expect(warn).toHaveBeenCalledOnce();
+    expect(String(warn.mock.calls[0])).toContain("blocked");
+    expect(String(warn.mock.calls[0])).not.toMatch(/not a bot|youtube\.com/);
+    warn.mockRestore();
+  });
+
+  it("之前確認過沒有中文、兩個都被擋 → 維持「沒有」", async () => {
+    await insertVideos({ videoId: "aaaaaaaaaaa", zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(3) });
+    stubYoutube(BOT_CHECK);
+    vi.spyOn(console, "warn").mockImplementationOnce(() => {});
+
+    expect(await checkChineseCaptions("aaaaaaaaaaa", NOW)).toBe("no");
   });
 });
 
@@ -153,24 +206,24 @@ describe("recheckDueCaptions（影片清單顯示時在背景重新檢查）", (
     expect(listCaptionTracks.mock.calls.map(([id]) => id)).toEqual(["listed-20th"]);
   });
 
-  it("檢查過但讀不到（無法確認）的_不論發布多久，超過 24 小時再試一次；確認過沒有中文的舊影片不再檢查", async () => {
+  it("檢查過但讀不到（無法確認）的_不論發布多久，超過 6 小時再試一次；確認過沒有中文的舊影片不再檢查", async () => {
     await insertVideos(
-      { videoId: "unknown-25h", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(25), publishedAt: hoursAgo(24 * 10) },
-      { videoId: "unknown-nop", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(25), publishedAt: null },
-      { videoId: "unknown-23h", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(23), publishedAt: hoursAgo(24 * 10) },
-      { videoId: "nozh-25h-ol", zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(25), publishedAt: hoursAgo(24 * 10) },
+      { videoId: "unknown-07h", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(7), publishedAt: hoursAgo(24 * 10) },
+      { videoId: "unknown-nop", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(7), publishedAt: null },
+      { videoId: "unknown-05h", zhCaptions: "unknown", zhCaptionsCheckedAt: hoursAgo(5), publishedAt: hoursAgo(24 * 10) },
+      { videoId: "nozh-07h-ol", zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(7), publishedAt: hoursAgo(24 * 10) },
     );
     // 一直被 YouTube 擋下時狀態維持無法確認
-    // 每支一天最多試一次 不會每次打開頁面都重試
+    // 每支每 6 小時最多試一次 不會每次打開頁面都重試
     listCaptionTracks.mockResolvedValue(BLOCKED);
 
     expect(await recheckDueCaptions(NOW)).toBe(2);
-    expect(listCaptionTracks.mock.calls.map(([id]) => id).sort()).toEqual(["unknown-25h", "unknown-nop"]);
+    expect(listCaptionTracks.mock.calls.map(([id]) => id).sort()).toEqual(["unknown-07h", "unknown-nop"]);
 
-    expect(await recheckDueCaptions(new Date(NOW.getTime() + 23 * 3600_000))).toBe(1);
-    expect(listCaptionTracks.mock.calls.at(-1)?.[0]).toBe("unknown-23h");
+    expect(await recheckDueCaptions(new Date(NOW.getTime() + 5 * 3600_000))).toBe(1);
+    expect(listCaptionTracks.mock.calls.at(-1)?.[0]).toBe("unknown-05h");
 
-    expect(await recheckDueCaptions(new Date(NOW.getTime() + 24.5 * 3600_000))).toBe(2);
+    expect(await recheckDueCaptions(new Date(NOW.getTime() + 6.5 * 3600_000))).toBe(2);
     expect(listCaptionTracks).toHaveBeenCalledTimes(5);
   });
 

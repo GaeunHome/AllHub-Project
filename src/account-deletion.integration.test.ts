@@ -69,6 +69,7 @@ async function seedEverything(userId: string, n: number) {
   await first(sql`insert into weather_settings (user_id, county) values (${userId}, '臺北市')`);
   await first(sql`insert into reminders_items (user_id, title, date, notify_days_before) values (${userId}, '繳房屋稅', '2026-11-30', 7)`);
   await first(sql`insert into core_notifications (user_id, module, kind, title) values (${userId}, 'twitch', 'stream_online', '開台了')`);
+  await first(sql`insert into core_module_denials (user_id, module_id) values (${userId}, 'savings')`);
   await first(sql`insert into core_invites (token_hash, created_by, expires_at, max_uses) values (${`hash${n}`}, ${userId}, ${new Date(Date.now() + 86_400_000).toISOString()}::timestamptz, 1)`);
 }
 

@@ -8,8 +8,9 @@ import { createInvite, revokeInvite } from "../auth/invites";
 import { INVITE_DAY_OPTIONS, INVITE_USE_OPTIONS } from "../auth/invite-rules";
 import { updateTags } from "../cache";
 import { INVALID_FORM_MESSAGE, actionErrorMessage, formFlag, formId, formText, formUuid, runAction } from "../form";
+import { MODULE_ID_PATTERN } from "../ids";
 import type { FormState } from "../ui/form-message";
-import { deleteUser, setUserDisabled, unlockUser } from "./service";
+import { deleteUser, setModuleAccess, setUserDisabled, unlockUser } from "./service";
 
 /** 資料庫只存雜湊 link 只在建立當下的回應裡 重新整理就拿不回來 */
 export type InviteFormState = FormState & { link?: string };
@@ -105,5 +106,20 @@ export async function unlockUserAction(_prev: FormState, formData: FormData): Pr
     }
     refresh();
     return { error: USER_GONE };
+  });
+}
+
+export async function setModuleAccessAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireOwner();
+  const userId = formUuid(formData, "userId");
+  const moduleId = formText(formData, "moduleId");
+  const allowed = formFlag(formData, "allowed");
+  // core 不能 import 模組清單 這裡只檢查格式 寫錯的 id 也不會對應到任何模組
+  if (userId === null || !MODULE_ID_PATTERN.test(moduleId) || allowed === null) return { error: INVALID_FORM_MESSAGE };
+  return runAction({ module: "admin", action: allowed ? "開放模組" : "關閉模組" }, async () => {
+    const found = await setModuleAccess(userId, moduleId, allowed);
+    // 權限每次都讀最新 沒有快取可以失效 只要重新算繪表格
+    refresh();
+    return found ? undefined : { error: USER_GONE };
   });
 }

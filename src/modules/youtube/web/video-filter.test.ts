@@ -32,9 +32,10 @@ describe("thumbnailBadge：縮圖角落的小標籤", () => {
     ["翻譯完成", video("no", "done"), { label: "已翻譯", tone: "default" }],
     ["排隊中", video("no", "queued"), { label: "翻譯中", tone: "default" }],
     ["翻譯中", video("unknown", "running"), { label: "翻譯中", tone: "default" }],
+    ["檢查過但讀不到、翻譯過", video("unknown", "done"), { label: "已翻譯", tone: "default" }],
     ["翻譯失敗", video("no", "failed"), { label: "翻譯失敗", tone: "danger" }],
     ["沒有中文字幕", video("no"), { label: "需要翻譯", tone: "default" }],
-    ["檢查過但讀不到（被 YouTube 擋下）", video("unknown"), { label: "字幕未確認", tone: "default" }],
+    ["檢查過但讀不到（被 YouTube 擋下）：不確定就不標，不顯示讓人困惑的「字幕未確認」", video("unknown"), null],
     ["從沒檢查過（剛追蹤的頻道，背景正在檢查）", video("unknown", null, null), { label: "檢查字幕中", tone: "default" }],
     ["從沒檢查過、但已經在翻譯", video("unknown", "running", null), { label: "翻譯中", tone: "default" }],
   ] as const)("%s", (_name, input, expected) => {

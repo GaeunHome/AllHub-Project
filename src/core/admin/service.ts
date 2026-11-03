@@ -1,13 +1,16 @@
 import "server-only";
-import { asc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, sql } from "drizzle-orm";
 import { db } from "../db";
-import { coreUsers, type UserRole } from "../db/schema";
+import { coreModuleDenials, coreUsers, type UserRole } from "../db/schema";
 import { UserError } from "../form";
 
 /** 管理頁的使用者清單 不含密碼雜湊與登入失敗紀錄 */
-export type ManagedUser = { id: string; username: string; role: UserRole; createdAt: Date; disabledAt: Date | null };
+export type ManagedUser = { id: string; username: string; nickname: string | null; role: UserRole; createdAt: Date; disabledAt: Date | null };
 
 export type LockedUser = { id: string; lockedUntil: Date };
+
+/** 只記不能用的 沒有列出來的模組都能用 */
+export type ModuleDenial = { userId: string; moduleId: string };
 
 /** 站長的操作不被允許 例如停用自己 訊息會直接顯示在畫面上 */
 export class AdminUserError extends UserError {
@@ -16,7 +19,7 @@ export class AdminUserError extends UserError {
 
 export async function listUsers(): Promise<ManagedUser[]> {
   return db()
-    .select({ id: coreUsers.id, username: coreUsers.username, role: coreUsers.role, createdAt: coreUsers.createdAt, disabledAt: coreUsers.disabledAt })
+    .select({ id: coreUsers.id, username: coreUsers.username, nickname: coreUsers.nickname, role: coreUsers.role, createdAt: coreUsers.createdAt, disabledAt: coreUsers.disabledAt })
     .from(coreUsers)
     .orderBy(asc(coreUsers.createdAt), asc(coreUsers.username));
 }
@@ -57,4 +60,22 @@ export async function listLockedUsers(now = new Date()): Promise<LockedUser[]> {
 export async function unlockUser(userId: string): Promise<boolean> {
   const rows = await db().update(coreUsers).set({ failedLogins: 0, lockedUntil: null }).where(eq(coreUsers.id, userId)).returning({ id: coreUsers.id });
   return rows.length > 0;
+}
+
+/** 權限每次都讀最新 管理頁也不走快取 */
+export async function listModuleDenials(): Promise<ModuleDenial[]> {
+  return db().select({ userId: coreModuleDenials.userId, moduleId: coreModuleDenials.moduleId }).from(coreModuleDenials);
+}
+
+/** 回 false 代表帳號已經不在 站長一律全部能用 所以不能關掉 */
+export async function setModuleAccess(userId: string, moduleId: string, allowed: boolean): Promise<boolean> {
+  return db().transaction(async (tx) => {
+    // 鎖到寫完 同時刪除帳號時才不會撞到外鍵
+    const [user] = await tx.select({ role: coreUsers.role }).from(coreUsers).where(eq(coreUsers.id, userId)).for("key share");
+    if (!user) return false;
+    if (user.role === "owner") throw new AdminUserError("站長一律全部能用");
+    if (allowed) await tx.delete(coreModuleDenials).where(and(eq(coreModuleDenials.userId, userId), eq(coreModuleDenials.moduleId, moduleId)));
+    else await tx.insert(coreModuleDenials).values({ userId, moduleId }).onConflictDoNothing();
+    return true;
+  });
 }

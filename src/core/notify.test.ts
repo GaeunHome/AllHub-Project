@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupTestDb, insertTestUser } from "@/dev/test-db";
 import { expiredTags } from "@/dev/test-helpers";
-import { coreNotifications, coreUsers } from "./db/schema";
+import { coreModuleDenials, coreNotifications, coreUsers } from "./db/schema";
 import { notifiedSince, notify } from "./notify";
 
 const getDb = setupTestDb();
@@ -20,6 +20,25 @@ afterEach(() => {
 });
 
 describe("notify（PGlite 整合）", () => {
+  it("跳過對那個模組沒權限的收件人，其他收件人照常；別的模組不受影響", async () => {
+    await getDb().insert(coreModuleDenials).values({ userId: bob, moduleId: "twitch" });
+
+    await notify({ recipients: [alice, bob], module: "twitch", kind: "stream_online", title: "開台了" });
+    await notify({ recipients: [alice, bob], module: "youtube", kind: "new_video", title: "新影片" });
+
+    const written = (await rows()).map((row) => `${row.userId === alice ? "alice" : "bob"}:${row.module}`).sort();
+    expect(written).toEqual(["alice:twitch", "alice:youtube", "bob:youtube"]);
+  });
+
+  it("收件人全都沒權限_什麼都不寫，也不讓通知的快取失效", async () => {
+    await getDb().insert(coreModuleDenials).values({ userId: bob, moduleId: "twitch" });
+
+    await notify({ recipients: [bob], module: "twitch", kind: "stream_online", title: "開台了" });
+
+    expect(await rows()).toHaveLength(0);
+    expect(expiredTags()).toEqual([]);
+  });
+
   it("寫進網站通知：模組 id、種類、標題、內容、連結_一開始是未讀", async () => {
     await notify({
       recipients: [alice],

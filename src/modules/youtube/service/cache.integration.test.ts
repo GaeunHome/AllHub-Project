@@ -143,8 +143,8 @@ describe("影片清單的字幕重新檢查：用快取判斷要不要在背景�
       { videoId: "has-zh-0000", channelId: CH, title: "e", publishedAt: hoursAgo(2), zhCaptions: "yes" },
       { videoId: "no-publish0", channelId: CH, title: "f", publishedAt: null, zhCaptionsCheckedAt: hoursAgo(5) },
       { videoId: "due-nopub00", channelId: CH, title: "h", publishedAt: null },
-      { videoId: "due-unknown", channelId: CH, title: "i", publishedAt: hoursAgo(24 * 5), zhCaptionsCheckedAt: hoursAgo(25) },
-      { videoId: "unknown-23h", channelId: CH, title: "j", publishedAt: hoursAgo(24 * 5), zhCaptionsCheckedAt: hoursAgo(23) },
+      { videoId: "due-unknown", channelId: CH, title: "i", publishedAt: hoursAgo(24 * 5), zhCaptionsCheckedAt: hoursAgo(7) },
+      { videoId: "unknown-05h", channelId: CH, title: "j", publishedAt: hoursAgo(24 * 5), zhCaptionsCheckedAt: hoursAgo(5) },
       ...Array.from({ length: 10 }, (_, i) => ({ videoId: `zh-filler${String(i).padStart(2, "0")}`, channelId: CH, title: "k", publishedAt: hoursAgo(1), zhCaptions: "yes" as const })),
     ]);
 

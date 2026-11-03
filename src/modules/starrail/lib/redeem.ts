@@ -69,7 +69,7 @@ export function interpretRedeem(json: unknown): RedeemOutcome {
     return { ok: false, message: local, retcode: null, cookieInvalid: false };
   }
   if (COOKIE_INVALID.has(retcode)) return { ok: false, message: "HoYoLAB cookie 已失效，請重新登入 hoyolab.com 後重新連結", retcode, cookieInvalid: true };
-  // 結果框的標題已經寫兌換失敗 說明只寫原因
+  // 提示視窗的標題已經寫兌換失敗 說明只寫原因
   return { ok: false, message: MESSAGES[retcode] ?? `原因不明（錯誤代碼 ${retcode}）`, retcode, cookieInvalid: false };
 }
 

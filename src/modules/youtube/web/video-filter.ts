@@ -24,7 +24,7 @@ type CaptionCheck = { zhCaptions: ZhCaptionStatus; zhCaptionsCheckedAt: Date | n
 
 /**
  * 從沒檢查過字幕的影片 打開 YouTube 頁時背景就會檢查
- * 跟檢查過但讀不到的字幕未確認分開
+ * 檢查過但讀不到的不算 那種隔幾小時才再試
  */
 export function captionCheckPending({ zhCaptions, zhCaptionsCheckedAt }: CaptionCheck): boolean {
   return zhCaptions === "unknown" && zhCaptionsCheckedAt === null;
@@ -47,14 +47,17 @@ function translationBadge(status: TranslationStatus | null): ThumbnailBadge | nu
   }
 }
 
-/** 像 YouTube 縮圖右下角的時間標籤 先看能不能直接看中文 再看翻譯進度 */
-export function thumbnailBadge(video: VideoState & CaptionCheck): ThumbnailBadge {
+/**
+ * 像 YouTube 縮圖右下角的時間標籤 先看能不能直接看中文 再看翻譯進度
+ * 檢查過但讀不到的不確定有沒有字幕 寫什麼都讓人困惑 回 null 不標
+ */
+export function thumbnailBadge(video: VideoState & CaptionCheck): ThumbnailBadge | null {
   const { zhCaptions, translationStatus } = video;
   if (zhCaptions === "yes") return { label: "中文字幕", tone: "default" };
   const translation = translationBadge(translationStatus);
   if (translation) return translation;
   if (zhCaptions === "no") return { label: "需要翻譯", tone: "default" };
-  return { label: captionCheckPending(video) ? "檢查字幕中" : "字幕未確認", tone: "default" };
+  return captionCheckPending(video) ? { label: "檢查字幕中", tone: "default" } : null;
 }
 
 /** 保留的影片不一定來自追蹤中的頻道 沒檢查中文字幕 只看翻譯進度 */

@@ -64,10 +64,12 @@ export function VideoThumbnail({ video, eager = false }: { video: FeedVideo; eag
   return (
     <>
       <ThumbnailImage videoId={video.videoId} eager={eager} />
-      <span className={badge.tone === "danger" ? "yt-badge yt-badge-danger" : "yt-badge"}>
-        {video.zhCaptions === "yes" && <Icon name="captions" className="size-3.5" />}
-        {badge.label}
-      </span>
+      {badge && (
+        <span className={badge.tone === "danger" ? "yt-badge yt-badge-danger" : "yt-badge"}>
+          {video.zhCaptions === "yes" && <Icon name="captions" className="size-3.5" />}
+          {badge.label}
+        </span>
+      )}
     </>
   );
 }

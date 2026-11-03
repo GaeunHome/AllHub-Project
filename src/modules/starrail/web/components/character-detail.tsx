@@ -41,12 +41,12 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
         <div className="@container order-3 min-w-0 p-4 sm:p-6 lg:order-none">
           <div className="grid gap-8 @3xl:grid-cols-2">
             <Section title="面板" icon="chart-column">
-              {c.stats.length > 0 ? <StatsTable stats={c.stats} /> : <p className="text-sm text-ink-soft">沒有面板資料</p>}
+              {c.stats.length > 0 ? <StatsTable stats={c.stats} /> : <p className="text-ink-soft">沒有面板資料</p>}
             </Section>
 
             <div className="page-stack min-w-0">
               <Section title="光錐" icon="sparkles">
-                {c.lightCone ? <LightConeCard lightCone={c.lightCone} /> : <p className="text-sm text-ink-soft">沒有裝備光錐</p>}
+                {c.lightCone ? <LightConeCard lightCone={c.lightCone} /> : <p className="text-ink-soft">沒有裝備光錐</p>}
               </Section>
 
               {c.eidolons.length > 0 && (
@@ -64,7 +64,7 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-ink-soft">沒有裝備遺器</p>
+                <p className="text-ink-soft">沒有裝備遺器</p>
               )}
             </Section>
 
@@ -76,9 +76,9 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
                   ))}
                 </ul>
                 {bonuses.length > 0 && (
-                  <p className="text-sm text-ink-soft">
+                  <p className="text-ink-soft">
                     屬性加成已點亮{" "}
-                    <span className="sr-num text-base font-bold text-ink">
+                    <span className="sr-num text-lg font-bold text-ink">
                       {bonuses.filter((b) => b.activated).length} / {bonuses.length}
                     </span>
                   </p>
@@ -93,12 +93,12 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
 }
 
 /**
- * 立繪接近方形而且人物置中 完整放進去不裁切 寬螢幕依面板高度放大
- * 讀不到時改放頭像 再不行是屬性色底加名字
+ * 立繪接近方形而且人物置中 完整放進去不裁切 寬螢幕放到跟面板一樣高
+ * 右欄至少留 36rem 面板不夠寬時兩邊各一半 讀不到時改放頭像 再不行是屬性色底加名字
  */
 function CharacterStage({ character: c }: { character: StarrailCharacter }) {
   return (
-    <div className="sr-stage relative order-2 aspect-square max-h-[65dvh] w-full shrink-0 overflow-hidden lg:sticky lg:top-0 lg:order-none lg:aspect-auto lg:h-[100cqh] lg:max-h-none lg:w-[min(50cqw,100cqh)]" data-rarity={c.rarity ?? undefined}>
+    <div className="sr-stage relative order-2 aspect-square max-h-[65dvh] w-full shrink-0 overflow-hidden lg:sticky lg:top-0 lg:order-none lg:aspect-auto lg:h-[100cqh] lg:max-h-none lg:w-[min(100cqh,max(50cqw,100cqw-36rem))]" data-rarity={c.rarity ?? undefined}>
       {/* fill 要父層是 relative 或 absolute 寬螢幕的舞台是 sticky 所以再包一層 */}
       <div className="absolute inset-0">
         {c.image ? (
@@ -119,7 +119,7 @@ function DetailHeader({ character: c, titleId, onClose }: { character: StarrailC
   return (
     <header className="sticky top-0 z-10 order-1 flex items-start gap-3 border-b border-line bg-[var(--sr-detail-bar)] px-4 py-4 backdrop-blur sm:px-6 lg:order-none">
       <div className="flex min-w-0 flex-1 flex-col gap-2">
-        <h3 id={titleId} className="truncate text-xl font-bold tracking-wide text-ink lg:text-2xl">
+        <h3 id={titleId} className="truncate text-2xl font-bold tracking-wide text-ink lg:text-3xl">
           {c.name ?? "（未知角色）"}
         </h3>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -138,12 +138,12 @@ function DetailHeader({ character: c, titleId, onClose }: { character: StarrailC
           )}
           {c.level !== null && (
             <span className="chip">
-              等級 <span className="sr-num text-[0.8125rem] font-bold">{c.level}</span>
+              等級 <span className="sr-num text-sm font-bold">{c.level}</span>
             </span>
           )}
           {c.eidolon !== null && (
             <span className="chip">
-              星魂 <span className="sr-num text-[0.8125rem] font-bold">{c.eidolon}</span>
+              星魂 <span className="sr-num text-sm font-bold">{c.eidolon}</span>
             </span>
           )}
         </div>
@@ -157,9 +157,9 @@ function DetailHeader({ character: c, titleId, onClose }: { character: StarrailC
 
 function StatsTable({ stats }: { stats: StatLine[] }) {
   return (
-    <table className="w-full text-sm">
+    <table className="w-full">
       <thead>
-        <tr className="text-[0.8125rem] text-ink-soft">
+        <tr className="text-[0.9375rem] text-ink-soft">
           <th className="py-1 text-left font-medium">屬性</th>
           <th className="py-1 text-right font-medium">基礎</th>
           <th className="py-1 text-right font-medium">加成</th>
@@ -171,13 +171,13 @@ function StatsTable({ stats }: { stats: StatLine[] }) {
           <tr key={`${stat.type}-${i}`}>
             <td className="py-1.5 text-ink-soft">
               <span className="flex items-center gap-1.5">
-                <GameIcon src={stat.icon} />
+                <GameIcon src={stat.icon} className="size-5" />
                 {stat.name}
               </span>
             </td>
-            <td className="sr-num py-1.5 text-right text-[0.9375rem] text-ink-soft">{dash(stat.base)}</td>
-            <td className="sr-num py-1.5 text-right text-[0.9375rem] text-[var(--sr-bonus)]">{dash(stat.add)}</td>
-            <td className="sr-num py-1.5 text-right text-base font-bold text-ink">{dash(stat.final)}</td>
+            <td className="sr-num py-1.5 text-right text-[1.0625rem] text-ink-soft">{dash(stat.base)}</td>
+            <td className="sr-num py-1.5 text-right text-[1.0625rem] text-[var(--sr-bonus)]">{dash(stat.add)}</td>
+            <td className="sr-num py-1.5 text-right text-lg font-bold text-ink">{dash(stat.final)}</td>
           </tr>
         ))}
       </tbody>
@@ -193,12 +193,12 @@ function LightConeCard({ lightCone }: { lightCone: LightCone }) {
         <ExternalImage src={lightCone.icon} alt={lightCone.name ?? ""} fill className="object-cover" fallback={<FallbackIcon name="sparkles" />} />
       </span>
       <div className="flex min-w-0 flex-col gap-1">
-        <p className="line-clamp-2 leading-snug font-semibold text-ink">{dash(lightCone.name)}</p>
-        <p className="text-sm text-ink-soft">
-          <span className="sr-num text-base font-bold text-ink">Lv.{dash(lightCone.level)}</span> · 疊影{" "}
-          <span className="sr-num text-base font-bold text-ink">{dash(lightCone.superimposition)}</span>
+        <p className="line-clamp-2 text-lg leading-snug font-semibold text-ink">{dash(lightCone.name)}</p>
+        <p className="text-ink-soft">
+          <span className="sr-num text-lg font-bold text-ink">Lv.{dash(lightCone.level)}</span> · 疊影{" "}
+          <span className="sr-num text-lg font-bold text-ink">{dash(lightCone.superimposition)}</span>
         </p>
-        {rarity && <p className="text-sm text-[var(--sr-gold-ink)]">{rarity}</p>}
+        {rarity && <p className="text-[var(--sr-gold-ink)]">{rarity}</p>}
       </div>
     </div>
   );
@@ -206,7 +206,8 @@ function LightConeCard({ lightCone }: { lightCone: LightCone }) {
 
 function EidolonGrid({ eidolons }: { eidolons: Eidolon[] }) {
   return (
-    <ul className="grid grid-cols-3 gap-3 @sm:grid-cols-6">
+    // 右欄分兩欄時這一區比較窄 六格放不下名字 改回一排三個
+    <ul className="grid grid-cols-3 gap-3 @lg:grid-cols-6 @3xl:grid-cols-3">
       {eidolons.map((e, i) => (
         <li key={e.pos ?? i} className={`flex flex-col items-center gap-1.5 text-center ${e.unlocked === false ? "opacity-50" : ""}`}>
           <span className={`relative size-12 overflow-hidden rounded-full bg-[var(--sr-avatar-bg)] ring-1 ${e.unlocked === false ? "ring-line" : "ring-[var(--sr-gold-line)]"}`}>
@@ -217,7 +218,7 @@ function EidolonGrid({ eidolons }: { eidolons: Eidolon[] }) {
               </span>
             )}
           </span>
-          <span className="line-clamp-2 text-xs leading-tight text-ink-soft">{dash(e.name)}</span>
+          <span className="line-clamp-2 text-sm leading-tight text-ink-soft">{dash(e.name)}</span>
         </li>
       ))}
     </ul>
@@ -228,7 +229,7 @@ function EidolonGrid({ eidolons }: { eidolons: Eidolon[] }) {
 function Section({ title, icon, className = "", children }: { title: string; icon: UiIconName; className?: string; children: ReactNode }) {
   return (
     <section className={`stack min-w-0 ${className}`.trim()}>
-      <h4 className="sr-title text-sm">
+      <h4 className="sr-title">
         <Icon name={icon} className="size-4 text-sr-gold" />
         {title}
       </h4>
@@ -254,7 +255,7 @@ function StatText({ stat, main = false }: { stat: RelicStat; main?: boolean }) {
       <span className={`min-w-0 truncate ${main ? "font-semibold text-ink" : "text-ink-soft"}`}>{stat.name}</span>
       <span className="ml-auto flex shrink-0 items-center gap-1.5">
         {upgrades > 0 && <Upgrades count={upgrades} />}
-        <span className={`sr-num min-w-12 text-right ${main ? "text-base font-bold text-ink" : "text-[0.9375rem] text-ink"}`}>{dash(stat.value)}</span>
+        <span className={`sr-num min-w-12 text-right ${main ? "text-lg font-bold text-ink" : "text-[1.0625rem] text-ink"}`}>{dash(stat.value)}</span>
       </span>
     </>
   );
@@ -268,20 +269,20 @@ function RelicCard({ relic }: { relic: Relic }) {
           <ExternalImage src={relic.icon} alt={relic.name ?? ""} fill className="object-cover" fallback={<FallbackIcon name="shield-check" />} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium tracking-wide text-[var(--sr-gold-ink)]">{relicSlotLabel(relic.pos) ?? "遺器"}</p>
-          <p className="line-clamp-2 text-sm leading-snug font-medium text-ink" title={relic.name ?? undefined}>
+          <p className="text-sm font-medium tracking-wide text-[var(--sr-gold-ink)]">{relicSlotLabel(relic.pos) ?? "遺器"}</p>
+          <p className="line-clamp-2 leading-snug font-medium text-ink" title={relic.name ?? undefined}>
             {dash(relic.name)}
           </p>
         </div>
-        {relic.level !== null && <span className="sr-num shrink-0 text-base font-bold text-ink">+{relic.level}</span>}
+        {relic.level !== null && <span className="sr-num shrink-0 text-lg font-bold text-ink">+{relic.level}</span>}
       </div>
       {relic.mainStat && (
-        <p className="flex items-center gap-2 border-b border-line pb-1.5 text-sm">
+        <p className="flex items-center gap-2 border-b border-line pb-1.5">
           <StatText stat={relic.mainStat} main />
         </p>
       )}
       {relic.subStats.length > 0 && (
-        <ul className="flex flex-col gap-0.5 text-[0.8125rem]">
+        <ul className="flex flex-col gap-0.5 text-[0.9375rem]">
           {relic.subStats.map((stat, i) => (
             <li key={i} className="flex items-center gap-2">
               <StatText stat={stat} />
@@ -299,7 +300,7 @@ function RelicCard({ relic }: { relic: Relic }) {
  */
 function Upgrades({ count }: { count: number }) {
   return (
-    <span title={`強化 ${count} 次`} className="sr-num text-[0.8125rem] font-bold text-sr-gold">
+    <span title={`強化 ${count} 次`} className="sr-num text-[0.9375rem] font-bold text-sr-gold">
       <span aria-hidden>+{count}</span>
       <span className="sr-only">強化 {count} 次</span>
     </span>
@@ -312,11 +313,11 @@ function TraceRow({ trace }: { trace: Trace }) {
       <span className="relative size-9 shrink-0 overflow-hidden rounded-full bg-[var(--sr-avatar-bg)] ring-1 ring-line">
         <ExternalImage src={trace.icon} alt="" fill className="object-cover" fallback={<FallbackIcon name="target" />} />
       </span>
-      <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-sm text-ink">
-        {trace.typeLabel && <span className="shrink-0 text-[0.8125rem] text-[var(--sr-gold-ink)]">{trace.typeLabel}</span>}
+      <span className="flex min-w-0 flex-1 items-baseline gap-1.5 text-ink">
+        {trace.typeLabel && <span className="shrink-0 text-[0.9375rem] text-[var(--sr-gold-ink)]">{trace.typeLabel}</span>}
         <span className="truncate">{dash(trace.name)}</span>
       </span>
-      {trace.kind === "skill" && trace.level !== null && <span className="sr-num shrink-0 text-base font-bold text-ink">Lv.{trace.level}</span>}
+      {trace.kind === "skill" && trace.level !== null && <span className="sr-num shrink-0 text-lg font-bold text-ink">Lv.{trace.level}</span>}
       {trace.kind === "major" && trace.activated === false && <span className="chip shrink-0">未解鎖</span>}
     </li>
   );

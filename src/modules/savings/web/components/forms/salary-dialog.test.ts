@@ -1,10 +1,13 @@
 import { Fragment, createElement, useReducer } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { markup as render, textOf } from "@/dev/test-helpers";
+import { toasts } from "@/dev/toast-stub";
 import type { SalaryPrefill } from "../../dashboard-view";
 
 // 視窗關著時不算繪內容 換掉 Dialog 才看得到裡面 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });
+// 成功的訊息看跳出什麼提示
+vi.mock("@/core/ui/toast", () => import("@/dev/toast-stub"));
 // 入帳並分配要從打錯一行或分太多的狀態開始 只換掉那個 reducer 的初始狀態
 vi.mock("react", { spy: true });
 vi.mock("../../actions", () => ({ allocateSalaryAction: vi.fn() }));
@@ -13,7 +16,6 @@ const dialog = await import("@/core/ui/dialog");
 const actions = await import("../../actions");
 const { lastSalaryAccountPref } = await import("../../last-used");
 const { salaryFormReducer } = await import("../../form-math");
-const { ROW_MESSAGE_CLASS } = await import("./fields");
 const { SalaryForm, SalaryMenu } = await import("./salary-dialog");
 const { useReducer: realUseReducer } = await vi.importActual<typeof import("react")>("react");
 
@@ -46,7 +48,6 @@ const form = (prefill?: SalaryPrefill) => render(createElement(SalaryForm, { acc
 
 beforeEach(() => {
   vi.mocked(dialog.useDialogForm).mockClear();
-  vi.mocked(dialog.DialogMessage).mockClear();
   vi.mocked(dialog.Dialog).mockImplementation(({ children }) => createElement(Fragment, null, children));
   vi.mocked(useReducer).mockImplementation(realUseReducer as never);
   lastSalaryAccountPref.save(0);
@@ -67,10 +68,14 @@ describe("頁首 ⋮ 裡的薪水入帳並分配", () => {
     expect(vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action)).toEqual([actions.allocateSalaryAction]);
   });
 
-  it("成功訊息獨佔頁首那排按鈕的最後一整列", () => {
+  it("入帳成功：關掉視窗，訊息用提示視窗，不留在頁首那排按鈕裡；記住這次的入帳帳戶", () => {
     menu();
+    const [[, onDone]] = vi.mocked(dialog.useDialogForm).mock.calls;
 
-    expect(vi.mocked(dialog.DialogMessage).mock.calls.map(([props]) => props.className)).toEqual([ROW_MESSAGE_CLASS]);
+    onDone("已入帳 $43,000，轉出 2 筆，「國泰」留下 $30,000", {});
+
+    expect(toasts).toEqual([{ tone: "success", title: "已入帳 $43,000，轉出 2 筆，「國泰」留下 $30,000" }]);
+    expect(lastSalaryAccountPref.read()).toBe(1);
   });
 });
 

@@ -43,6 +43,9 @@
 | YouTube | `@nobody` | 查無頻道；其他 `@帳號` 都會成功，hub 約 0.5 秒後回呼確認訂閱 |
 | YouTube | 頻道的 RSS feed | 每個頻道都有三支一般影片：3 小時前的 MV（影片 id `zhsubs` 開頭，有中文字幕）、30 小時前與 5 天前各一支，追蹤時會補進影片清單（別人已經追蹤的頻道只補超過 24 小時的），縮圖先標「檢查字幕中」，約 4 秒後自動換成檢查結果；另有 1 小時前與 2 天前的兩支 Shorts（影片 id `short` 開頭，連結是 `/shorts/`），不會列進清單，`youtube:cleanup` 也是讀這份 RSS 找 Shorts |
 | YouTube | `@noavatar` 開頭（例如 `@noavatar_studio`） | 頻道頁沒有頭像，畫面退回文字頭像 |
+| YouTube | 觀看頁的字幕網址 | 跟真的一樣帶 `exp=xpo…`、下載回空內容，翻譯一律走第二個來源（InnerTube 的 `youtubei/v1/player`） |
+| YouTube | 影片 id `botcheck001` | 觀看頁回機器人驗證、第二個來源讀得到中文字幕：應該判成有中文字幕 |
+| YouTube | 影片 id `blocked0001` | 兩個來源都被擋：判成讀不到，縮圖不標，點了進觀看頁 |
 | YouTube | 影片 id 開頭 `nothumb`（例如 `nothumb0001`） | 縮圖回 404，畫面退回圖示 |
 | YouTube | 影片 id 開頭 `zhsubs`（例如 `zhsubs00001`） | 有人工上傳的中文字幕 |
 | YouTube | 影片 id 開頭 `zhauto`（例如 `zhauto00001`） | 只有自動產生的中文字幕，算沒有中文 |

@@ -12,8 +12,8 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers(request.header
 
 const invites = mocksOf(await import("../auth/invites"), "createInvite", "revokeInvite");
 const { AdminUserError } = await import("./service");
-const service = mocksOf(await import("./service"), "setUserDisabled", "deleteUser", "unlockUser");
-const { createInviteAction, deleteUserAction, revokeInviteAction, setUserDisabledAction, unlockUserAction } = await import("./actions");
+const service = mocksOf(await import("./service"), "setUserDisabled", "deleteUser", "unlockUser", "setModuleAccess");
+const { createInviteAction, deleteUserAction, revokeInviteAction, setModuleAccessAction, setUserDisabledAction, unlockUserAction } = await import("./actions");
 const { INVALID_FORM_MESSAGE } = await import("../form");
 
 const TOKEN = "T".repeat(43);
@@ -27,6 +27,7 @@ beforeEach(() => {
   service.setUserDisabled.mockReset().mockResolvedValue(true);
   service.deleteUser.mockReset().mockResolvedValue(true);
   service.unlockUser.mockReset().mockResolvedValue(true);
+  service.setModuleAccess.mockReset().mockResolvedValue(true);
 });
 
 describe("只有站長能用", () => {
@@ -34,6 +35,7 @@ describe("只有站長能用", () => {
     ["createInviteAction", createInviteAction, { days: "7", uses: "1", note: "" }],
     ["revokeInviteAction", revokeInviteAction, { inviteId: "1" }],
     ["setUserDisabledAction", setUserDisabledAction, { userId: MEMBER_ID, disabled: "true" }],
+    ["setModuleAccessAction", setModuleAccessAction, { userId: MEMBER_ID, moduleId: "savings", allowed: "false" }],
     ["deleteUserAction", deleteUserAction, { userId: MEMBER_ID }],
     ["unlockUserAction", unlockUserAction, { userId: MEMBER_ID }],
   ];
@@ -132,5 +134,36 @@ describe("unlockUserAction", () => {
   it("帳號 id 格式不對_不解除", async () => {
     expect(await unlockUserAction({}, form({ userId: "abc" }))).toEqual({ error: INVALID_FORM_MESSAGE });
     expect(service.unlockUser).not.toHaveBeenCalled();
+  });
+});
+
+describe("setModuleAccessAction", () => {
+  it.each([
+    ["true", true],
+    ["false", false],
+  ])("allowed=%s_交給 service 的是 %s", async (raw, allowed) => {
+    expect(await setModuleAccessAction({}, form({ userId: MEMBER_ID, moduleId: "savings", allowed: raw }))).toEqual({});
+    expect(service.setModuleAccess).toHaveBeenCalledExactlyOnceWith(MEMBER_ID, "savings", allowed);
+  });
+
+  it.each([
+    ["帳號 id 格式不對", { userId: "1", moduleId: "savings", allowed: "false" }],
+    ["模組 id 格式不對", { userId: MEMBER_ID, moduleId: "Savings; drop", allowed: "false" }],
+    ["勾選的值不是 true／false", { userId: MEMBER_ID, moduleId: "savings", allowed: "on" }],
+  ])("%s_不變更", async (_name, fields) => {
+    expect(await setModuleAccessAction({}, form(fields))).toEqual({ error: INVALID_FORM_MESSAGE });
+    expect(service.setModuleAccess).not.toHaveBeenCalled();
+  });
+
+  it("站長那一列（AdminUserError）_顯示原因", async () => {
+    service.setModuleAccess.mockRejectedValue(new AdminUserError("站長一律全部能用"));
+
+    expect(await setModuleAccessAction({}, form({ userId: TEST_SESSION.id, moduleId: "savings", allowed: "false" }))).toEqual({ error: "站長一律全部能用" });
+  });
+
+  it("帳號已經被刪除_告訴站長", async () => {
+    service.setModuleAccess.mockResolvedValue(false);
+
+    expect((await setModuleAccessAction({}, form({ userId: MEMBER_ID, moduleId: "savings", allowed: "false" }))).error).toContain("找不到這個帳號");
   });
 });

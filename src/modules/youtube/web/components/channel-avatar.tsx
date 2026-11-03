@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { externalAssetUrl } from "@/core/external-url";
 import { Avatar, type AvatarSize } from "@/core/ui/avatar";
 import { cachedChannelAvatar } from "../../service/cached";
@@ -25,7 +25,7 @@ export function ChannelAvatar(props: ChannelAvatarProps) {
 }
 
 async function FetchedAvatar({ channelRef, name, stored = null, size, className }: ChannelAvatarProps) {
-  await requireSession();
+  await requireModule("youtube");
   const fetched = await cachedChannelAvatar(channelRef);
   return <Avatar src={externalAssetUrl(fetched ?? stored)} name={name} size={size} className={className} />;
 }

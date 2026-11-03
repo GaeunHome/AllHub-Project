@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useId, useState, type ReactNode } from "react";
-import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
+import { Dialog, useDialog } from "@/core/ui/dialog";
+import { Fact, FactList } from "@/core/ui/fact-list";
+import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { SectionTitle } from "@/core/ui/page-header";
@@ -17,11 +19,10 @@ import { ACCOUNTS_GRID } from "../dashboard/layout";
 import { Meter } from "../dashboard/meter";
 import { Illustration } from "../illustration";
 import { AccountForm } from "../forms/account-form";
-import { ROW_MESSAGE_CLASS } from "../forms/fields";
 import type { AccountOption, EntryFormOptions } from "../forms/options";
 import { QuickAddButton } from "../forms/quick-add";
 import { UpdateBalanceButton } from "../forms/update-balance";
-import { ActiveMenuItem, DeleteMenuItem, DialogMenuItem, LIST_ROW_MESSAGE, ListRow, MoveMenuItems, useRemovalNotice } from "../row-controls";
+import { ActiveMenuItem, DeleteMenuItem, DialogMenuItem, ListRow, MoveMenuItems } from "../row-controls";
 import { AccountKindTile } from "../visuals";
 import { AddAccountButton } from "./add-account-button";
 import { BillForm, BillHistory } from "./card-bill";
@@ -43,8 +44,8 @@ type AccountsBoardProps = {
   openAdd: "deposit" | "credit" | null;
 };
 
-/** 卡片上的動作要的東西 onRemoved 給停用與刪除後會不見的卡片留訊息 */
-type CardShared = { context: AccountsContext; payFromAccounts: AccountsPageView["payFromAccounts"]; onRemoved: (message: string) => void };
+/** 卡片上的動作要的東西 */
+type CardShared = { context: AccountsContext; payFromAccounts: AccountsPageView["payFromAccounts"] };
 
 // 新增的按鈕排在最後一格 虛線框跟卡片一樣圓
 const ADD_TILE =
@@ -53,16 +54,14 @@ const PAUSED_HINT = "停用後不能再記帳、不算進總覽，紀錄會留�
 
 /**
  * 常用的動作直接放在卡片上 ⋮ 只放修改 上移下移 停用與刪除
- * 停用與刪除後卡片會不見 訊息放在最上面不會消失的地方
+ * 停用與刪除後卡片會不見 焦點交給一直都在的存款與信用卡兩區
  */
 export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
-  const removal = useRemovalNotice();
-  const shared: CardShared = { context, payFromAccounts: view.payFromAccounts, onRemoved: removal.report };
+  const shared: CardShared = { context, payFromAccounts: view.payFromAccounts };
   const empty = view.deposits.length === 0 && view.cards.length === 0;
 
   return (
     <>
-      <DialogMessage {...removal.messageProps} />
       {empty && (
         <div className="card flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
           <Illustration name="no-accounts" className="w-32" />
@@ -72,22 +71,22 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
           </div>
         </div>
       )}
-      <section aria-labelledby="fin-deposits" className="stack">
+      <section aria-labelledby="fin-deposits" {...FOCUS_FRAME} className="stack">
         <SectionHeader id="fin-deposits" title="存款" summary={view.deposits.length > 0 && <Sum label="合計" amount={view.depositTotal} />} />
         <div className={ACCOUNTS_GRID}>
           {view.deposits.map((card) => (
             <DepositCard key={card.detail.id} card={card} {...shared} />
           ))}
-          <AddAccountButton kind="deposit" payFromAccounts={view.payFromAccounts} className={ADD_TILE} messageClassName="col-span-full" openFromLink={openAdd === "deposit"} />
+          <AddAccountButton kind="deposit" payFromAccounts={view.payFromAccounts} className={ADD_TILE} openFromLink={openAdd === "deposit"} />
         </div>
       </section>
-      <section aria-labelledby="fin-cards" className="stack">
+      <section aria-labelledby="fin-cards" {...FOCUS_FRAME} className="stack">
         <SectionHeader id="fin-cards" title="信用卡" summary={view.cards.length > 0 && <Sum label="未繳" amount={view.owedTotal} />} />
         <div className={ACCOUNTS_GRID}>
           {view.cards.map((card) => (
             <CreditCard key={card.detail.id} card={card} {...shared} />
           ))}
-          <AddAccountButton kind="credit" payFromAccounts={view.payFromAccounts} className={ADD_TILE} messageClassName="col-span-full" openFromLink={openAdd === "credit"} />
+          <AddAccountButton kind="credit" payFromAccounts={view.payFromAccounts} className={ADD_TILE} openFromLink={openAdd === "credit"} />
         </div>
       </section>
       {view.inactive.length > 0 && <InactiveAccounts items={view.inactive} {...shared} />}
@@ -113,7 +112,7 @@ function Sum({ label, amount }: { label: string; amount: number }) {
 }
 
 /** 點卡片看這個帳戶的紀錄 按鈕放在連結外面 */
-function DepositCard({ card, context, payFromAccounts, onRemoved }: { card: DepositCardView } & CardShared) {
+function DepositCard({ card, context, payFromAccounts }: { card: DepositCardView } & CardShared) {
   const { detail } = card;
   const edit = useDialog();
   const nameId = useId();
@@ -147,9 +146,8 @@ function DepositCard({ card, context, payFromAccounts, onRemoved }: { card: Depo
         <div className="button-row min-w-0 flex-1">
           <QuickAddButton {...context.options} accountId={detail.id} className="btn-secondary btn-sm" />
           <UpdateBalanceButton account={{ id: detail.id, name: detail.name, kind: "deposit", balance: detail.balance }} />
-          <DialogMessage {...edit.messageProps} className={ROW_MESSAGE_CLASS} />
         </div>
-        <AccountMenu card={card} name={detail.name} editTrigger={edit.triggerProps} onRemoved={onRemoved} />
+        <AccountMenu card={card} name={detail.name} editTrigger={edit.triggerProps} />
       </div>
       <Dialog {...edit.dialogProps} title={`修改「${detail.name}」`}>
         <AccountForm account={card.draft} payFromAccounts={payFromAccounts} onDone={edit.done} onCancel={edit.close} />
@@ -159,10 +157,10 @@ function DepositCard({ card, context, payFromAccounts, onRemoved }: { card: Depo
 }
 
 /**
- * 填了帳單按鈕就換成已繳 繳清後也不見 所以視窗與訊息掛在卡片上
- * 按鈕不見時焦點落在訊息上
+ * 填了帳單按鈕就換成已繳 繳清後也不見 所以視窗掛在卡片上
+ * 按鈕不見時焦點交給信用卡這一區
  */
-function CreditCard({ card, context, payFromAccounts, onRemoved }: { card: CreditCardView } & CardShared) {
+function CreditCard({ card, context, payFromAccounts }: { card: CreditCardView } & CardShared) {
   const { detail, status } = card;
   const edit = useDialog();
   const bill = useDialog();
@@ -182,11 +180,16 @@ function CreditCard({ card, context, payFromAccounts, onRemoved }: { card: Credi
         <CardFace style={card.style} name={detail.name} nameId={nameId} lines={card.faceLines} />
         <span className="sr-only">查看紀錄</span>
       </Link>
-      <div className="flex flex-col gap-1.5">
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-ink tabular-nums">
-          {status.text}
-          {status.badge && <StatusChip badge={status.badge} />}
-        </p>
+      {/* 每張卡的列數不同 多的高度留在這裡 同一排的按鈕才對齊 */}
+      <div className="flex flex-1 flex-col gap-1.5">
+        <FactList>
+          {status.facts.map((fact, index) => (
+            <Fact key={fact.label} label={fact.label}>
+              {fact.value}
+              {index === status.facts.length - 1 && status.badge && <StatusChip badge={status.badge} />}
+            </Fact>
+          ))}
+        </FactList>
         {detail.payFrom && shortBy !== null && (
           <p className="flex items-start gap-1.5 text-sm text-ink">
             <Icon name="circle-alert" className="mt-0.5 size-4 shrink-0 text-warning" />
@@ -222,11 +225,8 @@ function CreditCard({ card, context, payFromAccounts, onRemoved }: { card: Credi
               <Icon name={showHistory ? "chevron-up" : "chevron-down"} className="size-4" />
             </button>
           )}
-          <DialogMessage {...bill.messageProps} className={ROW_MESSAGE_CLASS} />
-          <DialogMessage {...pay.messageProps} className={ROW_MESSAGE_CLASS} />
-          <DialogMessage {...edit.messageProps} className={ROW_MESSAGE_CLASS} />
         </div>
-        <AccountMenu card={card} name={detail.name} editTrigger={edit.triggerProps} refillTrigger={canRefill ? bill.triggerProps : undefined} onRemoved={onRemoved} />
+        <AccountMenu card={card} name={detail.name} editTrigger={edit.triggerProps} refillTrigger={canRefill ? bill.triggerProps : undefined} />
       </div>
       {detail.history.length > 0 && (
         <div id={historyId} hidden={!showHistory}>
@@ -254,19 +254,18 @@ type AccountMenuProps = {
   editTrigger: DialogTrigger;
   /** 這一期的帳單填錯時重填 只有填過帳單的卡才有 */
   refillTrigger?: DialogTrigger;
-  onRemoved: (message: string) => void;
 };
 
 /** 不常用的收在 ⋮ 視窗放在選單外面 選單收起時才不會一起卸載 */
-function AccountMenu({ card, name, editTrigger, refillTrigger, onRemoved }: AccountMenuProps) {
+function AccountMenu({ card, name, editTrigger, refillTrigger }: AccountMenuProps) {
   const id = card.draft.id;
   return (
     <MoreMenu label={`「${name}」的選項`}>
       <DialogMenuItem trigger={editTrigger} icon="pencil" label="修改" />
       {refillTrigger && <DialogMenuItem trigger={refillTrigger} icon="receipt" label="重填本期帳單" />}
       <MoveMenuItems action={moveAccountAction} id={id} isFirst={card.isFirst} isLast={card.isLast} />
-      <ActiveMenuItem action={setAccountActiveAction} id={id} active pausedHint={PAUSED_HINT} onChanged={() => onRemoved(`已停用「${name}」，要用時可以在最下面的「已停用」恢復`)} />
-      <DeleteMenuItem action={deleteAccountAction} id={id} confirmMessage={accountDeleteWarning(name, card.usage)} label="刪除帳戶" deletedMessage={`已刪除「${name}」`} onDeleted={onRemoved} />
+      <ActiveMenuItem action={setAccountActiveAction} id={id} active pausedHint={PAUSED_HINT} changedMessage={`已停用「${name}」，要用時可以在最下面的「已停用」恢復`} />
+      <DeleteMenuItem action={deleteAccountAction} id={id} confirmMessage={accountDeleteWarning(name, card.usage)} label="刪除帳戶" deletedMessage={`已刪除「${name}」`} />
     </MoreMenu>
   );
 }
@@ -274,14 +273,14 @@ function AccountMenu({ card, name, editTrigger, refillTrigger, onRemoved }: Acco
 const RESTORED_WHERE: Record<AccountKind, string> = { deposit: "", investment: "，在「投資」頁", credit: "" };
 
 /** 不常看 收起來 點一列可以修改 恢復與刪除在 ⋮ */
-function InactiveAccounts({ items, payFromAccounts, onRemoved }: { items: InactiveAccountView[] } & CardShared) {
+function InactiveAccounts({ items, payFromAccounts }: { items: InactiveAccountView[] } & CardShared) {
   return (
     <details className="disclosure">
       <summary>已停用（{items.length}）</summary>
       <div className="card overflow-hidden p-0">
         <ul className="divide-y divide-line">
           {items.map((item) => (
-            <InactiveRow key={item.id} item={item} payFromAccounts={payFromAccounts} onRemoved={onRemoved} />
+            <InactiveRow key={item.id} item={item} payFromAccounts={payFromAccounts} />
           ))}
         </ul>
       </div>
@@ -289,23 +288,27 @@ function InactiveAccounts({ items, payFromAccounts, onRemoved }: { items: Inacti
   );
 }
 
-function InactiveRow({ item, payFromAccounts, onRemoved }: { item: InactiveAccountView } & Pick<CardShared, "payFromAccounts" | "onRemoved">) {
+function InactiveRow({ item, payFromAccounts }: { item: InactiveAccountView } & Pick<CardShared, "payFromAccounts">) {
   const edit = useDialog();
   return (
     <ListRow
-      title={item.name}
-      detail={item.detail}
+      title={
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          {item.name}
+          {item.label && <span className="text-sm font-normal">{item.label}</span>}
+        </span>
+      }
+      detail={item.kindLabel}
       muted
       trigger={edit.triggerProps}
       actionLabel="修改"
       menu={
         <MoreMenu label={`「${item.name}」的選項`}>
-          <ActiveMenuItem action={setAccountActiveAction} id={item.id} active={false} pausedHint={PAUSED_HINT} onChanged={() => onRemoved(`已恢復「${item.name}」${RESTORED_WHERE[item.draft.kind]}`)} />
-          <DeleteMenuItem action={deleteAccountAction} id={item.id} confirmMessage={accountDeleteWarning(item.name, item.usage)} label="刪除帳戶" deletedMessage={`已刪除「${item.name}」`} onDeleted={onRemoved} />
+          <ActiveMenuItem action={setAccountActiveAction} id={item.id} active={false} pausedHint={PAUSED_HINT} changedMessage={`已恢復「${item.name}」${RESTORED_WHERE[item.draft.kind]}`} />
+          <DeleteMenuItem action={deleteAccountAction} id={item.id} confirmMessage={accountDeleteWarning(item.name, item.usage)} label="刪除帳戶" deletedMessage={`已刪除「${item.name}」`} />
         </MoreMenu>
       }
     >
-      <DialogMessage {...edit.messageProps} className={LIST_ROW_MESSAGE} />
       <Dialog {...edit.dialogProps} title={`修改「${item.name}」`}>
         <AccountForm account={item.draft} payFromAccounts={payFromAccounts} onDone={edit.done} onCancel={edit.close} />
       </Dialog>

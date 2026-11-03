@@ -6,7 +6,7 @@ import { accountIdsOf, bySortOrder, suggestAllocation, type AccountBalance, type
 import type { MonthKey } from "../lib/month";
 import { pendingItems, type PendingRecurring, type PendingRuleRow } from "../lib/pending";
 import type { Quote } from "../lib/quotes";
-import { nextRunDate, recurringNames, recurringTitle, scheduleDay, scheduleText } from "../lib/recurring";
+import { nextRunDate, recurringNames, recurringTitle, scheduleDay } from "../lib/recurring";
 import type { AccountChoice, CategoryOption, HoldingOption, RecurringDraft, SalaryAccountOption } from "./components/forms/options";
 import { categoryOptions, formExtras, pendingEntries, salaryAccountOptions, type ConfirmDraft, type SalaryPrefill } from "./dashboard-view";
 import { sortByNextDate } from "./settings-display";
@@ -30,8 +30,6 @@ export type RecurringRowView = {
   title: string;
   /** 例如 每月 10 日 遇假日寫在括號裡 */
   when: string;
-  /** 加上記帳方式 例如 每月 20 日 · 遇假日延後 · 到期請我確認 */
-  schedule: string;
   kind: EntryKind;
   amount: number;
   mode: RecurringMode;
@@ -152,7 +150,6 @@ export function recurringPageView(sources: RecurringSources): RecurringPageView 
       id: rule.id,
       title: recurringTitle(rule, names),
       when: whenText(rule),
-      schedule: scheduleText(rule),
       kind: rule.kind,
       amount: rule.amount,
       mode: rule.mode,

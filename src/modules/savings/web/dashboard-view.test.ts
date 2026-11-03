@@ -211,7 +211,7 @@ describe("待處理", () => {
 
   it("定期定額：用收盤價先估好股數與扣款（手續費 1 元含在約定金額裡）", () => {
     // (5,000 - 1) × 100 / 10,650 = 46.9 取 46 股 價金 46 × 106.50 = 4,899 加手續費 1 元
-    expect(entryOf("recurring:2:").confirm).toMatchObject({ where: "台銀 → 臺銀證券", regularBuy: { symbol: "006208", closeCents: 10650, quoteDate: "2026-10-14", estimate: { shares: 46, cost: 4900 } } });
+    expect(entryOf("recurring:2:").confirm).toMatchObject({ where: [{ label: "帳戶", value: "台銀 → 臺銀證券" }], regularBuy: { symbol: "006208", closeCents: 10650, quoteDate: "2026-10-14", estimate: { shares: 46, cost: 4900 } } });
   });
 
   it("定期定額讀不到股價：不估，欄位留空", () => {
@@ -224,7 +224,7 @@ describe("待處理", () => {
   });
 
   it("確認的日期預設那一期的日期，不能早於帳戶開始記帳的那天（收支沒有轉入的帳戶）", () => {
-    expect(entryOf("recurring:3:").confirm).toMatchObject({ period: "2026-08", date: "2026-08-08", minDate: "2026-01-05", where: "生活費帳戶 · 水電" });
+    expect(entryOf("recurring:3:").confirm).toMatchObject({ period: "2026-08", date: "2026-08-08", minDate: "2026-01-05", where: [{ label: "帳戶", value: "生活費帳戶" }, { label: "分類", value: "水電" }] });
   });
 
   it("還沒到的那一期先確認時，日期預設今天，不能記未來", () => {
@@ -289,10 +289,10 @@ describe("帳戶頁", () => {
 
     expect(view.deposits.map((card) => card.detail.name)).toEqual(["台銀", "生活費帳戶", "緊急預備金 A"]);
     expect(view.cards.map((card) => card.detail.name)).toEqual(["國泰卡", "台新卡"]);
-    expect(view.inactive.map((item) => [item.name, item.detail])).toEqual([
-      ["舊帳戶", "存款"],
-      ["舊證券", "投資 · 退休"],
-      ["舊卡", "信用卡"],
+    expect(view.inactive.map((item) => [item.name, item.kindLabel, item.label])).toEqual([
+      ["舊帳戶", "存款", null],
+      ["舊證券", "投資", "退休"],
+      ["舊卡", "信用卡", null],
     ]);
   });
 
@@ -339,8 +339,8 @@ describe("帳戶頁", () => {
   });
 
   it("卡面寫出結帳日、扣款帳戶與自動扣繳（沒有卡號）", () => {
-    expect(cardOf("國泰卡").faceLines.join(" ")).toMatch(/每月 5 日結帳.*生活費帳戶/);
-    expect(cardOf("台新卡").faceLines.join(" ")).toMatch(/生活費帳戶.*自動扣繳/);
+    expect(cardOf("國泰卡").faceLines).toEqual(["每月 5 日結帳", "從生活費帳戶扣款"]);
+    expect(cardOf("台新卡").faceLines).toEqual(["沒有設定結帳日", "從生活費帳戶扣款", "自動扣繳"]);
   });
 
   it("卡面顏色：選了的照選的；沒選的照信用卡建立的順序輪流、跳過別張選走的顏色，停用的卡也算在順序裡（停用一張卡，別張的顏色不會跟著換）", () => {
@@ -384,31 +384,67 @@ describe("帳戶頁", () => {
     });
 
     it("結帳了還沒填帳單：寫結帳日，標「待填帳單」，按鈕是填帳單（還不知道截止日）", () => {
-      expect(cardOf("國泰卡", { cardBills: [] }).status).toEqual({ text: "10/5 已結帳", badge: { label: "待填帳單", tone: "warning" }, action: "bill" });
+      expect(cardOf("國泰卡", { cardBills: [] }).status).toEqual({ facts: [{ label: "結帳日", value: "10/5" }], badge: { label: "待填帳單", tone: "warning" }, action: "bill" });
     });
 
-    it("填了還沒繳：本期金額、截止日與還有幾天，按鈕是已繳", () => {
-      expect(cardOf("國泰卡").status).toEqual({ text: "本期 $12,480 · 10/20 截止 · 還有 5 天", badge: null, action: "pay" });
+    it("填了還沒繳：本期應繳與截止日各一列，截止日旁寫還有幾天，按鈕是已繳", () => {
+      expect(cardOf("國泰卡").status).toEqual({
+        facts: [
+          { label: "本期應繳", value: "$12,480" },
+          { label: "截止日", value: "10/20（還有 5 天）" },
+        ],
+        badge: null,
+        action: "pay",
+      });
+    });
+
+    it("今天截止：截止那一列直接寫今天", () => {
+      expect(cardOf("國泰卡", { today: "2026-10-20" }).status.facts).toContainEqual({ label: "截止日", value: "今天" });
     });
 
     it("截止日過了還沒繳：標「逾期 N 天」（不再寫還有幾天）", () => {
-      expect(cardOf("國泰卡", { today: "2026-10-22" }).status).toEqual({ text: "本期 $12,480 · 10/20 截止", badge: { label: "逾期 2 天", tone: "danger" }, action: "pay" });
+      expect(cardOf("國泰卡", { today: "2026-10-22" }).status).toEqual({
+        facts: [
+          { label: "本期應繳", value: "$12,480" },
+          { label: "截止日", value: "10/20" },
+        ],
+        badge: { label: "逾期 2 天", tone: "danger" },
+        action: "pay",
+      });
     });
 
     it("繳了一部分：寫還要繳多少（12,480 繳了 5,000 還要 7,480），不寫成整張帳單", () => {
-      expect(cardOf("國泰卡", paid(5000)).status.text).toBe("本期還要繳 $7,480 · 10/20 截止 · 還有 5 天");
+      expect(cardOf("國泰卡", paid(5000)).status.facts).toEqual([
+        { label: "本期還要繳", value: "$7,480" },
+        { label: "截止日", value: "10/20（還有 5 天）" },
+      ]);
     });
 
     it("繳清了：寫本期已繳清與還沒出帳的刷卡，沒有要按的", () => {
-      expect(cardOf("國泰卡", paid(12480)).status).toEqual({ text: "本期已繳清 · 未出帳 $6,000", badge: null, action: null });
+      expect(cardOf("國泰卡", paid(12480)).status).toEqual({
+        facts: [
+          { label: "本期", value: "已繳清" },
+          { label: "未出帳", value: "$6,000" },
+        ],
+        badge: null,
+        action: null,
+      });
     });
 
     it("沒有結帳日的卡：不會自動要填，帳單來了隨時可以按填帳單；填了還沒繳清就換成已繳", () => {
       const taishinBill: CardBillRecord = { id: 2, accountId: 7, statementDate: "2026-10-15", dueDate: "2026-10-25", amount: 3000, paid: 0, lastPaidOn: null };
 
-      expect(cardOf("台新卡").status).toEqual({ text: "未出帳 $3,000", badge: null, action: "bill" });
+      expect(cardOf("台新卡").status).toEqual({ facts: [{ label: "未出帳", value: "$3,000" }], badge: null, action: "bill" });
+      expect(cardOf("台新卡", { accounts: ACCOUNTS.map((item) => (item.id === 7 ? { ...item, openingBalance: 0 } : item)) }).status.facts).toEqual([{ label: "未出帳", value: "$0" }]);
       // 10/25 是週日 10/26 補假 順延到 10/27
-      expect(cardOf("台新卡", { cardBills: [BILL, taishinBill] }).status).toEqual({ text: "本期 $3,000 · 10/27 截止 · 還有 12 天", badge: null, action: "pay" });
+      expect(cardOf("台新卡", { cardBills: [BILL, taishinBill] }).status).toEqual({
+        facts: [
+          { label: "本期應繳", value: "$3,000" },
+          { label: "截止日", value: "10/27（還有 12 天）" },
+        ],
+        badge: null,
+        action: "pay",
+      });
     });
   });
 });

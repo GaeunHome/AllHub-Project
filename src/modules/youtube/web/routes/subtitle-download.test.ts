@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { OTHER_SESSION, TEST_SESSION, currentSession, requireSession } from "@/dev/session-stub";
+import { OTHER_SESSION, TEST_SESSION, canUseModule, currentSession, requireSession } from "@/dev/session-stub";
 import { mocksOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
@@ -14,6 +14,7 @@ const download = () => GET(new Request(`https://hub.example.com/api/youtube/subt
 beforeEach(() => {
   currentSession.mockReset();
   requireSession.mockReset();
+  canUseModule.mockReset();
   getTranslation.mockReset().mockResolvedValue({ videoId: VIDEO, sourceCues: [{ start: 0, end: 900, text: "안녕" }], translated: ["你好"] });
 });
 
@@ -27,6 +28,16 @@ describe("下載翻譯後的字幕檔（Route Handler）", () => {
     const response = await download();
 
     expect(response.status).toBe(401);
+    expect(getTranslation).not.toHaveBeenCalled();
+  });
+
+  it("被關掉 YouTube 的人_回 403_不讀字幕，不是轉址", async () => {
+    canUseModule.mockResolvedValue(false);
+
+    const response = await download();
+
+    expect(response.status).toBe(403);
+    expect(canUseModule).toHaveBeenCalledWith(TEST_SESSION, "youtube");
     expect(getTranslation).not.toHaveBeenCalled();
   });
 

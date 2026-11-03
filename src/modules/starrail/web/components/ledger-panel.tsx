@@ -1,4 +1,4 @@
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import { FormMessage } from "@/core/ui/form-message";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { ledgerMonthOf } from "../../lib/ledger";
@@ -13,7 +13,7 @@ import { PanelNotice } from "./panel-parts";
  * 切換月份不用再等
  */
 export async function LedgerPanel({ account }: { account: StarrailAccountView }) {
-  const user = await requireSession();
+  const user = await requireModule("starrail");
   const first = await cachedLedger(user.id, account.id, ledgerMonthOf(new Date()));
   if (!first.ok) {
     return (

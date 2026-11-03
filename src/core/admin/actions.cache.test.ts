@@ -8,7 +8,7 @@ vi.mock("./service", { spy: true });
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ origin: "https://hub.example.com" }) }));
 
 const invites = mocksOf(await import("../auth/invites"), "createInvite", "revokeInvite");
-const service = mocksOf(await import("./service"), "setUserDisabled", "deleteUser", "unlockUser");
+const service = mocksOf(await import("./service"), "setUserDisabled", "deleteUser", "unlockUser", "setModuleAccess");
 const actions = await import("./actions");
 
 const MEMBER_ID = "2a3b4c5d-6e7f-4a8b-9c0d-1e2f3a4b5c6d";
@@ -19,6 +19,7 @@ beforeEach(() => {
   service.setUserDisabled.mockReset().mockResolvedValue(true);
   service.deleteUser.mockReset().mockResolvedValue(true);
   service.unlockUser.mockReset().mockResolvedValue(true);
+  service.setModuleAccess.mockReset().mockResolvedValue(true);
 });
 
 describe("管理頁的 Server Action：寫入後用 updateTag 讓對應的清單失效", () => {
@@ -44,6 +45,19 @@ describe("管理頁的 Server Action：寫入後用 updateTag 讓對應的清單
     ["unlockUserAction", () => (service.unlockUser.mockResolvedValue(false), actions.unlockUserAction({}, form({ userId: MEMBER_ID })))],
   ] as const)("%s_要改的資料已經不在了_沒有寫入就不失效，用 refresh 重新算繪", async (_name, run) => {
     await run();
+
+    expect(updateTag).not.toHaveBeenCalled();
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  // 權限每次都讀最新 沒有快取可以失效 只要重新算繪表格
+  it.each([
+    ["寫入成功", true],
+    ["帳號已經不在", false],
+  ])("setModuleAccessAction_%s_沒有 tag 要失效，用 refresh 重新算繪", async (_name, written) => {
+    service.setModuleAccess.mockResolvedValue(written);
+
+    await actions.setModuleAccessAction({}, form({ userId: MEMBER_ID, moduleId: "savings", allowed: "false" }));
 
     expect(updateTag).not.toHaveBeenCalled();
     expect(refresh).toHaveBeenCalledOnce();

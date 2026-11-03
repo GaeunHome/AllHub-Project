@@ -4,13 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mocksOf, textOf } from "@/dev/test-helpers";
 
 vi.mock(".", () => ({ requireSession: vi.fn() }));
-vi.mock("./actions", () => ({ logout: vi.fn(), changePasswordAction: vi.fn(), deleteAccountAction: vi.fn() }));
+vi.mock("./actions", () => ({ logout: vi.fn(), changePasswordAction: vi.fn(), deleteAccountAction: vi.fn(), updateNicknameAction: vi.fn() }));
 
 const session = mocksOf(await import("."), "requireSession");
 const { AccountPage, AccountSections } = await import("./account-page");
 
 const html = async () => renderToStaticMarkup((await AccountSections()) as ReactElement);
-const ALICE = { id: "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f", username: "alice" };
+const ALICE = { id: "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f", username: "alice", nickname: null };
 
 beforeEach(() => {
   session.requireSession.mockReset().mockResolvedValue({ ...ALICE, role: "member" });
@@ -39,6 +39,25 @@ describe("帳號頁", () => {
 
     expect(text).toContain("npm run account -- passwd alice");
     expect(text).toContain("唯一的站長不能刪除自己");
+  });
+
+  it("有暱稱時同時看得到暱稱與帳號名稱；沒有暱稱時只有帳號名稱，不多一行", async () => {
+    session.requireSession.mockResolvedValue({ ...ALICE, nickname: "小明", role: "member" });
+    const text = textOf(await html());
+
+    expect(text).toContain("小明");
+    expect(text).toContain("帳號名稱：alice");
+
+    session.requireSession.mockResolvedValue({ ...ALICE, role: "member" });
+    expect(textOf(await html())).not.toContain("帳號名稱：");
+  });
+
+  it("可以改暱稱：按鈕打開視窗，不用密碼", async () => {
+    expect(await html()).toMatch(/<button[^>]*aria-haspopup="dialog"[^>]*>.*暱稱.*<\/button>/);
+  });
+
+  it("一般成員的帳號頁看不到權限的文字", async () => {
+    expect(textOf(await html())).not.toContain("權限");
   });
 
   it("每個密碼欄位都可以切換顯示（改密碼三欄、刪除帳號一欄）", async () => {

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { BackLink } from "@/core/ui/back-link";
 import { PageTheme } from "@/core/ui/page-theme";
@@ -10,7 +10,7 @@ import { cachedSettingsView } from "../../service/cached";
 import { SettingsForm } from "../components/settings-form";
 
 async function SettingsLoader() {
-  const user = await requireSession();
+  const user = await requireModule("youtube");
   return <SettingsForm settings={await cachedSettingsView(user.id)} />;
 }
 

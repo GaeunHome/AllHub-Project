@@ -5,10 +5,10 @@ import { useEffect, useState } from "react";
 import { DialogButton, useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
+import { useToast } from "@/core/ui/toast";
 import { linkAccountAction, type LinkState } from "../actions";
 import { accountHref } from "../../lib/urls";
 import type { RoleChoice } from "../../service/link";
-import { useShowLinkResult } from "./link-result";
 import { GoldChip } from "./sr-visuals";
 
 /** 還沒連結時直接顯示表單 已有帳號時只是一個按鈕 要新增或更新 cookie 再打開視窗 */
@@ -25,7 +25,7 @@ export function LinkAccountForm({ defaultOpen }: { defaultOpen: boolean }) {
   );
 }
 
-/** 視窗也套星空配色與切角 連結好了就關掉 結果顯示在帳號分頁上方 */
+/** 視窗也套星空配色與切角 連結好了就關掉 結果用提示視窗 */
 function LinkAccountDialog() {
   return (
     <div className="button-row">
@@ -52,11 +52,11 @@ const isLinked = (result: LinkState) => !result.error && !result.roles;
 
 /**
  * cookie 只放在表單狀態裡 選伺服器的第二步再送一次 伺服器不存
- * 連結好了導向剛連結的帳號
+ * 連結好了導向剛連結的帳號 結果用提示視窗
  */
 function LinkAccountFields({ onLinked }: { onLinked?: () => void }) {
   const router = useRouter();
-  const showResult = useShowLinkResult();
+  const toast = useToast();
   const [cookie, setCookie] = useState("");
   const [choices, setChoices] = useState<RoleChoice[] | null>(null);
   const step = async (previous: LinkState, formData: FormData) => {
@@ -72,8 +72,10 @@ function LinkAccountFields({ onLinked }: { onLinked?: () => void }) {
       setCookie("");
       onLinked?.();
       if (result.accountId === undefined) return;
-      showResult({ accountId: result.accountId, message: message ?? "已連結帳號", warning: result.warning });
-      router.push(accountHref(result.accountId), { scroll: false });
+      toast.success(message ?? "已連結帳號");
+      if (result.warning) toast.warning(result.warning);
+      // 捲回最上面 看得到剛連結的帳號
+      router.push(accountHref(result.accountId));
     },
     isLinked,
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Dialog, DialogButton, DialogMessage, useDialog } from "@/core/ui/dialog";
+import { Dialog, DialogButton, useDialog } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import type { DateKey } from "../../../lib/dates";
@@ -10,10 +10,9 @@ import { deleteAccountAction, moveAccountAction, setAccountActiveAction } from "
 import type { BrokerageView } from "../../investments-view";
 import { accountDeleteWarning } from "../../settings-display";
 import { AccountForm } from "../forms/account-form";
-import { ROW_MESSAGE_CLASS } from "../forms/fields";
 import type { AccountOption } from "../forms/options";
 import { UpdateBalanceButton } from "../forms/update-balance";
-import { ActiveMenuItem, DeleteMenuItem, DialogMenuItem, MoveMenuItems, useRemovalNotice } from "../row-controls";
+import { ActiveMenuItem, DeleteMenuItem, DialogMenuItem, MoveMenuItems } from "../row-controls";
 import { AddHoldingForm } from "./holding-forms";
 import { Holdings } from "./holdings";
 
@@ -24,14 +23,11 @@ type BrokerageCardProps = {
   /** 修改帳戶時扣款帳戶的選項 證券帳戶用不到 表單一樣要 */
   payFromAccounts: { id: number; name: string; active: boolean }[];
   today: DateKey;
-  /** 停用或刪除後整張卡片會不見 訊息交給外面 */
-  onRemoved: (message: string) => void;
 };
 
 /** 一個證券帳戶一張卡片 有持股時列出每一檔 沒有持股時可以更新市值 */
-export function BrokerageCard({ brokerage, depositAccounts, payFromAccounts, today, onRemoved }: BrokerageCardProps) {
+export function BrokerageCard({ brokerage, depositAccounts, payFromAccounts, today }: BrokerageCardProps) {
   const edit = useDialog();
-  const removal = useRemovalNotice();
   const headingId = `savings-brokerage-${brokerage.id}`;
   const hasHoldings = brokerage.holdings.length > 0;
 
@@ -61,7 +57,7 @@ export function BrokerageCard({ brokerage, depositAccounts, payFromAccounts, tod
               id={brokerage.id}
               active
               pausedHint="停用後不能再買賣、不算進總覽，紀錄與持股會留著"
-              onChanged={() => onRemoved(`已停用「${brokerage.name}」，可以在帳戶頁最下面的「已停用」恢復`)}
+              changedMessage={`已停用「${brokerage.name}」，可以在帳戶頁最下面的「已停用」恢復`}
             />
             <DeleteMenuItem
               action={deleteAccountAction}
@@ -69,21 +65,18 @@ export function BrokerageCard({ brokerage, depositAccounts, payFromAccounts, tod
               confirmMessage={accountDeleteWarning(brokerage.name, brokerage.usage)}
               label="刪除帳戶"
               deletedMessage={`已刪除「${brokerage.name}」`}
-              onDeleted={onRemoved}
             />
           </MoreMenu>
         </div>
       </header>
-      <DialogMessage {...edit.messageProps} />
       <Dialog {...edit.dialogProps} title={`修改「${brokerage.name}」`}>
         <AccountForm account={brokerage.draft} payFromAccounts={payFromAccounts} onDone={edit.done} onCancel={edit.close} />
       </Dialog>
       {hasHoldings ? (
-        <Holdings holdings={brokerage.holdings} accounts={depositAccounts} today={today} minDate={brokerage.startDate} onDeleted={removal.report} />
+        <Holdings holdings={brokerage.holdings} accounts={depositAccounts} today={today} minDate={brokerage.startDate} />
       ) : (
         <p className="text-ink">還沒有持股：市值照你更新的數字。新增持股後會照收盤價自動算。</p>
       )}
-      <DialogMessage {...removal.messageProps} />
       <div className="button-row">
         <DialogButton
           label={
@@ -94,7 +87,6 @@ export function BrokerageCard({ brokerage, depositAccounts, payFromAccounts, tod
           }
           buttonClassName="btn-secondary btn-sm"
           title={`新增持股：${brokerage.name}`}
-          messageClassName={ROW_MESSAGE_CLASS}
         >
           {({ done, close }) => <AddHoldingForm accountId={brokerage.id} onDone={done} onCancel={close} />}
         </DialogButton>

@@ -37,8 +37,6 @@ export function SaveVideoButton({ videoId, saved, onRemoved }: SaveVideoButtonPr
     <ActionButton
       action={saved ? remove : saveVideoAction}
       fields={{ videoId }}
-      // 按鈕在頻道名稱後面靠左 錯誤訊息也靠左排在下面 出現時按鈕不會被推到右邊
-      formClassName="flex shrink-0 flex-col items-start gap-1 [&_[role=alert]]:text-left"
       className="yt-pill"
       title={saved ? "從已保留的影片移除" : "加進已保留的影片，之後在 YouTube 頁的「已保留」找得到"}
       {...(saved ? { "aria-label": "已保留（按一下移除）" } : {})}

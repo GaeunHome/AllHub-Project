@@ -1,14 +1,14 @@
 import { Suspense } from "react";
-import { requireSession } from "../auth";
+import { deniedModules, requireSession } from "../auth";
 import type { ModuleInfo, SearchParams } from "../module";
 import { RETENTION_DAYS } from "../retention";
 import { Icon } from "../ui/icon";
 import { CardHeader, PageHeader } from "../ui/page-header";
-import { LogListSkeleton } from "../ui/skeleton";
+import { ListSkeleton, LogListSkeleton } from "../ui/skeleton";
 import { cachedNotificationCounts, cachedNotificationList } from "./cached";
 import { NotificationList } from "./notification-list";
 import type { NotificationModule } from "./notification-summary";
-import { NotificationSettings } from "./settings";
+import { UsableNotificationSettings } from "./usable-settings";
 
 // core 不能 import 模組 所以模組清單由 src/app 傳進來
 export function NotificationsPage({ modules, searchParams }: { modules: ModuleInfo[]; searchParams: SearchParams }) {
@@ -27,18 +27,24 @@ export function NotificationsPage({ modules, searchParams }: { modules: ModuleIn
         <CardHeader id="notification-settings" icon={<Icon name="settings" />}>
           提醒方式
         </CardHeader>
-        <NotificationSettings modules={notificationModules} />
+        <Suspense fallback={<ListSkeleton rows={3} label="載入提醒方式…" />}>
+          <UsableNotificationSettings modules={notificationModules} />
+        </Suspense>
       </section>
     </div>
   );
 }
 
-async function NotificationSection({ modules, searchParams }: { modules: NotificationModule[]; searchParams: SearchParams }) {
+export async function NotificationSection({ modules, searchParams }: { modules: NotificationModule[]; searchParams: SearchParams }) {
   const user = await requireSession();
+  const denied = await deniedModules(user);
   const requested = (await searchParams).module;
-  // 只接受認得的模組 id 網址被亂改時當成全部
-  const selected = typeof requested === "string" && modules.some((m) => m.id === requested) ? requested : null;
+  // 只接受認得而且能用的模組 id 網址被亂改時當成全部
+  const selected = typeof requested === "string" && modules.some((m) => m.id === requested) && !denied.has(requested) ? requested : null;
   const [items, counts] = await Promise.all([cachedNotificationList(user.id, selected ?? undefined), cachedNotificationCounts(user.id)]);
+  // 關掉的模組看不到 舊通知留在資料庫 恢復後照常顯示
+  const visibleItems = items.filter((item) => !denied.has(item.module));
+  const visibleIds = Object.keys(counts).filter((id) => !denied.has(id));
 
-  return <NotificationList items={items} moduleIds={Object.keys(counts)} module={selected} modules={modules} retentionDays={RETENTION_DAYS} />;
+  return <NotificationList items={visibleItems} moduleIds={visibleIds} module={selected} modules={modules} retentionDays={RETENTION_DAYS} />;
 }

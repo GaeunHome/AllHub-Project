@@ -1,6 +1,7 @@
 "use client";
 
-import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
+import { Dialog, useDialog } from "@/core/ui/dialog";
+import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { CardHeader } from "@/core/ui/page-header";
@@ -9,7 +10,7 @@ import { formatTwd } from "../../../lib/money";
 import { deleteCategoryAction, moveCategoryAction } from "../../actions";
 import { CategoryForm, type CategoryDraft } from "../forms/category-form";
 import { SetupButton } from "../forms/setup-button";
-import { DeleteMenuItem, LIST_ROW_MESSAGE, ListRow, MoveMenuItems, useRemovalNotice } from "../row-controls";
+import { DeleteMenuItem, ListRow, MoveMenuItems } from "../row-controls";
 import { IconTile } from "../visuals";
 
 const TITLES: Record<CategoryKind, string> = { expense: "支出分類與預算", income: "收入分類" };
@@ -43,7 +44,6 @@ function NoCategories() {
           新增分類
         </button>
       </div>
-      <DialogMessage {...add.messageProps} />
       <Dialog {...add.dialogProps} title="新增分類">
         <CategoryForm defaultKind="expense" onDone={add.done} onCancel={add.close} />
       </Dialog>
@@ -51,13 +51,13 @@ function NoCategories() {
   );
 }
 
+/** 卡片一直都在 刪掉一列後焦點落在卡片上 */
 function KindCard({ kind, items }: { kind: CategoryKind; items: CategoryDraft[] }) {
   const add = useDialog();
-  const removal = useRemovalNotice();
   const id = `savings-categories-${kind}`;
 
   return (
-    <section aria-labelledby={id} className="card stack overflow-hidden">
+    <section aria-labelledby={id} {...FOCUS_FRAME} className="card stack overflow-hidden">
       <CardHeader
         id={id}
         actions={
@@ -69,8 +69,6 @@ function KindCard({ kind, items }: { kind: CategoryKind; items: CategoryDraft[] 
       >
         {TITLES[kind]}
       </CardHeader>
-      <DialogMessage {...add.messageProps} />
-      <DialogMessage {...removal.messageProps} />
       <Dialog {...add.dialogProps} title={kind === "expense" ? "新增支出分類" : "新增收入分類"}>
         <CategoryForm defaultKind={kind} onDone={add.done} onCancel={add.close} />
       </Dialog>
@@ -79,7 +77,7 @@ function KindCard({ kind, items }: { kind: CategoryKind; items: CategoryDraft[] 
       ) : (
         <ul className="card-list">
           {items.map((category, index) => (
-            <CategoryRow key={category.id} category={category} isFirst={index === 0} isLast={index === items.length - 1} onDeleted={removal.report} />
+            <CategoryRow key={category.id} category={category} isFirst={index === 0} isLast={index === items.length - 1} />
           ))}
         </ul>
       )}
@@ -87,10 +85,10 @@ function KindCard({ kind, items }: { kind: CategoryKind; items: CategoryDraft[] 
   );
 }
 
-type CategoryRowProps = { category: CategoryDraft; isFirst: boolean; isLast: boolean; onDeleted: (message: string) => void };
+type CategoryRowProps = { category: CategoryDraft; isFirst: boolean; isLast: boolean };
 
 /** 點一列修改 上移下移與刪除收在 ⋮ */
-function CategoryRow({ category, isFirst, isLast, onDeleted }: CategoryRowProps) {
+function CategoryRow({ category, isFirst, isLast }: CategoryRowProps) {
   const edit = useDialog();
   const budget = category.kind === "expense" && category.monthlyBudget !== null ? category.monthlyBudget : null;
 
@@ -114,12 +112,10 @@ function CategoryRow({ category, isFirst, isLast, onDeleted }: CategoryRowProps)
             confirmMessage={`確定刪除分類「${category.name}」？用了這個分類的紀錄與固定收支會改成「未分類」，紀錄本身會留著。`}
             label="刪除分類"
             deletedMessage={`已刪除「${category.name}」`}
-            onDeleted={onDeleted}
           />
         </MoreMenu>
       }
     >
-      <DialogMessage {...edit.messageProps} className={LIST_ROW_MESSAGE} />
       <Dialog {...edit.dialogProps} title={`修改「${category.name}」`}>
         <CategoryForm category={category} defaultKind={category.kind} onDone={edit.done} onCancel={edit.close} />
       </Dialog>

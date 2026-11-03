@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { keepFocusInFrame } from "./focus-frame";
 import { Icon } from "./icon";
+import { useOutsidePress } from "./outside-press";
 import { POPUP_TRIGGER } from "./popup-layer";
+import { placeNear } from "./popup-position";
 
 type MoreMenuProps = {
   /** 給報讀器與提示的按鈕名稱 例如影片標題的選項 */
@@ -41,20 +44,16 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
     if (!open || !button || !panel) return;
     const rect = button.getBoundingClientRect();
     const { offsetWidth: width, offsetHeight: height } = panel;
-    const left = Math.min(Math.max(EDGE, rect.right - width), window.innerWidth - width - EDGE);
-    const fitsBelow = rect.bottom + GAP + height <= window.innerHeight - EDGE;
-    const top = fitsBelow || rect.top - GAP - height < EDGE ? rect.bottom + GAP : rect.top - GAP - height;
+    const { left, top } = placeNear(rect, { width, height }, { width: window.innerWidth, height: window.innerHeight }, { left: rect.right - width, gap: GAP, edge: EDGE });
     panel.style.setProperty("--menu-left", `${left}px`);
     panel.style.setProperty("--menu-top", `${top}px`);
     if (byKeyboard.current) panel.querySelector<HTMLElement>("a[href], button:not(:disabled)")?.focus();
   }, [open]);
 
+  useOutsidePress(open, rootRef, () => setOpen(false));
   useEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
-    const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) close();
-    };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       // 選單在彈出視窗裡時 Esc 只收起選單 不讓瀏覽器連視窗一起關掉
@@ -66,12 +65,10 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
     const onScroll = (event: Event) => {
       if (!panelRef.current?.contains(event.target as Node)) close();
     };
-    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     document.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", close);
     return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
       document.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
@@ -97,7 +94,18 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
   };
 
   return (
-    <div ref={rootRef} className="relative shrink-0">
+    <div
+      ref={(node) => {
+        rootRef.current = node;
+        // ⋮ 帶著焦點跟著那一列不見時 例如修改後那一列搬到別的清單 焦點交給外框
+        const release = keepFocusInFrame(node);
+        return () => {
+          rootRef.current = null;
+          release?.();
+        };
+      }}
+      className="relative shrink-0"
+    >
       <button
         ref={buttonRef}
         type="button"

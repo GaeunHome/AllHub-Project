@@ -3,10 +3,11 @@ import { and, asc, eq, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { db } from "../db";
 import { coreUsers, type UserRole } from "../db/schema";
 import { hashPassword, needsRehash, newPasswordProblem, normalizeUsername, usernameProblem, verifyPassword } from "./credentials";
+import { nicknameProblem, normalizeNickname } from "./nickname";
 import type { SessionClaims } from "./session";
 
 export type { UserRole } from "../db/schema";
-export type SessionUser = { id: string; username: string; role: UserRole };
+export type SessionUser = { id: string; username: string; nickname: string | null; role: UserRole };
 
 /**
  * 每錯 failures 次鎖一次 依序用 minutes 的分鐘數 之後都用最後一個
@@ -22,6 +23,8 @@ export type ChangePasswordResult =
   | { ok: false; reason: "wrong_password" | "invalid" | "not_found" | "conflict"; error: string };
 
 export type DeleteAccountResult = { ok: true } | { ok: false; reason: "wrong_password" | "last_owner" | "not_found"; error: string };
+
+export type UpdateNicknameResult = { ok: true; nickname: string | null } | { ok: false; error: string };
 
 const NOT_FOUND_MESSAGE = "找不到這個帳號，請重新登入";
 
@@ -71,7 +74,8 @@ function lockedUntilAfter(count: SQL, now: Date): SQL {
 /** 停用的帳號也查不到 站長停用後簽章仍有效的 cookie 立刻失效 */
 export async function findSessionUser({ userId, version }: SessionClaims): Promise<SessionUser | null> {
   const [user] = await db()
-    .select({ id: coreUsers.id, username: coreUsers.username, role: coreUsers.role })
+    // 每個請求都會走到這裡 新程式比 migration 先上線時欄位還不存在 從整列取值才不會全站登入失敗
+    .select({ id: coreUsers.id, username: coreUsers.username, nickname: sql<string | null>`to_jsonb(${coreUsers}) ->> 'nickname'`, role: coreUsers.role })
     .from(coreUsers)
     .where(and(eq(coreUsers.id, userId), eq(coreUsers.sessionVersion, version), isNull(coreUsers.disabledAt)));
   return user ?? null;
@@ -107,6 +111,15 @@ export async function changePassword(userId: string, currentPassword: string, ne
     .returning({ sessionVersion: coreUsers.sessionVersion });
   if (!updated) return { ok: false, reason: "conflict", error: "密碼剛被變更過，請重新登入後再試" };
   return { ok: true, sessionVersion: updated.sessionVersion };
+}
+
+/** 只是顯示用的名字 帳號名稱 登入與 session 都不受影響 所以不用密碼 userId 一律來自 session */
+export async function updateNickname(userId: string, input: string): Promise<UpdateNicknameResult> {
+  const nickname = normalizeNickname(input);
+  const problem = nicknameProblem(nickname);
+  if (problem) return { ok: false, error: problem };
+  const rows = await db().update(coreUsers).set({ nickname, updatedAt: new Date() }).where(eq(coreUsers.id, userId)).returning({ id: coreUsers.id });
+  return rows.length > 0 ? { ok: true, nickname } : { ok: false, error: NOT_FOUND_MESSAGE };
 }
 
 /**

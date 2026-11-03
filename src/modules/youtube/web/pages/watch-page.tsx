@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { BackLink } from "@/core/ui/back-link";
 import { PageTheme } from "@/core/ui/page-theme";
@@ -15,7 +15,7 @@ import { WatchChannel, WatchChannelFallback, WatchTitle, WatchTitleText } from "
 
 /** 翻譯共用 誰打開都看得到 接著翻用自己的 API Key 重新翻譯與換字幕只有發起人或站長 */
 export async function WatchLoader({ params, info }: { params: Promise<{ videoId: string }>; info: ModuleInfo }) {
-  const user = await requireSession();
+  const user = await requireModule("youtube");
   const videoId = parseVideoId((await params).videoId);
   if (!videoId) notFound();
 

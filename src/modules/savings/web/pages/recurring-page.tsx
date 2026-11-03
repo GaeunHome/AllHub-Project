@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireSession } from "@/core/auth";
+import { requireModule } from "@/core/auth";
 import type { ModuleInfo, SearchParams } from "@/core/module";
 import { Icon } from "@/core/ui/icon";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
@@ -27,7 +27,7 @@ function presetFrom(raw: string | string[] | undefined): RecurringPreset | null 
  * 網址的 edit 只認自己的固定收支 別人的或不存在的不打開
  */
 export async function RecurringSection({ searchParams }: { searchParams: SearchParams }) {
-  const user = await requireSession();
+  const user = await requireModule("savings");
   const today = taipeiToday(new Date());
   const [accounts, flows, rules, categories, holdings, params] = await Promise.all([
     cachedAccounts(user.id),

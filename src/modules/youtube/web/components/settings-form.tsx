@@ -5,9 +5,12 @@ import { groupDigits } from "@/core/number";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { InfoTip } from "@/core/ui/info-tip";
+import { useToast } from "@/core/ui/toast";
+import { withToast } from "@/core/ui/toast-queue";
 import { saveSettingsAction, type SettingsFormState } from "../actions";
 import { AI_PROVIDERS, SUBSCRIPTION_NOTE } from "../ai-providers";
 import { GLOSSARY_LIMITS } from "../../lib/parse";
+import { modelOptions } from "../../lib/subtitles/models";
 import type { SettingsView } from "../../service/ai-settings";
 
 // legend 預設壓在 fieldset 的邊框上 也不吃父層的 gap
@@ -20,8 +23,10 @@ function keyPlaceholder(prefix: string | null): string {
   return prefix ? `已設定（前 8 碼 ${prefix}），留空表示不變更` : "已設定（無法解密，請重新填入）";
 }
 
+/** 存不進去時錯誤留在儲存鈕旁邊 存好了用提示視窗 */
 export function SettingsForm({ settings }: { settings: SettingsView }) {
-  const [state, action, pending] = useActionState<SettingsFormState, FormData>(saveSettingsAction, {});
+  const toast = useToast();
+  const [state, action, pending] = useActionState<SettingsFormState, FormData>(withToast(toast, saveSettingsAction, { errors: false }), {});
   const providerTitleId = useId();
 
   return (
@@ -52,6 +57,7 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
 
       {AI_PROVIDERS.map((p) => {
         const prefix = settings.keys[p.id];
+        const model = settings.models[p.id];
         return (
           <fieldset key={p.id} className="card stack min-w-0">
             <legend className={LEGEND_CLASS}>
@@ -84,12 +90,15 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
               </label>
             )}
             <label className="field">
-              <span className="field-label">
-                模型（留空使用預設 {settings.defaultModels[p.id]}
-                {p.id === "anthropic" ? "" : "，這只是建議值，請依你帳號能用的模型填寫"}）
-              </span>
-              {/* 預設值只放 placeholder 放進 defaultValue 會在存檔時寫死 之後改預設值就不生效 */}
-              <input name={`model_${p.id}`} defaultValue={settings.customModels[p.id]} placeholder={settings.defaultModels[p.id]} className="input font-mono" />
+              <span className="field-label">模型</span>
+              {/* select 的預設值不會跟著 props 更新 存檔後表單重設會跳回舊的 換模型時重新掛載 */}
+              <select key={model} name={`model_${p.id}`} defaultValue={model} className="input">
+                {modelOptions(p.id, model).map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </label>
           </fieldset>
         );

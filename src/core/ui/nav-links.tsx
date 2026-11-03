@@ -58,7 +58,7 @@ export function useRevealCurrent(listRef: RefObject<HTMLUListElement | null>, cu
   }, [listRef, current]);
 }
 
-export function NavLinkList({ modules, pathname, listRef }: { modules: NavModule[]; pathname: string | null; listRef?: Ref<HTMLUListElement> }) {
+function NavLinkList({ modules, pathname, listRef }: { modules: NavModule[]; pathname: string | null; listRef: Ref<HTMLUListElement> }) {
   const { feed } = useNotificationCenter();
 
   return (

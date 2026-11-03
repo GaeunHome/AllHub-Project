@@ -13,7 +13,7 @@ import { takeCaptchaToken, verifyCaptcha } from "./captcha";
 import { CAPTCHA_ERROR, CAPTCHA_FIELD, HONEYPOT_FIELD, INVALID_CREDENTIALS, tooManyAttempts } from "./messages";
 import { clientIp, createFailureLimiter } from "./rate-limit";
 import { registerMember, type RegisterResult } from "./registration";
-import { authenticate, changePassword, deleteOwnAccount } from "./users";
+import { authenticate, changePassword, deleteOwnAccount, updateNickname } from "./users";
 
 export type LoginState = { error?: string; username?: string };
 export type RegisterState = { error?: string; username?: string };
@@ -122,6 +122,18 @@ export async function deleteAccountAction(_prev: FormState, formData: FormData):
   });
   if (state.error) return state;
   redirect("/login?deleted=1");
+}
+
+/** 只能改自己 使用者 id 來自 session 不看表單 */
+export async function updateNicknameAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireSession();
+  return runAction({ module: "auth", action: "更新暱稱" }, async () => {
+    const result = await updateNickname(session.id, formText(formData, "nickname"));
+    if (!result.ok) return { error: result.error };
+    // 管理頁的使用者清單與模組權限表格都顯示暱稱
+    updateTags(authTags.users);
+    return result.nickname ? `已更新暱稱：${result.nickname}` : "已清除暱稱";
+  });
 }
 
 export async function changePasswordAction(_prev: FormState, formData: FormData): Promise<FormState> {

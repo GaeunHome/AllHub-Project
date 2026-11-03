@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Dialog, DialogMessage, useDialog } from "@/core/ui/dialog";
+import { Dialog, useDialog } from "@/core/ui/dialog";
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { CardHeader } from "@/core/ui/page-header";
 import { SegmentedControl } from "@/core/ui/segmented-control";
@@ -18,7 +18,7 @@ import { EntryForm } from "../forms/entry-form";
 import { UpdateBalanceForm } from "../forms/update-balance";
 import { Illustration, type IllustrationName } from "../illustration";
 import { BuySellForm } from "../investments/holding-forms";
-import { Ticker } from "../visuals";
+import { Lines, Ticker } from "../visuals";
 
 export type ActionId = EntryKind | "card" | "trade" | "balance";
 
@@ -35,7 +35,7 @@ type Done = { onDone: (message?: string) => void; onCancel: () => void };
 
 /**
  * 常用的動作一按就打開視窗 要先選對象的在視窗裡先選
- * 六個按鈕共用一個視窗 成功訊息接在按鈕下面
+ * 六個按鈕共用一個視窗 結果用提示視窗
  */
 export function QuickActions({ view, menu }: { view: QuickActionsView; menu?: ReactNode }) {
   const dialog = useDialog();
@@ -67,7 +67,6 @@ export function QuickActions({ view, menu }: { view: QuickActionsView; menu?: Re
           </button>
         ))}
       </div>
-      <DialogMessage {...dialog.messageProps} />
       <Dialog {...dialog.dialogProps} title={current.title}>
         <QuickActionBody action={active} view={view} onDone={dialog.done} onCancel={dialog.close} />
       </Dialog>
@@ -158,7 +157,7 @@ function TradeAction({ view, onDone, onCancel }: { view: QuickActionsView } & Do
     return (
       <Picker
         prompt="哪一檔？"
-        items={targets.map((target) => ({ id: target.id, name: <HoldingName target={target} />, detail: `${target.accountName} · 目前 ${formatShares(target.holding.shares)}` }))}
+        items={targets.map((target) => ({ id: target.id, name: <HoldingName target={target} />, detail: [target.accountName, `目前 ${formatShares(target.holding.shares)}`] }))}
         focusId={last}
         onPick={pick}
       />
@@ -180,7 +179,7 @@ function HoldingName({ target }: { target: HoldingTarget }) {
 function TradeForms({ target, view, back, onDone, onCancel }: { target: HoldingTarget; view: QuickActionsView; back?: () => void } & Done) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
   return (
-    <Picked name={<HoldingName target={target} />} detail={target.accountName} back={back} backLabel="換一檔">
+    <Picked name={<HoldingName target={target} />} detail={[target.accountName]} back={back} backLabel="換一檔">
       {target.holding.shares > 0 && (
         <SegmentedControl
           variant="field"
@@ -204,7 +203,7 @@ function BalanceAction({ view, onDone, onCancel }: { view: QuickActionsView } & 
   const { picked, pick, back, last } = usePicked(view.balances);
   if (view.balances.length === 0) return <Missing text="沒有可以更新餘額的帳戶：信用卡照帳單繳，有持股的證券帳戶照收盤價算。" href={addAccountPath("deposit")} label="新增銀行帳戶" />;
   if (!picked) {
-    return <Picker prompt="哪個帳戶？" items={view.balances.map((account) => ({ id: account.id, name: account.name, detail: `${FIGURE_NAMES[account.kind]} ${formatTwd(account.balance)}` }))} focusId={last} onPick={pick} />;
+    return <Picker prompt="哪個帳戶？" items={view.balances.map((account) => ({ id: account.id, name: account.name, detail: [`${FIGURE_NAMES[account.kind]} ${formatTwd(account.balance)}`] }))} focusId={last} onPick={pick} />;
   }
   return (
     <Picked key={picked.id} name={picked.name} back={back} backLabel="換一個帳戶">
@@ -213,7 +212,8 @@ function BalanceAction({ view, onDone, onCancel }: { view: QuickActionsView } & 
   );
 }
 
-type PickerItem = { id: number; name: ReactNode; detail: string };
+/** detail 一件一行 */
+type PickerItem = { id: number; name: ReactNode; detail: readonly string[] };
 
 /** 先選對象 每一個是一顆按鈕 回到清單時焦點放在剛才選的那一個 */
 function Picker({ prompt, items, focusId, onPick }: { prompt: string; items: PickerItem[]; focusId: number | null; onPick: (id: number) => void }) {
@@ -228,13 +228,16 @@ function Picker({ prompt, items, focusId, onPick }: { prompt: string; items: Pic
       <p id={promptId} className="font-medium text-ink">
         {prompt}
       </p>
-      <ul ref={listRef} aria-labelledby={promptId} className="flex flex-col gap-2">
+      {/* 每張卡的狀態行數不同 同一份清單的列一樣高 */}
+      <ul ref={listRef} aria-labelledby={promptId} className="grid auto-rows-fr gap-2">
         {items.map((item, index) => (
           <li key={item.id}>
-            <button type="button" data-target-id={item.id} data-autofocus={index === 0 || undefined} onClick={() => onPick(item.id)} className="fin-pick">
+            <button type="button" data-target-id={item.id} data-autofocus={index === 0 || undefined} onClick={() => onPick(item.id)} className="fin-pick h-full">
               <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="font-semibold text-ink">{item.name}</span>
-                <span className="text-sm text-ink-soft">{item.detail}</span>
+                <span className="text-sm text-ink-soft">
+                  <Lines lines={item.detail} />
+                </span>
               </span>
               <Icon name="chevron-right" className="size-5 shrink-0 text-ink-soft" />
             </button>
@@ -246,7 +249,7 @@ function Picker({ prompt, items, focusId, onPick }: { prompt: string; items: Pic
 }
 
 /** 選好的對象寫在表單上面 選完把焦點交給表單的第一個欄位 */
-function Picked({ name, detail, back, backLabel, children }: { name: ReactNode; detail?: string; back?: () => void; backLabel?: string; children: ReactNode }) {
+function Picked({ name, detail, back, backLabel, children }: { name: ReactNode; detail?: readonly string[]; back?: () => void; backLabel?: string; children: ReactNode }) {
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     rootRef.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
@@ -257,7 +260,11 @@ function Picked({ name, detail, back, backLabel, children }: { name: ReactNode; 
       <div className="panel flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="font-semibold text-ink">{name}</span>
-          {detail && <span className="text-sm text-ink-soft">{detail}</span>}
+          {detail && (
+            <span className="text-sm text-ink-soft">
+              <Lines lines={detail} />
+            </span>
+          )}
         </span>
         {back && (
           <button type="button" onClick={back} className="btn-ghost btn-sm shrink-0">

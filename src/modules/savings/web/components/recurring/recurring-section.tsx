@@ -1,10 +1,10 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Dialog, DialogMessage, type useDialog } from "@/core/ui/dialog";
+import { Dialog, type useDialog } from "@/core/ui/dialog";
+import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
 import { CardHeader } from "@/core/ui/page-header";
-import type { useRemovalNotice } from "../row-controls";
 import type { useLinkedTrigger } from "../settings/open-from-link";
 import { RECURRING_LIST } from "./recurring-row";
 
@@ -18,17 +18,15 @@ type RecurringSectionProps = {
   addLabel: string;
   addTitle: string;
   addForm: ReactNode;
-  /** 刪除或略過後那一列的按鈕會不見 訊息留在清單外面 */
-  notice: ReturnType<typeof useRemovalNotice>;
   /** 還沒有任何一條時的說明 有的話不給 */
   empty?: ReactNode;
   children: ReactNode;
 };
 
-/** 每月固定頁的一區 新增與刪除的訊息都在標題列下面 */
-export function RecurringSection({ id, title, add, addTrigger, addLabel, addTitle, addForm, notice, empty, children }: RecurringSectionProps) {
+/** 每月固定頁的一區 卡片一直都在 刪除或略過後那一列的按鈕不見時焦點落在這裡 */
+export function RecurringSection({ id, title, add, addTrigger, addLabel, addTitle, addForm, empty, children }: RecurringSectionProps) {
   return (
-    <section aria-labelledby={id} className="card stack @container min-w-0 overflow-hidden">
+    <section aria-labelledby={id} {...FOCUS_FRAME} className="card stack @container min-w-0 overflow-hidden">
       <CardHeader
         id={id}
         actions={
@@ -42,8 +40,6 @@ export function RecurringSection({ id, title, add, addTrigger, addLabel, addTitl
       >
         {title}
       </CardHeader>
-      <DialogMessage {...add.messageProps} />
-      <DialogMessage {...notice.messageProps} />
       <Dialog {...add.dialogProps} title={addTitle}>
         {addForm}
       </Dialog>

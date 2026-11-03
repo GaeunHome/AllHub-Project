@@ -121,7 +121,7 @@ export function BillForm({ draft, categories, accounts, today, onDone, onCancel 
 
 const STATUS_TEXT: Record<BillHistoryRow["status"], string> = { paid: "已繳清", unpaid: "未繳", overdue: "逾期" };
 
-// 窄的時候每期兩行 夠寬時排成有欄位名稱的表格
+// 窄的時候每期兩行三欄 夠寬時排成有欄位名稱的表格
 const COLUMNS = "@xl:grid @xl:grid-cols-[minmax(0,1fr)_repeat(5,auto)] @xl:gap-x-5";
 const ROW = "@xl:col-span-full @xl:grid-cols-subgrid @xl:gap-x-5";
 const HEADERS = ["結帳日", "截止日", "帳單", "已繳", "繳款日", "狀態"];
@@ -140,46 +140,34 @@ export function BillHistory({ bills }: { bills: BillHistoryRow[] }) {
           ))}
         </li>
         {bills.map((bill) => (
-          <li key={bill.id} className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 py-3 ${ROW}`}>
-            <span className="col-start-1 row-start-1 text-ink tabular-nums @xl:contents">
-              <span className="@xl:col-start-1 @xl:row-start-1">
-                {formatSlashDate(bill.statementDate)}
-                <span className="@xl:sr-only"> 結帳</span>
-              </span>
-              <span aria-hidden="true" className="@xl:hidden">
-                {" · "}
-              </span>
-              <span className="@xl:col-start-2 @xl:row-start-1">
-                {formatSlashDate(bill.dueDate)}
-                <span className="@xl:sr-only"> 截止</span>
-              </span>
+          <li key={bill.id} className={`grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-0.5 py-3 ${ROW}`}>
+            <span className="col-start-1 row-start-1 text-ink tabular-nums">
+              {formatSlashDate(bill.statementDate)}
+              <span className="@xl:sr-only"> 結帳</span>
+            </span>
+            <span className="col-start-1 row-start-2 text-ink tabular-nums @xl:col-start-2 @xl:row-start-1">
+              {formatSlashDate(bill.dueDate)}
+              <span className="@xl:sr-only"> 截止</span>
             </span>
             <span className="col-start-2 row-start-1 text-right font-medium text-ink tabular-nums @xl:col-start-3">
-              <span className="sr-only">帳單 </span>
+              <span className="@xl:sr-only">帳單 </span>
               {formatTwd(bill.amount)}
             </span>
-            <span className="col-start-1 row-start-2 text-sm text-ink-soft tabular-nums @xl:contents @xl:text-base @xl:text-ink">
-              <span className="@xl:col-start-4 @xl:row-start-1 @xl:text-right">
-                <span className="@xl:sr-only">已繳 </span>
-                {formatTwd(bill.paid)}
-              </span>
-              {bill.lastPaidOn && (
-                <span aria-hidden="true" className="@xl:hidden">
-                  {" · "}
-                </span>
-              )}
-              <span className="@xl:col-start-5 @xl:row-start-1">
-                {bill.lastPaidOn ? (
-                  <>
-                    {formatSlashDate(bill.lastPaidOn)}
-                    <span className="@xl:sr-only"> 繳</span>
-                  </>
-                ) : (
-                  <span className="hidden @xl:inline">—</span>
-                )}
-              </span>
+            <span className="col-start-2 row-start-2 text-right text-sm text-ink-soft tabular-nums @xl:col-start-4 @xl:row-start-1 @xl:text-base @xl:text-ink">
+              <span className="@xl:sr-only">已繳 </span>
+              {formatTwd(bill.paid)}
             </span>
-            <span className="col-start-2 row-start-2 flex justify-end @xl:col-start-6 @xl:row-start-1 @xl:justify-start">
+            <span className="col-start-3 row-start-2 text-right text-sm text-ink-soft tabular-nums @xl:col-start-5 @xl:row-start-1 @xl:text-left @xl:text-base @xl:text-ink">
+              {bill.lastPaidOn ? (
+                <>
+                  {formatSlashDate(bill.lastPaidOn)}
+                  <span className="@xl:sr-only"> 繳</span>
+                </>
+              ) : (
+                <span className="hidden @xl:inline">—</span>
+              )}
+            </span>
+            <span className="col-start-3 row-start-1 flex justify-end @xl:col-start-6 @xl:justify-start">
               {bill.status === "overdue" ? <StatusChip badge={{ label: STATUS_TEXT.overdue, tone: "danger" }} /> : <span className={bill.status === "paid" ? "text-ink-soft" : "text-ink"}>{STATUS_TEXT[bill.status]}</span>}
             </span>
           </li>
