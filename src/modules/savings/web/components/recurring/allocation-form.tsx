@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { formatTwd } from "../../../lib/money";
 import { updateAllocationAction } from "../../actions";
 import { SAVINGS_PATHS } from "../../paths";
 import type { AllocationAccount } from "../../recurring-view";
-import { AmountField, FormButtons } from "../forms/fields";
+import { AmountField } from "../forms/fields";
 
 type AllocationFormProps = {
   /** 入帳帳戶以外 能轉進去的存款與投資帳戶 */

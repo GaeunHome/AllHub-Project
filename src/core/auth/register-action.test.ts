@@ -5,7 +5,7 @@ import { captureErrorLog, form, loggedText, mocksOf } from "@/dev/test-helpers";
 const SECRET = "s".repeat(32);
 const NEW_USER = "2a3b4c5d-6e7f-4a8b-9c0d-1e2f3a4b5c6d";
 const CODE = "A".repeat(43);
-const PASSWORD = "plum blossom 2026";
+const PASSWORD = "Plum blossom 2026";
 const IP = "203.0.113.9";
 
 stubCoreEnv({ SESSION_SECRET: SECRET });
@@ -150,10 +150,10 @@ describe("registerAction", () => {
 
   it("帳號已經有人用或密碼不合規則_顯示原因，不算邀請碼失敗", async () => {
     registration.registerMember.mockResolvedValueOnce({ ok: false, reason: "taken", error: "這個帳號已經有人使用，請換一個" });
-    registration.registerMember.mockResolvedValueOnce({ ok: false, reason: "invalid", error: "密碼不能包含帳號名稱" });
+    registration.registerMember.mockResolvedValueOnce({ ok: false, reason: "invalid", error: "密碼要同時有英文大寫與小寫" });
 
     expect(await registerAction({}, fields())).toEqual({ error: "這個帳號已經有人使用，請換一個", username: "bob" });
-    expect(await registerAction({}, fields())).toEqual({ error: "密碼不能包含帳號名稱", username: "bob" });
+    expect(await registerAction({}, fields())).toEqual({ error: "密碼要同時有英文大寫與小寫", username: "bob" });
     expect(attempts.recordAttempt).not.toHaveBeenCalledWith(INVITE_FAILURES, expect.anything(), expect.anything());
   });
 

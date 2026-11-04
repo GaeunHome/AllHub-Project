@@ -9,6 +9,7 @@ import { LoadingState, Skeleton } from "../ui/skeleton";
 import { UserAvatar } from "../ui/user-avatar";
 import { requireSession } from ".";
 import { logout } from "./actions";
+import { AvatarButton } from "./avatar-button";
 import { ChangePasswordForm } from "./change-password-form";
 import { DeleteAccountForm } from "./delete-account-form";
 import { displayNameOf } from "./nickname";
@@ -30,13 +31,13 @@ export function AccountPage() {
   );
 }
 
-/** 名片放在橫幅上 頭像的顏色跟著帳號名稱 */
+/** 名片放在橫幅上 沒選範例頭像時顏色跟著帳號名稱 */
 export async function AccountProfile() {
   const user = await requireSession();
   const name = displayNameOf(user);
   return (
     <section className="flex flex-wrap items-center gap-4">
-      <UserAvatar username={user.username} name={name} size="lg" />
+      <UserAvatar username={user.username} name={name} size="lg" avatar={user.avatar} />
       <div className="flex min-w-40 flex-1 flex-col gap-1">
         <p className="flex flex-wrap items-center gap-2 text-2xl font-bold text-white">
           <span className="break-all">{name}</span>
@@ -45,6 +46,7 @@ export async function AccountProfile() {
         {user.nickname && <p className="break-all text-white/90">帳號名稱：{user.username}</p>}
       </div>
       <div className="button-row">
+        <AvatarButton username={user.username} name={name} avatar={user.avatar} />
         <NicknameButton nickname={user.nickname} />
         <form action={logout}>
           <button className="btn-secondary">

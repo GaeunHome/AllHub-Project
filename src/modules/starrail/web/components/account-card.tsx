@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ActionButton } from "@/core/ui/action-button";
+import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { Icon } from "@/core/ui/icon";
 import { InfoTip } from "@/core/ui/info-tip";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
@@ -14,12 +15,12 @@ import { DailyNoteSkeleton } from "./daily-note-panel";
 import { GoldChip } from "./sr-visuals";
 
 /** 連結兩個以上的帳號時用伺服器切換 只有一個時不顯示 */
-export function AccountTabs({ accounts, selectedId }: { accounts: StarrailAccountView[]; selectedId: number }) {
+export function AccountTabs({ accounts, selectedId, hrefOf = accountHref }: { accounts: StarrailAccountView[]; selectedId: number; hrefOf?: (accountId: number) => string }) {
   if (accounts.length < 2) return null;
   return (
-    <nav aria-label="切換帳號" className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
+    <nav {...DRAG_SCROLL} aria-label="切換帳號" className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
       {accounts.map((account) => (
-        <Link key={account.id} href={accountHref(account.id)} scroll={false} aria-current={account.id === selectedId ? "page" : undefined} className="sr-account-tab">
+        <Link key={account.id} href={hrefOf(account.id)} scroll={false} aria-current={account.id === selectedId ? "page" : undefined} className="sr-account-tab">
           <span className="font-semibold">{serverLabel(account.region)}</span>
           <span aria-hidden>·</span>
           {account.nickname ?? account.uid}

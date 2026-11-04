@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { DialogButton, useDialogForm } from "../ui/dialog";
+import { FormButtons } from "../ui/form-buttons";
 import { FormFeedback } from "../ui/form-message";
 import { Icon } from "../ui/icon";
 import { InfoTip } from "../ui/info-tip";
@@ -49,15 +50,7 @@ function NicknameForm({ nickname, onDone, onCancel }: NicknameFormProps) {
       </div>
       {/* 成功就關掉視窗 這裡只放錯誤 重送時先收起上一次的 */}
       {!pending && <FormFeedback state={{ error: state.error }} />}
-      <div className="button-row justify-end">
-        <button type="button" className="btn-ghost" onClick={onCancel} disabled={pending}>
-          取消
-        </button>
-        <button type="submit" className="btn-primary" disabled={pending}>
-          <Icon name="check" className="size-4" />
-          {pending ? "儲存中…" : "儲存"}
-        </button>
-      </div>
+      <FormButtons pending={pending} onCancel={onCancel} />
     </form>
   );
 }

@@ -3,8 +3,14 @@ import { fakeStorage } from "@/dev/fake-storage";
 import { readAutoTranslate, shouldAutoContinue, shouldAutoStart } from "./auto-translate";
 
 describe("自動即時翻譯開關", () => {
-  it("沒存過 → 預設開啟", () => {
+  it("沒存過 → 預設關閉：影片都進觀看頁，開著的話按播放就會花 API 費用", () => {
     vi.stubGlobal("localStorage", fakeStorage());
+    expect(readAutoTranslate()).toBe(false);
+  });
+
+  it("自己打開過的照舊", () => {
+    vi.stubGlobal("localStorage", fakeStorage());
+    localStorage.setItem("allhub:youtube:auto-translate", "on");
     expect(readAutoTranslate()).toBe(true);
   });
 });

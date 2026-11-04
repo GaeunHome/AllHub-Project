@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { InfoTip } from "@/core/ui/info-tip";
 import { useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { updateTransactionAction } from "../../actions";
-import { CategoryChips, FormButtons, NoteField } from "./fields";
+import { CategoryChips, NoteField } from "./fields";
 import type { CategoryOption } from "./options";
 
 type BillRow = { id: number; accountId: number; categoryId: number | null; amount: number; date: string; note: string | null };

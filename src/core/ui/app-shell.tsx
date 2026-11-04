@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { ModuleInfo } from "../module";
 import { NotificationCenter } from "../notifications/center";
 import { AppHeader, SHELL_FRAME } from "./app-header";
+import { DragScrollRoot } from "./drag-scroll-root";
 import { FOCUS_FRAME } from "./focus-frame";
 import type { NavModule } from "./nav-links";
 import { ToastProvider } from "./toast";
@@ -17,6 +18,7 @@ export function AppShell({ modules, children }: { modules: ModuleInfo[]; childre
 
   return (
     <ToastProvider>
+      <DragScrollRoot />
       <NotificationCenter modules={navModules}>
         <AppHeader modules={navModules} />
         {/* 登入頁靠 data-app-shell 認出前一個人藏在 Activity 裡的頁面 */}

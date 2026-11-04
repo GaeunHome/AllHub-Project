@@ -10,8 +10,8 @@ import { notify } from "@/core/notify";
 import { DAY_MS } from "@/core/time";
 import { checkIsShort, fetchChannelFeed, hubRequest, resolveHandle } from "../lib/api";
 import { parseChannelInput } from "../lib/parse";
-import { watchPagePath, youtubeWatchUrl } from "../lib/urls";
-import { youtubeChannels, youtubeFollows, youtubeVideos, type FollowedChannel, type YoutubeChannel, type ZhCaptionStatus } from "../data/schema";
+import { watchPagePath } from "../lib/urls";
+import { youtubeChannels, youtubeFollows, youtubeVideos, type FollowedChannel, type YoutubeChannel } from "../data/schema";
 import {
   SUBSCRIPTION_FAILED,
   channelIdFromTopic,
@@ -22,7 +22,6 @@ import {
   type Verification,
 } from "../lib/websub";
 import { youtubeTags } from "./cache-tags";
-import { checkChineseCaptions } from "./caption-status";
 
 /** 推送的影片發布超過這麼久就不通知 hub 在舊影片改標題或說明時也會推送 */
 const NOTIFY_WINDOW_MS = DAY_MS;
@@ -31,14 +30,6 @@ const RENEW_BEFORE_MS = 2 * DAY_MS;
 const MANUAL_RENEW_COOLDOWN_MS = 60_000;
 // service 不能 import 根目錄的 info.ts 所以模組 id 寫在這裡
 const MODULE_ID = "youtube";
-
-/** 有中文就直接去 YouTube 看 沒有才到站內翻譯觀看 不確定時給 YouTube 連結自己看 */
-const CAPTION_NOTICE: Record<ZhCaptionStatus, string> = {
-  yes: "有中文字幕，可以直接看",
-  no: "沒有中文字幕，用翻譯觀看",
-  unknown: "無法確認是否有中文字幕",
-};
-const videoLink = (videoId: string, status: ZhCaptionStatus) => (status === "no" ? watchPagePath(videoId) : youtubeWatchUrl(videoId));
 
 export class YoutubeUserError extends UserError {}
 
@@ -214,7 +205,7 @@ export async function handleVerification(request: Verification): Promise<string 
 }
 
 export type FeedOptions = {
-  /** 檢查中文字幕與通知延到回應之後 route 傳 after 進來 預設立即執行 */
+  /** 確認 Shorts 與通知延到回應之後 route 傳 after 進來 預設立即執行 */
   defer?: (task: () => Promise<void>) => void;
 };
 
@@ -244,15 +235,13 @@ export async function handleFeed(entries: FeedEntry[], { defer }: FeedOptions = 
 
     const announce = async () => {
       try {
-        // 推送的連結常常看不出是不是 Shorts 再請求確認 是的話刪掉 不檢查字幕也不通知
+        // 推送的連結常常看不出是不是 Shorts 再請求確認 是的話刪掉 不通知
         if (await confirmedShort(entry.videoId)) {
           await db().delete(youtubeVideos).where(eq(youtubeVideos.id, inserted.id));
           // 影片 id 是公開的 記下來才查得到推送的影片為什麼沒出現在清單上
           console.info("[youtube] 確認是 Shorts，刪除推送的影片", entry.videoId);
           return;
         }
-        // 沒人要收通知也檢查 影片清單要顯示有沒有中文字幕
-        const status = await captionStatusOf(entry.videoId);
         const recipients = await notifiedFollowers(entry.channelId);
         if (recipients.length === 0) return;
         await notify({
@@ -260,14 +249,14 @@ export async function handleFeed(entries: FeedEntry[], { defer }: FeedOptions = 
           module: MODULE_ID,
           kind: "new_video",
           title: `${channel.title} 發布了新影片`,
-          body: `${entry.title}\n${CAPTION_NOTICE[status]}`,
-          url: videoLink(entry.videoId, status),
+          body: entry.title,
+          url: watchPagePath(entry.videoId),
         });
         await db().update(youtubeVideos).set({ notifiedAt: new Date() }).where(eq(youtubeVideos.id, inserted.id));
       } catch (error) {
         logError("youtube", "新影片通知失敗", error);
       } finally {
-        // 延後的工作寫了字幕狀態與通知時間 通知本身由 notify 讓通知的 tag 失效
+        // 延後的工作寫了通知時間 通知本身由 notify 讓通知的 tag 失效
         expireTags(youtubeTags.videos);
       }
     };
@@ -277,7 +266,7 @@ export async function handleFeed(entries: FeedEntry[], { defer }: FeedOptions = 
   if (recorded > 0) expireTags(youtubeTags.videos);
 }
 
-/** 檢查完字幕才讀追蹤者 這段時間裡改的通知開關也算數 */
+/** 確認完 Shorts 才讀追蹤者 這段時間裡改的通知開關也算數 */
 async function notifiedFollowers(channelId: string): Promise<string[]> {
   const rows = await db()
     .select({ userId: youtubeFollows.userId })
@@ -293,16 +282,6 @@ async function confirmedShort(videoId: string): Promise<boolean> {
   } catch (error) {
     logError("youtube", "確認是不是 Shorts 失敗", error);
     return false;
-  }
-}
-
-/** 檢查字幕出錯不能讓通知發不出去 當作無法確認 */
-async function captionStatusOf(videoId: string): Promise<ZhCaptionStatus> {
-  try {
-    return (await checkChineseCaptions(videoId)) ?? "unknown";
-  } catch (error) {
-    logError("youtube", "檢查中文字幕失敗", error);
-    return "unknown";
   }
 }
 

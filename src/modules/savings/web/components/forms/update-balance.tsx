@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Dialog, useDialog, useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { formatTwd } from "../../../lib/money";
 import { updateBalanceAction } from "../../actions";
 import { balanceHint } from "../../form-math";
-import { AmountField, FormButtons } from "./fields";
+import { AmountField } from "./fields";
 
 /** 信用卡照帳單繳 有持股的投資帳戶照股價算 都不能更新餘額 */
 export type BalanceAccount = { id: number; name: string; kind: "deposit" | "investment"; balance: number };

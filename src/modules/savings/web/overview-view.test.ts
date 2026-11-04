@@ -3,8 +3,9 @@ import { accountRow, checklistItem as item, dayFlowRow, flowRow as flow } from "
 import type { HoldingLike } from "../lib/holdings";
 import type { CategoryLike, CategoryMonthTotal } from "../lib/ledger";
 import type { Quote } from "../lib/quotes";
-import { accountsState, type AccountsInput, type OverviewAccount, type PendingEntry } from "./dashboard-view";
+import { accountsState, type AccountsInput, type OverviewAccount } from "./accounts-state";
 import { checklistRows, checklistSummary, heroView, monthView, quickActionsView, urgentRows, type ChecklistRow } from "./overview-view";
+import type { PendingEntry } from "./pending-view";
 
 const CREATED = new Date("2026-01-05T02:00:00Z");
 const TODAY = "2026-10-15";

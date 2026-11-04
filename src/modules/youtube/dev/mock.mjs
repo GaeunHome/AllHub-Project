@@ -15,7 +15,7 @@ const feedEntries = (channelId) => {
   const hour = 3600_000;
   return [
     { videoId: `short${tag.slice(0, 5)}1`, title: "#shorts 練習室直拍", ago: 1 * hour },
-    { videoId: `zhsubs${tag.slice(0, 5)}`, title: "新歌 MV（有中文字幕）", ago: 3 * hour },
+    { videoId: `newmv${tag.slice(0, 6)}`, title: "新歌 MV", ago: 3 * hour },
     { videoId: `feed${tag.slice(0, 6)}1`, title: "直播精華", ago: 30 * hour },
     { videoId: `short${tag.slice(0, 5)}2`, title: "#shorts 舞蹈挑戰", ago: 2 * 24 * hour },
     { videoId: `feed${tag.slice(0, 6)}2`, title: "幕後花絮", ago: 5 * 24 * hour },
@@ -104,9 +104,8 @@ const BOT_CHECK = { playabilityStatus: { status: "LOGIN_REQUIRED", reason: "Sign
  * 跟真的 YouTube 一樣 觀看頁給的網址帶 exp 要 PO token 下載回 200 但是空的
  */
 const playerResponse = (v, { needsToken }) => {
-  const track = (languageCode, kind) => ({ languageCode, ...(kind ? { kind, vssId: `a.${languageCode}` } : { vssId: `.${languageCode}` }), baseUrl: `https://www.youtube.com/api/timedtext?v=${v}&lang=${languageCode}${kind ? `&kind=${kind}` : ""}${needsToken ? "&exp=xpe" : ""}` });
-  const chinese = v.startsWith("zhsubs") || v.startsWith("botcheck") ? [track("zh-TW")] : v.startsWith("zhauto") ? [track("zh", "asr")] : [];
-  const tracks = v.startsWith("nocaptions") ? [] : [track("ko"), ...chinese];
+  const track = (languageCode) => ({ languageCode, vssId: `.${languageCode}`, baseUrl: `https://www.youtube.com/api/timedtext?v=${v}&lang=${languageCode}${needsToken ? "&exp=xpe" : ""}` });
+  const tracks = v.startsWith("nocaptions") ? [] : [track("ko")];
   return { playabilityStatus: { status: "OK" }, captions: { playerCaptionsTracklistRenderer: { captionTracks: tracks } } };
 };
 

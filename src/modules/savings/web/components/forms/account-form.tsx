@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import { ACCOUNT_KINDS, ACCOUNT_KIND_LABELS, type AccountKind, type CardStyle } from "../../../lib/kinds";
@@ -9,7 +10,7 @@ import { shownFigure } from "../../../lib/ledger";
 import { createAccountAction, updateAccountAction } from "../../actions";
 import { pausedName } from "../../format";
 import { CardStyleField } from "../accounts/card-face";
-import { AmountField, CheckboxField, DayOfMonthSelect, FormButtons, LabelField, NameField } from "./fields";
+import { AmountField, CheckboxField, DayOfMonthSelect, LabelField, NameField } from "./fields";
 
 /** 修改時帶入的原本設定 信用卡的 openingBalance 負的是欠款 正的是溢繳 */
 export type AccountDraft = {

@@ -6,8 +6,10 @@ import { addMonths, dateToMonth, monthToDate } from "../lib/month";
 import { pendingItems } from "../lib/pending";
 import { quoteSymbols } from "../lib/quotes";
 import { cachedAccountFlows, cachedAccounts, cachedCardBills, cachedCardFlows, cachedCategories, cachedHoldings, cachedQuotes, cachedRecurring, cachedRecurringRecords } from "../service/cached";
+import { accountsState, type AccountsInput, type AccountsState } from "./accounts-state";
 import type { AccountOption, CategoryOption, SalaryAccountOption } from "./components/forms/options";
-import { accountsState, categoryOptions, depositOptions, pendingEntries, salaryAccountOptions, type AccountsInput, type AccountsState, type PendingEntry } from "./dashboard-view";
+import { categoryOptions, depositOptions, salaryAccountOptions } from "./form-options";
+import { pendingEntries, type PendingEntry } from "./pending-view";
 
 /**
  * 總資產 帳戶 待處理與首頁卡片都要的資料 都讀快取 同一次請求裡重複呼叫會合併

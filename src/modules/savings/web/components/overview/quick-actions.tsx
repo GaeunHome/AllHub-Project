@@ -52,7 +52,7 @@ export function QuickActions({ view, menu }: { view: QuickActionsView; menu?: Re
           <InfoTip label="平常怎麼用">花錢可以隨手記一筆；不想每筆都記，月底照銀行 App 按「更新餘額」對齊。每個月照「這個月要做的事」做完就好。</InfoTip>
         </span>
       </CardHeader>
-      <div className="grid grid-cols-3 gap-2 @2xl:grid-cols-6">
+      <div className="grid grid-cols-3 gap-2 @2xl:grid-cols-6 @2xl:gap-3">
         {ACTIONS.map((action) => (
           <button
             key={action.id}

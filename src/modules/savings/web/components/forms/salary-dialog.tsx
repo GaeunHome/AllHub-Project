@@ -3,18 +3,19 @@
 import Link from "next/link";
 import { useId, useReducer } from "react";
 import { Dialog, useDialog, useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { formatTwd } from "../../../lib/money";
 import { allocateSalaryAction } from "../../actions";
-import type { SalaryPrefill } from "../../dashboard-view";
 import { UNCATEGORIZED_LABEL } from "../../entry-display";
 import { confirmDate, defaultIncomeCategory, salaryFormReducer, salaryPreview, salaryStartDate, type SalaryLine } from "../../form-math";
 import { lastSalaryAccountPref, pickAccount } from "../../last-used";
 import { SAVINGS_PATHS } from "../../paths";
+import type { SalaryPrefill } from "../../pending-view";
 import { DialogMenuItem } from "../row-controls";
-import { AccountSelect, AmountField, DateField, FormButtons, NoteField } from "./fields";
+import { AccountSelect, AmountField, DateField, NoteField } from "./fields";
 import type { CategoryOption, SalaryAccountOption } from "./options";
 
 export type SalaryProps = { accounts: SalaryAccountOption[]; categories: CategoryOption[]; today: string };

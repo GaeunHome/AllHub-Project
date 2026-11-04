@@ -35,7 +35,7 @@ const pressKey = (key: string) => {
 function renderOpenMenu() {
   const effects: EffectCallback[] = [];
   vi.mocked(useEffect).mockImplementation((effect) => void effects.push(effect));
-  const tree = AccountMenu({ username: "owner", ownerItems: createElement(AccountMenuLink, { href: "/admin", icon: "shield-check" } as LinkProps, "管理") });
+  const tree = AccountMenu({ username: "owner", avatar: null, ownerItems: createElement(AccountMenuLink, { href: "/admin", icon: "shield-check" } as LinkProps, "管理") });
   const items: ReactElement<ItemProps>[] = [];
   const visit = (node: ReactNode) => {
     if (Array.isArray(node)) return node.forEach(visit);

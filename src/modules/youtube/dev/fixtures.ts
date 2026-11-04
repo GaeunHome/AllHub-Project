@@ -1,16 +1,13 @@
 import type { ReactElement, ReactNode } from "react";
 import { HOUR_MS } from "@/core/time";
 import type { TestDb } from "@/dev/test-db";
-import { youtubeChannels, youtubeFollows, type TranslationStatus, type ZhCaptionStatus } from "../data/schema";
+import { youtubeChannels, youtubeFollows, type TranslationStatus } from "../data/schema";
 
 // YouTube 的測試共用的假資料與小工具 只有測試可以 import
 
 export const VIDEO_ID = "dQw4w9WgXcQ";
 export const CHANNEL_ID = "UC" + "a".repeat(22);
 export const OTHER_CHANNEL_ID = "UC" + "b".repeat(22);
-
-/** 只有人工韓文字幕的影片 listCaptionTracks 會回這個 */
-export const KOREAN_TRACKS = { ok: true, tracks: [{ languageCode: "ko", automatic: false, translated: false }] };
 
 /** 寫進頻道 預設是 CHANNEL_ID 名稱 뉴진스 已經訂閱 */
 export const insertChannel = (db: TestDb, values: Partial<typeof youtubeChannels.$inferInsert> = {}) =>
@@ -21,21 +18,17 @@ export const follow = (db: TestDb, userId: string, channelId = CHANNEL_ID, notif
 type FeedVideoFields = {
   title: string;
   publishedAt: Date | null;
-  zhCaptions: ZhCaptionStatus;
-  zhCaptionsCheckedAt: Date | null;
   channelId: string;
   channelTitle: string | null;
   channelThumbnail: string | null;
   translationStatus: TranslationStatus | null;
 };
 
-/** 影片清單上的一支 欄位跟 recentVideos 一樣 預設 3 小時前發布 沒有中文字幕 還沒檢查過 */
+/** 影片清單上的一支 欄位跟 recentVideos 一樣 預設 3 小時前發布 還沒翻譯 */
 export const feedVideo = (videoId: string, overrides: Partial<FeedVideoFields> = {}): FeedVideoFields & { videoId: string } => ({
   videoId,
   title: `影片 ${videoId}`,
   publishedAt: new Date(Date.now() - 3 * HOUR_MS),
-  zhCaptions: "no",
-  zhCaptionsCheckedAt: null,
   channelId: CHANNEL_ID,
   channelTitle: "模擬頻道",
   channelThumbnail: null,

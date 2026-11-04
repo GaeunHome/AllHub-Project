@@ -1,6 +1,6 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
-import { travelTags } from "./cache-tags";
+import { travelTags, usersTag } from "./cache-tags";
 import { listTrips, nextTrip, tripDetail, type TripDetail, type TripSummary } from "./trips";
 
 // 只給頁面用 userId 是頁面從 session 拿到的登入者
@@ -16,7 +16,8 @@ export async function cachedTrips(userId: string): Promise<TripSummary[]> {
 export async function cachedTrip(userId: string, tripId: number): Promise<TripDetail | null> {
   "use cache: remote";
   cacheLife("db");
-  cacheTag(...Object.values(travelTags));
+  // 同行的人改名字或頭像也要更新
+  cacheTag(...Object.values(travelTags), usersTag);
   return tripDetail(userId, tripId);
 }
 

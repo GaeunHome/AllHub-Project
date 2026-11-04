@@ -2,17 +2,22 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { requireSession, usableModules } from "../auth";
 import { displayNameOf } from "../auth/nickname";
+import { avatarOf } from "../avatars";
 import { pageModules } from "../module";
 import { NotificationBell } from "../notifications/bell";
 import { BellAlertSettings } from "../notifications/usable-settings";
 import { AccountMenu, AccountMenuLink } from "./account-menu";
 import { HeaderMenus } from "./header-menus";
 import { Icon } from "./icon";
+import { DRAG_SCROLL } from "./drag-scroll";
 import { LiveClock } from "./live-clock";
 import { NavLinks, type NavModule } from "./nav-links";
 import { Skeleton } from "./skeleton";
+import { UserAvatar } from "./user-avatar";
 
 /** 導覽列與內容共用的外框 左右邊線才對齊 超寬螢幕才置中 免得一行拉太長 */
+const ACCOUNT_ICON = <Icon name="circle-user-round" className="size-[1.125rem]" />;
+
 export const SHELL_FRAME = "mx-auto w-full max-w-[120rem] px-4 sm:px-6 lg:px-8";
 
 export function AppHeader({ modules }: { modules: NavModule[] }) {
@@ -28,7 +33,7 @@ export function AppHeader({ modules }: { modules: NavModule[] }) {
           {/* 比 1024px 窄時只留圖示 模組按鈕與時鐘才放得下 */}
           <span className="hidden text-xl font-bold tracking-tight text-ink lg:inline">AllHub</span>
         </Link>
-        <nav aria-label="模組" className="nav-scroll no-scrollbar -my-1 min-w-0 flex-1 overflow-x-auto py-1">
+        <nav {...DRAG_SCROLL} aria-label="模組" className="nav-scroll no-scrollbar -my-1 min-w-0 flex-1 overflow-x-auto py-1">
           {/* 能用哪些模組要讀資料庫 先放一樣大的空格 被關掉的模組不會先閃出來 */}
           <Suspense fallback={<NavSkeleton count={pageModules(modules).length} />}>
             <UsableNavLinks modules={modules} />
@@ -50,6 +55,11 @@ export function AppHeader({ modules }: { modules: NavModule[] }) {
               username={
                 <Suspense fallback={<span aria-hidden className="skeleton inline-block h-3 w-14 align-middle" />}>
                   <SignedInName />
+                </Suspense>
+              }
+              avatar={
+                <Suspense fallback={ACCOUNT_ICON}>
+                  <SignedInAvatar />
                 </Suspense>
               }
               ownerItems={
@@ -86,6 +96,12 @@ export async function UsableNavLinks({ modules }: { modules: NavModule[] }) {
 /** 跟版面的 SessionGuard 在同一次請求裡 requireSession 只查一次資料庫 */
 export async function SignedInName() {
   return displayNameOf(await requireSession());
+}
+
+/** 沒選頭像時是原本的人像圖示 */
+export async function SignedInAvatar() {
+  const { username, avatar } = await requireSession();
+  return avatarOf(avatar) ? <UserAvatar username={username} name={username} size="xs" avatar={avatar} /> : ACCOUNT_ICON;
 }
 
 /** 只是不顯示入口 管理頁與它的 Server Action 都會再用 requireOwner 檢查 */

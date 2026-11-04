@@ -28,8 +28,6 @@ export async function recentVideos(userId: string) {
       videoId: youtubeVideos.videoId,
       title: youtubeVideos.title,
       publishedAt: youtubeVideos.publishedAt,
-      zhCaptions: youtubeVideos.zhCaptions,
-      zhCaptionsCheckedAt: youtubeVideos.zhCaptionsCheckedAt,
       channelId: youtubeVideos.channelId,
       channelTitle: youtubeChannels.title,
       channelThumbnail: youtubeChannels.thumbnail,

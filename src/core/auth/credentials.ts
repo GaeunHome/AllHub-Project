@@ -1,11 +1,10 @@
 import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
-import { COMMON_PASSWORDS } from "./common-passwords.ts";
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "./password-rules.ts";
+import { PASSWORD_CASE_RULE, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "./password-rules.ts";
 
 // 網站與 account CLI 共用 CLI 用純 node 直接載入
 // 只能 import node 內建模組與帶 .ts 副檔名的相對路徑
 
-export { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH };
+export { PASSWORD_CASE_RULE, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH };
 
 export type ScryptParams = { N: number; r: number; p: number };
 
@@ -20,7 +19,6 @@ const KEY_BYTES = 32;
 const LIMITS = { minLogN: 10, maxLogN: 20, maxR: 32, maxP: 16, maxMemory: 256 * 1024 * 1024 };
 const USERNAME_PATTERN = /^[a-z0-9_.-]+$/;
 // 最多 6 字的一小段重複到底 例如 abcabcabcabc 幾乎跟那一小段一樣好猜
-const REPEATED_CHUNK = /^([\s\S]{1,6}?)\1+$/u;
 
 type ParsedHash = { params: ScryptParams; salt: Buffer; hash: Buffer };
 
@@ -94,21 +92,11 @@ export function passwordProblem(password: string): string | null {
   return null;
 }
 
-/**
- * 只在設定新密碼時檢查 登入不檢查 以前設的密碼照樣能用
- * username 傳 normalizeUsername 之後的值
- */
-export function weakPasswordProblem(password: string, username?: string): string | null {
-  const normalized = password.normalize("NFKC").toLowerCase();
-  if (COMMON_PASSWORDS.has(normalized) || COMMON_PASSWORDS.has(normalized.replace(/\s+/g, ""))) return "這個密碼太常見，容易被猜到，請換一個";
-  if (REPEATED_CHUNK.test(normalized)) return "密碼不能只是同一段字重複，請換一個";
-  if (username && normalized.includes(username)) return "密碼不能包含帳號名稱";
-  return null;
-}
-
-/** 設定新密碼時用這個 長度與強度都檢查 */
-export function newPasswordProblem(password: string, username?: string): string | null {
-  return passwordProblem(password) ?? weakPasswordProblem(password, username);
+/** 設定新密碼時用這個 登入不檢查 以前設的密碼照樣能用 使用者要的 太長太複雜記不住 */
+export function newPasswordProblem(password: string): string | null {
+  const length = passwordProblem(password);
+  if (length) return length;
+  return /[a-z]/.test(password) && /[A-Z]/.test(password) ? null : `密碼${PASSWORD_CASE_RULE}`;
 }
 
 /** 帳號不分大小寫 一律存小寫 全形英數也換成半形 */

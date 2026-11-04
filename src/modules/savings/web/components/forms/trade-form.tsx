@@ -2,10 +2,11 @@
 
 import { InfoTip } from "@/core/ui/info-tip";
 import { useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { latestOf } from "../../../lib/dates";
 import { updateTransactionAction } from "../../actions";
-import { DateField, FormButtons, NoteField } from "./fields";
+import { DateField, NoteField } from "./fields";
 import type { AccountOption } from "./options";
 
 type TradeRecord = { id: number; accountId: number; counterAccountId: number | null; amount: number; date: string; note: string | null };

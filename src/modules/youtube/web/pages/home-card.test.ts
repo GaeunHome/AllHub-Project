@@ -68,22 +68,14 @@ describe("首頁「最新影片」（YouTube）", () => {
     for (const img of avatars) expect(img).toContain('loading="lazy"');
   });
 
-  it("狀態標籤與點擊照 YouTube 頁的規則：有中文字幕直接到 YouTube（新分頁），其他到翻譯觀看頁", async () => {
-    cached.cachedRecentVideos.mockResolvedValue([
-      video("zhsubs00001", { zhCaptions: "yes" }),
-      video("needtrans01", { zhCaptions: "no" }),
-      video("translated1", { zhCaptions: "no", translationStatus: "done" }),
-    ]);
+  it("狀態標籤與點擊照 YouTube 頁的規則：一律到站內的觀看頁，翻譯過的標出來", async () => {
+    cached.cachedRecentVideos.mockResolvedValue([video("plainvideo1"), video("translated1", { translationStatus: "done" })]);
 
     const markup = await html();
-    const text = textOf(markup);
 
-    expect(text).toContain("中文字幕");
-    expect(text).toContain("需要翻譯");
-    expect(text).toContain("已翻譯");
-    expect(markup).toMatch(/<a[^>]*href="https:\/\/www\.youtube\.com\/watch\?v=zhsubs00001"[^>]*target="_blank"/);
-    expect(markup).toContain('href="/youtube/watch/needtrans01"');
+    expect(textOf(markup)).toContain("已翻譯");
+    expect(markup).toContain('href="/youtube/watch/plainvideo1"');
     expect(markup).toContain('href="/youtube/watch/translated1"');
-    expect(markup).not.toContain('href="/youtube/watch/zhsubs00001"');
+    expect(markup).not.toContain("https://www.youtube.com/watch?v=plainvideo1");
   });
 });

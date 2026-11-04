@@ -124,7 +124,8 @@
 .sr-tab:hover {
   color: var(--ink);
 }
-.sr-tab[aria-selected="true"] {
+.sr-tab[aria-selected="true"],
+.sr-tab[aria-current="page"] {
   color: var(--sr-gold);
   border-bottom-color: var(--sr-gold);
 }

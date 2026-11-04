@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, count, desc, eq, gt, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { coreUsers } from "@/core/db/schema";
 import { db } from "@/core/db";
-import { lockUserRow } from "@/core/db/users";
+import { lockUserRow, userAvatar } from "@/core/db/users";
 import { taipeiDateKey } from "@/core/time";
 import { travelChecks, travelComments, travelItems, travelMembers, travelTrips } from "../data/schema";
 import { MEMBER_LIMIT, RETENTION_DAYS, TRIP_LIMIT, addDays, parseTrip } from "../lib/rules";
@@ -14,7 +14,7 @@ import { isJoinToken, joinPath } from "./join-link";
 
 export type TripInput = { title: string; destination: string; startDate: string; endDate: string };
 export type TripSummary = { id: number; title: string; destination: string | null; startDate: string; endDate: string; memberCount: number };
-export type TripMember = { id: string; username: string; name: string };
+export type TripMember = { id: string; username: string; name: string; avatar: string | null };
 export type TripItem = Omit<typeof travelItems.$inferSelect, "createdAt" | "updatedAt">;
 export type TripComment = { id: number; itemId: number; userId: string; authorName: string; body: string; createdAt: Date };
 export type TripCheck = { id: number; title: string; done: boolean };
@@ -56,7 +56,7 @@ export async function tripDetail(userId: string, tripId: number): Promise<TripDe
     .where(and(eq(travelTrips.id, tripId), isMemberOf(userId)));
   if (!trip) return null;
   const [members, items, comments, checks, managerId] = await Promise.all([
-    db().select({ id: coreUsers.id, username: coreUsers.username, name: displayName }).from(travelMembers).innerJoin(coreUsers, eq(travelMembers.userId, coreUsers.id)).where(eq(travelMembers.tripId, tripId)).orderBy(asc(travelMembers.joinedAt), asc(travelMembers.userId)),
+    db().select({ id: coreUsers.id, username: coreUsers.username, name: displayName, avatar: userAvatar }).from(travelMembers).innerJoin(coreUsers, eq(travelMembers.userId, coreUsers.id)).where(eq(travelMembers.tripId, tripId)).orderBy(asc(travelMembers.joinedAt), asc(travelMembers.userId)),
     db()
       .select({
         id: travelItems.id,

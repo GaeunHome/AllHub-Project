@@ -15,7 +15,8 @@ import { QuickAddButton } from "../components/forms/quick-add";
 import { MonthSwitcher } from "../components/month-switcher";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { RecordList } from "../components/records/record-list";
-import { categoryOptions, entryFormOptions, expenseRows, formExtras } from "../dashboard-view";
+import { expenseRows } from "../expense-rows";
+import { categoryOptions, entryFormOptions, formExtras } from "../form-options";
 import { periodLabel } from "../format";
 import { SAVINGS_PATHS } from "../paths";
 import { accountFilterFrom, categoryFilterFrom, type RecordItem } from "../record-filter";
@@ -98,7 +99,7 @@ export async function RecordsSection({ searchParams }: { searchParams: SearchPar
 /** 跟載入完的版面排得一樣 串流進來時才不會跳 */
 function RecordsSkeleton() {
   return (
-    <LoadingState label="載入紀錄…" className="stack xl:max-w-5xl">
+    <LoadingState label="載入紀錄…" className="stack">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <Skeleton className="h-11 w-64 rounded-lg" />
         <Skeleton className="h-11 w-full rounded-lg lg:w-96" />

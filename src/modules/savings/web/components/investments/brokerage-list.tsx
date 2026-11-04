@@ -6,6 +6,7 @@ import type { DateKey } from "../../../lib/dates";
 import type { InvestmentsView } from "../../investments-view";
 import { SAVINGS_PATHS } from "../../paths";
 import { AddAccountButton } from "../accounts/add-account-button";
+import { ADD_TILE, CARD_GRID } from "../dashboard/layout";
 import type { AccountOption } from "../forms/options";
 import { Illustration } from "../illustration";
 import { BrokerageCard } from "./brokerage-card";
@@ -21,8 +22,6 @@ type BrokerageListProps = {
 
 /** 停用或刪除帳戶後那張卡片會不見 焦點交給一直都在的清單外框 */
 export function BrokerageList({ view, depositAccounts, payFromAccounts, today, openAdd }: BrokerageListProps) {
-  const addButton = <AddAccountButton kind="investment" payFromAccounts={payFromAccounts} openFromLink={openAdd} cleanHref={SAVINGS_PATHS.investments} />;
-
   if (view.brokerages.length === 0) {
     return (
       <div {...FOCUS_FRAME} className="stack">
@@ -33,7 +32,9 @@ export function BrokerageList({ view, depositAccounts, payFromAccounts, today, o
               還沒有證券帳戶
             </h2>
             <p className="text-ink">新增證券帳戶後，照券商 App 填持股的代號、股數與成本，市值會照每天的收盤價自動算。</p>
-            <div className="button-row">{addButton}</div>
+            <div className="button-row">
+              <AddAccountButton kind="investment" payFromAccounts={payFromAccounts} openFromLink={openAdd} cleanHref={SAVINGS_PATHS.investments} />
+            </div>
           </div>
         </section>
         <PausedNote count={view.pausedCount} />
@@ -42,11 +43,13 @@ export function BrokerageList({ view, depositAccounts, payFromAccounts, today, o
   }
 
   return (
-    <div {...FOCUS_FRAME} className="stack">
+    <div {...FOCUS_FRAME} className="page-stack">
       {view.brokerages.map((brokerage) => (
         <BrokerageCard key={brokerage.id} brokerage={brokerage} depositAccounts={depositAccounts} payFromAccounts={payFromAccounts} today={today} />
       ))}
-      <div className="button-row">{addButton}</div>
+      <div className={CARD_GRID}>
+        <AddAccountButton kind="investment" payFromAccounts={payFromAccounts} openFromLink={openAdd} cleanHref={SAVINGS_PATHS.investments} className={ADD_TILE} />
+      </div>
       <PausedNote count={view.pausedCount} />
     </div>
   );

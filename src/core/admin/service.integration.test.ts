@@ -21,13 +21,13 @@ async function createUser(username: string, extra: Partial<typeof coreUsers.$inf
 const userRow = async (id: string) => (await getDb().select().from(coreUsers).where(eq(coreUsers.id, id)))[0];
 
 describe("listUsers", () => {
-  it("依建立時間排列_只有帳號、暱稱、角色、建立時間與停用時間，不含密碼雜湊", async () => {
+  it("依建立時間排列_只有帳號、暱稱、頭像、角色、建立時間與停用時間，不含密碼雜湊", async () => {
     const owner = await createUser("owner", { role: "owner", createdAt: new Date("2026-01-01T00:00:00Z") });
     const bob = await createUser("bob", { nickname: "小明", createdAt: new Date("2026-02-01T00:00:00Z"), disabledAt: NOW });
 
     expect(await listUsers()).toEqual([
-      { id: owner.id, username: "owner", nickname: null, role: "owner", createdAt: new Date("2026-01-01T00:00:00Z"), disabledAt: null },
-      { id: bob.id, username: "bob", nickname: "小明", role: "member", createdAt: new Date("2026-02-01T00:00:00Z"), disabledAt: NOW },
+      { id: owner.id, username: "owner", nickname: null, avatar: null, role: "owner", createdAt: new Date("2026-01-01T00:00:00Z"), disabledAt: null },
+      { id: bob.id, username: "bob", nickname: "小明", avatar: null, role: "member", createdAt: new Date("2026-02-01T00:00:00Z"), disabledAt: NOW },
     ]);
     expect(JSON.stringify(await listUsers())).not.toContain("secret-hash");
   });
@@ -122,7 +122,7 @@ describe("unlockUser", { timeout: 30_000 }, () => {
   });
 
   it("解除鎖定之後_可以用正確密碼登入", async () => {
-    const password = "plum blossom 2026";
+    const password = "Plum blossom 2026";
     const bob = await createUser("bob", { passwordHash: await hashPassword(password, { N: 1024, r: 8, p: 1 }) });
     for (let i = 0; i < 5; i++) await authenticate("bob", "wrong password!!");
     expect(await authenticate("bob", password)).toBeNull();

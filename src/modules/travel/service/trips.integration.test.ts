@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { stubCoreEnv } from "@/dev/test-env";
 import { insertTestUser, insertTestUsers, setupTestDb } from "@/dev/test-db";
-import { captureErrorLog, loggedText } from "@/dev/test-helpers";
+import { captureErrorLog, loggedText, tagged } from "@/dev/test-helpers";
 import { coreUsers } from "@/core/db/schema";
 import { travelItems, travelMembers, travelTrips } from "../data/schema";
 import { MEMBER_LIMIT, TRIP_LIMIT } from "../lib/rules";
@@ -33,6 +33,28 @@ async function join(tripId: number, userId: string) {
 }
 const dayTitles = async (tripId: number, day: string | null) => (await tripDetail(me, tripId))!.items.filter((item) => item.day === day).map((item) => item.title);
 const add = (tripId: number, day: string | null, title: string) => addItem(me, tripId, day, { ...ITEM, title });
+
+describe("同行的人的頭像", () => {
+  it("帶著各自選的範例頭像；沒選的是 null", async () => {
+    const id = await tripOf();
+    await join(id, other);
+    await getDb().update(coreUsers).set({ avatar: "cat" }).where(eq(coreUsers.id, other));
+
+    const members = new Map((await tripDetail(me, id))!.members.map((member) => [member.id, member.avatar]));
+
+    expect(members.get(other)).toBe("cat");
+    expect(members.get(me)).toBeNull();
+  });
+
+  it("行程的快取標了使用者的 tag：有人換頭像或暱稱，同行的人下次打開就看到新的", async () => {
+    const { cachedTrip } = await import("./cached");
+    const id = await tripOf();
+
+    await cachedTrip(me, id);
+
+    expect(tagged()).toContain("core:users");
+  });
+});
 
 describe("成員才碰得到旅程（IDOR）", () => {
   it("不是成員：清單看不到、詳情是 null", async () => {

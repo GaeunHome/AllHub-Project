@@ -6,28 +6,16 @@ import { formatTwd } from "../lib/money";
 import type { MonthKey } from "../lib/month";
 import { PENDING_LOOKAHEAD_DAYS } from "../lib/recurring";
 import { setupStatus, type SetupStatus } from "../lib/setup";
+import { accountDetails, settlementAccounts, type BillDraft, type CreditDetail, type HoldingView, type PayCardDraft } from "./account-details";
+import type { AccountsInput, AccountsState } from "./accounts-state";
+import { cardStatusView } from "./accounts-view";
 import type { AccountOption, CategoryOption, EntryFormOptions } from "./components/forms/options";
 import type { BalanceAccount } from "./components/forms/update-balance";
-import {
-  accountDetails,
-  balanceAccounts,
-  cardStatusView,
-  categoryOptions,
-  depositOptions,
-  entryFormOptions,
-  expenseRows,
-  settlementAccounts,
-  type AccountsInput,
-  type AccountsState,
-  type BillDraft,
-  type CreditDetail,
-  type ExpenseRow,
-  type HoldingView,
-  type PayCardDraft,
-  type PendingEntry,
-} from "./dashboard-view";
+import { expenseRows, type ExpenseRow } from "./expense-rows";
+import { balanceAccounts, categoryOptions, depositOptions, entryFormOptions } from "./form-options";
 import { overdueBadge, plannedAmount } from "./format";
 import type { ChecklistView } from "./overview-data";
+import type { PendingEntry } from "./pending-view";
 
 // 總覽的資料 伺服器元件整理好再交給畫面
 

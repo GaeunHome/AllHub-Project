@@ -1,5 +1,6 @@
 "use client";
 
+import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
 import { Dialog, useDialog } from "@/core/ui/dialog";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { formatDay } from "../../../lib/dates";
@@ -12,7 +13,6 @@ import { BillRowForm } from "../forms/bill-row-form";
 import { EntryForm } from "../forms/entry-form";
 import type { AccountChoice, CategoryOption } from "../forms/options";
 import { TradeForm } from "../forms/trade-form";
-import { DeleteMenuItem } from "../row-controls";
 import { IconTile, Ticker } from "../visuals";
 
 type RecordRowProps = {
@@ -84,7 +84,7 @@ export function RecordRow({ record, accounts, categories, today }: RecordRowProp
             {!editable && <p className="px-3 py-1.5 text-sm text-ink-soft">{record.cardBillId === null ? NOT_EDITABLE.adjust : NOT_EDITABLE.bill}</p>}
             <DeleteMenuItem
               action={deleteTransactionAction}
-              id={record.id}
+              fields={{ id: record.id }}
               confirmMessage={`確定刪除 ${formatDay(record.date)}的「${title} ${amount}」？${deleteConsequence(record, trade)}`}
               label="刪除這筆紀錄"
               deletedMessage={`已刪除：${title} ${amount}`}

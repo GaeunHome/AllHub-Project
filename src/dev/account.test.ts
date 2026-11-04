@@ -10,8 +10,8 @@ import { cli, openFromEnvironment, resolveDatabaseUrl, type AccountDeps, type Co
 import { setupTestDb } from "./test-db";
 
 const getDb = setupTestDb();
-const PASSWORD = "plum-blossom-2026";
-const NEW_PASSWORD = "cherry-blossom-2027";
+const PASSWORD = "Plum-blossom-2026";
+const NEW_PASSWORD = "Cherry-blossom-2027";
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 type Asked = { question: string; secret: boolean };
@@ -102,7 +102,7 @@ describe("account create", () => {
     const t = harness(["alice", "short", "short"]);
 
     expect(await t.run("create")).toBe(1);
-    expect(t.printed()).toContain("密碼至少 12 個字元");
+    expect(t.printed()).toContain("密碼至少 8 個字元");
     expect(await users()).toHaveLength(0);
   });
 
@@ -137,15 +137,12 @@ describe("account create", () => {
     expect(second.printed()).toContain("已建立帳號 bob（成員）");
   });
 
-  it("密碼太常見或包含帳號名稱_不建立（跟網站註冊同一套規則）", async () => {
-    const common = harness(["alice", "password1234", "password1234"]);
-    const withName = harness(["alice", "alice-wonderland-2026", "alice-wonderland-2026"]);
+  it("密碼沒有同時有大小寫_不建立（跟網站註冊同一套規則）", async () => {
+    const t = harness(["alice", "abcd1234", "abcd1234"]);
 
-    expect(await common.run("create")).toBe(1);
-    expect(await withName.run("create")).toBe(1);
+    expect(await t.run("create")).toBe(1);
 
-    expect(common.printed()).toContain("這個密碼太常見，容易被猜到，請換一個");
-    expect(withName.printed()).toContain("密碼不能包含帳號名稱");
+    expect(t.printed()).toContain("密碼要同時有英文大寫與小寫");
     expect(await users()).toHaveLength(0);
   });
 
@@ -187,12 +184,12 @@ describe("account passwd", () => {
     expect(user.disabledAt).toEqual(disabledAt);
   });
 
-  it("新密碼包含帳號名稱_不變更", async () => {
+  it("新密碼沒有同時有大小寫_不變更", async () => {
     await createAccount();
-    const t = harness(["alice-in-2027-spring", "alice-in-2027-spring"]);
+    const t = harness(["abcd1234", "abcd1234"]);
 
     expect(await t.run("passwd", "alice")).toBe(1);
-    expect(t.printed()).toContain("密碼不能包含帳號名稱");
+    expect(t.printed()).toContain("密碼要同時有英文大寫與小寫");
     expect((await users())[0].sessionVersion).toBe(1);
   });
 
@@ -620,7 +617,6 @@ describe("用 Node 直接執行", () => {
       "src/dev/account.ts",
       "src/core/auth/credentials.ts",
       "src/core/auth/password-rules.ts",
-      "src/core/auth/common-passwords.ts",
       "src/core/db/schema.ts",
       "src/core/errors.ts",
     ]) {

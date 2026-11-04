@@ -3,13 +3,14 @@
 import { useId } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { Fact, FactList } from "@/core/ui/fact-list";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { formatSlashDate, type DateKey } from "../../../lib/dates";
 import { confirmOccurrenceAction } from "../../actions";
-import type { ConfirmDraft } from "../../dashboard-view";
 import { priceText } from "../../format";
+import type { ConfirmDraft } from "../../pending-view";
+import { AmountField, DateField, NoteField } from "../forms/fields";
 import { SharesField } from "../investments/holding-forms";
-import { AmountField, DateField, FormButtons, NoteField } from "../forms/fields";
 
 type ConfirmFormProps = { draft: ConfirmDraft; today: DateKey; onDone: (message: string | undefined) => void; onCancel: () => void };
 

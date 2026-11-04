@@ -1,6 +1,13 @@
+import Image from "next/image";
 import type { CSSProperties } from "react";
+import { avatarOf, avatarSrc } from "../avatars";
 
-const SIZES = { sm: "size-9 text-sm", md: "size-12 text-lg", lg: "size-20 text-3xl" } as const;
+const SIZES = {
+  xs: { box: "size-7 text-xs", px: 28 },
+  sm: { box: "size-9 text-sm", px: 36 },
+  md: { box: "size-12 text-lg", px: 48 },
+  lg: { box: "size-20 text-3xl", px: 80 },
+} as const;
 
 /** 同一個帳號永遠同一組顏色 色相平均散開 */
 export function avatarHue(seed: string): number {
@@ -9,11 +16,16 @@ export function avatarHue(seed: string): number {
   return hash;
 }
 
-/** 站內帳號沒有頭像圖 用帳號名稱決定顏色 暱稱改了顏色也不變 */
-export function UserAvatar({ username, name, size }: { username: string; name: string; size: keyof typeof SIZES }) {
+type UserAvatarProps = { username: string; name: string; size: keyof typeof SIZES; avatar?: string | null };
+
+/** 選了範例頭像就畫圖 沒選時顏色跟著帳號名稱 暱稱改了顏色也不變 */
+export function UserAvatar({ username, name, size, avatar }: UserAvatarProps) {
+  const picture = avatarOf(avatar);
+  const { box, px } = SIZES[size];
+  if (picture) return <Image src={avatarSrc(picture)} alt="" width={px} height={px} unoptimized className={`user-avatar-image ${box}`} />;
   const initial = Array.from(name.trim())[0]?.toUpperCase() ?? "?";
   return (
-    <span aria-hidden style={{ "--avatar-hue": avatarHue(username) } as CSSProperties} className={`user-avatar ${SIZES[size]}`}>
+    <span aria-hidden style={{ "--avatar-hue": avatarHue(username) } as CSSProperties} className={`user-avatar ${box}`}>
       {initial}
     </span>
   );

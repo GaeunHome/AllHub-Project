@@ -61,6 +61,20 @@ describe("分類與預算", () => {
     expect(rowButtons(income).map((html) => textOf(html))).toEqual(["修改：薪水"]);
   });
 
+  it("支出那一區的標題旁寫每月預算的合計（6,000 + 2,500）；沒設預算的不算，收入那一區沒有合計", () => {
+    const withBudgets = [...categories, { id: 13, name: "訂閱", kind: "expense" as const, color: "violet" as const, monthlyBudget: 2500, icon: null }];
+    const [expense, income] = cards(render(createElement(CategoriesCard, { categories: withBudgets })));
+
+    expect(textOf(expense)).toContain("每月預算 $8,500");
+    expect(textOf(income)).not.toContain("每月預算");
+  });
+
+  it("都沒有設預算_不寫合計，不會寫成 $0", () => {
+    const [expense] = cards(render(createElement(CategoriesCard, { categories: categories.map((category) => ({ ...category, monthlyBudget: null })) })));
+
+    expect(textOf(expense)).not.toMatch(/每月預算 \$/);
+  });
+
   it("每一列前面是分類的圖示：有選圖示的用它，沒選的也有一個預設的圖示，不會空一格", () => {
     const [expense] = cards(card());
     const [food, transport] = rowButtons(expense);

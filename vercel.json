@@ -18,6 +18,7 @@
     { "path": "/api/cron/reminders:daily", "schedule": "0 23 * * *" },
     { "path": "/api/cron/savings:dividends", "schedule": "0 0 * * *" },
     { "path": "/api/cron/starrail:redeem", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/starrail:warps", "schedule": "20 5 * * *" },
     { "path": "/api/cron/reminders:daily", "schedule": "0 4 * * *" },
     { "path": "/api/cron/starrail:stamina", "schedule": "0 0 * * *" },
     { "path": "/api/cron/starrail:stamina", "schedule": "0 1 * * *" },

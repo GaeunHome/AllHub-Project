@@ -2,17 +2,18 @@
 
 import { useId, useState } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback, type FormState } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { StatusChip } from "@/core/ui/status-chip";
 import { MAX_DUE_DAYS, payableDueDate } from "../../../lib/cards";
 import { addDays, formatSlashDate, parseDate, type DateKey } from "../../../lib/dates";
 import { formatTwd } from "../../../lib/money";
+import type { BillDraft, BillHistoryRow } from "../../account-details";
 import { enterCardBillAction, payCardAction } from "../../actions";
-import type { BillDraft, BillHistoryRow } from "../../dashboard-view";
 import { UNCATEGORIZED_LABEL } from "../../entry-display";
 import { pickAccount } from "../../last-used";
-import { AccountSelect, AmountField, CheckboxField, DateField, FormButtons } from "../forms/fields";
+import { AccountSelect, AmountField, CheckboxField, DateField } from "../forms/fields";
 import type { AccountOption, CategoryOption } from "../forms/options";
 
 type BillFormProps = {

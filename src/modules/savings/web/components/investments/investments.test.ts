@@ -2,7 +2,7 @@ import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { menuOf, outsideMenus } from "@/dev/more-menu-stub";
 import { markup as render, textOf } from "@/dev/test-helpers";
-import type { HoldingView } from "../../dashboard-view";
+import type { HoldingView } from "../../account-details";
 import type { DividendRowView } from "../../dividends-view";
 import type { BrokerageView, InvestmentSummary } from "../../investments-view";
 
@@ -121,14 +121,15 @@ describe("持股清單", () => {
   const MENU = "「006208 富邦台50」的選項";
 
   it("每檔寫代號、名稱、股數、均價（95,000 元買 1,000 股是 $95.00）、收盤價、市值與損益（只寫正負號，括號是半形）", () => {
-    expect(textOf(holdings(), { spaced: true })).toContain("006208 富邦台50 1,000 股 均價 $95.00 收盤 $106.50 市值 $106,500 損益 +$11,500 (+12.1%)");
+    expect(textOf(holdings(), { spaced: true })).toContain("006208 富邦台50 市值 $106,500 損益 +$11,500 (+12.1%) 股數 1,000 股 均價 $95.00 收盤 $106.50");
   });
 
   it("讀不到股價：寫「股價暫時讀不到」，市值先用成本，不寫損益", () => {
     const text = textOf(holdings([{ ...HOLDING, priced: false, closeCents: null, quoteDate: null, value: 95000, profit: 0, profitPercent: 0 }]));
 
-    expect(text).toContain("均價 $95.00股價暫時讀不到市值 $95,000");
-    expect(text).not.toMatch(/損益 [+-]?\$/);
+    expect(text).toContain("股價暫時讀不到");
+    expect(text).toContain("市值 $95,000");
+    expect(text).not.toContain("損益");
   });
 
   it("買進、賣出直接在每一列上，不用打開 ⋮；⋮ 只有修改股數與成本與刪除", () => {
@@ -223,7 +224,7 @@ describe("證券帳戶", () => {
     expect(text).toContain("臺銀證券");
     expect(text).toContain("長期投資");
     expect(text).toContain("$106,500");
-    expect(textOf(card({ ...BROKERAGE, priced: false, value: 95000 }))).toMatch(/\$95,000股價暫時讀不到/);
+    expect(textOf(card({ ...BROKERAGE, priced: false, value: 95000 }))).toMatch(/股價暫時讀不到市值 \$95,000/);
   });
 
   it("有持股時市值照股價算，不能更新市值；沒有持股時可以更新市值，也可以新增持股", () => {

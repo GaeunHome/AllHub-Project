@@ -34,11 +34,9 @@ vi.mock("next/headers", () => ({
 vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("@/modules/twitch/lib/api", { spy: true });
 vi.mock("@/modules/youtube/lib/api", { spy: true });
-vi.mock("@/modules/youtube/lib/subtitles/captions", { spy: true });
 
 const twitchApi = mocksOf(await import("@/modules/twitch/lib/api"), "getStreams", "listSubscriptions", "createSubscription", "deleteSubscription");
 const youtubeApi = mocksOf(await import("@/modules/youtube/lib/api"), "hubRequest", "checkIsShort");
-const { listCaptionTracks } = mocksOf(await import("@/modules/youtube/lib/subtitles/captions"), "listCaptionTracks");
 const { handleNotification, syncSubscriptions } = await import("@/modules/twitch/service/streamers");
 const { handleFeed, renewSubscriptions } = await import("@/modules/youtube/service/channels");
 const { reencryptApiKeys } = await import("@/modules/youtube/service/ai-settings");
@@ -83,7 +81,6 @@ beforeEach(async () => {
   twitchApi.deleteSubscription.mockReset().mockResolvedValue(undefined);
   youtubeApi.hubRequest.mockReset().mockResolvedValue(undefined);
   youtubeApi.checkIsShort.mockReset().mockResolvedValue(false);
-  listCaptionTracks.mockReset().mockResolvedValue({ ok: true, tracks: [] });
 });
 
 describe("被關掉模組的人直接 POST Server Action", () => {

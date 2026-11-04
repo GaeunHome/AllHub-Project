@@ -8,8 +8,8 @@ import { formatDay } from "../../../lib/dates";
 import { CATEGORY_KINDS, CATEGORY_KIND_LABELS, TRANSACTION_KINDS, TRANSACTION_KIND_LABELS } from "../../../lib/kinds";
 import { UNCATEGORIZED_KEY, type MonthTotals } from "../../../lib/ledger";
 import { formatTwd } from "../../../lib/money";
-import type { ExpenseRow } from "../../dashboard-view";
 import { UNCATEGORIZED_LABEL } from "../../entry-display";
+import type { ExpenseRow } from "../../expense-rows";
 import { pausedName } from "../../format";
 import { NO_FILTERS, filterRecords, groupByDate, hasFilters, recordTotals, type RecordFilters, type RecordItem } from "../../record-filter";
 import { ExpenseList } from "../dashboard/expense-list";
@@ -63,9 +63,9 @@ export function RecordList({ records, accounts, categories, today, monthSwitcher
   return (
     // 外框一直都在 刪掉最後一筆換成空狀態時焦點也有地方去
     <div {...FOCUS_FRAME} className="stack">
-      {/* 超寬螢幕清單限寬 旁邊固定放這個月的合計 */}
-      <div className="flex flex-col gap-8 2xl:flex-row 2xl:items-start">
-        <div className="stack min-w-0 flex-1 xl:max-w-5xl">
+      {/* 寬螢幕旁邊固定放這個月的合計 右邊才不會空一大塊 */}
+      <div className="flex flex-col gap-8 xl:flex-row xl:items-start">
+        <div className="stack min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             {monthSwitcher}
             {records.length > 0 && (
@@ -166,11 +166,11 @@ function RecordTotal({ label, amount }: { label: string; amount: number }) {
   );
 }
 
-/** 只在超寬螢幕出現 捲動清單時留在原位 點一個分類就篩選 */
+/** 只在寬螢幕出現 捲動清單時留在原位 點一個分類就篩選 */
 function MonthPanel({ label, month, selected, onSelect }: { label: string; month: NonNullable<RecordListProps["month"]>; selected: string; onSelect: (category: string) => void }) {
   const { income, expense, saved } = month.totals;
   return (
-    <section aria-labelledby="savings-month-panel" className="card stack hidden min-w-0 overflow-hidden 2xl:sticky 2xl:top-20 2xl:flex 2xl:w-96 2xl:shrink-0">
+    <section aria-labelledby="savings-month-panel" className="card stack hidden min-w-0 overflow-hidden xl:sticky xl:top-20 xl:flex xl:w-80 xl:shrink-0 2xl:w-96">
       <CardHeader id="savings-month-panel">{label}</CardHeader>
       <FactList>
         <Fact label="收入">{formatTwd(income)}</Fact>

@@ -11,7 +11,7 @@ const { authenticate } = await import("./users");
 const getDb = setupTestDb();
 const NOW = new Date("2026-10-08T00:00:00Z");
 const DAY = 86_400_000;
-const PASSWORD = "plum blossom 2026";
+const PASSWORD = "Plum blossom 2026";
 
 async function setup({ maxUses = 1, days = 7 } = {}) {
   const [owner] = await getDb().insert(coreUsers).values({ username: "owner", passwordHash: "scrypt$unused", role: "owner" }).returning();
@@ -49,9 +49,9 @@ describe("registerMember", () => {
     ["帳號格式不對", { username: "王小明" }, "帳號只能用英文小寫、數字、底線（_）、點（.）與連字號（-）"],
     ["帳號太短", { username: "ab" }, "帳號要 3–32 個字元"],
     ["兩次密碼不一樣", { confirmPassword: `${PASSWORD}!` }, "兩次輸入的密碼不一樣"],
-    ["密碼太短", { password: "short", confirmPassword: "short" }, "密碼至少 12 個字元"],
-    ["常見密碼", { password: "password1234", confirmPassword: "password1234" }, "這個密碼太常見，容易被猜到，請換一個"],
-    ["密碼包含帳號名稱", { password: "bob-the-builder-26", confirmPassword: "bob-the-builder-26" }, "密碼不能包含帳號名稱"],
+    ["密碼太短", { password: "short", confirmPassword: "short" }, "密碼至少 8 個字元"],
+    ["密碼沒有大寫", { password: "abcd1234", confirmPassword: "abcd1234" }, "密碼要同時有英文大寫與小寫"],
+    ["密碼沒有小寫", { password: "ABCD1234", confirmPassword: "ABCD1234" }, "密碼要同時有英文大寫與小寫"],
   ])("%s_不建立帳號、不用掉邀請", async (_name, overrides, error) => {
     const { token, id } = await setup();
 

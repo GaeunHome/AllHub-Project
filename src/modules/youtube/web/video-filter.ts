@@ -1,38 +1,16 @@
-import type { TranslationStatus, ZhCaptionStatus } from "../data/schema";
+import type { TranslationStatus } from "../data/schema";
 
-export type VideoFilter = "all" | "zh" | "translate" | "done";
+export type VideoFilter = "all" | "done";
 
 export const VIDEO_FILTERS: readonly { id: VideoFilter; label: string }[] = [
   { id: "all", label: "全部" },
-  { id: "zh", label: "有中文字幕" },
-  { id: "translate", label: "需要翻譯" },
   { id: "done", label: "翻譯完成" },
 ];
 
-type VideoState = { zhCaptions: ZhCaptionStatus; translationStatus: TranslationStatus | null };
+type VideoState = { translationStatus: TranslationStatus | null };
 
-/** 需要翻譯是還看不到中文的影片 沒有或還沒確認中文字幕 也還沒翻完 */
-export function videoFilters({ zhCaptions, translationStatus }: VideoState): VideoFilter[] {
-  const filters: VideoFilter[] = ["all"];
-  if (zhCaptions === "yes") filters.push("zh");
-  if (translationStatus === "done") filters.push("done");
-  else if (zhCaptions !== "yes") filters.push("translate");
-  return filters;
-}
-
-type CaptionCheck = { zhCaptions: ZhCaptionStatus; zhCaptionsCheckedAt: Date | null };
-
-/**
- * 從沒檢查過字幕的影片 打開 YouTube 頁時背景就會檢查
- * 檢查過但讀不到的不算 那種隔幾小時才再試
- */
-export function captionCheckPending({ zhCaptions, zhCaptionsCheckedAt }: CaptionCheck): boolean {
-  return zhCaptions === "unknown" && zhCaptionsCheckedAt === null;
-}
-
-/** 檢查過但讀不到字幕清單的支數 篩選是空的時要說清楚 不然看起來像真的沒有中文字幕 */
-export function unreadableCaptionCount(videos: readonly CaptionCheck[]): number {
-  return videos.filter((video) => video.zhCaptions === "unknown" && video.zhCaptionsCheckedAt !== null).length;
+export function videoFilters({ translationStatus }: VideoState): VideoFilter[] {
+  return translationStatus === "done" ? ["all", "done"] : ["all"];
 }
 
 export type ThumbnailBadge = { label: string; tone: "default" | "danger" };
@@ -52,20 +30,10 @@ function translationBadge(status: TranslationStatus | null): ThumbnailBadge | nu
   }
 }
 
-/**
- * 像 YouTube 縮圖右下角的時間標籤 先看能不能直接看中文 再看翻譯進度
- * 檢查過但讀不到的不確定有沒有字幕 寫什麼都讓人困惑 回 null 不標
- */
-export function thumbnailBadge(video: VideoState & CaptionCheck): ThumbnailBadge | null {
-  const { zhCaptions, translationStatus } = video;
-  if (zhCaptions === "yes") return { label: "中文字幕", tone: "default" };
-  const translation = translationBadge(translationStatus);
-  if (translation) return translation;
-  if (zhCaptions === "no") return { label: "需要翻譯", tone: "default" };
-  return captionCheckPending(video) ? { label: "檢查字幕中", tone: "default" } : null;
-}
+/** 像 YouTube 縮圖右下角的時間標籤 還沒翻譯的不標 */
+export const thumbnailBadge = ({ translationStatus }: VideoState): ThumbnailBadge | null => translationBadge(translationStatus);
 
-/** 保留的影片不一定來自追蹤中的頻道 沒檢查中文字幕 只看翻譯進度 */
+/** 已保留的影片多半是想翻譯的 還沒翻譯也寫出來 */
 export function savedBadge(status: TranslationStatus | null): ThumbnailBadge {
   return translationBadge(status) ?? { label: "還沒翻譯", tone: "default" };
 }

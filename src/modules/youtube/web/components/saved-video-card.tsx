@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { formatRelativeTime, formatTaipeiDateTime } from "@/core/time";
-import { ActionButton } from "@/core/ui/action-button";
+import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { watchPagePath, youtubeWatchUrl } from "../../lib/urls";
@@ -50,22 +50,13 @@ export function SavedVideoCard({ video, now, eager }: { video: SavedVideo; now: 
             <Icon name="external-link" className="size-4" />
             在 YouTube 開啟
           </a>
-          <ActionButton
+          <DeleteMenuItem
             action={removeSavedVideoAction}
             fields={{ videoId: video.videoId }}
             confirmMessage={`從已保留的影片移除「${title}」？翻譯好的字幕會留著，之後打開同一支影片還看得到。`}
-            formClassName="flex flex-col"
-            pendingLabel={
-              <>
-                <Icon name="trash-2" className="size-4" />
-                移除中…
-              </>
-            }
-            className="menu-item menu-item-danger"
-          >
-            <Icon name="trash-2" className="size-4" />
-            從清單移除
-          </ActionButton>
+            label="從清單移除"
+            pendingLabel="移除中…"
+          />
         </MoreMenu>
       </div>
     </article>

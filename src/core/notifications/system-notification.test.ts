@@ -7,7 +7,7 @@ const item: NotificationItem = {
   module: "youtube",
   kind: "new_video",
   title: "뉴진스 發布了新影片",
-  body: "새 영상\n沒有中文字幕，用翻譯觀看",
+  body: "새 영상\n第二行",
   url: "/youtube/watch/abcdefghijk",
   createdAt: "2026-10-21T12:00:00.000Z",
   read: false,

@@ -1,62 +1,36 @@
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { after } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
 import { mocksOf, textOf } from "@/dev/test-helpers";
-import { CaptionCheckRefresh } from "../components/caption-check-refresh";
 import { ChannelSidebar } from "../components/channel-sidebar";
 import { VideoFeed, type FeedItem } from "../components/video-feed";
 import { feedVideo, findByType, savedVideo } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
-vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("../../service/cached", { spy: true });
-vi.mock("../../service/caption-status", { spy: true });
 
-const cached = mocksOf(await import("../../service/cached"), "cachedChannels", "cachedRecentVideos", "cachedRecheckCandidates", "cachedSavedVideos");
-const { recheckDueCaptions } = mocksOf(await import("../../service/caption-status"), "recheckDueCaptions");
+const cached = mocksOf(await import("../../service/cached"), "cachedChannels", "cachedRecentVideos", "cachedSavedVideos");
 const { YoutubeHome } = await import("./youtube-page");
 
-/** 沒特別說的影片兩小時前檢查過字幕 */
-const CHECKED_AT = new Date(Date.now() - 2 * 3600_000);
-const video = (videoId: string, overrides: Parameters<typeof feedVideo>[1] = {}) => feedVideo(videoId, { zhCaptionsCheckedAt: CHECKED_AT, ...overrides });
+const video = feedVideo;
 
 beforeEach(() => {
   requireSession.mockReset();
-  vi.mocked(after).mockReset();
-  recheckDueCaptions.mockReset().mockResolvedValue(0);
   cached.cachedChannels.mockReset().mockResolvedValue([]);
   cached.cachedRecentVideos.mockReset().mockResolvedValue([]);
-  cached.cachedRecheckCandidates.mockReset().mockResolvedValue([]);
   cached.cachedSavedVideos.mockReset().mockResolvedValue([]);
 });
 
-describe("YouTube 頁：剛追蹤的頻道補進來的影片，背景檢查完字幕不用手動重新整理", () => {
-  it("清單上有從沒檢查過字幕的影片_在背景檢查，並放上自動重新整理；都用登入者的 id 讀", async () => {
+describe("YouTube 頁", () => {
+  it("用登入者（bob）的 id 讀資料", async () => {
     requireSession.mockResolvedValue(OTHER_SESSION);
-    const fresh = video("backfill001", { zhCaptions: "unknown", zhCaptionsCheckedAt: null });
-    cached.cachedRecentVideos.mockResolvedValue([fresh, video("checked0001")]);
-    cached.cachedRecheckCandidates.mockResolvedValue([{ videoId: fresh.videoId, publishedAt: fresh.publishedAt, zhCaptions: "unknown", zhCaptionsCheckedAt: null }]);
 
-    const page = await YoutubeHome();
+    await YoutubeHome();
 
-    expect(findByType(page, CaptionCheckRefresh)).toBeDefined();
-    expect(after).toHaveBeenCalledOnce();
-    await (vi.mocked(after).mock.calls[0][0] as () => Promise<unknown>)();
-    expect(recheckDueCaptions).toHaveBeenCalledWith(OTHER_SESSION.id);
     expect(cached.cachedRecentVideos).toHaveBeenCalledWith(OTHER_SESSION.id);
-    expect(cached.cachedRecheckCandidates).toHaveBeenCalledWith(OTHER_SESSION.id);
-  });
-
-  it("字幕都檢查過了（包括讀不到的）_不自動重新整理", async () => {
-    cached.cachedRecentVideos.mockResolvedValue([video("checked0001"), video("unknown0001", { zhCaptions: "unknown" }), video("zhsubs00001", { zhCaptions: "yes" })]);
-
-    expect(findByType(await YoutubeHome(), CaptionCheckRefresh)).toBeUndefined();
-  });
-
-  it("還沒有影片_不自動重新整理", async () => {
-    expect(findByType(await YoutubeHome(), CaptionCheckRefresh)).toBeUndefined();
+    expect(cached.cachedChannels).toHaveBeenCalledWith(OTHER_SESSION.id);
+    expect(cached.cachedSavedVideos).toHaveBeenCalledWith(OTHER_SESSION.id);
   });
 });
 

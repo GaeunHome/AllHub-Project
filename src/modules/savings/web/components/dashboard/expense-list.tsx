@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { UiIconName } from "@/core/ui/icon";
 import { formatTwd } from "../../../lib/money";
-import type { ExpenseRow } from "../../dashboard-view";
+import type { ExpenseRow } from "../../expense-rows";
 import { IconTile } from "../visuals";
 import { Meter } from "./meter";
 

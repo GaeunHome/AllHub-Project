@@ -7,12 +7,12 @@ import { hashPassword, verifyPassword } from "./credentials";
 // 包一層 spy 確認帳號不存在時也有呼叫驗證 跑假的 scrypt
 vi.mock("./credentials", { spy: true });
 
-const { authenticate, changePassword, deleteOwnAccount, findSessionUser, hasAnyUser, updateNickname } = await import("./users");
+const { authenticate, changePassword, deleteOwnAccount, findSessionUser, hasAnyUser, updateAvatar, updateNickname } = await import("./users");
 
 const getDb = setupTestDb();
 const FAST = { N: 1024, r: 8, p: 1 };
-const PASSWORD = "correct horse battery";
-const NEW_PASSWORD = "plum blossom 2026";
+const PASSWORD = "Correct horse battery";
+const NEW_PASSWORD = "Plum blossom 2026";
 
 async function createUser(username = "alice", password = PASSWORD, params = FAST, extra: Partial<typeof coreUsers.$inferInsert> = {}) {
   const [user] = await getDb()
@@ -109,11 +109,11 @@ describe("authenticate", () => {
 });
 
 describe("findSessionUser", () => {
-  it("部署時新程式比 migration 先上線，資料表還沒有暱稱欄位：登入檢查照常，暱稱當成沒有", async () => {
+  it("部署時新程式比 migration 先上線，資料表還沒有暱稱與頭像欄位：登入檢查照常，都當成沒有", async () => {
     const user = await createUser();
-    await getDb().execute(sql`alter table core_users drop column nickname`);
+    await getDb().execute(sql`alter table core_users drop column nickname, drop column avatar`);
 
-    expect(await findSessionUser({ userId: user.id, version: 1 })).toEqual({ id: user.id, username: "alice", nickname: null, role: "member" });
+    expect(await findSessionUser({ userId: user.id, version: 1 })).toEqual({ id: user.id, username: "alice", nickname: null, avatar: null, role: "member" });
   });
 
   it("有暱稱時讀得到：照常回傳字串", async () => {
@@ -125,13 +125,13 @@ describe("findSessionUser", () => {
   it("id 與 session 版本都相符_回傳使用者", async () => {
     const user = await createUser();
 
-    expect(await findSessionUser({ userId: user.id, version: 1 })).toEqual({ id: user.id, username: "alice", nickname: null, role: "member" });
+    expect(await findSessionUser({ userId: user.id, version: 1 })).toEqual({ id: user.id, username: "alice", nickname: null, avatar: null, role: "member" });
   });
 
   it("帶回資料庫裡的角色（權限一律以資料庫為準，cookie 不帶角色）", async () => {
     const owner = await createOwner();
 
-    expect(await findSessionUser({ userId: owner.id, version: 1 })).toEqual({ id: owner.id, username: "owner", nickname: null, role: "owner" });
+    expect(await findSessionUser({ userId: owner.id, version: 1 })).toEqual({ id: owner.id, username: "owner", nickname: null, avatar: null, role: "owner" });
   });
 
   it("帳號已停用_回 null（舊 cookie 立刻失效）", async () => {
@@ -197,16 +197,29 @@ describe("changePassword", () => {
   it("新密碼不合規則_不變更", async () => {
     const user = await createUser();
 
-    expect(await changePassword(user.id, PASSWORD, "short")).toEqual({ ok: false, reason: "invalid", error: "密碼至少 12 個字元" });
+    expect(await changePassword(user.id, PASSWORD, "short")).toEqual({ ok: false, reason: "invalid", error: "密碼至少 8 個字元" });
     expect((await userRow(user.id)).passwordHash).toBe(user.passwordHash);
   });
 
-  it("新密碼太常見或包含帳號名稱_不變更", async () => {
+  it("新密碼沒有同時有大小寫_不變更", async () => {
     const user = await createUser();
 
-    expect(await changePassword(user.id, PASSWORD, "password1234")).toEqual({ ok: false, reason: "invalid", error: "這個密碼太常見，容易被猜到，請換一個" });
-    expect(await changePassword(user.id, PASSWORD, "alice-in-wonderland-26")).toEqual({ ok: false, reason: "invalid", error: "密碼不能包含帳號名稱" });
+    expect(await changePassword(user.id, PASSWORD, "abcd1234")).toEqual({ ok: false, reason: "invalid", error: "密碼要同時有英文大寫與小寫" });
+    expect(await changePassword(user.id, PASSWORD, "ABCD1234")).toEqual({ ok: false, reason: "invalid", error: "密碼要同時有英文大寫與小寫" });
     expect((await userRow(user.id)).passwordHash).toBe(user.passwordHash);
+  });
+
+  it("8 碼、有大小寫的新密碼_可以變更，之後用它登入", async () => {
+    const user = await createUser();
+
+    expect(await changePassword(user.id, PASSWORD, "Abcd1234")).toMatchObject({ ok: true });
+    expect(await authenticate("alice", "Abcd1234")).toMatchObject({ id: user.id });
+  });
+
+  it("以前設的密碼不合新規則也照樣能登入：登入不檢查強度", async () => {
+    const user = await createUser("alice", "all lowercase old password");
+
+    expect(await authenticate("alice", "all lowercase old password")).toMatchObject({ id: user.id });
   });
 
   it("新密碼跟目前的一樣_不變更", async () => {
@@ -375,6 +388,58 @@ describe("deleteOwnAccount", () => {
   });
 });
 
+describe("updateAvatar", () => {
+  it("存選的範例頭像；空字串回到沒有頭像", async () => {
+    const user = await createUser();
+
+    expect(await updateAvatar(user.id, "cat")).toEqual({ ok: true, avatar: "cat" });
+    expect((await userRow(user.id)).avatar).toBe("cat");
+
+    expect(await updateAvatar(user.id, "")).toEqual({ ok: true, avatar: null });
+    expect((await userRow(user.id)).avatar).toBeNull();
+  });
+
+  it("換一張就是蓋掉舊的", async () => {
+    const user = await createUser();
+
+    await updateAvatar(user.id, "cat");
+    await updateAvatar(user.id, "dog");
+
+    expect((await userRow(user.id)).avatar).toBe("dog");
+  });
+
+  it("不在清單上的值被拒絕，原本選的留著", async () => {
+    const user = await createUser();
+    await updateAvatar(user.id, "cat");
+
+    for (const input of ["unknown", "constructor", "https://evil.example/a.png", "../../etc/passwd"]) {
+      expect(await updateAvatar(user.id, input)).toEqual({ ok: false, error: expect.any(String) });
+    }
+    expect((await userRow(user.id)).avatar).toBe("cat");
+  });
+
+  it("只改傳進來的那個人，別人的頭像不動", async () => {
+    const alice = await createUser("alice");
+    const bob = await createUser("bob");
+    await updateAvatar(bob.id, "dog");
+
+    await updateAvatar(alice.id, "cat");
+
+    expect((await userRow(bob.id)).avatar).toBe("dog");
+  });
+
+  it("帳號不在了_回錯誤", async () => {
+    expect((await updateAvatar("00000000-0000-4000-8000-000000000000", "cat")).ok).toBe(false);
+  });
+
+  it("登入檢查讀得到選的頭像", async () => {
+    const user = await createUser();
+    await updateAvatar(user.id, "fox");
+
+    expect((await findSessionUser({ userId: user.id, version: 1 }))?.avatar).toBe("fox");
+  });
+});
+
 describe("updateNickname", () => {
   it("存正規化後的暱稱；清空回到 null", async () => {
     const user = await createUser();
@@ -412,7 +477,7 @@ describe("updateNickname", () => {
     expect(await userRow(user.id)).toMatchObject({ username: "alice", passwordHash: before.passwordHash, sessionVersion: before.sessionVersion });
     expect(await authenticate("alice", PASSWORD)).toMatchObject({ id: user.id });
     expect(await authenticate("小明", PASSWORD)).toBeNull();
-    expect(await findSessionUser({ userId: user.id, version: before.sessionVersion })).toEqual({ id: user.id, username: "alice", nickname: "小明", role: "member" });
+    expect(await findSessionUser({ userId: user.id, version: before.sessionVersion })).toEqual({ id: user.id, username: "alice", nickname: "小明", avatar: null, role: "member" });
   });
 
   it("帳號已經不在_回失敗", async () => {

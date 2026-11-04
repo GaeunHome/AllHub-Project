@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useId, useReducer, useState, type ReactNode } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import { HOLIDAY_RULES, HOLIDAY_RULE_LABELS, INTERVAL_LABELS, INTERVAL_MONTHS, NAME_MAX_LENGTH, RECURRING_MODES, RECURRING_MODE_LABELS, type RecurringMode } from "../../../lib/kinds";
@@ -12,7 +13,7 @@ import { defaultIncomeCategory, nextRunText } from "../../form-math";
 import { pickAccount, pickOtherAccount } from "../../last-used";
 import { SAVINGS_PATHS, type RecurringPreset } from "../../paths";
 import { TransferAccounts, useEntryChoice } from "./entry-form";
-import { AccountSelect, AmountField, CategoryChips, DayOfMonthSelect, FormButtons, type SelectableAccount } from "./fields";
+import { AccountSelect, AmountField, CategoryChips, DayOfMonthSelect, type SelectableAccount } from "./fields";
 import type { CategoryOption, HoldingOption, RecurringDraft } from "./options";
 import {
   PRESET_TYPES,

@@ -57,7 +57,7 @@ export function QuickActionsSkeleton({ label = "載入常用的動作…" }: Ske
       <Skeleton className="h-7 w-16" />
       <div className="grid grid-cols-3 gap-2 @2xl:grid-cols-6">
         {Array.from({ length: 6 }, (_, i) => (
-          <Skeleton key={i} className="min-h-24 rounded-xl" />
+          <Skeleton key={i} className="min-h-24 rounded-xl @2xl:min-h-15" />
         ))}
       </div>
     </Frame>
@@ -66,7 +66,7 @@ export function QuickActionsSkeleton({ label = "載入常用的動作…" }: Ske
 
 export function ChecklistSkeleton({ label = "載入這個月要做的事…" }: SkeletonProps) {
   return (
-    <Frame label={label} className="stack min-w-0">
+    <Frame label={label} className="card stack min-w-0">
       <Header />
       <div className="flex flex-col">
         {[0, 1, 2, 3].map((i) => (

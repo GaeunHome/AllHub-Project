@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { FormMessage } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { SegmentedControl } from "@/core/ui/segmented-control";
@@ -34,7 +35,7 @@ export function EndgameView({ records, names }: { records: EndgameRecord[]; name
           <SegmentedControl label="期數" options={SCHEDULES} value={schedule} onChange={setSchedule} />
         </div>
       </div>
-      <div role="tablist" aria-label="模式" className="no-scrollbar flex overflow-x-auto border-b border-line">
+      <div {...DRAG_SCROLL} role="tablist" aria-label="模式" className="no-scrollbar flex overflow-x-auto border-b border-line">
         {ENDGAME_MODES.map((m) => (
           <button key={m} type="button" role="tab" aria-selected={m === mode} onClick={() => setMode(m)} className="sr-tab shrink-0">
             {challengeLabel(m)}
@@ -99,6 +100,13 @@ function Summary({ label, value, star = false }: { label: string; value: string;
   );
 }
 
+// 三隊要排在同一列 面板窄的時候頭像小一點 手機才一隊一列
+const THREE_TEAMS = "grid gap-3 @2xl:grid-cols-3 @2xl:[--sr-team:2.5rem] @3xl:[--sr-team:3rem]";
+// 兩隊並排時分數緊跟自己的頭像 推到右緣會貼著下一隊的編號
+const TEAM_RESULT = "ml-auto flex h-[var(--sr-team,3rem)] items-center gap-2.5 @2xl:ml-0";
+// 三隊時一欄放不下分數 擠在旁邊頭像會折行 夠寬才排回旁邊
+const TEAM_RESULT_BELOW = "flex w-full items-center justify-end gap-2.5 @5xl:ml-0 @5xl:h-[var(--sr-team,3rem)] @5xl:w-auto";
+
 function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number, string | null> }) {
   const earned = Math.min(floor.stars ?? 0, 3);
   return (
@@ -124,28 +132,27 @@ function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number,
         </span>
       </div>
       {floor.nodes.length > 0 && (
-        // 依這一塊的寬度決定兩隊並排 並排在月曆旁邊時一樣排得下
-        <div className="grid gap-3 @2xl:grid-cols-2">
+        // 依這一塊的寬度決定幾隊並排 並排在月曆旁邊時一樣排得下
+        <div className={floor.nodes.length > 2 ? THREE_TEAMS : "grid gap-3 @2xl:grid-cols-2"}>
           {floor.nodes.map((node, i) => (
             // 編號 分數 未擊敗各包一層跟頭像一樣高 對準頭像的中線
-            // 兩隊並排時分數緊跟自己的頭像 推到右緣會貼著下一隊的編號
-            <div key={i} className="flex items-start gap-2.5">
+            <div key={i} className="flex min-w-0 flex-wrap items-start gap-x-2.5 gap-y-1">
               {/* 隊伍編號用固定大小的方塊不換行 頭像才對齊 */}
-              <span className="grid h-12 shrink-0 place-items-center">
+              <span className="grid h-[var(--sr-team,3rem)] shrink-0 place-items-center">
                 <span className="sr-num grid size-6 place-items-center rounded-sm border border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-sm leading-none font-bold text-[var(--sr-gold-ink)]">
                   <span aria-hidden>{i + 1}</span>
                   <span className="sr-only">第 {i + 1} 隊</span>
                 </span>
               </span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex shrink-0 gap-1.5">
                 {node.avatars.map((member, j) => (
                   <TeamAvatar key={`${member.id}-${j}`} member={member} name={member.id === null ? null : (names[member.id] ?? null)} />
                 ))}
               </div>
-              {node.score !== null && <span className="sr-num ml-auto flex h-12 items-center text-base font-bold text-ink @2xl:ml-0">{groupDigits(node.score)}</span>}
-              {node.bossDefeated === false && (
-                <span className="flex h-12 items-center">
-                  <span className="chip chip-warning">未擊敗</span>
+              {(node.score !== null || node.bossDefeated === false) && (
+                <span className={floor.nodes.length > 2 ? TEAM_RESULT_BELOW : TEAM_RESULT}>
+                  {node.score !== null && <span className="sr-num text-base font-bold text-ink">{groupDigits(node.score)}</span>}
+                  {node.bossDefeated === false && <span className="chip chip-warning">未擊敗</span>}
                 </span>
               )}
             </div>

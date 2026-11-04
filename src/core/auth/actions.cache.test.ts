@@ -29,12 +29,12 @@ vi.mock("./captcha", { spy: true });
 
 const registration = mocksOf(await import("./registration"), "registerMember");
 const attempts = mocksOf(await import("./attempts"), "checkAttempts", "recordAttempt");
-const users = mocksOf(await import("./users"), "deleteOwnAccount", "findSessionUser", "updateNickname");
+const users = mocksOf(await import("./users"), "deleteOwnAccount", "findSessionUser", "updateAvatar", "updateNickname");
 const captcha = mocksOf(await import("./captcha"), "takeCaptchaToken", "verifyCaptcha");
-const { deleteAccountAction, registerAction, updateNicknameAction } = await import("./actions");
+const { deleteAccountAction, registerAction, updateAvatarAction, updateNicknameAction } = await import("./actions");
 const { SESSION_COOKIE, signSession } = await import("./session");
 
-const PASSWORD = "plum blossom 2026";
+const PASSWORD = "Plum blossom 2026";
 const registerFields = () => form({ code: "A".repeat(43), username: "bob", password: PASSWORD, confirmPassword: PASSWORD, agree: "on", website: "" });
 
 beforeEach(async () => {
@@ -46,6 +46,7 @@ beforeEach(async () => {
   users.findSessionUser.mockReset().mockResolvedValue({ id: USER_ID, username: "alice", role: "member" });
   users.deleteOwnAccount.mockReset().mockResolvedValue({ ok: true });
   users.updateNickname.mockReset().mockResolvedValue({ ok: true, nickname: "小明" });
+  users.updateAvatar.mockReset().mockResolvedValue({ ok: true, avatar: "cat" });
   captcha.takeCaptchaToken.mockReset().mockResolvedValue("captcha-token");
   captcha.verifyCaptcha.mockReset().mockResolvedValue(true);
 });
@@ -62,6 +63,21 @@ describe("帳號的 Server Action：寫入後用 updateTag 讓管理頁的清單
     expect(updated()).toEqual([...tags].sort());
     expect(revalidateTag).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  // 管理頁的使用者清單與旅遊的同行的人都畫頭像
+  it("updateAvatarAction_使用者的快取失效", async () => {
+    await updateAvatarAction({}, form({ avatar: "cat" }));
+
+    expect(updated()).toEqual(["core:users"]);
+  });
+
+  it("換頭像失敗_沒有寫入就不失效", async () => {
+    users.updateAvatar.mockResolvedValue({ ok: false, error: "找不到這個頭像" });
+
+    await updateAvatarAction({}, form({ avatar: "unknown" }));
+
+    expect(updated()).toEqual([]);
   });
 
   // 管理頁的使用者清單與模組權限表格都顯示暱稱

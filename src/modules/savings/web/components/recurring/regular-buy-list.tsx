@@ -9,7 +9,7 @@ import type { RecurringFormOptions, RegularBuyView } from "../../recurring-view"
 import { RecurringForm } from "../forms/recurring-form";
 import { useLinkedTrigger } from "../settings/open-from-link";
 import { IconTile, Ticker } from "../visuals";
-import { RecurringRow } from "./recurring-row";
+import { RecurringCard } from "./recurring-card";
 import { RecurringSection } from "./recurring-section";
 
 type RegularBuyListProps = {
@@ -23,7 +23,7 @@ type RegularBuyListProps = {
   openEditId?: number | null;
 };
 
-/** 投資頁與每月固定頁共用 到期時確認就在列上 */
+/** 投資頁與每月固定頁共用 到期時確認就在卡片上 */
 export function RegularBuyList({ items, form, linkToInvestments = true, openAdd = false, openEditId = null }: RegularBuyListProps) {
   const add = useDialog();
   const addTrigger = useLinkedTrigger(add, openAdd, SAVINGS_PATHS.recurring);
@@ -43,7 +43,7 @@ export function RegularBuyList({ items, form, linkToInvestments = true, openAdd 
       empty={items.length === 0 ? <EmptyText canAdd={canAdd} hasHoldings={holdings.length > 0} linkToInvestments={linkToInvestments} /> : undefined}
     >
       {items.map((item) => (
-        <RecurringRow
+        <RecurringCard
           key={item.id}
           row={item}
           leading={item.symbol ? <Ticker symbol={item.symbol} /> : <IconTile name="chart-line" size="sm" />}

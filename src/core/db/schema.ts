@@ -21,6 +21,8 @@ export const coreUsers = pgTable(
     username: text("username").notNull().unique(),
     /** 顯示用的名字 沒填就顯示帳號名稱 登入一律用帳號名稱 */
     nickname: text("nickname"),
+    /** 選的範例頭像 只存 id 圖是靜態檔 沒選就是文字頭像 */
+    avatar: text("avatar"),
     /** scrypt$N$r$p$salt$hash 參數記在字串裡 之後調整參數舊雜湊仍能驗證 */
     passwordHash: text("password_hash").notNull(),
     /** 改密碼時遞增 cookie 帶的版本不符就失效 其他裝置因此登出 */

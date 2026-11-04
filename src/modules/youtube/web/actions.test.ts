@@ -10,11 +10,9 @@ vi.mock("../service/channels", { spy: true });
 vi.mock("../service/translation", { spy: true });
 vi.mock("../service/ai-settings", { spy: true });
 
-vi.mock("../service/caption-status", { spy: true });
 vi.mock("../service/saved-videos", { spy: true });
 
 const channels = mocksOf(await import("../service/channels"), "addChannel", "removeChannel", "setChannelNotify", "renewSubscriptionsFor");
-const captions = mocksOf(await import("../service/caption-status"), "checkFollowedVideoCaptions");
 const translation = mocksOf(await import("../service/translation"), "retryTranslation", "restartTranslation", "uploadSubtitles", "startTranslation", "continueTranslation");
 const settings = mocksOf(await import("../service/ai-settings"), "saveSettings");
 const { TranslationUserError } = await import("../service/errors");
@@ -30,7 +28,6 @@ beforeEach(() => {
   channels.removeChannel.mockReset().mockResolvedValue({});
   channels.setChannelNotify.mockReset().mockResolvedValue(true);
   channels.renewSubscriptionsFor.mockReset().mockResolvedValue("已檢查你追蹤的 1 個頻道的訂閱");
-  captions.checkFollowedVideoCaptions.mockReset().mockResolvedValue("no");
   for (const fn of Object.values(translation)) fn.mockReset().mockResolvedValue(undefined);
   settings.saveSettings.mockReset().mockResolvedValue(undefined);
   translation.startTranslation.mockResolvedValue({ ok: true });
@@ -110,7 +107,6 @@ describe("擁有權：一律用登入者呼叫 service（表單送來的 id 只�
     ["setChannelNotifyAction", () => actions.setChannelNotifyAction({}, form({ id: "2", enabled: "false" })), () => channels.setChannelNotify],
     // 冷卻時間依登入者計算 回應也只說他自己追蹤的頻道
     ["renewAction", () => actions.renewAction(), () => channels.renewSubscriptionsFor],
-    ["recheckCaptionsAction", () => actions.recheckCaptionsAction({}, form({ videoId: VIDEO })), () => captions.checkFollowedVideoCaptions],
     ["saveSettingsAction", () => actions.saveSettingsAction({}, form({ provider: "anthropic" })), () => settings.saveSettings],
     ["startTranslationAction", () => actions.startTranslationAction(VIDEO), () => translation.startTranslation],
     ["continueTranslationAction", () => actions.continueTranslationAction(VIDEO, 0), () => translation.continueTranslation],

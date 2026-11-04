@@ -1,6 +1,7 @@
 import { createLocalPref, onOff } from "@/core/ui/local-pref";
 
-const autoTranslate = createLocalPref({ key: "allhub:youtube:auto-translate", defaultValue: true, ...onOff });
+// 影片都進觀看頁 預設開著的話按播放就花錢 要的人自己打開
+const autoTranslate = createLocalPref({ key: "allhub:youtube:auto-translate", defaultValue: false, ...onOff });
 
 export const readAutoTranslate = autoTranslate.read;
 

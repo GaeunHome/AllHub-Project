@@ -16,7 +16,6 @@ import { AI_PROVIDER_IDS, isAiProvider } from "../lib/subtitles/providers";
 import { saveSettings } from "../service/ai-settings";
 import { youtubeTags } from "../service/cache-tags";
 import { cachedVideoInfo } from "../service/cached";
-import { checkFollowedVideoCaptions } from "../service/caption-status";
 import { addChannel, removeChannel, renewSubscriptionsFor, setChannelNotify } from "../service/channels";
 import { ApiKeySetupError } from "../service/errors";
 import { SAVED_FULL_MESSAGE, keepVideo, removeSavedVideo, type VideoSnapshot } from "../service/saved-videos";
@@ -106,27 +105,6 @@ export async function setChannelNotifyAction(_prev: FormState, formData: FormDat
     return await run("變更通知設定", async () => ((await setChannelNotify(userId, toggle.id, toggle.enabled)) ? {} : { error: "找不到這個頻道，請重新整理頁面" }));
   } finally {
     updateTags(youtubeTags.follows);
-  }
-}
-
-const RECHECK_MESSAGES = {
-  yes: "有中文字幕了，可以直接在 YouTube 看",
-  no: "還沒有中文字幕，可以用翻譯觀看",
-  unknown: "無法確認是否有中文字幕（YouTube 可能擋下了請求），晚點再試",
-} as const;
-
-/** 很多頻道上片後才補字幕 所以清單上可以重新檢查 只能檢查自己追蹤頻道的影片 */
-export async function recheckCaptionsAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireModule("youtube");
-  const videoId = formVideoId(formData);
-  if (!videoId) return { error: INVALID_FORM_MESSAGE };
-  try {
-    return await run("重新檢查", async () => {
-      const status = await checkFollowedVideoCaptions(userId, videoId);
-      return status ? { message: RECHECK_MESSAGES[status] } : { error: "找不到這支影片，請重新整理頁面" };
-    });
-  } finally {
-    updateTags(youtubeTags.videos);
   }
 }
 

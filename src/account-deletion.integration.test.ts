@@ -8,7 +8,7 @@ import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 // core 不能 import 模組 所以跨模組的檢查放在 src 底下
 
 const getDb = setupTestDb();
-const PASSWORD = "correct horse battery staple";
+const PASSWORD = "Correct horse battery staple";
 
 let owner: string;
 let member: string;

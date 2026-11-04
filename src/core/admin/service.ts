@@ -2,11 +2,12 @@ import "server-only";
 import { and, asc, count, desc, eq, gt, sql } from "drizzle-orm";
 import { db } from "../db";
 import { coreAuditLogs, coreModuleDenials, coreUsers, type UserRole } from "../db/schema";
+import { userAvatar } from "../db/users";
 import { UserError } from "../form";
 import { AUDIT_PAGE_SIZE, type AuditQuery } from "./audit-query";
 
 /** 管理頁的使用者清單 不含密碼雜湊與登入失敗紀錄 */
-export type ManagedUser = { id: string; username: string; nickname: string | null; role: UserRole; createdAt: Date; disabledAt: Date | null };
+export type ManagedUser = { id: string; username: string; nickname: string | null; avatar: string | null; role: UserRole; createdAt: Date; disabledAt: Date | null };
 
 export type LockedUser = { id: string; lockedUntil: Date };
 
@@ -20,7 +21,7 @@ export class AdminUserError extends UserError {
 
 export async function listUsers(): Promise<ManagedUser[]> {
   return db()
-    .select({ id: coreUsers.id, username: coreUsers.username, nickname: coreUsers.nickname, role: coreUsers.role, createdAt: coreUsers.createdAt, disabledAt: coreUsers.disabledAt })
+    .select({ id: coreUsers.id, username: coreUsers.username, nickname: coreUsers.nickname, avatar: userAvatar, role: coreUsers.role, createdAt: coreUsers.createdAt, disabledAt: coreUsers.disabledAt })
     .from(coreUsers)
     .orderBy(asc(coreUsers.createdAt), asc(coreUsers.username));
 }

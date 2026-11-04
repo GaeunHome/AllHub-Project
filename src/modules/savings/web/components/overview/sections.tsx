@@ -9,12 +9,12 @@ import { CardHeader } from "@/core/ui/page-header";
 import { formatSlashDate } from "../../../lib/dates";
 import { formatSignedTwd, formatTwd } from "../../../lib/money";
 import { cachedAccounts, cachedCategories, cachedCategoryTotals, cachedRecurring } from "../../../service/cached";
-import { categoryOptions, salaryAccountOptions } from "../../dashboard-view";
+import { categoryOptions, salaryAccountOptions } from "../../form-options";
 import { loadAccounts, loadChecklist } from "../../overview-data";
 import { checklistRows, checklistSummary, heroView, monthView, quickActionsView, urgentRows, type HeroView } from "../../overview-view";
 import { SAVINGS_PATHS, recordsHref } from "../../paths";
+import { BannerFigure } from "../dashboard/banner-figure";
 import { ExpenseList } from "../dashboard/expense-list";
-import { BIG_FIGURE, BIG_FIGURE_FACTS } from "../dashboard/layout";
 import { TrendChart } from "../dashboard/trend-chart";
 import { flowSeries } from "../dashboard/trend-model";
 import { SalaryMenu } from "../forms/salary-dialog";
@@ -31,28 +31,18 @@ export async function HeroSection() {
   const { input, state } = await loadAccounts(user.id, new Date());
   if (input.accounts.length === 0) return null;
   const hero = heroView(input, state);
-  return (
-    <section aria-labelledby="fin-total" className={BIG_FIGURE}>
-      <div className="flex min-w-0 flex-col gap-1">
-        <h2 id="fin-total" className="font-medium text-white/90">
-          總資產
-        </h2>
-        <p className="text-5xl font-bold tracking-tight text-white tabular-nums sm:text-6xl">{formatTwd(hero.total)}</p>
-      </div>
-      <HeroFacts hero={hero} />
-    </section>
-  );
+  return <BannerFigure id="fin-total" label="總資產" amount={hero.total} facts={<HeroFacts hero={hero} />} />;
 }
 
 function HeroFacts({ hero: { deposit, investment, cardOwed } }: { hero: HeroView }) {
   if (deposit === null && investment === null && cardOwed === null) return null;
   return (
-    <FactList className={`scene-facts rounded-xl bg-black/40 px-4 ${BIG_FIGURE_FACTS}`}>
+    <>
       {deposit !== null && <Fact label="存款">{money(formatTwd(deposit))}</Fact>}
       {investment !== null && <Fact label="投資">{money(formatTwd(investment.value))}</Fact>}
       {investment !== null && <ProfitFact investment={investment} />}
       {cardOwed !== null && <Fact label="信用卡未繳">{money(formatTwd(cardOwed))}</Fact>}
-    </FactList>
+    </>
   );
 }
 
@@ -99,7 +89,7 @@ export async function ChecklistSection() {
   const { remaining } = checklistSummary(view.items);
 
   return (
-    <section aria-labelledby="fin-checklist" className="stack @container min-w-0">
+    <section aria-labelledby="fin-checklist" className="card stack @container min-w-0">
       <CardHeader id="fin-checklist" actions={view.configured && <span className="text-sm font-medium text-ink-soft">{remaining > 0 ? `還有 ${remaining} 件要做` : "都做完了"}</span>}>
         這個月要做的事
       </CardHeader>

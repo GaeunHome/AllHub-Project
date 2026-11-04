@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { formatTaipeiDateTime } from "../time";
 import { CountBadge } from "../ui/count-badge";
+import { DRAG_SCROLL } from "../ui/drag-scroll";
 import { EmptyState } from "../ui/empty-state";
 import { Icon } from "../ui/icon";
 import { useNotificationCenter } from "./center";
@@ -47,7 +48,7 @@ export function NotificationList({ items, moduleIds, module, modules, retentionD
     <div className="stack">
       {/* 手機上篩選膠囊自己一列可以橫捲 按鈕換到下一列才不會蓋住膠囊 */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <nav aria-label="依模組篩選" className="no-scrollbar -my-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-1">
+        <nav {...DRAG_SCROLL} aria-label="依模組篩選" className="no-scrollbar -my-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-1">
           <FilterLink href="/notifications" current={module === null} count={feed.unread.total}>
             <Icon name="inbox" />
             全部

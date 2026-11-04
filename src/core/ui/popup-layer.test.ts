@@ -161,7 +161,7 @@ describe("觸發按鈕都宣告了自己會打開彈出層（popupLayerOpen 靠�
   });
 
   it("人像選單：面板是 role=menu，宣告 aria-haspopup=menu", () => {
-    const trigger = triggerOf(renderToStaticMarkup(createElement(HeaderMenus, null, createElement(AccountMenu, { username: "alice" }))), "帳號");
+    const trigger = triggerOf(renderToStaticMarkup(createElement(HeaderMenus, null, createElement(AccountMenu, { username: "alice", avatar: null }))), "帳號");
 
     expect(trigger).toContain('aria-haspopup="menu"');
     expect(trigger).toContain('aria-expanded="false"');

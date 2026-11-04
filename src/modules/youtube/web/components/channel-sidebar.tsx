@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ActionButton } from "@/core/ui/action-button";
+import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
+import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
@@ -56,7 +57,7 @@ function ChannelList({ channels }: { channels: FollowedChannel[] }) {
         <p className="text-[0.9375rem] text-ink-soft">還沒有追蹤頻道：在上面貼頻道網址或 @帳號，新影片上架時就會通知你</p>
       ) : (
         // 寬螢幕每一列有滑過時底色用的左右內距 清單往外撐開同樣距離 頭像才對齊標題
-        <ul className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-1 lg:-mx-2 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:px-0">
+        <ul {...DRAG_SCROLL} className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-1 lg:-mx-2 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:px-0">
           {channels.map((channel) => (
             <li key={channel.id} className="shrink-0">
               <ChannelEntry channel={channel} />
@@ -104,22 +105,12 @@ function ChannelEntry({ channel }: { channel: FollowedChannel }) {
         在 YouTube 開啟頻道
       </a>
       <NotifyToggle variant="menu" label="新影片通知" action={setChannelNotifyAction} id={channel.id} enabled={channel.notifyEnabled} subject={channel.title} />
-      <ActionButton
+      <DeleteMenuItem
         action={removeChannelAction}
         fields={{ id: channel.id }}
         confirmMessage={`確定不再追蹤「${channel.title}」？`}
-        formClassName="flex flex-col"
-        pendingLabel={
-          <>
-            <Icon name="trash-2" className="size-4" />
-            刪除中…
-          </>
-        }
-        className="menu-item menu-item-danger"
-      >
-        <Icon name="trash-2" className="size-4" />
-        取消追蹤
-      </ActionButton>
+        label="取消追蹤"
+      />
     </MoreMenu>
   );
 }

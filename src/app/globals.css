@@ -405,6 +405,14 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+  /* 用滑鼠拖曳橫捲時不要選到字 游標一直是抓住的樣子 */
+  [data-drag-scroll] {
+    user-select: none;
+  }
+  [data-drag-scrolling],
+  [data-drag-scrolling] * {
+    cursor: grabbing;
+  }
 
   /* 768px 以下模組按鈕可能放不下 右緣淡出提示還能往右滑 */
   /* 末端留同樣寬的空白 捲到最後一顆時不會被淡出蓋住 */
@@ -812,9 +820,14 @@
   .scene-icon > .icon {
     @apply size-6 sm:size-7;
   }
-  .scene .info-tip-button,
-  .scene .info-tip-button:hover {
+  .scene .info-tip-button {
     color: #fff;
+  }
+  /* 圖上的字色變數是白的 反色會變成白底白字 這裡寫死 */
+  .scene .info-tip-button:hover,
+  .scene .info-tip-button[aria-expanded="true"] {
+    color: rgb(15 23 42);
+    background-color: #fff;
   }
   /* 場景圖上的小按鈕 半透明才看得到後面的圖 */
   .scene-button {
@@ -839,13 +852,13 @@
 
   /* 卡片最上面一條有圖的標題列 撐滿卡片的左右 */
   .card-art {
-    @apply -mx-5 -mt-5 flex min-h-24 flex-col justify-end rounded-t-[calc(1rem-1px)] rounded-b-none px-5 py-3 sm:-mx-6 sm:-mt-6 sm:px-6;
+    @apply -mx-5 -mt-5 flex flex-col justify-center rounded-t-[calc(1rem-1px)] rounded-b-none px-5 py-3 sm:-mx-6 sm:-mt-6 sm:px-6;
     --ink: #fff;
     box-shadow: none;
   }
   /* 手機上卡片很窄 中間的圖才看得到 不要只切到左邊的暗處 */
   .card-art .scene-image {
-    object-position: 68% 50%;
+    object-position: 68% 42%;
   }
   .card-art .icon-tile {
     color: #fff;
@@ -900,6 +913,25 @@
     color: #fff;
     background: linear-gradient(135deg, hsl(var(--avatar-hue) 72% 52%), hsl(calc(var(--avatar-hue) + 48) 70% 38%));
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.24);
+  }
+
+  .user-avatar-image {
+    @apply shrink-0 rounded-full object-cover;
+  }
+  /* 挑頭像的格子 單選鈕藏起來 選到的圈起來 */
+  .avatar-choice {
+    @apply relative grid cursor-pointer place-items-center justify-self-center rounded-full p-1;
+    transition: box-shadow 150ms ease;
+  }
+  .avatar-choice:hover {
+    box-shadow: 0 0 0 2px var(--line-strong);
+  }
+  .avatar-choice:has(:checked) {
+    box-shadow: 0 0 0 3px var(--brand);
+  }
+  .avatar-choice:has(:focus-visible) {
+    outline: 2px solid var(--brand);
+    outline-offset: 3px;
   }
 
   /* 卡片裡可以點的一列 左右內距由外層的負邊距抵掉 文字跟卡片內容對齊 */
@@ -1390,9 +1422,11 @@
   .info-tip-button {
     color: var(--ink-soft);
   }
+  /* 滑過時反色 深色的地方是白底圓圈 淺色的地方是深底圓圈 主題都有定義這兩個變數 */
   .info-tip-button:hover,
   .info-tip-button[aria-expanded="true"] {
-    color: var(--ink);
+    color: var(--surface);
+    background-color: var(--ink);
   }
   /* 緊貼著標題文字 焦點框畫在圓圈裡面才不會壓到字 */
   .info-tip-button:focus-visible {

@@ -6,6 +6,7 @@ import type { ModuleInfo, SearchParams } from "@/core/module";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { parseRowId } from "../../lib/validation";
 import { cachedCategories } from "../../service/cached";
+import { CARD_GRID } from "../components/dashboard/layout";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { CategoriesCard } from "../components/settings/categories-card";
 import { SAVINGS_PATHS, editRecurringPath } from "../paths";
@@ -31,19 +32,15 @@ export async function CategoriesLoader() {
 /** 跟載入完成的卡片一樣高 串流進來時下面的字才不會跳 */
 function CategoriesSkeleton() {
   return (
-    <LoadingState label="載入分類…" className="page-stack xl:grid xl:grid-cols-2 xl:items-start">
-      {[5, 3].map((rows) => (
-        <div key={rows} className="card stack">
-          <div className="flex min-h-9 items-center gap-3">
-            <Skeleton className="h-5 w-28" />
-            <Skeleton className="ml-auto h-9 w-20 rounded-lg" />
-          </div>
-          <div className="card-list">
-            {Array.from({ length: rows }, (_, i) => (
-              <div key={i} className="card-row flex min-h-14 items-center gap-3">
-                <Skeleton className="size-8 shrink-0 rounded-full" />
+    <LoadingState label="載入分類…" className="page-stack">
+      {[4, 2].map((cards) => (
+        <div key={cards} className="stack">
+          <Skeleton className="h-7 w-32" />
+          <div className={CARD_GRID}>
+            {Array.from({ length: cards }, (_, i) => (
+              <div key={i} className="card flex min-h-20 items-center gap-3 py-3">
+                <Skeleton className="size-10 shrink-0 rounded-full" />
                 <Skeleton className={`h-4 ${i % 2 === 0 ? "w-1/3" : "w-1/4"}`} />
-                <Skeleton className="ml-auto size-9 shrink-0 rounded-lg" />
               </div>
             ))}
           </div>

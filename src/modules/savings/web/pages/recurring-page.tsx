@@ -8,6 +8,7 @@ import { accountBalances } from "../../lib/ledger";
 import { quoteSymbols } from "../../lib/quotes";
 import { parseRowId } from "../../lib/validation";
 import { cachedAccountFlows, cachedAccounts, cachedCategories, cachedHoldings, cachedQuotes, cachedRecurring } from "../../service/cached";
+import { CARD_GRID } from "../components/dashboard/layout";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { OtherRecurringList } from "../components/recurring/other-recurring-list";
 import { RegularBuyList } from "../components/recurring/regular-buy-list";
@@ -23,7 +24,7 @@ function presetFrom(raw: string | string[] | undefined): RecurringPreset | null 
 }
 
 /**
- * 薪水與定期定額在左 其他固定收支在右
+ * 由上到下 薪水 定期定額 其他固定收支 每一條一張卡
  * 網址的 edit 只認自己的固定收支 別人的或不存在的不打開
  */
 export async function RecurringSection({ searchParams }: { searchParams: SearchParams }) {
@@ -61,32 +62,26 @@ export async function RecurringSection({ searchParams }: { searchParams: SearchP
   const openEditId = rules.some((rule) => rule.id === editId) ? editId : null;
 
   return (
-    <div className="page-stack xl:grid xl:grid-cols-2 xl:items-start">
-      <div className="page-stack">
-        <SalarySection items={view.salaries} form={view.form} salaryAccounts={view.salaryAccounts} allocationAccounts={view.allocationAccounts} openAdd={add === "salary"} openEditId={openEditId} />
-        <RegularBuyList items={view.regularBuys} form={view.form} openAdd={add === "regular-buy"} openEditId={openEditId} />
-      </div>
+    <div className="page-stack">
+      <SalarySection items={view.salaries} form={view.form} salaryAccounts={view.salaryAccounts} allocationAccounts={view.allocationAccounts} openAdd={add === "salary"} openEditId={openEditId} />
+      <RegularBuyList items={view.regularBuys} form={view.form} openAdd={add === "regular-buy"} openEditId={openEditId} />
       <OtherRecurringList items={view.others} form={view.form} openAdd={add === "other"} openEditId={openEditId} />
     </div>
   );
 }
 
-function CardSkeleton({ rows }: { rows: number }) {
+function SectionSkeleton({ cards }: { cards: number }) {
   return (
-    <div className="card stack">
-      <div className="flex min-h-9 items-center gap-3">
-        <Skeleton className="h-5 w-24" />
-        <Skeleton className="ml-auto h-9 w-20 rounded-lg" />
-      </div>
-      <div className="card-list">
-        {Array.from({ length: rows }, (_, i) => (
-          <div key={i} className="card-row flex min-h-14 items-center gap-3">
-            <Skeleton className="size-8 shrink-0 rounded-full" />
-            <div className="flex min-w-0 flex-1 flex-col gap-2">
+    <div className="stack">
+      <Skeleton className="h-7 w-24" />
+      <div className={CARD_GRID}>
+        {Array.from({ length: cards }, (_, i) => (
+          <div key={i} className="card stack">
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-8 shrink-0 rounded-full" />
               <Skeleton className={`h-4 ${i % 2 === 0 ? "w-2/5" : "w-1/3"}`} />
-              <Skeleton className="h-3.5 w-1/2" />
             </div>
-            <Skeleton className="h-5 w-16" />
+            <Skeleton className="h-8 w-28" />
           </div>
         ))}
       </div>
@@ -97,12 +92,10 @@ function CardSkeleton({ rows }: { rows: number }) {
 /** 跟載入完的版面排得一樣 串流進來時才不會跳 */
 function RecurringSkeleton() {
   return (
-    <LoadingState label="載入每月固定…" className="page-stack xl:grid xl:grid-cols-2 xl:items-start">
-      <div className="page-stack">
-        <CardSkeleton rows={1} />
-        <CardSkeleton rows={1} />
-      </div>
-      <CardSkeleton rows={4} />
+    <LoadingState label="載入每月固定…" className="page-stack">
+      <SectionSkeleton cards={2} />
+      <SectionSkeleton cards={1} />
+      <SectionSkeleton cards={3} />
     </LoadingState>
   );
 }

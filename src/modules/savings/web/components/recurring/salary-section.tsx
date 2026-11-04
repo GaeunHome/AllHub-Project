@@ -13,7 +13,7 @@ import { Illustration } from "../illustration";
 import { useLinkedTrigger } from "../settings/open-from-link";
 import { IconTile } from "../visuals";
 import { AllocationForm } from "./allocation-form";
-import { RecurringRow } from "./recurring-row";
+import { RecurringCard } from "./recurring-card";
 import { RecurringSection } from "./recurring-section";
 
 type SalarySectionProps = {
@@ -25,7 +25,7 @@ type SalarySectionProps = {
   openEditId?: number | null;
 };
 
-/** 每條薪水寫出入帳後怎麼分配 到期時入帳並分配在列上 */
+/** 每條薪水寫出入帳後怎麼分配 到期時入帳並分配在卡片上 */
 export function SalarySection({ items, form, salaryAccounts, allocationAccounts, openAdd = false, openEditId = null }: SalarySectionProps) {
   const add = useDialog();
   const accounts = choosableAccounts(form.accounts);
@@ -61,7 +61,7 @@ export function SalarySection({ items, form, salaryAccounts, allocationAccounts,
       }
     >
       {items.map((item) => (
-        <RecurringRow
+        <RecurringCard
           key={item.id}
           row={item}
           leading={<IconTile name={item.icon} size="sm" />}
@@ -73,7 +73,7 @@ export function SalarySection({ items, form, salaryAccounts, allocationAccounts,
           openFromLink={item.id === openEditId}
         >
           <AllocationSummary item={item} accounts={allocationAccounts.filter((account) => account.id !== item.draft.accountId)} />
-        </RecurringRow>
+        </RecurringCard>
       ))}
     </RecurringSection>
   );

@@ -1,9 +1,11 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { EndgameMode, EndgameSchedule } from "../lib/endgame";
+import type { BannerSummary } from "../lib/warps";
 import { listAccountViews, type StarrailAccountView } from "./accounts";
 import { starrailTags } from "./cache-tags";
 import { recentCheckins } from "./checkin";
+import { warpListFor, warpSummaryFor, type WarpList } from "./warps";
 import {
   actCalendarFor,
   charactersFor,
@@ -35,6 +37,21 @@ export async function cachedRecentCheckins(userId: string, accountId?: number): 
   // 要 join 帳號表才知道是不是自己的 認領或刪除帳號都會改變結果
   cacheTag(starrailTags.checkins, starrailTags.accounts);
   return recentCheckins(userId, 20, accountId);
+}
+
+/** 要查帳號表才知道是不是自己的 算好的摘要才放進快取 不用每次讀一萬列 */
+export async function cachedWarpSummary(userId: string, accountId: number): Promise<BannerSummary[] | null> {
+  "use cache: remote";
+  cacheLife("db");
+  cacheTag(starrailTags.warps, starrailTags.accounts);
+  return warpSummaryFor(userId, accountId);
+}
+
+export async function cachedWarpList(userId: string, accountId: number, bannerType: number, page: number): Promise<WarpList | null> {
+  "use cache: remote";
+  cacheLife("db");
+  cacheTag(starrailTags.warps, starrailTags.accounts);
+  return warpListFor(userId, accountId, bannerType, page);
 }
 
 /** 參數只有使用者與帳號 id cookie 在函式裡才解密 不進 key 也不進回傳值 */

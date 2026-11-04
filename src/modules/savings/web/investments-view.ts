@@ -3,8 +3,10 @@ import { profitPercentOf, type HoldingLike } from "../lib/holdings";
 import { accountStartDate, bySortOrder, type AccountMonthFlow } from "../lib/ledger";
 import type { PendingRuleRow } from "../lib/pending";
 import type { Quote } from "../lib/quotes";
+import { accountDetails, settlementAccounts, type InvestmentDetail } from "./account-details";
+import { accountsState, type AccountsInput, type OverviewAccount } from "./accounts-state";
+import { accountDraft, accountUsage } from "./accounts-view";
 import type { AccountDraft } from "./components/forms/account-form";
-import { accountDetails, accountDraft, accountUsage, accountsState, settlementAccounts, type AccountsInput, type InvestmentDetail, type OverviewAccount } from "./dashboard-view";
 import type { AccountUsage } from "./settings-display";
 
 // 投資頁 伺服器整理好畫面要的形狀 數字跟總覽同一套算法

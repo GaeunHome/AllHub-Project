@@ -101,6 +101,10 @@ describe("missingKeysWarning：連結結果的提醒，寫出少了哪些欄位�
     expect(warning).not.toContain("即時便箋");
   });
 
+  it("少了 cookie_token_v2_躍遷紀錄也不能用（換金鑰要用它）", () => {
+    expect(missingKeysWarning(["cookie_token_v2"])).toContain("躍遷紀錄");
+  });
+
   it("只少了 account_mid_v2_開拓月曆；只少了 account_id_v2_兌換碼", () => {
     expect(missingKeysWarning(["account_mid_v2"])).toContain("開拓月曆");
     expect(missingKeysWarning(["account_mid_v2"])).not.toContain("兌換碼");

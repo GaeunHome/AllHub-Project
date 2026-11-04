@@ -4,6 +4,9 @@ import type { PgColumn } from "drizzle-orm/pg-core";
 import type { Executor } from ".";
 import { coreModuleDenials, coreUsers } from "./schema";
 
+/** 部署時新程式比 migration 先上線 欄位還不存在 從整列取值才不會整個查詢失敗 */
+export const userAvatar = sql<string | null>`to_jsonb(${coreUsers}) ->> 'avatar'`;
+
 /**
  * 查詢裡的 coreUsers 能不能用這個模組 站長一律能用
  * 只記不能用的 沒有紀錄就是能用 之後新增的模組自動開放

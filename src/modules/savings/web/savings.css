@@ -199,6 +199,24 @@
 .fin-action-icon > .icon {
   @apply size-6;
 }
+/* 夠寬時排成一排小卡 圖示在左 不然六顆散得太開 */
+@container (width >= 42rem) {
+  .fin-action {
+    @apply min-h-15 flex-row justify-start gap-3 px-3 text-left;
+    border: 1px solid var(--line);
+    background-color: var(--surface);
+    box-shadow: var(--elevation-card);
+  }
+  .fin-action:hover {
+    background-color: var(--surface-muted);
+  }
+  .fin-action-icon {
+    @apply size-9;
+  }
+  .fin-action-icon > .icon {
+    @apply size-5;
+  }
+}
 
 /* 這個月要做的事 一條直線串起來 線畫在標記的正中間 */
 .fin-timeline {

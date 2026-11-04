@@ -2,7 +2,7 @@ import { Fragment, createElement, useReducer } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { markup as render, textOf } from "@/dev/test-helpers";
 import { toasts } from "@/dev/toast-stub";
-import type { SalaryPrefill } from "../../dashboard-view";
+import type { SalaryPrefill } from "../../pending-view";
 
 // 視窗關著時不算繪內容 換掉 Dialog 才看得到裡面 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });

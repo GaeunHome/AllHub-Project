@@ -8,7 +8,7 @@ import { PasswordInput } from "../ui/password-input";
 import { useToast } from "../ui/toast";
 import { withToast } from "../ui/toast-queue";
 import { changePasswordAction } from "./actions";
-import { PASSWORD_MIN_LENGTH } from "./password-rules";
+import { PASSWORD_CASE_RULE, PASSWORD_MIN_LENGTH } from "./password-rules";
 
 const FIELDS = [
   { name: "currentPassword", label: "目前的密碼", autoComplete: "current-password" },
@@ -33,7 +33,7 @@ export function ChangePasswordForm({ username }: { username: string }) {
             <label htmlFor={`${id}-${field.name}`} className="field-label">
               {field.label}
             </label>
-            {field.name === "newPassword" && <InfoTip label="新密碼的規則">新密碼至少 {PASSWORD_MIN_LENGTH} 個字元；變更後其他裝置都會被登出。</InfoTip>}
+            {field.name === "newPassword" && <InfoTip label="新密碼的規則">新密碼至少 {PASSWORD_MIN_LENGTH} 個字元，{PASSWORD_CASE_RULE}；變更後其他裝置都會被登出。</InfoTip>}
           </span>
           <PasswordInput
             id={`${id}-${field.name}`}

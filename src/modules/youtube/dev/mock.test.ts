@@ -21,7 +21,7 @@ describe("假服務的影片縮圖", () => {
 
     expect(first).toContain(">feedWT2jt11<");
     expect((await request(PATH)).body).toBe(first);
-    expect((await request("/vi/zhsubs5nymq/mqdefault.jpg")).body).not.toBe(first);
+    expect((await request("/vi/newmv5nymq1/mqdefault.jpg")).body).not.toBe(first);
   });
 
   it("影片 id 開頭 nothumb 的縮圖回 404（畫面退回圖示）", async () => {
@@ -52,8 +52,8 @@ describe("假服務的字幕清單：觀看頁與第二個來源（InnerTube）"
   const download = (url: URL) => request(`${url.pathname}${url.search}`);
 
   it("一般影片：兩個來源列出一樣的字幕", async () => {
-    expect(languages(await fromInnertube("zhsubs00001"))).toEqual(languages(await fromWatch("zhsubs00001")));
-    expect(languages(await fromInnertube("zhsubs00001"))).toEqual(["ko", "zh-TW"]);
+    expect(languages(await fromInnertube("feedabc1234"))).toEqual(languages(await fromWatch("feedabc1234")));
+    expect(languages(await fromInnertube("feedabc1234"))).toEqual(["ko"]);
   });
 
   it("跟真的 YouTube 一樣：觀看頁給的字幕網址要 PO token，下載回 200 但是空的；第二個來源給的下載得到", async () => {
@@ -65,12 +65,12 @@ describe("假服務的字幕清單：觀看頁與第二個來源（InnerTube）"
     expect(downloadable.data).toHaveProperty("events");
   });
 
-  it("影片 id 開頭 botcheck：觀看頁要求驗證不是機器人，第二個來源讀得到中文字幕", async () => {
+  it("影片 id 開頭 botcheck：觀看頁要求驗證不是機器人，第二個來源讀得到字幕", async () => {
     expect(await fromWatch("botcheck001")).toMatchObject({ playabilityStatus: { status: "LOGIN_REQUIRED" } });
-    expect(languages(await fromInnertube("botcheck001"))).toEqual(["ko", "zh-TW"]);
+    expect(languages(await fromInnertube("botcheck001"))).toEqual(["ko"]);
   });
 
-  it("影片 id 開頭 blocked：兩個來源都要求驗證，字幕狀態是 unknown", async () => {
+  it("影片 id 開頭 blocked：兩個來源都要求驗證", async () => {
     expect(await fromWatch("blocked0001")).toMatchObject({ playabilityStatus: { status: "LOGIN_REQUIRED" } });
     expect(await fromInnertube("blocked0001")).toMatchObject({ playabilityStatus: { status: "LOGIN_REQUIRED" } });
   });

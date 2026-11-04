@@ -1,21 +1,17 @@
 import Link from "next/link";
-import { after } from "next/server";
 import { Suspense } from "react";
 import { requireModule } from "@/core/auth";
-import { logError } from "@/core/errors";
 import type { ModuleInfo } from "@/core/module";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Icon } from "@/core/ui/icon";
 import { PageTheme } from "@/core/ui/page-theme";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
-import { cachedChannels, cachedRecentVideos, cachedRecheckCandidates, cachedSavedVideos } from "../../service/cached";
-import { isRecheckDue, recheckDueCaptions } from "../../service/caption-status";
-import { CaptionCheckRefresh } from "../components/caption-check-refresh";
+import { cachedChannels, cachedRecentVideos, cachedSavedVideos } from "../../service/cached";
 import { ChannelSidebar } from "../components/channel-sidebar";
 import { VideoCard } from "../components/video-card";
 import { VideoFeed } from "../components/video-feed";
 import { YoutubeSearchBar } from "../components/youtube-search-bar";
-import { captionCheckPending, unreadableCaptionCount, videoFilters } from "../video-filter";
+import { videoFilters } from "../video-filter";
 
 /** 寬螢幕一排最多 4 支 這一排的縮圖常常是 LCP 不延遲載入 */
 const FIRST_ROW = 4;
@@ -56,34 +52,18 @@ function YoutubeLogo({ info }: { info: ModuleInfo }) {
 
 export async function YoutubeHome() {
   const user = await requireModule("youtube");
-  const [channels, videos, candidates, saved] = await Promise.all([
-    cachedChannels(user.id),
-    cachedRecentVideos(user.id),
-    cachedRecheckCandidates(user.id),
-    cachedSavedVideos(user.id),
-  ]);
-  // 很多頻道上片後才補字幕 清單上有到期的影片才在背景重新檢查 沒有就不碰資料庫
+  const [channels, videos, saved] = await Promise.all([cachedChannels(user.id), cachedRecentVideos(user.id), cachedSavedVideos(user.id)]);
   const now = new Date();
-  if (candidates.some((candidate) => isRecheckDue(candidate, now))) {
-    after(() => recheckDueCaptions(user.id).catch((error: unknown) => logError("youtube", "背景重新檢查中文字幕失敗", error)));
-  }
 
   return (
-    <>
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <ChannelSidebar channels={channels} savedCount={saved.length} />
-        {videos.length === 0 ? (
-          <EmptyState icon="clapperboard" title="還沒有影片" hint="追蹤頻道後會先補上最近的影片，之後一有新影片就會出現在這裡" />
-        ) : (
-          <VideoFeed
-            unreadable={unreadableCaptionCount(videos)}
-            items={videos.map((video, i) => ({ id: video.videoId, filters: videoFilters(video), card: <VideoCard video={video} now={now} eager={i < FIRST_ROW} /> }))}
-          />
-        )}
-      </div>
-      {/* 剛追蹤時補進來的影片還沒檢查過字幕 背景檢查完自動重新整理才看得到結果 */}
-      {videos.some(captionCheckPending) && <CaptionCheckRefresh />}
-    </>
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
+      <ChannelSidebar channels={channels} savedCount={saved.length} />
+      {videos.length === 0 ? (
+        <EmptyState icon="clapperboard" title="還沒有影片" hint="追蹤頻道後會先補上最近的影片，之後一有新影片就會出現在這裡" />
+      ) : (
+        <VideoFeed items={videos.map((video, i) => ({ id: video.videoId, filters: videoFilters(video), card: <VideoCard video={video} now={now} eager={i < FIRST_ROW} /> }))} />
+      )}
+    </div>
   );
 }
 

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { markup, textOf } from "@/dev/test-helpers";
 import { accountRow, dayFlowRow, flowRow as flow } from "../../../dev/fixtures";
 import type { CardBillRecord } from "../../../service/cards";
-import type { AccountsInput, OverviewAccount } from "../../dashboard-view";
+import type { AccountsInput, OverviewAccount } from "../../accounts-state";
 
 // 視窗與選單關著時不算繪內容 換掉才看得到裡面 選單帶著名稱才分得出是哪一張卡的
 vi.mock("@/core/ui/dialog", { spy: true });
@@ -16,7 +16,7 @@ vi.mock("../../actions", () =>
 );
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/savings/accounts" }));
 // 停用與刪除成功時提示的那句要看交給誰
-vi.mock("../row-controls", { spy: true });
+vi.mock("@/core/ui/delete-menu-item", { spy: true });
 // 網址的 add 參數要看交給哪一個新增按鈕
 vi.mock("./add-account-button", { spy: true });
 // 記一筆與更新餘額另外測 這裡只看卡片交給它們哪個帳戶
@@ -30,9 +30,10 @@ vi.mock("../forms/update-balance", () => ({
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
 const actions = await import("../../actions");
-const rowControls = await import("../row-controls");
+const { DeleteMenuItem } = await import("@/core/ui/delete-menu-item");
 const { AddAccountButton } = await import("./add-account-button");
-const { accountsPageView, accountsState } = await import("../../dashboard-view");
+const { accountsPageView } = await import("../../accounts-view");
+const { accountsState } = await import("../../accounts-state");
 const { AccountsBoard } = await import("./accounts-board");
 
 const TODAY = "2026-10-15";
@@ -78,7 +79,7 @@ beforeEach(() => {
   vi.mocked(dialog.useDialogForm).mockClear();
   vi.mocked(ActionButton).mockClear();
   vi.mocked(AddAccountButton).mockClear();
-  vi.mocked(rowControls.DeleteMenuItem).mockClear();
+  vi.mocked(DeleteMenuItem).mockClear();
   vi.mocked(dialog.Dialog).mockImplementation(({ title, children }) => createElement("dialog-mock", { "data-title": typeof title === "string" ? title : "" }, children));
 });
 
@@ -249,7 +250,7 @@ describe("刪除與停用", () => {
     expect(pause.action).toBe(actions.setAccountActiveAction);
     expect(pause.successMessage).toContain("已停用「台銀」");
     expect(restore.successMessage).toContain("已恢復「舊帳戶」");
-    expect(vi.mocked(rowControls.DeleteMenuItem).mock.calls.map(([props]) => props.deletedMessage)).toEqual(expect.arrayContaining(["已刪除「台銀」", "已刪除「舊帳戶」"]));
+    expect(vi.mocked(DeleteMenuItem).mock.calls.map(([props]) => props.deletedMessage)).toEqual(expect.arrayContaining(["已刪除「台銀」", "已刪除「舊帳戶」"]));
     expect(markup).toMatch(/<section aria-labelledby="fin-deposits"[^>]*data-focus-frame=""[^>]*tabindex="-1"/);
     expect(markup).toMatch(/<section aria-labelledby="fin-cards"[^>]*data-focus-frame=""[^>]*tabindex="-1"/);
   });

@@ -317,6 +317,7 @@ function endgame(kind, scheduleType) {
       ...(kind === "challenge_boss" ? { last_update_time: partial(end) } : {}),
       node_1: node(0, 0),
       node_2: node(1, 1),
+      node_3: node(2, 2),
     };
   });
   const starNum = floors.reduce((sum, f) => sum + f.star_num, 0) + (kind === "challenge" ? (previous ? 27 : 24) : previous ? 6 : 3);
@@ -375,6 +376,28 @@ function redeem({ cdkey = "", uid = "" }, isExpired) {
   return { retcode: -2003, message: "Invalid redemption code", data: null };
 }
 
+const WARP_KEY = "mock+key";
+const WARP_ROWS = {
+  // 由舊到新的數字是稀有度 五星固定在幾個位置 畫面上算得出已墊幾抽
+  11: { total: 47, fives: { 12: "希兒", 38: "卡芙卡" } },
+  12: { total: 23, fives: { 18: "於夜色中" } },
+  1: { total: 8, fives: {} },
+};
+/** 新的在前 end_id 是上一頁最舊那筆 跟真的一樣一頁最多 size 筆 */
+function warpPage(bannerType, endId, size) {
+  const banner = WARP_ROWS[bannerType];
+  if (!banner) return { page: "1", size: String(size), list: [], region: "prod_official_cht", region_time_zone: 8 };
+  const base = 1762000000000000000n + BigInt(bannerType) * 1_000_000n;
+  const rows = Array.from({ length: banner.total }, (_, i) => {
+    const position = banner.total - i;
+    const five = banner.fives[position];
+    const time = new Date(Date.UTC(2026, 10, 3, 13, 0, 0) - i * 3_600_000 + 8 * 3_600_000).toISOString().slice(0, 19).replace("T", " ");
+    return { uid: "900000001", gacha_id: "2001", gacha_type: String(bannerType), item_id: five ? "1102" : "20000", count: "1", time, name: five ?? (position % 10 === 0 ? "三月七" : "蓋帝亞的回音"), lang: "zh-tw", item_type: position % 2 ? "光錐" : "角色", rank_type: five ? "5" : position % 10 === 0 ? "4" : "3", id: String(base + BigInt(position)) };
+  });
+  const start = endId === "0" ? 0 : rows.findIndex((row) => row.id === endId) + 1;
+  return { page: "1", size: String(size), list: rows.slice(start, start + size), region: "prod_official_cht", region_time_zone: 8 };
+}
+
 export function handle({ req, url, body, json, image }) {
   const cookie = req.headers.cookie ?? "";
   const isExpired = cookie.includes("ltoken_v2=expired");
@@ -412,6 +435,14 @@ export function handle({ req, url, body, json, image }) {
     if (cookie.includes("ltoken_v2=private")) return json(200, notPublic);
     const roster = url.searchParams.get("role_id") === SMALL_UID ? SMALL_ROSTER : CHARACTERS;
     return json(200, ok({ avatar_list: roster.map(detail), equip_wiki: {}, relic_wiki: {}, property_info, recommend_property: {}, relic_properties: [] }));
+  }
+  if (url.pathname === "/binding/api/genAuthKeyByCookieToken" && req.method === "POST") {
+    if (isExpired || !hasCookieKey(cookie, "cookie_token_v2")) return json(200, ledgerLogin);
+    return json(200, ok({ authkey: encodeURIComponent(WARP_KEY), authkey_ver: 1, sign_type: 2 }));
+  }
+  if (url.pathname === "/common/gacha_record/api/getGachaLog" || url.pathname === "/common/gacha_record/api/getLdGachaLog") {
+    if (url.searchParams.get("authkey") !== WARP_KEY) return json(200, { retcode: -100, message: "authkey error", data: null });
+    return json(200, ok(warpPage(url.searchParams.get("gacha_type"), url.searchParams.get("end_id") ?? "0", Number(url.searchParams.get("size") ?? 20))));
   }
   if (url.pathname === "/event/srledger/month_info") {
     if (isExpired) return json(200, expired);

@@ -2,8 +2,9 @@ import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { markup as render, textOf } from "@/dev/test-helpers";
 import { toasts } from "@/dev/toast-stub";
-import type { BillDraft, HoldingView, PendingEntry } from "../../dashboard-view";
+import type { BillDraft, HoldingView } from "../../account-details";
 import type { ChecklistRow, QuickActionsView } from "../../overview-view";
+import type { PendingEntry } from "../../pending-view";
 
 // 視窗與選單關著時不算繪內容 換掉才看得到裡面 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });

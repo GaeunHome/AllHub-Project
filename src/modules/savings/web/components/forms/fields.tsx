@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, type ChangeEvent, type ReactNode } from "react";
-import { Icon, type UiIconName } from "@/core/ui/icon";
+import { Icon } from "@/core/ui/icon";
 import { MIN_DATE } from "../../../lib/dates";
 import { LABEL_MAX_LENGTH, NAME_MAX_LENGTH, NOTE_MAX_LENGTH, categoryIconOf } from "../../../lib/kinds";
 import { UNCATEGORIZED_LABEL } from "../../entry-display";
@@ -223,22 +223,5 @@ export function CheckboxField({ name, label, defaultChecked, checked, onCheckedC
       <input type="checkbox" name={name} {...controlled} className="size-4.5 shrink-0" />
       {label}
     </label>
-  );
-}
-
-type FormButtonsProps = { pending: boolean; onCancel: () => void; label: string; pendingLabel: string; icon?: UiIconName; disabled?: boolean };
-
-/** 取消不會送出表單 送出中兩個都停用 */
-export function FormButtons({ pending, onCancel, label, pendingLabel, icon = "check", disabled = false }: FormButtonsProps) {
-  return (
-    <div className="button-row justify-end">
-      <button type="button" onClick={onCancel} disabled={pending} className="btn-ghost">
-        取消
-      </button>
-      <button disabled={pending || disabled} className="btn-primary">
-        <Icon name={icon} className="size-4" />
-        {pending ? pendingLabel : label}
-      </button>
-    </div>
   );
 }

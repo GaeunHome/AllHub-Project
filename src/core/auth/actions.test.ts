@@ -4,8 +4,8 @@ import { captureErrorLog, form, mocksOf } from "@/dev/test-helpers";
 
 const SECRET = "s".repeat(32);
 const USER_ID = "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f";
-const PASSWORD = "correct horse battery";
-const NEW_PASSWORD = "plum blossom 2026";
+const PASSWORD = "Correct horse battery";
+const NEW_PASSWORD = "Plum blossom 2026";
 
 stubCoreEnv({ SESSION_SECRET: SECRET });
 
@@ -28,14 +28,14 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const users = vi.hoisted(() => ({ authenticate: vi.fn(), changePassword: vi.fn(), findSessionUser: vi.fn(), hasAnyUser: vi.fn(), deleteOwnAccount: vi.fn(), updateNickname: vi.fn() }));
+const users = vi.hoisted(() => ({ updateAvatar: vi.fn(), authenticate: vi.fn(), changePassword: vi.fn(), findSessionUser: vi.fn(), hasAnyUser: vi.fn(), deleteOwnAccount: vi.fn(), updateNickname: vi.fn() }));
 vi.mock("./users", () => users);
 // 驗證碼本身另外測 這裡預設答對 專心測登入流程
 vi.mock("./captcha", { spy: true });
 
 const captcha = mocksOf(await import("./captcha"), "takeCaptchaToken", "verifyCaptcha");
 const { audit, auditActor, auditLoginFailure } = await import("@/dev/audit-stub");
-const { changePasswordAction, deleteAccountAction, login, logout, updateNicknameAction } = await import("./actions");
+const { changePasswordAction, deleteAccountAction, login, logout, updateAvatarAction, updateNicknameAction } = await import("./actions");
 const { SESSION_COOKIE, signSession, verifySessionToken } = await import("./session");
 
 let ipSeq = 0;
@@ -276,6 +276,25 @@ describe("deleteAccountAction", () => {
 
     expect(await deleteAccountAction({}, form({ password: PASSWORD }))).toEqual({ error: "刪除帳號失敗（詳見伺服器 log）" });
     expect(request.jar.has(SESSION_COOKIE)).toBe(true);
+  });
+});
+
+describe("updateAvatarAction", () => {
+  it("沒登入_導向登入頁_不寫入", async () => {
+    users.findSessionUser.mockResolvedValue(null);
+
+    await expect(updateAvatarAction({}, form({ avatar: "cat" }))).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(users.updateAvatar).not.toHaveBeenCalled();
+  });
+
+  it("只改登入者自己的：表單塞別人的 id 也沒有用", async () => {
+    request.jar.set(SESSION_COOKIE, { value: await signSession({ userId: USER_ID, version: 1 }, SECRET) });
+    users.findSessionUser.mockResolvedValue({ id: USER_ID, username: "alice", nickname: null, avatar: null, role: "member" });
+    users.updateAvatar.mockResolvedValue({ ok: true, avatar: "cat" });
+
+    await updateAvatarAction({}, form({ avatar: "cat", userId: "someone-else" }));
+
+    expect(users.updateAvatar).toHaveBeenCalledWith(USER_ID, "cat");
   });
 });
 

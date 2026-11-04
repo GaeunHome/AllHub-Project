@@ -4,18 +4,15 @@ import { insertTestUser, insertTestUsers, pgliteOf, setupTestDb, type TestDb } f
 import { stubYoutubeEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 import { youtubeChannels, youtubeFollows, youtubeSettings, youtubeTranslations, youtubeVideos } from "../data/schema";
-import { CHANNEL_ID as CH, KOREAN_TRACKS, OTHER_CHANNEL_ID as OTHER, follow as followAs, insertChannel as insertChannelRow } from "../dev/fixtures";
+import { CHANNEL_ID as CH, OTHER_CHANNEL_ID as OTHER, follow as followAs, insertChannel as insertChannelRow } from "../dev/fixtures";
 
 stubYoutubeEnv();
 
 vi.mock("../lib/api", { spy: true });
 vi.mock("@/core/notify", { spy: true });
-// 清理後再推送的影片會去讀觀看頁判斷有沒有中文字幕 測試不能真的連 YouTube
-vi.mock("../lib/subtitles/captions", { spy: true });
 
 const api = mocksOf(await import("../lib/api"), "fetchChannelFeed", "hubRequest", "checkIsShort");
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
-const { listCaptionTracks } = mocksOf(await import("../lib/subtitles/captions"), "listCaptionTracks");
 
 const channels = await import("./channels");
 const { handleFeed, renewSubscriptions } = channels;
@@ -42,7 +39,6 @@ beforeEach(async () => {
   api.hubRequest.mockReset().mockResolvedValue(undefined);
   api.checkIsShort.mockReset().mockResolvedValue(null);
   notify.mockReset().mockResolvedValue(undefined);
-  listCaptionTracks.mockReset().mockResolvedValue(KOREAN_TRACKS);
   return () => vi.useRealTimers();
 });
 

@@ -8,7 +8,8 @@ import { pendingItems, type PendingRecurring, type PendingRuleRow } from "../lib
 import type { Quote } from "../lib/quotes";
 import { nextRunDate, recurringNames, recurringTitle, scheduleDay } from "../lib/recurring";
 import type { AccountChoice, CategoryOption, HoldingOption, RecurringDraft, SalaryAccountOption } from "./components/forms/options";
-import { categoryOptions, formExtras, pendingEntries, salaryAccountOptions, type ConfirmDraft, type SalaryPrefill } from "./dashboard-view";
+import { categoryOptions, formExtras, salaryAccountOptions } from "./form-options";
+import { pendingEntries, type ConfirmDraft, type SalaryPrefill } from "./pending-view";
 import { sortByNextDate } from "./settings-display";
 
 // 每月固定頁與投資頁的定期定額 伺服器整理好畫面要的形狀

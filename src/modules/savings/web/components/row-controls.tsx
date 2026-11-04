@@ -8,7 +8,6 @@ import { Icon, type UiIconName } from "@/core/ui/icon";
 import { formatMonth } from "../../lib/month";
 import { skipOccurrenceAction } from "../actions";
 
-export { DeleteMenuItem } from "@/core/ui/delete-menu-item";
 
 type RowAction = (previous: FormState, formData: FormData) => Promise<FormState>;
 

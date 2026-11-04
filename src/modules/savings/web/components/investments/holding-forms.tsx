@@ -3,13 +3,14 @@
 import { useId } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { Fact, FactList } from "@/core/ui/fact-list";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { formatSlashDate, type DateKey } from "../../../lib/dates";
+import type { HoldingView } from "../../account-details";
 import { buyHoldingAction, createHoldingAction, sellHoldingAction, updateHoldingAction } from "../../actions";
-import type { HoldingView } from "../../dashboard-view";
 import { formatShares, priceText } from "../../format";
 import { pickAccount } from "../../last-used";
-import { AccountSelect, AmountField, DateField, FormButtons, NoteField } from "../forms/fields";
+import { AccountSelect, AmountField, DateField, NoteField } from "../forms/fields";
 import type { AccountOption } from "../forms/options";
 
 type DoneProps = { onDone: (message: string | undefined) => void; onCancel: () => void };

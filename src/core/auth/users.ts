@@ -1,13 +1,15 @@
 import "server-only";
 import { and, asc, eq, isNull, lte, or, sql, type SQL } from "drizzle-orm";
+import { avatarOf, type AvatarId } from "../avatars";
 import { db } from "../db";
 import { coreUsers, type UserRole } from "../db/schema";
+import { userAvatar } from "../db/users";
 import { hashPassword, needsRehash, newPasswordProblem, normalizeUsername, usernameProblem, verifyPassword } from "./credentials";
 import { nicknameProblem, normalizeNickname } from "./nickname";
 import type { SessionClaims } from "./session";
 
 export type { UserRole } from "../db/schema";
-export type SessionUser = { id: string; username: string; nickname: string | null; role: UserRole };
+export type SessionUser = { id: string; username: string; nickname: string | null; avatar: string | null; role: UserRole };
 
 /**
  * 每錯 failures 次鎖一次 依序用 minutes 的分鐘數 之後都用最後一個
@@ -25,6 +27,8 @@ export type ChangePasswordResult =
 export type DeleteAccountResult = { ok: true } | { ok: false; reason: "wrong_password" | "last_owner" | "not_found"; error: string };
 
 export type UpdateNicknameResult = { ok: true; nickname: string | null } | { ok: false; error: string };
+
+export type UpdateAvatarResult = { ok: true; avatar: AvatarId | null } | { ok: false; error: string };
 
 const NOT_FOUND_MESSAGE = "找不到這個帳號，請重新登入";
 
@@ -75,7 +79,7 @@ function lockedUntilAfter(count: SQL, now: Date): SQL {
 export async function findSessionUser({ userId, version }: SessionClaims): Promise<SessionUser | null> {
   const [user] = await db()
     // 每個請求都會走到這裡 新程式比 migration 先上線時欄位還不存在 從整列取值才不會全站登入失敗
-    .select({ id: coreUsers.id, username: coreUsers.username, nickname: sql<string | null>`to_jsonb(${coreUsers}) ->> 'nickname'`, role: coreUsers.role })
+    .select({ id: coreUsers.id, username: coreUsers.username, nickname: sql<string | null>`to_jsonb(${coreUsers}) ->> 'nickname'`, avatar: userAvatar, role: coreUsers.role })
     .from(coreUsers)
     .where(and(eq(coreUsers.id, userId), eq(coreUsers.sessionVersion, version), isNull(coreUsers.disabledAt)));
   return user ?? null;
@@ -91,7 +95,6 @@ export async function hasAnyUser(): Promise<boolean> {
  * 呼叫端要用回傳的新版本重發這台裝置的 cookie
  */
 export async function changePassword(userId: string, currentPassword: string, newPassword: string): Promise<ChangePasswordResult> {
-  // 長度與常見密碼不必查資料庫 包含帳號名稱要等讀到帳號才知道
   const problem = newPasswordProblem(newPassword);
   if (problem) return { ok: false, reason: "invalid", error: problem };
 
@@ -99,8 +102,6 @@ export async function changePassword(userId: string, currentPassword: string, ne
   if (!(await verifyPassword(currentPassword, user?.passwordHash ?? null)) || !user) {
     return user ? { ok: false, reason: "wrong_password", error: "目前的密碼不正確" } : { ok: false, reason: "not_found", error: NOT_FOUND_MESSAGE };
   }
-  const nameProblem = newPasswordProblem(newPassword, user.username);
-  if (nameProblem) return { ok: false, reason: "invalid", error: nameProblem };
   if (newPassword.normalize("NFKC") === currentPassword.normalize("NFKC")) return { ok: false, reason: "invalid", error: "新密碼不能跟目前的密碼一樣" };
 
   const [updated] = await db()
@@ -120,6 +121,14 @@ export async function updateNickname(userId: string, input: string): Promise<Upd
   if (problem) return { ok: false, error: problem };
   const rows = await db().update(coreUsers).set({ nickname, updatedAt: new Date() }).where(eq(coreUsers.id, userId)).returning({ id: coreUsers.id });
   return rows.length > 0 ? { ok: true, nickname } : { ok: false, error: NOT_FOUND_MESSAGE };
+}
+
+/** 空字串是改回文字頭像 只存範例頭像的 id 換一張就是蓋掉舊的 userId 一律來自 session */
+export async function updateAvatar(userId: string, input: string): Promise<UpdateAvatarResult> {
+  const avatar = avatarOf(input);
+  if (input !== "" && avatar === null) return { ok: false, error: "找不到這個頭像，請重新整理頁面" };
+  const rows = await db().update(coreUsers).set({ avatar, updatedAt: new Date() }).where(eq(coreUsers.id, userId)).returning({ id: coreUsers.id });
+  return rows.length > 0 ? { ok: true, avatar } : { ok: false, error: NOT_FOUND_MESSAGE };
 }
 
 /**

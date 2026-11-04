@@ -35,9 +35,6 @@ export const youtubeFollows = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.channelId] }), index("youtube_follows_channel_id_idx").on(t.channelId)],
 ).enableRLS();
 
-/** yes 有人工上傳的中文字幕 no 讀得到清單但沒有 unknown 還沒檢查或被擋 */
-export type ZhCaptionStatus = "yes" | "no" | "unknown";
-
 /** 影片共用 每人看自己追蹤頻道的最新 20 支 不在任何人清單裡的由 cleanup 刪掉 */
 export const youtubeVideos = pgTable("youtube_videos", {
   id: serial("id").primaryKey(),
@@ -47,9 +44,6 @@ export const youtubeVideos = pgTable("youtube_videos", {
   title: text("title").notNull(),
   publishedAt: timestamp("published_at", { withTimezone: true }),
   notifiedAt: timestamp("notified_at", { withTimezone: true }),
-  zhCaptions: text("zh_captions", { enum: ["yes", "no", "unknown"] }).notNull().default("unknown"),
-  /** 很多頻道上片後才補字幕 影片清單依這個時間決定要不要再檢查 */
-  zhCaptionsCheckedAt: timestamp("zh_captions_checked_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 

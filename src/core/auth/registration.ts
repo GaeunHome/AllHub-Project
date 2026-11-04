@@ -20,7 +20,7 @@ class UsernameTaken extends Error {}
  */
 export async function registerMember({ code, username: input, password, confirmPassword }: RegisterInput, now = new Date()): Promise<RegisterResult> {
   const username = normalizeUsername(input);
-  const problem = usernameProblem(username) ?? (password !== confirmPassword ? "兩次輸入的密碼不一樣" : newPasswordProblem(password, username));
+  const problem = usernameProblem(username) ?? (password !== confirmPassword ? "兩次輸入的密碼不一樣" : newPasswordProblem(password));
   if (problem) return { ok: false, reason: "invalid", error: problem };
   if (!isInviteToken(code)) return INVITE_INVALID;
 

@@ -1,6 +1,6 @@
 import type { AccountKind, CategoryKind, EntryKind, HolidayRule, RecurringMode } from "../../../lib/kinds";
 
-// 頁面整理好這些形狀交給表單 表單不自己讀資料 整理的函式在 web/dashboard-view.ts
+// 頁面整理好這些形狀交給表單 表單不自己讀資料 整理的函式在 web/form-options.ts
 
 /**
  * 啟用中的帳戶照帳戶頁的順序 payFromAccountId 是繳卡費的轉出 startDate 是日期欄位的下限

@@ -16,6 +16,7 @@ import { LedgerPanel, LedgerSkeleton } from "../components/ledger-panel";
 import { LinkAccountForm } from "../components/link-account-form";
 import { RedeemPanel } from "../components/redeem-panel";
 import { StarrailBanner } from "../components/starrail-banner";
+import { WarpCard, WarpCardSkeleton } from "../components/warp-card";
 import { gameFont } from "../game-font";
 
 // web 層不能 import 模組根目錄 圖示 名稱 點綴色由 src/app 從 info.ts 傳進來
@@ -76,6 +77,9 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
           <EndgamePanel account={account} />
         </Suspense>
       </div>
+      <Suspense key={`warps-${account.id}`} fallback={<WarpCardSkeleton />}>
+        <WarpCard account={account} />
+      </Suspense>
       {/* 超寬螢幕時兌換碼跟簽到紀錄並排 同一列的卡片等高撐滿整格 */}
       <div className="grid gap-8 2xl:grid-cols-2 [&>section>.sr-panel]:flex-1">
         <RedeemPanel key={`redeem-${account.id}`} accountId={account.id} label={`${serverLabel(account.region)} · ${account.nickname ?? "開拓者"}（UID ${account.uid}）`} />

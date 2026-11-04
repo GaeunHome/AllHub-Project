@@ -26,6 +26,7 @@ import {
   type Profile,
 } from "./responses";
 import { CHECKIN_ACT_ID } from "./urls";
+import { WARP_PAGE_SIZE, interpretWarpPage, parseAuthkey, type WarpPage } from "./warps";
 
 // HoYoLAB 國際服的非官方介面 還沒用真實帳號驗證
 // 改版就可能失效 呼叫端都要能處理失敗
@@ -36,6 +37,11 @@ const LEDGER_URL = "https://sg-public-api.hoyolab.com/event/srledger/month_info"
 const REDEEM_URL = "https://public-operation-hkrpg.hoyoverse.com/common/apicdkey/api/webExchangeCdkeyRisk";
 const GIFT_PAGE = "https://hsr.hoyoverse.com";
 const CHECKIN_BASE = "https://sg-public-api.hoyolab.com/event/luna/os";
+const AUTHKEY_URL = "https://api-account-os.hoyoverse.com/binding/api/genAuthKeyByCookieToken";
+const WARP_BASE = "https://public-operation-hkrpg-sg.hoyoverse.com/common/gacha_record/api";
+const GAME_BIZ = "hkrpg_global";
+/** 聯動卡池走另一個端點 */
+const COLLAB_BANNERS: readonly number[] = [21, 22];
 
 /** 自動兌換的排程要在 60 秒內跑完 兌換的請求最多等 10 秒 */
 const REDEEM_TIMEOUT_MS = 10_000;
@@ -117,6 +123,35 @@ export async function fetchLedger(cookie: string, uid: string, region: string, m
   const query = new URLSearchParams({ uid, region, month, lang: "zh-tw" });
   const json = await call(`${LEDGER_URL}?${query}`, { headers: headers(sent) });
   return explainLedgerLogin(interpretLedger(json, month), json, cookieKeys(sent));
+}
+
+/**
+ * 用 cookie 換讀躍遷紀錄的金鑰 不用碰遊戲檔案 雲端遊戲也能用
+ * 要 cookie_token_v2 與 account_ 開頭的鍵 照 genshin.py 的 fetch_authkey
+ */
+export async function fetchWarpAuthkey(cookie: string, uid: string, region: string): Promise<HoyolabResult<string | null>> {
+  const json = await call(AUTHKEY_URL, {
+    method: "POST",
+    headers: { Cookie: withAccountIds(cookie), "User-Agent": USER_AGENT, "Content-Type": "application/json" },
+    body: JSON.stringify({ game_uid: uid, region, game_biz: GAME_BIZ, auth_appid: "webview_gacha" }),
+  });
+  return interpretWith(json, parseAuthkey);
+}
+
+/** 不用 cookie 金鑰放在網址參數裡 call 的 log 只記路徑 end_id 是這一頁最舊那筆 0 是最新一頁 */
+export async function fetchWarpPage(authkey: string, bannerType: number, endId: string): Promise<HoyolabResult<WarpPage>> {
+  const endpoint = COLLAB_BANNERS.includes(bannerType) ? "getLdGachaLog" : "getGachaLog";
+  const query = new URLSearchParams({
+    authkey_ver: "1",
+    authkey,
+    lang: "zh-tw",
+    game_biz: GAME_BIZ,
+    gacha_type: String(bannerType),
+    real_gacha_type: String(bannerType),
+    size: String(WARP_PAGE_SIZE),
+    end_id: endId,
+  });
+  return interpretWarpPage(await call(`${WARP_BASE}/${endpoint}?${query}`, { headers: { "User-Agent": USER_AGENT } }), bannerType);
 }
 
 /** 混沌回憶 虛構敘事 末日幻影的戰績 schedule_type 1 是本期 2 是上期 */

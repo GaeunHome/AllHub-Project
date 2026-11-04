@@ -12,7 +12,7 @@ vi.mock("../../service/cached", { spy: true });
 
 const cached = mocksOf(await import("../../service/cached"), "cachedSavedVideos", "cachedVideoInfo");
 const actions = await import("../actions");
-const { ActionButton } = await import("@/core/ui/action-button");
+const { DeleteMenuItem } = await import("@/core/ui/delete-menu-item");
 const { EmptyState } = await import("@/core/ui/empty-state");
 const { SavedVideoCard } = await import("../components/saved-video-card");
 const { SavedVideoList } = await import("../components/saved-video-list");
@@ -90,7 +90,7 @@ describe("已保留的影片（/youtube/saved）", () => {
     cached.cachedSavedVideos.mockResolvedValue([savedVideo("pinned00001")]);
     const [item] = (await loaded()).props.items;
 
-    const remove = findByType(SavedVideoCard(item.card.props), ActionButton) as ReactElement<{ action: unknown; fields: object; confirmMessage: string }>;
+    const remove = findByType(SavedVideoCard(item.card.props), DeleteMenuItem) as ReactElement<{ action: unknown; fields: object; confirmMessage: string }>;
 
     expect(remove.props.action).toBe(actions.removeSavedVideoAction);
     expect(remove.props.fields).toEqual({ videoId: "pinned00001" });

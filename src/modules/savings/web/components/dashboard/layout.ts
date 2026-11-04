@@ -17,5 +17,9 @@ export const OVERVIEW_LEFT = "page-stack min-w-0";
 
 export const OVERVIEW_RIGHT = "page-stack min-w-0 2xl:contents";
 
-/** 帳戶頁的卡片 同一列等寬等高 寬螢幕多排幾張 */
-export const ACCOUNTS_GRID = "grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
+/** 一個東西一張卡 同一列等寬等高 寬螢幕多排幾張 帳戶 持股 每月固定與分類共用 */
+export const CARD_GRID = "grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
+
+/** 新增的按鈕排在最後一格 虛線框跟卡片一樣圓 */
+export const ADD_TILE =
+  "flex min-h-20 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-line-strong p-5 text-sm font-semibold text-ink-soft transition-colors hover:border-[var(--muted)] hover:bg-surface-muted hover:text-ink";

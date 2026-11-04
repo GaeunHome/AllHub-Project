@@ -229,7 +229,7 @@ function ItemMenu({ item, context, tripId }: { item: TripItem; context: BoardCon
           <Icon name="arrow-left-right" className="size-4" />
           移到別天
         </button>
-        <DeleteMenuItem action={deleteItemAction.bind(null, tripId)} id={item.id} confirmMessage={`確定刪除「${item.title}」？`} label="刪除" deletedMessage={`已刪除「${item.title}」`} />
+        <DeleteMenuItem action={deleteItemAction.bind(null, tripId)} fields={{ id: item.id }} confirmMessage={`確定刪除「${item.title}」？`} label="刪除" deletedMessage={`已刪除「${item.title}」`} />
       </MoreMenu>
       <Dialog {...edit.dialogProps} title={`修改「${item.title}」`} size="sm">
         <ItemForm tripId={tripId} item={item} onDone={edit.done} onCancel={edit.close} />

@@ -6,7 +6,7 @@ import { asc, eq, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import { PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH, hashPassword, newPasswordProblem, normalizeUsername, usernameProblem } from "../core/auth/credentials.ts";
+import { PASSWORD_CASE_RULE, PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH, hashPassword, newPasswordProblem, normalizeUsername, usernameProblem } from "../core/auth/credentials.ts";
 import { ROLE_LABELS, coreUsers } from "../core/db/schema.ts";
 import { errorKind } from "../core/errors.ts";
 
@@ -150,9 +150,9 @@ async function findUser(db: AccountDb, username: string) {
 }
 
 /** 跟網站的註冊與改密碼同一套規則 */
-async function askNewPassword(prompter: Prompter, label: string, username: string): Promise<string> {
-  const password = await prompter.askSecret(`${label}（至少 ${PASSWORD_MIN_LENGTH} 個字元，輸入時不會顯示）：`);
-  const problem = newPasswordProblem(password, username);
+async function askNewPassword(prompter: Prompter, label: string): Promise<string> {
+  const password = await prompter.askSecret(`${label}（至少 ${PASSWORD_MIN_LENGTH} 個字元，${PASSWORD_CASE_RULE}，輸入時不會顯示）：`);
+  const problem = newPasswordProblem(password);
   if (problem) throw new CliError(problem);
   if ((await prompter.askSecret(`再輸入一次${label}：`)) !== password) throw new CliError("兩次輸入的密碼不一樣，沒有變更");
   return password;
@@ -165,7 +165,7 @@ async function create(db: AccountDb, deps: AccountDeps): Promise<number> {
   const exists = `帳號 ${username} 已經存在；要改密碼請用 npm run account -- passwd ${username}`;
   if (await findUser(db, username)) throw new CliError(exists);
 
-  const password = await askNewPassword(deps.prompter, "密碼", username);
+  const password = await askNewPassword(deps.prompter, "密碼");
   try {
     await db.insert(coreUsers).values({ username, passwordHash: await hashPassword(password), role: OWNER_IF_FIRST });
   } catch (error) {
@@ -183,7 +183,7 @@ async function passwd(db: AccountDb, username: string, deps: AccountDeps): Promi
   // 名稱可能是誤貼的密碼 找不到時不回顯
   if (!user) throw new CliError(`找不到這個帳號（${LIST_HINT}）`);
 
-  const password = await askNewPassword(deps.prompter, "新密碼", user.username);
+  const password = await askNewPassword(deps.prompter, "新密碼");
   await db
     .update(coreUsers)
     // session 版本在資料庫裡加一 同時執行也不會少加 舊 cookie 一定失效

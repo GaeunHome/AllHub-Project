@@ -1,19 +1,20 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { VIDEO_FILTERS, type VideoFilter } from "../video-filter";
 
 export type FeedItem = { id: string; filters: VideoFilter[]; card: ReactNode };
 
 /** 卡片由伺服器算繪好傳進來 這裡只決定顯示哪些 切換時不必再問伺服器 */
-export function VideoFeed({ items, unreadable }: { items: FeedItem[]; unreadable: number }) {
+export function VideoFeed({ items }: { items: FeedItem[] }) {
   const [filter, setFilter] = useState<VideoFilter>("all");
   const shown = items.filter((item) => item.filters.includes(filter));
   const label = VIDEO_FILTERS.find((option) => option.id === filter)?.label;
 
   return (
     <div className="stack min-w-0">
-      <div role="group" aria-label="篩選影片" className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
+      <div {...DRAG_SCROLL} role="group" aria-label="篩選影片" className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
         {VIDEO_FILTERS.map((option) => (
           <button key={option.id} type="button" aria-pressed={option.id === filter} onClick={() => setFilter(option.id)} className="yt-chip">
             {option.label}
@@ -21,10 +22,7 @@ export function VideoFeed({ items, unreadable }: { items: FeedItem[]; unreadable
         ))}
       </div>
       {shown.length === 0 ? (
-        <div className="yt-box text-center">
-          <p className="text-ink-soft">目前沒有「{label}」的影片</p>
-          {filter === "zh" && unreadable > 0 && <p className="text-ink-soft">另外有 {unreadable} 支影片讀不到字幕資訊，YouTube 可能擋下了伺服器的請求，之後會自動再試</p>}
-        </div>
+        <p className="yt-box text-center text-ink-soft">目前沒有「{label}」的影片</p>
       ) : (
         <ul className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {shown.map((item) => (

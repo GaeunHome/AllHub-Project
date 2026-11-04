@@ -22,12 +22,11 @@ const {
   passwordProblem,
   usernameProblem,
   verifyPassword,
-  weakPasswordProblem,
 } = await import("./credentials");
 
 // 測試用低成本參數 只有確認預設值的測試才用正式參數
 const FAST = { N: 1024, r: 8, p: 1 };
-const PASSWORD = "correct horse battery";
+const PASSWORD = "Correct horse battery";
 
 describe("hashPassword", () => {
   it("雜湊字串帶演算法與參數（scrypt$N$r$p$salt$hash）_每次的 salt 都不同", async () => {
@@ -118,15 +117,15 @@ describe("needsRehash", () => {
 });
 
 describe("passwordProblem", () => {
-  it("至少 12 個字元", () => {
-    expect(PASSWORD_MIN_LENGTH).toBe(12);
-    expect(passwordProblem("a".repeat(11))).toBe("密碼至少 12 個字元");
-    expect(passwordProblem("a".repeat(12))).toBeNull();
+  it("至少 8 個字元", () => {
+    expect(PASSWORD_MIN_LENGTH).toBe(8);
+    expect(passwordProblem("a".repeat(7))).toBe("密碼至少 8 個字元");
+    expect(passwordProblem("a".repeat(8))).toBeNull();
   });
 
   it("字數以字元計算_中文與 emoji 一個算一個", () => {
-    expect(passwordProblem("密碼密碼密碼密碼密碼密碼")).toBeNull();
-    expect(passwordProblem("🌸".repeat(11))).toBe("密碼至少 12 個字元");
+    expect(passwordProblem("密碼密碼密碼密碼")).toBeNull();
+    expect(passwordProblem("🌸".repeat(7))).toBe("密碼至少 8 個字元");
   });
 
   it("太長的密碼擋下", () => {
@@ -135,49 +134,28 @@ describe("passwordProblem", () => {
   });
 });
 
-describe("weakPasswordProblem：常見弱密碼與帳號名稱", () => {
-  const COMMON = "這個密碼太常見，容易被猜到，請換一個";
-  const REPEATED = "密碼不能只是同一段字重複，請換一個";
-  const HAS_USERNAME = "密碼不能包含帳號名稱";
+describe("newPasswordProblem：設定新密碼的規則（使用者要的：8 碼以上，同時有英文大小寫）", () => {
+  const NEEDS_CASE = "密碼要同時有英文大寫與小寫";
 
-  it.each(["password1234", "Password1234", "123456789012", "qwerty123456", "1q2w3e4r5t6y", "iloveyou1234", "correct horse battery staple", "correcthorsebatterystaple"])(
-    "內建清單裡的常見密碼（%s）_擋下",
-    (password) => {
-      expect(weakPasswordProblem(password)).toBe(COMMON);
-    },
-  );
-
-  it("比對前先正規化：全形與大小寫不同也算同一個常見密碼", () => {
-    expect(weakPasswordProblem("ＰＡＳＳＷＯＲＤ１２３４")).toBe(COMMON);
-    expect(weakPasswordProblem("QWERTY123456")).toBe(COMMON);
-  });
-
-  it.each(["aaaaaaaaaaaa", "abcabcabcabc", "qwertyqwerty", "121212121212", "密碼密碼密碼密碼密碼密碼"])("同一小段重複（%s）_擋下", (password) => {
-    expect(weakPasswordProblem(password)).toBe(REPEATED);
-  });
-
-  it("包含帳號名稱（不分大小寫、全形也算）_擋下", () => {
-    expect(weakPasswordProblem("Alice-loves-green-tea", "alice")).toBe(HAS_USERNAME);
-    expect(weakPasswordProblem("my ＡＬＩＣＥ 2026 key", "alice")).toBe(HAS_USERNAME);
-  });
-
-  it("不常見、沒有重複、也不含帳號名稱_可以", () => {
-    expect(weakPasswordProblem("plum blossom 2026", "alice")).toBeNull();
-    expect(weakPasswordProblem("correct horse battery")).toBeNull();
-    expect(weakPasswordProblem("a long walk to tamsui")).toBeNull();
-  });
-});
-
-describe("newPasswordProblem：設定新密碼時的完整規則（長度＋弱密碼＋帳號名稱）", () => {
   it("先檢查長度", () => {
-    expect(newPasswordProblem("alice", "alice")).toBe("密碼至少 12 個字元");
-    expect(newPasswordProblem("a".repeat(PASSWORD_MAX_LENGTH + 1), "bob")).toBe(`密碼最多 ${PASSWORD_MAX_LENGTH} 個字元`);
+    expect(newPasswordProblem("Abc1234")).toBe("密碼至少 8 個字元");
+    expect(newPasswordProblem("Aa".repeat(PASSWORD_MAX_LENGTH))).toBe(`密碼最多 ${PASSWORD_MAX_LENGTH} 個字元`);
   });
 
-  it("長度夠再檢查常見密碼與帳號名稱", () => {
-    expect(newPasswordProblem("password1234", "bob")).toBe("這個密碼太常見，容易被猜到，請換一個");
-    expect(newPasswordProblem("bob-the-builder-26", "bob")).toBe("密碼不能包含帳號名稱");
-    expect(newPasswordProblem("plum blossom 2026", "bob")).toBeNull();
+  it("剛好 8 碼、有大小寫_可以", () => {
+    expect(newPasswordProblem("Abcd1234")).toBeNull();
+  });
+
+  it.each(["abcd1234", "ABCD1234", "12345678", "密碼密碼密碼密碼"])("少了大寫或小寫（%s）_擋下", (password) => {
+    expect(newPasswordProblem(password)).toBe(NEEDS_CASE);
+  });
+
+  it("不要求數字或符號", () => {
+    expect(newPasswordProblem("Abcdefgh")).toBeNull();
+  });
+
+  it("全形英文不算：輸入法切到全形時打出來的字，登入時很難再打一樣", () => {
+    expect(newPasswordProblem("ＡｂＣｄ１２３４")).toBe(NEEDS_CASE);
   });
 });
 

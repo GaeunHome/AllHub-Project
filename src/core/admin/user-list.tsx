@@ -28,7 +28,7 @@ export function UserList({ users, currentUserId, lockedUntil }: { users: Managed
           // 手機上按鈕換到下一行 每列文字才會一樣寬
           <li key={user.id} className="card-row flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <UserAvatar username={user.username} name={displayNameOf(user)} size="md" />
+              <UserAvatar username={user.username} name={displayNameOf(user)} size="md" avatar={user.avatar} />
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <p className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold break-all">{displayNameOf(user)}</span>

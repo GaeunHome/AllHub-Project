@@ -1,6 +1,7 @@
 "use client";
 
 import { DialogButton, useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import type { TripSummary } from "../../service/trips";
@@ -33,15 +34,7 @@ export function TripForm({ trip, onDone, onCancel }: TripFormProps) {
         </label>
       </div>
       {!pending && <FormFeedback state={{ error: state.error }} />}
-      <div className="button-row justify-end">
-        <button type="button" className="btn-ghost" onClick={onCancel} disabled={pending}>
-          取消
-        </button>
-        <button type="submit" className="btn-primary" disabled={pending}>
-          <Icon name="check" className="size-4" />
-          {pending ? "儲存中…" : "儲存"}
-        </button>
-      </div>
+      <FormButtons pending={pending} onCancel={onCancel} />
     </form>
   );
 }

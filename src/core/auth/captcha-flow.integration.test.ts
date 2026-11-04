@@ -11,7 +11,7 @@ import { hashPassword } from "./credentials";
 // 只把 next/headers 換成一個共用的假 cookie
 
 const CODE = "K7MRX";
-const PASSWORD = "plum blossom 2026";
+const PASSWORD = "Plum blossom 2026";
 
 stubCoreEnv();
 vi.stubEnv("DEV_CAPTCHA_CODE", CODE);

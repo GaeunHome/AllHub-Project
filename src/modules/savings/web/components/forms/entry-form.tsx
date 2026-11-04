@@ -2,12 +2,13 @@
 
 import { useMemo, useReducer, type ReactNode } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback, type FormState } from "@/core/ui/form-message";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import { ENTRY_KINDS, TRANSACTION_KIND_LABELS, type EntryKind } from "../../../lib/kinds";
 import { lastAccountPref, lastTransferToPref, pickAccount, pickOtherAccount } from "../../last-used";
 import { cannotTransfer, entryChoiceReducer, entryStartDate, initialEntryChoice, transferOptions, type ChoiceStart } from "./entry-choice";
-import { AccountSelect, AmountField, CategoryChips, DateField, FormButtons, NoteField, type SelectableAccount } from "./fields";
+import { AccountSelect, AmountField, CategoryChips, DateField, NoteField, type SelectableAccount } from "./fields";
 import type { CategoryOption, EntryDraft } from "./options";
 
 const ENTRY_KIND_OPTIONS = ENTRY_KINDS.map((kind) => ({ id: kind, label: TRANSACTION_KIND_LABELS[kind] }));

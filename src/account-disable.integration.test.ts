@@ -18,11 +18,9 @@ stubAllEnv();
 
 vi.mock("@/modules/twitch/lib/api", { spy: true });
 vi.mock("@/modules/youtube/lib/api", { spy: true });
-vi.mock("@/modules/youtube/lib/subtitles/captions", { spy: true });
 
 const twitchApi = mocksOf(await import("@/modules/twitch/lib/api"), "getStreams", "listSubscriptions", "createSubscription", "deleteSubscription");
 const youtubeApi = mocksOf(await import("@/modules/youtube/lib/api"), "hubRequest", "checkIsShort");
-const { listCaptionTracks } = mocksOf(await import("@/modules/youtube/lib/subtitles/captions"), "listCaptionTracks");
 const { handleNotification, syncSubscriptions } = await import("@/modules/twitch/service/streamers");
 const { handleFeed, renewSubscriptions } = await import("@/modules/youtube/service/channels");
 const { postDueRecurring } = await import("@/modules/savings/service/recurring");
@@ -51,7 +49,6 @@ beforeEach(async () => {
   twitchApi.deleteSubscription.mockReset().mockResolvedValue(undefined);
   youtubeApi.hubRequest.mockReset().mockResolvedValue(undefined);
   youtubeApi.checkIsShort.mockReset().mockResolvedValue(false);
-  listCaptionTracks.mockReset().mockResolvedValue({ ok: true, tracks: [] });
 
   const [shared, memberOnly] = await getDb()
     .insert(twitchStreamers)

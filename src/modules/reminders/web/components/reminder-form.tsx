@@ -2,8 +2,8 @@
 
 import { useId } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
-import { Icon } from "@/core/ui/icon";
 import { DEFAULT_NOTIFY, NOTIFY_OPTIONS, notifyValueOf } from "../../lib/rules";
 import type { ReminderItem } from "../../service/items";
 import { createReminderAction, updateReminderAction } from "../actions";
@@ -52,15 +52,7 @@ export function ReminderForm({ item, today, latest, onDone, onCancel }: Reminder
       </label>
       {/* 成功就關掉視窗 這裡只放錯誤 重送時先收起上一次的 */}
       {!pending && <FormFeedback state={{ error: state.error }} />}
-      <div className="button-row justify-end">
-        <button type="button" className="btn-ghost" onClick={onCancel} disabled={pending}>
-          取消
-        </button>
-        <button type="submit" className="btn-primary" disabled={pending}>
-          <Icon name={item ? "check" : "plus"} className="size-4" />
-          {pending ? "儲存中…" : item ? "儲存" : "新增"}
-        </button>
-      </div>
+      <FormButtons pending={pending} onCancel={onCancel} label={item ? "儲存" : "新增"} icon={item ? "check" : "plus"} />
     </form>
   );
 }

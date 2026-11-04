@@ -9,7 +9,7 @@ import type { RecurringFormOptions, RecurringRowView } from "../../recurring-vie
 import { RecurringForm } from "../forms/recurring-form";
 import { useLinkedTrigger } from "../settings/open-from-link";
 import { IconTile } from "../visuals";
-import { RecurringRow } from "./recurring-row";
+import { RecurringCard } from "./recurring-card";
 import { RecurringSection } from "./recurring-section";
 
 type OtherRecurringListProps = {
@@ -19,7 +19,7 @@ type OtherRecurringListProps = {
   openEditId?: number | null;
 };
 
-/** 房租 訂閱 電費這類 照下一期排 到期時確認與略過在列上 */
+/** 房租 訂閱 電費這類 照下一期排 到期時確認與略過在卡片上 */
 export function OtherRecurringList({ items, form, openAdd = false, openEditId = null }: OtherRecurringListProps) {
   const add = useDialog();
   const addTrigger = useLinkedTrigger(add, openAdd, SAVINGS_PATHS.recurring);
@@ -41,7 +41,7 @@ export function OtherRecurringList({ items, form, openAdd = false, openEditId = 
       }
     >
       {items.map((item) => (
-        <RecurringRow
+        <RecurringCard
           key={item.id}
           row={item}
           leading={<IconTile name={item.icon} size="sm" />}

@@ -13,11 +13,7 @@ export type CaptionFetchResult =
   | { ok: true; cues: Cue[]; kind: "manual" | "auto"; language: string }
   | { ok: false; reason: "no_korean" | "blocked" | "unavailable" | "error"; message: string };
 
-/** automatic 是自動產生的 asr translated 是 YouTube 自動翻譯的 網址帶 tlang */
-export type CaptionTrackInfo = { languageCode: string; automatic: boolean; translated: boolean };
-export type CaptionListResult = { ok: true; tracks: CaptionTrackInfo[] } | { ok: false; reason: "blocked" | "unavailable" | "error"; message: string };
-
-type PageFailure = Extract<CaptionListResult, { ok: false }>;
+type PageFailure = { ok: false; reason: "blocked" | "unavailable" | "error"; message: string };
 type Player = Record<string, unknown>;
 type PlayerResult = { ok: true; player: Player } | PageFailure;
 type LoadedPlayer = { ok: true; player: Player; source: "watch" | "innertube" };
@@ -29,11 +25,8 @@ const NO_PLAYER_MESSAGE = `YouTube 沒有回傳播放資訊（可能要求同意
 
 type FailureReason = Extract<CaptionFetchResult, { ok: false }>["reason"];
 
-// reason 保留字面型別 同一個 helper 才能同時給韓文字幕與字幕清單用
+// reason 保留字面型別 回傳值才能當成讀取失敗或抓字幕失敗用
 const fail = <R extends FailureReason>(reason: R, message: string) => ({ ok: false as const, reason, message });
-
-// 簡體繁體與地區細分都算 cmn 是普通話 yue 是粵語 自動產生與自動翻譯的不算
-const CHINESE_LANGUAGE = /^(zh|cmn|yue)(-|$)/i;
 
 export async function fetchKoreanCaptions(videoId: string, opts: { fetchImpl?: typeof fetch } = {}): Promise<CaptionFetchResult> {
   if (!VIDEO_ID.test(videoId)) return fail("error", "影片 ID 格式不正確");
@@ -81,41 +74,7 @@ async function downloadKorean(player: Player, fetchImpl: typeof fetch): Promise<
 }
 
 /**
- * 用來判斷有沒有人工上傳的中文字幕 兩個來源都讀不到才算失敗
- * 雲端主機拿到的觀看頁可能整段沒有字幕資料 空的時候再問一次 問不到才照觀看頁的算
- */
-export async function listCaptionTracks(videoId: string, opts: { fetchImpl?: typeof fetch } = {}): Promise<CaptionListResult> {
-  if (!VIDEO_ID.test(videoId)) return fail("error", "影片 ID 格式不正確");
-  const fetchImpl = opts.fetchImpl ?? fetch;
-  try {
-    const loaded = await loadPlayer(videoId, fetchImpl);
-    if (!loaded.ok) return loaded;
-    const tracks = readTracks(loaded.player);
-    if (tracks.length > 0 || loaded.source === "innertube") return { ok: true, tracks: tracks.flatMap(toTrackInfo) };
-    const second = await readSource(() => loadInnertube(videoId, fetchImpl));
-    return { ok: true, tracks: second.ok ? readTracks(second.player).flatMap(toTrackInfo) : [] };
-  } catch (error) {
-    return fail("error", `連不上 YouTube（${errorKind(error)}）`);
-  }
-}
-
-export function hasChineseCaptions(tracks: CaptionTrackInfo[]): boolean {
-  return tracks.some((track) => !track.automatic && !track.translated && CHINESE_LANGUAGE.test(track.languageCode));
-}
-
-function toTrackInfo(track: CaptionTrack): CaptionTrackInfo[] {
-  if (!track.languageCode) return [];
-  return [
-    {
-      languageCode: track.languageCode,
-      automatic: track.kind === "asr" || Boolean(track.vssId?.startsWith("a.")),
-      translated: Boolean(track.baseUrl && /[?&]tlang=/.test(track.baseUrl)),
-    },
-  ];
-}
-
-/**
- * 抓韓文字幕與判斷中文字幕共用 觀看頁讀不到時再問 InnerTube
+ * 觀看頁讀不到時再問 InnerTube
  * 兩個都讀不到才算失敗 原因用觀看頁的 影片不存在時也一樣多問一次
  */
 async function loadPlayer(videoId: string, fetchImpl: typeof fetch): Promise<LoadedPlayer | PageFailure> {
@@ -149,7 +108,7 @@ async function loadInnertube(videoId: string, fetchImpl: typeof fetch): Promise<
   const response = await fetchInnertubePlayer(videoId, { fetchImpl });
   if (!response.ok) return fail("unavailable", `讀取播放資訊失敗（HTTP ${response.status}）`);
 
-  // 其他 JSON 當成沒有字幕的話 會誤判成影片沒有中文字幕
+  // 其他 JSON 當成沒有字幕的話 會誤判成影片沒有字幕
   const player: unknown = await response.json();
   if (!isPlayerResponse(player)) return fail("blocked", NO_PLAYER_MESSAGE);
 

@@ -8,7 +8,7 @@ import { PasswordInput } from "../ui/password-input";
 import { registerAction, type RegisterState } from "./actions";
 import { CaptchaField } from "./captcha-field";
 import { HONEYPOT_FIELD } from "./messages";
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "./password-rules";
+import { PASSWORD_CASE_RULE, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "./password-rules";
 
 export function RegisterForm({ code, expiresAt, captchaSrc }: { code: string; expiresAt: string; captchaSrc: string }) {
   const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction, {});
@@ -55,7 +55,7 @@ export function RegisterForm({ code, expiresAt, captchaSrc }: { code: string; ex
             帳號 {USERNAME_MIN_LENGTH}–{USERNAME_MAX_LENGTH} 個字元，只能用英文小寫、數字、底線（_）、點（.）與連字號（-）
           </li>
           <li>
-            密碼 {PASSWORD_MIN_LENGTH}–{PASSWORD_MAX_LENGTH} 個字元，不能是常見的密碼，也不能包含帳號名稱
+            密碼 {PASSWORD_MIN_LENGTH}–{PASSWORD_MAX_LENGTH} 個字元，{PASSWORD_CASE_RULE}
           </li>
         </ul>
       </details>

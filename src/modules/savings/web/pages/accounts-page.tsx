@@ -1,10 +1,11 @@
 import { requireModule } from "@/core/auth";
 import type { ModuleInfo, SearchParams } from "@/core/module";
 import { cachedCategories, cachedRecurring } from "../../service/cached";
+import { accountsPageView } from "../accounts-view";
 import { AccountsBoard } from "../components/accounts/accounts-board";
 import { AccountsPageSkeleton } from "../components/accounts/accounts-skeleton";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
-import { accountsPageView, depositOptions, entryFormOptions } from "../dashboard-view";
+import { depositOptions, entryFormOptions } from "../form-options";
 import { loadAccounts } from "../overview-data";
 
 /**

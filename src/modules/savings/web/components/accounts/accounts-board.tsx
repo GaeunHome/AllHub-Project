@@ -1,29 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useState } from "react";
+import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
 import { Dialog, useDialog } from "@/core/ui/dialog";
 import { Fact, FactList } from "@/core/ui/fact-list";
 import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
 import { InfoTip } from "@/core/ui/info-tip";
 import { MoreMenu } from "@/core/ui/more-menu";
-import { SectionTitle } from "@/core/ui/page-header";
 import { StatusChip } from "@/core/ui/status-chip";
 import type { DateKey } from "../../../lib/dates";
 import type { AccountKind } from "../../../lib/kinds";
 import { formatTwd } from "../../../lib/money";
+import type { AccountsPageView, CreditCardView, DepositCardView, InactiveAccountView } from "../../accounts-view";
 import { deleteAccountAction, moveAccountAction, setAccountActiveAction } from "../../actions";
-import type { AccountsPageView, CreditCardView, DepositCardView, InactiveAccountView } from "../../dashboard-view";
 import { accountDeleteWarning } from "../../settings-display";
-import { ACCOUNTS_GRID } from "../dashboard/layout";
+import { ADD_TILE, CARD_GRID } from "../dashboard/layout";
 import { Meter } from "../dashboard/meter";
-import { Illustration } from "../illustration";
 import { AccountForm } from "../forms/account-form";
 import type { AccountOption, EntryFormOptions } from "../forms/options";
 import { QuickAddButton } from "../forms/quick-add";
 import { UpdateBalanceButton } from "../forms/update-balance";
-import { ActiveMenuItem, DeleteMenuItem, DialogMenuItem, ListRow, MoveMenuItems } from "../row-controls";
+import { Illustration } from "../illustration";
+import { ActiveMenuItem, DialogMenuItem, ListRow, MoveMenuItems } from "../row-controls";
+import { SectionHeading, Sum } from "../section-heading";
 import { AccountKindTile } from "../visuals";
 import { AddAccountButton } from "./add-account-button";
 import { BillForm, BillHistory } from "./card-bill";
@@ -48,9 +49,6 @@ type AccountsBoardProps = {
 /** 卡片上的動作要的東西 */
 type CardShared = { context: AccountsContext; payFromAccounts: AccountsPageView["payFromAccounts"] };
 
-// 新增的按鈕排在最後一格 虛線框跟卡片一樣圓
-const ADD_TILE =
-  "flex min-h-28 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-line-strong p-5 text-sm font-semibold text-ink-soft transition-colors hover:border-[var(--muted)] hover:bg-surface-muted hover:text-ink";
 const PAUSED_HINT = "停用後不能再記帳、不算進總覽，紀錄會留著";
 
 /**
@@ -75,8 +73,8 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
         </div>
       )}
       <section aria-labelledby="fin-deposits" {...FOCUS_FRAME} className="stack">
-        <SectionHeader id="fin-deposits" title="存款" summary={view.deposits.length > 0 && <Sum label="合計" amount={view.depositTotal} />} />
-        <div className={ACCOUNTS_GRID}>
+        <SectionHeading id="fin-deposits" title="存款" summary={view.deposits.length > 0 && <Sum label="合計" amount={view.depositTotal} />} />
+        <div className={CARD_GRID}>
           {view.deposits.map((card) => (
             <DepositCard key={card.detail.id} card={card} {...shared} />
           ))}
@@ -84,8 +82,8 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
         </div>
       </section>
       <section aria-labelledby="fin-cards" {...FOCUS_FRAME} className="stack">
-        <SectionHeader id="fin-cards" title="信用卡" summary={view.cards.length > 0 && <Sum label="未繳" amount={view.owedTotal} />} />
-        <div className={ACCOUNTS_GRID}>
+        <SectionHeading id="fin-cards" title="信用卡" summary={view.cards.length > 0 && <Sum label="未繳" amount={view.owedTotal} />} />
+        <div className={CARD_GRID}>
           {view.cards.map((card) => (
             <CreditCard key={card.detail.id} card={card} {...shared} />
           ))}
@@ -94,23 +92,6 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
       </section>
       {view.inactive.length > 0 && <InactiveAccounts items={view.inactive} {...shared} />}
     </>
-  );
-}
-
-function SectionHeader({ id, title, summary }: { id: string; title: string; summary: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-      <SectionTitle id={id}>{title}</SectionTitle>
-      {summary}
-    </div>
-  );
-}
-
-function Sum({ label, amount }: { label: string; amount: number }) {
-  return (
-    <p className="text-ink-soft">
-      {label} <span className="font-semibold text-ink tabular-nums">{formatTwd(amount)}</span>
-    </p>
   );
 }
 
@@ -268,7 +249,7 @@ function AccountMenu({ card, name, editTrigger, refillTrigger }: AccountMenuProp
       {refillTrigger && <DialogMenuItem trigger={refillTrigger} icon="receipt" label="重填本期帳單" />}
       <MoveMenuItems action={moveAccountAction} id={id} isFirst={card.isFirst} isLast={card.isLast} />
       <ActiveMenuItem action={setAccountActiveAction} id={id} active pausedHint={PAUSED_HINT} changedMessage={`已停用「${name}」，要用時可以在最下面的「已停用」恢復`} />
-      <DeleteMenuItem action={deleteAccountAction} id={id} confirmMessage={accountDeleteWarning(name, card.usage)} label="刪除帳戶" deletedMessage={`已刪除「${name}」`} />
+      <DeleteMenuItem action={deleteAccountAction} fields={{ id: id }} confirmMessage={accountDeleteWarning(name, card.usage)} label="刪除帳戶" deletedMessage={`已刪除「${name}」`} />
     </MoreMenu>
   );
 }
@@ -308,7 +289,7 @@ function InactiveRow({ item, payFromAccounts }: { item: InactiveAccountView } & 
       menu={
         <MoreMenu label={`「${item.name}」的選項`}>
           <ActiveMenuItem action={setAccountActiveAction} id={item.id} active={false} pausedHint={PAUSED_HINT} changedMessage={`已恢復「${item.name}」${RESTORED_WHERE[item.draft.kind]}`} />
-          <DeleteMenuItem action={deleteAccountAction} id={item.id} confirmMessage={accountDeleteWarning(item.name, item.usage)} label="刪除帳戶" deletedMessage={`已刪除「${item.name}」`} />
+          <DeleteMenuItem action={deleteAccountAction} fields={{ id: item.id }} confirmMessage={accountDeleteWarning(item.name, item.usage)} label="刪除帳戶" deletedMessage={`已刪除「${item.name}」`} />
         </MoreMenu>
       }
     >

@@ -38,7 +38,7 @@ export function AccountMenuLink({ href, icon, children }: { href: string; icon: 
  * 導覽列右上角的人像按鈕 切換外觀 帳號設定與登出都在這裡
  * 帳號名稱與站長才有的項目由伺服器元件讀好傳進來
  */
-export function AccountMenu({ username, ownerItems }: { username: ReactNode; ownerItems?: ReactNode }) {
+export function AccountMenu({ username, avatar, ownerItems }: { username: ReactNode; avatar: ReactNode; ownerItems?: ReactNode }) {
   const { expanded, toggle, close, rootRef, buttonRef } = useHeaderMenuRoot("account");
   const menuRef = useRef<HTMLUListElement>(null);
   const pendingFocus = useRef<FocusTarget | null>(null);
@@ -92,7 +92,7 @@ export function AccountMenu({ username, ownerItems }: { username: ReactNode; own
   };
 
   return (
-    <div ref={rootRef} onBlur={onRootBlur} className="shrink-0 sm:relative">
+    <div ref={rootRef} onBlur={onRootBlur} className="flex shrink-0 sm:relative">
       <button
         ref={buttonRef}
         type="button"
@@ -105,7 +105,7 @@ export function AccountMenu({ username, ownerItems }: { username: ReactNode; own
         onKeyDown={onButtonKeyDown}
         className="btn-ghost btn-sm btn-icon"
       >
-        <Icon name="circle-user-round" className="size-[1.125rem]" />
+        {avatar}
       </button>
 
       {expanded && (

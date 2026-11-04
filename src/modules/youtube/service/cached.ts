@@ -4,7 +4,6 @@ import type { VideoInfo } from "../lib/oembed";
 import type { FollowedChannel } from "../data/schema";
 import { getSettingsView, missingApiKeyMessage, type SettingsView } from "./ai-settings";
 import { youtubeTags } from "./cache-tags";
-import { recheckCandidates, type RecheckCandidate } from "./caption-status";
 import { listFollowedChannels } from "./channels";
 import { listSavedVideos, type SavedVideo } from "./saved-videos";
 import { getTranslation, type TranslationView } from "./translation";
@@ -27,13 +26,6 @@ export async function cachedRecentVideos(userId: string): Promise<Awaited<Return
   // 清單看追蹤表決定列哪些影片 也顯示頻道名稱與翻譯狀態 四張表任一張改了都要重讀
   cacheTag(youtubeTags.videos, youtubeTags.channels, youtubeTags.follows, youtubeTags.translations);
   return recentVideos(userId);
-}
-
-export async function cachedRecheckCandidates(userId: string): Promise<RecheckCandidate[]> {
-  "use cache: remote";
-  cacheLife("db");
-  cacheTag(youtubeTags.videos, youtubeTags.follows);
-  return recheckCandidates(userId);
 }
 
 /** 只有前 8 碼與模型設定 金鑰連密文都不進快取 */

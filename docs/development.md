@@ -44,14 +44,13 @@
 | 股價 | 證交所 `STOCK_DAY_ALL`、櫃買中心 `tpex_mainboard_quotes` | 收盤價照 2026-10-14 的真實回應（例如 `006208` 258.70、`0050` 113.00、`00679B` 25.05），日期是今天之前最近的平日；`00625K`、`00682U`、`00986B`、`2064` 沒有成交（畫面寫股價暫時讀不到）；另外補了各 120 檔示範股票（上市 `1101`～`1220`、上櫃 `3201`～`3320`），因為網站把不到 100 筆的清單當成讀不到；其他代號是找不到 |
 | 除權息 | 證交所 `TWT48U_ALL`、櫃買中心 `tpex_exright_prepost` | 欄位照 2026-10-29 的真實回應，除息日照今天往後算（落在週末挪到週一）：`006208` 20 天後除息每股 1.72 元、`0056` 6 天後（金額還沒公布）、`00919` 明天（平日看今天就是最後買進日）、`2881` 3 天後除權息、`2882` 10 天後只有除權（現金增資）、`00878` 14 天後；上櫃 `00679B` 8 天後（尚未公告）、`6488` 4 天後除權息、`3105` 10 天後只有除權、`8299` 15 天後；`0050`、`00937B` 是已經過去的。記這幾檔持股就看得到投資頁的除權息卡片；手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/savings:dividends` |
 | YouTube | `@nobody` | 查無頻道；其他 `@帳號` 都會成功，hub 約 0.5 秒後回呼確認訂閱 |
-| YouTube | 頻道的 RSS feed | 每個頻道都有三支一般影片：3 小時前的 MV（影片 id `zhsubs` 開頭，有中文字幕）、30 小時前與 5 天前各一支，追蹤時會補進影片清單（別人已經追蹤的頻道只補超過 24 小時的），縮圖先標「檢查字幕中」，約 4 秒後自動換成檢查結果；另有 1 小時前與 2 天前的兩支 Shorts（影片 id `short` 開頭，連結是 `/shorts/`），不會列進清單，`youtube:cleanup` 也是讀這份 RSS 找 Shorts |
+| 星穹鐵道 | 躍遷紀錄 | 角色池 47 抽（五星在第 12、38 抽）、光錐池 23 抽（第 18 抽）、常駐 8 抽；cookie 沒有 `cookie_token_v2` 時換金鑰回 -100 |
+| YouTube | 頻道的 RSS feed | 每個頻道都有三支一般影片：3 小時前的 MV（影片 id `newmv` 開頭）、30 小時前與 5 天前各一支，追蹤時會補進影片清單（別人已經追蹤的頻道只補超過 24 小時的）；另有 1 小時前與 2 天前的兩支 Shorts（影片 id `short` 開頭，連結是 `/shorts/`），不會列進清單，`youtube:cleanup` 也是讀這份 RSS 找 Shorts |
 | YouTube | `@noavatar` 開頭（例如 `@noavatar_studio`） | 頻道頁沒有頭像，畫面退回文字頭像 |
 | YouTube | 觀看頁的字幕網址 | 跟真的一樣帶 `exp=xpo…`、下載回空內容，翻譯一律走第二個來源（InnerTube 的 `youtubei/v1/player`） |
-| YouTube | 影片 id `botcheck001` | 觀看頁回機器人驗證、第二個來源讀得到中文字幕：應該判成有中文字幕 |
-| YouTube | 影片 id `blocked0001` | 兩個來源都被擋：判成讀不到，縮圖不標，點了進觀看頁 |
+| YouTube | 影片 id `botcheck001` | 觀看頁回機器人驗證、第二個來源讀得到字幕：翻譯照常 |
+| YouTube | 影片 id `blocked0001` | 兩個來源都被擋：翻譯時請使用者上傳字幕檔 |
 | YouTube | 影片 id 開頭 `nothumb`（例如 `nothumb0001`） | 縮圖回 404，畫面退回圖示 |
-| YouTube | 影片 id 開頭 `zhsubs`（例如 `zhsubs00001`） | 有人工上傳的中文字幕 |
-| YouTube | 影片 id 開頭 `zhauto`（例如 `zhauto00001`） | 只有自動產生的中文字幕，算沒有中文 |
 | YouTube | 影片 id 開頭 `nocaptions`（例如 `nocaptions1`） | 沒有任何字幕，可以試上傳字幕檔 |
 | YouTube | 影片 id 開頭 `syncsubs`（例如 `syncsubs001`） | 40 句長短不一的韓文字幕（從 1 秒開始），句子之間有剛好相連、40～200ms 的短空檔與 2 秒的長空檔，也有很長的句子：用來看字幕同步、換句與長句換行 |
 | YouTube | 影片 id 開頭 `short`（例如 `short000001`） | Shorts：`/shorts/<id>` 回 200。用下面的推送送這種 id，網站確認是 Shorts 後會刪掉、不通知（伺服器 log 記一行「確認是 Shorts，刪除推送的影片」與影片 id）；直接寫進資料庫、RSS 裡沒有的這種影片，`youtube:cleanup` 會逐支確認後刪掉；其他影片 id 的 `/shorts/<id>` 會 303 轉到 `/watch?v=` |
@@ -91,7 +90,7 @@ curl -X POST http://localhost:3000/api/twitch/eventsub -H "Content-Type: applica
 SECRET=<YOUTUBE_WEBSUB_SECRET>
 CHANNEL=<頻道 id，UC 開頭>
 NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-BODY='<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom"><entry><yt:videoId>zhsubs00001</yt:videoId><yt:channelId>'$CHANNEL'</yt:channelId><title>新影片</title><published>'$NOW'</published></entry></feed>'
+BODY='<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom"><entry><yt:videoId>feedtest001</yt:videoId><yt:channelId>'$CHANNEL'</yt:channelId><title>新影片</title><published>'$NOW'</published></entry></feed>'
 SIG=$(printf '%s' "$BODY" | openssl dgst -sha1 -hmac "$SECRET" | sed 's/^.* //')
 curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: application/atom+xml" -H "X-Hub-Signature: sha1=$SIG" -d "$BODY"
 ```

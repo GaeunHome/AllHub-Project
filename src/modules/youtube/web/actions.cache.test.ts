@@ -8,13 +8,11 @@ vi.mock("next/server", () => ({ after: (task: () => unknown) => deferred.tasks.p
 vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../service/channels", { spy: true });
-vi.mock("../service/caption-status", { spy: true });
 vi.mock("../service/translation", { spy: true });
 vi.mock("../service/ai-settings", { spy: true });
 vi.mock("../service/saved-videos", { spy: true });
 
 const channels = mocksOf(await import("../service/channels"), "addChannel", "removeChannel", "renewSubscriptionsFor", "setChannelNotify");
-const captions = mocksOf(await import("../service/caption-status"), "checkFollowedVideoCaptions");
 const translation = mocksOf(await import("../service/translation"), "startTranslation", "uploadSubtitles", "retryTranslation", "restartTranslation", "continueTranslation");
 const settings = mocksOf(await import("../service/ai-settings"), "saveSettings");
 const saved = mocksOf(await import("../service/saved-videos"), "keepVideo", "removeSavedVideo");
@@ -31,7 +29,6 @@ beforeEach(() => {
   channels.removeChannel.mockReset().mockResolvedValue({});
   channels.renewSubscriptionsFor.mockReset().mockResolvedValue("已檢查你追蹤的 1 個頻道的訂閱");
   channels.setChannelNotify.mockReset().mockResolvedValue(true);
-  captions.checkFollowedVideoCaptions.mockReset().mockResolvedValue("no");
   for (const fn of Object.values(translation)) fn.mockReset().mockResolvedValue(undefined);
   settings.saveSettings.mockReset().mockResolvedValue(undefined);
   translation.startTranslation.mockResolvedValue({ ok: true });
@@ -49,7 +46,6 @@ describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag �
     ["renewAction", ["youtube:channels"], () => actions.renewAction()],
     // 通知開關記在自己的追蹤上
     ["setChannelNotifyAction", ["youtube:follows"], () => actions.setChannelNotifyAction({}, form({ id: "2", enabled: "false" }))],
-    ["recheckCaptionsAction", ["youtube:videos"], () => actions.recheckCaptionsAction({}, form({ videoId: VIDEO }))],
     ["saveSettingsAction", ["youtube:settings"], () => actions.saveSettingsAction({}, form({ provider: "anthropic" }))],
     // 按過翻譯的影片同時加進自己保留的影片
     ["startTranslationAction", ["youtube:saved_videos", "youtube:translation:dQw4w9WgXcQ", "youtube:translations"], () => actions.startTranslationAction(VIDEO)],
@@ -97,7 +93,6 @@ describe("YouTube 的 Server Action：寫入後用 updateTag 讓對應的 tag �
   it.each([
     ["removeChannelAction 的 id 不正確", () => actions.removeChannelAction({}, form({ id: "-1" }))],
     ["setChannelNotifyAction 的 enabled 不正確", () => actions.setChannelNotifyAction({}, form({ id: "2", enabled: "on" }))],
-    ["recheckCaptionsAction 的影片 id 不正確", () => actions.recheckCaptionsAction({}, form({ videoId: "bad" }))],
     ["saveSettingsAction 沒選供應商", () => actions.saveSettingsAction({}, form({ provider: "other" }))],
     ["startTranslationAction 的影片 id 不正確", () => actions.startTranslationAction("bad id")],
     ["uploadSubtitlesAction 沒選檔案", () => actions.uploadSubtitlesAction({}, form({ videoId: VIDEO }))],

@@ -4,7 +4,7 @@ import { insertTestUser, insertTestUsers, setupTestDb, type TestDb } from "@/dev
 import { stubYoutubeEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 import { youtubeChannels, youtubeFollows, youtubeVideos } from "../data/schema";
-import { CHANNEL_ID as CH, KOREAN_TRACKS, OTHER_CHANNEL_ID as OTHER, follow as followAs, insertChannel as insertChannelRow } from "../dev/fixtures";
+import { CHANNEL_ID as CH, OTHER_CHANNEL_ID as OTHER, follow as followAs, insertChannel as insertChannelRow } from "../dev/fixtures";
 import { callbackToken, topicFor } from "../lib/websub";
 
 const { YOUTUBE_WEBSUB_SECRET: SECRET } = stubYoutubeEnv();
@@ -13,13 +13,10 @@ const k = (channelId: string) => callbackToken(channelId, SECRET);
 
 vi.mock("../lib/api", { spy: true });
 vi.mock("@/core/notify", { spy: true });
-// 新影片會去讀觀看頁判斷有沒有中文字幕 測試不能真的連 YouTube
-vi.mock("../lib/subtitles/captions", { spy: true });
 
 const api = mocksOf(await import("../lib/api"), "resolveHandle", "fetchChannelFeed", "hubRequest", "checkIsShort");
 const { HubError } = await import("../lib/api");
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
-const { listCaptionTracks } = mocksOf(await import("../lib/subtitles/captions"), "listCaptionTracks");
 
 const service = await import("./channels");
 const { handleVerification, handleFeed, renewSubscriptions, renewSubscriptionsFor, videoTitle, listFollowedChannels, setChannelNotify, YoutubeUserError } = service;
@@ -45,7 +42,6 @@ beforeEach(async () => {
   api.hubRequest.mockReset().mockResolvedValue(undefined);
   api.checkIsShort.mockReset().mockResolvedValue(null);
   notify.mockReset().mockResolvedValue(undefined);
-  listCaptionTracks.mockReset().mockResolvedValue(KOREAN_TRACKS);
   return () => vi.useRealTimers();
 });
 
@@ -212,81 +208,31 @@ describe("handleFeed", () => {
     expect(video.notifiedAt).not.toBeNull();
   });
 
-  it("已經有人工中文字幕_通知說可以直接看、連到 YouTube_記下檢查結果", async () => {
-    listCaptionTracks.mockResolvedValue({ ok: true, tracks: [{ languageCode: "zh-TW", automatic: false, translated: false }] });
-
+  it("通知只寫影片標題、連到站內的觀看頁", async () => {
     await handleFeed([entry("aaaaaaaaaaa", recent)]);
 
-    expect(listCaptionTracks).toHaveBeenCalledWith("aaaaaaaaaaa");
-    expect(notify).toHaveBeenCalledWith({
-      recipients: [me],
-      module: "youtube",
-      kind: "new_video",
-      title: "뉴진스 發布了新影片",
-      body: "影片 aaaaaaaaaaa\n有中文字幕，可以直接看",
-      url: "https://www.youtube.com/watch?v=aaaaaaaaaaa",
-    });
-    const [video] = await testDb.select().from(youtubeVideos);
-    expect(video.zhCaptions).toBe("yes");
-    expect(video.zhCaptionsCheckedAt).toEqual(NOW);
+    expect(notify.mock.calls[0][0]).toMatchObject({ body: "影片 aaaaaaaaaaa", url: "/youtube/watch/aaaaaaaaaaa" });
   });
 
-  it("沒有中文字幕（只有自動產生或自動翻譯的也算沒有）_通知用翻譯觀看、連到自己網站的觀看頁", async () => {
-    listCaptionTracks.mockResolvedValue({
-      ok: true,
-      tracks: [
-        { languageCode: "ko", automatic: false, translated: false },
-        { languageCode: "zh", automatic: true, translated: false },
-      ],
-    });
-
-    await handleFeed([entry("aaaaaaaaaaa", recent)]);
-
-    expect(notify.mock.calls[0][0]).toMatchObject({ body: "影片 aaaaaaaaaaa\n沒有中文字幕，用翻譯觀看", url: "/youtube/watch/aaaaaaaaaaa" });
-    expect((await testDb.select().from(youtubeVideos))[0].zhCaptions).toBe("no");
-  });
-
-  it("抓不到字幕資訊（雲端常被 YouTube 擋）_通知說無法確認、附 YouTube 連結", async () => {
-    listCaptionTracks.mockResolvedValue({ ok: false, reason: "blocked", message: "YouTube 要求驗證" });
-
-    await handleFeed([entry("aaaaaaaaaaa", recent)]);
-
-    expect(notify.mock.calls[0][0]).toMatchObject({ body: "影片 aaaaaaaaaaa\n無法確認是否有中文字幕", url: "https://www.youtube.com/watch?v=aaaaaaaaaaa" });
-    const [video] = await testDb.select().from(youtubeVideos);
-    expect(video.zhCaptions).toBe("unknown");
-    expect(video.zhCaptionsCheckedAt).toEqual(NOW);
-  });
-
-  it("檢查字幕時出錯_照樣通知（當作無法確認）", async () => {
-    captureErrorLog();
-    listCaptionTracks.mockRejectedValue(new Error("boom"));
-
-    await handleFeed([entry("aaaaaaaaaaa", recent)]);
-
-    expect(notify.mock.calls[0][0]).toMatchObject({ body: "影片 aaaaaaaaaaa\n無法確認是否有中文字幕" });
-  });
-
-  it("檢查字幕與通知都延到回應之後（defer）_推送本身只寫紀錄", async () => {
+  it("確認 Shorts 與通知都延到回應之後（defer）_推送本身只寫紀錄", async () => {
     const tasks: Array<() => Promise<void>> = [];
 
     await handleFeed([entry("aaaaaaaaaaa", recent)], { defer: (t) => tasks.push(t) });
 
-    expect(listCaptionTracks).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
     expect(await testDb.select().from(youtubeVideos)).toHaveLength(1);
     await tasks[0]();
-    expect(listCaptionTracks).toHaveBeenCalledOnce();
     expect(notify).toHaveBeenCalledOnce();
   });
 
-  it("頻道關掉通知_照樣記錄新影片與字幕狀態_但不建立通知", async () => {
+  it("頻道關掉通知_照樣記錄新影片_但不建立通知", async () => {
     await testDb.update(youtubeFollows).set({ notifyEnabled: false });
-    listCaptionTracks.mockResolvedValue({ ok: true, tracks: [{ languageCode: "zh-Hant", automatic: false, translated: false }] });
 
     await handleFeed([entry("aaaaaaaaaaa", recent)]);
 
     expect(notify).not.toHaveBeenCalled();
     const [video] = await testDb.select().from(youtubeVideos);
-    expect(video).toMatchObject({ videoId: "aaaaaaaaaaa", zhCaptions: "yes", notifiedAt: null });
+    expect(video).toMatchObject({ videoId: "aaaaaaaaaaa", notifiedAt: null });
   });
 
   it("同一支影片再推送（改標題）_不重複通知", async () => {
@@ -305,16 +251,15 @@ describe("handleFeed", () => {
     expect(await testDb.select().from(youtubeVideos)).toHaveLength(0);
   });
 
-  it("RSS 連結就是 /shorts/ 的影片_不存、不檢查、不通知", async () => {
+  it("RSS 連結就是 /shorts/ 的影片_不存、不確認、不通知", async () => {
     await handleFeed([{ ...entry("shortshort1", recent), isShort: true, url: "https://www.youtube.com/shorts/shortshort1" }, entry("aaaaaaaaaaa", recent)]);
 
     expect((await testDb.select().from(youtubeVideos)).map((v) => v.videoId)).toEqual(["aaaaaaaaaaa"]);
     expect(api.checkIsShort).not.toHaveBeenCalledWith("shortshort1");
-    expect(listCaptionTracks).not.toHaveBeenCalledWith("shortshort1");
     expect(notify).toHaveBeenCalledOnce();
   });
 
-  it("連結看不出來、但請求 /shorts/ 確認是 Shorts_刪掉這支影片，不檢查字幕、不通知；log 記一行（只有種類與影片 id）", async () => {
+  it("連結看不出來、但請求 /shorts/ 確認是 Shorts_刪掉這支影片，不通知；log 記一行（只有種類與影片 id）", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     onTestFinished(() => info.mockRestore());
     api.checkIsShort.mockResolvedValue(true);
@@ -326,7 +271,6 @@ describe("handleFeed", () => {
 
     expect(api.checkIsShort).toHaveBeenCalledWith("aaaaaaaaaaa");
     expect(await testDb.select().from(youtubeVideos)).toHaveLength(0);
-    expect(listCaptionTracks).not.toHaveBeenCalled();
     expect(notify).not.toHaveBeenCalled();
     expect(info).toHaveBeenCalledOnce();
     expect(info).toHaveBeenCalledWith("[youtube] 確認是 Shorts，刪除推送的影片", "aaaaaaaaaaa");
@@ -335,13 +279,12 @@ describe("handleFeed", () => {
   it.each([
     ["確認是一般影片", false],
     ["無法判斷（被擋、同意頁）", null],
-  ])("%s_當作一般影片照常檢查字幕與通知", async (_name, result) => {
+  ])("%s_當作一般影片照常通知", async (_name, result) => {
     api.checkIsShort.mockResolvedValue(result);
 
     await handleFeed([entry("aaaaaaaaaaa", recent)]);
 
     expect(api.checkIsShort).toHaveBeenCalledWith("aaaaaaaaaaa");
-    expect(listCaptionTracks).toHaveBeenCalledWith("aaaaaaaaaaa");
     expect(notify).toHaveBeenCalledOnce();
     expect(await testDb.select().from(youtubeVideos)).toHaveLength(1);
   });
@@ -349,7 +292,7 @@ describe("handleFeed", () => {
   it.each([
     ["連不上 YouTube", () => new TypeError("fetch failed: secret-detail"), "TypeError"],
     ["逾時", () => new DOMException("The operation was aborted due to timeout: secret-detail", "TimeoutError"), "TimeoutError"],
-  ])("確認是不是 Shorts 時%s（lib 照常丟出）_當作一般影片照常檢查字幕與通知；log 只記錯誤種類", async (_name, failure, kind) => {
+  ])("確認是不是 Shorts 時%s（lib 照常丟出）_當作一般影片照常通知；log 只記錯誤種類", async (_name, failure, kind) => {
     const log = captureErrorLog();
     // 用真的 checkIsShort 打到會失敗的 fetch 錯誤要一路傳到 service 才記得到 log
     const { checkIsShort } = await vi.importActual<typeof import("../lib/api")>("../lib/api");
@@ -358,7 +301,6 @@ describe("handleFeed", () => {
 
     await handleFeed([entry("aaaaaaaaaaa", recent)]);
 
-    expect(listCaptionTracks).toHaveBeenCalledWith("aaaaaaaaaaa");
     expect(notify).toHaveBeenCalledOnce();
     expect(await testDb.select().from(youtubeVideos)).toHaveLength(1);
     expect(loggedText(log)).toContain("確認是不是 Shorts 失敗");
@@ -545,22 +487,6 @@ describe("通知開關", () => {
 });
 
 describe("recentVideos", () => {
-  it("帶出中文字幕狀態與檢查時間（影片清單顯示按鈕用）", async () => {
-    await insertChannel();
-    await follow(me);
-    await getDb().insert(youtubeVideos).values([
-      { videoId: "yesyesyesye", channelId: CH, title: "有字幕", publishedAt: NOW, zhCaptions: "yes", zhCaptionsCheckedAt: NOW },
-      { videoId: "newnewnewne", channelId: CH, title: "還沒檢查", publishedAt: new Date(NOW.getTime() - 60_000) },
-    ]);
-
-    const videos = await recentVideos(me);
-
-    expect(videos.map((v) => [v.videoId, v.zhCaptions, v.zhCaptionsCheckedAt])).toEqual([
-      ["yesyesyesye", "yes", NOW],
-      ["newnewnewne", "unknown", null],
-    ]);
-  });
-
   it("帶出頻道 id 與追蹤時存下的頭像（卡片上的頻道頭像用）；沒追蹤的頻道（包括已刪除的）的影片不列出", async () => {
     await insertChannel({ thumbnail: "https://yt3.ggpht.com/a.jpg" });
     await follow(me);

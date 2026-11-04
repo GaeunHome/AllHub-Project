@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { FormMessage } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import type { Progress } from "../../service/translation";
@@ -18,7 +19,7 @@ export function ChannelRow({ channel, children }: { channel: ReactNode; children
   return (
     <div className="flex flex-wrap items-center gap-x-6 gap-y-4">
       <div className="min-w-0 flex-1 basis-48">{channel}</div>
-      <div className="no-scrollbar -mx-4 flex w-[calc(100%+2rem)] items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-visible sm:px-0">
+      <div {...DRAG_SCROLL} className="no-scrollbar -mx-4 flex w-[calc(100%+2rem)] items-center gap-2 overflow-x-auto px-4 sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-visible sm:px-0">
         {children}
       </div>
     </div>

@@ -139,7 +139,7 @@ function CookieHelp() {
           <code>account_mid_v2</code>，照 <code>名稱=值; 名稱=值</code> 的格式貼到下面；整段貼上也可以，系統只留下需要的部分。
         </li>
         <li>值要整段複製：在值上點兩下選取時，遇到「-」就會停住，只選到一部分。</li>
-        <li>開拓月曆與兌換碼要用 <code>cookie_token_v2</code> 和 <code>account_</code> 開頭的兩個；找不到 <code>cookie_token_v2</code> 時，登出 HoYoLAB 再重新登入，然後重新複製。</li>
+        <li>開拓月曆、兌換碼與躍遷紀錄要用 <code>cookie_token_v2</code> 和 <code>account_</code> 開頭的兩個；找不到 <code>cookie_token_v2</code> 時，登出 HoYoLAB 再重新登入，然後重新複製。</li>
         <li>cookie 等同登入憑證，會加密後才存。登出 HoYoLAB 或改密碼後會失效，到時再貼一次。</li>
       </ol>
     </details>

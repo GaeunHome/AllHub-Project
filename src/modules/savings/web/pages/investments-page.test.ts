@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { markup, mocksOf } from "@/dev/test-helpers";
+import { markup, mocksOf, textOf } from "@/dev/test-helpers";
 import { accountRow } from "../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
@@ -17,7 +17,7 @@ const cached = mocksOf(await import("../../service/cached"), "cachedAccounts", "
 const { BrokerageList } = await import("../components/investments/brokerage-list");
 const { RegularBuyList } = await import("../components/recurring/regular-buy-list");
 const { DividendsCard } = await import("../components/investments/dividends-card");
-const { InvestmentsSection } = await import("./investments-page");
+const { InvestmentsHero, InvestmentsSection } = await import("./investments-page");
 
 const CREATED = new Date("2026-08-01T02:00:00Z");
 const ACCOUNTS = [accountRow({ id: 1, name: "台銀", kind: "deposit" }), accountRow({ id: 9, name: "舊帳戶", kind: "deposit", active: false }), accountRow({ id: 6, name: "臺銀證券", kind: "investment" })];
@@ -82,6 +82,26 @@ describe("投資頁", () => {
     await visit();
 
     expect(vi.mocked(RegularBuyList).mock.calls[0][0]).toMatchObject({ items: [], linkToInvestments: false });
+  });
+});
+
+describe("投資頁橫幅的總市值", () => {
+  it("用登入者（bob）的 id 讀資料，成本是兩檔相加（24,000 + 15,000）", async () => {
+    requireSession.mockResolvedValue(OTHER_SESSION);
+
+    const text = textOf(markup(await InvestmentsHero()), { spaced: true });
+
+    expect(cached.cachedHoldings).toHaveBeenCalledWith(OTHER_SESSION.id);
+    expect(text).toContain("總市值");
+    expect(text).toContain("成本 $39,000");
+  });
+
+  it("還沒有證券帳戶_橫幅不寫數字，也不查股價", async () => {
+    cached.cachedAccounts.mockResolvedValue(ACCOUNTS.filter((account) => account.kind !== "investment"));
+    cached.cachedHoldings.mockResolvedValue([]);
+
+    expect(await InvestmentsHero()).toBeNull();
+    expect(cached.cachedQuotes).not.toHaveBeenCalled();
   });
 });
 

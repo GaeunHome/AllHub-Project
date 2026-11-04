@@ -85,7 +85,7 @@ function ReminderRow({ row, today, latest }: DateLimits & { row: ReminderRowView
         </button>
         <DeleteMenuItem
           action={deleteReminderAction}
-          id={row.id}
+          fields={{ id: row.id }}
           confirmMessage={`確定刪除「${row.title}」？`}
           label="刪除"
           deletedMessage={`已刪除「${row.title}」`}

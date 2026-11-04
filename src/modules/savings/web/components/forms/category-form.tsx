@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
+import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import { CATEGORY_ICONS, CATEGORY_ICON_NAMES, CATEGORY_KINDS, CATEGORY_KIND_LABELS, NAME_MAX_LENGTH, type CategoryIcon, type CategoryKind } from "../../../lib/kinds";
 import { createCategoryAction, updateCategoryAction } from "../../actions";
-import { AmountField, FormButtons, LEGEND_CLASS } from "./fields";
+import { AmountField, LEGEND_CLASS } from "./fields";
 
 /** icon 是 null 時畫面用這一類的預設圖示 */
 export type CategoryDraft = { id: number; name: string; kind: CategoryKind; monthlyBudget: number | null; icon: string | null };

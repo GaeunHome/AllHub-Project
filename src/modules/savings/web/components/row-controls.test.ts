@@ -7,10 +7,10 @@ import { markup } from "@/dev/test-helpers";
 vi.mock("@/core/ui/action-button", { spy: true });
 
 const { ActionButton } = await import("@/core/ui/action-button");
-const { DeleteMenuItem } = await import("./row-controls");
+const { DeleteMenuItem } = await import("@/core/ui/delete-menu-item");
 
 const action = vi.fn<(previous: FormState, formData: FormData) => Promise<FormState>>();
-const render = () => markup(createElement(DeleteMenuItem, { action, id: 5, confirmMessage: "確定刪除分類「餐飲」？", label: "刪除分類", deletedMessage: "已刪除「餐飲」" }));
+const render = () => markup(createElement(DeleteMenuItem, { action, fields: { id: 5 }, confirmMessage: "確定刪除分類「餐飲」？", label: "刪除分類", deletedMessage: "已刪除「餐飲」" }));
 const props = () => vi.mocked(ActionButton).mock.calls[0][0];
 
 beforeEach(() => {

@@ -1,7 +1,8 @@
 import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { markup as render, textOf } from "@/dev/test-helpers";
-import type { ConfirmDraft, PayCardDraft } from "../../dashboard-view";
+import type { PayCardDraft } from "../../account-details";
+import type { ConfirmDraft } from "../../pending-view";
 
 // 只看表單送出什麼 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });

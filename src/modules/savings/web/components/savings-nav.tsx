@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef } from "react";
+import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { useRevealCurrent } from "@/core/ui/nav-links";
 import { SAVINGS_PATHS } from "../paths";
 
@@ -22,7 +23,7 @@ export function SavingsNav({ current }: { current: SavingsSection }) {
   useRevealCurrent(listRef, current);
 
   return (
-    <nav aria-label="理財的頁面" className="nav-scroll no-scrollbar -m-1 overflow-x-auto p-1">
+    <nav {...DRAG_SCROLL} aria-label="理財的頁面" className="nav-scroll no-scrollbar -m-1 overflow-x-auto p-1">
       <ul ref={listRef} className="flex w-max gap-2">
         {SECTIONS.map((section) => (
           <li key={section.id} className="shrink-0">

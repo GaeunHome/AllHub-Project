@@ -16,7 +16,7 @@ import { CAPTCHA_ERROR, CAPTCHA_FIELD, HONEYPOT_FIELD, INVALID_CREDENTIALS, safe
 import { normalizeUsername } from "./credentials";
 import { clientIp, createFailureLimiter } from "./rate-limit";
 import { registerMember, type RegisterResult } from "./registration";
-import { authenticate, changePassword, deleteOwnAccount, updateNickname } from "./users";
+import { authenticate, changePassword, deleteOwnAccount, updateAvatar, updateNickname } from "./users";
 
 export type LoginState = { error?: string; username?: string };
 export type RegisterState = { error?: string; username?: string };
@@ -156,6 +156,18 @@ export async function updateNicknameAction(_prev: FormState, formData: FormData)
     // 管理頁的使用者清單與模組權限表格都顯示暱稱
     updateTags(authTags.users);
     return result.nickname ? `已更新暱稱：${result.nickname}` : "已清除暱稱";
+  });
+}
+
+/** 只能改自己 使用者 id 來自 session 不看表單 */
+export async function updateAvatarAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireSession();
+  return runAction({ module: "auth", action: "更換頭像" }, async () => {
+    const result = await updateAvatar(session.id, formText(formData, "avatar"));
+    if (!result.ok) return { error: result.error };
+    // 管理頁的使用者清單與旅遊的同行的人都畫頭像
+    updateTags(authTags.users);
+    return result.avatar ? "已更換頭像" : "已改回文字頭像";
   });
 }
 
