@@ -13,6 +13,7 @@
     { "path": "/api/cron/youtube:renew", "schedule": "30 20 * * *" },
     { "path": "/api/cron/notifications:cleanup", "schedule": "0 21 * * *" },
     { "path": "/api/cron/audit:cleanup", "schedule": "50 20 * * *" },
+    { "path": "/api/cron/travel:cleanup", "schedule": "10 19 * * *" },
     { "path": "/api/cron/weather:rain", "schedule": "0 22 * * *" },
     { "path": "/api/cron/reminders:daily", "schedule": "0 23 * * *" },
     { "path": "/api/cron/savings:dividends", "schedule": "0 0 * * *" },

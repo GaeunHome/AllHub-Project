@@ -7,6 +7,8 @@ import { savingsInfo } from "@/modules/savings/info";
 import { SavingsHomeCard } from "@/modules/savings/web/pages/home-card";
 import { SavingsNotices } from "@/modules/savings/web/pages/home-notices";
 import { starrailInfo } from "@/modules/starrail/info";
+import { travelInfo } from "@/modules/travel/info";
+import { TravelHomeCard } from "@/modules/travel/web/pages/home-card";
 import { StarrailHomeCard } from "@/modules/starrail/web/pages/home-card";
 import { StarrailNotices } from "@/modules/starrail/web/pages/home-notices";
 import { twitchInfo } from "@/modules/twitch/info";
@@ -34,7 +36,10 @@ export default function Page() {
         { id: youtubeInfo.id, card: <YoutubeHomeCard info={youtubeInfo} /> },
       ]}
       half={[{ id: starrailInfo.id, card: <StarrailHomeCard info={starrailInfo} /> }]}
-      compact={[{ id: savingsInfo.id, card: <SavingsHomeCard info={savingsInfo} /> }]}
+      compact={[
+        { id: savingsInfo.id, card: <SavingsHomeCard info={savingsInfo} /> },
+        { id: travelInfo.id, card: <TravelHomeCard info={travelInfo} /> },
+      ]}
     />
   );
 }

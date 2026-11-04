@@ -633,6 +633,7 @@ describe("架構規則", () => {
   const MODULE_CSS_PREFIXES: Record<string, string[]> = {
     savings: ["fin-"],
     starrail: ["sr-"],
+    travel: ["trv-"],
     twitch: ["tw-"],
     youtube: ["yt-", "player-", "subtitle-"],
   };

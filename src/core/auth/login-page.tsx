@@ -16,7 +16,7 @@ export function LoginPage({ searchParams }: { searchParams: SearchParams }) {
         <DeletedNotice searchParams={searchParams} />
       </Suspense>
       <Suspense fallback={<LoginFormSkeleton />}>
-        <LoginGate />
+        <LoginGate searchParams={searchParams} />
       </Suspense>
       <LoginFooter />
     </AuthCard>
@@ -41,9 +41,10 @@ function LoginFooter() {
 }
 
 /** 還沒有帳號時只顯示說明 站長帳號只能在電腦上建立 註冊頁要有站長的邀請 */
-export async function LoginGate() {
+export async function LoginGate({ searchParams }: { searchParams: SearchParams }) {
   await connection();
-  return (await hasAccounts()) ? <LoginForm captchaSrc={captchaImageUrl("login")} /> : <NoAccountNotice />;
+  const { next } = await searchParams;
+  return (await hasAccounts()) ? <LoginForm captchaSrc={captchaImageUrl("login")} next={typeof next === "string" ? next : undefined} /> : <NoAccountNotice />;
 }
 
 async function hasAccounts(): Promise<boolean> {

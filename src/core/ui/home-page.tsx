@@ -14,7 +14,9 @@ import { NoticeStrip } from "./notice-strip";
 import { LoadingState, Skeleton } from "./skeleton";
 
 const NOTIFICATIONS = { id: "notifications", name: "通知", href: "/notifications", icon: "/icons/ui/bell.svg" } as const;
-const MODULE_LINKS = "grid grid-cols-2 gap-2 min-[28rem]:grid-cols-4 sm:flex sm:flex-wrap sm:justify-end";
+const MODULE_LINKS = "grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end";
+// 單數個時最後一個撐滿一列 手機上旁邊才不會空一格 sm 以上是 flex 不受影響
+const fillsRow = (index: number, count: number) => count % 2 === 1 && index === count - 1;
 
 /** id 是模組 id core 依它過濾 被關掉的模組整張卡片不算繪 */
 export type HomeSlot = { id: string; card: ReactNode };
@@ -96,15 +98,19 @@ export async function HomeModuleLinks({ modules }: { modules: ModuleInfo[] }) {
   const usable = await usableModules(pageModules(modules));
   return (
     <ul className={MODULE_LINKS}>
-      {usable.map((m) => (
-        <li key={m.id} className="min-w-0">
-          <Link href={m.href} className="home-module-link">
-            {m.cover && <Image src={m.cover} alt="" fill unoptimized loading="eager" sizes="10rem" className="home-module-cover" />}
-            <Icon src={m.icon} />
-            <span className="max-w-full truncate">{m.name}</span>
-          </Link>
-        </li>
-      ))}
+      {usable.map((m, index) => {
+        const wide = fillsRow(index, usable.length);
+        return (
+          <li key={m.id} className={wide ? "col-span-2 min-w-0" : "min-w-0"}>
+            <Link href={m.href} className="home-module-link">
+              {/* 撐滿一列時圖放大 從上緣裁才不會切到圖上的主角 */}
+              {m.cover && <Image src={m.cover} alt="" fill unoptimized loading="eager" sizes="10rem" className={wide ? "home-module-cover max-sm:object-top" : "home-module-cover"} />}
+              <Icon src={m.icon} />
+              <span className="max-w-full truncate">{m.name}</span>
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -154,7 +160,7 @@ function ModuleLinksSkeleton({ count }: { count: number }) {
   return (
     <div aria-hidden className={MODULE_LINKS}>
       {Array.from({ length: count }, (_, i) => (
-        <Skeleton key={i} className="h-16 rounded-xl sm:w-32" />
+        <Skeleton key={i} className={fillsRow(i, count) ? "col-span-2 h-16 rounded-xl sm:w-32" : "h-16 rounded-xl sm:w-32"} />
       ))}
     </div>
   );

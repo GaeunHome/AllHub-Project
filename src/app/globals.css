@@ -1424,6 +1424,7 @@
   @import "../modules/youtube/web/youtube.css";
   @import "../modules/twitch/web/twitch.css";
   @import "../modules/starrail/web/starrail.css";
+  @import "../modules/travel/web/travel.css";
   @import "../modules/youtube/web/player.css";
 
   /* 只有沒要求減少動態時才加上閃動 滑入 搖動與浮起 */

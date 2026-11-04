@@ -60,6 +60,7 @@ export const UI_ICON_NAMES = [
   "gamepad-2",
   "gift",
   "graduation-cap",
+  "grip-vertical",
   "heart",
   "heart-pulse",
   "house",

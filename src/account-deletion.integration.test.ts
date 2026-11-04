@@ -48,6 +48,10 @@ async function seedEverything(userId: string, n: number) {
   await first(sql`insert into youtube_saved_videos (user_id, video_id, title, pinned) values (${userId}, 'dQw4w9WgXcQ', '影片', true)`);
   const game = await first(sql`insert into starrail_accounts (user_id, ltuid, cookie_encrypted, uid, region) values (${userId}, ${String(n)}, 'v1:cipher', ${`80000000${n}`}, 'prod_official_asia') returning id`);
   await first(sql`insert into starrail_checkin_logs (account_id, result) values (${game.id}, 'success')`);
+  const trip = await first(sql`insert into travel_trips (title, start_date, end_date) values ('旅程', '2026-12-01', '2026-12-03') returning id`);
+  await first(sql`insert into travel_members (trip_id, user_id) values (${trip.id}, ${userId})`);
+  const stop = await first(sql`insert into travel_items (trip_id, position, kind, title, stay_minutes, travel_minutes) values (${trip.id}, 0, 'place', '清水寺', 60, 0) returning id`);
+  await first(sql`insert into travel_comments (item_id, user_id, body) values (${stop.id}, ${userId}, '留言')`);
   await first(sql`insert into starrail_redeem_codes (account_id, code, result) values (${game.id}, 'STARRAILGIFT', 'success')`);
   const category = await first(sql`insert into savings_categories (user_id, kind, name, color, monthly_budget) values (${userId}, 'expense', '餐飲', 'orange', 6000) returning id`);
   const deposit = await first(sql`insert into savings_accounts (user_id, name, kind, opening_balance) values (${userId}, '存款', 'deposit', 1000) returning id`);

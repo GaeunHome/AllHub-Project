@@ -2,7 +2,7 @@
 
 # CLAUDE.md
 
-AllHub Project：個人整合系統（站長管理，其他人只能用站長的邀請連結註冊；各模組的資料依使用者分開，只有 YouTube 的翻譯共用），Next.js 16 App Router＋TypeScript＋Drizzle＋PostgreSQL＋Tailwind 4，部署到 Vercel Hobby＋Supabase。使用者文件見 README.md（精簡的專案首頁）、`CHANGELOG.md`（每一版的更新紀錄）與 `docs/`：部署 `deploy.md`、密鑰 `secrets.md`、模組 `modules.md`、架構 `architecture.md`、本機開發 `development.md`。
+AllHub Project：個人整合系統（站長管理，其他人只能用站長的邀請連結註冊；各模組的資料依使用者分開，只有 YouTube 的翻譯與旅遊的旅程共用），Next.js 16 App Router＋TypeScript＋Drizzle＋PostgreSQL＋Tailwind 4，部署到 Vercel Hobby＋Supabase。使用者文件見 README.md（精簡的專案首頁）、`CHANGELOG.md`（每一版的更新紀錄）與 `docs/`：部署 `deploy.md`、密鑰 `secrets.md`、模組 `modules.md`、架構 `architecture.md`、本機開發 `development.md`。
 
 ## 指令
 
@@ -99,7 +99,7 @@ AllHub Project：個人整合系統（站長管理，其他人只能用站長的
 
 ## 多人：依使用者的資料與擁有權
 
-- 依使用者的表都有 `user_id`（NOT NULL），外鍵指向 `core_users`、`on delete cascade`（刪除帳號時一起刪）：`core_notifications`、`twitch_follows`、`youtube_follows`、`youtube_settings`、`youtube_saved_videos`、`starrail_accounts`（簽到紀錄與自動兌換試過的兌換碼跟著帳號刪）、`savings_accounts`、`savings_categories`、`savings_transactions`、`savings_recurring`、`savings_holdings`、`savings_card_bills`、`savings_dividend_notices`（舊的 `savings_goals`、`savings_entries`、`savings_purposes` 已經刪掉）、`weather_settings`、`reminders_items`、`core_module_denials`；`core_invites.created_by` 也是 cascade。共用的表：`twitch_streamers`、`twitch_stream_events`、`youtube_channels`、`youtube_videos`、`youtube_translations`（發起人 `requested_by` 是 `on delete set null`，翻譯留給其他人）。新增依使用者的表照同樣寫，新增 core 以外的連帶刪除不用改 `deleteOwnAccount()`（core 不能 import 模組，連帶刪除只靠外鍵）。
+- 依使用者的表都有 `user_id`（NOT NULL），外鍵指向 `core_users`、`on delete cascade`（刪除帳號時一起刪）：`core_notifications`、`twitch_follows`、`youtube_follows`、`youtube_settings`、`youtube_saved_videos`、`starrail_accounts`（簽到紀錄與自動兌換試過的兌換碼跟著帳號刪）、`savings_accounts`、`savings_categories`、`savings_transactions`、`savings_recurring`、`savings_holdings`、`savings_card_bills`、`savings_dividend_notices`（舊的 `savings_goals`、`savings_entries`、`savings_purposes` 已經刪掉）、`weather_settings`、`reminders_items`、`core_module_denials`、`travel_members`、`travel_comments`；`core_invites.created_by` 也是 cascade。共用的表：`twitch_streamers`、`twitch_stream_events`、`youtube_channels`、`youtube_videos`、`youtube_translations`（發起人 `requested_by` 是 `on delete set null`，翻譯留給其他人）。新增依使用者的表照同樣寫，新增 core 以外的連帶刪除不用改 `deleteOwnAccount()`（core 不能 import 模組，連帶刪除只靠外鍵）。
 - 使用者 id 一律來自 `requireSession()`（Route Handler 是 `currentSession()`），當 service 函式的第一個參數（重新翻譯、上傳字幕要看角色，傳整個 session）；不從表單、網址或其他地方拿使用者 id。表單或網址送來的資料 id 只決定操作哪一筆。
 - 擁有權在 service 的 SQL 裡檢查：收 id 的讀寫一律同時比對 `user_id`（`where id = ? and user_id = ?`），別人的 id 當作不存在（回 null／false／「找不到…，請重新整理頁面」，不另外說「沒有權限」，免得透露那筆資料存在）。頁面的選擇（例如星穹鐵道的 `?account=`）只從自己的清單裡挑。每一類收 id 的 Server Action、Route Handler、頁面都要有 IDOR 測試：用 A 的 session 操作 B 的資料，結果被拒絕或沒有效果（service 的整合測試用 `insertTestUser()` 建兩個人；Server Action 的測試確認傳給 service 的是登入者的 id）。
 - 例外：
@@ -109,6 +109,7 @@ AllHub Project：個人整合系統（站長管理，其他人只能用站長的
     - 專有名詞表存檔時有上限（`lib/parse.ts` 的 `GLOSSARY_LIMITS`：200 筆、每個詞 50 字、合計 5,000 字，超過丟中文的 `TranslationUserError`）；送給 AI 時 `translateBatch` 只帶這一批與前後文裡出現的詞條（`relevantGlossary()`）。上傳字幕最多 5,000 句。
   - **字幕下載**（`/api/youtube/subtitles/<影片 id>`）不檢查擁有權：翻譯共用，登入的人在觀看頁本來就看得到同一份，下載只是另一種格式。
   - **星穹鐵道的 UID 全站唯一**：別人已經連結的 UID 拒絕（整批不寫入），自己重新連結只更新自己那一列（`starrail_accounts.user_id` 不能是 null）。
+  - **旅遊的旅程共用**：`travel_trips` 沒有 `user_id`，權限看 `travel_members`，加入的人都能改行程。擁有權在 service 的 SQL 裡檢查：每個讀寫都經 `service/access.ts` 的 `isMemberOf()` 或 `inMemberTrip()`（鎖住旅程再比對成員），不是成員回 null 或「找不到這趟旅程」，項目 id 也要比對屬於這趟。建立者不存欄位：最早加入的人就是（`managerOf()`），他離開或刪除帳號後自動交給下一位，只有他能移除成員、動群組連結、刪旅程。
 - 共用的主播與頻道：追蹤時 upsert 共用的那一列再加自己的追蹤（同一個交易），取消追蹤只刪自己的；最後一位追蹤者取消時才刪主播／頻道並刪掉 EventSub／WebSub 訂閱（交易裡鎖住那一列再數追蹤者）。刪除帳號留下沒人追蹤的，由每天的 `twitch:sync`、`youtube:renew` 刪掉。
 - 手動的「同步訂閱」（`syncSubscriptionsFor`）與「續訂」（`renewSubscriptionsFor`）所有人都能按，處理的是全站共用的訂閱；回應只說自己追蹤的數量，不透露全站的主播或頻道數；每人 60 秒冷卻（`takeCooldown()`）。排程用不分使用者的 `syncSubscriptions`、`renewSubscriptions`，回應是全站摘要。開台與新影片通知只送給追蹤、而且通知開著（`*_follows.notify_enabled`）的人；主播表、頻道表沒有通知開關（單人版的舊欄位 v0.1.8 刪掉），畫面用 `data/schema.ts` 的 `FollowedStreamer`／`FollowedChannel`（共用那一列加上自己的 `notifyEnabled`）。
 - `notify({ recipients, … })`：收件人是使用者 id 陣列，由各模組決定（Twitch／YouTube 是追蹤而且開著通知的人，星穹鐵道是帳號的擁有者，理財是固定收支、信用卡或持股的擁有者，天氣是開著下雨或警特報通知的人，提醒與倒數是項目的擁有者）；空陣列就不寫，查完之後才刪除帳號的人、被停用的人直接略過。排程寄的提醒同一件事只寄一次：星穹鐵道、天氣與提醒與倒數用 `core/claim.ts` 的 `sendOnce()`／`sendOnceEach()` 先 `claimOnce()` 再寄、寄不出去 `releaseOnce()`，開拓力與理財用條件式 update 認領（`last_stamina_alert_at`、`last_notified_on`、`card_notified_on`；除權息是 `savings_dividend_notices` 的條件式寫入），寄不出去退回。
@@ -179,6 +180,7 @@ AllHub Project：個人整合系統（站長管理，其他人只能用站長的
 - `youtube_saved_videos`（保留的影片）永久保留，直到使用者自己移除或刪除帳號：沒有清理排程，影片被清掉、頻道沒人追蹤時都不刪（跟影片表沒有外鍵）；只有清單滿了時先擠掉最舊的自動項目（見〈YouTube〉）。
 - 信用卡帳單 `savings_card_bills` 每張卡只留最新 5 張：`savings:recurring` 每天清掉更舊的（`pruneCardBills()`），填帳單時補的那一筆紀錄留著、`card_bill_id` 由外鍵改成 null。
 - 除權息通知的寄送紀錄 `savings_dividend_notices`（一個人一檔一個除息日一列）在除息日過了之後由 `savings:dividends` 刪掉。
+- 旅遊的旅程 `travel_trips` 回程 7 天後由 `travel:cleanup` 刪掉（使用者要的，`lib/rules.ts` 的 `RETENTION_DAYS`，照台北日期，第 7 天還在），項目、留言、清單與成員跟著外鍵刪；沒有成員的旅程也一起清掉。
 - 提醒與倒數 `reminders_items` 日期過了之後由 `reminders:daily` 刪掉（台北 7 點多，只刪擁有者沒停用的）；卡片在快取外面用今天的台北日期過濾，排程跑之前就不顯示。
 - 自動兌換試過的兌換碼 `starrail_redeem_codes` 只記答案不會變的（success、already、expired、invalid），留到移除那個帳號；手動輸入的兌換碼與結果都不存。
 - 星穹鐵道提醒的認領在 `core_rate_limits`（scope `starrail:<種類>`，key 是帳號與期別的雜湊），一天後清掉，所以每種提醒的時段都短於一天。天氣的下雨提醒（scope `weather:rain`，key 是使用者 id 與台北日期的雜湊）、警特報（scope `weather:warning`）與提醒與倒數（scope `reminders:due`）也是。
@@ -266,6 +268,19 @@ AllHub Project：個人整合系統（站長管理，其他人只能用站長的
 - 排程 `reminders:daily`（`service/daily.ts`，台北 07:00 與 12:00 那個小時）：先寄再刪。擁有者沒停用、今天是當天或提前那天的項目逐筆 `sendOnce()`（scope `reminders:due`，key 是 `claimKey(項目 id, 今天)`），一筆出錯不擋其他筆，寄不出去的中午那一次再寄；同一天有好幾則時最急的最後寫入（通知新的在上面）；通知的 kind 是 `due`、連到首頁，標題是「今天：」「明天：」「還有 N 天：」加標題，內文只有日期。接著刪掉 `date < 今天` 的列，只刪擁有者沒停用的。摘要只有數字。中午 12 點多之後才新增、今天到期或今天是提前那天的，當天不補寄。
 - 畫面：每一列左邊是倒數方塊（`reminder-list.tsx` 的 `CountdownTile`：大數字加「天後」，今天與明天直接寫字，今天是警示色、三天內是主色），最近的 5 個直接顯示，其他的收在 `disclosure`；修改與刪除在 ⋮。結果用提示視窗；第一次新增與刪除時打開視窗的按鈕或那一列會不見，修改時那一列可能在最近 5 個與收起來的清單之間搬動，焦點都交給首頁卡片的外框。
 
+### 旅遊（travel）
+- 使用者的痛點：用 Excel 排行程，中途改很麻煩、還要自己查。所以時間不用手填：`lib/schedule.ts` 的 `scheduleDay()` 照順序、停留與交通的分鐘數算出每一項的時間（一天從 9 點開始，第一項的固定時間就是這一天的開始；中間的固定時間早到就等、來不及標「晚 N 分鐘」），資料庫不存時間，拖曳換順序整天自動重排。
+- 頁面：`/travel` 清單、`/travel/<id>` 行程（想去的點加每天一欄的看板，下面是同行的人與出發前清單）、`/travel/join/<id>/<token>` 加入（打開不會自動加入，要按按鈕）。項目的 `day` 是 null 時在想去的點。首頁卡片是下一趟旅程。
+- 同行的人都要有 AllHub 帳號（使用者的決定）：群組連結不存資料庫，`service/join-link.ts` 用 `SESSION_SECRET` 衍生的金鑰對旅程 id 與 `join_generation` 算 HMAC，建立者隨時可以再複製；撤銷時 generation 加一，舊連結失效，已經加入的人不受影響。沒登入的人點連結：`proxy.ts` 只替 `/travel/join/` 帶 `?next=`，登入後用 `messages.ts` 的 `safeNextPath()` 回去（只收站內路徑）。沒有旅遊權限的人照舊回首頁，要站長先開。
+- 一起編輯是輪流存檔，不是同時打字：Vercel 沒有常駐連線，也不加輪詢（使用者不要多的流量）。項目修改比對 `version`，別人先改過就請他重新看過；拖曳傳「放到哪一項前面」不傳位置編號，兩個人同時拖也不會互相蓋掉，要放在前面的那一項不在了就放最後（`service/items.ts` 的 `moveItem()` 與 `web/board-model.ts` 的 `moveInBoard()` 算法一樣，畫面先換好再等伺服器）。其他人靠站內通知知道（`service/notices.ts`，同一人同一趟十分鐘一則）與切回分頁時重新讀（`trip-refresh.tsx`）。
+- 拖曳是自己寫的（使用者同意：比套件好就留著，不要造成問題；有真機問題再換 dnd-kit，影響範圍只有 `web/components/use-board-drag.ts` 與 `trip-board.tsx`）：pointer 事件，滑鼠與手指共用，只有把手能拖（`touch-action: none`，手機 44px），其他地方照樣能捲動頁面。
+  - 落點看左右位置（`dropAt()`）：空的那一天比較矮，手指低於它也算放進去；放在標題或空白處也算數，經過欄位間的空隙沿用上一個落點，移出看板是取消。
+  - 手指停在邊緣不動也會繼續捲（`requestAnimationFrame`），拖曳時關掉看板的捲動吸附（`[data-dragging]`），不然兩邊打架。
+  - 位置不存 state，每動一下重畫整個看板手機會卡，落點變了才重畫。
+  - 放回原位不送出（`isSamePlace()`，service 也回 false），不失效快取也不通知。順序不是內容，拖曳不動 `version`，別人正在改這一項時不會被說成衝突。
+  - 把手可以用方向鍵：上下換順序、左右換天，焦點跟著卡片走（跨天時卡片重新掛載，`TripBoard` 的 layout effect 放回去），結果念在 `role="status"`。Esc 取消，⋮ 裡也有上移、下移、移到別天。
+- 地點：不接付費 API（使用者的決定）。`lib/maps.ts` 只解析貼上的 Google Maps 連結（名稱與座標，只收 Google 的網域）與組出開地圖的網址（查地圖、兩點之間的大眾運輸、整天路線最多 9 個中途點）；`maps.app.goo.gl` 短網址由伺服器用 `externalFetch(redirect: "manual")` 問一次，轉去的網址也要是地圖才採用，問不到就手動填。交通時間由使用者按「查路線」看完填回來。**尚未用真實連結驗證**。不做離線與分帳（使用者的決定）。
+
 ### 理財（savings）
 - 模組 id、網址與資料表前綴沿用 `savings`，名稱是「理財」。六個分頁照東西分（使用者的決定）：總覽 `/savings`、紀錄 `/savings/records`、帳戶 `/savings/accounts`、投資 `/savings/investments`、每月固定 `/savings/recurring`、設定 `/savings/settings`，共用 `web/components/page-frame.tsx`（外框、頁首的 `actions` 與 `StreamSection`；整頁是 `FOCUS_FRAME`）與 `savings-nav.tsx`（手機放不下時橫向捲動，目前的分頁捲進畫面）。
   - 網址集中在 `web/paths.ts`（`SAVINGS_PATHS`）：`addAccountPath(kind)`（帳戶頁 `?add=deposit|credit`、投資頁 `?add=investment`）打開就跳出新增的視窗，`addRecurringPath(preset)`（每月固定頁 `?add=salary|regular-buy|other`），`editRecurringPath(id)`（每月固定頁 `?edit=<id>`，只認自己的）打開那一條的修改視窗；打開後用 `router.replace` 拿掉參數（`settings/open-from-link.ts`）。設定頁的舊網址 `?add=account`、`?recurring=<id>` 轉到新頁面。紀錄頁收 `?month=`、`?account=`、`?category=`（只認自己的帳戶與分類），網址一律用 `recordsHref()` 組（只帶月份的是 `monthHref()`）。
@@ -351,5 +366,5 @@ AllHub Project：個人整合系統（站長管理，其他人只能用站長的
 - 不能回滾、只能往前修：有成員之後不能回到多人化以前的版本（v0.1.0）；v0.1.6 起也不能回到 v0.1.5（舊程式不認得「到期請我確認」，會把薪水、定期定額這類固定收支照原日自動記帳，也看不到持股與帳單）；v0.1.8 起也不能回到 v0.1.7（migration 刪掉了 v0.1.7 的查詢會明列的欄位與表，Instant Rollback 也不要按）。細節在 `docs/deploy.md` 的〈回滾與部署保護〉與〈之後的部署〉。
 - 第一次部署的順序（網頁操作）：Supabase 建專案 → Vercel 匯入並填環境變數 → GitHub Secrets 填 `MIGRATION_DATABASE_URL`、`CRON_SECRET`、`HUB_URL` → 重新部署 → 手動跑 db-migrate → `npm run account create`（依提示貼上 Session pooler 連線字串，第一個帳號是站長）→ 登入 → 在「管理」頁用邀請連結邀請其他人。帳號一定在 migration 之後建立。
 - 密鑰正本就是 Vercel 的環境變數與 GitHub Secrets（步驟見 `docs/secrets.md`）；Vercel 的環境變數改完要重新部署才生效。換 `ENCRYPTION_KEY`（都在 Vercel 網頁上）：舊值複製到 `ENCRYPTION_KEY_PREVIOUS` → 設新值 → 重新部署 → 等 reencrypt 排程回報 0 筆、沒有失敗 → 刪掉 `ENCRYPTION_KEY_PREVIOUS` 再重新部署。
-- 排程：都寫在 `vercel.json`（UTC；Hobby 每條一天最多一次、只保證在那個小時內執行，每個專案最多 100 條）。`starrail:stamina` 同一個路徑每個 UTC 小時各一條（24 條），大約每小時跑一次；GitHub Actions 的定時排程常漏跑（實際一天只跑 4–5 次、間隔 3–8 小時），不要用，`.github/workflows/cron.yml` 只給手動執行。`audit:cleanup` 每天一條（UTC 20:50＝台北 04:50，刪掉超過 7 天的操作紀錄）。`notifications:cleanup` 跟其他每天一次的排程錯開小時（`core/cron.test.ts`），開拓力提醒與天氣警特報每個小時都有、不算。`starrail:redeem` 每天一條（UTC 04:00＝台北 12:00；`modules/cron.test.ts` 檢查只有一條）。`weather:rain` 每天一條（UTC 22:00＝台北 06:00，只保證在那個小時內；`modules/cron.test.ts` 檢查只有一條、在那個小時）。`savings:dividends` 每天一條（UTC 00:00＝台北 08:00，9 點開盤前；同樣檢查只有一條、在那個小時）。`reminders:daily` 每天兩條（UTC 23:00＝台北 07:00、UTC 04:00＝台北 12:00：中午那一次補寄早上沒寄出去的，排程不只一條才會有下一次，不然寄不出去的提醒隔天就被刪掉）。`weather:warnings` 同一個路徑每個 UTC 小時各一條（24 條，共 64 條，`modules/cron.test.ts` 也檢查總數在 100 條內）。排程的 route 沒有設 `maxDuration`，靠 Vercel 的 Fluid compute 預設 300 秒（Hobby）：`youtube:cleanup`（外部請求最多 60 秒）、`starrail:redeem`（約 45 秒）、`weather:rain`、`weather:warnings`（讀全台資料最多等 15 秒）、`savings:dividends`（兩個預告表各最多等 15 秒）都要它開著，關掉時預設只有 10 秒。新增排程要登記到 `src/modules/cron.ts`、`vercel.json` 與 `docs/architecture.md` 的排程表（`modules/cron.test.ts` 檢查登記的排程跟 `vercel.json` 的路徑一一對應，只能手動跑的列在它的 `MANUAL_ONLY`）。
+- 排程：都寫在 `vercel.json`（UTC；Hobby 每條一天最多一次、只保證在那個小時內執行，每個專案最多 100 條）。`starrail:stamina` 同一個路徑每個 UTC 小時各一條（24 條），大約每小時跑一次；GitHub Actions 的定時排程常漏跑（實際一天只跑 4–5 次、間隔 3–8 小時），不要用，`.github/workflows/cron.yml` 只給手動執行。`audit:cleanup` 每天一條（UTC 20:50＝台北 04:50，刪掉超過 7 天的操作紀錄）。`travel:cleanup` 每天一條（UTC 19:10＝台北 03:10）。`notifications:cleanup` 跟其他每天一次的排程錯開小時（`core/cron.test.ts`），開拓力提醒與天氣警特報每個小時都有、不算。`starrail:redeem` 每天一條（UTC 04:00＝台北 12:00；`modules/cron.test.ts` 檢查只有一條）。`weather:rain` 每天一條（UTC 22:00＝台北 06:00，只保證在那個小時內；`modules/cron.test.ts` 檢查只有一條、在那個小時）。`savings:dividends` 每天一條（UTC 00:00＝台北 08:00，9 點開盤前；同樣檢查只有一條、在那個小時）。`reminders:daily` 每天兩條（UTC 23:00＝台北 07:00、UTC 04:00＝台北 12:00：中午那一次補寄早上沒寄出去的，排程不只一條才會有下一次，不然寄不出去的提醒隔天就被刪掉）。`weather:warnings` 同一個路徑每個 UTC 小時各一條（24 條，共 65 條，`modules/cron.test.ts` 也檢查總數在 100 條內）。排程的 route 沒有設 `maxDuration`，靠 Vercel 的 Fluid compute 預設 300 秒（Hobby）：`youtube:cleanup`（外部請求最多 60 秒）、`starrail:redeem`（約 45 秒）、`weather:rain`、`weather:warnings`（讀全台資料最多等 15 秒）、`savings:dividends`（兩個預告表各最多等 15 秒）都要它開著，關掉時預設只有 10 秒。新增排程要登記到 `src/modules/cron.ts`、`vercel.json` 與 `docs/architecture.md` 的排程表（`modules/cron.test.ts` 檢查登記的排程跟 `vercel.json` 的路徑一一對應，只能手動跑的列在它的 `MANUAL_ONLY`）。
 - 發版：`package.json` 的 version 與 `CHANGELOG.md` 一起改。CHANGELOG 新的一版加在最上面（版本與日期），分「新增／改善／修正」，有的才寫；給人看，寫使用者看得到的改變，不寫內部實作。資料庫 migration 寫在那一版的「資料庫」（沒有就寫沒有），升級時要注意的事另外寫進 `docs/deploy.md` 的〈之後的部署〉。

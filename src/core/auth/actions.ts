@@ -12,7 +12,7 @@ import { createSession, deleteSession, requireSession } from ".";
 import { INVITE_FAILURES, REGISTER_ATTEMPTS, checkAttempts, clientKey, recordAttempt } from "./attempts";
 import { authTags } from "./cache-tags";
 import { takeCaptchaToken, verifyCaptcha } from "./captcha";
-import { CAPTCHA_ERROR, CAPTCHA_FIELD, HONEYPOT_FIELD, INVALID_CREDENTIALS, tooManyAttempts } from "./messages";
+import { CAPTCHA_ERROR, CAPTCHA_FIELD, HONEYPOT_FIELD, INVALID_CREDENTIALS, safeNextPath, tooManyAttempts } from "./messages";
 import { normalizeUsername } from "./credentials";
 import { clientIp, createFailureLimiter } from "./rate-limit";
 import { registerMember, type RegisterResult } from "./registration";
@@ -75,7 +75,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   }
   await createSession(user.id, user.sessionVersion);
   audit(actor, { module: "auth", action: "登入成功" });
-  redirect("/");
+  redirect(safeNextPath(formText(formData, "next")));
 }
 
 /** 只能用有效的邀請註冊 次數依 IP 雜湊存在資料庫 serverless 的記憶體不共用 */

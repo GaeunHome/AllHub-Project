@@ -1,0 +1,76 @@
+/* 行程看板 一天一欄 橫向捲動 手機一次看一欄 */
+.trv-board {
+  @apply -mx-4 flex items-start gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 1rem;
+}
+/* 吸附會把自動捲動拉回去 拖曳時關掉 */
+.trv-board[data-dragging] {
+  scroll-snap-type: none;
+}
+.trv-column {
+  @apply flex flex-col gap-3 rounded-2xl p-4;
+  flex: 1 0 min(19rem, 84vw);
+  max-width: 24rem;
+  scroll-snap-align: start;
+  border: 1px solid var(--line);
+  background-color: var(--surface);
+  box-shadow: var(--elevation-card);
+}
+.trv-column[data-pool] {
+  background-color: var(--surface-muted);
+  box-shadow: none;
+}
+/* 留一點高度 空的那天才放得進去 */
+.trv-list {
+  @apply flex min-h-20 flex-col gap-2;
+}
+.trv-empty {
+  @apply grid min-h-20 place-items-center rounded-xl text-center text-sm;
+  border: 1px dashed var(--line-strong);
+  color: var(--ink-soft);
+}
+.trv-card {
+  @apply flex items-start gap-1 rounded-xl p-2;
+  border: 1px solid var(--line);
+  background-color: var(--surface-solid);
+}
+.trv-card[data-dragging] {
+  opacity: 0.4;
+}
+/* 只有把手能拖 手機上按其他地方照樣能捲動頁面 */
+.trv-handle {
+  @apply grid size-9 shrink-0 cursor-grab place-items-center rounded-lg;
+  color: var(--ink-soft);
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+}
+.trv-handle:active {
+  cursor: grabbing;
+}
+@media (pointer: coarse) {
+  .trv-handle {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}
+.trv-drop-line {
+  @apply h-1 rounded-full;
+  background-color: var(--brand);
+}
+.trv-leg {
+  @apply flex items-center gap-1.5 pl-3 text-sm;
+  color: var(--ink-soft);
+}
+/* 跟著手指的標籤 不擋事件 放開位置才算得出來 */
+.trv-ghost {
+  @apply pointer-events-none fixed top-0 left-0 z-40 max-w-56 truncate rounded-lg px-3 py-1.5 text-sm font-semibold;
+  color: var(--ink);
+  background-color: var(--surface-solid);
+  border: 1px solid var(--brand);
+  box-shadow: var(--elevation-lift);
+  transform: translate(0.75rem, -50%);
+  will-change: translate;
+}

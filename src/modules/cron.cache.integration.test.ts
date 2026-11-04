@@ -39,6 +39,8 @@ const EXPECTED: Record<string, string[]> = {
   "weather:warnings": [],
   // 過期的提醒會被刪掉 首頁卡片讀的是同一張表
   "reminders:daily": ["reminders:items"],
+  // 刪掉旅程時項目 留言 清單與成員跟著外鍵刪 全部要失效
+  "travel:cleanup": ["travel:checks", "travel:comments", "travel:items", "travel:members", "travel:trips"],
 };
 
 beforeEach(() => {

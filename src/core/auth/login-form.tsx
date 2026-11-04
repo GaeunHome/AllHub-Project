@@ -8,12 +8,13 @@ import { login, type LoginState } from "./actions";
 import { CaptchaField } from "./captcha-field";
 import { credentialsHint } from "./messages";
 
-export function LoginForm({ captchaSrc }: { captchaSrc: string }) {
+export function LoginForm({ captchaSrc, next }: { captchaSrc: string; next?: string }) {
   const [state, action, pending] = useActionState<LoginState, FormData>(login, {});
   const passwordId = useId();
 
   return (
     <form action={action} className="stack">
+      {next && <input type="hidden" name="next" value={next} />}
       <label className="relative block">
         <span className="sr-only">帳號</span>
         <Icon name="circle-user-round" className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted" />

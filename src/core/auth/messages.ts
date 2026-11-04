@@ -30,6 +30,11 @@ export const CAPTCHA_LENGTH = 5;
  * 伺服器算繪頁面時呼叫 每個請求只算一次
  * t 讓每次打開頁面的網址都不同 瀏覽器才不會拿舊的圖
  */
+/** 登入後要回去的頁面 只收站內路徑 不能被網址參數導去別的網站 */
+export function safeNextPath(value: string): string {
+  return /^\/(?!\/)[A-Za-z0-9/_-]*$/.test(value) ? value : "/";
+}
+
 export function captchaImageUrl(purpose: CaptchaPurpose, time = Date.now()): string {
   return `/api/auth/captcha?for=${purpose}&t=${time}`;
 }

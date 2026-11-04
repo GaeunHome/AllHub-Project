@@ -1,0 +1,98 @@
+import { sql } from "drizzle-orm";
+import { boolean, check, date, doublePrecision, index, integer, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { coreUsers } from "@/core/db/schema";
+import type { ItemKind } from "../lib/rules";
+
+/**
+ * 一趟旅程 成員都能改 所以不是依使用者的表 權限看 travel_members
+ * 結束 7 天後由排程刪掉 join_generation 加一 舊的群組連結就失效
+ */
+export const travelTrips = pgTable(
+  "travel_trips",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    destination: text("destination"),
+    startDate: date("start_date", { mode: "string" }).notNull(),
+    endDate: date("end_date", { mode: "string" }).notNull(),
+    joinOpen: boolean("join_open").notNull().default(false),
+    joinGeneration: integer("join_generation").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("travel_trips_dates", sql`${t.endDate} >= ${t.startDate}`), index("travel_trips_end_date_idx").on(t.endDate)],
+).enableRLS();
+
+/** 最早加入的人管理成員與連結 就是建立的人 他離開後自動交給下一位 所以不用角色欄位 */
+export const travelMembers = pgTable(
+  "travel_members",
+  {
+    tripId: integer("trip_id")
+      .notNull()
+      .references(() => travelTrips.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.tripId, t.userId] }), index("travel_members_user_id_idx").on(t.userId)],
+).enableRLS();
+
+/** day 是 null 時在想去的點 還沒排進行程 時間不存 由順序與分鐘數算出來 */
+export const travelItems = pgTable(
+  "travel_items",
+  {
+    id: serial("id").primaryKey(),
+    tripId: integer("trip_id")
+      .notNull()
+      .references(() => travelTrips.id, { onDelete: "cascade" }),
+    day: date("day", { mode: "string" }),
+    position: integer("position").notNull(),
+    kind: text("kind").$type<ItemKind>().notNull(),
+    title: text("title").notNull(),
+    mapsUrl: text("maps_url"),
+    lat: doublePrecision("lat"),
+    lng: doublePrecision("lng"),
+    note: text("note"),
+    stayMinutes: integer("stay_minutes").notNull(),
+    travelMinutes: integer("travel_minutes").notNull(),
+    /** HH:mm 例如訂位或搭車 沒有固定時間是 null */
+    fixedTime: text("fixed_time"),
+    /** 存檔時比對 別人先改過就請他看過最新內容 不會默默蓋掉 */
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("travel_items_trip_day_idx").on(t.tripId, t.day, t.position)],
+).enableRLS();
+
+export const travelComments = pgTable(
+  "travel_comments",
+  {
+    id: serial("id").primaryKey(),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => travelItems.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("travel_comments_item_id_idx").on(t.itemId), index("travel_comments_user_id_idx").on(t.userId)],
+).enableRLS();
+
+/** 出發前清單 大家共用 */
+export const travelChecks = pgTable(
+  "travel_checks",
+  {
+    id: serial("id").primaryKey(),
+    tripId: integer("trip_id")
+      .notNull()
+      .references(() => travelTrips.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    done: boolean("done").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("travel_checks_trip_id_idx").on(t.tripId)],
+).enableRLS();

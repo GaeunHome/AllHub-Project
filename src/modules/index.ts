@@ -5,6 +5,7 @@ import { youtubeInfo } from "./youtube/info";
 import { savingsInfo } from "./savings/info";
 import { weatherInfo } from "./weather/info";
 import { remindersInfo } from "./reminders/info";
+import { travelInfo } from "./travel/info";
 
 /** 新增模組的步驟見 docs/architecture.md 導覽列與首頁依這裡的順序顯示 */
-export const modules: ModuleInfo[] = [twitchInfo, youtubeInfo, starrailInfo, savingsInfo, weatherInfo, remindersInfo];
+export const modules: ModuleInfo[] = [twitchInfo, youtubeInfo, starrailInfo, savingsInfo, travelInfo, weatherInfo, remindersInfo];

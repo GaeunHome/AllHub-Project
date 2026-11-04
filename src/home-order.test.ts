@@ -13,12 +13,12 @@ type Entry = { id: string };
 type Slots = { top: Entry[]; wide: Entry[]; half: Entry[]; compact: Entry[] };
 
 describe("首頁的順序", () => {
-  it("最上面是天氣與提醒與倒數，天氣在前；再來 Twitch、YouTube，最後星穹鐵道、理財", () => {
+  it("最上面是天氣與提醒與倒數，天氣在前；再來 Twitch、YouTube，最後星穹鐵道、理財、旅遊", () => {
     const { top, wide, half, compact } = (Page() as ReactElement<Slots>).props;
 
     expect(top.map((card) => card.id)).toEqual(["weather", "reminders"]);
     expect(wide.map((card) => card.id)).toEqual(["twitch", "youtube"]);
     expect(half.map((card) => card.id)).toEqual(["starrail"]);
-    expect(compact.map((card) => card.id)).toEqual(["savings"]);
+    expect(compact.map((card) => card.id)).toEqual(["savings", "travel"]);
   });
 });

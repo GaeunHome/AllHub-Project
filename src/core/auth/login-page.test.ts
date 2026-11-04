@@ -10,7 +10,7 @@ vi.mock("./users", () => users);
 
 const { DeletedNotice, LoginGate } = await import("./login-page");
 
-const html = async () => renderToStaticMarkup((await LoginGate()) as ReactElement);
+const html = async () => renderToStaticMarkup((await LoginGate({ searchParams: Promise.resolve({}) })) as ReactElement);
 
 beforeEach(() => {
   users.hasAnyUser.mockReset();

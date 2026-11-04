@@ -115,6 +115,7 @@ npm run account create
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
 - **之後可以收斂的欄位**：只在一張卡還沒有帳單時當截止日預設的 `savings_accounts.due_day`（程式只讀不寫）。不用它之後照舊分兩版刪：先從 schema 拿掉（程式不再讀寫，migration 手動去掉 DROP），再下一版才真的刪（刪除要在 `migrations.integration.test.ts` 明列允許）。
+- **從 v0.1.11 升級到 v0.2.0**：一般的升級，新增五張表，推送前不用另外設定。db-migrate 套用 `0002_travel`；多一個排程 `travel:cleanup`（`vercel.json` 合計 65 條）；沒有新的環境變數。旅遊是新模組，既有的成員預設能用，不想開給某個人就到管理頁的模組權限取消勾選。
 - **從 v0.1.10 升級**：一般的升級，新增一張表與一個欄位，推送前不用另外設定。
   - **db-migrate 套用 `0001_audit_log`**（上一版的 `0001_module_access` 已經併進基準檔），一開始設 `lock_timeout = 5s`，失敗時到 Actions 重跑一次：新增 `core_audit_logs`（操作紀錄）與 `core_invites.denied_modules`（邀請開放的功能，有預設值），不刪也不改舊欄位。
   - 部署比 migration 先完成時：操作紀錄寫不進去只記 log，不影響使用者的操作；管理頁的邀請清單、建立邀請與操作紀錄頁會出錯，migration 跑完就恢復。

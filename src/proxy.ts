@@ -10,6 +10,8 @@ export async function proxy(request: NextRequest) {
   if (await verifySessionToken(token, process.env.SESSION_SECRET ?? "")) return NextResponse.next();
 
   const login = new URL("/login", request.url);
+  // 群組連結傳給還沒登入的朋友 登入後要回到這裡
+  if (request.nextUrl.pathname.startsWith("/travel/join/")) login.searchParams.set("next", request.nextUrl.pathname);
   return NextResponse.redirect(login);
 }
 

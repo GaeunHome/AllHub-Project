@@ -39,6 +39,10 @@ describe("使用聲明（公開頁）", () => {
     expect(text).not.toContain("之後的版本");
   });
 
+  it("旅遊要寫清楚：同行的人看得到也能改、回程 7 天後刪除、刪除帳號時旅程留給同行的人", () => {
+    for (const phrase of ["加入同一趟旅程的人都看得到也都能改", "回程 7 天後自動刪除", "你加入的旅程留給同行的人"]) expect(text).toContain(phrase);
+  });
+
   it("操作紀錄要寫清楚：有 IP、站長看得到、保留 7 天、不含憑證與金額、刪除帳號後留到期滿", () => {
     for (const phrase of ["操作紀錄", "IP 位址", "只有站長看得到", "7 天後自動刪除", "不含密碼、cookie、API Key 與記帳的金額", "刪除帳號後"]) expect(text).toContain(phrase);
   });
