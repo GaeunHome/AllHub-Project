@@ -2,7 +2,8 @@
 
 import { requireModule } from "@/core/auth";
 import { updateTags } from "@/core/cache";
-import { INVALID_FORM_MESSAGE, formId, formText, runAction } from "@/core/form";
+import { runAction } from "@/core/action";
+import { INVALID_FORM_MESSAGE, formId, formText } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
 import { parseNotifyToggle } from "@/core/ui/notify-toggle-form";
 import { TwitchApiError } from "../lib/api";

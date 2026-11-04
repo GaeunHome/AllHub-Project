@@ -34,6 +34,7 @@ vi.mock("./users", () => users);
 vi.mock("./captcha", { spy: true });
 
 const captcha = mocksOf(await import("./captcha"), "takeCaptchaToken", "verifyCaptcha");
+const { audit, auditActor, auditLoginFailure } = await import("@/dev/audit-stub");
 const { changePasswordAction, deleteAccountAction, login, logout, updateNicknameAction } = await import("./actions");
 const { SESSION_COOKIE, signSession, verifySessionToken } = await import("./session");
 
@@ -323,5 +324,60 @@ describe("logout", () => {
 
     await expect(logout()).rejects.toThrow("NEXT_REDIRECT:/login");
     expect(request.jar.has(SESSION_COOKIE)).toBe(false);
+  });
+});
+
+describe("登入與登出寫進操作紀錄", () => {
+  const success = { id: USER_ID, sessionVersion: 1, disabled: false };
+  const STRANGER = { id: null, name: "（未登入）", ip: "" };
+
+  beforeEach(() => {
+    audit.mockClear();
+    auditLoginFailure.mockClear();
+    captcha.takeCaptchaToken.mockResolvedValue("token");
+    captcha.verifyCaptcha.mockResolvedValue(true);
+  });
+
+  it("登入成功：記是誰、哪個 IP；帳號名稱照登入規則整理過", async () => {
+    users.authenticate.mockResolvedValue(success);
+
+    await expect(login({}, form({ username: "Alice", password: PASSWORD }))).rejects.toThrow("NEXT_REDIRECT:/");
+
+    expect(audit).toHaveBeenCalledWith({ id: USER_ID, name: "alice", ip: request.ip }, expect.objectContaining({ module: "auth", action: "登入成功" }));
+  });
+
+  it("登入失敗：交給會合併的紀錄，不帶密碼", async () => {
+    users.authenticate.mockResolvedValue(null);
+
+    await settle(login({}, form({ username: "alice", password: "wrong-password" })));
+
+    expect(auditLoginFailure).toHaveBeenCalledWith({ ...STRANGER, ip: request.ip }, "alice");
+    expect(JSON.stringify(auditLoginFailure.mock.calls)).not.toContain("wrong-password");
+    expect(audit).not.toHaveBeenCalled();
+  });
+
+  it("停用的帳號密碼正確：記成失敗，寫出原因", async () => {
+    users.authenticate.mockResolvedValue({ ...success, disabled: true });
+
+    await login({}, form({ username: "alice", password: PASSWORD }));
+
+    expect(audit.mock.calls[0][1]).toMatchObject({ action: "登入失敗", outcome: "failure", detail: "帳號已停用" });
+  });
+
+  it("登出：記是誰；沒有登入的人按登出不記", async () => {
+    auditActor.mockResolvedValueOnce({ id: USER_ID, name: "alice", ip: request.ip });
+    await expect(logout()).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(audit.mock.calls[0][1]).toMatchObject({ action: "登出" });
+
+    audit.mockClear();
+    auditActor.mockResolvedValueOnce({ id: null, name: "（未登入）", ip: request.ip });
+    await expect(logout()).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(audit).not.toHaveBeenCalled();
+  });
+
+  it("讀不到登入者時一樣登出得掉", async () => {
+    auditActor.mockRejectedValueOnce(new Error("資料庫忙碌"));
+
+    await expect(logout()).rejects.toThrow("NEXT_REDIRECT:/login");
   });
 });

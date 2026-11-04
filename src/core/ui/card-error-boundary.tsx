@@ -19,3 +19,6 @@ export function CardError(_props: object, { retry }: ErrorInfo) {
 
 /** 首頁每張卡片各包一層 一張出錯只影響那一張 不會整頁變成錯誤畫面 */
 export const CardErrorBoundary = catchError(CardError);
+
+/** 提示列的項目讀不到時整個不顯示 不佔位也不擋住其他項目 下面的卡片會自己說明 */
+export const QuietErrorBoundary = catchError(() => null);

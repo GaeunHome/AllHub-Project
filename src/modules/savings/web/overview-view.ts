@@ -198,6 +198,17 @@ export function checklistRows(view: Pick<ChecklistView, "items" | "entries" | "t
   });
 }
 
+export type UrgentRow = { key: string; tone: "danger" | "warning"; title: string; detail: string };
+
+/** 不能再放著的事 逾期的與等著填的帳單 首頁與總覽的提示列共用 */
+export function urgentRows(rows: readonly ChecklistRow[]): UrgentRow[] {
+  return rows.flatMap((row): UrgentRow[] => {
+    if (row.badge) return [{ key: row.key, tone: "danger", title: row.title, detail: `${row.badge.label} ${row.amountText}`.trim() }];
+    if (row.entry?.row.action === "bill") return [{ key: row.key, tone: "warning", title: row.title, detail: `待填帳單 ${row.amountText}`.trim() }];
+    return [];
+  });
+}
+
 /** 首頁卡片與總覽的標題列 還有幾件與最近要做的那一件 */
 export function checklistSummary(items: readonly ChecklistItem[]): { remaining: number; next: ChecklistItem | null } {
   const toDo = items.filter(isToDo);

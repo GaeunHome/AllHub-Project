@@ -1,9 +1,131 @@
 {
-  "id": "7f740549-0e3f-403c-a668-a0e1df8cf90d",
-  "prevId": "3ee15c33-263c-46a6-8a9f-bb5749383c88",
+  "id": "a9a6274d-2215-4b02-a558-2e6d05d8b95a",
+  "prevId": "7f740549-0e3f-403c-a668-a0e1df8cf90d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.core_audit_logs": {
+      "name": "core_audit_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "batch_id": {
+          "name": "batch_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actor_name": {
+          "name": "actor_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ip": {
+          "name": "ip",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "module": {
+          "name": "module",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target": {
+          "name": "target",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "detail": {
+          "name": "detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "merge_key": {
+          "name": "merge_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "core_audit_logs_created_at_idx": {
+          "name": "core_audit_logs_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "core_audit_logs_merge_key_unique": {
+          "name": "core_audit_logs_merge_key_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "merge_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "core_audit_logs_outcome": {
+          "name": "core_audit_logs_outcome",
+          "value": "\"core_audit_logs\".\"outcome\" in ('success', 'failure')"
+        }
+      },
+      "isRLSEnabled": true
+    },
     "public.core_invites": {
       "name": "core_invites",
       "schema": "",
@@ -63,6 +185,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "denied_modules": {
+          "name": "denied_modules",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
         }
       },
       "indexes": {

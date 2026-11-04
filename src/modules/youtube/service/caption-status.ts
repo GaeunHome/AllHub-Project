@@ -20,6 +20,8 @@ const RECHECK_INTERVAL_MS = HOUR_MS;
  * 很快就換成真正的結果 也不會一直打 YouTube
  */
 const UNKNOWN_RETRY_MS = 6 * HOUR_MS;
+/** 確認過沒有中文的舊影片 也可能過幾天才補字幕 還在清單上就每天再看一次 */
+const NO_CAPTIONS_RETRY_MS = 24 * HOUR_MS;
 // 一次發太多請求會被 YouTube 擋 所以每次有上限
 export const RECHECK_BATCH = 5;
 /**
@@ -68,7 +70,7 @@ export function isRecheckDue({ publishedAt, zhCaptions, zhCaptionsCheckedAt }: R
   if (zhCaptions === "yes") return false;
   if (!zhCaptionsCheckedAt) return true;
   const checkedAgo = now.getTime() - zhCaptionsCheckedAt.getTime();
-  if (zhCaptions === "unknown" && checkedAgo > UNKNOWN_RETRY_MS) return true;
+  if (checkedAgo > (zhCaptions === "unknown" ? UNKNOWN_RETRY_MS : NO_CAPTIONS_RETRY_MS)) return true;
   if (!publishedAt || publishedAt.getTime() < now.getTime() - RECHECK_WINDOW_MS) return false;
   return checkedAgo > RECHECK_INTERVAL_MS;
 }
@@ -85,6 +87,7 @@ export async function recheckDueCaptions(userId: string, now = new Date()): Prom
     or(
       isNull(youtubeVideos.zhCaptionsCheckedAt),
       and(eq(youtubeVideos.zhCaptions, "unknown"), lt(youtubeVideos.zhCaptionsCheckedAt, before(UNKNOWN_RETRY_MS))),
+      lt(youtubeVideos.zhCaptionsCheckedAt, before(NO_CAPTIONS_RETRY_MS)),
       and(gte(youtubeVideos.publishedAt, before(RECHECK_WINDOW_MS)), lt(youtubeVideos.zhCaptionsCheckedAt, before(RECHECK_INTERVAL_MS))),
     ),
   );

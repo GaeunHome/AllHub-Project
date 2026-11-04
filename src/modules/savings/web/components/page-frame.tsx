@@ -3,7 +3,7 @@ import type { ModuleInfo } from "@/core/module";
 import { CardErrorBoundary } from "@/core/ui/card-error-boundary";
 import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
-import { PageHeader } from "@/core/ui/page-header";
+import { PageBanner } from "@/core/ui/page-banner";
 import { SavingsNav, type SavingsSection } from "./savings-nav";
 
 type SavingsPageFrameProps = {
@@ -11,16 +11,20 @@ type SavingsPageFrameProps = {
   current: SavingsSection;
   /** 頁首右邊的按鈕 例如記一筆 手機上換到標題下一行 */
   actions?: ReactNode;
+  /** 橫幅裡標題下面的內容 總覽放總資產 */
+  hero?: ReactNode;
   children: ReactNode;
 };
 
 /** 整頁的外框一直都在 按鈕或那一列不見而附近沒有外框時焦點落在這裡 */
-export function SavingsPageFrame({ info, current, actions, children }: SavingsPageFrameProps) {
+export function SavingsPageFrame({ info, current, actions, hero, children }: SavingsPageFrameProps) {
   return (
     <div data-accent={info.accent} {...FOCUS_FRAME} className="page-stack">
       {/* 分頁列跟頁首是一組 距離比區塊之間近 */}
       <div className="stack">
-        <PageHeader icon={<Icon src={info.icon} />} title={info.name} actions={actions} />
+        <PageBanner image="/images/scenes/banner-finance.svg" icon={<Icon src={info.icon} />} title={info.name} actions={actions}>
+          {hero}
+        </PageBanner>
         <SavingsNav current={current} />
       </div>
       {children}

@@ -10,6 +10,8 @@ export type ModuleInfo = {
   /** public/ 底下的單色 SVG 用 CSS mask 才能套上點綴色 */
   icon: `/${string}.svg`;
   accent?: ModuleAccent;
+  /** 首頁入口的背景圖 只有首頁卡片的模組沒有入口 不用填 */
+  cover?: `/${string}.svg`;
   /** 不呼叫 notify 的模組設 false 提醒方式才不會多一排沒用的開關 architecture.test 會檢查 */
   notifies?: boolean;
   /** 只有首頁卡片 沒有自己的頁面 導覽列與首頁的模組入口不列出 href 填首頁 */

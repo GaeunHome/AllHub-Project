@@ -1,4 +1,5 @@
 import { inviteStatus, type InviteStatus, type InviteSummary } from "../auth/invites";
+import type { ModuleInfo } from "../module";
 import { formatTaipeiDateTime } from "../time";
 import { ActionButton } from "../ui/action-button";
 import { EmptyState } from "../ui/empty-state";
@@ -12,8 +13,14 @@ const STATUS: Record<InviteStatus, { label: string; chip: string }> = {
   revoked: { label: "已撤銷", chip: "chip chip-danger" },
 };
 
+/** 舊的邀請沒有限制 寫全部功能 */
+function openedModules({ deniedModules }: InviteSummary, modules: Pick<ModuleInfo, "id" | "name">[]): string {
+  if (deniedModules.length === 0) return "開放：全部功能";
+  return `開放：${modules.filter((module) => !deniedModules.includes(module.id)).map((module) => module.name).join("、")}`;
+}
+
 /** 清單有快取 狀態要用這次請求的時間 所以 now 由頁面傳進來 */
-export function InviteList({ invites, now }: { invites: InviteSummary[]; now: Date }) {
+export function InviteList({ invites, now, modules }: { invites: InviteSummary[]; now: Date; modules: Pick<ModuleInfo, "id" | "name">[] }) {
   if (invites.length === 0) return <EmptyState compact icon="link" title="還沒有邀請連結" />;
 
   return (
@@ -35,6 +42,7 @@ export function InviteList({ invites, now }: { invites: InviteSummary[]; now: Da
                 <span className="font-medium break-all">{invite.note ?? "（沒有備註）"}</span>
               </p>
               <p className="leading-relaxed">{dates.join("，")}</p>
+              <p>{openedModules(invite, modules)}</p>
             </div>
             {status === "active" && (
               <div className="button-row shrink-0">

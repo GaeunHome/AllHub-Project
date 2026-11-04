@@ -282,11 +282,13 @@ describe("開始設定", () => {
     expect(linkTo(markup, "設定薪水")).toBe("/savings/recurring?add=salary");
   });
 
-  it("已完成幾步與說明分兩行", () => {
+  it("標題下面只寫已完成幾步，說明收進 i 圓圈", () => {
     const markup = setup(["deposit"]);
-    const lines = [...markup.split("</header>")[0].matchAll(/<p[^>]*>(.*?)<\/p>/g)].map((m) => textOf(m[1]));
+    const header = markup.split("</header>")[0];
+    const lines = [...header.matchAll(/<p[^>]*>(.*?)<\/p>/g)].map((m) => textOf(m[1]));
 
-    expect(lines).toEqual(["已完成 1/5", "照著做一遍，之後每個月照「這個月要做的事」做就好。"]);
+    expect(lines).toEqual(["已完成 1/5"]);
+    expect(header).toMatch(/role="tooltip"[^>]*>照著做一遍，之後每個月照「這個月要做的事」做就好。/);
   });
 
   it("還沒有分類時，清單上面先有「開始使用」建預設分類", async () => {

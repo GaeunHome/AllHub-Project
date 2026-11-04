@@ -752,22 +752,154 @@
     background-color: var(--surface-muted);
   }
 
-  /* 首頁上方的模組入口 手機上四格並排圖示在上 寬螢幕是一排膠囊 */
+  /* 首頁的模組入口 背景是模組自己的圖 字一律是白的 */
   .home-module-link {
-    @apply flex min-h-11 w-full flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[0.8125rem] font-medium sm:flex-row sm:gap-2 sm:px-3.5 sm:py-0 sm:text-sm;
-    border: 1px solid var(--line);
-    color: var(--ink);
-    background-color: var(--surface);
+    @apply relative isolate flex min-h-16 w-full items-center gap-2 overflow-hidden rounded-xl px-3.5 text-sm font-semibold text-white sm:w-32;
+    background-color: var(--accent);
+    box-shadow: var(--elevation-card);
     transition:
-      border-color 150ms ease,
-      background-color 150ms ease;
+      transform 150ms ease,
+      box-shadow 150ms ease;
   }
   .home-module-link > .icon {
-    color: var(--accent);
+    @apply size-5 shrink-0 text-white;
+  }
+  .home-module-link > span:last-child {
+    text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
   }
   .home-module-link:hover {
-    border-color: var(--line-strong);
-    background-color: var(--surface-muted);
+    transform: translateY(-2px);
+    box-shadow: var(--elevation-lift);
+  }
+  .home-module-cover {
+    z-index: -1;
+    object-fit: cover;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .home-module-link:hover {
+      transform: none;
+    }
+  }
+
+  /* 字疊在場景圖上 字色寫死成白的 不換 CSS 變數 裡面打開的視窗才不會跟著變 */
+  .scene {
+    @apply relative isolate overflow-hidden rounded-2xl;
+    color: #fff;
+    background-color: #1c2740;
+    box-shadow: var(--elevation-card);
+  }
+  .scene-image {
+    z-index: -2;
+    object-fit: cover;
+  }
+  @variant dark {
+    .scene-image {
+      filter: brightness(0.85);
+    }
+  }
+  /* 圖的亮處也要讀得到白字 左邊最深 右邊留給圖 */
+  .scene-scrim {
+    @apply pointer-events-none absolute inset-0;
+    z-index: -1;
+    background: linear-gradient(100deg, rgb(7 13 28 / 0.72) 0%, rgb(7 13 28 / 0.3) 40%, rgb(7 13 28 / 0) 66%);
+  }
+  .scene-icon {
+    @apply inline-grid shrink-0 place-items-center rounded-2xl;
+    color: #fff;
+    background-color: rgb(255 255 255 / 0.16);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.28);
+  }
+  .scene-icon > .icon {
+    @apply size-6 sm:size-7;
+  }
+  .scene .info-tip-button,
+  .scene .info-tip-button:hover {
+    color: #fff;
+  }
+  /* 場景圖上的小按鈕 半透明才看得到後面的圖 */
+  .scene-button {
+    @apply inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-semibold whitespace-nowrap;
+    color: #fff;
+    background-color: rgb(255 255 255 / 0.16);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3);
+    transition: background-color 150ms ease;
+  }
+  .scene-button:hover {
+    background-color: rgb(255 255 255 / 0.28);
+  }
+  /* 場景圖上的 FactList 只換這個區塊的字色與線色 */
+  .scene-facts {
+    --ink: #fff;
+    --ink-soft: rgb(255 255 255 / 0.88);
+    --line: rgb(255 255 255 / 0.26);
+  }
+  .page-banner {
+    @apply flex flex-col gap-6 p-5 sm:p-7;
+  }
+
+  /* 卡片最上面一條有圖的標題列 撐滿卡片的左右 */
+  .card-art {
+    @apply -mx-5 -mt-5 flex min-h-24 flex-col justify-end rounded-t-[calc(1rem-1px)] rounded-b-none px-5 py-3 sm:-mx-6 sm:-mt-6 sm:px-6;
+    --ink: #fff;
+    box-shadow: none;
+  }
+  /* 手機上卡片很窄 中間的圖才看得到 不要只切到左邊的暗處 */
+  .card-art .scene-image {
+    object-position: 68% 50%;
+  }
+  .card-art .icon-tile {
+    color: #fff;
+    border-color: rgb(255 255 255 / 0.28);
+    background-color: rgb(255 255 255 / 0.16);
+  }
+  .card-art .card-header-link {
+    color: #fff;
+  }
+
+  /* 重要的事 不是卡片 一條上下有細線的布告列 */
+  .notice-strip {
+    @apply flex flex-col gap-x-5 gap-y-2 py-3 sm:flex-row sm:items-center;
+    border-block: 1px solid var(--line);
+  }
+  .notice-strip:not(:has(.notice-item)) {
+    display: none;
+  }
+  .notice-strip-label {
+    @apply shrink-0 pl-2.5 font-bold text-ink;
+    border-left: 4px solid var(--brand);
+  }
+  .notice-strip-list {
+    @apply flex min-w-0 flex-col gap-x-6 gap-y-1.5 sm:flex-row sm:flex-wrap;
+  }
+  .notice-item-body {
+    @apply flex min-h-7 min-w-0 flex-wrap items-center gap-x-1.5;
+  }
+  .notice-item > .notice-item-body > .icon:first-child {
+    color: var(--brand);
+  }
+  .notice-item[data-tone="warning"] > .notice-item-body > .icon:first-child {
+    color: var(--warning);
+  }
+  .notice-item[data-tone="danger"] > .notice-item-body > .icon:first-child {
+    color: var(--danger);
+  }
+  .notice-item-link:hover > span:nth-child(2) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* 刪除帳號這類不能復原的動作 不用卡片 左邊一條紅線 */
+  .danger-zone {
+    @apply flex flex-col gap-3 py-1 pl-4;
+    border-left: 4px solid var(--danger);
+  }
+
+  /* 站內帳號的頭像 顏色由帳號名稱決定 */
+  .user-avatar {
+    @apply inline-grid shrink-0 place-items-center rounded-full font-bold;
+    color: #fff;
+    background: linear-gradient(135deg, hsl(var(--avatar-hue) 72% 52%), hsl(calc(var(--avatar-hue) + 48) 70% 38%));
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.24);
   }
 
   /* 卡片裡可以點的一列 左右內距由外層的負邊距抵掉 文字跟卡片內容對齊 */

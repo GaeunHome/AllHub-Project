@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 const MIGRATIONS = "src/core/db/migrations";
 const BASELINE = "0000_baseline";
 // 正式資料庫最後套用的 migration 的時間戳記
-const LAST_APPLIED_BEFORE_BASELINE = 1793584920567;
+const LAST_APPLIED_BEFORE_BASELINE = 1793634144748;
 const cleanups: Array<() => Promise<void> | void> = [];
 
 afterEach(async () => {

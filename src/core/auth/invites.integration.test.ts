@@ -198,6 +198,7 @@ describe("listInvites", () => {
       maxUses: 1,
       usedCount: 0,
       revokedAt: null,
+      deniedModules: [],
     });
     expect(JSON.stringify(list)).not.toContain("tokenHash");
   });

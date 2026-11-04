@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TranslationStatus, ZhCaptionStatus } from "../data/schema";
-import { VIDEO_FILTERS, captionCheckPending, latestVideos, savedBadge, thumbnailBadge, upNext, videoFilters } from "./video-filter";
+import { VIDEO_FILTERS, captionCheckPending, latestVideos, savedBadge, thumbnailBadge, unreadableCaptionCount, upNext, videoFilters } from "./video-filter";
 
 const CHECKED_AT = new Date("2026-10-07T12:00:00Z");
 /** 沒特別說的都檢查過字幕 從沒檢查過的傳 null */
@@ -52,6 +52,21 @@ describe("savedBadge：已保留的影片縮圖角落的小標籤（沒有檢查
     ["還沒有翻譯（手動保留的）", null, { label: "還沒翻譯", tone: "default" }],
   ] as const)("%s", (_name, status, expected) => {
     expect(savedBadge(status)).toEqual(expected);
+  });
+});
+
+describe("unreadableCaptionCount：檢查過但讀不到，「有中文字幕」是空的時要說清楚不是真的沒有", () => {
+  it("只算檢查過而且讀不到的；還沒檢查過的、確認有或沒有的不算", () => {
+    const checked = new Date("2026-11-04T00:00:00Z");
+
+    expect(
+      unreadableCaptionCount([
+        { zhCaptions: "unknown", zhCaptionsCheckedAt: checked },
+        { zhCaptions: "unknown", zhCaptionsCheckedAt: null },
+        { zhCaptions: "yes", zhCaptionsCheckedAt: checked },
+        { zhCaptions: "no", zhCaptionsCheckedAt: checked },
+      ]),
+    ).toBe(1);
   });
 });
 

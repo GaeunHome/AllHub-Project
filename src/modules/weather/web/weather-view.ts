@@ -20,6 +20,17 @@ export function weatherIcon(description: string, night: boolean): UiIconName {
   return "cloud";
 }
 
+export type WeatherScene = `/images/scenes/weather-${"clear" | "cloudy" | "rain" | "storm"}-${"day" | "night"}.svg`;
+
+/** 卡片的背景圖 照現在這一段的天氣與時段 霧與雪沒有自己的圖 看起來最接近的是陰天 */
+export function weatherScene(description: string, night: boolean): WeatherScene {
+  const time = night ? "night" : "day";
+  if (description.includes("雷")) return `/images/scenes/weather-storm-${time}.svg`;
+  if (description.includes("雨")) return `/images/scenes/weather-rain-${time}.svg`;
+  if (description.startsWith("晴")) return `/images/scenes/weather-clear-${time}.svg`;
+  return `/images/scenes/weather-cloudy-${time}.svg`;
+}
+
 export function temperatureText(period: Pick<ForecastPeriod, "minTemp" | "maxTemp">): string | null {
   const { minTemp, maxTemp } = period;
   if (minTemp === null && maxTemp === null) return null;
@@ -42,6 +53,7 @@ const publishedHour = (value: string | null) => value?.match(/(\d{1,2}):(\d{2})/
 
 export type WeatherView = {
   county: County;
+  scene: WeatherScene;
   /** 讀不到預報時是 null */
   now: PeriodView | null;
   next: PeriodView | null;
@@ -77,6 +89,7 @@ export function weatherView(county: County, forecast: Forecast | null, stations:
   const air = stations === undefined ? undefined : stations === null ? null : countyAqi(stations, county);
   return {
     county,
+    scene: current ? weatherScene(current.description, isNight(new Date(current.start))) : "/images/scenes/weather-cloudy-day.svg",
     now: current ? periodView(current, now) : null,
     next: next ? periodView(next, now) : null,
     reminder: reminderOf(shown, now),

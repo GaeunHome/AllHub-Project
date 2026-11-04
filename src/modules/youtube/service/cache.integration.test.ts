@@ -138,24 +138,27 @@ describe("影片清單的字幕重新檢查：用快取判斷要不要在背景�
       { videoId: "due-never00", channelId: CH, title: "a", publishedAt: hoursAgo(2) },
       { videoId: "due-stale00", channelId: CH, title: "b", publishedAt: hoursAgo(3), zhCaptionsCheckedAt: hoursAgo(2) },
       { videoId: "fresh-check", channelId: CH, title: "c", publishedAt: hoursAgo(3), zhCaptionsCheckedAt: hoursAgo(0.5) },
-      { videoId: "too-old-000", channelId: CH, title: "d", publishedAt: hoursAgo(49), zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(25) },
+      { videoId: "too-old-000", channelId: CH, title: "d", publishedAt: hoursAgo(49), zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(23) },
+      { videoId: "due-oldno00", channelId: CH, title: "l", publishedAt: hoursAgo(50), zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(25) },
       { videoId: "due-oldnev0", channelId: CH, title: "g", publishedAt: hoursAgo(24 * 10) },
       { videoId: "has-zh-0000", channelId: CH, title: "e", publishedAt: hoursAgo(2), zhCaptions: "yes" },
       { videoId: "no-publish0", channelId: CH, title: "f", publishedAt: null, zhCaptionsCheckedAt: hoursAgo(5) },
       { videoId: "due-nopub00", channelId: CH, title: "h", publishedAt: null },
       { videoId: "due-unknown", channelId: CH, title: "i", publishedAt: hoursAgo(24 * 5), zhCaptionsCheckedAt: hoursAgo(7) },
       { videoId: "unknown-05h", channelId: CH, title: "j", publishedAt: hoursAgo(24 * 5), zhCaptionsCheckedAt: hoursAgo(5) },
-      ...Array.from({ length: 10 }, (_, i) => ({ videoId: `zh-filler${String(i).padStart(2, "0")}`, channelId: CH, title: "k", publishedAt: hoursAgo(1), zhCaptions: "yes" as const })),
+      ...Array.from({ length: 9 }, (_, i) => ({ videoId: `zh-filler${String(i).padStart(2, "0")}`, channelId: CH, title: "k", publishedAt: hoursAgo(1), zhCaptions: "yes" as const })),
     ]);
 
     const candidates = await cached.cachedRecheckCandidates(me);
     const due = candidates.filter((c) => isRecheckDue(c, now)).map((c) => c.videoId).sort();
     expect(new Set(tagged())).toEqual(new Set(["youtube:follows", "youtube:videos"]));
 
+    // 一次最多 5 支 跑兩次把到期的都檢查完
+    await recheckDueCaptions(me, now);
     await recheckDueCaptions(me, now);
 
     expect(listCaptionTracks.mock.calls.map(([id]) => id).sort()).toEqual(due);
-    expect(due).toEqual(["due-never00", "due-nopub00", "due-oldnev0", "due-stale00", "due-unknown"]);
+    expect(due).toEqual(["due-never00", "due-nopub00", "due-oldnev0", "due-oldno00", "due-stale00", "due-unknown"]);
   });
 });
 

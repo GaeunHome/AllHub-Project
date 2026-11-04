@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { InfoTip } from "@/core/ui/info-tip";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { updateTransactionAction } from "../../actions";
@@ -34,7 +35,10 @@ export function BillRowForm({ record, categories, onDone, onCancel }: BillRowFor
       <input type="hidden" name="date" value={record.date} />
       <CategoryChips categories={categories.filter((category) => category.kind === "expense")} value={categoryId} onChange={setCategoryId} />
       <NoteField defaultValue={record.note} />
-      <p className="text-sm text-ink-soft">要改金額，請重填這一期的帳單。</p>
+      <p className="flex items-center gap-1 text-sm font-medium text-ink">
+        金額不能在這裡改
+        <InfoTip label="金額不能在這裡改的原因">要改金額，請重填這一期的帳單。</InfoTip>
+      </p>
       {!pending && <FormFeedback state={{ error: state.error }} />}
       <FormButtons pending={pending} onCancel={onCancel} label="儲存" pendingLabel="儲存中…" />
     </form>

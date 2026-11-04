@@ -8,7 +8,7 @@ import { latestVideos } from "../video-filter";
 // 名稱 圖示與點綴色由 src/app 從 info.ts 傳進來 web 層不能 import 根目錄
 export function YoutubeHomeCard({ info }: { info: ModuleInfo }) {
   return (
-    <HomeCard info={info} title="最新影片" skeleton={<LatestVideosSkeleton />}>
+    <HomeCard info={info} title="最新影片" variant="plain" skeleton={<LatestVideosSkeleton />}>
       <LatestVideos />
     </HomeCard>
   );

@@ -6,7 +6,7 @@ import { VIDEO_FILTERS, type VideoFilter } from "../video-filter";
 export type FeedItem = { id: string; filters: VideoFilter[]; card: ReactNode };
 
 /** 卡片由伺服器算繪好傳進來 這裡只決定顯示哪些 切換時不必再問伺服器 */
-export function VideoFeed({ items }: { items: FeedItem[] }) {
+export function VideoFeed({ items, unreadable }: { items: FeedItem[]; unreadable: number }) {
   const [filter, setFilter] = useState<VideoFilter>("all");
   const shown = items.filter((item) => item.filters.includes(filter));
   const label = VIDEO_FILTERS.find((option) => option.id === filter)?.label;
@@ -21,7 +21,10 @@ export function VideoFeed({ items }: { items: FeedItem[] }) {
         ))}
       </div>
       {shown.length === 0 ? (
-        <p className="yt-box text-center text-ink-soft">目前沒有「{label}」的影片</p>
+        <div className="yt-box text-center">
+          <p className="text-ink-soft">目前沒有「{label}」的影片</p>
+          {filter === "zh" && unreadable > 0 && <p className="text-ink-soft">另外有 {unreadable} 支影片讀不到字幕資訊，YouTube 可能擋下了伺服器的請求，之後會自動再試</p>}
+        </div>
       ) : (
         <ul className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {shown.map((item) => (

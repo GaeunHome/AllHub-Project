@@ -68,7 +68,6 @@ export const UI_ICON_NAMES = [
   "key-round",
   "landmark",
   "languages",
-  "lightbulb",
   "link",
   "list",
   "loader-circle",

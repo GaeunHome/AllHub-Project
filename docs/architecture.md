@@ -44,7 +44,7 @@ src/
   - 頁面只 render 模組 `web/pages/` 或 core 的頁面元件。
   - route handler 只轉接，例如 `export { GET } from …`；排程的 `api/cron/[task]` 例外，把模組的排程清單交給 core 的 `runCron()`（core 不能 import 模組清單）。
   - 測試檢查的是 `src/app` 只透過模組的 `info`、`cron`、`web/pages`、`web/routes` 使用模組；core 只用頁面元件、route handler、排程、robots、外觀與登入檢查（測試裡的允許清單）。
-- **首頁卡片**：每個模組的首頁卡片放在自己的 `web/pages/home-card.tsx`，由 `src/app/(main)/page.tsx` 組合後交給 core 的 `HomePage` 排版（core 不 import 模組）；每張卡片都要組合到首頁。只有首頁卡片、沒有自己頁面的模組（例如天氣）在 `info.ts` 設 `homeOnly: true`，導覽列與首頁的模組入口就不列出它，卡片標題列也不放連結。
+- **首頁卡片**：每個模組的首頁卡片放在自己的 `web/pages/home-card.tsx`，由 `src/app/(main)/page.tsx` 組合後交給 core 的 `HomePage` 排版（core 不 import 模組）；每張卡片都要組合到首頁。要放進最上面「今天要注意」的事放在 `web/pages/home-notices.tsx`（回傳 `NoticeItem`，沒有事就是空的），一樣由那個頁面組合，傳給 `notices`。只有首頁卡片、沒有自己頁面的模組（例如天氣）在 `info.ts` 設 `homeOnly: true`，導覽列與首頁的模組入口就不列出它，卡片標題列也不放連結。
 - **資料表的位置**：只能定義在 `core/db/schema.ts`（表名以 `core_` 開頭）或模組的 `data/schema.ts`（表名以 `<id>_` 開頭）；每張表都加 `.enableRLS()`（見〈安全〉的資料庫的 RLS）。
 - **樣式的位置**：CSS 只有 `src/app/globals.css` 與模組 `web/` 底下的檔，模組的檔都由 `globals.css` 引入；模組的檔只寫自己前綴的 class（`MODULE_CSS_PREFIXES`）與自己的 `.theme-<id>`，`globals.css` 裡的模組 class 只剩跟 core 或兩個模組共用的幾條（`SHARED_IN_GLOBALS`）。
 - **環境變數**：都定義在 `core/env.ts`，順序同 `.env.example`（由 `env.test.ts` 檢查）；其他地方不直接讀 `process.env`（少數例外列在 CLAUDE.md，也由 `architecture.test.ts` 檢查）。
@@ -59,9 +59,10 @@ src/
 |---|---|---|---|
 | `core_users` | — | 帳號、暱稱、角色、停用、登入失敗次數 | 永久 |
 | `core_module_denials` | 依使用者 | 模組權限：只記這個人不能用的模組，預設全部能用 | 永久 |
-| `core_invites` | 依使用者（建立者） | 邀請，只存雜湊 | 永久，刪除帳號時一起刪 |
+| `core_invites` | 依使用者（建立者） | 邀請，只存雜湊；`denied_modules` 記用這個連結註冊的人不能用的功能 | 永久，刪除帳號時一起刪 |
 | `core_rate_limits` | — | 註冊與邀請碼的嘗試次數、用過的驗證碼 nonce 的雜湊、手動同步與續訂的冷卻時間（帳號 id 的雜湊）、星穹鐵道與天氣的提醒發過了沒（遊戲帳號與期別、帳號 id 與日期的雜湊） | 一小時／一天 |
 | `core_notifications` | 依使用者（收件人） | 網站通知 | 14 天 |
+| `core_audit_logs` | — | 操作紀錄：帳號名稱、IP 位址、功能、操作、對象、結果與批次編號，只有站長看得到；`actor_id` 不設外鍵，刪除帳號後留到期滿 | 7 天 |
 | `twitch_follows` | 依使用者 | 追蹤的主播、通知開關 | 永久 |
 | `twitch_streamers` | 共用 | 主播與 EventSub 訂閱（同一位主播只訂閱一次） | 沒有人追蹤時刪除 |
 | `twitch_stream_events` | 共用 | 開台紀錄（只顯示給追蹤那位主播的人；關台不再寫，舊的關台列讀取時濾掉） | 14 天 |
@@ -107,6 +108,7 @@ src/
 | `twitch:sync` | 檢查並補建 EventSub 訂閱；刪掉沒有人追蹤的主播與它的訂閱 | 每天 04:00 | Vercel Cron |
 | `youtube:renew` | 續訂快到期的 WebSub 訂閱；取消並刪掉沒有人追蹤的頻道 | 每天 04:30 | Vercel Cron |
 | `notifications:cleanup` | 刪除超過 14 天的網站通知 | 每天 05:00 | Vercel Cron |
+| `audit:cleanup` | 刪除超過 7 天的操作紀錄 | 每天 04:50 | Vercel Cron |
 | `weather:rain` | 開著下雨通知的人，選的縣市今天白天或今晚的降雨機率 50% 以上時提醒帶傘（全台的預報一次讀；每人每天最多一則，重送不會重寄；停用的使用者略過；沒設定氣象署的授權碼時不做） | 每天 06:00 | Vercel Cron |
 | `reminders:daily` | 寄今天到期與提前那天的提醒（同一天重跑不重複），再刪掉日期過了的項目；中午那一次補寄早上沒寄出去的，也涵蓋早上才新增的；停用的使用者不寄也不刪 | 每天 07:00、12:00 | Vercel Cron |
 | `savings:dividends` | 持股（沒停用的使用者、啟用中的證券帳戶）公布除息日、補上配息金額、最後買進日（除息前一個交易日）各寄一次除權息通知，同一天碰上兩種時併成一則；證交所與櫃買中心的除權除息預告表同時讀、各最多等 15 秒，一個讀不到另一個照常；重送不會重寄；刪掉除息日過了的寄送紀錄 | 每天 08:00 | Vercel Cron |
@@ -118,7 +120,7 @@ src/
 
 - `vercel.json` 裡的時間是 UTC，也就是台北時間減 8 小時。
 - Hobby 方案每個排程一天最多跑一次，而且只保證在設定的那個小時內執行；每個專案最多 100 個排程。
-- `src/modules/cron.test.ts` 檢查登記的排程（模組的與 core 的 `notifications:cleanup`）跟 `vercel.json` 的路徑一一對應；只能手動跑的排程另外列在它的 `MANUAL_ONLY`。
+- `src/modules/cron.test.ts` 檢查登記的排程（模組的與 core 的 `notifications:cleanup`、`audit:cleanup`）跟 `vercel.json` 的路徑一一對應；只能手動跑的排程另外列在它的 `MANUAL_ONLY`。
 - 同一個路徑可以登記好幾個時間：`starrail:stamina`、`weather:warnings` 每個 UTC 小時各一條（各 24 條），所以大約每小時跑一次。每條都可能在那個小時裡的任何時候觸發，相鄰兩次可能只隔幾分鐘，也可能隔將近兩小時。
 - 排程的 route 沒有設 `maxDuration`，用的是 Fluid compute 的預設（Hobby 300 秒）。最久的是 `youtube:cleanup`（外部請求最多 60 秒）、`starrail:redeem`（約 45 秒）、`weather:rain`、`weather:warnings`（讀全台資料最多等 15 秒）與 `savings:dividends`（兩個預告表各最多等 15 秒），所以 Fluid compute 要開著（新專案預設開啟，見 [部署](deploy.md#2-vercel匯入-repo填環境變數)）。
 - Vercel 偶爾會漏送或重送同一次排程（[官方說明](https://vercel.com/docs/cron-jobs/manage-cron-jobs#cron-job-delivery-and-idempotency)）：排程都可以重跑，自動記帳與提醒會先認領，同一件事不會做兩次。
@@ -244,7 +246,7 @@ src/
    - `src/modules/cron.cache.integration.test.ts` 的 `EXPECTED` 加一列（這個排程讓哪些 tag 失效）。
    - 更新上方的排程表。
 6. **環境變數**（有的話）：加在 `src/core/env.ts`，並依同樣順序加進 `.env.example`；`src/dev/test-env.ts` 加這組的測試值與 `stub…Env()`，並放進跨模組測試用的 `stubAllEnv()`（`env.test.ts` 檢查）；取得方式寫進 [密鑰](secrets.md)。
-7. **首頁卡片**（選填）：在 `web/pages/home-card.tsx` 用 `core/ui/home-card.tsx` 的 `HomeCard` 包住卡片內容（標題列先出現，內容有自己的 Suspense 骨架與錯誤邊界），內容先 `requireSession()` 再讀自己的 `service/cached.ts`；再到 `src/app/(main)/page.tsx` 把它放進 `wide`（一張一列，彼此不並排）、`half`（平常一張一列，2xl 以上跟 `compact` 那組各佔半列）或 `compact`（兩張並排）。卡片外框是 `@container`，內容的欄數用容器查詢（`@md:`、`@4xl:`）依卡片寬度決定。
+7. **首頁卡片**（選填）：在 `web/pages/home-card.tsx` 用 `core/ui/home-card.tsx` 的 `HomeCard` 包住卡片內容（標題列先出現，內容有自己的 Suspense 骨架與錯誤邊界），內容先 `requireSession()` 再讀自己的 `service/cached.ts`；再到 `src/app/(main)/page.tsx` 把它放進 `top`（最上面，寬螢幕 3:2）、`wide`（一張一列，彼此不並排）、`half`（平常一張一列，2xl 以上跟 `compact` 那組各佔半列）或 `compact`（兩張並排）。卡片外框是 `@container`，內容的欄數用容器查詢（`@md:`、`@4xl:`）依卡片寬度決定。`HomeCard` 的 `variant="plain"` 拿掉卡片外框（影片這類本來就有圖的內容），`variant="bare"` 連標題列都由內容自己畫（天氣），`art` 是標題列的背景圖。
 8. **讀寫資料與通知**：
    - 每個人自己的資料表加 `user_id`（NOT NULL，外鍵指向 `core_users`、`on delete cascade`），service 的讀寫一律比對登入者的 id，並寫擁有權（IDOR）測試（規則見 CLAUDE.md〈多人〉）。
    - 在 `src/account-deletion.integration.test.ts` 的 `seedEverything` 補一筆這張表的資料（寫 SQL）：測試從資料庫的外鍵列出每張指向 `core_users` 的表，沒放資料、不是 cascade 或可以是空的都會失敗。

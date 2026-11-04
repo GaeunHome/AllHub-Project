@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
-import { BIG_FIGURE, BIG_FIGURE_FACTS, OVERVIEW_COLUMNS, OVERVIEW_LEFT, OVERVIEW_RIGHT, OVERVIEW_TOP } from "./layout";
+import { BIG_FIGURE, BIG_FIGURE_FACTS, OVERVIEW_COLUMNS, OVERVIEW_LEFT, OVERVIEW_RIGHT } from "./layout";
 
 // 骨架跟內容用同一份排版常數 串流進來時才不會跳
 // 整頁骨架拼起來時只有最外層報載入中 live region 不巢狀
@@ -41,10 +41,10 @@ export function FactsSkeleton({ widths, className = "" }: { widths: string[]; cl
 
 export function HeroSkeleton({ label = "載入總資產…" }: SkeletonProps) {
   return (
-    <Frame label={label} className={`fin-hero card ${BIG_FIGURE}`}>
+    <Frame label={label} className={BIG_FIGURE}>
       <div className="flex min-w-0 flex-col gap-2">
         <Skeleton className="h-5 w-14" />
-        <Skeleton className="h-10 w-56 max-w-full sm:h-12" />
+        <Skeleton className="h-12 w-64 max-w-full sm:h-15" />
       </div>
       <FactsSkeleton widths={["w-24", "w-24", "w-20"]} className={BIG_FIGURE_FACTS} />
     </Frame>
@@ -53,11 +53,11 @@ export function HeroSkeleton({ label = "載入總資產…" }: SkeletonProps) {
 
 export function QuickActionsSkeleton({ label = "載入常用的動作…" }: SkeletonProps) {
   return (
-    <Frame label={label} className="card stack @container min-w-0">
+    <Frame label={label} className="stack @container min-w-0">
       <Skeleton className="h-7 w-16" />
-      <div className="grid grid-cols-2 gap-2 @lg:grid-cols-3 @2xl:grid-cols-6">
+      <div className="grid grid-cols-3 gap-2 @2xl:grid-cols-6">
         {Array.from({ length: 6 }, (_, i) => (
-          <Skeleton key={i} className="min-h-14 rounded-xl @2xl:min-h-24" />
+          <Skeleton key={i} className="min-h-24 rounded-xl" />
         ))}
       </div>
     </Frame>
@@ -66,12 +66,12 @@ export function QuickActionsSkeleton({ label = "載入常用的動作…" }: Ske
 
 export function ChecklistSkeleton({ label = "載入這個月要做的事…" }: SkeletonProps) {
   return (
-    <Frame label={label} className="card stack min-w-0">
+    <Frame label={label} className="stack min-w-0">
       <Header />
-      <div className="card-list">
+      <div className="flex flex-col">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="card-row flex items-center gap-3">
-            <Skeleton className="size-5 shrink-0 rounded-full" />
+          <div key={i} className="flex items-center gap-3 py-3">
+            <Skeleton className="size-7 shrink-0 rounded-full" />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <Skeleton className={`h-4 ${i % 2 === 0 ? "w-32" : "w-24"}`} />
               <Skeleton className="h-3.5 w-40 max-w-full" />
@@ -122,10 +122,7 @@ export function TrendSkeleton({ label = "載入每月收支…" }: SkeletonProps
 export function OverviewSkeleton() {
   return (
     <LoadingState label="載入總覽…" className="page-stack">
-      <div className={OVERVIEW_TOP}>
-        <HeroSkeleton label={null} />
-        <QuickActionsSkeleton label={null} />
-      </div>
+      <QuickActionsSkeleton label={null} />
       <div className={OVERVIEW_COLUMNS}>
         <div className={OVERVIEW_LEFT}>
           <ChecklistSkeleton label={null} />

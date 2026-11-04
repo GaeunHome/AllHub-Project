@@ -76,6 +76,8 @@ export const coreInvites = pgTable(
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     /** 站長自己看的備註 例如給誰 不會顯示在註冊頁 */
     note: text("note"),
+    /** 用這個連結註冊的人一開始不能用的模組 只記不能用的 跟 core_module_denials 一樣 */
+    deniedModules: text("denied_modules").array().notNull().default(sql`'{}'::text[]`),
   },
   (t) => [
     // 已用次數由條件式 update 加一 這裡再擋一次 程式漏檢查也不會超過上限
@@ -130,3 +132,34 @@ export const coreNotifications = pgTable(
 ).enableRLS();
 
 export type CoreNotification = typeof coreNotifications.$inferSelect;
+
+export const AUDIT_OUTCOMES = ["success", "failure"] as const;
+export type AuditOutcome = (typeof AUDIT_OUTCOMES)[number];
+
+/**
+ * 操作紀錄 站長在 /admin/logs 看 保留 7 天 內容不放密碼 cookie API Key 這類東西
+ * actor_id 不設外鍵 帳號刪掉後紀錄還要留到保留期 所以名字也存一份
+ */
+export const coreAuditLogs = pgTable(
+  "core_audit_logs",
+  {
+    id: serial("id").primaryKey(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** 同一次操作寫出的幾列共用一個編號 */
+    batchId: uuid("batch_id").notNull(),
+    actorId: uuid("actor_id"),
+    actorName: text("actor_name").notNull(),
+    ip: text("ip").notNull(),
+    /** 模組 id 帳號的事是 auth 站長的事是 admin */
+    module: text("module").notNull(),
+    action: text("action").notNull(),
+    outcome: text("outcome", { enum: AUDIT_OUTCOMES }).notNull(),
+    target: text("target"),
+    detail: text("detail"),
+    /** 合併的失敗登入算了幾次 其他都是 1 */
+    attempts: integer("attempts").notNull().default(1),
+    /** 只有合併的列才有 外人能無限觸發的事才不會一次寫一列 */
+    mergeKey: text("merge_key").unique(),
+  },
+  (t) => [check("core_audit_logs_outcome", sql`${t.outcome} in ('success', 'failure')`), index("core_audit_logs_created_at_idx").on(t.createdAt)],
+).enableRLS();

@@ -1,7 +1,8 @@
+import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { forecastWith } from "../dev/fixtures";
 import type { Warning } from "../lib/warnings";
-import { weatherView } from "./weather-view";
+import { weatherScene, weatherView } from "./weather-view";
 
 /** 台北時間 10/19 早上 7 點 現在這一段是今天白天 下一段是今晚 */
 const MORNING = new Date("2026-10-18T23:00:00.000Z");
@@ -73,5 +74,33 @@ describe("天氣警特報的標籤", () => {
     const lasting = { label: "濃霧特報", severe: false, end: new Date(MORNING.getTime() + 60_000).toISOString() };
 
     expect(chips([ended, lasting]).map((chip) => chip.label)).toEqual([expect.stringContaining("濃霧特報")]);
+  });
+});
+
+describe("卡片的背景圖", () => {
+  it.each([
+    ["晴時多雲", false, "weather-clear-day"],
+    ["晴天", true, "weather-clear-night"],
+    ["多雲時晴", false, "weather-cloudy-day"],
+    ["陰短暫雨", false, "weather-rain-day"],
+    ["多雲短暫雨", true, "weather-rain-night"],
+    ["多雲午後短暫雷陣雨", false, "weather-storm-day"],
+    ["陰有雷雨", true, "weather-storm-night"],
+    ["有霧", false, "weather-cloudy-day"],
+  ])("%s（晚上：%s）用 %s", (description, night, name) => {
+    expect(weatherScene(description, night)).toBe(`/images/scenes/${name}.svg`);
+  });
+
+  it("圖都在 public 裡：天氣描述對到的檔案不能少", () => {
+    for (const time of ["day", "night"]) for (const sky of ["clear", "cloudy", "rain", "storm"]) expect(existsSync(`public/images/scenes/weather-${sky}-${time}.svg`)).toBe(true);
+  });
+
+  it("晚上看的是今晚的圖：照現在這一段開始的時間，不是照機器的時區", () => {
+    expect(weatherView("臺北市", forecastWith([10, 10]), undefined, MORNING).scene).toContain("-day.svg");
+    expect(weatherView("臺北市", forecastWith([10, 10]), undefined, EVENING).scene).toContain("-night.svg");
+  });
+
+  it("讀不到預報時也有圖，卡片不會是一片空白", () => {
+    expect(weatherView("臺北市", null, undefined, MORNING).scene).toBe("/images/scenes/weather-cloudy-day.svg");
   });
 });

@@ -10,7 +10,7 @@ import { syncCookieFlagAfter } from "../cookie-flag";
 // web 層不能 import 模組根目錄 名稱 圖示 點綴色由 src/app 從 info.ts 傳進來
 export function StarrailHomeCard({ info }: { info: ModuleInfo }) {
   return (
-    <HomeCard info={info} title="即時便箋" skeleton={<NotesSkeleton />}>
+    <HomeCard info={info} title="即時便箋" art="/images/scenes/banner-starrail.svg" skeleton={<NotesSkeleton />}>
       <StarrailNotes />
     </HomeCard>
   );

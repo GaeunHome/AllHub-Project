@@ -194,6 +194,7 @@ describe("架構規則", () => {
   it("src/app 只用 core 的頁面元件、route handler、排程、robots、外觀與登入檢查（允許清單）", () => {
     const APP_CORE_ENTRIES = [
       "core/admin/admin-page.tsx",
+      "core/admin/audit-page.tsx",
       "core/auth/account-page.tsx",
       "core/auth/captcha-route.ts",
       "core/auth/login-page.tsx",

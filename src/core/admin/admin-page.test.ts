@@ -13,7 +13,7 @@ vi.mock("./actions", () => ({ createInviteAction: vi.fn(), revokeInviteAction: v
 
 const cached = mocksOf(await import("./cached"), "cachedUsers", "cachedInvites");
 const service = mocksOf(await import("./service"), "listLockedUsers", "listModuleDenials");
-const { AdminPage, InviteSection, ModuleAccessSection, UserSection } = await import("./admin-page");
+const { AdminPage, AdminStats, InviteSection, LockedNotices, ModuleAccessSection, UserSection } = await import("./admin-page");
 const { inviteResult } = await import("./create-invite-form");
 
 const DAY = 86_400_000;
@@ -35,6 +35,7 @@ const invite = (overrides: Record<string, unknown>) => ({
   maxUses: 5,
   usedCount: 0,
   revokedAt: null,
+  deniedModules: [],
   ...overrides,
 });
 
@@ -180,11 +181,28 @@ describe("管理頁：登入鎖定", () => {
 
 describe("管理頁：邀請", () => {
   it("建立邀請的表單：期限 1／7／30 天、次數 1／5／10 次、備註", async () => {
-    const markup = renderToStaticMarkup((await InviteSection()) as ReactElement);
+    const markup = renderToStaticMarkup((await InviteSection({ modules: MODULES })) as ReactElement);
 
     for (const days of ["1", "7", "30"]) expect(markup).toMatch(new RegExp(`<input[^>]*name="days"[^>]*value="${days}"|<input[^>]*value="${days}"[^>]*name="days"`));
     for (const uses of ["1", "5", "10"]) expect(markup).toMatch(new RegExp(`<input[^>]*name="uses"[^>]*value="${uses}"|<input[^>]*value="${uses}"[^>]*name="uses"`));
     expect(markup).toMatch(/name="note"/);
+  });
+
+  it("建立邀請時每個功能都要選：一開始都沒勾，站長決定了才產生連結", async () => {
+    const markup = renderToStaticMarkup((await InviteSection({ modules: MODULES })) as ReactElement);
+
+    const boxes = [...markup.matchAll(/<input[^>]*type="checkbox"[^>]*name="modules"[^>]*>/g)].map((m) => m[0]);
+    expect(boxes.length).toBe(MODULES.length);
+    expect(boxes.filter((box) => box.includes("checked"))).toEqual([]);
+  });
+
+  it("邀請清單寫出開放了哪些功能：有限制的列出名稱，舊的邀請是全部功能", async () => {
+    cached.cachedInvites.mockResolvedValue([invite({ id: 21, deniedModules: ["twitch"] }), invite({ id: 22 })]);
+
+    const text = textOf(renderToStaticMarkup((await InviteSection({ modules: MODULES })) as ReactElement));
+
+    expect(text).toContain("開放：全部功能");
+    expect(text).toContain("開放：理財、天氣");
   });
 
   it("列出有效、過期、撤銷、用完的邀請；只有有效的可以撤銷", async () => {
@@ -195,7 +213,7 @@ describe("管理頁：邀請", () => {
       invite({ id: 14, usedCount: 5 }),
     ]);
 
-    const markup = renderToStaticMarkup((await InviteSection()) as ReactElement);
+    const markup = renderToStaticMarkup((await InviteSection({ modules: MODULES })) as ReactElement);
     const text = textOf(markup);
 
     for (const label of ["有效", "已過期", "已撤銷", "已用完", "給小明", "已用 1／5 次"]) expect(text).toContain(label);
@@ -218,14 +236,35 @@ describe("建立邀請後的畫面（inviteResult）", () => {
   });
 });
 
+describe("管理頁的橫幅與提示列", () => {
+  it("數字與鎖定提示都先確認是站長才讀：成員打開這一頁時導回首頁", async () => {
+    requireOwner.mockRejectedValue(new Error("NEXT_REDIRECT:/"));
+
+    await expect(AdminStats()).rejects.toThrow("NEXT_REDIRECT:/");
+    await expect(LockedNotices()).rejects.toThrow("NEXT_REDIRECT:/");
+    expect(cached.cachedUsers).not.toHaveBeenCalled();
+    expect(service.listLockedUsers).not.toHaveBeenCalled();
+  });
+
+  it("沒有人被鎖定時提示列不出現；有人被鎖定時寫出名字與到幾點（台北時間）", async () => {
+    expect(await LockedNotices()).toBeNull();
+
+    service.listLockedUsers.mockResolvedValue([{ id: MEMBER_ID, lockedUntil: new Date("2026-11-04T02:30:00Z") }]);
+
+    expect(textOf(renderToStaticMarkup((await LockedNotices()) as ReactElement))).toContain("小明鎖定中，到 10:30");
+  });
+});
+
 describe("管理頁的外框", () => {
-  it("寬螢幕：邀請連結與使用者兩欄等寬（邀請清單的每一列不會擠成三行），頁首撐滿；排欄不靠第幾個子元素", () => {
+  it("寬螢幕：左邊使用者與模組權限、右邊邀請連結，兩欄等寬，橫幅撐滿；排欄不靠第幾個子元素", () => {
     const page = AdminPage({ modules: MODULES }) as ReactElement<{ className: string; children: ReactNode[] }>;
     const classes = page.props.className.split(" ");
 
     expect(classes).toEqual(expect.arrayContaining(["xl:grid", "xl:grid-cols-2", "xl:items-start"]));
-    expect(classes.filter((c) => /(?:nth|last|only)-child/.test(c))).toEqual([]);
-    const sections = page.props.children.filter((child) => isValidElement<{ "aria-labelledby"?: string }>(child) && child.type === "section");
-    expect(sections.map((section) => (section as ReactElement<{ "aria-labelledby": string }>).props["aria-labelledby"])).toEqual(["admin-invites", "admin-users"]);
-  });
+    expect(classes.filter((c) => /(?:nth|first|last|only)-child/.test(c))).toEqual([]);
+    const banner = page.props.children[0] as ReactElement<{ className: string }>;
+    expect(banner.props.className).toContain("xl:col-span-2");
+    const invites = page.props.children.filter((child) => isValidElement<{ "aria-labelledby"?: string }>(child) && child.type === "section");
+    expect(invites.map((section) => (section as ReactElement<{ "aria-labelledby": string }>).props["aria-labelledby"])).toEqual(["admin-invites"]);
+});
 });

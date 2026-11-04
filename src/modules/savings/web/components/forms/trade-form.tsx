@@ -1,5 +1,6 @@
 "use client";
 
+import { InfoTip } from "@/core/ui/info-tip";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { latestOf } from "../../../lib/dates";
@@ -36,7 +37,10 @@ export function TradeForm({ record, accounts, today, onDone, onCancel }: TradeFo
       <input type="hidden" name="amount" value={record.amount} />
       <DateField defaultValue={record.date} today={today} min={latestOf([startOf(record.accountId), startOf(record.counterAccountId)]) ?? undefined} autoFocus />
       <NoteField defaultValue={record.note} />
-      <p className="text-sm text-ink-soft">要改金額或股數，請刪除後重記。</p>
+      <p className="flex items-center gap-1 text-sm font-medium text-ink">
+        金額與股數不能在這裡改
+        <InfoTip label="金額與股數不能在這裡改的原因">要改金額或股數，請刪除後重記。</InfoTip>
+      </p>
       {!pending && <FormFeedback state={{ error: state.error }} />}
       <FormButtons pending={pending} onCancel={onCancel} label="儲存" pendingLabel="儲存中…" />
     </form>

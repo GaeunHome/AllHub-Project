@@ -3,6 +3,7 @@ import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
 import {
   formatRelativeTime,
   formatTaipeiDateTime,
+  formatTaipeiLongDate,
   formatTaipeiHourMinute,
   formatTaipeiHourMinuteSecond,
   formatTaipeiMonthDay,
@@ -23,6 +24,20 @@ describe("formatTaipeiDateTime", () => {
     ["2026-10-21T04:05:59.999Z", "2026/10/21 12:05", "秒數捨去不進位"],
   ])("%s → %s（%s）", (iso, expected) => {
     expect(formatTaipeiDateTime(new Date(iso))).toBe(expected);
+  });
+});
+
+describe("formatTaipeiLongDate", () => {
+  it.each([
+    // 2026/11/4 是星期三 2026/1/1 是星期四
+    ["2026-11-04T02:00:00.000Z", "11 月 4 日 星期三"],
+    ["2026-01-01T00:00:00.000Z", "1 月 1 日 星期四"],
+    // UTC 還是 11/4 台北已經 11/5 星期也要跟著換
+    ["2026-11-04T16:30:00.000Z", "11 月 5 日 星期四"],
+    // 週日是 0 不能寫成星期零
+    ["2026-11-08T02:00:00.000Z", "11 月 8 日 星期日"],
+  ])("%s 是 %s", (iso, expected) => {
+    expect(formatTaipeiLongDate(new Date(iso))).toBe(expected);
   });
 });
 

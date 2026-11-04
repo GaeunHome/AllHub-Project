@@ -5,7 +5,9 @@ import { after } from "next/server";
 import { requireModule } from "@/core/auth";
 import { expireTags, updateTags, type CacheTag } from "@/core/cache";
 import { logError } from "@/core/errors";
-import { INVALID_FORM_MESSAGE, actionErrorMessage, formId, formText, runAction } from "@/core/form";
+import { runAction } from "@/core/action";
+import { audit, auditActor } from "@/core/audit";
+import { INVALID_FORM_MESSAGE, actionErrorMessage, formId, formText } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
 import { parseNotifyToggle } from "@/core/ui/notify-toggle-form";
 import { VIDEO_ID, parseVideoId } from "../lib/parse";
@@ -176,6 +178,8 @@ export async function startTranslationAction(videoId: string): Promise<StartStat
   try {
     const result = await startTranslation(userId, videoId);
     if (result.ok && (await keepTranslated(userId, videoId))) tags.push(youtubeTags.savedVideos);
+    // 續翻每批都會呼叫 太多了不記 只記開始
+    audit(await auditActor(), { module: "youtube", action: "開始翻譯", outcome: result.ok ? "success" : "failure", target: videoId });
     return result;
   } catch (error) {
     return { ok: false, message: userMessage(error, "開始翻譯"), canUpload: false, ...settingsFlag(error) };

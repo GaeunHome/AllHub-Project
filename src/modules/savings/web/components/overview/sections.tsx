@@ -4,13 +4,14 @@ import { requireModule } from "@/core/auth";
 import { taipeiMonthKey } from "@/core/time";
 import { Fact, FactList } from "@/core/ui/fact-list";
 import { Icon } from "@/core/ui/icon";
+import { NoticeItem, NoticeStrip } from "@/core/ui/notice-strip";
 import { CardHeader } from "@/core/ui/page-header";
 import { formatSlashDate } from "../../../lib/dates";
 import { formatSignedTwd, formatTwd } from "../../../lib/money";
 import { cachedAccounts, cachedCategories, cachedCategoryTotals, cachedRecurring } from "../../../service/cached";
 import { categoryOptions, salaryAccountOptions } from "../../dashboard-view";
 import { loadAccounts, loadChecklist } from "../../overview-data";
-import { checklistRows, checklistSummary, heroView, monthView, quickActionsView, type HeroView } from "../../overview-view";
+import { checklistRows, checklistSummary, heroView, monthView, quickActionsView, urgentRows, type HeroView } from "../../overview-view";
 import { SAVINGS_PATHS, recordsHref } from "../../paths";
 import { ExpenseList } from "../dashboard/expense-list";
 import { BIG_FIGURE, BIG_FIGURE_FACTS } from "../dashboard/layout";
@@ -28,14 +29,15 @@ import { QuickActions } from "./quick-actions";
 export async function HeroSection() {
   const user = await requireModule("savings");
   const { input, state } = await loadAccounts(user.id, new Date());
+  if (input.accounts.length === 0) return null;
   const hero = heroView(input, state);
   return (
-    <section aria-labelledby="fin-total" className={`fin-hero card ${BIG_FIGURE}`}>
+    <section aria-labelledby="fin-total" className={BIG_FIGURE}>
       <div className="flex min-w-0 flex-col gap-1">
-        <h2 id="fin-total" className="text-ink-soft">
+        <h2 id="fin-total" className="font-medium text-white/90">
           總資產
         </h2>
-        <p className="text-4xl font-bold tracking-tight text-ink tabular-nums sm:text-5xl">{formatTwd(hero.total)}</p>
+        <p className="text-5xl font-bold tracking-tight text-white tabular-nums sm:text-6xl">{formatTwd(hero.total)}</p>
       </div>
       <HeroFacts hero={hero} />
     </section>
@@ -45,7 +47,7 @@ export async function HeroSection() {
 function HeroFacts({ hero: { deposit, investment, cardOwed } }: { hero: HeroView }) {
   if (deposit === null && investment === null && cardOwed === null) return null;
   return (
-    <FactList className={BIG_FIGURE_FACTS}>
+    <FactList className={`scene-facts rounded-xl bg-black/40 px-4 ${BIG_FIGURE_FACTS}`}>
       {deposit !== null && <Fact label="存款">{money(formatTwd(deposit))}</Fact>}
       {investment !== null && <Fact label="投資">{money(formatTwd(investment.value))}</Fact>}
       {investment !== null && <ProfitFact investment={investment} />}
@@ -75,6 +77,20 @@ export async function QuickActionsSection() {
   );
 }
 
+/** 逾期與等著填的帳單放在最前面 沒有就整條不出現 */
+export async function UrgentSection() {
+  const user = await requireModule("savings");
+  const urgent = urgentRows(checklistRows(await loadChecklist(user.id, new Date())));
+  if (urgent.length === 0) return null;
+  return (
+    <NoticeStrip label="要先處理">
+      {urgent.map((row) => (
+        <NoticeItem key={row.key} tone={row.tone} title={row.title} detail={row.detail} />
+      ))}
+    </NoticeStrip>
+  );
+}
+
 /** 做完的打勾留著 沒有任何固定收支與信用卡時先請他去設定 */
 export async function ChecklistSection() {
   const user = await requireModule("savings");
@@ -83,7 +99,7 @@ export async function ChecklistSection() {
   const { remaining } = checklistSummary(view.items);
 
   return (
-    <section aria-labelledby="fin-checklist" className="card stack @container min-w-0 overflow-hidden">
+    <section aria-labelledby="fin-checklist" className="stack @container min-w-0">
       <CardHeader id="fin-checklist" actions={view.configured && <span className="text-sm font-medium text-ink-soft">{remaining > 0 ? `還有 ${remaining} 件要做` : "都做完了"}</span>}>
         這個月要做的事
       </CardHeader>

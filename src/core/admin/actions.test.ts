@@ -13,6 +13,7 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers(request.header
 const invites = mocksOf(await import("../auth/invites"), "createInvite", "revokeInvite");
 const { AdminUserError } = await import("./service");
 const service = mocksOf(await import("./service"), "setUserDisabled", "deleteUser", "unlockUser", "setModuleAccess");
+const { audit } = await import("@/dev/audit-stub");
 const { createInviteAction, deleteUserAction, revokeInviteAction, setModuleAccessAction, setUserDisabledAction, unlockUserAction } = await import("./actions");
 const { INVALID_FORM_MESSAGE } = await import("../form");
 
@@ -50,21 +51,54 @@ describe("只有站長能用", () => {
   });
 });
 
+/** 表單會帶上全部模組與勾選的模組 core 不能 import 模組清單 */
+function inviteForm(fields: Record<string, string>, opened = ["twitch"], all = ["twitch", "savings"]) {
+  const data = form(fields);
+  for (const id of all) data.append("allModules", id);
+  for (const id of opened) data.append("modules", id);
+  return data;
+}
+
 describe("createInviteAction", () => {
   it("建立邀請_連結只在這次回應裡出現（用這次請求的 Origin 組成完整網址）", async () => {
-    const state = await createInviteAction({}, form({ days: "7", uses: "5", note: "給小明" }));
+    const state = await createInviteAction({}, inviteForm({ days: "7", uses: "5", note: "給小明" }));
 
-    expect(invites.createInvite).toHaveBeenCalledWith({ createdBy: TEST_SESSION.id, days: 7, maxUses: 5, note: "給小明" });
+    expect(invites.createInvite).toHaveBeenCalledWith({ createdBy: TEST_SESSION.id, days: 7, maxUses: 5, note: "給小明", deniedModules: ["savings"] });
     expect(state).toEqual({
       message: "已建立邀請連結：7 天內可以註冊 5 個帳號。",
       link: `https://hub.example.com/register?code=${TOKEN}`,
     });
   });
 
+  it("站長先決定開哪些功能：沒勾的是連結註冊的人不能用的，全勾就沒有限制", async () => {
+    await createInviteAction({}, inviteForm({ days: "7", uses: "1", note: "" }, ["twitch", "savings"]));
+
+    expect(invites.createInvite.mock.calls[0][0]).toMatchObject({ deniedModules: [] });
+  });
+
+  it("一個功能都沒勾_不建立連結：要先決定才產生", async () => {
+    expect(await createInviteAction({}, inviteForm({ days: "7", uses: "1", note: "" }, []))).toEqual({ error: "至少選一個要開放的功能" });
+    expect(invites.createInvite).not.toHaveBeenCalled();
+  });
+
+  it("格式不對的模組 id 不寫進限制", async () => {
+    await createInviteAction({}, inviteForm({ days: "7", uses: "1", note: "" }, ["twitch"], ["twitch", "../evil", "savings"]));
+
+    expect(invites.createInvite.mock.calls[0][0]).toMatchObject({ deniedModules: ["savings"] });
+  });
+
+  it("建立邀請寫進操作紀錄：看得到期限、次數與不開放的功能，不記邀請碼", async () => {
+    await createInviteAction({}, inviteForm({ days: "7", uses: "1", note: "" }));
+
+    const [, entry] = vi.mocked(audit).mock.calls[0];
+    expect(entry).toMatchObject({ module: "admin", action: "建立邀請連結", detail: "7 天 1 次，不開放：savings" });
+    expect(JSON.stringify(entry)).not.toContain(TOKEN);
+  });
+
   it("沒有 Origin 時_用 Host 組網址", async () => {
     request.headers = { host: "localhost:3102", "x-forwarded-proto": "http" };
 
-    expect((await createInviteAction({}, form({ days: "1", uses: "1", note: "" }))).link).toBe(`http://localhost:3102/register?code=${TOKEN}`);
+    expect((await createInviteAction({}, inviteForm({ days: "1", uses: "1", note: "" }))).link).toBe(`http://localhost:3102/register?code=${TOKEN}`);
   });
 
   it.each([
@@ -80,7 +114,7 @@ describe("createInviteAction", () => {
     const log = captureErrorLog();
     invites.createInvite.mockRejectedValue(Object.assign(new Error(`insert core_invites ${TOKEN}`), { name: "PostgresError" }));
 
-    expect(await createInviteAction({}, form({ days: "7", uses: "1", note: "" }))).toEqual({ error: "建立邀請連結失敗（詳見伺服器 log）" });
+    expect(await createInviteAction({}, inviteForm({ days: "7", uses: "1", note: "" }))).toEqual({ error: "建立邀請連結失敗（詳見伺服器 log）" });
     expect(loggedText(log)).toContain("PostgresError");
     expect(loggedText(log)).not.toContain(TOKEN);
   });

@@ -1,4 +1,5 @@
 import "server-only";
+import { auditCron } from "./audit-cron";
 import { safeEqual } from "./crypto";
 import { coreEnv } from "./env";
 import { logError } from "./errors";
@@ -16,7 +17,7 @@ export async function runCron(request: Request, task: string, moduleTasks: Recor
   }
 
   // core 的放後面 模組不小心用了同名排程也蓋不掉
-  const cronTasks: Record<string, CronTask> = { ...moduleTasks, ...notificationsCron };
+  const cronTasks: Record<string, CronTask> = { ...moduleTasks, ...notificationsCron, ...auditCron };
   // 名稱來自網址 只認自己登記的
   // constructor 這類名稱直接查會拿到 Object 原型上的函式
   if (!Object.hasOwn(cronTasks, task)) {

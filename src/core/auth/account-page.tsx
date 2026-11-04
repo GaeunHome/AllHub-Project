@@ -2,8 +2,11 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ROLE_LABELS } from "../db/schema";
 import { Icon } from "../ui/icon";
-import { CardHeader, PageHeader } from "../ui/page-header";
+import { InfoTip } from "../ui/info-tip";
+import { PageBanner } from "../ui/page-banner";
+import { CardHeader } from "../ui/page-header";
 import { LoadingState, Skeleton } from "../ui/skeleton";
+import { UserAvatar } from "../ui/user-avatar";
 import { requireSession } from ".";
 import { logout } from "./actions";
 import { ChangePasswordForm } from "./change-password-form";
@@ -14,13 +17,43 @@ import { NicknameButton } from "./nickname-button";
 export function AccountPage() {
   return (
     // 寬螢幕分兩欄 不把輸入框拉滿整個畫面
-    // 排欄寫在各卡片上 串流中的 Suspense 會多一個 template 第幾個會算錯
-    <div className="page-stack xl:grid xl:grid-cols-2 xl:items-start xl:[&>:first-child]:col-span-2">
-      <PageHeader icon={<Icon name="circle-user-round" />} title="帳號" />
+    <div className="page-stack xl:grid xl:grid-cols-2 xl:items-start">
+      <PageBanner image="/images/scenes/banner-account.svg" icon={<Icon name="circle-user-round" />} title="帳號" className="xl:col-span-2">
+        <Suspense fallback={<ProfileSkeleton />}>
+          <AccountProfile />
+        </Suspense>
+      </PageBanner>
       <Suspense fallback={<AccountSkeleton />}>
         <AccountSections />
       </Suspense>
     </div>
+  );
+}
+
+/** 名片放在橫幅上 頭像的顏色跟著帳號名稱 */
+export async function AccountProfile() {
+  const user = await requireSession();
+  const name = displayNameOf(user);
+  return (
+    <section className="flex flex-wrap items-center gap-4">
+      <UserAvatar username={user.username} name={name} size="lg" />
+      <div className="flex min-w-40 flex-1 flex-col gap-1">
+        <p className="flex flex-wrap items-center gap-2 text-2xl font-bold text-white">
+          <span className="break-all">{name}</span>
+          <span className={user.role === "owner" ? "chip chip-brand" : "chip"}>{ROLE_LABELS[user.role]}</span>
+        </p>
+        {user.nickname && <p className="break-all text-white/90">帳號名稱：{user.username}</p>}
+      </div>
+      <div className="button-row">
+        <NicknameButton nickname={user.nickname} />
+        <form action={logout}>
+          <button className="btn-secondary">
+            <Icon name="log-out" className="size-4" />
+            登出這台裝置
+          </button>
+        </form>
+      </div>
+    </section>
   );
 }
 
@@ -30,74 +63,58 @@ export async function AccountSections() {
 
   return (
     <>
-      <section className="card flex flex-wrap items-center gap-4 xl:col-span-2">
-        <span className="icon-tile size-12 rounded-full">
-          <Icon name="circle-user-round" />
-        </span>
-        <div className="flex min-w-40 flex-1 flex-col gap-1">
-          <p className="text-sm text-ink-soft">目前登入的帳號</p>
-          <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-ink">
-            <span className="break-all">{displayNameOf(user)}</span>
-            <span className={isOwner ? "chip chip-brand" : "chip"}>{ROLE_LABELS[user.role]}</span>
-          </p>
-          {user.nickname && <p className="text-sm break-all text-ink-soft">帳號名稱：{user.username}</p>}
-        </div>
-        <div className="button-row">
-          <NicknameButton nickname={user.nickname} />
-          <form action={logout}>
-            <button className="btn-secondary">
-              <Icon name="log-out" className="size-4" />
-              登出這台裝置
-            </button>
-          </form>
-        </div>
-      </section>
-
-      <section aria-labelledby="account-password" className="card stack xl:row-span-2">
+      <section aria-labelledby="account-password" className="card stack">
         <CardHeader id="account-password" icon={<Icon name="key-round" />}>
-          變更密碼
+          <span className="inline-flex items-center gap-1">
+            變更密碼
+            <InfoTip label="忘記密碼或要登出所有裝置">
+              {/* 只有站長拿得到資料庫的連線字串 成員只能請站長重設 */}
+              {isOwner ? (
+                <>
+                  忘記密碼時在電腦上執行 <code>npm run account -- passwd {user.username}</code> 重設（也會解除登入鎖定），所有裝置都會被登出。
+                </>
+              ) : (
+                "忘記密碼時請聯絡站長重設；重設後所有裝置都會被登出。要登出其他裝置，變更一次密碼就可以了。"
+              )}{" "}
+              網站只能用站長的邀請連結註冊，也不寄送忘記密碼的信件，避免公開的網址被拿來灌帳號或搶帳號。
+            </InfoTip>
+          </span>
         </CardHeader>
         <ChangePasswordForm username={user.username} />
       </section>
 
-      <section aria-labelledby="account-reset" className="card stack">
-        <CardHeader id="account-reset" icon={<Icon name="shield-check" />}>
-          忘記密碼或要登出所有裝置
-        </CardHeader>
-        <div className="flex flex-col gap-2 leading-relaxed">
-          {/* 只有站長拿得到資料庫的連線字串 成員只能請站長重設 */}
-          {isOwner ? (
-            <p>
-              在電腦上執行 <code>npm run account -- passwd {user.username}</code> 重設密碼（也會解除登入鎖定），所有裝置都會被登出。
-            </p>
-          ) : (
-            <p>忘記密碼時請聯絡站長重設；重設後所有裝置都會被登出。要登出其他裝置，變更一次密碼就可以了。</p>
-          )}
-          <p>網站只能用站長的邀請連結註冊，也不寄送忘記密碼的信件，避免公開的網址被拿來灌帳號或搶帳號。</p>
-        </div>
-      </section>
-
-      <section aria-labelledby="account-delete" className="card stack">
-        <CardHeader id="account-delete" icon={<Icon name="trash-2" />}>
+      {/* 危險的動作不跟一般設定放在同一種外框 一條紅線標出來 平常收著 */}
+      <section aria-labelledby="account-delete" className="danger-zone">
+        <h2 id="account-delete" className="flex items-center gap-1 text-lg font-semibold text-ink">
           刪除帳號
-        </CardHeader>
-        <div className="flex flex-col gap-2 leading-relaxed">
-          <p>刪除後無法復原：帳號會被刪除，你建立的邀請連結也會一起刪除。</p>
-          {isOwner && <p>站長帳號至少要留一個：唯一的站長不能刪除自己。</p>}
-        </div>
+          <InfoTip label="刪除帳號的說明">
+            刪除後無法復原：帳號與你建立的邀請連結會一起刪除，你在各功能存的資料也都會刪除，包括加密的 API Key 與 cookie；共用的翻譯會留下，但不再連到你。保存哪些資料見使用聲明。
+            {isOwner && " 站長帳號至少要留一個：唯一的站長不能刪除自己。"}
+          </InfoTip>
+        </h2>
         <details className="disclosure">
-          <summary>其他功能的資料呢？</summary>
-          <p className="leading-relaxed">
-            刪除帳號時，你在各功能存的資料都會一起刪除，包括加密的 API Key 與 cookie；共用的翻譯會留下，但不再連到你。保存哪些資料見
-            <Link href="/terms" className="link">
+          <summary>我要刪除這個帳號</summary>
+          <div className="stack">
+            <Link href="/terms" className="link w-fit">
               使用聲明
             </Link>
-            。
-          </p>
+            <DeleteAccountForm username={user.username} />
+          </div>
         </details>
-        <DeleteAccountForm username={user.username} />
       </section>
     </>
+  );
+}
+
+function ProfileSkeleton() {
+  return (
+    <LoadingState className="flex items-center gap-4">
+      <Skeleton className="size-20 shrink-0 rounded-full" />
+      <div className="flex flex-1 flex-col gap-2">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-4 w-28" />
+      </div>
+    </LoadingState>
   );
 }
 
@@ -105,14 +122,7 @@ export async function AccountSections() {
 function AccountSkeleton() {
   return (
     <LoadingState className="page-stack xl:col-span-2 xl:grid xl:grid-cols-2 xl:items-start">
-      <div className="card flex items-center gap-4 xl:col-span-2">
-        <Skeleton className="size-12 shrink-0 rounded-full" />
-        <div className="flex flex-1 flex-col gap-2">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-5 w-32" />
-        </div>
-      </div>
-      <div className="card stack xl:row-span-2">
+      <div className="card stack">
         <CardHeaderSkeleton />
         {Array.from({ length: 3 }, (_, i) => (
           <div key={i} className="field">
@@ -122,14 +132,10 @@ function AccountSkeleton() {
         ))}
         <Skeleton className="h-11 w-32 rounded-lg" />
       </div>
-      {[2, 3].map((lines) => (
-        <div key={lines} className="card stack">
-          <CardHeaderSkeleton />
-          {Array.from({ length: lines }, (_, i) => (
-            <Skeleton key={i} className={`h-4 ${i === lines - 1 ? "w-2/3" : "w-full"}`} />
-          ))}
-        </div>
-      ))}
+      <div className="stack">
+        <Skeleton className="h-7 w-24" />
+        <Skeleton className="h-6 w-40" />
+      </div>
     </LoadingState>
   );
 }

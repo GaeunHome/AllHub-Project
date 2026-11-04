@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { captureErrorLog, form, loggedText } from "@/dev/test-helpers";
-import { UserError, actionErrorMessage, formFlag, formId, formText, formUuid, runAction } from "./form";
+import { runAction } from "./action";
+import { UserError, actionErrorMessage, formFlag, formId, formText, formUuid } from "./form";
 
 class DemoUserError extends Error {}
 class StreamerNotFound extends UserError {}

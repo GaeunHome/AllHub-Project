@@ -42,7 +42,7 @@ beforeEach(async () => {
   jar.set(SESSION_COOKIE, await signSession({ userId: USER_ID, version: 1 }, SECRET));
   attempts.checkAttempts.mockReset().mockResolvedValue({ allowed: true });
   attempts.recordAttempt.mockReset().mockResolvedValue({ allowed: true });
-  registration.registerMember.mockReset().mockResolvedValue({ ok: true, id: USER_ID, sessionVersion: 1 });
+  registration.registerMember.mockReset().mockResolvedValue({ ok: true, id: USER_ID, sessionVersion: 1, deniedModules: [] });
   users.findSessionUser.mockReset().mockResolvedValue({ id: USER_ID, username: "alice", role: "member" });
   users.deleteOwnAccount.mockReset().mockResolvedValue({ ok: true });
   users.updateNickname.mockReset().mockResolvedValue({ ok: true, nickname: "小明" });

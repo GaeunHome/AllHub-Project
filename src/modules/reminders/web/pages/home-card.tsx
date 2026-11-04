@@ -40,12 +40,12 @@ function RemindersSkeleton() {
   return (
     <LoadingState label="載入提醒…" className="card-list">
       {["w-3/5", "w-2/5", "w-1/2"].map((width) => (
-        <div key={width} className="card-row flex min-h-14 items-center gap-3">
+        <div key={width} className="card-row flex items-center gap-3">
+          <Skeleton className="size-13 shrink-0 rounded-xl" />
           <div className="flex min-w-0 flex-1 flex-col gap-2">
             <Skeleton className={`h-4 ${width}`} />
             <Skeleton className="h-3.5 w-12" />
           </div>
-          <Skeleton className="h-4 w-16 shrink-0" />
         </div>
       ))}
     </LoadingState>

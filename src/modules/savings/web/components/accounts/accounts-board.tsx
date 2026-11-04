@@ -6,6 +6,7 @@ import { Dialog, useDialog } from "@/core/ui/dialog";
 import { Fact, FactList } from "@/core/ui/fact-list";
 import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
+import { InfoTip } from "@/core/ui/info-tip";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { SectionTitle } from "@/core/ui/page-header";
 import { StatusChip } from "@/core/ui/status-chip";
@@ -66,8 +67,10 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
         <div className="card flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
           <Illustration name="no-accounts" className="w-32" />
           <div className="flex flex-col gap-1">
-            <p className="font-semibold text-ink">還沒有銀行帳戶或信用卡</p>
-            <p className="text-ink-soft">先新增常用的銀行帳戶，填銀行 App 上的目前餘額；有信用卡也加進來，之後每期照帳單填。</p>
+            <p className="flex items-center gap-1 font-semibold text-ink">
+              還沒有銀行帳戶或信用卡
+              <InfoTip label="怎麼開始">先新增常用的銀行帳戶，填銀行 App 上的目前餘額；有信用卡也加進來，之後每期照帳單填。</InfoTip>
+            </p>
           </div>
         </div>
       )}

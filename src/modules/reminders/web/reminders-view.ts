@@ -8,7 +8,7 @@ import type { ReminderItem } from "../service/items";
 /** 直接顯示幾個 其他的收起來 */
 const SHOWN_COUNT = 5;
 
-export type ReminderRowView = ReminderItem & { dateText: string; countdown: string; isToday: boolean };
+export type ReminderRowView = ReminderItem & { dateText: string; countdown: string; days: number };
 
 /** 日期欄位能選的範圍 */
 export type DateLimits = { today: string; latest: string };
@@ -17,7 +17,7 @@ export type RemindersView = DateLimits & { shown: ReminderRowView[]; more: Remin
 
 function rowView(item: ReminderItem, today: string, now: Date): ReminderRowView {
   const days = daysUntil(item.date, now);
-  return { ...item, dateText: formatDate(item.date, today), countdown: countdownText(days), isToday: days === 0 };
+  return { ...item, dateText: formatDate(item.date, today), countdown: countdownText(days), days };
 }
 
 /** items 是快取裡照日期排好的全部項目 過期的在這裡濾掉 排程還沒跑也不顯示 當天還在 隔天才消失 */

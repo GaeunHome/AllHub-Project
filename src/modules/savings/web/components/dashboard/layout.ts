@@ -1,9 +1,6 @@
 // 內容與骨架共用 排得一樣串流進來時才不會跳
 // 放在一般模組 伺服器元件才拿得到字串 從 use client 檔案匯入的只是參照
 
-/** 寬螢幕時總資產與常用動作並排 一樣高 總資產的數字與合計要放得下左右排 */
-export const OVERVIEW_TOP = "grid gap-8 xl:grid-cols-2 2xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]";
-
 /** 一個大數字加上幾列合計 放得下時左右排 放不下時數字在上 */
 export const BIG_FIGURE = "flex min-w-0 flex-wrap content-center items-center justify-between gap-x-8 gap-y-3";
 

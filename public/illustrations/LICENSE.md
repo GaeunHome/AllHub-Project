@@ -15,3 +15,5 @@
 | `finance/all-done.svg` | [All Checked](https://undraw.co/illustration/all-checked_d3u6) |
 
 修改的地方：拿掉固定的寬高、外面包一層 `<g id="art">` 讓頁面用 `<use>` 引用，顏色改成 CSS 變數（`--illu-accent` 等，括號裡留原本的顏色當備用），主色換成理財模組的綠色，深色模式另外換一組顏色（定義在 `src/app/globals.css` 的 `.fin-illustration`）。膚色照原圖。
+
+`public/images/scenes/` 的場景圖（天氣、橫幅、首頁入口）是本專案自己畫的向量圖，不是 unDraw 的插圖，跟本專案其他程式用同樣的授權。

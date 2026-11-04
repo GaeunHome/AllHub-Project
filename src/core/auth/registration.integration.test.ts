@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { setupTestDb } from "@/dev/test-db";
-import { coreInvites, coreUsers } from "../db/schema";
+import { coreInvites, coreModuleDenials, coreUsers } from "../db/schema";
 import { verifyPassword } from "./credentials";
 
 const { createInvite, generateInviteToken, revokeInvite } = await import("./invites");
@@ -37,7 +37,7 @@ describe("registerMember", () => {
     const result = await registerMember(input(token, { username: "  Bob " }), NOW);
 
     const user = await userNamed("bob");
-    expect(result).toEqual({ ok: true, id: user.id, sessionVersion: 1 });
+    expect(result).toEqual({ ok: true, id: user.id, sessionVersion: 1, deniedModules: [] });
     expect(user.role).toBe("member");
     expect(user.passwordHash.startsWith("scrypt$")).toBe(true);
     expect(await verifyPassword(PASSWORD, user.passwordHash)).toBe(true);
@@ -103,5 +103,41 @@ describe("registerMember", () => {
     expect(results.filter((r) => !r.ok && r.reason === "invite")).toHaveLength(4);
     expect(await usedCount(id)).toBe(1);
     expect(await getDb().select().from(coreUsers)).toHaveLength(2);
+  });
+});
+
+describe("邀請時決定的模組", () => {
+  const deniedOf = async (userId: string) => (await getDb().select().from(coreModuleDenials).where(eq(coreModuleDenials.userId, userId))).map((row) => row.moduleId).sort();
+
+  async function inviteDenying(deniedModules: string[]) {
+    const [owner] = await getDb().insert(coreUsers).values({ username: "owner", passwordHash: "scrypt$unused", role: "owner" }).returning();
+    return createInvite({ createdBy: owner.id, days: 7, maxUses: 1, deniedModules }, NOW);
+  }
+
+  it("用這個連結註冊的人，沒開放的功能一開始就不能用", async () => {
+    const { token } = await inviteDenying(["savings", "starrail"]);
+
+    const result = await registerMember(input(token), NOW);
+
+    expect(result).toMatchObject({ ok: true, deniedModules: ["savings", "starrail"] });
+    expect(await deniedOf((await userNamed("bob")).id)).toEqual(["savings", "starrail"]);
+  });
+
+  it("舊的邀請（沒有限制）：照舊全部能用", async () => {
+    const { token } = await inviteDenying([]);
+
+    await registerMember(input(token), NOW);
+
+    expect(await deniedOf((await userNamed("bob")).id)).toEqual([]);
+  });
+
+  it("帳號已被使用時整個交易取消：邀請次數退回，也不留下權限的列", async () => {
+    const { token, id } = await inviteDenying(["savings"]);
+    await getDb().insert(coreUsers).values({ username: "bob", passwordHash: "scrypt$unused" });
+
+    expect(await registerMember(input(token), NOW)).toMatchObject({ ok: false, reason: "taken" });
+
+    expect(await usedCount(id)).toBe(0);
+    expect(await getDb().select().from(coreModuleDenials)).toEqual([]);
   });
 });

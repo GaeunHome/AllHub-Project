@@ -180,42 +180,54 @@
   text-align: left;
 }
 
-/* 總資產大卡 理財唯一用模組色當底的地方 淺色很淡 深色是暗綠 字照一般的顏色 */
-.fin-hero {
-  border-color: color-mix(in srgb, var(--accent-line) 50%, var(--line));
-  background-color: var(--accent-soft);
-}
-
-/* 常用動作的按鈕 窄的時候圖示在左 卡片夠寬一排六個時圖示在上 */
+/* 常用動作 像銀行 App 的捷徑 圖示在上字在下 沒有外框 */
 .fin-action {
-  @apply flex min-h-14 cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold;
-  border: 1px solid var(--line);
+  @apply flex min-h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-center text-sm font-semibold;
   color: var(--ink);
-  background-color: var(--surface-solid);
-  transition:
-    border-color 150ms ease,
-    background-color 150ms ease;
+  transition: background-color 150ms ease;
 }
 .fin-action:hover {
-  border-color: var(--line-strong);
   background-color: var(--surface-muted);
 }
 .fin-action-icon {
-  @apply inline-grid size-9 shrink-0 place-items-center rounded-full;
-  color: var(--accent);
-  background-color: var(--surface-muted);
+  @apply inline-grid size-12 shrink-0 place-items-center rounded-full;
+  /* 深色模式的主色是亮的 圖示要換成深的 用底色剛好都對比得出來 */
+  color: var(--bg-base);
+  background-color: var(--accent);
+  box-shadow: var(--elevation-card);
 }
-.fin-action:hover .fin-action-icon {
-  background-color: var(--surface-sunken);
+.fin-action-icon > .icon {
+  @apply size-6;
 }
-@container (width >= 42rem) {
-  .fin-action {
-    min-height: 6rem;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0.5rem;
-    text-align: center;
-  }
+
+/* 這個月要做的事 一條直線串起來 線畫在標記的正中間 */
+.fin-timeline {
+  @apply flex flex-col;
+}
+.fin-timeline-row {
+  @apply relative py-3;
+}
+.fin-timeline-row::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: calc(0.875rem - 1px);
+  width: 2px;
+  background-color: var(--line-strong);
+}
+.fin-timeline-row:first-child::before {
+  top: 50%;
+}
+.fin-timeline-row:last-child::before {
+  bottom: 50%;
+}
+.fin-timeline-mark {
+  @apply relative z-1 grid size-7 place-items-center rounded-full;
+  background-color: var(--bg-base);
+}
+.fin-timeline-row[data-next] .fin-timeline-mark {
+  background-color: var(--accent-soft);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 /* 視窗裡先選對象 每一個是一整列的按鈕 */
@@ -240,20 +252,17 @@
   background-color: var(--surface-solid);
 }
 
-/* 開始設定與怎麼用的收起和略過存在瀏覽器 兩種樣子都畫好 */
+/* 開始設定的收起和略過存在瀏覽器 兩種樣子都畫好 */
 /* 由 html 上的屬性決定顯示哪一種 第一次繪製前就標好 見 overview-prefs.ts */
 .fin-setup-closed,
-.fin-step-skipped,
-.fin-how-to-closed {
+.fin-step-skipped {
   display: none;
 }
 html[data-fin-setup="hidden"] .fin-setup:not([data-required]),
-html[data-fin-setup="collapsed"] .fin-setup:not([data-required]) .fin-setup-open,
-html[data-fin-how-to="collapsed"] .fin-how-to-open {
+html[data-fin-setup="collapsed"] .fin-setup:not([data-required]) .fin-setup-open {
   display: none;
 }
-html[data-fin-setup="collapsed"] .fin-setup:not([data-required]) .fin-setup-closed,
-html[data-fin-how-to="collapsed"] .fin-how-to-closed {
+html[data-fin-setup="collapsed"] .fin-setup:not([data-required]) .fin-setup-closed {
   display: inline-flex;
 }
 html[data-fin-skip~="deposit"] .fin-setup:not([data-required]) [data-step="deposit"] .fin-step-todo,

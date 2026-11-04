@@ -4,7 +4,7 @@ import type { HoldingLike } from "../lib/holdings";
 import type { CategoryLike, CategoryMonthTotal } from "../lib/ledger";
 import type { Quote } from "../lib/quotes";
 import { accountsState, type AccountsInput, type OverviewAccount, type PendingEntry } from "./dashboard-view";
-import { checklistRows, checklistSummary, heroView, monthView, quickActionsView } from "./overview-view";
+import { checklistRows, checklistSummary, heroView, monthView, quickActionsView, urgentRows, type ChecklistRow } from "./overview-view";
 
 const CREATED = new Date("2026-01-05T02:00:00Z");
 const TODAY = "2026-10-15";
@@ -168,5 +168,23 @@ describe("本月收支", () => {
       ["餐飲", 6500, "utensils"],
       ["交通", 5500, "bus"],
     ]);
+  });
+});
+
+describe("urgentRows：不能再放著的事，放在首頁與總覽的提示列", () => {
+  const row = (fields: Partial<ChecklistRow>): ChecklistRow => ({ key: "k", title: "CUBE 卡", state: "todo", date: "11/5", note: null, amountText: "$1,200", badge: null, entry: null, ...fields });
+  const bill = { row: { action: "bill" } } as PendingEntry;
+  const confirm = { row: { action: "confirm" } } as PendingEntry;
+
+  it("逾期的是紅色，寫出逾期幾天與金額", () => {
+    expect(urgentRows([row({ state: "overdue", badge: { label: "逾期 2 天", tone: "danger" } })])).toEqual([{ key: "k", tone: "danger", title: "CUBE 卡", detail: "逾期 2 天 $1,200" }]);
+  });
+
+  it("等著填的帳單是提醒，金額讀不到時不留多的空白", () => {
+    expect(urgentRows([row({ entry: bill, amountText: "" })])).toEqual([{ key: "k", tone: "warning", title: "CUBE 卡", detail: "待填帳單" }]);
+  });
+
+  it("還沒到期、做完的都不提醒：這些留在這個月要做的事", () => {
+    expect(urgentRows([row({ entry: confirm }), row({ state: "done" }), row({ state: "auto" })])).toEqual([]);
   });
 });

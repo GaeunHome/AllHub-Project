@@ -24,6 +24,8 @@ export type InviteSummary = {
   maxUses: number;
   usedCount: number;
   revokedAt: Date | null;
+  /** 用這個連結註冊的人一開始不能用的模組 空的是全部都能用 */
+  deniedModules: string[];
 };
 
 /** 站長輸入錯誤 例如期限 次數 備註 訊息直接顯示在表單上 */
@@ -55,7 +57,7 @@ export function inviteStatus(invite: Pick<InviteSummary, "expiresAt" | "maxUses"
 
 /** 回傳的 token 只在這裡出現一次 資料庫只存雜湊 之後拿不回原本的連結 */
 export async function createInvite(
-  { createdBy, days, maxUses, note }: { createdBy: string; days: number; maxUses: number; note?: string | null },
+  { createdBy, days, maxUses, note, deniedModules = [] }: { createdBy: string; days: number; maxUses: number; note?: string | null; deniedModules?: string[] },
   now = new Date(),
 ): Promise<{ token: string; id: number; expiresAt: Date }> {
   if (!(INVITE_DAY_OPTIONS as readonly number[]).includes(days)) throw new InviteInputError("期限只能選 1、7 或 30 天");
@@ -67,7 +69,7 @@ export async function createInvite(
   const expiresAt = new Date(now.getTime() + days * DAY_MS);
   const [row] = await db()
     .insert(coreInvites)
-    .values({ tokenHash: hashInviteToken(token), createdBy, createdAt: now, expiresAt, maxUses, note: trimmed || null })
+    .values({ tokenHash: hashInviteToken(token), createdBy, createdAt: now, expiresAt, maxUses, note: trimmed || null, deniedModules })
     .returning({ id: coreInvites.id });
   return { token, id: row.id, expiresAt };
 }
@@ -96,6 +98,12 @@ export async function consumeInvite(token: string, now = new Date(), executor: E
   return row?.id ?? null;
 }
 
+/** 註冊時跟用掉邀請在同一個交易裡讀 */
+export async function inviteDeniedModules(id: number, executor: Executor = db()): Promise<string[]> {
+  const [row] = await executor.select({ deniedModules: coreInvites.deniedModules }).from(coreInvites).where(eq(coreInvites.id, id));
+  return row?.deniedModules ?? [];
+}
+
 export async function listInvites(limit = LIST_LIMIT): Promise<InviteSummary[]> {
   return db()
     .select({
@@ -107,6 +115,7 @@ export async function listInvites(limit = LIST_LIMIT): Promise<InviteSummary[]> 
       maxUses: coreInvites.maxUses,
       usedCount: coreInvites.usedCount,
       revokedAt: coreInvites.revokedAt,
+      deniedModules: coreInvites.deniedModules,
     })
     .from(coreInvites)
     .innerJoin(coreUsers, eq(coreInvites.createdBy, coreUsers.id))

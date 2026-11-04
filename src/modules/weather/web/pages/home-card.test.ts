@@ -67,7 +67,7 @@ describe("首頁天氣卡片的警特報標籤", () => {
   const HEAVY_RAIN = { label: "大雨特報", severe: false, end: "2026-10-19T12:00:00.000Z" };
   const TYPHOON = { label: "海上陸上颱風警報", severe: true, end: "2026-10-20T00:00:00.000Z" };
 
-  it("讀選的縣市；有特報時標籤在卡片內容最上面，照讀到的順序，文字是特報加結束時間", async () => {
+  it("讀選的縣市；有特報時標籤排在現在的天氣前面，照讀到的順序，文字是特報加結束時間", async () => {
     cached.cachedSettings.mockResolvedValue({ county: "花蓮縣", rainAlert: true, warningAlert: true });
     cached.cachedWarnings.mockResolvedValue([TYPHOON, HEAVY_RAIN]);
 
@@ -77,7 +77,7 @@ describe("首頁天氣卡片的警特報標籤", () => {
     expect(text).toContain("海上陸上颱風警報 到 10/20 08:00");
     expect(text).toContain("大雨特報 到 20:00");
     expect(text.indexOf("海上陸上颱風警報")).toBeLessThan(text.indexOf("大雨特報"));
-    expect(text.indexOf("大雨特報")).toBeLessThan(text.indexOf("花蓮縣"));
+    expect(text.indexOf("大雨特報")).toBeLessThan(text.indexOf("陰短暫雨"));
   });
 
   it("關掉通知的人一樣看得到標籤：開關只管通知", async () => {

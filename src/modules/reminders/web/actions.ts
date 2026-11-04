@@ -2,7 +2,8 @@
 
 import { requireModule } from "@/core/auth";
 import { updateTags } from "@/core/cache";
-import { formId, formText, runAction } from "@/core/form";
+import { runAction } from "@/core/action";
+import { formId, formText } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
 import { remindersTags } from "../service/cache-tags";
 import { ReminderNotFoundError } from "../service/errors";

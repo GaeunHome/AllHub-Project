@@ -1,6 +1,5 @@
 import { logError } from "./errors";
 import { USER_ID_PATTERN } from "./ids";
-import type { FormState } from "./ui/form-message";
 
 // 不能加 use server 加了每個 export 都會變成可以直接 POST 的 action
 
@@ -39,14 +38,14 @@ export function formFlag(formData: FormData, name: string): boolean | null {
 export class UserError extends Error {}
 
 /**
- * module 是 log 的前綴 action 用在 log 與畫面上的摘要
+ * module 是 log 的前綴 action 用在 log 操作紀錄與畫面上的摘要
  * titled 給標題已經寫了失敗的提示視窗
+ * target 與 detail 寫進操作紀錄 不能放密碼 cookie API Key 或記帳的金額
  */
-export type ActionScope = { module: string; action: string; titled?: boolean };
+export type ActionScope = { module: string; action: string; titled?: boolean; target?: string | null; detail?: string | null };
 
 /** UserError 以外也要原樣顯示的錯誤 例如外部服務回的說明 */
-type IsUserError = (error: unknown) => boolean;
-type ActionWork = () => Promise<FormState | string | void>;
+export type IsUserError = (error: unknown) => boolean;
 
 /**
  * 使用者輸入錯誤原樣顯示 UserError 一律算 isUserError 可以再加
@@ -60,20 +59,4 @@ export function actionErrorMessage(scope: ActionScope, ...args: [unknown] | [IsU
   logError(scope.module, `${scope.action}失敗`, error);
   // 提示視窗的標題已經寫了失敗 說明再寫一次就重複了
   return scope.titled ? "原因不明（詳見伺服器 log）" : `${scope.action}失敗（詳見伺服器 log）`;
-}
-
-/**
- * 錯誤變成表單訊息 不會跳錯誤畫面
- * requireSession 與 redirect 會丟出 Next 的內部錯誤 要放在外面呼叫
- */
-export async function runAction(scope: ActionScope, work: ActionWork): Promise<FormState>;
-export async function runAction(scope: ActionScope, isUserError: IsUserError, work: ActionWork): Promise<FormState>;
-export async function runAction(scope: ActionScope, ...args: [ActionWork] | [IsUserError, ActionWork]): Promise<FormState> {
-  const [isUserError, work] = args.length === 1 ? [undefined, args[0]] : args;
-  try {
-    const result = await work();
-    return typeof result === "string" ? { message: result } : (result ?? {});
-  } catch (error) {
-    return { error: isUserError ? actionErrorMessage(scope, isUserError, error) : actionErrorMessage(scope, error) };
-  }
 }

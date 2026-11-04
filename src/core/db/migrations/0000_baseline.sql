@@ -16,6 +16,14 @@ CREATE TABLE "core_invites" (
 );
 --> statement-breakpoint
 ALTER TABLE "core_invites" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "core_module_denials" (
+	"user_id" uuid NOT NULL,
+	"module_id" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "core_module_denials_user_id_module_id_pk" PRIMARY KEY("user_id","module_id")
+);
+--> statement-breakpoint
+ALTER TABLE "core_module_denials" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "core_notifications" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"module" text NOT NULL,
@@ -49,6 +57,7 @@ CREATE TABLE "core_users" (
 	"disabled_at" timestamp with time zone,
 	"failed_logins" integer DEFAULT 0 NOT NULL,
 	"locked_until" timestamp with time zone,
+	"nickname" text,
 	CONSTRAINT "core_users_username_unique" UNIQUE("username"),
 	CONSTRAINT "core_users_username_format" CHECK ("core_users"."username" ~ '^[a-z0-9_.-]{3,32}$'),
 	CONSTRAINT "core_users_role_valid" CHECK ("core_users"."role" in ('owner', 'member')),
@@ -456,4 +465,5 @@ CREATE INDEX "starrail_accounts_user_id_idx" ON "starrail_accounts" USING btree 
 CREATE UNIQUE INDEX "starrail_redeem_codes_account_code" ON "starrail_redeem_codes" USING btree ("account_id","code");--> statement-breakpoint
 CREATE INDEX "twitch_follows_streamer_id_idx" ON "twitch_follows" USING btree ("streamer_id");--> statement-breakpoint
 CREATE INDEX "youtube_follows_channel_id_idx" ON "youtube_follows" USING btree ("channel_id");--> statement-breakpoint
-CREATE INDEX "youtube_saved_videos_user_updated_at_idx" ON "youtube_saved_videos" USING btree ("user_id","updated_at");
+CREATE INDEX "youtube_saved_videos_user_updated_at_idx" ON "youtube_saved_videos" USING btree ("user_id","updated_at");--> statement-breakpoint
+ALTER TABLE "core_module_denials" ADD CONSTRAINT "core_module_denials_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;

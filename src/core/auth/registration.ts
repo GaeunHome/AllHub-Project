@@ -1,14 +1,14 @@
 import "server-only";
 import { db } from "../db";
-import { coreUsers } from "../db/schema";
+import { coreModuleDenials, coreUsers } from "../db/schema";
 import { hashPassword, newPasswordProblem, normalizeUsername, usernameProblem } from "./credentials";
-import { consumeInvite, isInviteToken } from "./invites";
+import { consumeInvite, inviteDeniedModules, isInviteToken } from "./invites";
 
 /** 邀請碼不對 過期 撤銷 用完都用這一句 不讓拿舊連結的人分辨是哪一種 */
 export const INVITE_INVALID_MESSAGE = "邀請連結無效、已過期或已用完，請向站長索取新的連結";
 
 export type RegisterInput = { code: string; username: string; password: string; confirmPassword: string };
-export type RegisterResult = { ok: true; id: string; sessionVersion: number } | { ok: false; reason: "invalid" | "invite" | "taken"; error: string };
+export type RegisterResult = { ok: true; id: string; sessionVersion: number; deniedModules: string[] } | { ok: false; reason: "invalid" | "invite" | "taken"; error: string };
 
 const INVITE_INVALID: RegisterResult = { ok: false, reason: "invite", error: INVITE_INVALID_MESSAGE };
 
@@ -29,7 +29,8 @@ export async function registerMember({ code, username: input, password, confirmP
   try {
     return await db().transaction(async (tx): Promise<RegisterResult> => {
       // 先用掉邀請再建帳號 沒有有效邀請的人就不能拿註冊頁查帳號在不在
-      if ((await consumeInvite(code, now, tx)) === null) return INVITE_INVALID;
+      const inviteId = await consumeInvite(code, now, tx);
+      if (inviteId === null) return INVITE_INVALID;
       const [user] = await tx
         .insert(coreUsers)
         .values({ username, passwordHash, role: "member" })
@@ -37,7 +38,10 @@ export async function registerMember({ code, username: input, password, confirmP
         .returning({ id: coreUsers.id, sessionVersion: coreUsers.sessionVersion });
       // 丟出去讓整個交易取消 剛才用掉的邀請次數一起退回
       if (!user) throw new UsernameTaken();
-      return { ok: true, id: user.id, sessionVersion: user.sessionVersion };
+      // 跟建立帳號同一個交易 帳號一出現就是邀請時決定的權限 不會先全開再關掉
+      const deniedModules = await inviteDeniedModules(inviteId, tx);
+      if (deniedModules.length > 0) await tx.insert(coreModuleDenials).values(deniedModules.map((moduleId) => ({ userId: user.id, moduleId })));
+      return { ok: true, id: user.id, sessionVersion: user.sessionVersion, deniedModules };
     });
   } catch (error) {
     if (error instanceof UsernameTaken) return { ok: false, reason: "taken", error: "這個帳號已經有人使用，請換一個" };

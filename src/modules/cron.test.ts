@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { auditCron } from "@/core/audit-cron";
 import { notificationsCron } from "@/core/notifications/cron";
 import { cronTasks } from "./cron";
 
@@ -10,8 +11,8 @@ const { crons } = JSON.parse(readFileSync(new URL("../../vercel.json", import.me
 const MANUAL_ONLY: string[] = [];
 
 describe("排程清單", () => {
-  it("登記的排程（模組的與 core 的 notifications:cleanup）跟 vercel.json 的路徑一一對應；只能手動跑的另外列", () => {
-    const registered = [...Object.keys(cronTasks), ...Object.keys(notificationsCron)];
+  it("登記的排程（模組的與 core 的 notifications:cleanup、audit:cleanup）跟 vercel.json 的路徑一一對應；只能手動跑的另外列", () => {
+    const registered = [...Object.keys(cronTasks), ...Object.keys(notificationsCron), ...Object.keys(auditCron)];
     const scheduled = [...new Set(crons.map((c) => c.path))].sort();
 
     expect(MANUAL_ONLY.filter((task) => !registered.includes(task))).toEqual([]);

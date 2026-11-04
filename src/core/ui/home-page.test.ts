@@ -7,7 +7,7 @@ import type { ModuleInfo } from "../module";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 
-const { GreetingName, HomeCards, HomeModuleLinks, HomePage } = await import("./home-page");
+const { GreetingName, HomeCards, HomeModuleLinks, HomeNotices, HomePage } = await import("./home-page");
 
 const MODULES: ModuleInfo[] = [
   { id: "twitch", name: "Twitch", href: "/twitch", description: "追蹤主播", icon: "/icons/brands/twitch.svg", accent: "violet" },
@@ -119,8 +119,17 @@ describe("首頁只列能用的模組", () => {
     expect(markup).not.toMatch(/<p id=/);
   });
 
+  it("今天要注意：被關掉的模組不算繪，別人看不出那個模組有事", async () => {
+    denyModules("savings");
+
+    const markup = renderToStaticMarkup((await HomeNotices({ notices: [card("savings", "理財的提示"), card("reminders", "提醒的提示")] })) as ReactElement);
+
+    expect(textOf(markup)).toContain("提醒的提示");
+    expect(textOf(markup)).not.toContain("理財的提示");
+  });
+
   it("一開始的外框不列出任何模組：等讀到權限才出現，被關掉的模組不會先閃一下", () => {
-    const markup = renderToStaticMarkup(createElement(HomePage, { modules: MODULES, ...SLOTS }));
+    const markup = renderToStaticMarkup(createElement(HomePage, { modules: MODULES, notices: [card("savings", "要注意的事")], ...SLOTS }));
 
     expect(markup).toMatch(/<nav[^>]*aria-label="所有功能"/);
     expect(textOf(markup)).not.toContain("Twitch");

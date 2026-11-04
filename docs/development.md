@@ -15,6 +15,7 @@
   - `MOCK_AI_MS_PER_LINE`：調整假 AI 的回應延遲。
 - **重設本機資料**：資料存在 `.pglite/`（不進版控）。要重來就停掉 `db:local`、刪掉這個資料夾，再跑一次 `db:migrate` 與 `account create`。
 - **播放器**：觀看頁的 YouTube 播放器是瀏覽器直接向 youtube.com 載入的，不經過假伺服器。
+- **場景圖**：首頁、理財、管理、帳號的背景圖是 `public/images/scenes/` 的靜態 SVG，自己畫的，開發時也是真的圖；`public/images/` 要登入才讀得到，直接開網址會被導到登入頁。
 - **圖片**：頭像、縮圖、直播預覽與角色圖的網址會經 `externalAssetUrl()` 改寫到假伺服器，由各模組的 `dev/mock.mjs` 回傳產生的 SVG 佔位圖；正式環境原樣輸出、由瀏覽器向平台的 CDN 載入。YouTube 的影片縮圖補到跟真的縮圖差不多大（約 12 KB）：Chrome 的 LCP 不算每像素資訊量太低的圖，只有幾百 bytes 的佔位圖放大成卡片縮圖會被略過，量到的 LCP 與 next/image 的 LCP 警告會不準；其他模組的大圖（例如 Twitch 的直播預覽）還是幾百 bytes，量 LCP 時要記得這點。星穹鐵道的元素、命途與屬性小圖示是內建的靜態檔（`public/icons/starrail/`），開發時也是真的遊戲圖示，不經過假伺服器。
 
 ## 假伺服器的特殊輸入
@@ -35,6 +36,7 @@
 | HoYoLAB | 兌換碼 | `STARRAILGIFT` 或 `GIFT` 開頭成功（同一個 UID 第二次是已兌換）、`USED` 開頭已兌換、`EXPIRED` 開頭過期、`LEVEL` 開頭等級不足、`RISK` 開頭要求驗證（10035，自動兌換會整批停下），其他無效；同一個 UID 5 秒內再兌換是太頻繁。cookie 要有 `cookie_token_v2`（`account_id_v2` 沒貼時網站用 `ltuid_v2` 補上） |
 | HoYoLAB | 社群的兌換碼清單（hoyo-codes 的 `/codes?game=hkrpg`） | 自動兌換讀這份：`GIFTAUTO2026`、`GIFTLIVESTREAM`、`STARRAILGIFT` 第一次會成功（同一個 UID 第二次是已兌換），`OMEGA` 在假伺服器是無效，`EXPIREDCODE1` 過期。手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/starrail:redeem`，帳號要先在「帳號設定」打開自動兌換 |
 | 天氣 | 氣象署 F-C0032-001 | 時段照現在的台北時間算（從最近的 6 點或 18 點起三段）；帶 `locationName` 只回那個縣市，沒帶（早上的 `weather:rain`）回全部 22 個縣市。每個縣市照名稱固定一種天氣，現在與下一段的降雨機率決定卡片的提醒，見下表 |
+| 天氣 | 背景圖 | 照現在這一段的天氣描述：臺北市是雷雨、臺中市這類 `dry` 的縣市看得到晴天或多雲；白天或晚上看的是現在這一段的開始時間 |
 | 天氣 | 授權碼 `bad` 開頭（`CWA_API_KEY`、`MOENV_API_KEY`） | 回 401，像授權碼打錯 |
 | 天氣 | 環境部 aqx_p_432 | 只有臺北市、新北市、桃園市、臺中市、臺南市、高雄市、花蓮縣有測站：臺北市最差的是萬華（62）、新北市的汐止維修中（AQI 是空的）、臺中市 104 與臺南市 121 是對敏感族群不健康、高雄市 156 是對所有族群不健康；其他縣市沒有測站 |
 | 天氣 | 氣象署 W-C0033-001（警特報） | 時間是現在這個整點起算；帶 `locationName` 只回那個縣市，沒帶回 22 個。臺北市：大雨特報，3 小時後結束（深夜會跨日）。臺南市：最壞情況，海上陸上颱風警報、超大豪雨特報、陸上強風特報、濃霧特報，結束時間都不在今天。其他縣市沒有特報 |

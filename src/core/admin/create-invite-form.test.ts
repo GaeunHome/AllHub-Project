@@ -12,6 +12,8 @@ vi.mock("./actions", () => ({ createInviteAction: vi.fn() }));
 vi.mock("../ui/toast", () => import("@/dev/toast-stub"));
 
 const { CreateInviteForm, keepLastLink } = await import("./create-invite-form");
+
+const MODULES = [{ id: "twitch", name: "Twitch", icon: "/icons/brands/twitch.svg" as const }];
 const { createInviteAction } = await import("./actions");
 
 const LINK = `https://hub.example.com/register?code=${"T".repeat(43)}`;
@@ -63,7 +65,7 @@ function callDirectly(effects: EffectCallback[] = []) {
   vi.mocked(useLayoutEffect).mockImplementation((effect) => {
     effects.push(effect);
   });
-  return CreateInviteForm();
+  return CreateInviteForm({ modules: MODULES });
 }
 
 /** 取出送進 useActionState 的 action 表單送出與離開這一頁都呼叫它 */
@@ -74,7 +76,7 @@ function formAction() {
     action = fn as unknown as Action;
     return [{}, vi.fn(), false];
   });
-  renderToStaticMarkup(createElement(CreateInviteForm));
+  renderToStaticMarkup(createElement(CreateInviteForm, { modules: MODULES }));
   return action!;
 }
 
@@ -82,7 +84,7 @@ describe("建立邀請連結後的畫面", () => {
   it("剛建立：視窗打開（寬一點，網址看得完整），裡面是唯讀的完整連結；「再看一次連結」標著已展開並指向這個視窗", () => {
     created();
 
-    const markup = renderToStaticMarkup(createElement(CreateInviteForm));
+    const markup = renderToStaticMarkup(createElement(CreateInviteForm, { modules: MODULES }));
 
     const dialog = markup.match(/<dialog[^>]*>/)![0];
     expect(dialog).toContain("dialog-lg");
@@ -98,7 +100,7 @@ describe("建立邀請連結後的畫面", () => {
   it("報讀器：打開時連同標題念出建立的結果與「只在這一頁看得到」（視窗的 aria-describedby；內容跟視窗一起出現，live region 來不及念）", () => {
     created();
 
-    const dialog = dialogOf(renderToStaticMarkup(createElement(CreateInviteForm)));
+    const dialog = dialogOf(renderToStaticMarkup(createElement(CreateInviteForm, { modules: MODULES })));
 
     const ids = dialog.match(/^<dialog[^>]*aria-describedby="([^"]+)"/)![1].split(" ");
     const described = ids.map((id) => {
@@ -112,7 +114,7 @@ describe("建立邀請連結後的畫面", () => {
   it("報讀器：視窗裡只有複製的結果一個 live region，不包在別的 live region 或按鈕裡（巢狀時「已複製」會念兩次）", () => {
     created();
 
-    const regions = liveRegions(dialogOf(renderToStaticMarkup(createElement(CreateInviteForm))));
+    const regions = liveRegions(dialogOf(renderToStaticMarkup(createElement(CreateInviteForm, { modules: MODULES }))));
 
     expect(regions).toEqual([{ tag: "span", text: "", enclosedBy: [] }]);
   });
@@ -120,7 +122,7 @@ describe("建立邀請連結後的畫面", () => {
   it("視窗裡的說明不重複：建立的結果一次、「只在這一頁看得到」一次", () => {
     created();
 
-    const text = textOf(renderToStaticMarkup(createElement(CreateInviteForm)));
+    const text = textOf(renderToStaticMarkup(createElement(CreateInviteForm, { modules: MODULES })));
 
     expect(text.match(/已建立邀請連結/g)).toHaveLength(1);
     expect(text.match(/只在這一頁看得到，重新整理或離開就沒了/g)).toHaveLength(1);
@@ -131,7 +133,7 @@ describe("建立邀請連結後的畫面", () => {
     created();
     vi.mocked(useState).mockReturnValueOnce([LINK, vi.fn()]);
 
-    const markup = renderToStaticMarkup(createElement(CreateInviteForm));
+    const markup = renderToStaticMarkup(createElement(CreateInviteForm, { modules: MODULES }));
 
     expect(reopenButtonOf(markup)).toContain('aria-expanded="false"');
     expect(markup).not.toContain('aria-label="邀請連結"');
@@ -169,7 +171,7 @@ describe("建立邀請連結後的畫面", () => {
   it("第一次建立就失敗：錯誤顯示在表單下方（對著欄位修改），沒有「再看一次連結」", () => {
     created({ error: "建立邀請連結失敗（詳見伺服器 log）" });
 
-    const markup = renderToStaticMarkup(createElement(CreateInviteForm));
+    const markup = renderToStaticMarkup(createElement(CreateInviteForm, { modules: MODULES }));
 
     expect(markup).toMatch(/role="alert"[^>]*>.*建立邀請連結失敗/);
     expect(markup).not.toContain("再看一次連結");
@@ -179,7 +181,7 @@ describe("建立邀請連結後的畫面", () => {
     created({ error: "建立邀請連結失敗（詳見伺服器 log）", ...CREATED });
     vi.mocked(useState).mockReturnValueOnce([LINK, vi.fn()]);
 
-    const markup = renderToStaticMarkup(createElement(CreateInviteForm));
+    const markup = renderToStaticMarkup(createElement(CreateInviteForm, { modules: MODULES }));
 
     expect(markup).toMatch(/role="alert"[^>]*>.*建立邀請連結失敗/);
     expect(reopenButtonOf(markup)).toContain('aria-expanded="false"');

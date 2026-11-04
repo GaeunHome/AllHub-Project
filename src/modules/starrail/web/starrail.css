@@ -40,11 +40,48 @@
   }
 }
 /* 立繪舞台用深藍底加一圈稀有度色的光暈 不用整片亮色的稀有度底色 */
+/* 手機排在標題下面 寬螢幕佔面板大半 右欄最多 32rem 文字不會把立繪擠小 */
 .sr-stage {
   --sr-stage-glow: rgb(148 163 184 / 0.3);
+  @apply relative order-2 aspect-square max-h-[75dvh] w-full shrink-0 overflow-hidden;
   background:
     radial-gradient(circle closest-side, var(--sr-stage-glow), transparent),
     linear-gradient(180deg, #141c4f 0%, #0a0f2c 100%);
+}
+@variant lg {
+  .sr-stage {
+    --sr-stage-width: max(55cqw, 100cqw - 32rem);
+    position: sticky;
+    top: 0;
+    order: 0;
+    width: var(--sr-stage-width);
+    height: 100cqh;
+    max-height: none;
+    aspect-ratio: auto;
+  }
+}
+/* 方形的立繪比舞台大 裁掉左右的空白與腳邊 上面只裁一點 臉才看得到 */
+.sr-stage-art {
+  --sr-art-size: 135%;
+  position: absolute;
+  top: -4%;
+  left: 50%;
+  width: var(--sr-art-size);
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+}
+@variant lg {
+  .sr-stage-art {
+    --sr-art-size: clamp(130cqh, var(--sr-stage-width), 150cqh);
+    top: calc((100cqh - var(--sr-art-size)) * 0.12);
+  }
+}
+/* 看全圖 完整放進舞台 不裁切 */
+.sr-stage[data-whole] .sr-stage-art {
+  inset: 0;
+  width: auto;
+  aspect-ratio: auto;
+  transform: none;
 }
 .sr-stage[data-rarity="5"] {
   --sr-stage-glow: rgb(221 170 92 / 0.5);

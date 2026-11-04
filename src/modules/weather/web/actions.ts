@@ -2,7 +2,8 @@
 
 import { requireModule } from "@/core/auth";
 import { updateTags } from "@/core/cache";
-import { formFlag, formText, runAction } from "@/core/form";
+import { runAction } from "@/core/action";
+import { formFlag, formText } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
 import { weatherTags } from "../service/cache-tags";
 import { saveSettings } from "../service/settings";

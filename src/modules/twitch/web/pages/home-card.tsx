@@ -8,7 +8,7 @@ import { followedStreamerVisuals } from "../streamer-visuals";
 // web 層不能 import 模組根目錄 名稱 圖示 點綴色由 src/app 從 info.ts 傳進來
 export function TwitchHomeCard({ info }: { info: ModuleInfo }) {
   return (
-    <HomeCard info={info} title="正在直播" skeleton={<LiveNowSkeleton />}>
+    <HomeCard info={info} title="正在直播" variant="plain" skeleton={<LiveNowSkeleton />}>
       <LiveNow />
     </HomeCard>
   );

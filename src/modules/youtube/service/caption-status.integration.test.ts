@@ -136,7 +136,20 @@ describe("recheckDueCaptions（影片清單顯示時在背景重新檢查）", (
     expect((await videoRow("skip-recent")).zhCaptions).toBe("no");
   });
 
-  it("從來沒檢查過的（例如追蹤時從 RSS 補進來的舊影片）_不論發布多久都檢查一次；確認過沒有中文、發布超過 48 小時的就不再檢查", async () => {
+  it("確認過沒有中文的舊影片_還在清單上就每天再看一次：很多頻道過了兩天才補字幕，判錯的也才改得回來", async () => {
+    await insertVideos(
+      { videoId: "old-no-25h0", zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(25), publishedAt: hoursAgo(24 * 10) },
+      { videoId: "old-no-23h0", zhCaptions: "no", zhCaptionsCheckedAt: hoursAgo(23), publishedAt: hoursAgo(24 * 10) },
+    );
+    listCaptionTracks.mockResolvedValue(ZH);
+
+    expect(await recheckDueCaptions(NOW)).toBe(1);
+
+    expect((await videoRow("old-no-25h0")).zhCaptions).toBe("yes");
+    expect((await videoRow("old-no-23h0")).zhCaptions).toBe("no");
+  });
+
+  it("從來沒檢查過的（例如追蹤時從 RSS 補進來的舊影片）_不論發布多久都檢查一次；確認過沒有中文、發布超過 48 小時的一天內不再檢查", async () => {
     await insertVideos(
       { videoId: "never-old01", publishedAt: hoursAgo(24 * 10) },
       { videoId: "never-nopub", publishedAt: null },

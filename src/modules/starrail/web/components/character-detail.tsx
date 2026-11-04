@@ -14,13 +14,14 @@ import {
   type StatLine,
   type Trace,
 } from "../../lib/characters";
-import { ElementBadge, GameIcon, GoldChip, Portrait, rarityClass } from "./sr-visuals";
+import { CharacterStage } from "./character-stage";
+import { ElementBadge, GameIcon, GoldChip, rarityClass } from "./sr-visuals";
 
 const dash = (value: string | number | null) => (value === null || value === "" ? "—" : value);
 const stars = (rarity: number | null) => (rarity ? "★".repeat(Math.min(rarity, 5)) : null);
 
 /**
- * 滿版的角色詳情 寬螢幕立繪是左邊一整欄 依面板高度放大
+ * 滿版的角色詳情 寬螢幕立繪佔畫面大半 文字留在右邊窄窄的一欄
  * 手機上直排 讀不到的欄位顯示橫線
  */
 export function CharacterDetail({ character, titleId, onClose }: { character: StarrailCharacter; titleId: string; onClose: () => void }) {
@@ -87,26 +88,6 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
             )}
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * 立繪接近方形而且人物置中 完整放進去不裁切 寬螢幕放到跟面板一樣高
- * 右欄至少留 36rem 面板不夠寬時兩邊各一半 讀不到時改放頭像 再不行是屬性色底加名字
- */
-function CharacterStage({ character: c }: { character: StarrailCharacter }) {
-  return (
-    <div className="sr-stage relative order-2 aspect-square max-h-[65dvh] w-full shrink-0 overflow-hidden lg:sticky lg:top-0 lg:order-none lg:aspect-auto lg:h-[100cqh] lg:max-h-none lg:w-[min(100cqh,max(50cqw,100cqw-36rem))]" data-rarity={c.rarity ?? undefined}>
-      {/* fill 要父層是 relative 或 absolute 寬螢幕的舞台是 sticky 所以再包一層 */}
-      <div className="absolute inset-0">
-        {c.image ? (
-          <ExternalImage src={c.image} alt={c.name ?? ""} fill className="object-contain object-center" fallback={<Portrait src={c.icon} name={c.name} element={c.element} />} />
-        ) : (
-          <Portrait src={c.icon} name={c.name} element={c.element} />
-        )}
-        <span className="absolute inset-x-0 bottom-0 h-1/5 bg-linear-to-t from-black/45 to-transparent" />
       </div>
     </div>
   );

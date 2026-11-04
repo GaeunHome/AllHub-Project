@@ -22,9 +22,16 @@ beforeEach(() => {
   service.setModuleAccess.mockReset().mockResolvedValue(true);
 });
 
+/** 建立邀請至少要開放一個功能 */
+function withModule(data: FormData) {
+  data.append("allModules", "twitch");
+  data.append("modules", "twitch");
+  return data;
+}
+
 describe("管理頁的 Server Action：寫入後用 updateTag 讓對應的清單失效", () => {
   it.each([
-    ["createInviteAction", ["core:invites"], () => actions.createInviteAction({}, form({ days: "7", uses: "1", note: "" }))],
+    ["createInviteAction", ["core:invites"], () => actions.createInviteAction({}, withModule(form({ days: "7", uses: "1", note: "" })))],
     ["revokeInviteAction", ["core:invites"], () => actions.revokeInviteAction({}, form({ inviteId: "1" }))],
     ["setUserDisabledAction", ["core:users"], () => actions.setUserDisabledAction({}, form({ userId: MEMBER_ID, disabled: "true" }))],
     // 刪除帳號時他建立的邀請跟著外鍵刪掉 所以邀請也失效

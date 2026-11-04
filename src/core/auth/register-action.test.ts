@@ -42,12 +42,14 @@ const fields = (overrides: Record<string, string> = {}) =>
 beforeEach(() => {
   request.ip = IP;
   request.jar.clear();
-  registration.registerMember.mockReset().mockResolvedValue({ ok: true, id: NEW_USER, sessionVersion: 1 });
+  registration.registerMember.mockReset().mockResolvedValue({ ok: true, id: NEW_USER, sessionVersion: 1, deniedModules: [] });
   attempts.checkAttempts.mockReset().mockResolvedValue({ allowed: true });
   attempts.recordAttempt.mockReset().mockResolvedValue({ allowed: true });
   captcha.takeCaptchaToken.mockReset().mockResolvedValue("captcha-token");
   captcha.verifyCaptcha.mockReset().mockResolvedValue(true);
 });
+
+const { audit, auditMergedFailure } = await import("@/dev/audit-stub");
 
 describe("registerAction", () => {
   it("成功_建立帳號後直接登入（cookie 帶新帳號的 id）並導向首頁", async () => {
@@ -55,6 +57,27 @@ describe("registerAction", () => {
 
     expect(registration.registerMember).toHaveBeenCalledWith({ code: CODE, username: "Bob", password: PASSWORD, confirmPassword: PASSWORD }, expect.any(Date));
     expect(await verifySessionToken(request.jar.get(SESSION_COOKIE)!.value, SECRET)).toEqual({ userId: NEW_USER, version: 1 });
+  });
+
+  it("成功寫進操作紀錄：註冊與用掉邀請是同一次操作，一起傳才共用批次編號；IP 是原文、密碼不記", async () => {
+    registration.registerMember.mockResolvedValue({ ok: true, id: NEW_USER, sessionVersion: 1, deniedModules: ["savings"] });
+
+    await registerAction({}, fields({ username: "Bob" })).catch(() => {});
+
+    expect(audit).toHaveBeenCalledTimes(1);
+    const [actor, ...entries] = audit.mock.calls[0];
+    expect(actor).toEqual({ id: NEW_USER, name: "bob", ip: IP });
+    expect(entries.map((entry) => entry.action)).toEqual(["註冊帳號", "使用邀請連結"]);
+    expect(entries[1]).toMatchObject({ detail: "不開放：savings" });
+    expect(JSON.stringify(audit.mock.calls)).not.toContain(PASSWORD);
+  });
+
+  it("註冊失敗交給會合併的紀錄：寫原因，不寫帳號名稱", async () => {
+    registration.registerMember.mockResolvedValue({ ok: false, reason: "taken", error: "這個帳號已經有人使用，請換一個" });
+
+    await registerAction({}, fields({ username: "Bob" }));
+
+    expect(auditMergedFailure).toHaveBeenCalledWith({ id: null, name: "（未登入）", ip: IP }, { module: "auth", action: "註冊失敗", target: "帳號已被使用" });
   });
 
   it("每次送出都記一次嘗試（依 IP 的雜湊，不是原本的 IP）", async () => {

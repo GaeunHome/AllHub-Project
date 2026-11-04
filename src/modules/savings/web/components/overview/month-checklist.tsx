@@ -42,21 +42,22 @@ export type MonthChecklistProps = {
 };
 
 /**
- * 做完的留著打勾 顏色淡一點 要處理的那一列有一顆按鈕
- * 卡片夠寬時金額與按鈕各佔一欄 窄的時候兩行
+ * 一條時間軸串起這個月的事 下一件標出來 做完的留著打勾 顏色淡一點
+ * 要處理的那一列有一顆按鈕 夠寬時金額與按鈕各佔一欄 窄的時候兩行
  */
 export function MonthChecklist({ rows, ...context }: MonthChecklistProps) {
+  const nextKey = rows.find((row) => !FINISHED.includes(row.state) && row.state !== "auto")?.key;
   return (
-    <ul className="card-list @xl:grid @xl:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
+    <ul className="fin-timeline @xl:grid @xl:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
       {rows.map((row) => (
-        <ChecklistItemRow key={row.key} row={row} {...context} />
+        <ChecklistItemRow key={row.key} row={row} next={row.key === nextKey} {...context} />
       ))}
     </ul>
   );
 }
 
 /** 處理完按鈕會不見 結果用提示視窗 焦點交給外面的卡片 */
-function ChecklistItemRow({ row, payFromAccounts, salaryAccounts, categories, today }: { row: ChecklistRow } & Omit<MonthChecklistProps, "rows">) {
+function ChecklistItemRow({ row, next, payFromAccounts, salaryAccounts, categories, today }: { row: ChecklistRow; next: boolean } & Omit<MonthChecklistProps, "rows">) {
   const dialog = useDialog();
   const finished = FINISHED.includes(row.state);
   const mark = MARKS[row.state];
@@ -64,11 +65,13 @@ function ChecklistItemRow({ row, payFromAccounts, salaryAccounts, categories, to
   const label = entry ? ACTION_LABELS[entry.row.action] : null;
 
   return (
-    <li className="card-row grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 @xl:col-span-4 @xl:grid-cols-subgrid">
-      <Icon name={mark.icon} className={`col-start-1 row-span-2 row-start-1 size-5 self-start @xl:self-center ${mark.className}`} />
+    <li data-next={next || undefined} className="fin-timeline-row grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 @xl:col-span-4 @xl:grid-cols-subgrid">
+      <span className="fin-timeline-mark col-start-1 row-span-2 row-start-1 self-start @xl:self-center">
+        <Icon name={mark.icon} className={`size-5 ${mark.className}`} />
+      </span>
       <span className={`col-start-2 row-start-1 font-medium break-words ${finished ? "text-ink-soft" : "text-ink"}`}>{row.title}</span>
       {/* 日期與狀態各一欄 每一列才對齊 太窄時上下排 窄的時候逾期的標籤放在狀態這一欄 */}
-      <span className="col-start-2 row-start-2 grid gap-x-3 gap-y-0.5 text-sm text-ink-soft @md:grid-cols-[6.5rem_minmax(0,1fr)]">
+      <span className="col-start-2 row-start-2 grid gap-x-3 gap-y-0.5 text-sm text-ink-soft @md:grid-cols-[9rem_minmax(0,1fr)]">
         <span className="tabular-nums">{row.date}</span>
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {row.note}

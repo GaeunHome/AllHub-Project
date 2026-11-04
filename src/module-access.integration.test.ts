@@ -145,7 +145,7 @@ describe("權限只有站長能改", () => {
 
     await expect(ModuleAccessSection({ modules: [] })).rejects.toThrow(/^NEXT_REDIRECT:\/$/);
     await expect(UserSection()).rejects.toThrow(/^NEXT_REDIRECT:\/$/);
-    await expect(InviteSection()).rejects.toThrow(/^NEXT_REDIRECT:\/$/);
+    await expect(InviteSection({ modules: [] })).rejects.toThrow(/^NEXT_REDIRECT:\/$/);
   });
 });
 

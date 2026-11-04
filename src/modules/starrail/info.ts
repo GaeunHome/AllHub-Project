@@ -6,5 +6,6 @@ export const starrailInfo: ModuleInfo = {
   href: "/starrail",
   description: "連結 HoYoLAB 帳號：即時便箋、角色與戰績、開拓月曆，每天自動簽到",
   icon: "/icons/ui/train-front.svg",
+  cover: "/images/scenes/module-starrail.svg",
   accent: "gold",
 };

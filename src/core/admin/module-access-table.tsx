@@ -1,10 +1,11 @@
 import { displayNameOf } from "../auth/nickname";
 import { ROLE_LABELS } from "../db/schema";
 import type { ModuleInfo } from "../module";
+import { Icon } from "../ui/icon";
 import { ModuleAccessBox } from "./module-access-box";
 import type { ManagedUser, ModuleDenial } from "./service";
 
-type ModuleAccessTableProps = { users: ManagedUser[]; modules: Pick<ModuleInfo, "id" | "name">[]; denials: ModuleDenial[] };
+type ModuleAccessTableProps = { users: ManagedUser[]; modules: Pick<ModuleInfo, "id" | "name" | "icon" | "accent">[]; denials: ModuleDenial[] };
 
 /** 捲動時蓋住後面的欄 要跟卡片同一個底色 */
 const STICKY_CELL = "sticky left-0 z-10 bg-[var(--surface)]";
@@ -23,8 +24,11 @@ export function ModuleAccessTable({ users, modules, denials }: ModuleAccessTable
               帳號
             </th>
             {modules.map((module) => (
-              <th key={module.id} scope="col" className="min-w-[4.75rem] px-1 pb-1.5 text-center font-medium whitespace-nowrap">
-                {module.name}
+              <th key={module.id} scope="col" data-accent={module.accent} className="min-w-[4.75rem] px-1 pb-1.5 text-center font-medium whitespace-nowrap">
+                <span className="flex flex-col items-center gap-1">
+                  <Icon src={module.icon} className="size-5 text-accent" />
+                  {module.name}
+                </span>
               </th>
             ))}
           </tr>

@@ -3,6 +3,7 @@
 import { useActionState, useId } from "react";
 import { FormFeedback, type FormState } from "../ui/form-message";
 import { Icon } from "../ui/icon";
+import { InfoTip } from "../ui/info-tip";
 import { PasswordInput } from "../ui/password-input";
 import { useToast } from "../ui/toast";
 import { withToast } from "../ui/toast-queue";
@@ -28,9 +29,12 @@ export function ChangePasswordForm({ username }: { username: string }) {
       {/* 密碼欄位裡有按鈕 label 不能包住它 改用 htmlFor 對應 */}
       {FIELDS.map((field) => (
         <div key={field.name} className="field">
-          <label htmlFor={`${id}-${field.name}`} className="field-label">
-            {field.label}
-          </label>
+          <span className="flex items-center gap-1">
+            <label htmlFor={`${id}-${field.name}`} className="field-label">
+              {field.label}
+            </label>
+            {field.name === "newPassword" && <InfoTip label="新密碼的規則">新密碼至少 {PASSWORD_MIN_LENGTH} 個字元；變更後其他裝置都會被登出。</InfoTip>}
+          </span>
           <PasswordInput
             id={`${id}-${field.name}`}
             name={field.name}
@@ -40,7 +44,6 @@ export function ChangePasswordForm({ username }: { username: string }) {
           />
         </div>
       ))}
-      <p className="text-sm text-ink-soft">新密碼至少 {PASSWORD_MIN_LENGTH} 個字元；變更後其他裝置都會被登出。</p>
       <FormFeedback state={state} />
       <button disabled={pending} className="btn-primary self-start">
         <Icon name="key-round" className="size-4" />

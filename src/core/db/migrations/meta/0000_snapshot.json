@@ -1,5 +1,5 @@
 {
-  "id": "3ee15c33-263c-46a6-8a9f-bb5749383c88",
+  "id": "7f740549-0e3f-403c-a668-a0e1df8cf90d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -122,6 +122,60 @@
           "value": "char_length(\"core_invites\".\"note\") <= 50"
         }
       },
+      "isRLSEnabled": true
+    },
+    "public.core_module_denials": {
+      "name": "core_module_denials",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "module_id": {
+          "name": "module_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "core_module_denials_user_id_core_users_id_fk": {
+          "name": "core_module_denials_user_id_core_users_id_fk",
+          "tableFrom": "core_module_denials",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "core_module_denials_user_id_module_id_pk": {
+          "name": "core_module_denials_user_id_module_id_pk",
+          "columns": [
+            "user_id",
+            "module_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": true
     },
     "public.core_notifications": {
@@ -343,6 +397,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "nickname": {
+          "name": "nickname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "password_hash": {
           "name": "password_hash",

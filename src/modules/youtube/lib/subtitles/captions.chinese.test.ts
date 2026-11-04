@@ -140,10 +140,29 @@ describe("listCaptionTracks：觀看頁讀不到時改問第二個來源（Inner
     expect(calls).toHaveLength(1);
   });
 
-  it("觀看頁讀得到、影片沒有任何字幕_是空清單，不問第二個來源", async () => {
+  it("觀看頁整段沒有字幕資料_再問第二個來源，雲端主機拿到的觀看頁可能少了這段，人工上傳的中文字幕才不會被判成沒有", async () => {
     const { impl, calls } = sources(html(watchPage(playable(null))), json(WITH_CHINESE));
 
+    expect(await listCaptionTracks(VIDEO, { fetchImpl: impl })).toEqual(LISTED);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("觀看頁沒有字幕資料、第二個來源也沒有_是空清單", async () => {
+    const { impl } = sources(html(watchPage(playable(null))), json(playable(null)));
+
     expect(await listCaptionTracks(VIDEO, { fetchImpl: impl })).toEqual({ ok: true, tracks: [] });
+  });
+
+  it("觀看頁沒有字幕資料、第二個來源讀不到_照觀看頁的算空清單", async () => {
+    const { impl } = sources(html(watchPage(playable(null))), json(BOT_CHECK));
+
+    expect(await listCaptionTracks(VIDEO, { fetchImpl: impl })).toEqual({ ok: true, tracks: [] });
+  });
+
+  it("觀看頁有字幕、只是沒有中文_不問第二個來源", async () => {
+    const { impl, calls } = sources(html(watchPage(playable([track("ko")]))), json(WITH_CHINESE));
+
+    expect(await listCaptionTracks(VIDEO, { fetchImpl: impl })).toEqual({ ok: true, tracks: [info("ko")] });
     expect(calls).toHaveLength(1);
   });
 
@@ -185,6 +204,15 @@ describe("listCaptionTracks：觀看頁讀不到時改問第二個來源（Inner
 describe("hasChineseCaptions", () => {
   it.each(["zh-Hant", "zh-TW", "zh-HK", "zh", "zh-Hans", "zh-CN", "ZH-tw"])("人工上傳的 %s 字幕_算有中文", (languageCode) => {
     expect(hasChineseCaptions([info("ko"), info(languageCode)])).toBe(true);
+  });
+
+  // YouTube 允許上傳者選地區與文字的細分語言 簡體與繁體都要算
+  it.each(["zh-Hans-CN", "zh-Hant-TW", "zh-Hant-HK", "zh-SG", "zh-MO", "cmn", "cmn-Hans", "cmn-TW", "yue", "yue-HK"])("人工上傳的細分語言 %s_也算有中文", (languageCode) => {
+    expect(hasChineseCaptions([info(languageCode)])).toBe(true);
+  });
+
+  it("開頭碰巧相同的其他語言_不算", () => {
+    expect(hasChineseCaptions([info("zu"), info("zza"), info("yuf"), info("cmo")])).toBe(false);
   });
 
   it("自動產生（asr）的中文字幕_不算", () => {

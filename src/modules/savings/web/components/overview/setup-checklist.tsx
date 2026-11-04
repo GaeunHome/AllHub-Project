@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useId, useRef } from "react";
 import { Icon } from "@/core/ui/icon";
+import { InfoTip } from "@/core/ui/info-tip";
 import { parseSkippedSteps, remainingSteps, serializeSkippedSteps, type SetupStep } from "../../../lib/setup";
 import type { SetupView } from "../../overview-view";
 import { addAccountPath, addRecurringPath } from "../../paths";
@@ -51,13 +52,13 @@ export function SetupChecklist({ view }: { view: SetupView }) {
           <Illustration name={required ? "no-accounts" : "setup"} className={required ? "w-28 @md:w-40 @2xl:w-56" : "hidden w-24 @md:block"} />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h2 id={headingId} className="text-lg font-semibold text-ink">
+          <h2 id={headingId} className="flex items-center gap-1 text-lg font-semibold text-ink">
             開始設定
+            <InfoTip label="開始設定的說明">{required ? "先新增一個帳戶，總資產與每個月要做的事就會出現在這裡。" : "照著做一遍，之後每個月照「這個月要做的事」做就好。"}</InfoTip>
           </h2>
           <p className="font-medium text-ink">
             已完成 {done}/{view.status.length}
           </p>
-          <p className="fin-setup-open text-ink-soft">{required ? "先新增一個帳戶，總資產與每個月要做的事就會出現在這裡。" : "照著做一遍，之後每個月照「這個月要做的事」做就好。"}</p>
         </div>
         {!required && (
           <>
@@ -88,11 +89,13 @@ export function SetupChecklist({ view }: { view: SetupView }) {
                   <StepMark done={item.done} number={index + 1} skippable={!required} />
                 </span>
                 <div className="flex min-w-0 flex-col gap-0.5">
-                  <p className={`fin-step-title font-semibold ${item.done ? "text-ink-soft" : "text-ink"}`}>
-                    {step.title}
-                    {item.done && <span className="sr-only">（完成）</span>}
+                  <p className={`fin-step-title flex items-center gap-1 font-semibold ${item.done ? "text-ink-soft" : "text-ink"}`}>
+                    <span>
+                      {step.title}
+                      {item.done && <span className="sr-only">（完成）</span>}
+                    </span>
+                    <InfoTip label={`${step.title}的說明`}>{step.hint}</InfoTip>
                   </p>
-                  <p className="text-sm text-ink-soft">{step.hint}</p>
                 </div>
                 <div className="col-start-2 @xl:col-start-3">
                   {item.done ? (

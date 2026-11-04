@@ -30,6 +30,11 @@ export function captionCheckPending({ zhCaptions, zhCaptionsCheckedAt }: Caption
   return zhCaptions === "unknown" && zhCaptionsCheckedAt === null;
 }
 
+/** 檢查過但讀不到字幕清單的支數 篩選是空的時要說清楚 不然看起來像真的沒有中文字幕 */
+export function unreadableCaptionCount(videos: readonly CaptionCheck[]): number {
+  return videos.filter((video) => video.zhCaptions === "unknown" && video.zhCaptionsCheckedAt !== null).length;
+}
+
 export type ThumbnailBadge = { label: string; tone: "default" | "danger" };
 
 /** 還沒有翻譯時回 null 由呼叫端決定要怎麼說 */

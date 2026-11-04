@@ -4,7 +4,6 @@ import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
 import { Dialog, useDialog } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
-import { StatusChip } from "@/core/ui/status-chip";
 import { deleteReminderAction } from "../actions";
 import type { DateLimits, ReminderRowView, RemindersView } from "../reminders-view";
 import { ReminderForm } from "./reminder-form";
@@ -37,6 +36,29 @@ function ReminderRows({ rows, today, latest, className = "" }: DateLimits & { ro
   );
 }
 
+/** 今天最醒目 三天內用主色 其他中性 大數字一眼看得出還有多久 */
+function countdownTone(days: number): string {
+  if (days === 0) return "border-[var(--warning-line)] bg-[var(--warning-soft)] text-warning";
+  if (days <= 3) return "border-[var(--brand-line)] bg-[var(--brand-soft)] text-brand-ink";
+  return "border-line bg-[var(--surface-muted)] text-ink";
+}
+
+function CountdownTile({ days }: { days: number }) {
+  const word = days === 0 ? "今天" : days === 1 ? "明天" : null;
+  return (
+    <span aria-hidden className={`grid size-13 shrink-0 place-content-center justify-items-center rounded-xl border leading-none ${countdownTone(days)}`}>
+      {word ? (
+        <b className="text-base">{word}</b>
+      ) : (
+        <>
+          <b className="text-xl tabular-nums">{days}</b>
+          <span className="mt-0.5 text-xs font-medium">天後</span>
+        </>
+      )}
+    </span>
+  );
+}
+
 /**
  * 右邊的內距交給 ⋮ 圖示才跟卡片內容的右緣對齊 視窗放在選單外面才不會跟著收起
  * 改了日期可能搬到收起來的清單 這一列連 ⋮ 一起換掉 焦點交給首頁卡片
@@ -45,7 +67,8 @@ function ReminderRow({ row, today, latest }: DateLimits & { row: ReminderRowView
   const edit = useDialog();
 
   return (
-    <li className="card-row flex min-h-14 items-center gap-3 pr-3 sm:pr-4">
+    <li className="card-row flex items-center gap-3 pr-3 sm:pr-4">
+      <CountdownTile days={row.days} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p title={row.title} className="truncate font-medium text-ink">
           {row.title}
@@ -53,8 +76,8 @@ function ReminderRow({ row, today, latest }: DateLimits & { row: ReminderRowView
         <time dateTime={row.date} className="text-sm text-ink-soft tabular-nums">
           {row.dateText}
         </time>
+        <span className="sr-only">{row.countdown}</span>
       </div>
-      {row.isToday ? <StatusChip badge={{ label: row.countdown, tone: "warning" }} className="shrink-0" /> : <span className="shrink-0 font-medium text-ink tabular-nums">{row.countdown}</span>}
       <MoreMenu label={`「${row.title}」的選項`}>
         <button {...edit.triggerProps} className="menu-item">
           <Icon name="pencil" className="size-4" />

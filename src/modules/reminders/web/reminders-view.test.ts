@@ -22,10 +22,10 @@ describe("首頁卡片的清單", () => {
   it("倒數：今天標出來，明天、還有 N 天照台北的日曆算", () => {
     const view = remindersView([item("2026-11-02"), item("2026-11-03"), item("2026-11-05")], NOON);
 
-    expect(view.shown.map((row) => [row.countdown, row.isToday])).toEqual([
-      ["今天", true],
-      ["明天", false],
-      ["還有 3 天", false],
+    expect(view.shown.map((row) => [row.countdown, row.days])).toEqual([
+      ["今天", 0],
+      ["明天", 1],
+      ["還有 3 天", 3],
     ]);
   });
 

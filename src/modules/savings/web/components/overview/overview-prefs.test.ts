@@ -26,25 +26,25 @@ const applied = (prefs: OverviewPrefs, hidden: boolean) => {
   return Object.fromEntries(root.attributes);
 };
 
-describe("開始設定與怎麼用的收起和略過（存在瀏覽器）", () => {
+describe("開始設定的收起和略過（存在瀏覽器）", () => {
   it("還沒做的步驟都略過了：整張開始設定不出現", () => {
     expect(runScript(["credit", "investment"], { "allhub:savings:setup-skipped": "investment,credit" })).toEqual({ "data-fin-setup": "hidden", "data-fin-skip": "credit investment" });
   });
 
   it("還有沒略過的步驟：照收起的偏好，略過的那幾步各自換成已略過", () => {
-    const stored = { "allhub:savings:setup-skipped": "credit", "allhub:savings:setup-collapsed": "on", "allhub:savings:how-to-collapsed": "on" };
+    const stored = { "allhub:savings:setup-skipped": "credit", "allhub:savings:setup-collapsed": "on" };
 
-    expect(runScript(["credit", "salary"], stored)).toEqual({ "data-fin-setup": "collapsed", "data-fin-skip": "credit", "data-fin-how-to": "collapsed" });
+    expect(runScript(["credit", "salary"], stored)).toEqual({ "data-fin-setup": "collapsed", "data-fin-skip": "credit" });
   });
 
   it("第一次繪製的樣子跟頁面接手後一樣（腳本與 applyOverviewPrefs 的結果相同）", () => {
     const cases: { pending: SetupStep[]; stored: Record<string, string>; prefs: OverviewPrefs; hidden: boolean }[] = [
-      { pending: ["salary"], stored: {}, prefs: { setupCollapsed: false, skipped: [], howToCollapsed: false }, hidden: false },
-      { pending: ["salary"], stored: { "allhub:savings:setup-skipped": "salary" }, prefs: { setupCollapsed: false, skipped: ["salary"], howToCollapsed: false }, hidden: true },
+      { pending: ["salary"], stored: {}, prefs: { setupCollapsed: false, skipped: [] }, hidden: false },
+      { pending: ["salary"], stored: { "allhub:savings:setup-skipped": "salary" }, prefs: { setupCollapsed: false, skipped: ["salary"] }, hidden: true },
       {
         pending: ["deposit", "recurring"],
         stored: { "allhub:savings:setup-collapsed": "on", "allhub:savings:setup-skipped": "recurring" },
-        prefs: { setupCollapsed: true, skipped: ["recurring"], howToCollapsed: false },
+        prefs: { setupCollapsed: true, skipped: ["recurring"] },
         hidden: false,
       },
     ];

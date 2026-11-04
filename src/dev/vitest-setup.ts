@@ -1,12 +1,18 @@
 import { beforeEach, vi } from "vitest";
+import { audit } from "./audit-stub";
 import * as nextCache from "./next-cache-stub";
 import { toasts } from "./toast-stub";
+
+// 操作紀錄要讀請求的 header 又在回應送出後才寫 單元測試都沒有請求 先換成替身
+// 要測紀錄本身的測試檔用 vi.unmock("@/core/audit")
+vi.mock("@/core/audit", () => import("./audit-stub"));
 
 beforeEach(() => {
   // 每個測試都從沒有 next/cache 呼叫紀錄的狀態開始 測試檔不用自己清
   for (const spy of Object.values(nextCache)) spy.mockReset();
   // 提示視窗的替身也一樣 上一個測試跳出的不算
   toasts.length = 0;
+  audit.mockClear();
   // 本機跑測試時 shell 可能設了假伺服器 externalFetch 就會改寫網址
   // 先清掉 測試看到的是真正的網址 要用假伺服器的測試自己再設
   vi.stubEnv("DEV_EXTERNAL_ORIGIN", "");

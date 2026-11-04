@@ -32,8 +32,8 @@ type FailureReason = Extract<CaptionFetchResult, { ok: false }>["reason"];
 // reason 保留字面型別 同一個 helper 才能同時給韓文字幕與字幕清單用
 const fail = <R extends FailureReason>(reason: R, message: string) => ({ ok: false as const, reason, message });
 
-// 中文字幕只認這些語言的人工字幕 自動產生與自動翻譯的都不算
-const CHINESE_LANGUAGES = new Set(["zh-hant", "zh-tw", "zh-hk", "zh", "zh-hans", "zh-cn"]);
+// 簡體繁體與地區細分都算 cmn 是普通話 yue 是粵語 自動產生與自動翻譯的不算
+const CHINESE_LANGUAGE = /^(zh|cmn|yue)(-|$)/i;
 
 export async function fetchKoreanCaptions(videoId: string, opts: { fetchImpl?: typeof fetch } = {}): Promise<CaptionFetchResult> {
   if (!VIDEO_ID.test(videoId)) return fail("error", "影片 ID 格式不正確");
@@ -80,20 +80,27 @@ async function downloadKorean(player: Player, fetchImpl: typeof fetch): Promise<
   }
 }
 
-/** 用來判斷有沒有人工上傳的中文字幕 兩個來源都讀不到才算失敗 */
+/**
+ * 用來判斷有沒有人工上傳的中文字幕 兩個來源都讀不到才算失敗
+ * 雲端主機拿到的觀看頁可能整段沒有字幕資料 空的時候再問一次 問不到才照觀看頁的算
+ */
 export async function listCaptionTracks(videoId: string, opts: { fetchImpl?: typeof fetch } = {}): Promise<CaptionListResult> {
   if (!VIDEO_ID.test(videoId)) return fail("error", "影片 ID 格式不正確");
+  const fetchImpl = opts.fetchImpl ?? fetch;
   try {
-    const loaded = await loadPlayer(videoId, opts.fetchImpl ?? fetch);
+    const loaded = await loadPlayer(videoId, fetchImpl);
     if (!loaded.ok) return loaded;
-    return { ok: true, tracks: readTracks(loaded.player).flatMap(toTrackInfo) };
+    const tracks = readTracks(loaded.player);
+    if (tracks.length > 0 || loaded.source === "innertube") return { ok: true, tracks: tracks.flatMap(toTrackInfo) };
+    const second = await readSource(() => loadInnertube(videoId, fetchImpl));
+    return { ok: true, tracks: second.ok ? readTracks(second.player).flatMap(toTrackInfo) : [] };
   } catch (error) {
     return fail("error", `連不上 YouTube（${errorKind(error)}）`);
   }
 }
 
 export function hasChineseCaptions(tracks: CaptionTrackInfo[]): boolean {
-  return tracks.some((track) => !track.automatic && !track.translated && CHINESE_LANGUAGES.has(track.languageCode.toLowerCase()));
+  return tracks.some((track) => !track.automatic && !track.translated && CHINESE_LANGUAGE.test(track.languageCode));
 }
 
 function toTrackInfo(track: CaptionTrack): CaptionTrackInfo[] {

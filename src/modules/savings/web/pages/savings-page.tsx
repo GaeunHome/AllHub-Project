@@ -2,11 +2,10 @@ import { requireModule } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
 import { remainingSteps } from "../../lib/setup";
 import { cachedAccounts, cachedCategories, cachedRecurring } from "../../service/cached";
-import { OVERVIEW_COLUMNS, OVERVIEW_LEFT, OVERVIEW_RIGHT, OVERVIEW_TOP } from "../components/dashboard/layout";
+import { OVERVIEW_COLUMNS, OVERVIEW_LEFT, OVERVIEW_RIGHT } from "../components/dashboard/layout";
 import { ChecklistSkeleton, HeroSkeleton, MonthSkeleton, OverviewSkeleton, QuickActionsSkeleton, TrendSkeleton } from "../components/dashboard/skeletons";
-import { HowTo } from "../components/overview/how-to";
 import { OverviewPrefsSync } from "../components/overview/overview-prefs-sync";
-import { ChecklistSection, HeroSection, MonthSection, QuickActionsSection, TrendSection } from "../components/overview/sections";
+import { ChecklistSection, HeroSection, MonthSection, QuickActionsSection, TrendSection, UrgentSection } from "../components/overview/sections";
 import { SetupChecklist } from "../components/overview/setup-checklist";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { setupView } from "../overview-view";
@@ -17,7 +16,15 @@ import { setupView } from "../overview-view";
  */
 export function SavingsPage({ info }: { info: ModuleInfo }) {
   return (
-    <SavingsPageFrame info={info} current="overview">
+    <SavingsPageFrame
+      info={info}
+      current="overview"
+      hero={
+        <StreamSection fallback={<HeroSkeleton />}>
+          <HeroSection />
+        </StreamSection>
+      }
+    >
       <StreamSection fallback={<OverviewSkeleton />}>
         <SavingsOverview />
       </StreamSection>
@@ -26,8 +33,8 @@ export function SavingsPage({ info }: { info: ModuleInfo }) {
 }
 
 /**
- * 由上到下 開始設定 總資產與常用動作 這個月要做的事 本月收支 每月收支 怎麼用
- * 還沒有帳戶時只有開始設定
+ * 由上到下 開始設定 要先處理的事 常用動作 這個月要做的事 本月收支 每月收支
+ * 總資產在橫幅裡 還沒有帳戶時只有開始設定
  */
 export async function SavingsOverview() {
   const user = await requireModule("savings");
@@ -42,14 +49,12 @@ export async function SavingsOverview() {
     <>
       <OverviewPrefsSync pending={pending} />
       {pending.length > 0 && <SetupChecklist view={setup} />}
-      <div className={OVERVIEW_TOP}>
-        <StreamSection fallback={<HeroSkeleton />}>
-          <HeroSection />
-        </StreamSection>
-        <StreamSection fallback={<QuickActionsSkeleton />}>
-          <QuickActionsSection />
-        </StreamSection>
-      </div>
+      <StreamSection fallback={null}>
+        <UrgentSection />
+      </StreamSection>
+      <StreamSection fallback={<QuickActionsSkeleton />}>
+        <QuickActionsSection />
+      </StreamSection>
       <div className={OVERVIEW_COLUMNS}>
         <div className={OVERVIEW_LEFT}>
           <StreamSection fallback={<ChecklistSkeleton />}>
@@ -65,7 +70,6 @@ export async function SavingsOverview() {
           </StreamSection>
         </div>
       </div>
-      <HowTo />
     </>
   );
 }

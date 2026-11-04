@@ -9,7 +9,7 @@ import type { WeatherSettings } from "../../service/settings";
 import { saveSettingsAction } from "../actions";
 
 /**
- * 還沒選縣市時是主要按鈕 選過之後是卡片底下的小按鈕 打開的是同一個視窗
+ * 還沒選縣市時是主要按鈕 選過之後是場景圖上的小按鈕 打開的是同一個視窗
  * 第一次選縣市時這個按鈕會跟著空狀態不見 焦點交給首頁卡片
  */
 export function CountyPicker({ settings }: { settings: WeatherSettings | null }) {
@@ -21,8 +21,7 @@ export function CountyPicker({ settings }: { settings: WeatherSettings | null })
         {...dialog.triggerProps}
         // 只看得到設定兩個字 報讀器要知道是哪一張卡片的設定
         aria-label={settings ? "天氣設定" : undefined}
-        // 小按鈕用負邊距抵掉內距 字跟卡片內容的右邊線對齊
-        className={settings ? "btn-ghost btn-sm -mr-3" : "btn-primary"}
+        className={settings ? "scene-button" : "btn-primary"}
       >
         {settings ? (
           <>

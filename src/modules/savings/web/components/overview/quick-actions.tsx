@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Dialog, useDialog } from "@/core/ui/dialog";
 import { Icon, type UiIconName } from "@/core/ui/icon";
+import { InfoTip } from "@/core/ui/info-tip";
 import { CardHeader } from "@/core/ui/page-header";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import type { EntryKind } from "../../../lib/kinds";
@@ -44,11 +45,14 @@ export function QuickActions({ view, menu }: { view: QuickActionsView; menu?: Re
   const current = ACTIONS.find((action) => action.id === active) ?? ACTIONS[0];
 
   return (
-    <section aria-labelledby={headingId} className="card stack @container min-w-0">
+    <section aria-labelledby={headingId} className="stack @container min-w-0">
       <CardHeader id={headingId} actions={menu}>
-        我要…
+        <span className="inline-flex items-center gap-1">
+          我要…
+          <InfoTip label="平常怎麼用">花錢可以隨手記一筆；不想每筆都記，月底照銀行 App 按「更新餘額」對齊。每個月照「這個月要做的事」做完就好。</InfoTip>
+        </span>
       </CardHeader>
-      <div className="grid grid-cols-2 gap-2 @lg:grid-cols-3 @2xl:grid-cols-6">
+      <div className="grid grid-cols-3 gap-2 @2xl:grid-cols-6">
         {ACTIONS.map((action) => (
           <button
             key={action.id}

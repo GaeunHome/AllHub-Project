@@ -39,6 +39,10 @@ describe("使用聲明（公開頁）", () => {
     expect(text).not.toContain("之後的版本");
   });
 
+  it("操作紀錄要寫清楚：有 IP、站長看得到、保留 7 天、不含憑證與金額、刪除帳號後留到期滿", () => {
+    for (const phrase of ["操作紀錄", "IP 位址", "只有站長看得到", "7 天後自動刪除", "不含密碼、cookie、API Key 與記帳的金額", "刪除帳號後"]) expect(text).toContain(phrase);
+  });
+
   it("保存多久分項列出：通知類 14 天；影片每人只留追蹤頻道的最新 20 支、其餘發布兩天後刪除、Shorts 確認後就刪除（已通知過的留兩天）；翻譯永久保留（不是 14 天、不跟著影片刪）", () => {
     expect(text).toContain("保存多久：");
     for (const item of [

@@ -2,15 +2,18 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { runAction } from "../action";
+import { ANONYMOUS_ACTOR, audit, auditActor, auditLoginFailure, auditMergedFailure, type AuditActor } from "../audit";
 import { updateTags } from "../cache";
 import { logError } from "../errors";
-import { formText, runAction } from "../form";
+import { formText } from "../form";
 import type { FormState } from "../ui/form-message";
 import { createSession, deleteSession, requireSession } from ".";
 import { INVITE_FAILURES, REGISTER_ATTEMPTS, checkAttempts, clientKey, recordAttempt } from "./attempts";
 import { authTags } from "./cache-tags";
 import { takeCaptchaToken, verifyCaptcha } from "./captcha";
 import { CAPTCHA_ERROR, CAPTCHA_FIELD, HONEYPOT_FIELD, INVALID_CREDENTIALS, tooManyAttempts } from "./messages";
+import { normalizeUsername } from "./credentials";
 import { clientIp, createFailureLimiter } from "./rate-limit";
 import { registerMember, type RegisterResult } from "./registration";
 import { authenticate, changePassword, deleteOwnAccount, updateNickname } from "./users";
@@ -25,12 +28,18 @@ const loginLimiter = createFailureLimiter(LOCK_OPTIONS);
 const passwordLimiter = createFailureLimiter(LOCK_OPTIONS);
 const FAILURE_DELAY_MS = 1000;
 
+const guest = (ip: string): AuditActor => ({ id: null, name: ANONYMOUS_ACTOR, ip });
+const REGISTER_FAILURES = { invite: "邀請連結無效", taken: "帳號已被使用", invalid: "資料不符合規定" } as const;
+
 export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const ip = clientIp((await headers()).get("x-forwarded-for"));
   // 每次送出都換一張驗證碼 被擋下的也一樣
   const captchaToken = await takeCaptchaToken("login");
   const gate = loginLimiter.check(ip);
-  if (!gate.allowed) return { error: tooManyAttempts(gate.retryAfterMs, "錯誤") };
+  if (!gate.allowed) {
+    auditMergedFailure(guest(ip), { module: "auth", action: "登入被擋下", target: "這個 IP 錯太多次" });
+    return { error: tooManyAttempts(gate.retryAfterMs, "錯誤") };
+  }
 
   const username = formText(formData, "username");
   let user: Awaited<ReturnType<typeof authenticate>>;
@@ -50,6 +59,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   if (!user) {
     loginLimiter.recordFailure(ip);
+    auditLoginFailure(guest(ip), normalizeUsername(username));
     // 拖慢單一連線的連續猜測
     await new Promise((resolve) => setTimeout(resolve, FAILURE_DELAY_MS));
     // 帳號不存在 密碼錯誤 鎖定中都用同一句 不透露帳號是否存在
@@ -58,8 +68,13 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   loginLimiter.reset(ip);
   // 密碼正確才會走到這裡 說明已停用不會讓沒密碼的人知道帳號存在
-  if (user.disabled) return { error: "這個帳號已停用，請聯絡站長", username };
+  const actor = { id: user.id, name: normalizeUsername(username), ip };
+  if (user.disabled) {
+    audit(actor, { module: "auth", action: "登入失敗", outcome: "failure", detail: "帳號已停用" });
+    return { error: "這個帳號已停用，請聯絡站長", username };
+  }
   await createSession(user.id, user.sessionVersion);
+  audit(actor, { module: "auth", action: "登入成功" });
   redirect("/");
 }
 
@@ -69,9 +84,10 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
   // 每次送出都換一張驗證碼 被擋下的也一樣
   const captchaToken = await takeCaptchaToken("register");
   let result: RegisterResult;
+  const ip = clientIp((await headers()).get("x-forwarded-for"));
   try {
     const now = new Date();
-    const key = clientKey(clientIp((await headers()).get("x-forwarded-for")));
+    const key = clientKey(ip);
     // 成功失敗都算一次 機器人填了蜜罐也照樣用掉次數
     const gate = await recordAttempt(REGISTER_ATTEMPTS, key, now);
     if (!gate.allowed) return { error: tooManyAttempts(gate.retryAfterMs) };
@@ -93,14 +109,21 @@ export async function registerAction(_prev: RegisterState, formData: FormData): 
     return { error: "暫時無法註冊，請稍後再試", username };
   }
 
-  if (!result.ok) return { error: result.error, username };
+  if (!result.ok) {
+    auditMergedFailure(guest(ip), { module: "auth", action: "註冊失敗", target: REGISTER_FAILURES[result.reason] });
+    return { error: result.error, username };
+  }
   updateTags(authTags.users, authTags.invites);
   await createSession(result.id, result.sessionVersion);
+  audit({ id: result.id, name: normalizeUsername(username), ip }, { module: "auth", action: "註冊帳號" }, { module: "auth", action: "使用邀請連結", detail: result.deniedModules.length > 0 ? `不開放：${result.deniedModules.join("、")}` : "全部功能" });
   redirect("/");
 }
 
 export async function logout(): Promise<void> {
+  // 讀不到是誰也要登出得掉
+  const actor = await auditActor().catch(() => null);
   await deleteSession();
+  if (actor?.id) audit(actor, { module: "auth", action: "登出" });
   redirect("/login");
 }
 

@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useSyncExternalStore } from "react";
 import { remainingSteps, type SetupStep } from "../../../lib/setup";
-import { applyOverviewPrefs, clearOverviewPrefs, howToCollapsedPref, overviewPrefsScript, readOverviewPrefs, setupCollapsedPref, setupSkippedPref } from "./overview-prefs";
+import { applyOverviewPrefs, clearOverviewPrefs, overviewPrefsScript, readOverviewPrefs, setupCollapsedPref, setupSkippedPref } from "./overview-prefs";
 
 const noSubscribe = () => () => {};
 
@@ -23,7 +23,7 @@ export function OverviewPrefsSync({ pending }: { pending: SetupStep[] }) {
     const hidden = steps.length > 0 && remainingSteps(steps.map((step) => ({ step, done: false })), readOverviewPrefs().skipped).length === 0;
     const apply = () => applyOverviewPrefs(root, readOverviewPrefs(), hidden);
     apply();
-    const unsubscribe = [setupCollapsedPref, setupSkippedPref, howToCollapsedPref].map((pref) => pref.subscribe(apply));
+    const unsubscribe = [setupCollapsedPref, setupSkippedPref].map((pref) => pref.subscribe(apply));
     return () => {
       unsubscribe.forEach((stop) => stop());
       clearOverviewPrefs(root);

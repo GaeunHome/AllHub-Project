@@ -15,7 +15,7 @@ import { ChannelSidebar } from "../components/channel-sidebar";
 import { VideoCard } from "../components/video-card";
 import { VideoFeed } from "../components/video-feed";
 import { YoutubeSearchBar } from "../components/youtube-search-bar";
-import { captionCheckPending, videoFilters } from "../video-filter";
+import { captionCheckPending, unreadableCaptionCount, videoFilters } from "../video-filter";
 
 /** 寬螢幕一排最多 4 支 這一排的縮圖常常是 LCP 不延遲載入 */
 const FIRST_ROW = 4;
@@ -76,6 +76,7 @@ export async function YoutubeHome() {
           <EmptyState icon="clapperboard" title="還沒有影片" hint="追蹤頻道後會先補上最近的影片，之後一有新影片就會出現在這裡" />
         ) : (
           <VideoFeed
+            unreadable={unreadableCaptionCount(videos)}
             items={videos.map((video, i) => ({ id: video.videoId, filters: videoFilters(video), card: <VideoCard video={video} now={now} eager={i < FIRST_ROW} /> }))}
           />
         )}

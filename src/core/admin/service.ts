@@ -1,8 +1,9 @@
 import "server-only";
-import { and, asc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, sql } from "drizzle-orm";
 import { db } from "../db";
-import { coreModuleDenials, coreUsers, type UserRole } from "../db/schema";
+import { coreAuditLogs, coreModuleDenials, coreUsers, type UserRole } from "../db/schema";
 import { UserError } from "../form";
+import { AUDIT_PAGE_SIZE, type AuditQuery } from "./audit-query";
 
 /** 管理頁的使用者清單 不含密碼雜湊與登入失敗紀錄 */
 export type ManagedUser = { id: string; username: string; nickname: string | null; role: UserRole; createdAt: Date; disabledAt: Date | null };
@@ -51,6 +52,47 @@ export async function deleteUser(actorId: string, userId: string): Promise<boole
  * 登入失敗寫入鎖定時不讓快取失效 回應時間才不會透露帳號是否存在
  * 所以管理頁每次直接讀
  */
+/** 操作紀錄寫帳號名稱才看得懂 找不到時寫 id */
+export async function usernameOf(userId: string): Promise<string> {
+  try {
+    const [row] = await db().select({ username: coreUsers.username }).from(coreUsers).where(eq(coreUsers.id, userId));
+    return row?.username ?? userId;
+  } catch {
+    // 只是紀錄上的名字 讀不到不能擋住站長的操作
+    return userId;
+  }
+}
+
+export type AuditLogRow = typeof coreAuditLogs.$inferSelect;
+
+/** 每次直接讀不走快取 每個操作都在寫這張表 快取一下就過期了 */
+export async function listAuditLogs({ actor, module, outcome, ip, batch, page }: AuditQuery): Promise<{ rows: AuditLogRow[]; total: number }> {
+  const where = and(
+    actor ? eq(coreAuditLogs.actorName, actor) : undefined,
+    module ? eq(coreAuditLogs.module, module) : undefined,
+    outcome ? eq(coreAuditLogs.outcome, outcome) : undefined,
+    ip ? eq(coreAuditLogs.ip, ip) : undefined,
+    batch ? eq(coreAuditLogs.batchId, batch) : undefined,
+  );
+  const [rows, [{ total }]] = await Promise.all([
+    db()
+      .select()
+      .from(coreAuditLogs)
+      .where(where)
+      .orderBy(desc(coreAuditLogs.createdAt), desc(coreAuditLogs.id))
+      .limit(AUDIT_PAGE_SIZE)
+      .offset((page - 1) * AUDIT_PAGE_SIZE),
+    db().select({ total: count() }).from(coreAuditLogs).where(where),
+  ]);
+  return { rows, total };
+}
+
+/** 篩選的下拉選單 只列紀錄裡真的有的人 */
+export async function listAuditActors(): Promise<string[]> {
+  const rows = await db().selectDistinct({ name: coreAuditLogs.actorName }).from(coreAuditLogs).orderBy(coreAuditLogs.actorName);
+  return rows.map((row) => row.name);
+}
+
 export async function listLockedUsers(now = new Date()): Promise<LockedUser[]> {
   const rows = await db().select({ id: coreUsers.id, lockedUntil: coreUsers.lockedUntil }).from(coreUsers).where(gt(coreUsers.lockedUntil, now));
   return rows.flatMap(({ id, lockedUntil }) => (lockedUntil ? [{ id, lockedUntil }] : []));

@@ -2,6 +2,7 @@
 
 import { startTransition, useActionState, useId, useLayoutEffect, useRef, useState } from "react";
 import { INVITE_DAY_OPTIONS, INVITE_NOTE_MAX_LENGTH, INVITE_USE_OPTIONS } from "../auth/invite-rules";
+import type { ModuleInfo } from "../module";
 import { CopyButton } from "../ui/copy-button";
 import { Dialog } from "../ui/dialog";
 import { FormFeedback, FormMessage } from "../ui/form-message";
@@ -43,7 +44,8 @@ function inviteFormAction(previous: InviteFormState, payload: FormData | ForgetL
   return createInviteAction({}, payload).then((result) => keepLastLink(previous, result));
 }
 
-export function CreateInviteForm() {
+/** 開放的功能一個都沒預設 要先決定才產生連結 之後要加再到模組權限勾 */
+export function CreateInviteForm({ modules }: { modules: Pick<ModuleInfo, "id" | "name" | "icon" | "accent">[] }) {
   const toast = useToast();
   const [state, action, pending] = useActionState<InviteFormState, FormData | ForgetLink>(inviteFormAction, {});
   // 記下關掉的是哪一條 建立下一條時才會照樣自動打開
@@ -89,6 +91,19 @@ export function CreateInviteForm() {
               <label key={uses} className="choice-card justify-center">
                 <input type="radio" name="uses" value={uses} defaultChecked={uses === 1} className="size-4 shrink-0" />
                 {uses} 次
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="field min-w-0">
+          <legend className={LEGEND_CLASS}>開放哪些功能</legend>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {modules.map((module) => (
+              <label key={module.id} data-accent={module.accent} className="choice-card">
+                <input type="hidden" name="allModules" value={module.id} />
+                <input type="checkbox" name="modules" value={module.id} className="size-4 shrink-0" />
+                <Icon src={module.icon} className="size-4 shrink-0 text-accent" />
+                <span className="min-w-0 break-words">{module.name}</span>
               </label>
             ))}
           </div>
