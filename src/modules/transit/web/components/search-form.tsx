@@ -5,13 +5,14 @@ import { useState, type FormEvent } from "react";
 import { Icon } from "@/core/ui/icon";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import { BUS_CITIES, isBusCity } from "../../lib/bus";
-import { METRO_SYSTEMS, MODES, MODE_LABELS, isMetroSystem, type Mode } from "../../lib/modes";
+import { METRO_SYSTEMS, isMetroSystem, type MetroSystem, type Mode } from "../../lib/modes";
 import type { StationGroup } from "../../lib/station-groups";
 import type { Station } from "../../lib/timetable";
 import { searchHref, type SearchQuery } from "../search-query";
+import { ModeTabs } from "./mode-tabs";
 import { StationPicker } from "./station-picker";
 
-const MODE_OPTIONS = MODES.map((id) => ({ id, label: MODE_LABELS[id] }));
+const METRO_OPTIONS = (Object.keys(METRO_SYSTEMS) as MetroSystem[]).map((id) => ({ id, label: METRO_SYSTEMS[id] }));
 
 type SearchFormProps = { query: SearchQuery; stations: Station[]; groups: StationGroup[]; frequent: Station[]; directions: Station[]; today: string; maxDate: string };
 
@@ -32,23 +33,33 @@ function StationSelect({ name, label, value, options, onChange, prefix = "" }: {
   );
 }
 
+function SwapButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-label="交換起站與迄站" title="交換起站與迄站" className="btn-secondary btn-icon trn-swap">
+      <Icon name="arrow-left-right" className="size-4" />
+    </button>
+  );
+}
+
 /** 捷運換站要重讀方向 所以馬上換網址 高鐵與台鐵按查詢才問 TDX */
 export function SearchForm({ query, stations, groups, frequent, directions, today, maxDate }: SearchFormProps) {
   const router = useRouter();
   const [from, setFrom] = useState(query.from);
   const [to, setTo] = useState(query.to);
   const [date, setDate] = useState(query.date);
+  const [time, setTime] = useState(query.time);
   const [line, setLine] = useState(query.line);
   const metro = query.mode === "metro";
   const bus = query.mode === "bus";
   const tra = query.mode === "tra";
   const picker = { stations, groups, frequent, metroSystem: metro ? query.system : null };
-  const go = (next: Partial<SearchQuery>) => router.replace(searchHref({ ...query, from, to, date, line: line.trim(), direction: 0, ...next }), { scroll: false });
+  const go = (next: Partial<SearchQuery>) => router.replace(searchHref({ ...query, from, to, date, time, line: line.trim(), direction: 0, ...next }), { scroll: false });
   const switchMode = (mode: Mode) => {
     setFrom("");
     setTo("");
     setLine("");
-    go({ mode, system: mode === "bus" ? "Taipei" : "TRTC", line: "", from: "", to: "" });
+    setTime("");
+    go({ mode, system: mode === "bus" ? "Taipei" : "TRTC", line: "", from: "", to: "", time: "" });
   };
   const chooseFrom = (value: string) => {
     setFrom(value);
@@ -57,35 +68,47 @@ export function SearchForm({ query, stations, groups, frequent, directions, toda
       go({ from: value, to: "" });
     }
   };
+  // 使用者要的 只對調兩站 按查詢才問 TDX
+  const swap = () => {
+    setFrom(to);
+    setTo(from);
+  };
+  const filled = from !== "" || to !== "" || line !== "" || time !== "" || date !== today;
+  // 使用者要的 表單與查詢結果一起清掉 交通工具與捷運系統留著
+  const clear = () => {
+    setFrom("");
+    setTo("");
+    setLine("");
+    setTime("");
+    setDate(today);
+    go({ from: "", to: "", line: "", time: "", date: today });
+  };
   const submit = (event: FormEvent) => {
     event.preventDefault();
     go({});
   };
 
   return (
-    <form id="transit-search" onSubmit={submit} className="card stack">
-      <SegmentedControl label="交通工具" options={MODE_OPTIONS} value={query.mode} onChange={switchMode} />
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+    <form id="transit-search" onSubmit={submit} className="card p-0 overflow-hidden">
+      <ModeTabs value={query.mode} onChange={switchMode} />
+      <div className="trn-search-fields">
         {metro && (
-          <label className="field min-w-0 flex-1">
-            <span className="field-label">捷運系統</span>
-            <select
-              value={query.system}
-              onChange={(event) => {
-                if (!isMetroSystem(event.target.value)) return;
+          <div className="field min-w-0 flex-1">
+            <span aria-hidden="true" className="field-label">
+              捷運系統
+            </span>
+            <SegmentedControl
+              variant="field"
+              label="捷運系統"
+              options={METRO_OPTIONS}
+              value={isMetroSystem(query.system) ? query.system : "TRTC"}
+              onChange={(system) => {
                 setFrom("");
                 setTo("");
-                go({ system: event.target.value, from: "", to: "" });
+                go({ system, from: "", to: "" });
               }}
-              className="input"
-            >
-              {Object.entries(METRO_SYSTEMS).map(([id, name]) => (
-                <option key={id} value={id}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
         )}
         {bus && (
           <>
@@ -106,11 +129,13 @@ export function SearchForm({ query, stations, groups, frequent, directions, toda
           </>
         )}
         {(tra || metro) && <StationPicker label="起站" value={from} onChange={chooseFrom} {...picker} />}
+        {tra && <SwapButton onClick={swap} />}
         {tra && <StationPicker label="迄站" value={to} onChange={setTo} {...picker} />}
         {metro && <StationSelect name="to" label="方向" value={to} options={directions} prefix="往" onChange={setTo} />}
         {query.mode === "thsr" && (
           <>
             <StationSelect name="from" label="起站" value={from} options={stations} onChange={chooseFrom} />
+            <SwapButton onClick={swap} />
             <StationSelect name="to" label="迄站" value={to} options={stations} onChange={setTo} />
           </>
         )}
@@ -120,10 +145,21 @@ export function SearchForm({ query, stations, groups, frequent, directions, toda
             <input type="date" value={date} min={today} max={maxDate} onChange={(event) => setDate(event.target.value)} className="input" />
           </label>
         )}
+        {!metro && !bus && (
+          <label className="field min-w-0">
+            <span className="field-label">出發時間</span>
+            <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="input" />
+          </label>
+        )}
         <button className="btn-primary shrink-0">
           <Icon name="search" className="size-4" />
           查詢
         </button>
+        {filled && (
+          <button type="button" onClick={clear} className="btn-secondary shrink-0">
+            清除
+          </button>
+        )}
       </div>
     </form>
   );

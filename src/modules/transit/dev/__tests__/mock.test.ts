@@ -25,8 +25,4 @@ describe("假 TDX 的車站分組", () => {
     expect(groups.map((group) => group.name)).not.toContain("其他");
     expect(new Set(ids).size).toBeLessThan(ids.length);
   });
-
-  it("淡海輕軌讀不到路線 本機看得到退回完整清單", async () => {
-    expect((await rail("Metro/StationOfLine/NTDLRT")).status).toBe(404);
-  });
 });

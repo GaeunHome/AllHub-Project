@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { cacheLife, revalidateTag } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { encryptSecret } from "@/core/crypto";
 import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { resetNextCache, tagged } from "@/dev/test-helpers";
@@ -11,7 +12,7 @@ vi.mock("../../lib/hoyolab", async () => (await import("../../dev/fixtures")).ho
 
 stubCoreEnv();
 
-const { cachedAccounts, cachedDailyNote, cachedRecentCheckins } = await import("../cached");
+const { cachedAccounts, cachedDailyNote, cachedRecentCheckins, cachedWarps } = await import("../cached");
 const { syncCookieInvalid } = await import("../accounts");
 const { linkAccount } = await import("../link");
 
@@ -100,6 +101,43 @@ describe("cachedDailyNote：即時便箋短效期快取，參數只有帳號 id"
 
   it("帳號已經刪除_回錯誤訊息", async () => {
     expect(await cachedDailyNote(me, 999_999)).toMatchObject({ ok: false, cookieInvalid: false });
+  });
+});
+
+describe("cachedWarps：躍遷紀錄不存資料庫，打開頁面時讀，參數只有使用者與帳號 id", () => {
+  const WITH_TOKEN = `${COOKIE}; cookie_token_v2=v2_secret_cookie_token`;
+  const pageOf = (list: unknown[]) => ok({ rows: list, next: null, missing: [] });
+
+  beforeEach(async () => {
+    await testDb.update(starrailAccounts).set({ cookieEncrypted: encryptSecret(WITH_TOKEN) });
+    hoyolab.warpLogin.mockResolvedValue(ok(`${WITH_TOKEN}; e_hkrpg_token=v2_secret_badge`));
+    hoyolab.fetchWarpPage.mockResolvedValue(pageOf([{ pulls: 23, star: null }]));
+  });
+
+  it("讀得到_records 效期（30 分鐘）_只標 starrail:accounts_回傳值沒有 cookie", async () => {
+    const { id } = await account();
+
+    const result = await cachedWarps(me, id);
+
+    expect(result.ok && result.summaries.map((row) => row.pity)).toEqual([23, 23, 23, 23, 23, 23]);
+    expect(JSON.stringify(result)).not.toContain("v2_secret");
+    expect(tagged()).toEqual(["starrail:accounts"]);
+    expect(cacheLife).toHaveBeenCalledExactlyOnceWith("records");
+  });
+
+  it("讀不到_external 效期，幾分鐘後再試", async () => {
+    hoyolab.fetchWarpPage.mockResolvedValue({ ok: false, retcode: -110, message: "太頻繁", cookieInvalid: false });
+    const { id } = await account();
+
+    expect(await cachedWarps(me, id)).toMatchObject({ ok: false, message: "太頻繁" });
+    expect(cacheLife).toHaveBeenCalledExactlyOnceWith("external");
+  });
+
+  it("別人的帳號 id_讀不到，不用那個帳號的 cookie 登入", async () => {
+    const { id } = await account();
+
+    expect((await cachedWarps(other, id)).ok).toBe(false);
+    expect(hoyolab.warpLogin).not.toHaveBeenCalled();
   });
 });
 

@@ -14,7 +14,7 @@ const { addRoute, deleteRoute, listRoutes, setTracked } = await import("../route
 const { RouteNotFoundError } = await import("../errors");
 
 const getDb = setupTestDb();
-const THSR = { mode: "thsr", system: "", line: "", originId: "1000", destinationId: "1070" };
+const THSR = { mode: "thsr", system: "", line: "0123", originId: "1000", destinationId: "1070" };
 
 let me: string;
 let other: string;
@@ -40,8 +40,8 @@ describe("新增常用路線", () => {
   });
 
   it("捷運的方向要是這一站有的", async () => {
-    expect(await addRoute(me, { ...THSR, mode: "metro", system: "TRTC", originId: "R10", destinationId: "R28" })).toMatchObject({ system: "TRTC", destinationName: "淡水" });
-    await expect(addRoute(me, { ...THSR, mode: "metro", system: "TRTC", originId: "R10", destinationId: "R02" })).rejects.toThrow("沒有這個方向");
+    expect(await addRoute(me, { ...THSR, mode: "metro", system: "TRTC", line: "", originId: "R10", destinationId: "R28" })).toMatchObject({ system: "TRTC", destinationName: "淡水" });
+    await expect(addRoute(me, { ...THSR, mode: "metro", system: "TRTC", line: "", originId: "R10", destinationId: "R02" })).rejects.toThrow("沒有這個方向");
   });
 
   it("公車的站牌名稱與方向用 TDX 查到的", async () => {
@@ -62,6 +62,12 @@ describe("新增常用路線", () => {
     await addRoute(me, THSR);
 
     await expect(addRoute(me, THSR)).rejects.toThrow("已經在常用路線裡");
+  });
+
+  it("同一段路的不同車次各算一條", async () => {
+    await addRoute(me, THSR);
+
+    await expect(addRoute(me, { ...THSR, line: "0125" })).resolves.toMatchObject({ line: "0125" });
   });
 
   it("別人有同一條路線_不影響自己", async () => {

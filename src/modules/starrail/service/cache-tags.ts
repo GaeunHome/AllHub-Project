@@ -7,5 +7,4 @@ import type { CacheTag } from "@/core/cache";
 export const starrailTags = {
   accounts: "starrail:accounts",
   checkins: "starrail:checkins",
-  warps: "starrail:warps",
 } as const satisfies Record<string, CacheTag<"starrail">>;

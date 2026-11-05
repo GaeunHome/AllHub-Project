@@ -5,11 +5,10 @@ export const STARRAIL_HREF = "/starrail";
 /** 頁面一次只看一個帳號 選擇放在網址參數 */
 export const accountHref = (accountId: number) => `${STARRAIL_HREF}?account=${accountId}`;
 
-/** 躍遷紀錄頁 帳號 卡池與頁數都放在網址參數 */
-export function warpsHref(accountId: number, bannerType?: number, page?: number): string {
+/** 躍遷紀錄頁 帳號與卡池都放在網址參數 */
+export function warpsHref(accountId: number, bannerType?: number): string {
   const query = new URLSearchParams({ account: String(accountId) });
   if (bannerType !== undefined) query.set("banner", String(bannerType));
-  if (page !== undefined && page > 1) query.set("page", String(page));
   return `${STARRAIL_HREF}/warps?${query}`;
 }
 

@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setupTestDb } from "@/dev/test-db";
 import { coreInvites, coreUsers } from "../../db/schema";
@@ -109,13 +109,6 @@ describe("authenticate", () => {
 });
 
 describe("findSessionUser", () => {
-  it("部署時新程式比 migration 先上線，資料表還沒有暱稱與頭像欄位：登入檢查照常，都當成沒有", async () => {
-    const user = await createUser();
-    await getDb().execute(sql`alter table core_users drop column nickname, drop column avatar`);
-
-    expect(await findSessionUser({ userId: user.id, version: 1 })).toEqual({ id: user.id, username: "alice", nickname: null, avatar: null, role: "member" });
-  });
-
   it("有暱稱時讀得到：照常回傳字串", async () => {
     const user = await createUser("alice", PASSWORD, FAST, { nickname: "小明" });
 

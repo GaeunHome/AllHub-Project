@@ -8,6 +8,7 @@ import { MODES } from "../lib/modes";
  * 捷運沒有起訖站的時刻表 destination 是這一站開往的終點站
  * system 是捷運系統或公車的縣市 高鐵與台鐵是空字串 唯一索引才擋得住重複
  * 公車的 line 是路線 origin 是站牌 destination 的 id 是方向 name 是那個方向的終點
+ * 高鐵與台鐵的 line 是車次 以前存的沒有車次是空字串
  */
 export const transitRoutes = pgTable(
   "transit_routes",

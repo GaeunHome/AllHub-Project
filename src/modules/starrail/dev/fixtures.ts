@@ -57,7 +57,7 @@ export const accountView = (overrides: Partial<AccountView> = {}): AccountView =
  * 用法 vi.mock("../lib/hoyolab", async () => (await import("../dev/fixtures")).hoyolab)
  */
 export const hoyolab = {
-  fetchWarpAuthkey: vi.fn(),
+  warpLogin: vi.fn(),
   fetchWarpPage: vi.fn(),
   fetchGameRoles: vi.fn(),
   fetchDailyNote: vi.fn(),

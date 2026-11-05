@@ -59,13 +59,13 @@ describe("交通頁", () => {
 
     expect(text).toContain("台北 → 左營");
     expect(text).toContain("610 車次");
-    expect(text).toContain("加到常用路線");
+    expect(text).toContain("加到常用");
   });
 
   it("常用路線滿了_不放加入的按鈕", async () => {
     cached.cachedRoutes.mockResolvedValue(Array.from({ length: 12 }, (_, id) => route({ id })));
 
-    expect(await render({ mode: "thsr", from: "1000", to: "1070" })).not.toContain("加到常用路線");
+    expect(await render({ mode: "thsr", from: "1000", to: "1070" })).not.toContain("加到常用");
   });
 
   it("追蹤中的路線放在追蹤區 其他在常用路線", async () => {
@@ -162,8 +162,8 @@ describe("交通頁", () => {
     await render({ mode: "bus" });
     expect(cached.cachedMetroLines).not.toHaveBeenCalled();
 
-    await render({ mode: "metro", system: "KRTC" });
-    expect(cached.cachedMetroLines).toHaveBeenCalledWith("KRTC");
+    await render({ mode: "metro", system: "TYMC" });
+    expect(cached.cachedMetroLines).toHaveBeenCalledWith("TYMC");
   });
 
   it("路線讀不到_頁面照常 問題記到系統狀態頁", async () => {
@@ -199,5 +199,89 @@ describe("交通頁", () => {
 
     expect(await html({ mode: "tra", from: "1000" })).toContain('aria-label="起站：臺北"');
     expect(formProps().frequent).toEqual([{ id: "1000", name: "臺北" }, { id: "4400", name: "高雄" }]);
+  });
+});
+
+describe("高鐵與台鐵的查詢結果", () => {
+  const search = { mode: "thsr", from: "1000", to: "1070" };
+
+  it("每一班都有車次與加到常用（使用者要的：有車次才加入常用），不再有整段路的按鈕", async () => {
+    const markup = await html(search);
+
+    // 還沒有路線時空狀態的說明也提到按鈕 寫在引號裡
+    expect(textOf(markup).match(/加到常用(?!」)/g)).toHaveLength(3);
+    expect(markup).not.toContain("加到常用路線");
+    for (const trainNo of ["610", "620", "630"]) expect(textOf(markup)).toContain(`${trainNo} 車次`);
+  });
+
+  it("寫出總共幾班與每班要坐多久", async () => {
+    const text = await render(search);
+
+    expect(text).toContain("共 3 班");
+    expect(text).toContain("1 小時 34 分");
+  });
+
+  it("已經存過的那一班寫已在常用，其他班照樣能加", async () => {
+    cached.cachedRoutes.mockResolvedValue([route({ line: "620" })]);
+
+    const text = await render(search);
+
+    expect(text.match(/已在常用/g)).toHaveLength(1);
+    expect(text.match(/加到常用/g)).toHaveLength(2);
+  });
+
+  it("別段路存了同一個車次_不算已在常用", async () => {
+    cached.cachedRoutes.mockResolvedValue([route({ line: "620", destinationId: "1040" })]);
+
+    expect(await render(search)).not.toContain("已在常用");
+  });
+
+  it("有關閉按鈕，按了回到不查詢的網址", async () => {
+    const markup = await html(search);
+
+    const closeLink = /<a [^>]*關閉查詢結果[^>]*>/.exec(markup)?.[0];
+
+    expect(closeLink).toMatch(/href="\/transit\?mode=thsr&amp;from=1000&amp;date=[\d-]+"/);
+  });
+
+  it("選了出發時間_只列那個時間之後的班次", async () => {
+    const dayStart = Date.parse("2026-11-20T00:00:00+08:00");
+    const clock = (hour: number) => ({ at: dayStart + hour * 3_600_000, arrivesAt: dayStart + (hour + 2) * 3_600_000, trainNo: String(hour), kind: null, toward: null });
+    cached.cachedDepartures.mockResolvedValue({ ok: true, data: [clock(8), clock(12), clock(18)] });
+
+    const text = await render({ ...search, date: "2026-11-20", time: "10:00" });
+
+    expect(text).toContain("共 2 班");
+    expect(text).not.toMatch(/(?<!\d)8 車次/);
+  });
+
+  it("捷運沒有車次_維持加整段路", async () => {
+    cached.cachedDirections.mockResolvedValue({ ok: true, data: [{ id: "1070", name: "左營" }] });
+
+    expect(await render({ mode: "metro", system: "TRTC", from: "1000", to: "1070" })).toContain("加到常用路線");
+  });
+
+  it("公車的結果也能關閉", async () => {
+    expect(await html({ mode: "bus", system: "Taipei", line: "307" })).toContain('aria-label="關閉查詢結果"');
+  });
+});
+
+describe("查詢卡上面的交通工具分頁", () => {
+  const tabs = (markup: string) => [...markup.matchAll(/<button[^>]*trn-mode[^>]*>/g)].map(([tag]) => tag);
+
+  it("四個分頁都有圖示與名稱，看得出選到哪一個（使用者選的：圖示分頁）", async () => {
+    const markup = await html({ mode: "tra" });
+
+    expect(tabs(markup)).toHaveLength(4);
+    expect(tabs(markup).filter((tag) => tag.includes('aria-pressed="true"'))).toHaveLength(1);
+    expect(markup).toMatch(/aria-pressed="true"[^>]*>.*?台鐵/);
+    expect(await render({ mode: "tra" })).not.toContain("交通工具：");
+  });
+
+  it("捷運只能選臺北捷運、環狀線與機場捷運", async () => {
+    const text = await render({ mode: "metro" });
+
+    for (const name of ["臺北捷運", "環狀線", "機場捷運"]) expect(text).toContain(name);
+    for (const name of ["高雄捷運", "淡海輕軌", "安坑輕軌", "新北捷運", "桃園捷運"]) expect(text).not.toContain(name);
   });
 });

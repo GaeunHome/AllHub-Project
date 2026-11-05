@@ -1,338 +1,228 @@
-import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { encryptSecret } from "@/core/crypto";
-import { coreServiceStatus, coreUsers } from "@/core/db/schema";
+import { coreServiceStatus } from "@/core/db/schema";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
 import { starrailAccounts, starrailWarps } from "../../data/schema";
 import { hoyolab, ok } from "../../dev/fixtures";
-import { WARP_PAGE_SIZE, type Warp } from "../../lib/warps";
+import { WARP_BANNERS, type WarpPage } from "../../lib/warps";
 
 vi.mock("../../lib/hoyolab", async () => (await import("../../dev/fixtures")).hoyolab);
 
 stubCoreEnv();
 
-const { pruneWarps, syncAllWarps, syncWarpsFor, syncWarpsManually, warpListFor, warpSummaryFor } = await import("../warps");
+const { reportWarps, warpsFor } = await import("../warps");
 
 const getDb = setupTestDb();
 let me: string;
 let other: string;
 let accountId: number;
 
-const noWait = { now: () => 0, sleep: async () => {} };
-const FULL_COOKIE = "ltoken_v2=t; ltuid_v2=1; cookie_token_v2=c; account_mid_v2=m";
+const noWait = async () => {};
+const FULL_COOKIE = "ltoken_v2=secret_ltoken; ltuid_v2=1; cookie_token_v2=secret_token; account_mid_v2=m";
+const LOGGED_IN = `${FULL_COOKIE}; e_hkrpg_token=secret_badge`;
 
-async function insertAccount(userId: string, uid: string, cookie = FULL_COOKIE, values: Partial<typeof starrailAccounts.$inferInsert> = {}) {
+async function insertAccount(userId: string, uid: string, cookie = FULL_COOKIE) {
   const [row] = await getDb()
     .insert(starrailAccounts)
-    .values({ userId, ltuid: "1", cookieEncrypted: encryptSecret(cookie), uid, region: "prod_official_cht", ...values })
+    .values({ userId, ltuid: "1", cookieEncrypted: encryptSecret(cookie), uid, region: "prod_official_cht" })
     .returning({ id: starrailAccounts.id });
   return row.id;
 }
 
-const warp = (id: number | string, overrides: Partial<Warp> = {}): Warp => ({
-  id: String(id),
-  bannerType: 11,
-  gachaId: 1,
-  itemId: 1,
-  name: `項目 ${id}`,
-  itemType: "角色",
-  rarity: 3,
-  time: new Date(Date.UTC(2026, 0, 1, 0, 0, Number(id) % 86400)),
-  ...overrides,
-});
-/** 新的在前 跟 HoYoverse 一樣 第 2 頁從上一頁最舊那筆之後開始 */
-function serve(warps: Warp[], bannerType = 11) {
-  const sorted = warps.toSorted((a, b) => (BigInt(a.id) < BigInt(b.id) ? 1 : -1));
-  hoyolab.fetchWarpPage.mockImplementation(async (_cookie: string, _key: string, banner: number, endId: string) => {
-    if (banner !== bannerType) return ok({ warps: [], missing: [] });
-    const start = endId === "0" ? 0 : sorted.findIndex((row) => row.id === endId) + 1;
-    return ok({ warps: sorted.slice(start, start + WARP_PAGE_SIZE), missing: [] });
-  });
-}
-const savedIds = async () => (await getDb().select({ id: starrailWarps.id }).from(starrailWarps).where(eq(starrailWarps.accountId, accountId))).map((row) => row.id).toSorted((a, b) => Number(a) - Number(b));
-const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
-const pagesFor = (banner: number) => hoyolab.fetchWarpPage.mock.calls.filter(([, , type]) => type === banner).length;
+const onePage = (rows: WarpPage["rows"], next: WarpPage["next"] = null) => ok<WarpPage>({ rows, next, incomplete: false, missing: [] });
+const star = (name: string, pulls: number, isUp = true) => ({ pulls, star: { name, isUp } });
+const gachaTypes = () => hoyolab.fetchWarpPage.mock.calls.map(([, , , type]) => type as string);
+const summaryOf = (read: Awaited<ReturnType<typeof warpsFor>>, id: number) => (read.ok ? read.summaries.find((row) => row.banner.id === id) : undefined);
 
 beforeEach(async () => {
   [me, other] = await insertTestUsers(getDb());
   Object.values(hoyolab).forEach((fn) => fn.mockReset());
-  hoyolab.fetchWarpAuthkey.mockResolvedValue(ok("key"));
-  serve([]);
+  hoyolab.warpLogin.mockResolvedValue(ok(LOGGED_IN));
+  hoyolab.fetchWarpPage.mockResolvedValue(onePage([]));
   accountId = await insertAccount(me, "900000001");
 });
 
-describe("同步", () => {
-  it("第一次：把每個卡池的每一頁都抓完存起來（45 抽要 3 頁）", async () => {
-    serve(range(1, 45).map((id) => warp(id)));
+describe("打開頁面時讀", () => {
+  it("用這個帳號的 cookie、UID 與伺服器登入，登入拿到的 cookie 用來讀六個卡池", async () => {
+    const read = await warpsFor(me, accountId, noWait);
 
-    expect(await syncWarpsFor(me, accountId, noWait)).toEqual({ ok: true, added: 45 });
-
-    expect(await savedIds()).toEqual(range(1, 45).map(String));
-    expect(pagesFor(11)).toBe(3);
-    expect(pagesFor(12)).toBe(1);
+    expect(read.ok).toBe(true);
+    expect(hoyolab.warpLogin).toHaveBeenCalledExactlyOnceWith(FULL_COOKIE, "900000001", "prod_official_cht");
+    expect(gachaTypes()).toEqual(WARP_BANNERS.map((banner) => banner.gachaType));
+    expect(hoyolab.fetchWarpPage.mock.calls.every(([cookie, uid, region]) => cookie === LOGGED_IN && uid === "900000001" && region === "prod_official_cht")).toBe(true);
   });
 
-  it("金鑰是用這個帳號的 cookie、UID 與伺服器換的，換好的金鑰用來讀紀錄", async () => {
-    await syncWarpsFor(me, accountId, noWait);
+  it("每個卡池各算各的：角色活動的已墊不會算到常駐", async () => {
+    hoyolab.fetchWarpPage.mockImplementation(async (_cookie: string, _uid: string, _region: string, type: string) =>
+      onePage(type === "GachaType_AvatarUp" ? [{ pulls: 23, star: null }, star("真珠", 77)] : type === "GachaType_Standard" ? [star("瓦爾特", 76, false)] : []),
+    );
 
-    expect(hoyolab.fetchWarpAuthkey).toHaveBeenCalledWith(FULL_COOKIE, "900000001", "prod_official_cht");
-    expect(hoyolab.fetchWarpPage.mock.calls.every(([cookie, key]) => cookie === FULL_COOKIE && key === "key")).toBe(true);
+    const read = await warpsFor(me, accountId, noWait);
+
+    expect(summaryOf(read, 11)).toMatchObject({ pity: 23, remaining: 67, fiveStars: [{ name: "真珠", pulls: 77, lost: false }] });
+    expect(summaryOf(read, 1)).toMatchObject({ pity: 0, fiveStars: [{ name: "瓦爾特", pulls: 76, lost: false }] });
   });
 
-  it("第二次只抓比上次新的，看到存過的就停，不重複也不多問", async () => {
-    serve(range(1, 45).map((id) => warp(id)));
-    await syncWarpsFor(me, accountId, noWait);
-    hoyolab.fetchWarpPage.mockClear();
-    serve(range(1, 47).map((id) => warp(id)));
-
-    expect(await syncWarpsFor(me, accountId, noWait)).toEqual({ ok: true, added: 2 });
-
-    expect(pagesFor(11)).toBe(1);
-    expect(await savedIds()).toEqual(range(1, 47).map(String));
-  });
-
-  it("沒有新的抽卡_寫入 0 筆", async () => {
-    serve(range(1, 5).map((id) => warp(id)));
-    await syncWarpsFor(me, accountId, noWait);
-
-    expect(await syncWarpsFor(me, accountId, noWait)).toEqual({ ok: true, added: 0 });
-  });
-
-  it("中途某一頁失敗_這個卡池一筆都不寫，下次才能從頭補，不會留下缺口", async () => {
-    const all = range(1, 45).map((id) => warp(id));
-    serve(all);
-    const works = hoyolab.fetchWarpPage.getMockImplementation()!;
-    let calls = 0;
-    hoyolab.fetchWarpPage.mockImplementation(async (...args: Parameters<typeof works>) => {
-      calls += 1;
-      return calls === 2 ? { ok: false, retcode: -101, message: "金鑰過期", cookieInvalid: false } : works(...args);
+  it("has_more 時帶上一頁的游標繼續問，每一頁的五星都收進來，新的在前", async () => {
+    hoyolab.fetchWarpPage.mockImplementation(async (_cookie: string, _uid: string, _region: string, type: string, cursor: { maxId: string } | null) => {
+      if (type !== "GachaType_AvatarUp") return onePage([]);
+      if (cursor === null) return onePage([{ pulls: 5, star: null }, star("真珠", 77)], { versionId: "41", maxId: "2" });
+      return cursor.maxId === "2" ? onePage([star("瓦爾特", 76, false)], { versionId: "40", maxId: "1" }) : onePage([star("知更鳥•晴歌", 78)]);
     });
 
-    expect(await syncWarpsFor(me, accountId, noWait)).toMatchObject({ ok: false });
-    expect(await savedIds()).toEqual([]);
+    const read = await warpsFor(me, accountId, noWait);
 
-    serve(all);
-    await syncWarpsFor(me, accountId, noWait);
-    expect(await savedIds()).toEqual(range(1, 45).map(String));
+    expect(summaryOf(read, 11)?.fiveStars.map((row) => row.name)).toEqual(["真珠", "瓦爾特", "知更鳥•晴歌"]);
+    expect(hoyolab.fetchWarpPage.mock.calls.filter(([, , , type]) => type === "GachaType_AvatarUp").map(([, , , , cursor]) => cursor)).toEqual([null, { versionId: "41", maxId: "2" }, { versionId: "40", maxId: "1" }]);
   });
 
-  it("換不到金鑰（cookie_token_v2 失效）_回 HoYoLAB 的原因，不讀紀錄，也不動帳號的 cookie 失效標記", async () => {
-    hoyolab.fetchWarpAuthkey.mockResolvedValue({ ok: false, retcode: -100, message: "請重新貼上 cookie", cookieInvalid: true });
+  it("一直說還有下一頁（回應不對）_問到上限就停，算讀不完，不顯示少掉紀錄的數字", async () => {
+    hoyolab.fetchWarpPage.mockResolvedValue(onePage([], { versionId: "41", maxId: "1" }));
 
-    expect(await syncWarpsFor(me, accountId, noWait)).toEqual({ ok: false, error: "請重新貼上 cookie" });
+    const read = await warpsFor(me, accountId, noWait);
 
-    expect(hoyolab.fetchWarpPage).not.toHaveBeenCalled();
-    expect((await getDb().select().from(starrailAccounts))[0].cookieInvalid).toBe(false);
+    expect(read).toMatchObject({ ok: false, serviceDown: true });
+    expect(gachaTypes().filter((type) => type === "GachaType_AvatarUp")).toHaveLength(30);
   });
 
-  it("系統狀態：全部讀完算正常", async () => {
-    await syncWarpsFor(me, accountId, noWait);
+  it("有下一頁卻讀不到游標_算讀不完，不顯示少掉紀錄的數字", async () => {
+    hoyolab.fetchWarpPage.mockResolvedValue({ ok: true, data: { rows: [star("真珠", 77)], next: null, incomplete: true, missing: ["next_max_id"] } });
 
-    const [row] = await getDb().select().from(coreServiceStatus);
-    expect(row).toMatchObject({ service: "starrail:warps", lastError: null });
-    expect(row.lastOkAt).not.toBeNull();
+    expect(await warpsFor(me, accountId, noWait)).toMatchObject({ ok: false, serviceDown: true });
   });
 
-  it("系統狀態：金鑰被拒絕時記下原因（使用者遇過 -100：authkey error）", async () => {
-    hoyolab.fetchWarpPage.mockResolvedValue({ ok: false, retcode: -100, message: "HoYoverse 不接受（-100：authkey error）", cookieInvalid: false });
+  it("請求之間隔一小段時間，一個接一個問", async () => {
+    const sleep = vi.fn<(ms: number) => Promise<void>>(noWait);
 
-    await syncWarpsFor(me, accountId, noWait);
+    await warpsFor(me, accountId, sleep);
 
-    const [row] = await getDb().select().from(coreServiceStatus);
-    expect(row).toMatchObject({ service: "starrail:warps", lastError: "HoYoverse 不接受（-100：authkey error）", lastOkAt: null });
+    expect(sleep.mock.calls.every(([ms]) => ms === 200)).toBe(true);
+    expect(sleep).toHaveBeenCalledTimes(WARP_BANNERS.length - 1);
   });
 
-  it("系統狀態：cookie 失效是使用者自己的問題 不算服務有問題", async () => {
-    hoyolab.fetchWarpAuthkey.mockResolvedValue({ ok: false, retcode: -100, message: "請重新貼上 cookie", cookieInvalid: true });
+  it("只讀不存：資料表一列都不新增", async () => {
+    hoyolab.fetchWarpPage.mockResolvedValue(onePage([star("真珠", 77)]));
 
-    await syncWarpsFor(me, accountId, noWait);
-
-    expect(await getDb().select().from(coreServiceStatus)).toEqual([]);
-  });
-
-  it("回應裡沒有金鑰_回錯誤，不讀紀錄", async () => {
-    hoyolab.fetchWarpAuthkey.mockResolvedValue(ok(null));
-
-    expect(await syncWarpsFor(me, accountId, noWait)).toMatchObject({ ok: false });
-    expect(hoyolab.fetchWarpPage).not.toHaveBeenCalled();
-  });
-
-  it("cookie 沒有 cookie_token_v2_不換金鑰，說明要重新貼 cookie", async () => {
-    const short = await insertAccount(me, "900000002", "ltoken_v2=t; ltuid_v2=1");
-
-    const result = await syncWarpsFor(me, short, noWait);
-
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error).toContain("cookie_token_v2");
-    expect(hoyolab.fetchWarpAuthkey).not.toHaveBeenCalled();
-  });
-
-  it("log 不記金鑰與 cookie", async () => {
-    const log = captureErrorLog();
-    hoyolab.fetchWarpPage.mockResolvedValue({ ok: false, retcode: -101, message: "x", cookieInvalid: false });
-
-    await syncWarpsFor(me, accountId, noWait);
-
-    expect(loggedText(log)).toContain("-101");
-    expect(loggedText(log)).not.toContain("key");
-    expect(loggedText(log)).not.toContain("cookie_token_v2=");
-  });
-});
-
-describe("立即更新", () => {
-  const NOW = new Date("2026-11-04T04:00:00Z");
-
-  it("一分鐘內再按一次_不對 HoYoverse 發請求，說還要等幾秒", async () => {
-    await syncWarpsManually(me, accountId, NOW);
-    hoyolab.fetchWarpAuthkey.mockClear();
-
-    const result = await syncWarpsManually(me, accountId, new Date(NOW.getTime() + 20_000));
-
-    expect(result).toEqual({ ok: false, error: "剛更新過，40 秒後再試" });
-    expect(hoyolab.fetchWarpAuthkey).not.toHaveBeenCalled();
-  });
-
-  it("過了一分鐘可以再按；別人不受影響", async () => {
-    const second = await insertAccount(other, "900000002");
-    await syncWarpsManually(me, accountId, NOW);
-
-    expect((await syncWarpsManually(me, accountId, new Date(NOW.getTime() + 61_000))).ok).toBe(true);
-    expect((await syncWarpsManually(other, second, NOW)).ok).toBe(true);
-  });
-});
-
-describe("上限：每個遊戲帳號最多留幾抽，超過時移除最舊的", () => {
-  it("只移除最舊的，新的都留著", async () => {
-    await getDb().insert(starrailWarps).values(range(1, 6).map((id) => ({ ...warp(id), accountId })));
-
-    await pruneWarps(accountId, 4);
-
-    expect(await savedIds()).toEqual(["3", "4", "5", "6"]);
-  });
-
-  it("id 用數字比大小，不是字串（9 比 10 舊）", async () => {
-    await getDb().insert(starrailWarps).values([9, 10, 11].map((id) => ({ ...warp(id), accountId })));
-
-    await pruneWarps(accountId, 2);
-
-    expect(await savedIds()).toEqual(["10", "11"]);
-  });
-
-  it("沒超過_不動；別的帳號不受影響", async () => {
-    const second = await insertAccount(other, "900000002");
-    await getDb().insert(starrailWarps).values([...range(1, 3).map((id) => ({ ...warp(id), accountId })), ...range(1, 3).map((id) => ({ ...warp(id), accountId: second }))]);
-
-    await pruneWarps(accountId, 3);
-    await pruneWarps(accountId, 2);
-
-    expect(await savedIds()).toEqual(["2", "3"]);
-    expect(await getDb().select().from(starrailWarps).where(eq(starrailWarps.accountId, second))).toHaveLength(3);
-  });
-});
-
-describe("只看得到自己的（IDOR）", () => {
-  it("別人的帳號 id：不能同步、不換金鑰、讀不到摘要與清單", async () => {
-    await getDb().insert(starrailWarps).values({ ...warp(1), accountId });
-
-    expect(await syncWarpsFor(other, accountId, noWait)).toMatchObject({ ok: false });
-    expect(hoyolab.fetchWarpAuthkey).not.toHaveBeenCalled();
-    expect(await warpSummaryFor(other, accountId)).toBeNull();
-    expect(await warpListFor(other, accountId, 11, 1)).toBeNull();
-  });
-
-  it("移除星穹鐵道帳號時紀錄一起刪", async () => {
-    await getDb().insert(starrailWarps).values({ ...warp(1), accountId });
-
-    await getDb().delete(starrailAccounts).where(eq(starrailAccounts.id, accountId));
+    await warpsFor(me, accountId, noWait);
 
     expect(await getDb().select().from(starrailWarps)).toEqual([]);
   });
 });
 
-describe("畫面要的資料", () => {
-  it("摘要照卡池分開算：新手池的抽數不算進角色池的已墊", async () => {
-    await getDb().insert(starrailWarps).values([
-      { ...warp(1, { rarity: 5, name: "希兒" }), accountId },
-      { ...warp(2), accountId },
-      { ...warp(3), accountId },
-      { ...warp(4, { bannerType: 2 }), accountId },
-    ]);
+describe("讀不到", () => {
+  it("cookie 沒有 cookie_token_v2_不對外發請求，請他重新貼上；不是服務的問題", async () => {
+    const short = await insertAccount(me, "900000002", "ltoken_v2=t; ltuid_v2=1");
 
-    const summary = await warpSummaryFor(me, accountId);
+    const read = await warpsFor(me, short, noWait);
 
-    expect(summary?.find((row) => row.banner.id === 11)).toMatchObject({ total: 3, pity: 2, pityKnown: true });
-    expect(summary?.find((row) => row.banner.id === 2)).toMatchObject({ total: 1, pity: 1, pityKnown: false });
+    expect(read).toMatchObject({ ok: false, serviceDown: false });
+    expect(!read.ok && read.message).toContain("cookie_token_v2");
+    expect(!read.ok && read.message).toContain("重新貼上");
+    expect(hoyolab.warpLogin).not.toHaveBeenCalled();
   });
 
-  it("還沒有紀錄_每個卡池都是 0，不是 null（頁面要請他同步）", async () => {
-    const summary = await warpSummaryFor(me, accountId);
+  it("登入被拒絕_是 cookie_token_v2 過期，不算服務有問題，不讀卡池", async () => {
+    hoyolab.warpLogin.mockResolvedValue({ ok: false, retcode: -100, message: "cookie_token_v2 已過期，請重新貼上", cookieInvalid: true });
 
-    expect(summary?.every((row) => row.total === 0)).toBe(true);
+    const read = await warpsFor(me, accountId, noWait);
+
+    expect(read).toMatchObject({ ok: false, message: "cookie_token_v2 已過期，請重新貼上", serviceDown: false });
+    expect(hoyolab.fetchWarpPage).not.toHaveBeenCalled();
   });
 
-  it("全部抽卡一頁 20 筆，新的在前，只有這個卡池", async () => {
-    await getDb().insert(starrailWarps).values([...range(1, 25).map((id) => ({ ...warp(id), accountId })), { ...warp(99, { bannerType: 2 }), accountId }]);
+  it("登入成功但讀卡池時被拒絕_一樣不算服務有問題", async () => {
+    hoyolab.fetchWarpPage.mockResolvedValue({ ok: false, retcode: -100, message: "cookie_token_v2 已過期，請重新貼上", cookieInvalid: true });
 
-    const first = await warpListFor(me, accountId, 11, 1);
-    const second = await warpListFor(me, accountId, 11, 2);
+    expect(await warpsFor(me, accountId, noWait)).toMatchObject({ ok: false, serviceDown: false });
+  });
 
-    expect(first?.total).toBe(25);
-    expect(first?.warps.map((row) => row.id)).toEqual(range(6, 25).toReversed().map(String));
-    expect(second?.warps.map((row) => row.id)).toEqual(range(1, 5).toReversed().map(String));
+  it("HoYoLAB 自己出問題（查詢太頻繁、連不上）_算服務有問題，回 HoYoLAB 的原因", async () => {
+    hoyolab.fetchWarpPage.mockResolvedValue({ ok: false, retcode: -110, message: "HoYoLAB 說查詢太頻繁，過幾分鐘再試（-110）", cookieInvalid: false });
+
+    expect(await warpsFor(me, accountId, noWait)).toMatchObject({ ok: false, message: "HoYoLAB 說查詢太頻繁，過幾分鐘再試（-110）", serviceDown: true });
+  });
+
+  it.each([[10102], [10101], [1034], [5003], [10035], [10041]])("%i 是這個帳號自己的狀況（資料沒公開、今天的次數到了、要求驗證）_不算服務有問題", async (retcode) => {
+    hoyolab.fetchWarpPage.mockResolvedValue({ ok: false, retcode, message: "這個帳號的問題", cookieInvalid: false });
+
+    expect(await warpsFor(me, accountId, noWait)).toMatchObject({ ok: false, serviceDown: false });
+  });
+
+  it("中途某個卡池失敗_整次算失敗，不顯示算到一半的數字", async () => {
+    hoyolab.fetchWarpPage.mockResolvedValueOnce(onePage([star("真珠", 77)])).mockResolvedValue({ ok: false, retcode: null, message: "連不上 HoYoLAB", cookieInvalid: false });
+
+    expect((await warpsFor(me, accountId, noWait)).ok).toBe(false);
+  });
+
+  it("讀不到不動帳號的 cookie 失效標記（同開拓月曆）", async () => {
+    hoyolab.warpLogin.mockResolvedValue({ ok: false, retcode: -100, message: "cookie_token_v2 已過期", cookieInvalid: true });
+
+    await warpsFor(me, accountId, noWait);
+
+    expect((await getDb().select().from(starrailAccounts))[0].cookieInvalid).toBe(false);
+  });
+
+  it("訊息與 log 都不含 cookie 的值；log 只記 retcode 與缺少的欄位名稱", async () => {
+    const log = captureErrorLog();
+    hoyolab.fetchWarpPage.mockResolvedValueOnce(ok<WarpPage>({ rows: [], next: null, incomplete: false, missing: ["list[].gacha_count"] })).mockResolvedValue({ ok: false, retcode: -110, message: "太頻繁", cookieInvalid: false });
+
+    const read = await warpsFor(me, accountId, noWait);
+
+    expect(loggedText(log)).toContain("-110");
+    expect(loggedText(log)).toContain("list[].gacha_count");
+    expect(JSON.stringify(read) + loggedText(log)).not.toMatch(/secret_(ltoken|token|badge)/);
+  });
+
+  it("成功的結果也不含 cookie：登入拿到的 cookie 不進回傳值", async () => {
+    expect(JSON.stringify(await warpsFor(me, accountId, noWait))).not.toMatch(/secret_(ltoken|token|badge)/);
   });
 });
 
-describe("每天的排程", () => {
-  it("處理擁有者沒停用、cookie 沒失效、有 cookie_token_v2 的帳號；其他不換金鑰", async () => {
-    await insertAccount(other, "900000002", FULL_COOKIE, { cookieInvalid: true });
-    await insertAccount(other, "900000003", "ltoken_v2=t; ltuid_v2=1");
+describe("只看得到自己的（IDOR）", () => {
+  it("別人的帳號 id：當作不存在，不登入、不讀卡池，也不用他的 cookie", async () => {
+    const read = await warpsFor(other, accountId, noWait);
 
-    const summary = await syncAllWarps(noWait);
+    expect(read).toMatchObject({ ok: false, serviceDown: false });
+    expect(hoyolab.warpLogin).not.toHaveBeenCalled();
+    expect(hoyolab.fetchWarpPage).not.toHaveBeenCalled();
+  });
+});
 
-    expect(hoyolab.fetchWarpAuthkey).toHaveBeenCalledOnce();
-    expect(hoyolab.fetchWarpAuthkey.mock.calls[0][1]).toBe("900000001");
-    expect(summary).toContain("1");
+describe("系統狀態（快取函式裡不能寫資料庫 由頁面在回應後回報）", () => {
+  const statusRow = async () => (await getDb().select().from(coreServiceStatus))[0];
+
+  it("讀得到_正常", async () => {
+    await reportWarps(await warpsFor(me, accountId, noWait));
+
+    expect(await statusRow()).toMatchObject({ service: "starrail:warps", lastError: null });
+    expect((await statusRow()).lastOkAt).not.toBeNull();
   });
 
-  it("擁有者被停用_不處理他的帳號", async () => {
-    await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.id, me));
+  it("HoYoLAB 出問題_記下原因", async () => {
+    hoyolab.fetchWarpPage.mockResolvedValue({ ok: false, retcode: -110, message: "太頻繁", cookieInvalid: false });
 
-    await syncAllWarps(noWait);
+    await reportWarps(await warpsFor(me, accountId, noWait));
 
-    expect(hoyolab.fetchWarpAuthkey).not.toHaveBeenCalled();
+    expect(await statusRow()).toMatchObject({ service: "starrail:warps", lastError: "太頻繁", lastOkAt: null });
   });
 
-  it("一個帳號出錯不影響其他帳號", async () => {
-    await insertAccount(other, "900000002");
-    hoyolab.fetchWarpAuthkey.mockRejectedValueOnce(new Error("boom"));
+  it("快取裡的舊結果不算這次讀到的：別人剛記下的問題不會被舊的成功蓋掉", async () => {
+    const old = await warpsFor(me, accountId, noWait);
+    hoyolab.fetchWarpPage.mockResolvedValue({ ok: false, retcode: -110, message: "太頻繁", cookieInvalid: false });
+    await reportWarps(await warpsFor(me, accountId, noWait));
 
-    await syncAllWarps(noWait);
+    await reportWarps(old, old.readAt + 10 * 60_000);
 
-    expect(hoyolab.fetchWarpAuthkey).toHaveBeenCalledTimes(2);
+    expect(await statusRow()).toMatchObject({ lastError: "太頻繁", lastOkAt: null });
   });
 
-  it("超過時間預算_剩下的帳號明天再做", async () => {
-    await insertAccount(other, "900000002");
-    let time = 0;
-    hoyolab.fetchWarpAuthkey.mockImplementation(async () => {
-      time += 1_000_000;
-      return ok("key");
-    });
+  it("cookie_token_v2 過期是使用者自己的問題_不算服務有問題，什麼都不記", async () => {
+    hoyolab.warpLogin.mockResolvedValue({ ok: false, retcode: -100, message: "過期", cookieInvalid: true });
 
-    const summary = await syncAllWarps({ now: () => time, sleep: async () => {} });
+    await reportWarps(await warpsFor(me, accountId, noWait));
 
-    expect(hoyolab.fetchWarpAuthkey).toHaveBeenCalledOnce();
-    expect(summary).toContain("略過");
-  });
-
-  it("摘要只有數字，不寫 UID 與名稱", async () => {
-    serve([warp(1, { name: "希兒" })]);
-
-    const summary = await syncAllWarps(noWait);
-
-    expect(summary).not.toContain("900000001");
-    expect(summary).not.toContain("希兒");
+    expect(await getDb().select().from(coreServiceStatus)).toEqual([]);
   });
 });

@@ -10,7 +10,6 @@ import { starrailTags } from "../service/cache-tags";
 import { checkinAccount } from "../service/checkin";
 import { linkAccount, type RoleChoice, type RoleSelection } from "../service/link";
 import { redeemCodeFor } from "../service/redeem";
-import { syncWarpsManually } from "../service/warps";
 
 export type { FormState } from "@/core/ui/form-message";
 /**
@@ -127,22 +126,6 @@ export async function redeemCodeAction(_prev: FormState, formData: FormData): Pr
   return runTitled("兌換", async () => {
     return done(await redeemCodeFor(userId, id, formText(formData, "code")));
   });
-}
-
-/** 別人的帳號在 service 裡當作不存在 */
-export async function syncWarpsAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  const { id: userId } = await requireModule("starrail");
-  const id = formId(formData, "accountId");
-  if (id === null) return { error: INVALID_FORM_MESSAGE };
-  try {
-    return await run("更新躍遷紀錄", async () => {
-      const result = await syncWarpsManually(userId, id);
-      if (!result.ok) return { error: result.error };
-      return result.added > 0 ? `已更新，新增 ${result.added} 抽` : "已經是最新的了";
-    });
-  } finally {
-    updateTags(starrailTags.warps);
-  }
 }
 
 export async function removeAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {

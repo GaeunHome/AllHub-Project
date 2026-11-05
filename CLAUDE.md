@@ -10,7 +10,7 @@ AllHub Project：個人整合系統。
 
 ## 指令
 
-- 檢查：`npm test`（vitest，整合測試用記憶體 PGlite；`vitest.config.mts` 固定 `maxWorkers: 4`，機器忙時才不會逾時）、`npm run lint`、`npm run build`、`npm run typecheck`（要用 build 產生的 `.next/types`，放最後；增量資訊寫在 `.next/cache/tsconfig.tsbuildinfo`，根目錄不會有 `tsconfig.tsbuildinfo`）。
+- 檢查：`npm test`（vitest，整合測試用記憶體 PGlite；`vitest.config.mts` 用 `threads`、固定 `maxWorkers: 4`，機器忙時才不會逾時）、`npm run lint`、`npm run build`、`npm run typecheck`（要用 build 產生的 `.next/types`，放最後；增量資訊寫在 `.next/cache/tsconfig.tsbuildinfo`，根目錄不會有 `tsconfig.tsbuildinfo`）。
 - 改 `core/db/schema.ts` 或模組的 `data/schema.ts` 後：`npm run db:generate`，migration 產生在 `src/core/db/migrations/` 並一起 commit；一個版本最多一個 migration（同一版再改資料表就刪掉這一版的 migration 重新產生），不要從本機對正式資料庫 migrate。
 - 本機：`npm run db:local`（PGlite，要設 `DATABASE_POOL_MAX=1`）、`npm run mock:external`（假外部服務，搭配 `DEV_EXTERNAL_ORIGIN=http://127.0.0.1:4010`）。
 - 帳號：`npm run account create`（第一個是站長，之後是成員）／`passwd <帳號>`（也會解除登入鎖定）／`unlock <帳號>`（只解除登入鎖定，不改密碼）／`list`（含角色與停用），在 `src/dev/account.ts`，用 node 直接執行（型別剝除）。
@@ -93,7 +93,8 @@ AllHub Project：個人整合系統。
   - 卡片外框用 `core/ui/home-card.tsx` 的 `HomeCard`（標題列與前往模組頁的連結先出現，內容各自包一層 Suspense 骨架與 `CardErrorBoundary`，慢或出錯都只影響那一張）；內容是 server component，先 `requireModule("<模組 id>")` 再讀模組自己的 `service/cached.ts`（使用者 id 當第一個參數，跟模組頁共用同一份快取），不另外寫一套讀法。
 - 資料表只能定義在 `core/db/schema.ts`（`core_` 開頭）或模組的 `data/schema.ts`（`<id>_` 開頭）。每張表都在 `pgTable(...)` 後面加 `.enableRLS()`，不加 policy、不用 FORCE：Supabase 的 Data API 用 anon、authenticated 讀寫 `public` 的表（預設有讀寫權限），開了 RLS 又沒有 policy 就一列都碰不到；網站與 db-migrate 用資料表的擁有者 `postgres` 連線，不受 RLS 限制（`migrations.integration.test.ts` 檢查每張表都開了、沒有 FORCE 與 policy，並模擬 anon 讀寫不到）。Supabase 的安全通知「Table publicly accessible」（`rls_disabled_in_public`）就是 v0.1.3 以前沒開。
 - `src/dev/`：命令列工具、假外部服務入口、測試輔助，正式程式不能 import（模組 `dev/` 的測試輔助可以）。換掉模組的部分函式用 `vi.mock(path, { spy: true })`，不寫轉接的 `(...a) => fn(...a)`。測試輔助：
-  - `test-db.ts`：`setupTestDb()`（PGlite）、`insertTestUser()`（依使用者的表有外鍵，先建帳號；可以指定成 `TEST_SESSION.id`）、`insertTestUsers()`（站長 alice＋成員 bob，id 跟 `TEST_SESSION`、`OTHER_SESSION` 一樣，`[me, other] = await insertTestUsers(getDb())`）、`pgliteOf()`、`logQueries(db)`／`logStatements(db)`（看送出的 SQL）。
+  - `test-db-snapshot.ts`：vitest 的 `globalSetup`，整輪只建一次資料庫，存成兩份快照（套好 migration 的與空的），放在 `node_modules/.cache/allhub-test-db/`，migration 或 PGlite 版本一變就重建。
+  - `test-db.ts`：`setupTestDb()`（PGlite；同一個檔案共用一個資料庫，每個測試開始前清空資料、序號歸零並拆掉裝在連線上的 spy，所以測試裡不能改表結構，要改的放到自己的檔案，例如 `users-old-schema.integration.test.ts`；要一個測試一個資料庫的改 `describe` 各自呼叫）、`openEmptyDb()`（還沒套 migration 的資料庫，測 migration 本身用）、`insertTestUser()`（依使用者的表有外鍵，先建帳號；可以指定成 `TEST_SESSION.id`）、`insertTestUsers()`（站長 alice＋成員 bob，id 跟 `TEST_SESSION`、`OTHER_SESSION` 一樣，`[me, other] = await insertTestUsers(getDb())`）、`pgliteOf()`、`logQueries(db)`／`logStatements(db)`（看送出的 SQL）。
   - `test-env.ts`：`stubCoreEnv()` 等，要在 `await import()` 被測模組前呼叫；跨模組的測試用 `stubAllEnv()`（新模組的環境變數要加進去，`env.test.ts` 檢查）。
   - `test-helpers.ts`：`form`、`captureErrorLog`、`loggedText`、`tagged`／`updated`／`expiredTags`、`mocksOf`、`markup()`（`renderToStaticMarkup`，伺服器元件先 await 再傳）、`textOf()`（去標籤，把 React 跳脫的 `&amp;`、`&quot;`、`&#x27;` 這類換回原字；`{ spaced: true }` 時每個標籤換成空白並合併連續空白）。
   - `audit-stub.ts`：`vitest-setup.ts` 把 `@/core/audit` 全部換成它（單元測試沒有請求可以讀 header），`audit` 是 spy，每個測試前清空；測紀錄本身的測試檔用 `vi.unmock("@/core/audit")`。
@@ -217,7 +218,7 @@ AllHub Project：個人整合系統。
 
 - 讀取：各模組 `service/cached.ts`（通知在 `core/notifications/cached.ts`，管理頁在 `core/admin/cached.ts`；登入檢查不快取），函式開頭依序 `"use cache: remote"`、`cacheLife("db")`（外部資料見下一點，profile 都定義在 `next.config.ts`）、`cacheTag(...)`。只給頁面與輪詢 API 用；寫入流程、排程、翻譯鎖要讀最新資料，用原本的 service（service、cron、模組的 `web/actions*.ts` 與 `web/routes/`、core 的寫入流程都不能 import cached.ts）。例外：保留影片的 Server Action 用 `cachedVideoInfo()` 拿觀看頁讀過的 oEmbed 當標題快照（外部資料、只是顯示用的，不是寫入的判斷依據），經 `keepVideo()` 的 `lookup` 交給 service；交通的輪詢 API（`web/routes/live.ts`）用 `cachedRoutes()`、`cachedLive()`，每分鐘都會問，全部讀最新的會用掉資料庫與 TDX 的額度（`cache-rules.test.ts` 的 `ALLOWED_READS` 逐條列出）。
 - 一律 `use cache: remote`：Vercel 是 serverless，記憶體快取與 tag 失效跨不了實例。本機與測試自動退回記憶體快取。
-- 外部資料（Helix 的頭像與直播、頻道頁的頭像、oEmbed、HoYoLAB 的便箋、遊戲頭像、角色、開拓月曆、活動日曆、終局戰績、證交所與櫃買中心的收盤價與除權息預告、氣象署的預報與警特報、環境部的空氣品質、Open-Meteo 的一週預報、TDX 的車站、時刻表與即時資料）**不存資料庫**，只放在 `service/cached.ts` 的快取：
+- 外部資料（Helix 的頭像與直播、頻道頁的頭像、oEmbed、HoYoLAB 的便箋、遊戲頭像、角色、開拓月曆、活動日曆、終局戰績、躍遷紀錄、證交所與櫃買中心的收盤價與除權息預告、氣象署的預報與警特報、環境部的空氣品質、Open-Meteo 的一週預報、TDX 的車站、時刻表與即時資料）**不存資料庫**，只放在 `service/cached.ts` 的快取：
   - 效期依資料變動的頻率：直播狀態 `live`（2 分鐘）、HoYoLAB 戰績類與天氣 `records`（30 分鐘）、即時便箋與天氣警特報 `external`（5 分鐘）、頭像與遊戲封面 `avatar`（一天）、收盤價與除權息預告 `quotes`（每小時重讀、最多 6 小時）、TDX 的即時資料 `board`（最多 1 分鐘）、TDX 的時刻表 `timetable`（半天重讀、最多一天）。讀不到（被擋、出錯、資料不公開）時改用短效期 `external`，幾分鐘後再試：成功與失敗各一個 `cacheLife`，寫在讀完之後（收盤價與除權息預告只讀到其中一個來源時也用 `external`）。
   - tag 用各模組的 `<模組 id>:external`（沒有寫入點，靠效期更新，例如收盤價的 `savings:external`）；依附資料庫狀態的另外標那張表（例如直播狀態標 `twitch:streamers`，EventSub 寫入開台、關台時跟著重抓；HoYoLAB 的資料讀了帳號的 cookie，只標 `starrail:accounts`，星穹鐵道沒有 external tag）。
   - `starrail:accounts` 標著所有 HoYoLAB 的快取，只在帳號那一列真的改了時失效：排程用 `service/accounts.ts` 的 `trackingAccountChanges()` 記下有沒有改到（cookie 失效標記、開拓力提醒的狀態、重新加密），有改才 `expireTags()`；立即簽到由 `checkinAccount()` 回傳 `accountChanged`，有改才 `updateTags()`；兌換不寫資料庫，不失效。不然每小時的開拓力排程會讓頁面重查十幾個 HoYoLAB 端點。
@@ -285,7 +286,7 @@ AllHub Project：個人整合系統。
 - 自動兌換試過的兌換碼 `starrail_redeem_codes` 只記答案不會變的（success、already、expired、invalid），留到移除那個帳號；手動輸入的兌換碼與結果都不存。
 - 星穹鐵道提醒的認領在 `core_rate_limits`（scope `starrail:<種類>`，key 是帳號與期別的雜湊），一天後清掉，所以每種提醒的時段都短於一天。天氣的下雨提醒（scope `weather:rain`，key 是使用者 id 與台北日期的雜湊）、警特報（scope `weather:warning`）與提醒與倒數（scope `reminders:due`）也是。
 - 操作紀錄 `core_audit_logs` 保留 7 天（`audit:cleanup` 排程，`core/retention.ts` 的 `AUDIT_RETENTION_DAYS`）：有 IP 原文，比通知類短；刪除帳號後已經記下的留到期滿。
-- 躍遷紀錄 `starrail_warps` 永久保留（官方只留最近一段時間，存下來才不會消失），每個遊戲帳號最多 10,000 抽（`lib/warps.ts` 的 `WARP_LIMIT`，使用者的決定，約 1.7 MB），超過時 `pruneWarps()` 移除最舊的；移除那個帳號時跟外鍵刪。
+- 躍遷紀錄不存資料庫，打開頁面時才向 HoYoLAB 讀（見〈HoYoLAB〉）。舊的 `starrail_warps` 表沒有程式讀寫，v0.2.4 留著，下一版用 migration 刪掉。
 - 系統狀態 `core_cron_status`、`core_service_status` 只更新不新增（使用者要的），排程與服務各一列，沒有清理排程；排程的摘要會顯示在站長的頁面上，不寫成員的遊戲暱稱與開拓力（`CronTask` 的註解）。
 - 上傳的頭像 `core_avatar_images` 每人一張：換照片或改用範例時刪掉舊的，刪除帳號時跟外鍵刪。交通的常用路線 `transit_routes` 與天氣頁的城市 `weather_places` 留到使用者自己刪除或刪除帳號。
 - 其他資料永久保留，刪除帳號時依使用者的資料一起刪除。
@@ -305,6 +306,7 @@ AllHub Project：個人整合系統。
   - `accounts.ts`（帳號的讀寫與共用的 `pageAccount()`、`cookieOf()`、`setCookieInvalid()`、`trackingAccountChanges()`、`Outcome` 型別）
   - `link.ts`（連結）
   - `page-reads.ts`（頁面向 HoYoLAB 讀的資料，`cached.ts` 包上快取）
+  - `warps.ts`（躍遷紀錄，頁面才讀，`cached.ts` 包上快取）
   - `redeem.ts`（手動兌換）
   - `checkin.ts`（簽到）
   - `stamina.ts`（開拓力與提醒）
@@ -333,10 +335,11 @@ AllHub Project：個人整合系統。
   - 星穹鐵道頁的顏色寫成 `globals.css` 裡 `.theme-starrail` 的變數（`--sr-gold-ink`、`--sr-avatar-bg`、`--sr-avatar-ring` 這類），元件寫 `text-[var(--sr-…)]`，不寫色碼；金色的伺服器與稀有度標籤用 `sr-visuals.tsx` 的 `GoldChip`；屬性的退回色例外，留在 `sr-visuals.tsx` 的表裡。
   - 遺器副詞條的強化次數用 `lib/characters.ts` 的 `relicUpgrades()`（times − 1）：推定 `times` 跟遊戲資料的詞條次數（Enka 的 `cnt`、Mihomo 的 `count`；hsr-optimizer 用 count − 1 算強化次數）一樣含初始那一次，依據是使用者回報實際畫面每條副詞條都至少 +1、+15 遺器的總次數也對得上，尚未用真實帳號的回應確認（mock 也從 1 起算）。
   - 只在強化過時於數值左邊寫「+N」（照資料寫、不設上限，title 與報讀器是「強化 N 次」），主屬性不顯示。
-- 躍遷紀錄（使用者要的，`/starrail/warps`、`lib/warps.ts`、`service/warps.ts`，**尚未用真實帳號驗證**）：照 genshin.py 的 `fetch_authkey`，用 cookie 向 `genAuthKeyByCookieToken` 換金鑰（`auth_appid` 是 `webview_gacha`，要 `cookie_token_v2` 與 `account_` 開頭的鍵），不用讀遊戲檔案，所以 GeForce Now 也能用；金鑰放在 `getGachaLog` 的網址參數（聯動卡池 21、22 走 `getLdGachaLog`），不存也不記 log。讀紀錄照 genshin.py 的 `request_gacha_info`：cookie 跟金鑰一起送，參數只有 `authkey_ver=1`、`authkey`、`lang`、`game_biz`、`gacha_type`、`real_gacha_type`、`size`、`end_id`。抽卡介面的 -100、-101 是金鑰被拒絕，不是 cookie 失效（`interpretWarpPage()`）；隨便一串金鑰也是回 `-100：authkey error`。v0.2.2 以前只帶金鑰不帶 cookie，不管加不加 `sign_type`、`auth_appid`、`region` 都回 -100；帶 cookie 這個修正還要用真實帳號確認。log 記金鑰長度（正常約 1024 字），不記金鑰。
-  - 同步只抓比資料庫新的，看到存過的就停；一個卡池整段讀完才寫入，中途失敗一筆都不寫，不然「只抓新的」之後補不回這段缺口。`syncWarpsManually()` 每人每分鐘一次（`takeCooldown()`），排程 `starrail:warps` 跳過 cookie 失效與沒有 `cookie_token_v2` 的帳號，一次最多 2 分鐘。換不到金鑰不動帳號的 cookie 失效標記（同開拓月曆）。
-  - `starrail_warps` 的 `id` 有 19 位數：資料庫是 bigint 才比得了新舊，程式裡一律是字串（`data/schema.ts` 的 `warpId`）。不存「上次同步時間」：要改 `starrail_accounts`，會讓所有 HoYoLAB 的快取一起失效，畫面改寫最新一抽的時間。
-  - 畫面（使用者選的）：星穹鐵道頁一張摘要卡（`warp-card.tsx`），專屬頁是保底進度加五星歷史，全部抽卡收在最下面（`warp-history.tsx`）；卡池、頁數都在網址上。保底：角色 90、光錐 80、新手 50，聯動照同類型。最舊的五星 `partial`（寫至少幾抽，不算進平均）；紀錄裡沒有五星時已墊只是下限。摘要算好才進快取（`cachedWarpSummary()`，`starrail:warps` 與 `starrail:accounts`）。
+- 躍遷紀錄（使用者要的，`/starrail/warps`、`lib/warps.ts`、`service/warps.ts`，已用真實帳號確認，2026-11-05）：讀 HoYoLAB 官方的活動頁（`sg-act-public-api.hoyolab.com`，照 genshin.py 的 `hsr_warp_records.py` 與 `badge.py`）：先 POST `common/badge/v1/login/account`（body 是 `game_biz`、`lang`、`region`、`uid`，帶 `x-rpc-lang`、`x-rpc-language`，不帶 `x-rpc-device_id` 與 DS），回應的 Set-Cookie 有 `e_hkrpg_token`，接在原本的 cookie 後面讀 `event/rpg_gacha_record/five_star_list`（`gacha_type` 見 `WARP_BANNERS`，`has_more` 時帶 `version_id`、`max_id` 讀下一頁，每個卡池最多 30 頁；還有下一頁卻問不到或超過上限算讀不完，不顯示少掉紀錄的數字；游標可能是 19 位數字，`quoteBigCursors()` 在 JSON 解開前寫成字串）。登入靠 `cookie_token_v2`，別的地方登入就會換掉它，所以讀不到時請使用者重新貼 cookie，不動帳號的 cookie 失效標記（同開拓月曆）。
+  - 走不通的路，不要再試：`genAuthKeyByCookieToken` 換到的金鑰只有 344 字（遊戲內的約 1024 字），`getGachaLog` 對它一律回 `-100：authkey error`。用真實帳號在台灣的網路測過兩個伺服器與帶不帶 cookie、`sign_type`、`auth_appid`、`region`、`plat_type` 的各種組合，所以跟海外與參數都無關；genshin.py 的 `fetch_authkey` 測試只跑原神。
+  - 只有五星與目前已墊幾抽：沒有時間、沒有三星四星，`got_item` 是 false 的那一列是已墊幾抽，`gacha_count` 是官方算好的抽數。常駐與新手的 `is_up` 一律是 false，所以「歪」只標在限定卡池（`limited`）。
+  - 打開時才讀、不存資料庫（使用者的決定）：`cachedWarps()` 只標 `starrail:accounts`，成功 `records`（30 分鐘）、失敗 `external`，一次讀一個卡池、隔 200ms。快取函式裡不能寫資料庫，頁面在 `after()` 用 `reportWarps()` 回報系統狀態，只回報 30 秒內真的讀到的（`readAt`），快取裡舊的成功不能蓋掉別人剛記下的問題；使用者自己的 cookie、資料沒公開、次數到上限與要求驗證都不算服務有問題。
+  - 畫面（使用者選的）：星穹鐵道頁一張摘要卡（`warp-card.tsx`），專屬頁是保底進度加五星歷史（`warp-history.tsx`）；帳號與卡池都在網址上。保底：角色 90、光錐 80、新手 50，聯動照同類型。
 - 兌換碼要 cookie 的 `cookie_token_v2` 加 `account_id_v2`（或 `account_mid_v2`；沒貼時用 `ltuid_v2` 補上，見上面 cookie 的鍵），缺的話請使用者重新連結；兌換碼是 4–20 個英數字（真的有 5 個字的，例如 OMEGA）；手動輸入的兌換碼與結果都不存，log 只記 retcode；還沒開放（-2014）說晚一點再試，要求驗證請使用者到官方兌換頁；兌換失敗（含 cookie 失效）只回自己的錯誤，不動帳號的失效標記，Server Action 也不讓快取失效；畫面上按完停用按鈕約 5 秒（HoYoLAB 兩次兌換之間的冷卻）。結果用提示視窗：標題是「兌換成功：<碼>」或「兌換失敗：<碼>」（碼照伺服器同一套規則整理，碼本身不合格時只寫「兌換失敗」），內容只寫原因（`lib/redeem.ts` 的訊息不再寫「兌換失敗」）；帳號卡片的「立即簽到」「設定門檻」也用提示視窗，失敗的標題是「<動作>失敗」。卡片上不再留結果框的位置；按鈕的最小寬度放得下最長的「請等 5 秒」。
 
 ### Twitch
@@ -420,19 +423,20 @@ AllHub Project：個人整合系統。
 - 假氣象署（`dev/mock.mjs`）的警特報：臺北市大雨特報、臺南市四種（最壞情況，標籤最長、結束時間都不在今天），其他縣市沒有。預報不帶 `locationName` 時回全部 22 個縣市，每個縣市的提醒固定（臺北市帶傘、高雄市帶把折傘、臺中市不用帶傘，跟幾點看無關；臺南市是最壞情況：天氣描述 11 個字、舒適度 7 個字、降雨機率 100%，看卡片最擠時的排版；完整對照在 `docs/development.md`），截圖與手動跑 `weather:rain` 照這份挑縣市。
 
 ### 交通（transit）
-- 資料都來自交通部 TDX（高鐵、台鐵、捷運、公車），`TDX_CLIENT_ID`、`TDX_CLIENT_SECRET` 選填（`core/env.ts` 的 `transitEnv`，前後空白去掉，`hasTransitEnv()`），沒設定時頁面說明要設定。申請步驟在 `docs/secrets.md`〈交通的金鑰〉。**尚未用真實的金鑰驗證**：第一次設好金鑰時確認每種交通工具的回應格式（`lib/` 的解析都照官方文件寫的，`LocationCity` 的寫法與 `StationOfLine` 的路線編號也要看）與每分鐘的次數限制（`tdxProblem()` 把 429 寫成額度用完，看系統狀態頁）。
+- 資料都來自交通部 TDX（高鐵、台鐵、捷運、公車），`TDX_CLIENT_ID`、`TDX_CLIENT_SECRET` 選填（`core/env.ts` 的 `transitEnv`，前後空白去掉，`hasTransitEnv()`），沒設定時頁面說明要設定。申請步驟在 `docs/secrets.md`〈交通的金鑰〉。金鑰與交通頁已在正式環境確認（2026-11-05），**各交通工具的回應細節還沒逐項驗證**：要確認每種交通工具的回應格式（`lib/` 的解析都照官方文件寫的，`LocationCity` 的寫法與 `StationOfLine` 的路線編號也要看）與每分鐘的次數限制（`tdxProblem()` 把 429 寫成額度用完，看系統狀態頁）。
 - 額度是這個模組最重要的限制：免費會員一個月 3 點、1 點 1,500 次（官方另有 3,000 次的說法，照少的算），一天大約 100～150 次，所以：
   - 外部資料都在 `service/cached.ts`，不分使用者，同一條路線大家共用一份：車站、捷運路線（`cachedMetroLines()`，回應空的或欄位不同算讀不到，`readMetroLines()`）與公車站牌 `avatar`、時刻表 `timetable`、公車班距 `records`、即時資料 `board`（一分鐘），讀不到用 `external`。參數都是明確的代碼。
   - 倒數在瀏覽器算（`lib/countdown.ts`）：使用者要的「每 5 秒跑完一輪就更新秒數，像捷運站那樣」（`TICK_MS`，用 `useClockStep()`），捷運與火車同一種，不問 TDX。
   - 校正只在追蹤中的路線、分頁看得到時才問（`web/use-live-reading.ts`，每分鐘一次 `LIVE_INTERVAL_MS`）：台鐵與捷運只在開車前 30 分鐘內（`LIVE_WINDOW_MS`），公車沒有固定時刻所以一律要問，高鐵沒有即時資料不問（`shouldReadLive()`）。常用路線的小卡不輪詢。
   - 每人最多 12 條常用路線（`ROUTE_LIMIT`）、3 條追蹤（`TRACKED_LIMIT`），先 `lockUserRow` 再數。查詢要起訖都選了才讀（`canSearch()`），不然每動一個欄位就用掉一次額度。
-- 換 token 回 400、401 是金鑰不對（`lib/tdx.ts` 的 `TdxKeyError`，系統狀態頁寫要改哪個環境變數）：Client Id 不存在回 400 `invalid_client`，401 推定是 Client Id 對、Secret 錯（**尚未用真實的金鑰確認**）。資料介面帶了無效的 token 也回 401，log 看 `TdxKeyError` 或 `HttpStatusError` 分辨。
-- 各家的差異：捷運的 `EstimateTime` 單位是分鐘，公車是秒；高鐵沒有即時資料；捷運的即時資料只有 TRTC、KRTC、KLRT、TYMC（`hasMetroLive()`），台中捷運兩個介面都沒列，文湖線沒有站別時刻表，只能問看板。台鐵的每日時刻表只有近 60 天（`MAX_DAYS_AHEAD`）。
-- `transit_routes` 一列一條常用路線：`mode`、`system`（捷運系統或公車縣市）、`line`（公車路線）、起訖的代碼與名稱、`tracked`。捷運的迄站是終點站（方向），公車的 `destination_id` 是方向（0 去程、1 返程）。車站與站牌的名稱只信 TDX 查到的（`service/routes.ts`），表單送來的代碼查不到就不收；代碼會放進 TDX 的網址，只收英數（`isStationId()`）。收 id 的讀寫同時比對 `user_id`。
+- 換 token 回 400、401 是金鑰不對（`lib/tdx.ts` 的 `TdxKeyError`，系統狀態頁寫要改哪個環境變數）：Client Id 不存在回 400 `invalid_client`，401 是 Client Id 對、Secret 錯或沒帶到（TDX 的登入是 Keycloak，原始碼這樣寫）。不是海外被擋：網站部署在東京（`vercel.json` 的 `hnd1`），v0.2.3 上線後的 401 是 Vercel 上的值不對或沒生效，重貼同一組並 Redeploy 就好了。資料介面帶了無效的 token 也回 401，log 看 `TdxKeyError` 或 `HttpStatusError` 分辨。
+- 各家的差異：捷運的 `EstimateTime` 單位是分鐘，公車是秒；高鐵沒有即時資料；捷運只做臺北捷運、環狀線與機場捷運（使用者要的，`METRO_SYSTEMS`：TRTC、NTMC、TYMC，環狀線在 TDX 是新北捷運），即時資料只有 TRTC、TYMC（`hasMetroLive()`），文湖線沒有站別時刻表，只能問看板。台鐵的每日時刻表只有近 60 天（`MAX_DAYS_AHEAD`）。
+- `transit_routes` 一列一條常用路線：`mode`、`system`（捷運系統或公車縣市）、`line`（公車路線，高鐵與台鐵是車次）、起訖的代碼與名稱、`tracked`。高鐵與台鐵要有車次才能加入（使用者要的，`parseRoute()`；查詢結果每一班旁邊的「加到常用」），同一段路的不同車次各算一條，卡片只看那一班（`web/route-boards.ts`，今天開走了才讀明天，讀不到明天時回報讀不到，不說成沒有這班車；誤點的車過了開車時間還沒開走，開車後 30 分鐘內繼續問即時資料，`liveAnchor()`）；以前存的沒有車次，`line` 是空字串，照舊列整段路。車次只用來對時刻表，不放進網址；問即時資料時不帶車次，同一段路共用一份快取。`line` 有兩種意思，一律用 `lib/modes.ts` 的 `trainNoOf()`、`busLineOf()` 讀。捷運的迄站是終點站（方向），公車的 `destination_id` 是方向（0 去程、1 返程）。車站與站牌的名稱只信 TDX 查到的（`service/routes.ts`），表單送來的代碼查不到就不收；代碼會放進 TDX 的網址，只收英數（`isStationId()`）。收 id 的讀寫同時比對 `user_id`。
 - 選站（使用者選的：搜尋加分組面板）：台鐵的起訖站與捷運的起站用 `web/components/station-picker.tsx`（`Dialog`），高鐵、公車與捷運的方向維持下拉。沒做附近車站。
   - 區塊的順序在 `web/station-sections.ts`：先「常用」（`web/frequent-stations.ts`：同一種交通工具、捷運同一系統，只算自己存的路線，不問 TDX；捷運的迄站是方向，只算起站），再分組。
   - 分組在 `lib/station-groups.ts`：台鐵照官網的順序分縣市（`TRA_REGIONS`，新竹、嘉義的縣市各併一組，資料來自車站清單的 `LocationCity`）；捷運照 `StationOfLine` 的路線，名稱與顏色用 `lib/lines.ts` 的 `metroLine()`。分不進去的放「其他」，全部分不進去時退回「全部車站」，不能讓人選不了站。
   - 搜尋在 `lib/station-search.ts`，在瀏覽器裡篩：台與臺同字，結尾的「站」可打可不打，組字中不篩。視窗在查詢表單裡，站的按鈕都要 `type="button"`，搜尋框的 Enter 要擋（只剩一站就選它，有好幾站就把焦點移到第一個結果）。
+- 查詢（使用者要的）：查詢卡最上面是交通工具的圖示分頁（使用者選的，`web/components/mode-tabs.tsx`，顏色跟路線圖一樣，`lib/lines.ts` 的 `MODE_COLORS`）；高鐵與台鐵的起訖站中間有交換鈕，只對調兩站，按查詢才重新查；「出發時間」只列那個時間之後的班次（`trainsAfter()`，整天的時刻表已經讀好，不多用額度）；結果右上角可以關閉（`closedHref()` 只拿掉迄站或路線，表單上選好的留著，再按查詢就回來）；有填東西時「查詢」旁邊有「清除」，表單與結果一起清掉，交通工具與捷運系統留著。高鐵與台鐵的結果是時刻表列（使用者選的）：出發與抵達最大，中間一小段路線圖寫行車時間。
 - 畫面（使用者選的「路線圖」，`web/pages/transit-page.tsx`、`web/transit.css`）：查詢表單的條件都在網址上（`web/search-query.ts`），追蹤中是大卡、其他是小卡（`web/components/route-cards.tsx`），彩色的路線線條上有光點，每 5 秒從起站跑到迄站（顏色在 `lib/lines.ts`，動畫 `@keyframes` 在 `globals.css`，減少動態時停住）；手機上追蹤排在查詢之上。沒有首頁卡片（使用者的決定）。伺服器只給時刻表（`web/route-boards.ts`，今天快沒車才多讀明天），倒數由瀏覽器接手。公車的查詢結果是每站的到站時間與班距。
 - 輪詢用 Route Handler `/api/transit/live?route=<id>`（`web/routes/live.ts`，同通知：同一個分頁的 Server Action 會排隊）：沒登入 401、沒權限 403，路線只從自己的清單找，別人的 id 回 404。系統狀態頁的 `transit:tdx` 由它與頁面的車站清單在 `after()` 回報，快取函式裡不能寫資料庫。
 - 假 TDX 在 `dev/mock.mjs`（token、高鐵、台鐵、捷運、`StationOfLine`、公車 307），見 `docs/development.md`。
@@ -556,8 +560,7 @@ AllHub Project：個人整合系統。
   - `weather:rain` 每天一條（UTC 22:00＝台北 06:00，只保證在那個小時內；`modules/__tests__/cron.test.ts` 檢查只有一條、在那個小時）。
   - `savings:dividends` 每天一條（UTC 00:00＝台北 08:00，9 點開盤前；同樣檢查只有一條、在那個小時）。
   - `reminders:daily` 每天兩條（UTC 23:00＝台北 07:00、UTC 04:00＝台北 12:00：中午那一次補寄早上沒寄出去的，排程不只一條才會有下一次，不然寄不出去的提醒隔天就被刪掉）。
-  - `starrail:warps` 每天一條（UTC 05:20＝台北 13:20，抓新的躍遷紀錄）。
-  - `weather:warnings` 同一個路徑每個 UTC 小時各一條（24 條，共 66 條，`modules/__tests__/cron.test.ts` 也檢查總數在 100 條內）。
+  - `weather:warnings` 同一個路徑每個 UTC 小時各一條（24 條，共 65 條，`modules/__tests__/cron.test.ts` 也檢查總數在 100 條內）。
   - 排程的 route 沒有設 `maxDuration`，靠 Vercel 的 Fluid compute 預設 300 秒（Hobby）：`youtube:cleanup`（外部請求最多 60 秒）、`starrail:redeem`（約 45 秒）、`weather:rain`、`weather:warnings`（讀全台資料最多等 15 秒）、`savings:dividends`（兩個預告表各最多等 15 秒）都要它開著，關掉時預設只有 10 秒。
   - 新增排程要登記到 `src/modules/cron.ts`、`vercel.json` 與 `docs/architecture.md` 的排程表（`modules/__tests__/cron.test.ts` 檢查登記的排程跟 `vercel.json` 的路徑一一對應，只能手動跑的列在它的 `MANUAL_ONLY`）。
 - 發版：`package.json` 的 version 與 `CHANGELOG.md` 一起改。CHANGELOG 新的一版加在最上面（版本與日期），分「新增／改善／修正」，有的才寫；給人看，寫使用者看得到的改變，不寫內部實作。資料庫 migration 寫在那一版的「資料庫」（沒有就寫沒有），升級時要注意的事另外寫進 `docs/deploy.md` 的〈之後的部署〉。

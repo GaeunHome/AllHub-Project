@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { metroLine, routeColor } from "../lines";
 import { METRO_SYSTEMS } from "../modes";
 
-const LINE_OF: Record<string, string> = { TRTC: "R", NTMC: "Y", TYMC: "A", KRTC: "R", KLRT: "C", NTDLRT: "V", NTALRT: "K" };
+const LINE_OF: Record<string, string> = { TRTC: "R", NTMC: "Y", TYMC: "A" };
 
 describe("routeColor：路線圖的顏色", () => {
   it("捷運照車站代碼開頭的路線", () => {
@@ -27,7 +27,7 @@ describe("metroLine：捷運的路線名稱與顏色", () => {
   it("TDX 的 LineNo 對到路線名稱", () => {
     expect(metroLine("TRTC", "BL")).toEqual({ name: "板南線", color: "#0070bd" });
     expect(metroLine("TRTC", "BR").name).toBe("文湖線");
-    expect(metroLine("KRTC", "O").name).toBe("橘線");
+    expect(metroLine("TYMC", "A").name).toBe("機場線");
   });
 
   it("支線的 LineNo 也算同一條線 車站代碼一樣查得到", () => {

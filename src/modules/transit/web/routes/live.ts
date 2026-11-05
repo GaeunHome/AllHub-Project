@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { canUseModule, currentSession } from "@/core/auth";
+import { busLineOf } from "../../lib/modes";
 import { cachedLive, cachedRoutes } from "../../service/cached";
 import { reportTdx } from "../../service/health";
 
@@ -19,7 +20,8 @@ export async function GET(request: Request): Promise<Response> {
   const route = (await cachedRoutes(user.id)).find((candidate) => candidate.id === id);
   if (!route) return json({ error: "not found" }, 404);
 
-  const live = await cachedLive(route.mode, route.system, route.line, route.originId, route.destinationId);
+  // 火車不帶車次 同一段路共用一份即時資料才不會多用額度
+  const live = await cachedLive(route.mode, route.system, busLineOf(route), route.originId, route.destinationId);
   after(() => reportTdx(live.ok ? null : live.problem));
   return json(live.ok ? live.data : { kind: "none" });
 }

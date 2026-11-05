@@ -376,26 +376,29 @@ function redeem({ cdkey = "", uid = "" }, isExpired) {
   return { retcode: -2003, message: "Invalid redemption code", data: null };
 }
 
-const WARP_KEY = "mock+key";
-const WARP_ROWS = {
-  // 由舊到新的數字是稀有度 五星固定在幾個位置 畫面上算得出已墊幾抽
-  11: { total: 47, fives: { 12: "希兒", 38: "卡芙卡" } },
-  12: { total: 23, fives: { 18: "於夜色中" } },
-  1: { total: 8, fives: {} },
+/** 真實帳號回的欄位 sg-act-public-api 的 five_star_list 沒有時間 也沒有三星四星 */
+const warpItem = (name, type) => ({ item_id: 1000 + name.length, name, icon: `${IMG}/avatar/1102.png`, item_type: type, rarity: 5, big_icon: `${IMG}/figure/1102.png` });
+const warpStar = (id, name, count, isUp, type = "角色") => ({ item: warpItem(name, type), is_up: isUp, got_item: true, gacha_count: count, uuid: `mock-${id}`, id });
+/** 已墊的那一列沒有 item */
+const warpPity = (count) => ({ is_up: false, got_item: false, gacha_count: count, uuid: "", id: 0 });
+const WARP_LISTS = {
+  // 常駐全部 is_up 都是 false 跟真實帳號一樣 網站不能標歪
+  GachaType_AvatarUp: [warpPity(23), warpStar(9, "真珠", 77, true), warpStar(8, "瓦爾特", 76, false), warpStar(7, "知更鳥•晴歌", 78, true), warpStar(6, "希兒", 88, true), warpStar(5, "姬子", 72, false), warpStar(4, "卡芙卡", 12, true)],
+  GachaType_EquipmentUp: [warpPity(18), warpStar(3, "於夜色中", 66, true, "光錐"), warpStar(2, "但戰鬥還未結束", 70, false, "光錐")],
+  GachaType_Standard: [warpPity(8), warpStar(1, "瓦爾特", 81, false)],
+  GachaType_Newbie: [warpStar(10, "布洛妮婭", 42, false)],
 };
-/** 新的在前 end_id 是上一頁最舊那筆 跟真的一樣一頁最多 size 筆 */
-function warpPage(bannerType, endId, size) {
-  const banner = WARP_ROWS[bannerType];
-  if (!banner) return { page: "1", size: String(size), list: [], region: "prod_official_cht", region_time_zone: 8 };
-  const base = 1762000000000000000n + BigInt(bannerType) * 1_000_000n;
-  const rows = Array.from({ length: banner.total }, (_, i) => {
-    const position = banner.total - i;
-    const five = banner.fives[position];
-    const time = new Date(Date.UTC(2026, 10, 3, 13, 0, 0) - i * 3_600_000 + 8 * 3_600_000).toISOString().slice(0, 19).replace("T", " ");
-    return { uid: "900000001", gacha_id: "2001", gacha_type: String(bannerType), item_id: five ? "1102" : "20000", count: "1", time, name: five ?? (position % 10 === 0 ? "三月七" : "蓋帝亞的回音"), lang: "zh-tw", item_type: position % 2 ? "光錐" : "角色", rank_type: five ? "5" : position % 10 === 0 ? "4" : "3", id: String(base + BigInt(position)) };
-  });
-  const start = endId === "0" ? 0 : rows.findIndex((row) => row.id === endId) + 1;
-  return { page: "1", size: String(size), list: rows.slice(start, start + size), region: "prod_official_cht", region_time_zone: 8 };
+const WARP_PAGE_SIZE = 4;
+const WARP_VERSION = 41;
+const BADGE_COOKIES = ["e_hkrpg_token=mock-badge; Path=/; Domain=.hoyolab.com; Max-Age=172800; HttpOnly; Secure", "e_lrsag=mock-risk; Path=/", "SERVERID=mock-server; Path=/", "SERVERCORSID=mock-cors; Path=/; SameSite=None", "acw_tc=mock-acw; Path=/; HttpOnly", "cdn_sec_tc=mock-cdn; Path=/"];
+
+/** 新的在前 max_id 是這一頁開始的位置 真的怎麼算看不出來 回應的形狀一樣就好 */
+function warpPage(gachaType, maxId) {
+  const list = WARP_LISTS[gachaType] ?? [];
+  const start = Number(maxId ?? 0);
+  const end = start + WARP_PAGE_SIZE;
+  const has_more = end < list.length;
+  return { version_id: WARP_VERSION, next_max_id: has_more ? String(end) : "", has_more, list: list.slice(start, end) };
 }
 
 export function handle({ req, url, body, json, image }) {
@@ -436,13 +439,13 @@ export function handle({ req, url, body, json, image }) {
     const roster = url.searchParams.get("role_id") === SMALL_UID ? SMALL_ROSTER : CHARACTERS;
     return json(200, ok({ avatar_list: roster.map(detail), equip_wiki: {}, relic_wiki: {}, property_info, recommend_property: {}, relic_properties: [] }));
   }
-  if (url.pathname === "/binding/api/genAuthKeyByCookieToken" && req.method === "POST") {
-    if (isExpired || !hasCookieKey(cookie, "cookie_token_v2")) return json(200, ledgerLogin);
-    return json(200, ok({ authkey: encodeURIComponent(WARP_KEY), authkey_ver: 1, sign_type: 2 }));
+  if (url.pathname === "/common/badge/v1/login/account" && req.method === "POST") {
+    if (isExpired || !hasCookieKey(cookie, "cookie_token_v2") || cookie.includes("cookie_token_v2=expired")) return json(200, expired);
+    return json(200, ok(null), { "Set-Cookie": BADGE_COOKIES });
   }
-  if (url.pathname === "/common/gacha_record/api/getGachaLog" || url.pathname === "/common/gacha_record/api/getLdGachaLog") {
-    if (url.searchParams.get("authkey") !== WARP_KEY) return json(200, { retcode: -100, message: "authkey error", data: null });
-    return json(200, ok(warpPage(url.searchParams.get("gacha_type"), url.searchParams.get("end_id") ?? "0", Number(url.searchParams.get("size") ?? 20))));
+  if (url.pathname === "/event/rpg_gacha_record/five_star_list") {
+    if (!hasCookieKey(cookie, "e_hkrpg_token")) return json(200, { retcode: -100, message: "请从游戏内打开参与活动", data: null });
+    return json(200, ok(warpPage(url.searchParams.get("gacha_type"), url.searchParams.get("max_id"))));
   }
   if (url.pathname === "/event/srledger/month_info") {
     if (isExpired) return json(200, expired);

@@ -36,6 +36,14 @@ describe("GET /api/transit/live", () => {
     expect((await GET(request())).status).toBe(403);
   });
 
+  it("存了車次的台鐵路線_問即時資料不帶車次，同一段路的班次共用一份快取省額度", async () => {
+    cached.cachedRoutes.mockResolvedValue([{ id: 7, mode: "tra", system: "", line: "123", originId: "1000", destinationId: "1080" }]);
+
+    await GET(request("7"));
+
+    expect(cached.cachedLive).toHaveBeenCalledWith("tra", "", "", "1000", "1080");
+  });
+
   it("別人的路線 id 或亂填_404 不會替別人用掉額度", async () => {
     currentSession.mockResolvedValue(OTHER_SESSION);
     cached.cachedRoutes.mockResolvedValue([]);

@@ -1,31 +1,74 @@
+import { openAsBlob } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle, type PgliteDatabase } from "drizzle-orm/pglite";
-import { migrate } from "drizzle-orm/pglite/migrator";
-import { afterEach, beforeEach, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, inject, vi } from "vitest";
 import { coreUsers, type UserRole } from "@/core/db/schema";
 import { OTHER_SESSION, TEST_SESSION } from "./session-stub";
 
 export type TestDb = PgliteDatabase;
 
+async function openSnapshot(file: string): Promise<PGlite> {
+  const client = new PGlite({ loadDataDir: await openAsBlob(file) });
+  await client.waitReady;
+  return client;
+}
+
+/** 還沒套任何 migration 的資料庫 給測 migration 本身的測試 用完自己關掉 */
+export const openEmptyDb = () => openSnapshot(inject("emptyDbSnapshot"));
+
+// 清空用 delete 不用 truncate 每次約 5 毫秒 truncate 要 10 倍以上
+// 暫時關掉外鍵檢查 順序就不用管誰指向誰
+async function resetStatement(client: PGlite): Promise<string> {
+  const { rows: tables } = await client.query<{ name: string }>(`select tablename as name from pg_tables where schemaname = 'public'`);
+  const { rows: sequences } = await client.query<{ name: string; start: string }>(
+    `select sequencename as name, start_value as start from pg_sequences where schemaname = 'public'`,
+  );
+  return [
+    "set session_replication_role = replica",
+    ...tables.map(({ name }) => `delete from "${name}"`),
+    "set session_replication_role = default",
+    ...sequences.map(({ name, start }) => `select setval('"${name}"', ${start}, false)`),
+  ].join(";");
+}
+
+// 連線是共用的 測試裝在上面的 spy 不能留給下一個測試
+function removeSpies(client: PGlite) {
+  for (const method of ["query", "exec", "transaction"] as const) {
+    const spy = client[method];
+    if (vi.isMockFunction(spy)) spy.mockRestore();
+  }
+}
+
 /**
- * 每個測試一個全新的記憶體資料庫並套用正式 migration
+ * 同一個檔案共用一個記憶體資料庫 載入 test-db-snapshot.ts 套好正式 migration 的快照
+ * 每個測試開始前清空資料與序號 所以測試裡不能改表結構 要改的放到自己的檔案
  * 掛在 core/db 讀的 globalThis.hubDb 被測的服務不用改就會用它
  */
 export function setupTestDb(onReady?: (db: TestDb) => void): () => TestDb {
   let client: PGlite | undefined;
   let current: TestDb | undefined;
+  let reset = "";
   const holder = globalThis as unknown as { hubDb?: unknown };
 
+  beforeAll(async () => {
+    client = await openSnapshot(inject("testDbSnapshot"));
+    reset = await resetStatement(client);
+  });
+
   beforeEach(async () => {
-    client = new PGlite();
-    current = drizzle(client);
-    await migrate(current, { migrationsFolder: "src/core/db/migrations" });
+    await client?.exec(reset);
+    current = drizzle(client as PGlite);
     holder.hubDb = current;
     onReady?.(current);
   });
 
-  afterEach(async () => {
+  afterEach(() => {
     holder.hubDb = undefined;
+    current = undefined;
+    if (client) removeSpies(client);
+  });
+
+  afterAll(async () => {
     await client?.close();
   });
 

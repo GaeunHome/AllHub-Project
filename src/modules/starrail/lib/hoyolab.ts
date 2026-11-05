@@ -26,7 +26,7 @@ import {
   type Profile,
 } from "./responses";
 import { CHECKIN_ACT_ID } from "./urls";
-import { WARP_PAGE_SIZE, interpretWarpPage, parseAuthkey, type WarpPage } from "./warps";
+import { interpretWarpLogin, interpretWarpPage, quoteBigCursors, type WarpCursor, type WarpPage } from "./warps";
 
 // HoYoLAB 國際服的非官方介面 還沒用真實帳號驗證
 // 改版就可能失效 呼叫端都要能處理失敗
@@ -37,12 +37,9 @@ const LEDGER_URL = "https://sg-public-api.hoyolab.com/event/srledger/month_info"
 const REDEEM_URL = "https://public-operation-hkrpg.hoyoverse.com/common/apicdkey/api/webExchangeCdkeyRisk";
 const GIFT_PAGE = "https://hsr.hoyoverse.com";
 const CHECKIN_BASE = "https://sg-public-api.hoyolab.com/event/luna/os";
-const AUTHKEY_URL = "https://api-account-os.hoyoverse.com/binding/api/genAuthKeyByCookieToken";
-const WARP_BASE = "https://public-operation-hkrpg-sg.hoyoverse.com/common/gacha_record/api";
+const WARP_LOGIN_URL = "https://sg-act-public-api.hoyolab.com/common/badge/v1/login/account";
+const WARP_LIST_URL = "https://sg-act-public-api.hoyolab.com/event/rpg_gacha_record/five_star_list";
 const GAME_BIZ = "hkrpg_global";
-/** 聯動卡池走另一個端點 */
-const COLLAB_BANNERS: readonly number[] = [21, 22];
-const WARP_AUTH_APPID = "webview_gacha";
 
 /** 自動兌換的排程要在 60 秒內跑完 兌換的請求最多等 10 秒 */
 const REDEEM_TIMEOUT_MS = 10_000;
@@ -63,7 +60,8 @@ function headers(cookie: string, extra: Record<string, string> = {}): Record<str
   };
 }
 
-async function call(url: string, init: RequestInit, timeoutMs?: number): Promise<unknown> {
+/** setCookies 只有躍遷紀錄的登入用得到 */
+async function send(url: string, init: RequestInit, timeoutMs?: number, prepare: (body: string) => string = (body) => body): Promise<{ json: unknown; setCookies: string[] }> {
   let response: Response;
   let text: string;
   try {
@@ -72,15 +70,20 @@ async function call(url: string, init: RequestInit, timeoutMs?: number): Promise
   } catch (error) {
     // 錯誤訊息可能帶著 header 裡的 cookie 只記錯誤種類
     logError("starrail", "呼叫 HoYoLAB 失敗", error, new URL(url).pathname);
-    return { localError: "連不上 HoYoLAB（逾時或網路錯誤），請稍後再試" };
+    return { json: { localError: "連不上 HoYoLAB（逾時或網路錯誤），請稍後再試" }, setCookies: [] };
   }
+  const setCookies = response.headers.getSetCookie();
   try {
-    return JSON.parse(text);
+    return { json: JSON.parse(prepare(text)), setCookies };
   } catch {
     // 被擋或維護時回的是網頁 內容可能帶有帳號資料 只記狀態碼 畫面照樣說格式不同
     console.error("[starrail] HoYoLAB 的回應不是 JSON", new URL(url).pathname, `HTTP ${response.status}`);
-    return null;
+    return { json: null, setCookies };
   }
+}
+
+async function call(url: string, init: RequestInit, timeoutMs?: number): Promise<unknown> {
+  return (await send(url, init, timeoutMs)).json;
 }
 
 /** 戰績類的介面都是 GET 而且帶 DS */
@@ -126,33 +129,27 @@ export async function fetchLedger(cookie: string, uid: string, region: string, m
   return explainLedgerLogin(interpretLedger(json, month), json, cookieKeys(sent));
 }
 
-/**
- * 用 cookie 換讀躍遷紀錄的金鑰 不用碰遊戲檔案 雲端遊戲也能用
- * 要 cookie_token_v2 與 account_ 開頭的鍵 照 genshin.py 的 fetch_authkey
- */
-export async function fetchWarpAuthkey(cookie: string, uid: string, region: string): Promise<HoyolabResult<string | null>> {
-  const json = await call(AUTHKEY_URL, {
-    method: "POST",
-    headers: { Cookie: withAccountIds(cookie), "User-Agent": USER_AGENT, "Content-Type": "application/json" },
-    body: JSON.stringify({ game_uid: uid, region, game_biz: GAME_BIZ, auth_appid: WARP_AUTH_APPID }),
-  });
-  return interpretWith(json, parseAuthkey);
+/** 活動頁的請求 帶 x-rpc-device_id 會被拒絕 DS 也用不到 所以不用共用的 headers() */
+function warpHeaders(cookie: string): Record<string, string> {
+  return { Cookie: cookie, "User-Agent": USER_AGENT, "x-rpc-lang": "zh-tw", "x-rpc-language": "zh-tw" };
 }
 
-/** 照 genshin.py 的 request_gacha_info cookie 跟金鑰一起送 參數不多帶 end_id 是這一頁最舊那筆 0 是最新一頁 */
-export async function fetchWarpPage(cookie: string, authkey: string, bannerType: number, endId: string): Promise<HoyolabResult<WarpPage>> {
-  const endpoint = COLLAB_BANNERS.includes(bannerType) ? "getLdGachaLog" : "getGachaLog";
-  const query = new URLSearchParams({
-    authkey_ver: "1",
-    authkey,
-    lang: "zh-tw",
-    game_biz: GAME_BIZ,
-    gacha_type: String(bannerType),
-    real_gacha_type: String(bannerType),
-    size: String(WARP_PAGE_SIZE),
-    end_id: endId,
-  });
-  return interpretWarpPage(await call(`${WARP_BASE}/${endpoint}?${query}`, { headers: { Cookie: withAccountIds(cookie), "User-Agent": USER_AGENT } }), bannerType);
+/**
+ * 登入躍遷紀錄的活動頁 成功時回傳讀紀錄要帶的 cookie 只給這一次讀取用 不存
+ * 靠 cookie_token_v2 與 account_ 開頭的鍵 沒貼的鍵用 lt 開頭的值補上
+ */
+export async function warpLogin(cookie: string, uid: string, region: string): Promise<HoyolabResult<string>> {
+  const sent = withAccountIds(cookie);
+  const body = JSON.stringify({ game_biz: GAME_BIZ, lang: "zh-tw", region, uid });
+  const { json, setCookies } = await send(WARP_LOGIN_URL, { method: "POST", headers: { ...warpHeaders(sent), "Content-Type": "application/json" }, body });
+  return interpretWarpLogin(json, sent, setCookies);
+}
+
+/** 一個卡池的一頁 cookie 是 warpLogin 回傳的 cursor 是 null 時讀第一頁 */
+export async function fetchWarpPage(cookie: string, uid: string, region: string, gachaType: string, cursor: WarpCursor | null): Promise<HoyolabResult<WarpPage>> {
+  const query = new URLSearchParams({ game_biz: GAME_BIZ, region, uid, gacha_type: gachaType, ...(cursor && { version_id: cursor.versionId, max_id: cursor.maxId }) });
+  const { json } = await send(`${WARP_LIST_URL}?${query}`, { headers: warpHeaders(cookie) }, undefined, quoteBigCursors);
+  return interpretWarpPage(json);
 }
 
 /** 混沌回憶 虛構敘事 末日幻影的戰績 schedule_type 1 是本期 2 是上期 */

@@ -6,19 +6,16 @@ vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/accounts", { spy: true });
 vi.mock("../../service/checkin", { spy: true });
 vi.mock("../../service/link", { spy: true });
-vi.mock("../../service/warps", { spy: true });
 
 const service = {
   ...mocksOf(await import("../../service/accounts"), "setStaminaThreshold", "setAutoRedeem", "setGameReminders", "removeAccount"),
   ...mocksOf(await import("../../service/checkin"), "checkinAccount"),
   ...mocksOf(await import("../../service/link"), "linkAccount"),
-  ...mocksOf(await import("../../service/warps"), "syncWarpsManually"),
 };
-const { checkinAction, linkAccountAction, removeAccountAction, setAutoRedeemAction, setGameRemindersAction, setThresholdAction, syncWarpsAction } = await import("../actions");
+const { checkinAction, linkAccountAction, removeAccountAction, setAutoRedeemAction, setGameRemindersAction, setThresholdAction } = await import("../actions");
 
 beforeEach(() => {
   service.linkAccount.mockReset().mockResolvedValue({ ok: true, message: "已連結" });
-  service.syncWarpsManually.mockReset().mockResolvedValue({ ok: true, added: 3 });
   service.checkinAccount.mockReset().mockResolvedValue({ ok: true, message: "簽到成功", accountChanged: false });
   service.setStaminaThreshold.mockReset().mockResolvedValue(true);
   service.setAutoRedeem.mockReset().mockResolvedValue({ ok: true });
@@ -31,7 +28,6 @@ describe("星穹鐵道的 Server Action：寫入後用 updateTag 讓對應的 ta
     ["linkAccountAction", ["starrail:accounts"], () => linkAccountAction({}, form({ cookie: "ltoken_v2=x; ltuid_v2=1" }))],
     // 帳號的 tag 標著所有 HoYoLAB 的快取 cookie 失效標記沒改時不失效 見下面
     ["checkinAction", ["starrail:checkins"], () => checkinAction({}, form({ accountId: "1" }))],
-    ["syncWarpsAction", ["starrail:warps"], () => syncWarpsAction({}, form({ accountId: "1" }))],
     ["setThresholdAction", ["starrail:accounts"], () => setThresholdAction({}, form({ accountId: "1", threshold: "200" }))],
     ["setAutoRedeemAction", ["starrail:accounts"], () => setAutoRedeemAction({}, form({ accountId: "1", enabled: "true" }))],
     ["setGameRemindersAction", ["starrail:accounts"], () => setGameRemindersAction({}, form({ accountId: "1", enabled: "false" }))],

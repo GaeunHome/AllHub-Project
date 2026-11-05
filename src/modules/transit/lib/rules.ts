@@ -14,6 +14,8 @@ export type Parsed<T> = { ok: true; value: T } | { ok: false; error: string };
 
 // 公車的迄站欄位放方向 0 是去程 1 是返程
 const BUS_DIRECTION = /^\d{1,3}$/;
+// 只用來對時刻表的車次 不會放進網址
+const TRAIN_NO = /^[A-Za-z0-9]{1,8}$/;
 
 export function parseRoute({ mode, system, line, originId, destinationId }: Record<"mode" | "system" | "line" | "originId" | "destinationId", string>): Parsed<RouteInput> {
   if (!isMode(mode)) return { ok: false, error: "請選擇交通工具" };
@@ -26,5 +28,8 @@ export function parseRoute({ mode, system, line, originId, destinationId }: Reco
   if (mode === "metro" && !isMetroSystem(system)) return { ok: false, error: "請選擇捷運系統" };
   if (!isStationId(originId) || !isStationId(destinationId)) return { ok: false, error: "請選擇起訖站" };
   if (originId === destinationId) return { ok: false, error: "起站跟迄站不能一樣" };
-  return { ok: true, value: { mode, system: mode === "metro" ? system : "", line: "", originId, destinationId } };
+  if (mode === "metro") return { ok: true, value: { mode, system, line: "", originId, destinationId } };
+  if (!line) return { ok: false, error: "請從查詢結果選一班車" };
+  if (!TRAIN_NO.test(line)) return { ok: false, error: "車次不正確，請從查詢結果選一班車" };
+  return { ok: true, value: { mode, system: "", line, originId, destinationId } };
 }

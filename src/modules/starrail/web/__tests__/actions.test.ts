@@ -6,55 +6,28 @@ vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/accounts", { spy: true });
 vi.mock("../../service/checkin", { spy: true });
 vi.mock("../../service/link", { spy: true });
-vi.mock("../../service/warps", { spy: true });
 
 const service = {
   ...mocksOf(await import("../../service/accounts"), "setStaminaThreshold", "setGameReminders", "removeAccount"),
   ...mocksOf(await import("../../service/checkin"), "checkinAccount"),
   ...mocksOf(await import("../../service/link"), "linkAccount"),
-  ...mocksOf(await import("../../service/warps"), "syncWarpsManually"),
 };
-const { checkinAction, linkAccountAction, removeAccountAction, setGameRemindersAction, setThresholdAction, syncWarpsAction } = await import("../actions");
+const { checkinAction, linkAccountAction, removeAccountAction, setGameRemindersAction, setThresholdAction } = await import("../actions");
 
 const dbError = () => Object.assign(new Error('Failed query: update "starrail_accounts" params: ltoken_v2=secret-detail'), { name: "DrizzleQueryError" });
 
 beforeEach(() => {
   requireSession.mockReset();
   service.linkAccount.mockReset().mockResolvedValue({ ok: true, message: "已連結", accountId: 1 });
-  service.syncWarpsManually.mockReset().mockResolvedValue({ ok: true, added: 3 });
   service.checkinAccount.mockReset().mockResolvedValue({ ok: true, message: "簽到成功" });
   service.setStaminaThreshold.mockReset().mockResolvedValue(true);
   service.setGameReminders.mockReset().mockResolvedValue(true);
   service.removeAccount.mockReset().mockResolvedValue(undefined);
 });
 
-describe("syncWarpsAction（立即更新躍遷紀錄）", () => {
-  it("用登入者的 id 呼叫 service，表單的帳號 id 只決定更新哪一個", async () => {
-    requireSession.mockResolvedValue(OTHER_SESSION);
-
-    await syncWarpsAction({}, form({ accountId: "7", userId: "someone-else" }));
-
-    expect(service.syncWarpsManually).toHaveBeenCalledWith(OTHER_SESSION.id, 7);
-  });
-
-  it("有新的抽卡寫幾抽；沒有新的說已經是最新", async () => {
-    expect(await syncWarpsAction({}, form({ accountId: "1" }))).toMatchObject({ message: "已更新，新增 3 抽" });
-
-    service.syncWarpsManually.mockResolvedValue({ ok: true, added: 0 });
-    expect(await syncWarpsAction({}, form({ accountId: "1" }))).toMatchObject({ message: "已經是最新的了" });
-  });
-
-  it("失敗時給 service 寫的原因", async () => {
-    service.syncWarpsManually.mockResolvedValue({ ok: false, error: "剛更新過，40 秒後再試" });
-
-    expect(await syncWarpsAction({}, form({ accountId: "1" }))).toEqual({ error: "剛更新過，40 秒後再試" });
-  });
-});
-
 describe("帳號 id 不正確（表單被改過或畫面太舊）", () => {
   it.each([
     ["checkinAction", () => checkinAction({}, form({ accountId: "abc" }))],
-    ["syncWarpsAction", () => syncWarpsAction({}, form({ accountId: "abc" }))],
     ["setThresholdAction", () => setThresholdAction({}, form({ accountId: "0", threshold: "200" }))],
     ["removeAccountAction", () => removeAccountAction({}, form({ accountId: "-1" }))],
     ["setGameRemindersAction 帳號 id", () => setGameRemindersAction({}, form({ accountId: "abc", enabled: "true" }))],

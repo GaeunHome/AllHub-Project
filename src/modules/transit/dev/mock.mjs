@@ -87,8 +87,6 @@ export async function handle({ url, req, json }) {
   if (path === "THSR/Station") json(200, stations(THSR));
   else if (path === "TRA/Station") json(200, stations(TRA));
   else if (path.startsWith("Metro/Station/")) json(200, stations(TRTC));
-  // 淡海輕軌讀不到路線 本機看得到面板退回完整清單
-  else if (path === "Metro/StationOfLine/NTDLRT") json(404, { Message: "no data" });
   else if (path.startsWith("Metro/StationOfLine/")) json(200, stationsOfLine());
   else if (path.startsWith("THSR/DailyTimetable/OD/")) json(200, dailyRows(url, "左營", null, 600, 15, 94));
   else if (path.startsWith("TRA/DailyTimetable/OD/")) json(200, dailyRows(url, "高雄", ["自強(3000)", "區間", "莒光"], 100, 20, 55));

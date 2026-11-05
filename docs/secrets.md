@@ -62,6 +62,8 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 
 1. 打開 [會員註冊](https://tdx.transportdata.tw/register)，填資料完成註冊，到信箱點確認信。
 2. 登入後打開 [API 金鑰](https://tdx.transportdata.tw/user/dataservice/key)，建立一組金鑰，畫面上的 **Client Id** 貼到 `TDX_CLIENT_ID`、**Client Secret** 貼到 `TDX_CLIENT_SECRET`。
+
+系統狀態頁寫「TDX 拒絕金鑰（401）」時是 Secret 不對，不是網站在海外被擋：重貼之後一定要到 Vercel 按 Redeploy，線上的程式才讀得到新的值。
 3. 貼到 Vercel 的環境變數，重新部署就會出現。
 
 - **額度**：免費會員一個月 3 點，大約一天 100～150 次。網站用快取省著用，也只在分頁開著、快開車時才問即時資料；用量可以在 TDX 的會員中心看。

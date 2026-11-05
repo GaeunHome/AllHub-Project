@@ -1,127 +1,107 @@
-// 躍遷紀錄依 genshin.py 的 Warp 與 warp_history 整理 還沒用真實帳號驗證
+// 躍遷紀錄讀 HoYoLAB 官方的活動頁 依 genshin.py 的 hsr_warp_records 整理 已用真實帳號確認
+// 官方只給五星與目前已墊幾抽 沒有時間 也沒有三星四星
 
-import { asRecord, createMissing, numberOf, text } from "@/core/json";
-import { interpretWith, type HoyolabResult } from "./responses";
+import { asRecord, boolOf, createMissing, numberOf, text } from "@/core/json";
+import { interpretResponse, interpretWith, type HoyolabResult } from "./responses";
 
-/** 每個遊戲帳號最多留幾抽 使用者的決定 超過時移除最舊的 */
-export const WARP_LIMIT = 10_000;
-
-/** HoYoverse 一頁最多 20 筆 */
-export const WARP_PAGE_SIZE = 20;
-
-// 保底是遊戲規則 聯動卡池照同類型的算
+// 保底是遊戲規則 聯動卡池照同類型的算 limited 是有 UP 的卡池 常駐與新手回的 is_up 一律是 false
 export const WARP_BANNERS = [
-  { id: 11, label: "角色活動", hardPity: 90 },
-  { id: 12, label: "光錐活動", hardPity: 80 },
-  { id: 1, label: "常駐", hardPity: 90 },
-  { id: 2, label: "新手", hardPity: 50 },
-  { id: 21, label: "聯動角色", hardPity: 90 },
-  { id: 22, label: "聯動光錐", hardPity: 80 },
+  { id: 11, label: "角色活動", hardPity: 90, gachaType: "GachaType_AvatarUp", limited: true },
+  { id: 12, label: "光錐活動", hardPity: 80, gachaType: "GachaType_EquipmentUp", limited: true },
+  { id: 1, label: "常駐", hardPity: 90, gachaType: "GachaType_Standard", limited: false },
+  { id: 2, label: "新手", hardPity: 50, gachaType: "GachaType_Newbie", limited: false },
+  { id: 21, label: "聯動角色", hardPity: 90, gachaType: "GachaType_CollabAvatarUp", limited: true },
+  { id: 22, label: "聯動光錐", hardPity: 80, gachaType: "GachaType_CollabEquipmentUp", limited: true },
 ] as const;
 
 export type WarpBanner = (typeof WARP_BANNERS)[number];
 
-/** id 有 19 位數 超過 number 能精確表示的範圍 一律當字串 */
-export type Warp = { id: string; bannerType: number; gachaId: number | null; itemId: number | null; name: string; itemType: string | null; rarity: number; time: Date };
+/** star 是 null 的那一列是目前已墊幾抽 其他是五星與它花了幾抽 */
+export type WarpRow = { pulls: number; star: { name: string; isUp: boolean | null } | null };
 
-export type WarpPage = { warps: Warp[]; missing: string[] };
+export type WarpCursor = { versionId: string; maxId: string };
 
-/** 抽卡介面的這兩個代碼是金鑰被拒絕 跟登入無關 重貼 cookie 沒有用 */
-const KEY_REJECTED: readonly number[] = [-100, -101];
+/** incomplete 是還有下一頁卻問不到 算讀不完 少掉的紀錄會讓平均算錯 */
+export type WarpPage = { rows: WarpRow[]; next: WarpCursor | null; incomplete: boolean; missing: string[] };
 
-const SERVER_TIME = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
-const DEFAULT_TIME_ZONE = 8;
+/** 活動頁靠 cookie_token_v2 登入 在別的地方登入就會換掉它 其他鍵照樣能用 */
+const TOKEN_STALE = "躍遷紀錄讀不到：cookie 裡的 cookie_token_v2 已過期，請登出 HoYoLAB 再登入，用「新增帳號或更新 cookie」重新貼上";
+export const NEEDS_COOKIE_TOKEN = "躍遷紀錄要用 cookie 裡的 cookie_token_v2：請用「新增帳號或更新 cookie」重新貼上完整的 cookie";
 
-/** 回應的時間是伺服器當地的 沒有時區 時區另外寫在 region_time_zone */
-function serverTime(value: unknown, zone: number): Date | null {
-  const match = typeof value === "string" ? SERVER_TIME.exec(value) : null;
-  if (!match) return null;
-  const [, year, month, day, hour, minute, second] = match.map(Number);
-  return new Date(Date.UTC(year, month - 1, day, hour - zone, minute, second));
+const BADGE_TOKEN = "e_hkrpg_token";
+
+/** 登入與讀紀錄被拒絕都是這個鍵的問題 便箋與簽到照樣能用 所以不說整個 cookie 失效 */
+function explainRejected<T>(result: HoyolabResult<T>): HoyolabResult<T> {
+  return !result.ok && result.cookieInvalid ? { ...result, message: TOKEN_STALE } : result;
 }
+
+/** 成功時回傳後面的請求要帶的 cookie 登入拿到的接在原本的後面 Set-Cookie 只取分號前面 */
+export function interpretWarpLogin(json: unknown, cookie: string, setCookies: readonly string[]): HoyolabResult<string> {
+  const result = explainRejected(interpretResponse(json));
+  if (!result.ok) return result;
+  const issued = setCookies.map((line) => line.split(";")[0].trim());
+  if (!issued.some((pair) => pair.startsWith(`${BADGE_TOKEN}=`))) return { ok: false, retcode: null, message: "HoYoLAB 沒有回傳活動頁的登入資料，稍後再試", cookieInvalid: false };
+  return { ok: true, data: [cookie, ...issued].join("; ") };
+}
+
+/** 19 位數的數字 JSON 解開就差了幾位 問下一頁會問錯 解開之前先寫成字串 */
+export const quoteBigCursors = (body: string) => body.replace(/"(next_max_id|version_id)"\s*:\s*(\d{16,})/g, '"$1":"$2"');
+
+const cursorPart = (value: unknown) => text(value) ?? (Number.isSafeInteger(value) ? String(value) : null);
 
 /** 少了必要欄位的一筆略過 其他筆照常 log 只記欄位名稱 */
-function parseWarpPage(data: unknown, bannerType: number): WarpPage {
+function parseWarpPage(data: unknown): WarpPage {
   const missing = createMissing();
   const root = asRecord(data);
-  const zone = numberOf(root?.region_time_zone) ?? DEFAULT_TIME_ZONE;
-  const warps = (root ? missing.list(root, "list", "list") : []).flatMap((value): Warp[] => {
+  const rows = missing.list(root, "list", "list").flatMap((value): WarpRow[] => {
     const row = asRecord(value);
-    const id = missing.need(text(row?.id), "list[].id");
-    if (!id) return [];
-    const rarity = missing.need(numberOf(row?.rank_type), "list[].rank_type");
-    const name = missing.need(text(row?.name), "list[].name");
-    const time = missing.need(serverTime(row?.time, zone), "list[].time");
-    if (rarity === null || name === null || time === null) return [];
-    return [{ id, bannerType, gachaId: numberOf(row?.gacha_id), itemId: numberOf(row?.item_id), name, itemType: text(row?.item_type), rarity, time }];
+    const gotItem = missing.need(boolOf(row?.got_item), "list[].got_item");
+    const pulls = missing.need(numberOf(row?.gacha_count), "list[].gacha_count");
+    if (gotItem === null || pulls === null) return [];
+    if (!gotItem) return [{ pulls, star: null }];
+    const name = missing.need(text(asRecord(row?.item)?.name), "list[].item.name");
+    if (name === null) return [];
+    return [{ pulls, star: { name, isUp: missing.need(boolOf(row?.is_up), "list[].is_up") } }];
   });
-  return { warps, missing: missing.sorted() };
+  const hasMore = missing.need(boolOf(root?.has_more), "has_more");
+  if (hasMore === false) return { rows, next: null, incomplete: false, missing: missing.sorted() };
+  const versionId = hasMore ? missing.need(cursorPart(root?.version_id), "version_id") : null;
+  const maxId = hasMore ? missing.need(cursorPart(root?.next_max_id), "next_max_id") : null;
+  const next = versionId !== null && maxId !== null ? { versionId, maxId } : null;
+  return { rows, next, incomplete: next === null, missing: missing.sorted() };
 }
 
-export function interpretWarpPage(json: unknown, bannerType: number): HoyolabResult<WarpPage> {
-  const result = interpretWith(json, (data) => parseWarpPage(data, bannerType));
-  if (result.ok || result.retcode === null || !KEY_REJECTED.includes(result.retcode)) return result;
-  const reason = `${result.retcode}：${text(asRecord(json)?.message) ?? ""}`;
-  return { ...result, cookieInvalid: false, message: `HoYoverse 不接受讀躍遷紀錄的金鑰（${reason}），這不是 cookie 的問題，重貼也不會好` };
-}
-
-/** 回應可能編碼過一次以上 genshin.py 解兩次 這裡也是 金鑰是 base64 不會有百分比符號 */
-function decodedAuthkey(raw: string): string {
-  let authkey = raw;
-  for (let i = 0; i < 2 && authkey.includes("%"); i++) authkey = decodeURIComponent(authkey);
-  return authkey;
-}
-
-export function parseAuthkey(data: unknown): string | null {
-  const authkey = text(asRecord(data)?.authkey);
-  return authkey ? decodedAuthkey(authkey) : null;
+export function interpretWarpPage(json: unknown): HoyolabResult<WarpPage> {
+  return explainRejected(interpretWith(json, parseWarpPage));
 }
 
 export type FiveStar = {
-  id: string;
   name: string;
-  itemType: string | null;
-  time: Date;
-  /** 上一個五星之後到這一個 算這一抽 */
   pulls: number;
-  /** 最舊的那個 更早的紀錄可能已經拿不到 pulls 只是下限 */
-  partial: boolean;
+  /** 限定卡池抽到不是 UP 的 */
+  lost: boolean;
 };
 
 export type BannerSummary = {
   banner: WarpBanner;
-  total: number;
   /** 最後一個五星之後抽了幾次 */
   pity: number;
-  /** 紀錄裡沒有五星時 pity 只是下限 */
-  pityKnown: boolean;
   remaining: number;
   /** 新的在前 */
   fiveStars: FiveStar[];
-  /** 只算完整的 四捨五入 */
+  /** 四捨五入 */
   average: number | null;
-  latest: Date | null;
 };
 
-/** warps 要由舊到新 */
-export function summarizeBanner(banner: WarpBanner, warps: readonly Warp[]): BannerSummary {
-  const fiveStars: FiveStar[] = [];
-  let pity = 0;
-  for (const warp of warps) {
-    pity += 1;
-    if (warp.rarity !== 5) continue;
-    fiveStars.push({ id: warp.id, name: warp.name, itemType: warp.itemType, time: warp.time, pulls: pity, partial: fiveStars.length === 0 });
-    pity = 0;
-  }
-  const complete = fiveStars.filter((star) => !star.partial);
+/** rows 照官方的順序 新的在前 */
+export function summarizeBanner(banner: WarpBanner, rows: readonly WarpRow[]): BannerSummary {
+  const fiveStars = rows.flatMap(({ pulls, star }): FiveStar[] => (star ? [{ name: star.name, pulls, lost: banner.limited && star.isUp === false }] : []));
+  const pity = rows.find((row) => row.star === null)?.pulls ?? 0;
   return {
     banner,
-    total: warps.length,
     pity,
-    pityKnown: fiveStars.length > 0,
     remaining: Math.max(banner.hardPity - pity, 0),
-    fiveStars: fiveStars.toReversed(),
-    average: complete.length > 0 ? Math.round(complete.reduce((sum, star) => sum + star.pulls, 0) / complete.length) : null,
-    latest: warps.at(-1)?.time ?? null,
+    fiveStars,
+    average: fiveStars.length > 0 ? Math.round(fiveStars.reduce((sum, star) => sum + star.pulls, 0) / fiveStars.length) : null,
   };
 }

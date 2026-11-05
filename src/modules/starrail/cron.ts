@@ -6,7 +6,6 @@ import { starrailTags } from "./service/cache-tags";
 import { checkinAll } from "./service/checkin";
 import { cleanupCheckinLogs, reencryptCookies } from "./service/maintenance";
 import { checkStaminaAll } from "./service/stamina";
-import { syncAllWarps } from "./service/warps";
 
 // 帳號的 tag 標著所有 HoYoLAB 的快取 只在帳號那一列真的改了時由 service 讓它失效
 export const starrailCron: Record<string, CronTask> = {
@@ -16,5 +15,4 @@ export const starrailCron: Record<string, CronTask> = {
   reencrypt: expiringTask(reencryptCookies),
   // 試過的兌換碼只有排程自己讀 不用讓快取失效
   redeem: expiringTask(autoRedeemAll),
-  warps: expiringTask(syncAllWarps, starrailTags.warps),
 };

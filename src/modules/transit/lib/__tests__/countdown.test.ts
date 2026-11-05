@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countdownText, shouldReadLive, upcoming, withLive } from "../countdown";
+import { countdownText, delayMinutes, liveAnchor, shouldReadLive, upcoming, withLive } from "../countdown";
 import { parseMetroEstimate, parseTraDelays } from "../live";
 
 const NOW = Date.parse("2026-11-05T08:00:00+08:00");
@@ -106,5 +106,36 @@ describe("即時資料的解析", () => {
   it("捷運看板：拼錯的舊欄位 DestinationStaionID 也認 尚未發車的不算", () => {
     expect(parseMetroEstimate([{ DestinationStaionID: "R28", EstimateTime: 4, ServiceStatus: 0 }], "R28")).toBe(4);
     expect(parseMetroEstimate([{ DestinationStationID: "R28", EstimateTime: 4, ServiceStatus: 1 }], "R28")).toBeNull();
+  });
+});
+
+describe("delayMinutes：誤點幾分", () => {
+  it("校正後比時刻表晚_寫出晚幾分", () => {
+    expect(delayMinutes(train(15, "123"), [train(0, "123")])).toBe(15);
+  });
+
+  it("存了車次的路線 今天那班開走了 下一次是明天同一個車次_不是誤點一天", () => {
+    const tomorrow = train(24 * 60, "123");
+
+    expect(delayMinutes(tomorrow, [train(-60, "123"), tomorrow])).toBe(0);
+  });
+
+  it("沒有車次_0", () => {
+    expect(delayMinutes(train(5), [train(5)])).toBe(0);
+  });
+});
+
+describe("liveAnchor：拿哪一班決定要不要問即時資料", () => {
+  it("存了車次的路線過了開車時間還在問一陣子：可能誤點還沒開走，不能這時候就把它拿掉", () => {
+    expect(liveAnchor([train(-10, "123")], NOW, "123")).toBe(min(-10));
+  });
+
+  it("開車超過 30 分鐘_不再問，不多用額度", () => {
+    expect(liveAnchor([train(-31, "123")], NOW, "123")).toBeNull();
+  });
+
+  it("沒有車次的路線_看下一班，開走的不算", () => {
+    expect(liveAnchor([train(-10), train(20)], NOW, "")).toBe(min(20));
+    expect(liveAnchor([train(-10)], NOW, "")).toBeNull();
   });
 });

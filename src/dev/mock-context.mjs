@@ -2,8 +2,9 @@
 // res 只用到 writeHead 與 end
 
 export function mockContext({ req, url, body, res }) {
-  const json = (status, data) => {
-    res.writeHead(status, { "Content-Type": "application/json" });
+  // headers 給要多回標頭的 例如 HoYoLAB 登入的 Set-Cookie
+  const json = (status, data, headers = {}) => {
+    res.writeHead(status, { "Content-Type": "application/json", ...headers });
     res.end(data === undefined ? "" : JSON.stringify(data));
     return true;
   };

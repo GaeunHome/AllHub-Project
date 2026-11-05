@@ -21,6 +21,7 @@ import { BusResults, TrainResults } from "../components/search-results";
 import { frequentStations } from "../frequent-stations";
 import { loadBoards } from "../route-boards";
 import { MAX_DAYS_AHEAD, canSearch, parseSearch, type SearchQuery } from "../search-query";
+import type { TransitRoute } from "../../data/schema";
 
 const BANNER = "/images/scenes/banner-transit.svg";
 // web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
@@ -52,7 +53,7 @@ export async function TransitBody({ searchParams }: { searchParams: SearchParams
   const query = parseSearch(await searchParams, today);
   const routes = await cachedRoutes(user.id);
   const canAdd = routes.length < ROUTE_LIMIT;
-  const [boards, search] = await Promise.all([loadBoards(routes, now), query.mode === "bus" ? busSearch(query, now, canAdd) : railSearch(query, now, canAdd, today)]);
+  const [boards, search] = await Promise.all([loadBoards(routes, now), query.mode === "bus" ? busSearch(query, now, canAdd) : railSearch(query, now, canAdd, today, routes)]);
   const tracked = boards.filter((board) => board.route.tracked);
   const others = boards.filter((board) => !board.route.tracked);
 
@@ -76,7 +77,7 @@ export async function TransitBody({ searchParams }: { searchParams: SearchParams
       <section aria-labelledby="transit-routes" className="stack max-sm:order-3">
         <SectionTitle id="transit-routes">常用路線</SectionTitle>
         {routes.length === 0 ? (
-          <EmptyState compact icon="bus" title="還沒有常用路線" hint="用上面的查詢找到班次後，按「加到常用路線」" />
+          <EmptyState compact icon="bus" title="還沒有常用路線" hint="用上面的查詢找到班次後，按「加到常用」" />
         ) : (
           <div className="trn-grid">
             {others.map((board) => (
@@ -98,7 +99,7 @@ export async function TransitBody({ searchParams }: { searchParams: SearchParams
 type SearchParts = { stations: Station[]; groups: StationGroup[]; directions: Station[]; results: ReactNode };
 
 /** 高鐵 台鐵與捷運 車站清單一天讀一次 班次要選好起訖才查 台鐵的縣市在車站清單裡 只有捷運要多讀路線 */
-async function railSearch(query: SearchQuery, now: Date, canAdd: boolean, today: string): Promise<SearchParts> {
+async function railSearch(query: SearchQuery, now: Date, canAdd: boolean, today: string, routes: TransitRoute[]): Promise<SearchParts> {
   const { mode } = query;
   if (mode === "bus") return { stations: [], groups: [], directions: [], results: null };
   const metro = mode === "metro";
@@ -115,7 +116,7 @@ async function railSearch(query: SearchQuery, now: Date, canAdd: boolean, today:
     results: (
       <>
         {!stations.ok && <p className="text-ink">車站資料暫時讀不到，稍後再試</p>}
-        {results && <TrainResults results={results} query={query} stations={stationList} directions={directionList} now={now} canAdd={canAdd} />}
+        {results && <TrainResults results={results} query={query} stations={stationList} directions={directionList} now={now} canAdd={canAdd} saved={routes.filter((route) => route.mode === mode && route.originId === query.from && route.destinationId === query.to).map((route) => route.line)} />}
       </>
     ),
   };

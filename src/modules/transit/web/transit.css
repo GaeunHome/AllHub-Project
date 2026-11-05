@@ -106,6 +106,84 @@
   @apply flex min-h-32 items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-line font-semibold text-ink-soft;
 }
 
+/* 查詢卡最上面的分頁 選中的圖示與底線用路線圖的顏色 字維持深色才讀得清楚 */
+.trn-modes {
+  @apply grid grid-cols-4 border-b border-line;
+}
+.trn-mode {
+  @apply flex min-h-13 cursor-pointer items-center justify-center gap-2 font-semibold text-ink-soft transition-colors;
+}
+.trn-mode:hover {
+  @apply text-ink;
+}
+.trn-mode:focus-visible {
+  outline-offset: -3px;
+}
+.trn-mode[aria-pressed="true"] {
+  @apply text-ink;
+  background-color: color-mix(in srgb, var(--trn-line) 9%, transparent);
+  box-shadow: inset 0 -3px 0 var(--trn-line);
+}
+.trn-mode[aria-pressed="true"] .icon {
+  color: var(--trn-line);
+}
+.trn-search-fields {
+  @apply flex flex-col gap-3 p-5 sm:flex-row sm:flex-wrap sm:items-end sm:p-6 xl:flex-nowrap;
+}
+
+/* 查詢結果 一班一列 出發與抵達最大 中間是一小段路線圖 手機上車次換到下一行 */
+.trn-result-list {
+  @apply divide-y divide-line border-t border-line;
+}
+/* 收起來的班次外層已經有列的內距 抵銷掉才跟上面的列對齊 */
+details .trn-result-list {
+  @apply -mx-5 mt-3 -mb-3 sm:-mx-6;
+}
+.trn-result {
+  @apply flex flex-col gap-2 px-5 py-3.5 sm:px-6 lg:flex-row lg:items-center lg:gap-8;
+}
+.trn-times {
+  @apply flex items-center gap-3 lg:w-full lg:max-w-xl;
+}
+.trn-clock {
+  @apply text-2xl leading-none font-extrabold text-ink tabular-nums;
+}
+.trn-ride {
+  @apply flex h-6 min-w-0 flex-1 items-center gap-2;
+  --trn-end: radial-gradient(circle, var(--trn-line) 0 0.3125rem, transparent 0.3438rem);
+  background: var(--trn-end) left center / 0.75rem 0.75rem no-repeat, var(--trn-end) right center / 0.75rem 0.75rem no-repeat;
+}
+/* 線分成左右兩段 字不用底色 深色模式才不會多一塊 */
+.trn-ride::before,
+.trn-ride::after {
+  content: "";
+  height: 0.1875rem;
+  flex: 1;
+  border-radius: 9999px;
+  background-color: var(--trn-line);
+}
+.trn-ride::before {
+  margin-inline-start: 0.25rem;
+}
+.trn-ride::after {
+  margin-inline-end: 0.25rem;
+}
+.trn-ride-text {
+  @apply shrink-0 text-sm font-semibold text-ink-soft tabular-nums;
+}
+.trn-result-info {
+  @apply flex min-h-9 min-w-0 flex-1 items-center gap-2;
+}
+/* 交換鈕 手機上起訖站是上下排 箭頭跟著轉 */
+.trn-swap {
+  @apply shrink-0 self-center sm:self-end;
+}
+@media (width < 40rem) {
+  .trn-swap > * {
+    transform: rotate(90deg);
+  }
+}
+
 /* 選車站的按鈕與視窗 按鈕跟下拉選單一樣高 視窗高度固定 打字時搜尋框才不會跳 */
 .trn-picker-button {
   @apply flex cursor-pointer items-center justify-between gap-2 text-left;

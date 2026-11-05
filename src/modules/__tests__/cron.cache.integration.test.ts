@@ -29,7 +29,6 @@ const EXPECTED: Record<string, string[]> = {
   "starrail:cleanup": ["starrail:checkins"],
   "starrail:reencrypt": [],
   "starrail:redeem": [],
-  "starrail:warps": ["starrail:warps"],
   // 自動記的紀錄改了餘額與統計 固定收支記到的月份也往前推
   // 到期通知認領信用卡寄到哪一天
   "savings:recurring": ["savings:accounts", "savings:bills", "savings:recurring", "savings:transactions"],

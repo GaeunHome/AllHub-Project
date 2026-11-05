@@ -40,6 +40,17 @@ export function withLive(departures: readonly Departure[], live: LiveReading, no
   return [{ ...(scheduled[0] ?? blank(at)), at }, ...scheduled.slice(1).filter((departure) => departure.at > at)];
 }
 
+/** 存了車次的路線 今天與明天是同一個車次 要比對開車時間不晚於它的那一班 */
+export function delayMinutes(next: Departure, departures: readonly Departure[]): number {
+  const scheduled = departures.filter((departure) => departure.trainNo !== null && departure.trainNo === next.trainNo && departure.at <= next.at).at(-1);
+  return scheduled ? Math.round((next.at - scheduled.at) / 60_000) : 0;
+}
+
+/** 存了車次的路線只有一班 誤點時過了開車時間還沒開走 要多問一段時間才知道 */
+export function liveAnchor(departures: readonly Departure[], now: number, trainNo: string): number | null {
+  return upcoming(departures, trainNo ? now - LIVE_WINDOW_MS : now)[0]?.at ?? null;
+}
+
 /** nextAt 是 null 代表時刻表上沒有下一班 捷運的文湖線本來就沒有時刻表 只能問看板 */
 export function shouldReadLive(mode: Mode, nextAt: number | null, now: number): boolean {
   if (mode === "thsr") return false;

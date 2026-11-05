@@ -8,8 +8,8 @@ import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
 import { Icon } from "@/core/ui/icon";
 import { useClockStep } from "@/core/ui/live-clock";
 import { MoreMenu } from "@/core/ui/more-menu";
-import { TICK_MS, countdownText, countdownUnits, shouldReadLive, upcoming, withLive, type LiveReading } from "../../lib/countdown";
-import { MODE_LABELS } from "../../lib/modes";
+import { TICK_MS, countdownText, countdownUnits, delayMinutes, liveAnchor, shouldReadLive, upcoming, withLive, type LiveReading } from "../../lib/countdown";
+import { MODE_LABELS, trainNoOf } from "../../lib/modes";
 import type { Departure } from "../../lib/timetable";
 import type { TransitRoute } from "../../data/schema";
 import { deleteRouteAction, setTrackedAction } from "../actions";
@@ -26,9 +26,12 @@ function clockOf(at: number, now: number): string {
   return taipeiDateKey(new Date(at)) === taipeiDateKey(new Date(now)) ? clock : `明天 ${clock}`;
 }
 
-function delayOf(next: Departure, departures: readonly Departure[]): number {
-  const scheduled = departures.find((departure) => departure.trainNo !== null && departure.trainNo === next.trainNo);
-  return scheduled ? Math.round((next.at - scheduled.at) / 60_000) : 0;
+/** 頁面開著跨過最後一班時 重讀一次才有明天的班次 */
+function useRefreshWhenFinished(finished: boolean) {
+  const router = useRouter();
+  useEffect(() => {
+    if (finished) router.refresh();
+  }, [finished, router]);
 }
 
 function RouteMenu({ route }: { route: TransitRoute }) {
@@ -49,7 +52,8 @@ function TrackButton({ route }: { route: TransitRoute }) {
 }
 
 function TrainTitle({ route, next }: { route: TransitRoute; next: Departure | undefined }) {
-  const train = route.line || (next?.trainNo ? `${next.trainNo} 車次` : (next?.toward ?? destinationLabel(route)));
+  const trainNo = trainNoOf(route) || next?.trainNo;
+  const train = trainNo ? `${trainNo} 車次` : route.line || (next?.toward ?? destinationLabel(route));
   return (
     <p className="trn-train">
       <span aria-hidden className="trn-dot" />
@@ -93,8 +97,9 @@ function RouteLine({ route, tick }: { route: TransitRoute; tick: number | null }
 }
 
 /** 公車沒有班次表 沒有車時寫看板給的原因 */
-function emptyText(route: TransitRoute, live: LiveReading, status: string | null): string {
+function emptyText(route: TransitRoute, live: LiveReading, status: string | null, hasDepartures: boolean): string {
   const current = live.kind === "estimate" ? live.status : null;
+  if (trainNoOf(route)) return hasDepartures ? "這班車今天已開走" : "今明兩天沒有這班車";
   return current ?? status ?? (route.mode === "bus" ? "目前沒有車" : "今天沒有班次了");
 }
 
@@ -106,19 +111,13 @@ function liveNote(route: TransitRoute, live: LiveReading, delay: number): string
 
 /** 追蹤中的大卡 5 秒更新一次 開車前 30 分鐘內每分鐘向 TDX 校正 */
 export function TrackedCard({ route, departures, problem, status }: RouteCardProps) {
-  const router = useRouter();
   const tick = useClockStep(TICK_MS);
   const now = tick ?? 0;
-  const scheduledNext = tick === null ? null : (upcoming(departures, now)[0]?.at ?? null);
+  const scheduledNext = tick === null ? null : liveAnchor(departures, now, trainNoOf(route));
   const live = useLiveReading(route.id, tick !== null && shouldReadLive(route.mode, scheduledNext, now));
   const list = tick === null ? [] : withLive(departures, live, now);
   const [next, ...later] = list;
-  const finished = tick !== null && departures.length > 0 && list.length === 0;
-
-  // 頁面開著跨過末班車時 重讀一次才有明天的班次
-  useEffect(() => {
-    if (finished) router.refresh();
-  }, [finished, router]);
+  useRefreshWhenFinished(tick !== null && departures.length > 0 && list.length === 0);
 
   return (
     <article className="card stack trn-card" style={lineStyle(route)}>
@@ -127,14 +126,14 @@ export function TrackedCard({ route, departures, problem, status }: RouteCardPro
         <TrackButton route={route} />
         <RouteMenu route={route} />
       </header>
-      {problem ? <p className="text-ink">資料暫時讀不到，稍後再試</p> : <BigCountdown next={next} now={now} empty={emptyText(route, live, status)} />}
+      {problem ? <p className="text-ink">資料暫時讀不到，稍後再試</p> : <BigCountdown next={next} now={now} empty={emptyText(route, live, status, departures.length > 0)} />}
       <RouteLine route={route} tick={tick} />
       {next && tick !== null && (
         <footer className="trn-foot">
           <span className="tabular-nums">
             <b>{clockOf(next.at, now)}</b> 開{next.arrivesAt ? <> <b>{formatTaipeiHourMinute(new Date(next.arrivesAt))}</b> 到</> : null}
           </span>
-          <span className="trn-note">{liveNote(route, live, delayOf(next, departures))}</span>
+          <span className="trn-note">{liveNote(route, live, delayMinutes(next, departures))}</span>
           {later.slice(0, 2).map((departure, index) => (
             <span key={departure.at} className="trn-pill tabular-nums">
               {index === 0 && "接著 "}
@@ -151,6 +150,7 @@ export function TrackedCard({ route, departures, problem, status }: RouteCardPro
 export function RouteCard({ route, departures, problem, status }: RouteCardProps) {
   const tick = useClockStep(TICK_MS);
   const next = tick === null ? undefined : upcoming(departures, tick)[0];
+  useRefreshWhenFinished(tick !== null && departures.length > 0 && next === undefined);
   return (
     <article className="card trn-mini" style={lineStyle(route)}>
       <header className="flex items-start gap-1">
@@ -158,7 +158,7 @@ export function RouteCard({ route, departures, problem, status }: RouteCardProps
         <RouteMenu route={route} />
       </header>
       <span aria-hidden className="trn-mini-line" />
-      <p className="trn-mini-count tabular-nums">{problem ? "資料讀不到" : next && tick !== null ? countdownText(next.at - tick) : tick === null ? "" : emptyText(route, { kind: "none" }, status)}</p>
+      <p className="trn-mini-count tabular-nums">{problem ? "資料讀不到" : next && tick !== null ? countdownText(next.at - tick) : tick === null ? "" : emptyText(route, { kind: "none" }, status, departures.length > 0)}</p>
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm text-ink-soft tabular-nums">{next && tick !== null ? `${clockOf(next.at, tick)} 開` : MODE_LABELS[route.mode]}</span>
         <TrackButton route={route} />

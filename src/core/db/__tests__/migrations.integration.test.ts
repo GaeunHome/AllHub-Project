@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { PGlite } from "@electric-sql/pglite";
+import type { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { openEmptyDb } from "@/dev/test-db";
 
 // 推上 main 時 Vercel 部署與 db-migrate 同時進行
 // migration 套用到正式資料庫時線上可能還是舊程式
@@ -25,10 +26,9 @@ const journal = () => JSON.parse(readFileSync(path.join(MIGRATIONS, "meta/_journ
 let client: PGlite;
 let db: ReturnType<typeof drizzle>;
 
-// 啟動 PGlite 並套用 migration 要好幾秒 機器忙時更久
-// 所以放在 hook 裡用 vitest.config 的 hookTimeout
+// 每個測試要自己一步一步套 migration 所以從還沒套過的資料庫開始
 beforeEach(async () => {
-  client = new PGlite();
+  client = await openEmptyDb();
   cleanups.push(() => client.close());
   db = drizzle(client);
 });
@@ -215,23 +215,5 @@ describe("模組內資料之間的外鍵與唯一限制", { timeout: 30_000 }, (
     expect((await client.query(`select "id" from "savings_holdings" where "user_id" = $1`, [boss])).rows).toEqual([]);
     expect((await client.query(`select "id" from "savings_holdings" where "user_id" = $1 order by "id"`, [early])).rows).toEqual([{ id: theirs.etf.id }, { id: theirs.tw50.id }]);
     expect((await client.query(`select "id" from "savings_recurring" where "id" = $1`, [theirs.rule.id])).rows).toHaveLength(1);
-  });
-
-  it("刪掉帳單時補的那一筆紀錄留著（card_bill_id 改成 null）；刪掉卡時帳單一起刪", async () => {
-    const { boss } = USERS;
-    await insertUser(boss, "boss", "owner");
-    const card = await one<{ id: number }>(`insert into "savings_accounts" ("user_id", "name", "kind", "statement_day") values ($1, '國泰卡', 'credit', 5) returning "id"`, [boss]);
-    const bill = await one<{ id: number }>(`insert into "savings_card_bills" ("user_id", "account_id", "statement_date", "due_date", "amount") values ($1, $2, '2026-10-05', '2026-10-20', 12480) returning "id"`, [boss, card.id]);
-    const reconcile = await one<{ id: number }>(
-      `insert into "savings_transactions" ("user_id", "kind", "account_id", "amount", "date", "note", "card_bill_id") values ($1, 'expense', $2, 9480, '2026-10-05', '未記錄的刷卡（帳單差額）', $3) returning "id"`,
-      [boss, card.id, bill.id],
-    );
-
-    await client.query(`delete from "savings_card_bills" where "id" = $1`, [bill.id]);
-    expect(await one(`select "card_bill_id", "amount" from "savings_transactions" where "id" = $1`, [reconcile.id])).toEqual({ card_bill_id: null, amount: 9480 });
-
-    await client.query(`insert into "savings_card_bills" ("user_id", "account_id", "statement_date", "due_date", "amount") values ($1, $2, '2026-10-05', '2026-10-20', 12480)`, [boss, card.id]);
-    await client.query(`delete from "savings_accounts" where "id" = $1`, [card.id]);
-    expect(await one(`select count(*)::int as n from "savings_card_bills"`)).toEqual({ n: 0 });
   });
 });

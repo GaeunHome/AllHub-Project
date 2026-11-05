@@ -1,6 +1,7 @@
 import "server-only";
 import { DAY_MS, taipeiDateKey } from "@/core/time";
 import { upcoming } from "../lib/countdown";
+import { trainNoOf } from "../lib/modes";
 import type { Departure } from "../lib/timetable";
 import type { TransitRoute } from "../data/schema";
 import { cachedDepartures, cachedLive } from "../service/cached";
@@ -24,12 +25,18 @@ async function busBoard(route: TransitRoute): Promise<RouteBoard> {
 async function boardOf(route: TransitRoute, now: Date): Promise<RouteBoard> {
   const { mode } = route;
   if (mode === "bus") return busBoard(route);
+  // 存了車次的只看那一班 以前存的路線沒有車次 照舊列整段路
+  const train = trainNoOf(route);
+  const shown = (departures: Departure[]) => (train ? departures.filter((departure) => departure.trainNo === train) : departures);
   const read = (date: string) => cachedDepartures(mode, route.system, route.originId, route.destinationId, date);
   const today = await read(taipeiDateKey(now));
   if (!today.ok) return { route, departures: [], problem: today.problem, status: null };
-  if (upcoming(today.data, now.getTime()).length >= MIN_UPCOMING) return { route, departures: today.data, problem: null, status: null };
+  const todays = shown(today.data);
+  if (upcoming(todays, now.getTime()).length >= (train ? 1 : MIN_UPCOMING)) return { route, departures: todays, problem: null, status: null };
   const tomorrow = await read(taipeiDateKey(new Date(now.getTime() + DAY_MS)));
-  return { route, departures: tomorrow.ok ? [...today.data, ...tomorrow.data] : today.data, problem: null, status: null };
+  // 只看一班車時讀不到明天就不知道還有沒有車 不能說成沒有這班車
+  if (!tomorrow.ok && train) return { route, departures: todays, problem: tomorrow.problem, status: null };
+  return { route, departures: tomorrow.ok ? [...todays, ...shown(tomorrow.data)] : todays, problem: null, status: null };
 }
 
 export const loadBoards = (routes: TransitRoute[], now: Date) => Promise.all(routes.map((route) => boardOf(route, now)));

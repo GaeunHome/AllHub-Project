@@ -68,7 +68,7 @@ export const starrailRedeemCodes = pgTable(
 /** 有 19 位數 超過 number 的精確範圍 程式裡一律是字串 資料庫用 bigint 才比得了新舊 */
 const warpId = customType<{ data: string; driverData: string | number | bigint }>({ dataType: () => "bigint", fromDriver: String });
 
-/** 躍遷紀錄 官方只留最近一段時間 存下來才不會消失 跟著帳號刪 每個帳號的上限見 lib/warps.ts */
+/** 已經不讀也不寫 躍遷紀錄改成打開頁面時向 HoYoLAB 讀 下一版刪掉這張表 */
 export const starrailWarps = pgTable(
   "starrail_warps",
   {

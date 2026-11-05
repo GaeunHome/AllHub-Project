@@ -13,13 +13,17 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.ts"],
+    // 資料庫只建一次 每個測試檔載入同一份快照
+    globalSetup: ["src/dev/test-db-snapshot.ts"],
     // 每個測試前清空 next/cache 的 spy 與 DEV_EXTERNAL_ORIGIN
     setupFiles: ["src/dev/vitest-setup.ts"],
     // vi.stubGlobal 換掉的全域每個測試前自動換回來 測試檔不用自己還原
     // 環境變數不自動還原 很多測試在載入被測模組前就先設好 要整個檔案都有效
     unstubGlobals: true,
-    // 整合測試每次都要啟動 PGlite 並套 migration 平行跑時偶爾超過預設的 10 秒
+    // 第一次要建資料庫快照 整合測試也要啟動 PGlite 平行跑時偶爾超過預設的 10 秒
     hookTimeout: 60_000,
+    // threads 啟動比預設的 forks 快 同樣的測試時間少將近一半
+    pool: "threads",
     // 預設依核心數平行跑 機器忙時 PGlite 啟動太慢會逾時 固定 4 個比較穩
     maxWorkers: 4,
   },

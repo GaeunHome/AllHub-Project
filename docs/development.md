@@ -48,7 +48,7 @@
 | 股價 | 證交所 `STOCK_DAY_ALL`、櫃買中心 `tpex_mainboard_quotes` | 收盤價照 2026-10-14 的真實回應（例如 `006208` 258.70、`0050` 113.00、`00679B` 25.05），日期是今天之前最近的平日；`00625K`、`00682U`、`00986B`、`2064` 沒有成交（畫面寫股價暫時讀不到）；另外補了各 120 檔示範股票（上市 `1101`～`1220`、上櫃 `3201`～`3320`），因為網站把不到 100 筆的清單當成讀不到；其他代號是找不到 |
 | 除權息 | 證交所 `TWT48U_ALL`、櫃買中心 `tpex_exright_prepost` | 欄位照 2026-10-29 的真實回應，除息日照今天往後算（落在週末挪到週一）：`006208` 20 天後除息每股 1.72 元、`0056` 6 天後（金額還沒公布）、`00919` 明天（平日看今天就是最後買進日）、`2881` 3 天後除權息、`2882` 10 天後只有除權（現金增資）、`00878` 14 天後；上櫃 `00679B` 8 天後（尚未公告）、`6488` 4 天後除權息、`3105` 10 天後只有除權、`8299` 15 天後；`0050`、`00937B` 是已經過去的。記這幾檔持股就看得到投資頁的除權息卡片；手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/savings:dividends` |
 | YouTube | `@nobody` | 查無頻道；其他 `@帳號` 都會成功，hub 約 0.5 秒後回呼確認訂閱 |
-| 星穹鐵道 | 躍遷紀錄 | 角色池 47 抽（五星在第 12、38 抽）、光錐池 23 抽（第 18 抽）、常駐 8 抽；cookie 沒有 `cookie_token_v2` 時換金鑰回 -100 |
+| 星穹鐵道 | 躍遷紀錄 | 角色活動已墊 23 抽、五星分成兩頁，光錐活動已墊 18 抽，常駐與新手各有紀錄，聯動沒有；cookie 沒有 `cookie_token_v2` 時登入回 -100 |
 | YouTube | 頻道的 RSS feed | 每個頻道都有三支一般影片：3 小時前的 MV（影片 id `newmv` 開頭）、30 小時前與 5 天前各一支，追蹤時會補進影片清單（別人已經追蹤的頻道只補超過 24 小時的）；另有 1 小時前與 2 天前的兩支 Shorts（影片 id `short` 開頭，連結是 `/shorts/`），不會列進清單，`youtube:cleanup` 也是讀這份 RSS 找 Shorts |
 | YouTube | `@noavatar` 開頭（例如 `@noavatar_studio`） | 頻道頁沒有頭像，畫面退回文字頭像 |
 | YouTube | 觀看頁的字幕網址 | 跟真的一樣帶 `exp=xpo…`、下載回空內容，翻譯一律走第二個來源（InnerTube 的 `youtubei/v1/player`） |
@@ -124,14 +124,15 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
 ## 測試
 
 - **寫什麼測試**：只留答案來自程式以外的（需求、手算、發生過的 bug、架構規則、資料庫與安全）；照著程式抄答案的（常數、文案、class、內部函式的呼叫）不寫。規則見 CLAUDE.md〈程式碼慣例〉。
-- **`npm test`**：跑 Vitest 單元與整合測試。`vitest.config.mts` 固定最多 4 個 worker：整合測試每個都會啟動 PGlite，平行太多在機器忙時會逾時。
-  - 整合測試用記憶體裡的 PGlite（`src/dev/test-db.ts`），不需要資料庫。
+- **`npm test`**：跑 Vitest 單元與整合測試。`vitest.config.mts` 用 `threads`（比預設的 `forks` 快將近一半），固定最多 4 個 worker：平行太多在機器忙時會逾時。
+  - 整合測試用記憶體裡的 PGlite（`src/dev/test-db.ts`），不需要資料庫。整輪只建一次快照（`src/dev/test-db-snapshot.ts`，存在 `node_modules/.cache/allhub-test-db/`），同一個檔案共用一個資料庫，每個測試開始前清空資料與序號，約 5 毫秒。
+  - 測試裡不能改表結構，下一個測試會受影響；要改的放到自己的檔案。
   - 測試不會對外部服務發請求：`src/dev/vitest-setup.ts` 把全域 `fetch` 換成只能連 localhost／127.0.0.1 的版本，其他目的地直接丟錯，錯誤訊息會說明怎麼換成替身（`fakeFetch` 傳給 `fetchImpl`、`vi.stubGlobal("fetch", …)`、`vi.mock(path, { spy: true })` 要設定回應）。
   - `docs/secrets.md` 產生亂數密鑰的那行指令，測試會實際執行，並用 `core/env.ts` 檢查每個值；改那行時測試也要通過。
   - 共用的測試輔助都在 `src/dev/`，用法見 CLAUDE.md〈架構規則〉：環境變數（跨模組的測試用 `stubAllEnv()`）、測試帳號（`insertTestUsers()` 建站長 alice 與成員 bob）、登入狀態、`next/navigation` 與 ⋮ 選單的替身、假 fetch 與假 localStorage、算繪成 HTML 與取出看得到的字（`markup()`、`textOf()`）、直接呼叫假外部服務的 `mockRequest()`、`next/cache` 的 spy。模組自己的測試 fixture 放在模組的 `dev/`，只有測試能 import。
   - `vi.stubGlobal` 換掉的全域（`fetch`、`localStorage`、`window`…）每個測試前自動還原（`vitest.config.mts` 的 `unstubGlobals`），測試不用自己還原；環境變數不自動還原。每個測試開始時 `DEV_EXTERNAL_ORIGIN` 是空的，本機 shell 設了假伺服器也不影響測試。
 - **規則檢查**：`src/__tests__/architecture.test.ts` 與 `src/__tests__/cache-rules.test.ts` 檢查架構與快取規則（見 [架構](architecture.md)），包括 `process.env` 只出現在允許的地方、Server Action 先確認登入、模組 id 一致。`src/modules/__tests__/cron.test.ts` 檢查排程跟 `vercel.json` 一一對應，`src/__tests__/account-deletion.integration.test.ts` 從資料庫的外鍵檢查刪除帳號時每張表都刪乾淨。
-- **CI 的順序**：`ci.yml` 的測試跟 lint → build → typecheck 是兩個同時跑的工作，各自最多 30 分鐘（公開 repo 的 Actions 不計分鐘，上限只是避免卡住的工作掛很久）。`typecheck` 要用 build 產生的 `.next/types`，所以本機也要先 build。
+- **CI 的順序**：`ci.yml` 的測試分成三份（`vitest run --shard=1/3` 這樣），跟 lint → build → typecheck 全部同時跑，各自最多 15 分鐘（公開 repo 的 Actions 不計分鐘，上限只是避免卡住的工作掛很久）。`typecheck` 要用 build 產生的 `.next/types`，所以本機也要先 build。
 - **在瀏覽器裡測試**：一律用 `next dev` 加上 `npm run mock:external` 與 `DEV_EXTERNAL_ORIGIN`。
   - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、沒有持股的理財、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像、即時便箋、股價、天氣與警特報，只有還沒追蹤、沒連結帳號、沒有持股、沒選縣市的使用者才不會對外；新增持股、有持股的投資頁（股價與除權息預告）、`starrail:stamina`、`starrail:redeem`、`weather:rain`、`weather:warnings`、`savings:dividends` 也都會對外。
   - 可見的分頁大約每 10 秒向 `/api/notifications` 輪詢一次（背景分頁每 60 秒），模擬開台或新影片後最多等 10 秒，提示卡片就會出現。

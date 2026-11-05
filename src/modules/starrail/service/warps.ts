@@ -1,166 +1,91 @@
 import "server-only";
-import { and, asc, count, desc, eq, max, notInArray } from "drizzle-orm";
-import { takeCooldown } from "@/core/cooldown";
-import { db } from "@/core/db";
 import { reportService } from "@/core/status";
-import { starrailAccounts, starrailWarps, type StarrailAccount } from "../data/schema";
 import { cookieKeys } from "../lib/cookie";
-import { fetchWarpAuthkey, fetchWarpPage } from "../lib/hoyolab";
-import { WARP_BANNERS, WARP_LIMIT, WARP_PAGE_SIZE, summarizeBanner, type BannerSummary, type Warp } from "../lib/warps";
-import { UNDECRYPTABLE, cookieOf, isolate, listAccounts, ownAccount, pageAccount, trackingAccountChanges, type Outcome } from "./accounts";
+import { fetchWarpPage, warpLogin } from "../lib/hoyolab";
+import type { HoyolabResult } from "../lib/responses";
+import { DAILY_LIMIT, DATA_NOT_PUBLIC, GEETEST } from "../lib/retcodes";
+import { NEEDS_COOKIE_TOKEN, WARP_BANNERS, summarizeBanner, type BannerSummary, type WarpBanner, type WarpCursor, type WarpRow } from "../lib/warps";
+import type { StarrailAccount } from "../data/schema";
+import { pageAccount } from "./accounts";
+import type { PageFailure } from "./page-reads";
 
-// 躍遷紀錄 只新增不覆蓋 官方只留最近一段時間 存下來才不會消失
+// 躍遷紀錄打開頁面時才向 HoYoLAB 讀 不存資料庫 cached.ts 包上快取
 
-const PAGE_GAP_MS = 300;
-/** 第一次要抓完整段 回應不對時也不能一直問下去 */
-const MAX_PAGES = 200;
-/** 每個帳號一天一次 兩個帳號一起第一次同步也夠用 超過的明天再做 */
-const SYNC_BUDGET_MS = 120_000;
-/** 按一次要問 HoYoverse 很多次 */
-const MANUAL_COOLDOWN_MS = 60_000;
+/** 一個一個問 不要一次全部送出去 */
+const REQUEST_GAP_MS = 200;
+/** 回應不對時也不能一直問下去 */
+const MAX_PAGES = 30;
+/** 這幾個是那個帳號自己的狀況 HoYoLAB 本身沒事 */
+const ACCOUNT_RETCODES: readonly (number | null)[] = [DATA_NOT_PUBLIC, DAILY_LIMIT, ...GEETEST];
+/** 快取裡的結果不是這次讀到的 超過這個時間就不回報 */
+const FRESH_READ_MS = 30_000;
+const NOT_FINISHED = { ok: false, retcode: null, message: "躍遷紀錄沒有讀完，稍後再試", cookieInvalid: false } as const;
 
-/** 換金鑰一定要這個鍵 其他鍵補得出來 */
-const hasCookieToken = (cookie: string) => cookieKeys(cookie).has("cookie_token_v2");
-const NEEDS_COOKIE_TOKEN = "躍遷紀錄要用 cookie 裡的 cookie_token_v2：請用「新增帳號或更新 cookie」重新貼上完整的 cookie";
+const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-type WarpClock = { now: () => number; sleep: (ms: number) => Promise<void> };
-const realClock: WarpClock = { now: () => Date.now(), sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) };
+/** serviceDown 是 HoYoLAB 那邊出問題 使用者自己的 cookie 或帳號有問題時是 false readAt 是真的向 HoYoLAB 讀的時間 */
+export type WarpsFetch = ({ ok: true; summaries: BannerSummary[] } | (PageFailure & { serviceDown: boolean })) & { readAt: number };
+type WarpsResult = { ok: true; summaries: BannerSummary[] } | (PageFailure & { serviceDown: boolean });
 
-/** 看到存過的就停 整個卡池讀完才回傳 中途失敗時不寫入 不然這段缺口之後補不回來 */
-async function newWarps(accountId: number, bannerType: number, cookie: string, key: string, clock: WarpClock): Promise<Outcome<{ warps: Warp[] }>> {
-  const [{ latest }] = await db()
-    .select({ latest: max(starrailWarps.id) })
-    .from(starrailWarps)
-    .where(and(eq(starrailWarps.accountId, accountId), eq(starrailWarps.bannerType, bannerType)));
-  const warps: Warp[] = [];
-  let endId = "0";
+type Sleep = typeof realSleep;
+type Target = { account: StarrailAccount; cookie: string };
+
+/** 回應原文可能帶有帳號資料 log 只記 retcode 與缺少的欄位名稱 */
+async function bannerRows({ account, cookie }: Target, banner: WarpBanner, sleep: Sleep): Promise<HoyolabResult<WarpRow[]>> {
+  const rows: WarpRow[] = [];
+  let cursor: WarpCursor | null = null;
   for (let page = 0; page < MAX_PAGES; page++) {
-    if (page > 0) await clock.sleep(PAGE_GAP_MS);
-    const result = await fetchWarpPage(cookie, key, bannerType, endId);
+    if (page > 0) await sleep(REQUEST_GAP_MS);
+    const result = await fetchWarpPage(cookie, account.uid, account.region, banner.gachaType, cursor);
     if (!result.ok) {
-      // 金鑰正常約 1024 字 只記長度 看得出是金鑰壞了還是被伺服器拒絕
-      console.error("[starrail] 讀取躍遷紀錄失敗", accountId, bannerType, `retcode ${result.retcode}`, `金鑰長度 ${key.length}`);
-      return { ok: false, error: result.message };
+      console.error("[starrail] 讀取躍遷紀錄失敗", account.id, banner.id, `retcode ${result.retcode}`);
+      return result;
     }
-    if (result.data.missing.length > 0) console.error("[starrail] 躍遷紀錄的格式和預期不同", accountId, `缺少或看不懂：${result.data.missing.join("、")}`);
-    const fresh = result.data.warps.filter((warp) => latest === null || BigInt(warp.id) > BigInt(latest));
-    warps.push(...fresh);
-    const last = result.data.warps.at(-1);
-    if (!last || fresh.length < result.data.warps.length || result.data.warps.length < WARP_PAGE_SIZE) break;
-    endId = last.id;
-  }
-  return { ok: true, warps };
-}
-
-async function saveWarps(accountId: number, warps: Warp[]): Promise<number> {
-  if (warps.length === 0) return 0;
-  const inserted = await db()
-    .insert(starrailWarps)
-    .values(warps.map((warp) => ({ ...warp, accountId })))
-    .onConflictDoNothing()
-    .returning({ id: starrailWarps.id });
-  return inserted.length;
-}
-
-/** 只留最新的 limit 筆 id 是 bigint 用數字比 */
-export async function pruneWarps(accountId: number, limit = WARP_LIMIT): Promise<void> {
-  const keep = db().select({ id: starrailWarps.id }).from(starrailWarps).where(eq(starrailWarps.accountId, accountId)).orderBy(desc(starrailWarps.id)).limit(limit);
-  await db()
-    .delete(starrailWarps)
-    .where(and(eq(starrailWarps.accountId, accountId), notInArray(starrailWarps.id, keep)));
-}
-
-async function syncAccount(account: StarrailAccount, cookie: string, clock: WarpClock): Promise<Outcome<{ added: number }>> {
-  if (!hasCookieToken(cookie)) return { ok: false, error: NEEDS_COOKIE_TOKEN };
-  const key = await fetchWarpAuthkey(cookie, account.uid, account.region);
-  if (!key.ok) {
-    console.error("[starrail] 換不到躍遷紀錄的金鑰", account.id, `retcode ${key.retcode}`);
-    if (!key.cookieInvalid) await reportService("starrail:warps", key.message);
-    return { ok: false, error: key.message };
-  }
-  if (!key.data) {
-    await reportService("starrail:warps", "HoYoverse 沒有回傳金鑰");
-    return { ok: false, error: "HoYoverse 沒有回傳金鑰，稍後再試" };
-  }
-  let added = 0;
-  for (const banner of WARP_BANNERS) {
-    const fresh = await newWarps(account.id, banner.id, cookie, key.data, clock);
-    if (!fresh.ok) {
-      await reportService("starrail:warps", fresh.error);
-      return fresh;
+    if (result.data.missing.length > 0) console.error("[starrail] 躍遷紀錄的格式和預期不同", account.id, `缺少或看不懂：${result.data.missing.join("、")}`);
+    if (result.data.incomplete) {
+      console.error("[starrail] 躍遷紀錄讀不到下一頁", account.id, banner.id);
+      return NOT_FINISHED;
     }
-    added += await saveWarps(account.id, fresh.warps);
+    rows.push(...result.data.rows);
+    if (!result.data.next) return { ok: true, data: rows };
+    cursor = result.data.next;
   }
-  await reportService("starrail:warps", null);
-  if (added > 0) await pruneWarps(account.id);
-  return { ok: true, added };
+  console.error("[starrail] 躍遷紀錄超過頁數上限", account.id, banner.id);
+  return NOT_FINISHED;
 }
 
-export async function syncWarpsFor(userId: string, accountId: number, clock: WarpClock = realClock): Promise<Outcome<{ added: number }>> {
+const failed = ({ retcode, message, cookieInvalid }: { retcode: number | null; message: string; cookieInvalid: boolean }): WarpsResult => ({ ok: false, message, serviceDown: !cookieInvalid && !ACCOUNT_RETCODES.includes(retcode) });
+
+async function readWarps(userId: string, accountId: number, sleep: Sleep): Promise<WarpsResult> {
   const target = await pageAccount(userId, accountId);
-  if (!target.ok) return { ok: false, error: target.message };
-  return syncAccount(target.account, target.cookie, clock);
+  if (!target.ok) return { ok: false, message: target.message, serviceDown: false };
+  if (!cookieKeys(target.cookie).has("cookie_token_v2")) return { ok: false, message: NEEDS_COOKIE_TOKEN, serviceDown: false };
+  const login = await warpLogin(target.cookie, target.account.uid, target.account.region);
+  if (!login.ok) {
+    console.error("[starrail] 登入躍遷紀錄的活動頁失敗", accountId, `retcode ${login.retcode}`);
+    return failed(login);
+  }
+  const summaries: BannerSummary[] = [];
+  for (const banner of WARP_BANNERS) {
+    if (summaries.length > 0) await sleep(REQUEST_GAP_MS);
+    const rows = await bannerRows({ account: target.account, cookie: login.data }, banner, sleep);
+    if (!rows.ok) return failed(rows);
+    summaries.push(summarizeBanner(banner, rows.data));
+  }
+  return { ok: true, summaries };
 }
 
-/** 畫面上的立即更新 每人每分鐘一次 */
-export async function syncWarpsManually(userId: string, accountId: number, now = new Date()): Promise<Outcome<{ added: number }>> {
-  const wait = await takeCooldown("starrail:warps", userId, MANUAL_COOLDOWN_MS, now);
-  if (wait > 0) return { ok: false, error: `剛更新過，${wait} 秒後再試` };
-  return syncWarpsFor(userId, accountId);
+/** 別人的帳號當作不存在 讀不到不動帳號的 cookie 失效標記 同開拓月曆 */
+export async function warpsFor(userId: string, accountId: number, sleep: Sleep = realSleep): Promise<WarpsFetch> {
+  return { ...(await readWarps(userId, accountId, sleep)), readAt: Date.now() };
 }
 
-/** 排程 擁有者停用或 cookie 失效的不處理 一個帳號出錯不影響其他 摘要只有數字 */
-export async function syncAllWarps(clock: WarpClock = realClock): Promise<string> {
-  const accounts = (await listAccounts()).filter((account) => !account.cookieInvalid);
-  const deadline = clock.now() + SYNC_BUDGET_MS;
-  const tally = { synced: 0, added: 0, failed: 0, skipped: 0 };
-  await trackingAccountChanges(async (changes) => {
-    for (const account of accounts) {
-      if (clock.now() >= deadline) {
-        tally.skipped += 1;
-        continue;
-      }
-      const result = await isolate<{ added: number; unsupported: boolean }>(account, async () => {
-        const cookie = await cookieOf(account, changes);
-        if (cookie === null) return { ok: false, error: UNDECRYPTABLE };
-        // 舊的 cookie 沒貼這個鍵 重新貼上前先略過 不算失敗
-        if (!hasCookieToken(cookie)) return { ok: true, added: 0, unsupported: true };
-        return { ...(await syncAccount(account, cookie, clock)), unsupported: false };
-      });
-      if (!result.ok) tally.failed += 1;
-      else if (!result.unsupported) {
-        tally.synced += 1;
-        tally.added += result.added;
-      }
-    }
-  });
-  const parts = [`同步 ${tally.synced} 個帳號，新增 ${tally.added} 抽`];
-  if (tally.failed > 0) parts.push(`${tally.failed} 個失敗`);
-  if (tally.skipped > 0) parts.push(`${tally.skipped} 個超過時間略過`);
-  return parts.join("，");
-}
-
-/** 別人的帳號當作不存在 */
-async function isOwnAccount(userId: string, accountId: number): Promise<boolean> {
-  const rows = await db().select({ id: starrailAccounts.id }).from(starrailAccounts).where(ownAccount(userId, accountId));
-  return rows.length > 0;
-}
-
-export async function warpSummaryFor(userId: string, accountId: number): Promise<BannerSummary[] | null> {
-  if (!(await isOwnAccount(userId, accountId))) return null;
-  const rows = await db().select().from(starrailWarps).where(eq(starrailWarps.accountId, accountId)).orderBy(asc(starrailWarps.id));
-  return WARP_BANNERS.map((banner) => summarizeBanner(banner, rows.filter((row) => row.bannerType === banner.id)));
-}
-
-export type WarpList = { warps: Warp[]; total: number };
-
-/** page 從 1 開始 新的在前 */
-export async function warpListFor(userId: string, accountId: number, bannerType: number, page: number): Promise<WarpList | null> {
-  if (!(await isOwnAccount(userId, accountId))) return null;
-  const inBanner = and(eq(starrailWarps.accountId, accountId), eq(starrailWarps.bannerType, bannerType));
-  const [[{ total }], warps] = await Promise.all([
-    db().select({ total: count() }).from(starrailWarps).where(inBanner),
-    db().select().from(starrailWarps).where(inBanner).orderBy(desc(starrailWarps.id)).limit(WARP_PAGE_SIZE).offset((page - 1) * WARP_PAGE_SIZE),
-  ]);
-  return { warps, total };
+/**
+ * 快取函式裡不能寫資料庫 由頁面在回應送出後回報 使用者自己的問題不算服務有問題
+ * 快取裡的舊結果不算這次讀到的 不然舊的成功會蓋掉別人剛記下的問題
+ */
+export async function reportWarps(read: WarpsFetch, now = Date.now()): Promise<void> {
+  if (now - read.readAt > FRESH_READ_MS) return;
+  if (read.ok) await reportService("starrail:warps", null);
+  else if (read.serviceDown) await reportService("starrail:warps", read.message);
 }
