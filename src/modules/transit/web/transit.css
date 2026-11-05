@@ -10,7 +10,7 @@
   background-image: linear-gradient(120deg, color-mix(in srgb, var(--trn-line) 9%, transparent), transparent 45%);
 }
 .trn-train {
-  @apply flex min-w-0 flex-1 items-center gap-2 font-semibold text-ink-soft;
+  @apply flex min-w-0 flex-1 items-center gap-2 font-semibold text-ink;
 }
 .trn-dot {
   @apply size-2.5 shrink-0 rounded-full;
@@ -24,7 +24,7 @@
   @apply flex flex-wrap items-baseline gap-x-2 text-5xl leading-tight font-extrabold tracking-tight text-ink tabular-nums sm:text-6xl;
 }
 .trn-count small {
-  @apply ml-1 text-2xl font-bold text-ink-soft;
+  @apply ml-1 text-2xl font-bold text-ink;
 }
 .trn-line {
   @apply relative mx-2 mt-3 mb-9 h-1.5 rounded-full;
@@ -69,13 +69,13 @@
   @apply text-lg font-bold;
 }
 .trn-note {
-  @apply text-sm text-ink-soft;
+  @apply text-sm text-ink;
 }
 .trn-pill {
   @apply rounded-full bg-[var(--line)] px-2.5 py-0.5 text-sm font-semibold text-ink;
 }
 .trn-mini {
-  @apply flex flex-col gap-2;
+  @apply flex flex-col gap-3;
 }
 .trn-mini-line {
   @apply relative mx-1 block h-1 rounded-full;
@@ -100,10 +100,10 @@
   right: -0.25rem;
 }
 .trn-mini-count {
-  @apply text-xl font-extrabold text-ink;
+  @apply text-3xl leading-tight font-extrabold tracking-tight text-ink;
 }
 .trn-add {
-  @apply flex min-h-32 items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-line font-semibold text-ink-soft;
+  @apply flex min-h-32 items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-line font-semibold text-ink;
 }
 
 /* 查詢卡最上面的分頁 選中的圖示與底線用路線圖的顏色 字維持深色才讀得清楚 */
@@ -131,13 +131,27 @@
   @apply flex flex-col gap-3 p-5 sm:flex-row sm:flex-wrap sm:items-end sm:p-6 xl:flex-nowrap;
 }
 
-/* 查詢結果 一班一列 出發與抵達最大 中間是一小段路線圖 手機上車次換到下一行 */
-.trn-result-list {
-  @apply divide-y divide-line border-t border-line;
+/* 查詢結果 照出發時段分組 標題右邊一條路線色的線 */
+.trn-parts {
+  @apply flex flex-col gap-1 border-t border-line pb-2;
 }
 /* 收起來的班次外層已經有列的內距 抵銷掉才跟上面的列對齊 */
-details .trn-result-list {
+details .trn-parts {
   @apply -mx-5 mt-3 -mb-3 sm:-mx-6;
+}
+.trn-part-title {
+  @apply flex items-center gap-3 px-5 pt-3 pb-1 font-bold text-ink sm:px-6;
+}
+.trn-part-title::after {
+  content: "";
+  height: 0.125rem;
+  flex: 1;
+  border-radius: 9999px;
+  background-color: var(--trn-line);
+}
+/* 台鐵 一班一列 出發與抵達最大 中間是一小段路線圖 手機上車次換到下一行 */
+.trn-result-list {
+  @apply divide-y divide-line;
 }
 .trn-result {
   @apply flex flex-col gap-2 px-5 py-3.5 sm:px-6 lg:flex-row lg:items-center lg:gap-8;
@@ -169,10 +183,174 @@ details .trn-result-list {
   margin-inline-end: 0.25rem;
 }
 .trn-ride-text {
-  @apply shrink-0 text-sm font-semibold text-ink-soft tabular-nums;
+  @apply shrink-0 text-sm font-semibold text-ink tabular-nums;
 }
 .trn-result-info {
-  @apply flex min-h-9 min-w-0 flex-1 items-center gap-2;
+  @apply flex min-h-9 min-w-0 flex-1 flex-wrap items-center gap-2;
+}
+/* 高鐵 一班一張車票 左邊一條路線色 同一列的車票一樣高 動作固定在最下面 */
+.trn-tickets {
+  @apply grid gap-3 px-5 py-2 sm:px-6 lg:grid-cols-2 2xl:grid-cols-3;
+}
+.trn-ticket {
+  @apply flex flex-col gap-3 rounded-xl py-3.5 pr-4 pl-4;
+  border: 1px solid var(--line);
+  border-left: 0.375rem solid var(--trn-line);
+  background-color: var(--surface);
+}
+.trn-ticket .trn-clock {
+  @apply text-3xl;
+}
+.trn-ticket-head {
+  @apply flex flex-wrap items-center gap-2;
+}
+.trn-ticket-route {
+  @apply flex items-stretch gap-3;
+}
+.trn-ticket-stop {
+  @apply flex shrink-0 flex-col gap-1.5;
+}
+.trn-ticket-ride {
+  @apply flex min-w-0 flex-1 flex-col items-center justify-between gap-1 pt-3.5;
+}
+.trn-ticket-ride + .trn-ticket-stop {
+  @apply text-right;
+}
+/* 箭頭只用 CSS 畫 線的右端接一個三角形 */
+.trn-ticket-arrow {
+  @apply relative block h-0.5 w-full;
+  background-color: var(--trn-line);
+}
+.trn-ticket-arrow::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  border-block: 0.3125rem solid transparent;
+  border-left: 0.5rem solid var(--trn-line);
+  transform: translateY(-50%);
+}
+/* 虛線像車票的撕線 隔開資訊與動作 */
+.trn-ticket-action {
+  @apply mt-auto flex min-h-9 items-center justify-end border-t border-dashed border-line pt-3;
+}
+/* 捷運 一段一列 每段用自己路線的顏色 */
+.trn-legs {
+  @apply flex flex-col divide-y divide-line border-y border-line;
+}
+.trn-leg {
+  @apply flex flex-col gap-2 px-5 py-3 sm:px-6;
+}
+.trn-leg-path {
+  @apply flex flex-wrap items-center gap-x-2 gap-y-1;
+}
+.trn-leg-stop {
+  @apply flex items-center gap-2 font-bold text-ink;
+}
+.trn-leg-stop::before {
+  content: "";
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background-color: var(--trn-line);
+}
+.trn-leg-rail {
+  @apply h-1 w-12 rounded-full sm:w-20;
+  background-color: var(--trn-line);
+}
+.trn-leg-next {
+  @apply flex flex-wrap items-baseline gap-x-3 gap-y-1 text-ink tabular-nums;
+}
+/* 公車 原創的儲值卡樣子 不用任何真實卡片的標誌 路線色加黑才夠深 白字要 4.5:1 手機撐滿 寬螢幕照卡片比例 */
+.trn-bus {
+  @apply grid gap-4 xl:grid-cols-[26rem_minmax(0,1fr)] xl:items-start;
+}
+.trn-bus-card {
+  @apply relative isolate flex w-full flex-col justify-between gap-2 overflow-hidden rounded-2xl p-5 text-white;
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--trn-line) 45%, black), color-mix(in srgb, var(--trn-line) 70%, black));
+}
+@media (min-width: 40rem) {
+  .trn-bus-card {
+    max-width: 26rem;
+    aspect-ratio: 1.6;
+  }
+}
+/* 卡片右下角一個淡淡的圓 只是裝飾 */
+.trn-bus-card::after {
+  content: "";
+  position: absolute;
+  right: -3rem;
+  bottom: -5rem;
+  z-index: -1;
+  width: 14rem;
+  height: 14rem;
+  border-radius: 9999px;
+  background-color: rgb(255 255 255 / 0.08);
+}
+.trn-bus-line {
+  @apply text-5xl leading-tight font-extrabold tracking-tight break-words;
+}
+/* 全站的關閉鈕是深色字 放在卡片上要換成白的 */
+.trn-bus-card .trn-bus-close {
+  color: white;
+}
+.trn-bus-card .trn-bus-close:hover {
+  background-color: rgb(255 255 255 / 0.18);
+}
+.trn-bus-direction {
+  @apply inline-flex min-h-9 items-center rounded-full px-3 text-sm font-semibold text-white;
+  border: 1px solid rgb(255 255 255 / 0.5);
+}
+.trn-bus-direction:hover {
+  border-color: white;
+}
+/* 選到的方向底色加深 不用白底 卡片上的字都是白的 */
+.trn-bus-direction[aria-current] {
+  @apply font-bold;
+  border-color: white;
+  background-color: rgb(0 0 0 / 0.3);
+}
+.trn-bus-direction:focus-visible,
+.trn-bus-card .trn-bus-close:focus-visible {
+  outline-color: white;
+}
+@media (pointer: coarse) {
+  .trn-bus-direction {
+    min-height: 2.75rem;
+  }
+}
+/* 站牌是一條直的時間軸 線畫滿每一列 第一站與最後一站只畫到圓點 手機換行時列高不同也接得起來 */
+.trn-bus-stop {
+  @apply relative flex min-h-13 flex-wrap items-center gap-x-3 gap-y-1 py-2 pr-5 pl-11 sm:pr-6;
+}
+.trn-bus-stop::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 1.5rem;
+  z-index: 1;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  background-color: var(--trn-line);
+  transform: translate(-50%, -50%);
+}
+.trn-bus-stop::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1.5rem;
+  width: 0.1875rem;
+  background-color: var(--trn-line);
+  transform: translateX(-50%);
+}
+.trn-bus-stop:first-child::after {
+  top: 50%;
+}
+.trn-bus-stop:last-child::after {
+  bottom: 50%;
 }
 /* 交換鈕 手機上起訖站是上下排 箭頭跟著轉 */
 .trn-swap {

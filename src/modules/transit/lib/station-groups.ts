@@ -1,6 +1,7 @@
-import { metroLine } from "./lines";
+import { metroLine, metroLineName } from "./lines";
+import type { MetroNetwork } from "./metro-route";
 import { plainName } from "./station-search";
-import type { MetroLine, Station } from "./timetable";
+import type { Station } from "./timetable";
 
 // 選車站的面板怎麼分組 沒有一站分得進去時回空的 面板改列完整清單
 
@@ -30,13 +31,18 @@ export function cityGroups(stations: Station[]): StationGroup[] {
   return withOthers(groups, stations);
 }
 
-/** 名稱用車站清單的 清單沒有的站查不到時刻表 也存不成常用路線 */
-export function lineGroups(system: string, stations: Station[], lines: MetroLine[]): StationGroup[] {
+/** 支線併進主線那一組 名稱用車站清單的 清單沒有的站查不到時刻表 也存不成常用路線 */
+export function lineGroups({ stations, lines }: MetroNetwork): StationGroup[] {
   const byId = new Map(stations.map((station) => [station.id, station]));
-  const groups = lines.flatMap((line) => {
-    const onLine = line.stationIds.flatMap((id) => byId.get(id) ?? []);
-    const { name, color } = metroLine(system, line.id);
-    return onLine.length > 0 ? [{ id: line.id, name: name ?? `${line.id} 線`, color, stations: onLine }] : [];
+  const merged = new Map<string, { system: string; stationIds: Set<string> }>();
+  for (const { id, system, stationIds } of lines) {
+    const line = merged.get(id) ?? { system, stationIds: new Set<string>() };
+    for (const stationId of stationIds) line.stationIds.add(stationId);
+    merged.set(id, line);
+  }
+  const groups = [...merged].flatMap(([id, { system, stationIds }]) => {
+    const onLine = [...stationIds].flatMap((stationId) => byId.get(stationId) ?? []);
+    return onLine.length > 0 ? [{ id, name: metroLineName(system, id), color: metroLine(system, id).color, stations: onLine }] : [];
   });
   return withOthers(groups, stations);
 }

@@ -17,7 +17,7 @@ export const WARP_BANNERS = [
 export type WarpBanner = (typeof WARP_BANNERS)[number];
 
 /** star 是 null 的那一列是目前已墊幾抽 其他是五星與它花了幾抽 */
-export type WarpRow = { pulls: number; star: { name: string; isUp: boolean | null } | null };
+export type WarpRow = { pulls: number; star: { name: string; isUp: boolean | null; icon: string | null } | null };
 
 export type WarpCursor = { versionId: string; maxId: string };
 
@@ -59,9 +59,10 @@ function parseWarpPage(data: unknown): WarpPage {
     const pulls = missing.need(numberOf(row?.gacha_count), "list[].gacha_count");
     if (gotItem === null || pulls === null) return [];
     if (!gotItem) return [{ pulls, star: null }];
-    const name = missing.need(text(asRecord(row?.item)?.name), "list[].item.name");
+    const item = asRecord(row?.item);
+    const name = missing.need(text(item?.name), "list[].item.name");
     if (name === null) return [];
-    return [{ pulls, star: { name, isUp: missing.need(boolOf(row?.is_up), "list[].is_up") } }];
+    return [{ pulls, star: { name, isUp: missing.need(boolOf(row?.is_up), "list[].is_up"), icon: text(item?.icon) ?? text(item?.big_icon) } }];
   });
   const hasMore = missing.need(boolOf(root?.has_more), "has_more");
   if (hasMore === false) return { rows, next: null, incomplete: false, missing: missing.sorted() };
@@ -77,6 +78,8 @@ export function interpretWarpPage(json: unknown): HoyolabResult<WarpPage> {
 
 export type FiveStar = {
   name: string;
+  /** 官方的圖片網址 畫面用之前要經 externalAssetUrl */
+  icon: string | null;
   pulls: number;
   /** 限定卡池抽到不是 UP 的 */
   lost: boolean;
@@ -95,7 +98,7 @@ export type BannerSummary = {
 
 /** rows 照官方的順序 新的在前 */
 export function summarizeBanner(banner: WarpBanner, rows: readonly WarpRow[]): BannerSummary {
-  const fiveStars = rows.flatMap(({ pulls, star }): FiveStar[] => (star ? [{ name: star.name, pulls, lost: banner.limited && star.isUp === false }] : []));
+  const fiveStars = rows.flatMap(({ pulls, star }): FiveStar[] => (star ? [{ name: star.name, icon: star.icon, pulls, lost: banner.limited && star.isUp === false }] : []));
   const pity = rows.find((row) => row.star === null)?.pulls ?? 0;
   return {
     banner,

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -47,6 +47,8 @@ export default async function setup({ provide }: TestProject) {
   const key = snapshotKey();
   const migrated = path.resolve(CACHE_DIR, `${key}-migrated.tar`);
   const empty = path.resolve(CACHE_DIR, `${key}-empty.tar`);
+  // 舊版本的快照用不到了 一份 40MB 不留著
+  for (const file of existsSync(CACHE_DIR) ? readdirSync(CACHE_DIR) : []) if (!file.startsWith(key)) rmSync(path.join(CACHE_DIR, file), { force: true });
   if (!existsSync(migrated)) await buildSnapshot(migrated, true);
   if (!existsSync(empty)) await buildSnapshot(empty, false);
   provide("testDbSnapshot", migrated);

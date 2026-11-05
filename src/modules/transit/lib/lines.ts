@@ -19,6 +19,9 @@ export function metroLine(system: string, code: string): { name: string | null; 
   return { name: line?.[2] ?? null, color: line?.[1] ?? METRO };
 }
 
+/** 畫面上一定要有名稱 認不得的路線寫代碼 */
+export const metroLineName = (system: string, code: string) => metroLine(system, code).name ?? `${code} 線`;
+
 /** 分頁的顏色 捷運不分路線 */
 export const MODE_COLORS: Record<Mode, string> = { thsr: THSR, tra: TRA, metro: METRO, bus: BUS };
 

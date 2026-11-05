@@ -1,6 +1,6 @@
 import { DAY_MS, isRealDateKey } from "@/core/time";
 import { isBusCity, isBusLine } from "../lib/bus";
-import { isMetroSystem, isMode, type Mode } from "../lib/modes";
+import { isMode, type Mode } from "../lib/modes";
 import { isStationId } from "../lib/rules";
 import type { Departure } from "../lib/timetable";
 
@@ -9,7 +9,7 @@ import type { Departure } from "../lib/timetable";
 /** 台鐵的每日時刻表只有近 60 天 高鐵更短 */
 export const MAX_DAYS_AHEAD = 60;
 
-/** system 是捷運系統或公車的縣市 line 與 direction 只有公車用 time 是出發時間 空的代表不篩選 */
+/** system line direction 只有公車用 system 是縣市 time 是出發時間 空的代表不篩選 */
 export type SearchQuery = { mode: Mode; system: string; line: string; direction: number; from: string; to: string; date: string; time: string };
 
 const one = (value: string | string[] | undefined) => (typeof value === "string" ? value : "");
@@ -29,7 +29,7 @@ export function parseSearch(params: Record<string, string | string[] | undefined
   const shown = isMode(mode) ? mode : "thsr";
   return {
     mode: shown,
-    system: shown === "bus" ? (isBusCity(system) ? system : "Taipei") : isMetroSystem(system) ? system : "TRTC",
+    system: shown === "bus" ? (isBusCity(system) ? system : "Taipei") : "",
     line: isBusLine(line) ? line : "",
     direction: one(params.dir) === "1" ? 1 : 0,
     from: station(params.from),
@@ -41,11 +41,11 @@ export function parseSearch(params: Record<string, string | string[] | undefined
 
 export function searchHref({ mode, system, line, direction, from, to, date, time }: SearchQuery): string {
   if (mode === "bus") return `/transit?${new URLSearchParams({ mode, system, ...(line ? { line } : {}), ...(direction ? { dir: String(direction) } : {}) })}`;
-  const query = new URLSearchParams({ mode, ...(mode === "metro" ? { system } : {}), ...(from ? { from } : {}), ...(to ? { to } : {}), ...(mode === "metro" ? {} : { date, ...(time ? { time } : {}) }) });
+  const query = new URLSearchParams({ mode, ...(from ? { from } : {}), ...(to ? { to } : {}), ...(mode === "metro" ? {} : { date, ...(time ? { time } : {}) }) });
   return `/transit?${query}`;
 }
 
-/** 關閉查詢結果 只拿掉讓它查詢的欄位 表單上選好的留著 捷運的方向要靠起站才讀得到 */
+/** 關閉查詢結果 只拿掉讓它查詢的欄位 表單上選好的留著 */
 export const closedHref = (query: SearchQuery) => searchHref({ ...query, to: "", line: "" });
 
 /** 開走的不列 整天的時刻表已經讀好 時間只是篩選 不用再問 TDX */

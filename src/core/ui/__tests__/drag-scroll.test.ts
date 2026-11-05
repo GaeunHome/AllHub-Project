@@ -4,9 +4,9 @@ import { attachDragScroll } from "../drag-scroll";
 type Init = { pointerId?: number; pointerType?: string; button?: number; clientX?: number };
 
 /** 只放這個功能會碰到的欄位 clientWidth 300 scrollWidth 500 最多捲 200 */
-function setup({ scrollWidth = 500, clientWidth = 300, scrollLeft = 100, inRow = true } = {}) {
+function setup({ scrollWidth = 500, clientWidth = 300, scrollLeft = 100, inRow = true, onHandle = false } = {}) {
   const row = { scrollLeft, scrollWidth, clientWidth, dataset: {} as DOMStringMap, setPointerCapture: vi.fn() };
-  const child = { closest: () => (inRow ? row : null) };
+  const child = { closest: (selector: string) => (selector === "[data-no-drag-scroll]" ? (onHandle ? child : null) : inRow ? row : null) };
   const root = new EventTarget();
   const fire = (type: string, init: Init = {}) => {
     const event = new Event(type, { cancelable: true });
@@ -27,6 +27,13 @@ describe("滑鼠拖曳橫捲", () => {
     expect(row.scrollLeft).toBe(180);
     fire("pointermove", { clientX: 240 });
     expect(row.scrollLeft).toBe(60);
+  });
+
+  it("按在拖曳把手上_是拖那一項，整列不跟著捲", () => {
+    const { row, fire } = setup({ onHandle: true });
+    fire("pointerdown", { clientX: 200 });
+    fire("pointermove", { clientX: 120 });
+    expect(row.scrollLeft).toBe(100);
   });
 
   it("捲動量夾在可以捲的範圍裡", () => {

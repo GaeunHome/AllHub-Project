@@ -123,10 +123,10 @@ describe("parseMetroLines：每條線上的車站", () => {
     expect(parseMetroLines([{ LineNo: "R", LineID: "R", Stations: [stop(3, "R10"), stop(1, "R02"), stop(2, "R07")] }])).toEqual([{ id: "R", stationIds: ["R02", "R07", "R10"] }]);
   });
 
-  it("支線跟主線同一個 LineNo 併成一條 重複的站只留一次", () => {
+  it("支線跟主線同一個 LineNo 各自一條 規劃路線要知道支線要轉乘", () => {
     const rows = [{ LineNo: "R", LineID: "R", Stations: [stop(1, "R22"), stop(2, "R23")] }, { LineNo: "R", LineID: "R-1", Stations: [stop(1, "R22"), stop(2, "R22A")] }];
 
-    expect(parseMetroLines(rows)).toEqual([{ id: "R", stationIds: ["R22", "R23", "R22A"] }]);
+    expect(parseMetroLines(rows)).toEqual([{ id: "R", stationIds: ["R22", "R23"] }, { id: "R", stationIds: ["R22", "R22A"] }]);
   });
 
   it("同一站在兩條線 兩條都留著", () => {

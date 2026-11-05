@@ -24,7 +24,7 @@ const summaries = (rows: Partial<Record<number, WarpRow[]>>): BannerSummary[] =>
 const READ = {
   ok: true as const,
   summaries: summaries({
-    11: [{ pulls: 23, star: null }, { pulls: 77, star: { name: "真珠", isUp: true } }, { pulls: 76, star: { name: "瓦爾特", isUp: false } }],
+    11: [{ pulls: 23, star: null }, { pulls: 77, star: { name: "真珠", isUp: true, icon: null } }, { pulls: 76, star: { name: "瓦爾特", isUp: false, icon: null } }],
     12: [{ pulls: 10, star: null }],
   }),
 };

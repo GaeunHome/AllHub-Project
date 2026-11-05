@@ -37,7 +37,8 @@
 | HoYoLAB | 社群的兌換碼清單（hoyo-codes 的 `/codes?game=hkrpg`） | 自動兌換讀這份：`GIFTAUTO2026`、`GIFTLIVESTREAM`、`STARRAILGIFT` 第一次會成功（同一個 UID 第二次是已兌換），`OMEGA` 在假伺服器是無效，`EXPIREDCODE1` 過期。手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/starrail:redeem`，帳號要先在「帳號設定」打開自動兌換 |
 | 天氣 | 氣象署 F-C0032-001 | 時段照現在的台北時間算（從最近的 6 點或 18 點起三段）；帶 `locationName` 只回那個縣市，沒帶（早上的 `weather:rain`）回全部 22 個縣市。每個縣市照名稱固定一種天氣，現在與下一段的降雨機率決定卡片的提醒，見下表 |
 | 交通 | 高鐵、台鐵、捷運 | 假 TDX 的時刻表每天 6 點到 23 點多：高鐵每 15 分鐘、台鐵每 20 分鐘、捷運每 6 分鐘一班，明天的日期也有車；金鑰填什麼都可以 |
-| 交通 | 選站 | 假台鐵有全部縣市的車站（竹北與新竹、民雄與嘉義分開寫，看得到併組）；假捷運的路線各系統共用同一份臺北捷運的資料，`板橋` 用同一個代碼放在兩條線，`七張`、`小碧潭` 是同一個 LineNo 的支線；捷運系統選「淡海輕軌」時 `StationOfLine` 回 404，看得到退回完整清單 |
+| 交通 | 選站 | 假台鐵有全部縣市的車站（竹北與新竹、民雄與嘉義分開寫，看得到併組）；假捷運的三個系統分開：`TRTC` 是真實的五條線，`NTMC` 只有環狀線 `Y`，`TYMC` 只有機場線 `A`（`A1` 故意寫臺北車站，看得到台與臺算同一站）。小碧潭、新北投、蘆洲是同一個 LineNo 的支線；其他系統的 `StationOfLine` 回 404 |
+| 交通 | 捷運路線 | `/transit?mode=metro&from=BL06&to=R28` 是府中到淡水（轉一次），`from=A12&to=R28` 是跨系統的機場到淡水，`from=BL12&to=R10` 是同一站；文湖線沒有站別時刻表，`from=BR01&to=BR24` 看得到「到站看看板」 |
 | 交通 | 公車 | 只有路線 307（`/transit?mode=bus&system=Taipei&line=307`），有每站的到站秒數、末班車已過的站與班距 |
 | 天氣 | 氣象署 F-D0047-091、Open-Meteo | 一週預報照今天的日期產生 |
 | 旅遊 | Google Maps 短網址 `https://maps.app.goo.gl/mapshortabc` | 假伺服器轉到清水寺的完整網址，名稱與座標自動帶入；`mapshortbroken` 回 500，要手動填名稱 |

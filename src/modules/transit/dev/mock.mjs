@@ -14,19 +14,27 @@ function range(from, to, step) {
 const THSR = ["1000:台北", "1010:板橋", "1020:桃園", "1030:新竹", "1040:台中", "1050:嘉義", "1060:台南", "1070:左營"];
 // 新竹與嘉義的縣市分開寫 看得到併成一組
 const TRA = ["0900:基隆:基隆市", "1000:臺北:臺北市", "1020:板橋:新北市", "1080:桃園:桃園市", "1180:竹北:新竹縣", "1210:新竹:新竹市", "3160:苗栗:苗栗縣", "3300:臺中:臺中市", "3360:彰化:彰化縣", "3430:集集:南投縣", "3470:斗六:雲林縣", "4060:民雄:嘉義縣", "4080:嘉義:嘉義市", "4220:臺南:臺南市", "4400:高雄:高雄市", "5000:屏東:屏東縣", "6000:臺東:臺東縣", "7000:花蓮:花蓮縣", "7190:宜蘭:宜蘭縣"];
-// 跟真的一樣 轉乘站多半在兩條線各有代碼而且同名 板橋故意同一個代碼放在兩條線 七張 小碧潭是同一個 LineNo 的支線
-const TRTC_LINES = [
-  ["BL", "BL", ["BL01:頂埔", "BL07:板橋", "BL12:台北車站", "BL15:忠孝復興", "BL18:市政府", "BL23:南港展覽館"]],
-  ["BR", "BR", ["BR01:動物園", "BR10:忠孝復興", "BR24:南港展覽館"]],
-  ["G", "G", ["G01:新店", "G03:七張", "G09:古亭", "G19:松山"]],
-  ["G", "G-1", ["G03:七張", "G03A:小碧潭"]],
-  ["O", "O", ["O01:南勢角", "O07:古亭", "O21:迴龍"]],
-  ["R", "R", ["R02:象山", "R07:東門", "R10:台北車站", "R28:淡水"]],
-  ["Y", "Y", ["Y07:大坪林", "BL07:板橋", "Y20:新北產業園區"]],
-];
-const TRTC = [...new Set(TRTC_LINES.flatMap(([, , list]) => list))];
-const stations = (list) => list.map((row) => ({ StationID: row.split(":")[0], StationName: { Zh_tw: row.split(":")[1], En: "Station" }, ...(row.split(":")[2] ? { LocationCity: row.split(":")[2] } : {}) }));
-const stationsOfLine = () => TRTC_LINES.map(([LineNo, LineID, list]) => ({ LineNo, LineID, Stations: list.map((row, index) => ({ Sequence: index + 1, StationID: row.split(":")[0], StationName: { Zh_tw: row.split(":")[1], En: "Station" } })) }));
+// 跟真的一樣 轉乘站在每條線各有代碼而且同名 機場線的 A1 故意寫臺 看得到台與臺算同一站 小碧潭 新北投 蘆洲是同一個 LineNo 的支線
+const named = (prefix, start, names) => names.map((name, index) => `${prefix}${String(start + index).padStart(2, "0")}:${name}`);
+const METRO = {
+  TRTC: [
+    ["BL", "BL", named("BL", 1, ["頂埔", "永寧", "土城", "海山", "亞東醫院", "府中", "板橋", "新埔", "江子翠", "龍山寺", "西門", "台北車站", "善導寺", "忠孝新生", "忠孝復興", "忠孝敦化", "國父紀念館", "市政府", "永春", "後山埤", "昆陽", "南港", "南港展覽館"])],
+    ["BR", "BR", named("BR", 1, ["動物園", "木柵", "萬芳社區", "萬芳醫院", "辛亥", "麟光", "六張犁", "科技大樓", "大安", "忠孝復興", "南京復興", "中山國中", "松山機場", "大直", "劍南路", "西湖", "港墘", "文德", "內湖", "大湖公園", "葫洲", "東湖", "南港軟體園區", "南港展覽館"])],
+    ["G", "G", named("G", 1, ["新店", "新店區公所", "七張", "大坪林", "景美", "萬隆", "公館", "台電大樓", "古亭", "中正紀念堂", "小南門", "西門", "北門", "中山", "松江南京", "南京復興", "台北小巨蛋", "南京三民", "松山"])],
+    ["G", "G-1", ["G03:七張", "G03A:小碧潭"]],
+    ["O", "O", named("O", 1, ["南勢角", "景安", "永安市場", "頂溪", "古亭", "東門", "忠孝新生", "松江南京", "行天宮", "中山國小", "民權西路", "大橋頭", "台北橋", "菜寮", "三重", "先嗇宮", "頭前庄", "新莊", "輔大", "丹鳳", "迴龍"])],
+    ["O", "O-1", ["O12:大橋頭", ...named("O", 50, ["三重國小", "三和國中", "徐匯中學", "三民高中", "蘆洲"])]],
+    ["R", "R", named("R", 2, ["象山", "台北101/世貿", "信義安和", "大安", "大安森林公園", "東門", "中正紀念堂", "台大醫院", "台北車站", "中山", "雙連", "民權西路", "圓山", "劍潭", "士林", "芝山", "明德", "石牌", "唭哩岸", "奇岩", "北投", "復興崗", "忠義", "關渡", "竹圍", "紅樹林", "淡水"])],
+    ["R", "R-1", ["R22:北投", "R22A:新北投"]],
+  ],
+  NTMC: [["Y", "Y", named("Y", 7, ["大坪林", "十四張", "秀朗橋", "景平", "景安", "中和", "橋和", "中原", "板新", "板橋", "新埔民生", "頭前庄", "幸福", "新北產業園區"])]],
+  TYMC: [["A", "A", ["臺北車站", "三重", "新北產業園區", "新莊副都心", "泰山", "泰山貴和", "體育大學", "長庚醫院", "林口", "山鼻", "坑口", "機場第一航廈", "機場第二航廈"].map((name, index) => `A${index + 1}:${name}`)]],
+};
+const idOf = (row) => row.split(":")[0];
+const nameOf = (row) => row.split(":")[1];
+const stations = (list) => list.map((row) => ({ StationID: idOf(row), StationName: { Zh_tw: nameOf(row), En: "Station" }, ...(row.split(":")[2] ? { LocationCity: row.split(":")[2] } : {}) }));
+const metroStations = (system) => [...new Set((METRO[system] ?? []).flatMap(([, , list]) => list))];
+const stationsOfLine = (system) => METRO[system].map(([LineNo, LineID, list]) => ({ LineNo, LineID, Stations: list.map((row, index) => ({ Sequence: index + 1, StationID: idOf(row), StationName: { Zh_tw: nameOf(row), En: "Station" } })) }));
 
 function dailyRows(url, ending, kinds, trainBase, step, ride) {
   const date = url.pathname.split("/").at(-1);
@@ -40,9 +48,16 @@ function dailyRows(url, ending, kinds, trainBase, step, ride) {
 
 const ALL_WEEK = { Monday: true, Tuesday: true, Wednesday: true, Thursday: true, Friday: true, Saturday: true, Sunday: true };
 
-function metroTimetable(stationId) {
-  const directions = stationId.startsWith("R") ? [["R28", "淡水"], ["R02", "象山"]] : stationId.startsWith("BL") ? [["BL01", "頂埔"], ["BL23", "南港展覽館"]] : stationId.startsWith("BR") ? [] : [["G19", "松山"], ["G01", "新店"]];
-  return directions.map(([id, name]) => ({
+/** 這一站開往每條線兩端的終點 文湖線跟真的一樣沒有站別時刻表 別的系統查不到這一站 */
+function metroTimetable(system, stationId) {
+  const directions = new Map();
+  for (const [LineNo, LineID, list] of METRO[system] ?? []) {
+    if (LineNo === "BR" || !list.some((row) => idOf(row) === stationId)) continue;
+    // 蘆洲支線的車直通南勢角 跟真的一樣 終點不是支線的第一站
+    const first = LineID === "O-1" ? METRO[system].find(([, id]) => id === "O")[2][0] : list[0];
+    for (const end of [first, list.at(-1)]) if (idOf(end) !== stationId) directions.set(idOf(end), nameOf(end));
+  }
+  return [...directions].map(([id, name]) => ({
     StationID: stationId,
     Direction: 0,
     DestinationStaionID: id,
@@ -84,15 +99,16 @@ export async function handle({ url, req, json }) {
   if (!url.pathname.startsWith("/api/basic/v2/Rail/")) return false;
   const path = url.pathname.slice("/api/basic/v2/Rail/".length);
   const filter = /StationID eq '([^']+)'/.exec(url.searchParams.get("$filter") ?? "")?.[1] ?? "";
+  const system = path.split("/")[2];
   if (path === "THSR/Station") json(200, stations(THSR));
   else if (path === "TRA/Station") json(200, stations(TRA));
-  else if (path.startsWith("Metro/Station/")) json(200, stations(TRTC));
-  else if (path.startsWith("Metro/StationOfLine/")) json(200, stationsOfLine());
+  else if (path.startsWith("Metro/Station/")) json(200, stations(metroStations(system)));
+  else if (path.startsWith("Metro/StationOfLine/")) json(METRO[system] ? 200 : 404, METRO[system] ? stationsOfLine(system) : []);
   else if (path.startsWith("THSR/DailyTimetable/OD/")) json(200, dailyRows(url, "左營", null, 600, 15, 94));
   else if (path.startsWith("TRA/DailyTimetable/OD/")) json(200, dailyRows(url, "高雄", ["自強(3000)", "區間", "莒光"], 100, 20, 55));
   else if (path.startsWith("TRA/LiveBoard/Station/")) json(200, [{ TrainNo: "103", DelayTime: 3 }]);
-  else if (path.startsWith("Metro/StationTimeTable/")) json(200, metroTimetable(filter));
-  else if (path.startsWith("Metro/LiveBoard/")) json(200, metroTimetable(filter).map((row) => ({ StationID: filter, DestinationStationID: row.DestinationStaionID, DestinationStationName: row.DestinationStationName, EstimateTime: 3, ServiceStatus: 0 })));
+  else if (path.startsWith("Metro/StationTimeTable/")) json(200, metroTimetable(system, filter));
+  else if (path.startsWith("Metro/LiveBoard/")) json(200, metroTimetable(system, filter).map((row) => ({ StationID: filter, DestinationStationID: row.DestinationStaionID, DestinationStationName: row.DestinationStationName, EstimateTime: 3, ServiceStatus: 0 })));
   else return false;
   return true;
 }

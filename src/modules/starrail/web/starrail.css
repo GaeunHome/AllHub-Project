@@ -150,3 +150,41 @@
   color: var(--ink);
   background-color: var(--sr-gold-soft);
 }
+
+/* 躍遷紀錄 頭像 名稱 抽數條 抽數 手機上抽數條換到第二行 */
+.sr-warp-track {
+  @apply block h-2 overflow-hidden rounded-full;
+  background-color: rgb(255 255 255 / 0.1);
+}
+.sr-warp-fill {
+  @apply block h-full rounded-full bg-sr-gold;
+}
+.sr-warp-row {
+  @apply grid items-center gap-x-3 gap-y-1.5 py-2.5;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "avatar name pulls" "avatar bar bar";
+}
+.sr-warp-avatar {
+  grid-area: avatar;
+}
+.sr-warp-name {
+  @apply flex min-w-0 items-center gap-2;
+  grid-area: name;
+}
+.sr-warp-bar {
+  grid-area: bar;
+}
+.sr-warp-pulls {
+  grid-area: pulls;
+}
+@media (min-width: 40rem) {
+  .sr-warp-row {
+    grid-template-columns: auto minmax(0, 13rem) minmax(0, 1fr) 4.5rem;
+    grid-template-areas: "avatar name bar pulls";
+    @apply gap-x-4;
+  }
+  .sr-warp-pulls {
+    @apply text-right;
+  }
+}
+

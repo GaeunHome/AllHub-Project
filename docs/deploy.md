@@ -115,6 +115,7 @@ npm run account create
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
 - **之後可以收斂的欄位**：只在一張卡還沒有帳單時當截止日預設的 `savings_accounts.due_day`（程式只讀不寫）。不用它之後照舊分兩版刪：先從 schema 拿掉（程式不再讀寫，migration 手動去掉 DROP），再下一版才真的刪（刪除要在 `migrations.integration.test.ts` 明列允許）。
+- **從 v0.2.4 升級到 v0.2.5**：一般的升級，推送前不用另外設定，環境變數與排程都沒變。db-migrate 套用一個 migration `0001_place_order`，一開始設 `lock_timeout = 5s`：`weather_places` 多一個 `sort_order`（有預設值），並刪掉 v0.2.4 起就沒有程式讀寫的 `starrail_warps`。以前存的捷運路線照常能用：常用路線的表沒有改，卡片與校正照路線自己的系統。捷運頁多讀環狀線與機場捷運的車站與路線（每個系統各兩次，一天一次，大家共用）。部署比 migration 先完成時，天氣頁讀城市排序那一兩分鐘會出錯，其他照常。要退回 v0.2.4 時可以用 Instant Rollback：舊程式不讀新欄位，也不讀被刪掉的表。
 - **從 v0.2.3 升級到 v0.2.4**：一般的升級，推送前不用另外設定。沒有新的 migration，環境變數沒變。少一個排程 `starrail:warps`（共 65 條），`starrail_warps` 表留著沒有程式讀寫，下一版刪掉。常用路線的表沒有改：高鐵與台鐵的車次放在原本的 `line` 欄位，以前存的路線照舊列整段路。要退回 v0.2.3 時可以用 Instant Rollback。
 - **從 v0.2.2 升級到 v0.2.3**：一般的升級，推送前不用另外設定。沒有新的 migration（`0001_transit_weather_status` 已經併進基準檔，db-migrate 會跑但不套用任何東西），排程與環境變數都沒變。捷運多讀一個 TDX 介面（路線，每個系統一天一次）。部署當下開著天氣頁新增城市視窗的人送出時會看到「請選擇城市」，重新整理就好。要退回 v0.2.2 時可以用 Instant Rollback。
 - **從 v0.2.1 升級到 v0.2.2**：一般的升級，新增五張表，刪掉兩個舊欄位。

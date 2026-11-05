@@ -5,21 +5,19 @@ const TODAY = "2026-11-05";
 
 describe("parseSearch：網址上的查詢條件", () => {
   it("沒有條件_預設高鐵與今天", () => {
-    expect(parseSearch({}, TODAY)).toEqual({ mode: "thsr", system: "TRTC", line: "", direction: 0, from: "", to: "", date: TODAY, time: "" });
+    expect(parseSearch({}, TODAY)).toEqual({ mode: "thsr", system: "", line: "", direction: 0, from: "", to: "", date: TODAY, time: "" });
   });
 
   it("帶了就照帶的", () => {
     expect(parseSearch({ mode: "tra", from: "1000", to: "1080", date: "2026-11-20" }, TODAY)).toMatchObject({ mode: "tra", from: "1000", to: "1080", date: "2026-11-20" });
   });
 
-  it("不認得的交通工具與捷運系統_用預設", () => {
-    expect(parseSearch({ mode: "plane", system: "MARS" }, TODAY)).toMatchObject({ mode: "thsr", system: "TRTC" });
+  it("不認得的交通工具_用預設", () => {
+    expect(parseSearch({ mode: "plane" }, TODAY).mode).toBe("thsr");
   });
 
-  it("捷運只有臺北捷運、環狀線與機場捷運_其他系統用預設", () => {
-    expect(parseSearch({ mode: "metro", system: "KRTC" }, TODAY).system).toBe("TRTC");
-    expect(parseSearch({ mode: "metro", system: "TYMC" }, TODAY).system).toBe("TYMC");
-    expect(parseSearch({ mode: "metro", system: "NTMC" }, TODAY).system).toBe("NTMC");
+  it("捷運不分系統：舊網址帶的系統不算數 起訖站照舊讀得到", () => {
+    expect(parseSearch({ mode: "metro", system: "TYMC", from: "A1", to: "A12" }, TODAY)).toMatchObject({ mode: "metro", system: "", from: "A1", to: "A12" });
   });
 
   it("車站代碼會放進 TDX 的網址 不合格的當作沒選", () => {
@@ -48,8 +46,8 @@ describe("searchHref", () => {
     expect(searchHref({ mode: "tra", system: "TRTC", line: "", direction: 0, from: "1000", to: "1080", date: TODAY, time: "" })).toBe(`/transit?mode=tra&from=1000&to=1080&date=${TODAY}`);
   });
 
-  it("捷運帶系統 不帶日期 時刻表只看今天", () => {
-    expect(searchHref({ mode: "metro", system: "TYMC", line: "", direction: 0, from: "R10", to: "", date: TODAY, time: "" })).toBe("/transit?mode=metro&system=TYMC&from=R10");
+  it("使用者要的：捷運只帶起訖站 不帶系統 也不帶日期 時刻表只看今天", () => {
+    expect(searchHref({ mode: "metro", system: "", line: "", direction: 0, from: "BL06", to: "R28", date: TODAY, time: "" })).toBe("/transit?mode=metro&from=BL06&to=R28");
   });
 });
 
@@ -73,6 +71,12 @@ describe("公車的查詢", () => {
 });
 
 describe("canSearch：起訖都選了才向 TDX 查", () => {
+  it("捷運也要起訖兩站 而且不能一樣", () => {
+    expect(canSearch({ mode: "metro", line: "", from: "BL06", to: "R28" })).toBe(true);
+    expect(canSearch({ mode: "metro", line: "", from: "BL06", to: "" })).toBe(false);
+    expect(canSearch({ mode: "metro", line: "", from: "R28", to: "R28" })).toBe(false);
+  });
+
   it.each([
     ["1000", "1080", true],
     ["1000", "", false],
@@ -103,6 +107,13 @@ describe("closedHref：關閉查詢結果", () => {
 
     expect(canSearch(next)).toBe(false);
     expect(next).toMatchObject({ mode: "tra", from: "1000", date: TODAY });
+  });
+
+  it("捷運拿掉迄站後不再查詢，起站留著", () => {
+    const next = parseSearch(Object.fromEntries(new URL(closedHref({ ...rail, mode: "metro", from: "BL06", to: "R28" }), "http://x").searchParams), TODAY);
+
+    expect(canSearch(next)).toBe(false);
+    expect(next).toMatchObject({ mode: "metro", from: "BL06" });
   });
 
   it("公車拿掉路線後不再查詢，縣市留著", () => {

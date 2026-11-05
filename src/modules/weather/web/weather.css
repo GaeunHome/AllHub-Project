@@ -18,9 +18,48 @@
   background-color: rgb(255 255 255 / 0.18);
   backdrop-filter: blur(8px);
 }
-.wx-chip[aria-current="page"] {
+.wx-chip[aria-current="page"],
+.wx-chip[data-current] {
   color: rgb(15 23 42);
   background-color: #fff;
+}
+/* 可以排序與移除的城市 把手與 ✕ 平常淡一點 不搶城市名稱 */
+.wx-chip-editable {
+  @apply gap-0 px-1;
+}
+.wx-chip-editable[data-dragging] {
+  opacity: 0.75;
+  outline: 2px solid currentColor;
+}
+.wx-chip-link {
+  @apply inline-flex min-h-9 items-center gap-1 px-0.5;
+}
+.wx-chip-handle,
+.wx-chip-remove {
+  @apply relative inline-flex size-6 shrink-0 items-center justify-center rounded-full opacity-65;
+}
+.wx-chip-handle {
+  cursor: grab;
+  touch-action: none;
+}
+.wx-chip-handle:hover,
+.wx-chip-handle:focus-visible,
+.wx-chip-remove:hover,
+.wx-chip-remove:focus-visible {
+  opacity: 1;
+}
+/* 列會橫向捲動 超出的部分會被裁掉 所以直接把觸控的按鈕做到 44px 高 */
+@media (pointer: coarse) {
+  .wx-chip {
+    @apply min-h-11;
+  }
+  .wx-chip-link {
+    @apply min-h-11;
+  }
+  .wx-chip-handle,
+  .wx-chip-remove {
+    @apply h-11 w-8;
+  }
 }
 .wx-city {
   @apply flex items-center gap-2 text-2xl font-bold text-white;

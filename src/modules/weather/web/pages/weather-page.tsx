@@ -1,20 +1,16 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { requireModule } from "@/core/auth";
 import type { ModuleInfo, SearchParams } from "@/core/module";
-import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
-import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { EmptyState } from "@/core/ui/empty-state";
 import { InfoTip } from "@/core/ui/info-tip";
-import { MoreMenu } from "@/core/ui/more-menu";
 import { Scene } from "@/core/ui/scene";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { cityPhoto, photoCredit } from "../../lib/city-photos";
 import type { County } from "../../lib/counties";
-import { PLACE_HOME, placeHref, pickPlace, type PlaceTab } from "../place-tabs";
+import { PLACE_HOME, pickPlace, type PlaceTab } from "../place-tabs";
 import { cachedCountyWeek, cachedPlaces, cachedSettings, cachedWorldWeek } from "../../service/cached";
-import { deletePlaceAction } from "../actions";
 import { AddPlaceButton } from "../components/place-form";
+import { PlaceChips } from "../components/place-chips";
 import { Flag, WeatherImage } from "../components/weather-images";
 import { heroImage, todayText, weekRows, type WeekRow } from "../weekly-view";
 
@@ -54,23 +50,10 @@ export async function WeatherPageBody({ searchParams }: { searchParams: SearchPa
       <Scene src={heroImage(selected.name, today)} eager className="wx-hero">
         <div className="wx-hero-body">
           <div className="flex items-start gap-2">
-            <nav aria-label="城市" {...DRAG_SCROLL} className="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
-              {tabs.map((tab) => (
-                <Link key={tab.key} href={placeHref(tab.key)} scroll={false} aria-current={tab.key === selected.key ? "page" : undefined} className="wx-chip">
-                  <Flag country={tab.country} size={18} />
-                  {tab.name}
-                </Link>
-              ))}
-              <AddPlaceButton />
-            </nav>
+            <PlaceChips tabs={tabs} selectedKey={selected.key} />
             <InfoTip label="天氣頁的說明">
               資料來源：台灣是中央氣象署，國外是 Open-Meteo（CC BY 4.0）。最多 10 個城市，首頁的卡片維持一個縣市。{photo && photoCredit(photo)}
             </InfoTip>
-            {selected.id !== null && (
-              <MoreMenu label={`${selected.name}的選項`} triggerClassName="scene-button">
-                <DeleteMenuItem action={deletePlaceAction} fields={{ id: selected.id }} confirmMessage={`確定刪除「${selected.name}」？`} label="刪除這個城市" deletedMessage="已刪除城市" />
-              </MoreMenu>
-            )}
           </div>
           <div>
             <h1 className="wx-city">

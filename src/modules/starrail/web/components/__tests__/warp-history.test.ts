@@ -6,9 +6,9 @@ import { FiveStarList, PityPanel } from "../warp-history";
 const bannerOf = (id: number) => WARP_BANNERS.find((banner) => banner.id === id)!;
 const SAMPLE: WarpRow[] = [
   { pulls: 23, star: null },
-  { pulls: 77, star: { name: "真珠", isUp: true } },
-  { pulls: 76, star: { name: "瓦爾特", isUp: false } },
-  { pulls: 78, star: { name: "知更鳥•晴歌", isUp: true } },
+  { pulls: 77, star: { name: "真珠", isUp: true, icon: null } },
+  { pulls: 76, star: { name: "瓦爾特", isUp: false, icon: null } },
+  { pulls: 78, star: { name: "知更鳥•晴歌", isUp: true, icon: null } },
 ];
 const listText = (id: number, rows = SAMPLE) => textOf(markup(FiveStarList({ summary: summarizeBanner(bannerOf(id), rows) })), { spaced: true });
 
@@ -40,7 +40,7 @@ describe("FiveStarList：五星歷史", () => {
   });
 
   it("常駐回的 is_up 全部是 false_不標歪", () => {
-    expect(listText(1, [{ pulls: 76, star: { name: "瓦爾特", isUp: false } }])).not.toContain("歪");
+    expect(listText(1, [{ pulls: 76, star: { name: "瓦爾特", isUp: false, icon: null } }])).not.toContain("歪");
   });
 
   it("沒有時間欄位_不寫日期", () => {
@@ -49,5 +49,26 @@ describe("FiveStarList：五星歷史", () => {
 
   it("沒有五星_說還沒有", () => {
     expect(listText(11, [{ pulls: 5, star: null }])).toContain("還沒有五星");
+  });
+});
+
+describe("FiveStarList：頭像與抽數條", () => {
+  const rows: WarpRow[] = [{ pulls: 45, star: { name: "真珠", isUp: true, icon: "https://act-webstatic.hoyoverse.com/x/icon.png" } }, { pulls: 90, star: { name: "瓦爾特", isUp: true, icon: null } }];
+  const html = () => markup(FiveStarList({ summary: summarizeBanner(bannerOf(11), rows) }));
+
+  it("有圖片畫圖片，沒有時退回名稱的第一個字", () => {
+    expect(html()).toContain("https://act-webstatic.hoyoverse.com/x/icon.png");
+    expect(textOf(html(), { spaced: true })).toContain("瓦");
+  });
+
+  it("抽數條的長度是抽數除以保底：45 抽是 90 抽保底的一半，90 抽滿格", () => {
+    expect(html()).toContain("width:50%");
+    expect(html()).toContain("width:100%");
+  });
+
+  it("超過保底的數字（聯動或資料異常）_不會超出條", () => {
+    const over = markup(FiveStarList({ summary: summarizeBanner(bannerOf(12), [{ pulls: 95, star: { name: "光錐", isUp: true, icon: null } }]) }));
+
+    expect(over).toContain("width:100%");
   });
 });

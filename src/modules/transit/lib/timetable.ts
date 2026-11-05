@@ -103,15 +103,12 @@ function stopsInOrder(value: unknown): string[] {
   return stops.sort((a, b) => a.sequence - b.sequence).map((stop) => stop.id);
 }
 
-/** 支線可能跟主線同一個 LineNo 併成一條 一條線上同一站只留一次 */
+/** 支線跟主線同一個 LineNo 但各自一條 規劃路線要知道換到支線算轉乘 */
 export function parseMetroLines(json: unknown): MetroLine[] {
-  const lines = new Map<string, Set<string>>();
-  for (const value of asArray(json)) {
+  return asArray(json).flatMap((value) => {
     const row = asRecord(value);
     const id = text(row?.LineNo) ?? text(row?.LineID);
-    const stops = stopsInOrder(row?.Stations);
-    if (!id || stops.length === 0) continue;
-    lines.set(id, new Set([...(lines.get(id) ?? []), ...stops]));
-  }
-  return [...lines].map(([id, stationIds]) => ({ id, stationIds: [...stationIds] }));
+    const stationIds = stopsInOrder(row?.Stations);
+    return id && stationIds.length > 0 ? [{ id, stationIds }] : [];
+  });
 }

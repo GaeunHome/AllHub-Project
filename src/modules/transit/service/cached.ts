@@ -2,12 +2,12 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { BusDirection, BusEta, BusSchedule } from "../lib/bus";
 import type { LiveReading } from "../lib/countdown";
-import type { Mode } from "../lib/modes";
+import { METRO_SYSTEMS, type MetroSystem, type Mode } from "../lib/modes";
 import type { Departure, MetroLine, Station } from "../lib/timetable";
 import type { TransitRoute } from "../data/schema";
 import { transitTags } from "./cache-tags";
 import { listRoutes } from "./routes";
-import { readBusEta, readBusRoute, readBusSchedule, readDepartures, readDirections, readLive, readMetroLines, readStations, type Read } from "./timetable";
+import { joinMetroSystems, readBusEta, readBusRoute, readBusSchedule, readDepartures, readLive, readMetroLines, readStations, type NetworkRead, type Read } from "./timetable";
 
 // 只給頁面與輪詢 API 用 外部資料不存資料庫 不分使用者 同一條路線大家共用同一份 才省額度
 
@@ -36,11 +36,13 @@ export async function cachedMetroLines(system: string): Promise<Read<MetroLine[]
   return result;
 }
 
-export async function cachedDirections(system: string, stationId: string): Promise<Read<Station[]>> {
+/** 每個系統各自快取 一個系統讀不到時幾分鐘後只重讀它 其他的留一天才省額度 */
+export async function cachedMetroNetwork(): Promise<Read<NetworkRead>> {
   "use cache: remote";
   cacheTag(transitTags.external);
-  const result = await readDirections(system, stationId);
-  if (result.ok) cacheLife("timetable");
+  const systems = Object.keys(METRO_SYSTEMS) as MetroSystem[];
+  const result = joinMetroSystems(await Promise.all(systems.map(async (system) => ({ system, stations: await cachedStations("metro", system), lines: await cachedMetroLines(system) }))));
+  if (result.ok && result.data.problem === null) cacheLife("avatar");
   else cacheLife("external");
   return result;
 }

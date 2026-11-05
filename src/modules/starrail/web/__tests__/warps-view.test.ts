@@ -38,7 +38,7 @@ describe("hasRecords", () => {
 
   it("有已墊或有五星都算有紀錄；已墊 0 又沒有五星才算沒抽過", () => {
     expect(hasRecords(summarizeBanner(banner, [{ pulls: 3, star: null }]))).toBe(true);
-    expect(hasRecords(summarizeBanner(banner, [{ pulls: 77, star: { name: "真珠", isUp: true } }]))).toBe(true);
+    expect(hasRecords(summarizeBanner(banner, [{ pulls: 77, star: { name: "真珠", isUp: true, icon: null } }]))).toBe(true);
     expect(hasRecords(summarizeBanner(banner, [{ pulls: 0, star: null }]))).toBe(false);
     expect(hasRecords(summarizeBanner(banner, []))).toBe(false);
   });
@@ -52,7 +52,7 @@ describe("文字", () => {
   });
 
   it("剛出五星_寫已墊 0 抽", () => {
-    expect(pityText(summarizeBanner(banner, [{ pulls: 77, star: { name: "真珠", isUp: true } }]))).toBe("已墊 0 抽");
+    expect(pityText(summarizeBanner(banner, [{ pulls: 77, star: { name: "真珠", isUp: true, icon: null } }]))).toBe("已墊 0 抽");
   });
 
   it("還沒有紀錄_不寫數字", () => {

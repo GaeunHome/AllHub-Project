@@ -13,4 +13,7 @@ export function pickBanner(summaries: readonly BannerSummary[], requested: strin
   return summaries.find((row) => row.banner.id === id) ?? summaries.find(hasRecords) ?? summaries[0];
 }
 
+/** 抽數條的長度 超過保底時不超出條 */
+export const percentOf = (pulls: number, hardPity: number) => `${Math.min(Math.round((pulls / hardPity) * 100), 100)}%`;
+
 export const pityText = (summary: BannerSummary) => (hasRecords(summary) ? `已墊 ${summary.pity} 抽` : "還沒有紀錄");

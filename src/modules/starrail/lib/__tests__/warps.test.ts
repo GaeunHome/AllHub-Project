@@ -15,8 +15,8 @@ describe("interpretWarpPage：官方活動頁的一頁", () => {
       ok: true,
       data: {
         rows: [
-          { pulls: 77, star: { name: "真珠", isUp: true } },
-          { pulls: 76, star: { name: "瓦爾特", isUp: false } },
+          { pulls: 77, star: { name: "真珠", isUp: true, icon: "https://example.com/icon.png" } },
+          { pulls: 76, star: { name: "瓦爾特", isUp: false, icon: "https://example.com/icon.png" } },
         ],
         next: null, incomplete: false,
         missing: [],
@@ -60,14 +60,14 @@ describe("interpretWarpPage：官方活動頁的一頁", () => {
   it("少了必要欄位的一筆略過，記下欄位名稱；其他筆照常", () => {
     const result = interpretWarpPage(page([star("真珠", 77, true, { gacha_count: undefined }), star("x", 1, true, { item: {} }), { gacha_count: 3 }, star("瓦爾特", 76, false)]));
 
-    expect(result.ok && result.data.rows).toEqual([{ pulls: 76, star: { name: "瓦爾特", isUp: false } }]);
+    expect(result.ok && result.data.rows).toEqual([{ pulls: 76, star: { name: "瓦爾特", isUp: false, icon: "https://example.com/icon.png" } }]);
     expect(result.ok && result.data.missing).toEqual(["list[].gacha_count", "list[].got_item", "list[].item.name"]);
   });
 
   it("is_up 讀不到_五星照樣留著，只是不知道有沒有歪", () => {
     const result = interpretWarpPage(page([star("真珠", 77, true, { is_up: undefined })]));
 
-    expect(result.ok && result.data.rows).toEqual([{ pulls: 77, star: { name: "真珠", isUp: null } }]);
+    expect(result.ok && result.data.rows).toEqual([{ pulls: 77, star: { name: "真珠", isUp: null, icon: "https://example.com/icon.png" } }]);
     expect(result.ok && result.data.missing).toEqual(["list[].is_up"]);
   });
 
@@ -130,7 +130,7 @@ describe("interpretWarpLogin：登入官方活動頁", () => {
 
 describe("summarizeBanner：保底與五星", () => {
   const bannerOf = (id: number) => WARP_BANNERS.find((banner) => banner.id === id)!;
-  const rows = (...values: [string, number, boolean?][]): WarpRow[] => values.map(([name, pulls, isUp = true]) => ({ pulls, star: { name, isUp } }));
+  const rows = (...values: [string, number, boolean?][]): WarpRow[] => values.map(([name, pulls, isUp = true]) => ({ pulls, star: { name, isUp, icon: null } }));
   const pity = (pulls: number): WarpRow => ({ pulls, star: null });
 
   it("真實樣本：已墊 23、距離保底 67、平均 (77 + 76 + 78) ÷ 3 = 77，新的在前", () => {
@@ -138,9 +138,9 @@ describe("summarizeBanner：保底與五星", () => {
 
     expect(summary).toMatchObject({ pity: 23, remaining: 67, average: 77 });
     expect(summary.fiveStars).toEqual([
-      { name: "真珠", pulls: 77, lost: false },
-      { name: "瓦爾特", pulls: 76, lost: true },
-      { name: "知更鳥•晴歌", pulls: 78, lost: false },
+      { name: "真珠", icon: null, pulls: 77, lost: false },
+      { name: "瓦爾特", icon: null, pulls: 76, lost: true },
+      { name: "知更鳥•晴歌", icon: null, pulls: 78, lost: false },
     ]);
   });
 
@@ -153,7 +153,7 @@ describe("summarizeBanner：保底與五星", () => {
   });
 
   it("is_up 讀不到_不標歪", () => {
-    expect(summarizeBanner(bannerOf(11), [{ pulls: 76, star: { name: "瓦爾特", isUp: null } }]).fiveStars[0].lost).toBe(false);
+    expect(summarizeBanner(bannerOf(11), [{ pulls: 76, star: { name: "瓦爾特", isUp: null, icon: null } }]).fiveStars[0].lost).toBe(false);
   });
 
   it("平均四捨五入到整數（(3 + 4) ÷ 2 = 3.5 → 4）", () => {
@@ -224,5 +224,33 @@ describe("quoteBigCursors：19 位數的游標 JSON 解開就不準了", () => {
     const body = '{"next_max_id":"1793851865218000123"}';
 
     expect(quoteBigCursors(body)).toBe(body);
+  });
+});
+
+describe("五星的圖片", () => {
+  const withItem = (item: Record<string, unknown>) => ({ got_item: true, gacha_count: 77, is_up: true, uuid: "u", id: 1, item });
+
+  it("用官方給的 icon", () => {
+    const result = interpretWarpPage(page([withItem({ name: "真珠", icon: "https://x/icon.png", big_icon: "https://x/big.png" })]));
+
+    expect(result).toMatchObject({ ok: true, data: { rows: [{ star: { name: "真珠", icon: "https://x/icon.png" } }] } });
+  });
+
+  it("沒有 icon_退回 big_icon", () => {
+    const result = interpretWarpPage(page([withItem({ name: "真珠", big_icon: "https://x/big.png" })]));
+
+    expect(result).toMatchObject({ ok: true, data: { rows: [{ star: { icon: "https://x/big.png" } }] } });
+  });
+
+  it("都沒有_還是一筆五星，圖片是 null", () => {
+    const result = interpretWarpPage(page([withItem({ name: "真珠" })]));
+
+    expect(result).toMatchObject({ ok: true, data: { rows: [{ pulls: 77, star: { name: "真珠", icon: null } }] } });
+  });
+
+  it("摘要帶著圖片", () => {
+    const summary = summarizeBanner(WARP_BANNERS[0], [{ pulls: 77, star: { name: "真珠", isUp: true, icon: "https://x/icon.png" } }]);
+
+    expect(summary.fiveStars[0].icon).toBe("https://x/icon.png");
   });
 });

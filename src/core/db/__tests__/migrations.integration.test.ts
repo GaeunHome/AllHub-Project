@@ -113,7 +113,22 @@ const statementsOf = (tag: string) =>
 
 // 部署時舊程式還在跑 刪表 刪欄位或改名會讓它出錯
 // 例外要使用者同意那一版直接收斂 照 migration 名稱逐條列在這裡 代價寫在 docs/deploy.md
-const ALLOWED_CONVERGENCE: Record<string, string[]> = {};
+const ALLOWED_CONVERGENCE: Record<string, string[]> = {
+  // v0.2.4 起沒有程式讀寫這張表 線上不會有舊程式碰到它
+  "0001_place_order": ['DROP TABLE "starrail_warps" CASCADE;'],
+};
+
+describe("0001_place_order：把不用的資料清掉", { timeout: 30_000 }, () => {
+  it("已經拿掉的排程 starrail:warps 在系統狀態留下的那一列清掉，其他排程不動", async () => {
+    const [baseline, ...later] = readMigrationFiles({ migrationsFolder: MIGRATIONS });
+    for (const statement of baseline.sql) await client.exec(statement);
+    await client.query(`insert into core_cron_status (task, last_run_at, duration_ms, ok, summary) values ('starrail:warps', now(), 1, true, '舊的'), ('starrail:stamina', now(), 1, true, '還在用')`);
+
+    for (const migration of later) for (const statement of migration.sql) await client.exec(statement);
+
+    expect((await client.query<{ task: string }>(`select task from core_cron_status`)).rows).toEqual([{ task: "starrail:stamina" }]);
+  });
+});
 
 describe("基準檔之後的 migration 都只擴充（明列的收斂例外除外）", () => {
   const pending = journal().entries.filter((entry) => entry.tag !== BASELINE);

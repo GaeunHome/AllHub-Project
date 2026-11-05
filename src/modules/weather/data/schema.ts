@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, doublePrecision, pgTable, serial, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, integer, pgTable, serial, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { coreUsers } from "@/core/db/schema";
 import { COUNTIES } from "../lib/counties";
 
@@ -33,6 +33,8 @@ export const weatherPlaces = pgTable(
     longitude: doublePrecision("longitude"),
     timezone: text("timezone"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // 使用者拖曳的順序 一樣時照加入的順序
+    sortOrder: integer("sort_order").notNull().default(0),
   },
   (t) => [check("weather_places_kind", sql`${t.kind} in ('county', 'world')`), uniqueIndex("weather_places_user_name").on(t.userId, t.name)],
 ).enableRLS();

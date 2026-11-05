@@ -13,7 +13,7 @@ import { MODE_LABELS, trainNoOf } from "../../lib/modes";
 import type { Departure } from "../../lib/timetable";
 import type { TransitRoute } from "../../data/schema";
 import { deleteRouteAction, setTrackedAction } from "../actions";
-import { destinationLabel, lineColor, routeLabel } from "../transit-view";
+import { cardHeading, destinationLabel, kindChipClass, lineColor, routeLabel } from "../transit-view";
 import { useLiveReading } from "../use-live-reading";
 
 type RouteCardProps = { route: TransitRoute; departures: Departure[]; problem: string | null; status: string | null };
@@ -44,7 +44,7 @@ function RouteMenu({ route }: { route: TransitRoute }) {
 
 function TrackButton({ route }: { route: TransitRoute }) {
   return (
-    <ActionButton action={setTrackedAction} fields={{ id: route.id, tracked: route.tracked ? "false" : "true" }} aria-pressed={route.tracked} className={route.tracked ? "trn-track" : "btn-ghost btn-sm"}>
+    <ActionButton action={setTrackedAction} fields={{ id: route.id, tracked: route.tracked ? "false" : "true" }} aria-pressed={route.tracked} className={route.tracked ? "trn-track" : "btn-ghost btn-sm text-ink"}>
       <Icon name="star" className="size-4" />
       {route.tracked ? "追蹤中" : "追蹤"}
     </ActionButton>
@@ -146,21 +146,36 @@ export function TrackedCard({ route, departures, problem, status }: RouteCardPro
   );
 }
 
-/** 沒追蹤的小卡只照時刻表 不用額度 */
+function CardEnd({ name, clock, className = "" }: { name: string; clock: string | null; className?: string }) {
+  return (
+    <span className={`min-w-0 break-words text-ink tabular-nums ${className}`}>
+      {name} {clock && <b>{clock}</b>}
+    </span>
+  );
+}
+
+/** 沒追蹤的小卡只照時刻表 不用額度 版面是縮小的追蹤大卡 */
 export function RouteCard({ route, departures, problem, status }: RouteCardProps) {
   const tick = useClockStep(TICK_MS);
   const next = tick === null ? undefined : upcoming(departures, tick)[0];
   useRefreshWhenFinished(tick !== null && departures.length > 0 && next === undefined);
+  const kind = (next ?? departures[0])?.kind;
   return (
     <article className="card trn-mini" style={lineStyle(route)}>
-      <header className="flex items-start gap-1">
-        <h3 className="min-w-0 flex-1 font-semibold break-words text-ink">{routeLabel(route)}</h3>
+      <header className="flex items-start gap-2">
+        <h3 className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 font-semibold break-words text-ink tabular-nums">
+          {kind && <span className={kindChipClass(kind)}>{kind}</span>}
+          {cardHeading(route)}
+        </h3>
         <RouteMenu route={route} />
       </header>
-      <span aria-hidden className="trn-mini-line" />
       <p className="trn-mini-count tabular-nums">{problem ? "資料讀不到" : next && tick !== null ? countdownText(next.at - tick) : tick === null ? "" : emptyText(route, { kind: "none" }, status, departures.length > 0)}</p>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-ink-soft tabular-nums">{next && tick !== null ? `${clockOf(next.at, tick)} 開` : MODE_LABELS[route.mode]}</span>
+      <span aria-hidden className="trn-mini-line" />
+      <div className="flex items-start justify-between gap-3">
+        <CardEnd name={route.originName} clock={next && tick !== null ? clockOf(next.at, tick) : null} />
+        <CardEnd name={destinationLabel(route)} clock={next?.arrivesAt ? formatTaipeiHourMinute(new Date(next.arrivesAt)) : null} className="text-right" />
+      </div>
+      <div className="flex justify-end">
         <TrackButton route={route} />
       </div>
     </article>

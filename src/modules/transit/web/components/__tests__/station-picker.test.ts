@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { markup, textOf } from "@/dev/test-helpers";
 import { StationPanel } from "../station-picker";
 
-const DATA = { stations: [{ id: "R10", name: "台北車站" }, { id: "BL12", name: "台北車站" }], groups: [{ id: "R", name: "淡水信義線", color: "#e3002c", stations: [{ id: "R10", name: "台北車站" }] }, { id: "BL", name: "板南線", color: "#0070bd", stations: [{ id: "BL12", name: "台北車站" }] }], frequent: [{ id: "BL12", name: "台北車站" }], metroSystem: "TRTC" };
+const DATA = { stations: [{ id: "R10", name: "台北車站" }, { id: "BL12", name: "台北車站" }], groups: [{ id: "R", name: "淡水信義線", color: "#e3002c", stations: [{ id: "R10", name: "台北車站" }] }, { id: "BL", name: "板南線", color: "#0070bd", stations: [{ id: "BL12", name: "台北車站" }] }], frequent: [{ id: "BL12", name: "台北車站" }] };
 const panel = (props = {}) => markup(createElement(StationPanel, { ...DATA, value: "", onPick: vi.fn(), ...props }));
 
 describe("選車站的面板", () => {
@@ -27,6 +27,19 @@ describe("選車站的面板", () => {
 
   it("常用裡同名的轉乘站 報讀器聽得出是哪一條線", () => {
     expect(panel()).toContain("（板南線）");
+  });
+
+  it("跨系統時常用的站也找得到路線 機場線不是臺北捷運的代碼", () => {
+    const stations = [{ id: "A1", name: "臺北車站" }];
+    const groups = [{ id: "A", name: "機場線", color: "#8246af", stations }];
+
+    expect(panel({ stations, groups, frequent: stations })).toContain("（機場線）");
+  });
+
+  it("台鐵的分組沒有路線 站上不放路線的顏色", () => {
+    const stations = [{ id: "1000", name: "臺北" }];
+
+    expect(panel({ stations, groups: [{ id: "臺北市", name: "臺北市", stations }], frequent: stations })).not.toContain("trn-dot");
   });
 
   it("已經選的站標出來", () => {

@@ -377,7 +377,7 @@ function redeem({ cdkey = "", uid = "" }, isExpired) {
 }
 
 /** 真實帳號回的欄位 sg-act-public-api 的 five_star_list 沒有時間 也沒有三星四星 */
-const warpItem = (name, type) => ({ item_id: 1000 + name.length, name, icon: `${IMG}/avatar/1102.png`, item_type: type, rarity: 5, big_icon: `${IMG}/figure/1102.png` });
+const warpItem = (name, type) => ({ item_id: 1000 + name.length, name, icon: `${IMG}/warp/${encodeURIComponent(name)}.png`, item_type: type, rarity: 5, big_icon: `${IMG}/figure/1102.png` });
 const warpStar = (id, name, count, isUp, type = "角色") => ({ item: warpItem(name, type), is_up: isUp, got_item: true, gacha_count: count, uuid: `mock-${id}`, id });
 /** 已墊的那一列沒有 item */
 const warpPity = (count) => ({ is_up: false, got_item: false, gacha_count: count, uuid: "", id: 0 });
@@ -479,6 +479,7 @@ export function handle({ req, url, body, json, image }) {
     const [kind, file = ""] = url.pathname.slice("/darkmatter/hkrpg/mock/".length).split("/");
     const key = file.replace(/\.png$/, "");
     if (kind === "avatar") return image(Array.from(NAME_OF.get(key) ?? "?")[0], { width: 128, height: 128 });
+    if (kind === "warp") return image(Array.from(decodeURIComponent(key))[0], { width: 128, height: 128 });
     // 遊戲頭像會被裁成圓形 字放在正中間 每個 UID 的字與顏色不同
     if (kind === "head") return image(`像${key.slice(-2)}`, { width: 128, height: 128 });
     if (kind === "figure") return image(NAME_OF.get(key) ?? "?", { width: 512, height: 512 });

@@ -47,9 +47,10 @@ describe("cityGroups：台鐵照縣市分組", () => {
 
 describe("lineGroups：捷運照路線分組", () => {
   const STATIONS = [station("R10", "台北車站"), station("R07", "東門"), station("BL12", "台北車站"), station("BL15", "忠孝復興")];
+  const network = (stations: ReturnType<typeof station>[], lines: { id: string; stationIds: string[]; system?: string }[]) => ({ stations, lines: lines.map((line) => ({ system: "TRTC", ...line })) });
 
   it("使用者要的：用路線的名稱與顏色 車站照路線上的順序 名稱用車站清單的", () => {
-    const groups = lineGroups("TRTC", STATIONS, [{ id: "BL", stationIds: ["BL12", "BL15"] }, { id: "R", stationIds: ["R07", "R10"] }]);
+    const groups = lineGroups(network(STATIONS, [{ id: "BL", stationIds: ["BL12", "BL15"] }, { id: "R", stationIds: ["R07", "R10"] }]));
 
     expect(groups).toEqual([
       { id: "BL", name: "板南線", color: "#0070bd", stations: [station("BL12", "台北車站"), station("BL15", "忠孝復興")] },
@@ -57,8 +58,22 @@ describe("lineGroups：捷運照路線分組", () => {
     ]);
   });
 
+  it("支線併進主線那一組 重複的站只列一次 面板不用分成兩組", () => {
+    const stations = [station("R22", "北投"), station("R23", "復興崗"), station("R22A", "新北投")];
+
+    expect(summary(lineGroups(network(stations, [{ id: "R", stationIds: ["R22", "R23"] }, { id: "R", stationIds: ["R22", "R22A"] }])))).toEqual([["淡水信義線", ["北投", "復興崗", "新北投"]]]);
+  });
+
+  it("使用者要的：三個系統的路線放在一起 名稱與顏色照各自的系統", () => {
+    const stations = [station("R10", "台北車站"), station("Y07", "大坪林"), station("A1", "臺北車站")];
+    const groups = lineGroups(network(stations, [{ id: "R", stationIds: ["R10"] }, { id: "Y", system: "NTMC", stationIds: ["Y07"] }, { id: "A", system: "TYMC", stationIds: ["A1"] }]));
+
+    expect(groups.map((group) => group.name)).toEqual(["淡水信義線", "環狀線", "機場線"]);
+    expect(groups.every((group) => group.color?.startsWith("#"))).toBe(true);
+  });
+
   it("轉乘站同一個代碼在兩條線 兩組都列", () => {
-    const groups = lineGroups("TRTC", [station("G09", "古亭")], [{ id: "G", stationIds: ["G09"] }, { id: "O", stationIds: ["G09"] }]);
+    const groups = lineGroups(network([station("G09", "古亭")], [{ id: "G", stationIds: ["G09"] }, { id: "O", stationIds: ["G09"] }]));
 
     expect(summary(groups)).toEqual([
       ["松山新店線", ["古亭"]],
@@ -67,13 +82,13 @@ describe("lineGroups：捷運照路線分組", () => {
   });
 
   it("車站清單沒有的站不列 查不到名稱 新增常用路線也會被拒絕", () => {
-    const groups = lineGroups("TRTC", [station("R10", "台北車站")], [{ id: "R", stationIds: ["R10", "R99"] }, { id: "BL", stationIds: ["BL99"] }]);
+    const groups = lineGroups(network([station("R10", "台北車站")], [{ id: "R", stationIds: ["R10", "R99"] }, { id: "BL", stationIds: ["BL99"] }]));
 
     expect(summary(groups)).toEqual([["淡水信義線", ["台北車站"]]]);
   });
 
   it("不在任何一條線的站排在最後的其他 不能讓人選不了站", () => {
-    const groups = lineGroups("TRTC", STATIONS, [{ id: "R", stationIds: ["R07", "R10"] }]);
+    const groups = lineGroups(network(STATIONS, [{ id: "R", stationIds: ["R07", "R10"] }]));
 
     expect(summary(groups)).toEqual([
       ["淡水信義線", ["東門", "台北車站"]],
@@ -82,11 +97,11 @@ describe("lineGroups：捷運照路線分組", () => {
   });
 
   it("認不得的路線照寫代碼 不能整組不見", () => {
-    expect(lineGroups("TRTC", [station("X1", "新站")], [{ id: "X", stationIds: ["X1"] }])[0]).toMatchObject({ name: "X 線", color: expect.stringMatching(/^#/) });
+    expect(lineGroups(network([station("X1", "新站")], [{ id: "X", stationIds: ["X1"] }]))[0]).toMatchObject({ name: "X 線", color: expect.stringMatching(/^#/) });
   });
 
   it("讀不到路線或一站都對不上時不分組 面板改列完整清單", () => {
-    expect(lineGroups("TRTC", STATIONS, [])).toEqual([]);
-    expect(lineGroups("TRTC", STATIONS, [{ id: "R", stationIds: ["R99"] }])).toEqual([]);
+    expect(lineGroups(network(STATIONS, []))).toEqual([]);
+    expect(lineGroups(network(STATIONS, [{ id: "R", stationIds: ["R99"] }]))).toEqual([]);
   });
 });

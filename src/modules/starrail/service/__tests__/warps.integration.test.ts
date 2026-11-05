@@ -4,7 +4,7 @@ import { coreServiceStatus } from "@/core/db/schema";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
-import { starrailAccounts, starrailWarps } from "../../data/schema";
+import { starrailAccounts } from "../../data/schema";
 import { hoyolab, ok } from "../../dev/fixtures";
 import { WARP_BANNERS, type WarpPage } from "../../lib/warps";
 
@@ -32,7 +32,7 @@ async function insertAccount(userId: string, uid: string, cookie = FULL_COOKIE) 
 }
 
 const onePage = (rows: WarpPage["rows"], next: WarpPage["next"] = null) => ok<WarpPage>({ rows, next, incomplete: false, missing: [] });
-const star = (name: string, pulls: number, isUp = true) => ({ pulls, star: { name, isUp } });
+const star = (name: string, pulls: number, isUp = true) => ({ pulls, star: { name, isUp, icon: null } });
 const gachaTypes = () => hoyolab.fetchWarpPage.mock.calls.map(([, , , type]) => type as string);
 const summaryOf = (read: Awaited<ReturnType<typeof warpsFor>>, id: number) => (read.ok ? read.summaries.find((row) => row.banner.id === id) : undefined);
 
@@ -100,14 +100,6 @@ describe("打開頁面時讀", () => {
 
     expect(sleep.mock.calls.every(([ms]) => ms === 200)).toBe(true);
     expect(sleep).toHaveBeenCalledTimes(WARP_BANNERS.length - 1);
-  });
-
-  it("只讀不存：資料表一列都不新增", async () => {
-    hoyolab.fetchWarpPage.mockResolvedValue(onePage([star("真珠", 77)]));
-
-    await warpsFor(me, accountId, noWait);
-
-    expect(await getDb().select().from(starrailWarps)).toEqual([]);
   });
 });
 

@@ -106,6 +106,12 @@ describe("捷運每條線的車站", () => {
     expect(fake.urls.at(-1)).toContain("/v2/Rail/Metro/StationOfLine/TRTC");
   });
 
+  it("車站清單是空的_當成讀不到，不能在快取裡留一天", async () => {
+    stub([[/Station/, () => Response.json([])]]);
+
+    expect(await readStations("metro", "NTMC")).toEqual({ ok: false, problem: "TDX 的車站資料是空的或格式不同" });
+  });
+
   it("介面失敗_回摘要 面板才退回完整清單", async () => {
     captureErrorLog();
     stub([[/StationOfLine/, () => new Response("", { status: 404 })]]);
