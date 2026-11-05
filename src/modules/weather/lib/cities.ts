@@ -1,6 +1,7 @@
+import { COUNTIES, type County } from "./counties";
 import type { WorldPlace } from "./weekly";
 
-// 常用的國外城市內建 Open-Meteo 用中文查常常查不到 例如首爾 札幌 其他的用英文搜尋
+// 使用者要的 城市固定用這份清單 繁體名稱與座標都寫死 不再讓人搜尋別的城市
 export const WORLD_CITIES: readonly WorldPlace[] = [
   { name: "東京", country: "jp", latitude: 35.6895, longitude: 139.6917, timezone: "Asia/Tokyo" },
   { name: "大阪", country: "jp", latitude: 34.6937, longitude: 135.5023, timezone: "Asia/Tokyo" },
@@ -25,3 +26,14 @@ export const WORLD_CITIES: readonly WorldPlace[] = [
   { name: "紐約", country: "us", latitude: 40.7128, longitude: -74.006, timezone: "America/New_York" },
   { name: "洛杉磯", country: "us", latitude: 34.0522, longitude: -118.2437, timezone: "America/Los_Angeles" },
 ];
+
+export type PlaceChoice = { kind: "county"; name: County; country: null; latitude: null; longitude: null; timezone: null } | ({ kind: "world" } & WorldPlace);
+
+const isCounty = (name: string): name is County => (COUNTIES as readonly string[]).includes(name);
+
+/** 表單只送地點名稱 座標 時區與國碼一律用清單的值 */
+export function parsePlaceChoice(name: string): { ok: true; value: PlaceChoice } | { ok: false; error: string } {
+  if (isCounty(name)) return { ok: true, value: { kind: "county", name, country: null, latitude: null, longitude: null, timezone: null } };
+  const place = WORLD_CITIES.find((city) => city.name === name);
+  return place ? { ok: true, value: { kind: "world", ...place } } : { ok: false, error: "請選擇城市" };
+}

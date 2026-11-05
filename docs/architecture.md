@@ -33,7 +33,7 @@ src/
 
 ## 架構規則
 
-這些規則由 `src/architecture.test.ts` 自動檢查，`npm test` 時會跑：
+這些規則由 `src/__tests__/architecture.test.ts` 自動檢查，`npm test` 時會跑：
 
 - **模組彼此獨立**：模組不能 import 其他模組、模組清單或 `src/app`；`core` 也不能 import 模組。
 - **依賴只能往下**：模組內是 `web → service → data → lib`。`web` 只能 `import type` data 的型別，不能直接存取資料庫，也不直接用會寫資料庫的 `core/notify`、`core/cooldown`、`core/auth/attempts`（經過 service）；`service`、`data`、`lib` 不碰登入（`@/core/auth`、`next/headers`），使用者 id 由 `web` 傳進來。
@@ -49,7 +49,7 @@ src/
 - **樣式的位置**：CSS 只有 `src/app/globals.css` 與模組 `web/` 底下的檔，模組的檔都由 `globals.css` 引入；模組的檔只寫自己前綴的 class（`MODULE_CSS_PREFIXES`）與自己的 `.theme-<id>`，`globals.css` 裡的模組 class 只剩跟 core 或兩個模組共用的幾條（`SHARED_IN_GLOBALS`）。
 - **環境變數**：都定義在 `core/env.ts`，順序同 `.env.example`（由 `env.test.ts` 檢查）；其他地方不直接讀 `process.env`（少數例外列在 CLAUDE.md，也由 `architecture.test.ts` 檢查）。
 - **其他**：日期時間的顯示一律經 `core/time.ts`（不直接用 `Intl.DateTimeFormat`、`Intl.RelativeTimeFormat`、`toLocale*String`）；`next/image` 一律 `unoptimized`；原生 `<dialog>` 只在 `core/ui/dialog.tsx`；對外請求一律經 `externalFetch()`；測試檔一律是 `.test.ts`（vitest 只跑這種）。
-- **快取寫法**：由 `src/cache-rules.test.ts` 檢查（見下方〈快取〉）。
+- **快取寫法**：由 `src/__tests__/cache-rules.test.ts` 檢查（見下方〈快取〉）。
 
 ## 資料表
 
@@ -133,7 +133,7 @@ src/
 - `vercel.json` 裡的時間是 UTC，也就是台北時間減 8 小時。
 - 每次跑完 `runCron()` 把結果寫進 `core_cron_status`，蓋掉上一次，站長在 `/admin/status` 看；摘要不能寫憑證、原始錯誤與成員的資料。
 - Hobby 方案每個排程一天最多跑一次，而且只保證在設定的那個小時內執行；每個專案最多 100 個排程。
-- `src/modules/cron.test.ts` 檢查登記的排程（模組的與 core 的 `notifications:cleanup`、`audit:cleanup`）跟 `vercel.json` 的路徑一一對應；只能手動跑的排程另外列在它的 `MANUAL_ONLY`。
+- `src/modules/__tests__/cron.test.ts` 檢查登記的排程（模組的與 core 的 `notifications:cleanup`、`audit:cleanup`）跟 `vercel.json` 的路徑一一對應；只能手動跑的排程另外列在它的 `MANUAL_ONLY`。
 - 同一個路徑可以登記好幾個時間：`starrail:stamina`、`weather:warnings` 每個 UTC 小時各一條（各 24 條），所以大約每小時跑一次。每條都可能在那個小時裡的任何時候觸發，相鄰兩次可能只隔幾分鐘，也可能隔將近兩小時。
 - 排程的 route 沒有設 `maxDuration`，用的是 Fluid compute 的預設（Hobby 300 秒）。最久的是 `youtube:cleanup`（外部請求最多 60 秒）、`starrail:redeem`（約 45 秒）、`weather:rain`、`weather:warnings`（讀全台資料最多等 15 秒）與 `savings:dividends`（兩個預告表各最多等 15 秒），所以 Fluid compute 要開著（新專案預設開啟，見 [部署](deploy.md#2-vercel匯入-repo填環境變數)）。
 - Vercel 偶爾會漏送或重送同一次排程（[官方說明](https://vercel.com/docs/cron-jobs/manage-cron-jobs#cron-job-delivery-and-idempotency)）：排程都可以重跑，自動記帳與提醒會先認領，同一件事不會做兩次。
@@ -252,20 +252,20 @@ src/
    - 頁面放在 `src/app/(main)/<id>/page.tsx`，只 render 模組 `web/pages/` 的元件。
    - API 放在 `src/app/api/<id>/…/route.ts`，只轉接 `web/routes/` 的 handler。
    - `maxDuration` 這類設定要直接寫在 `src/app` 的檔案裡。
-   - 外部服務呼叫的端點（webhook）不走登入：加進 `src/proxy.ts` 的 matcher 排除清單（整段比對，後面接 `(?:/|$)`），`src/proxy.test.ts` 加一條，端點自己驗簽章。
-3. **登記模組**：在 `src/modules/index.ts` 登記 `info`。不會發通知的模組在 `info.ts` 設 `notifies: false`，它就不會出現在「提醒方式」（`src/architecture.test.ts` 會檢查這個設定跟有沒有呼叫 `notify()` 一致）。
-4. **圖示與顏色**：`info.ts` 的 `icon` 是 `public/` 底下的單色 SVG（用 CSS mask 上色），畫面上用的通用圖示放 `public/icons/ui/`、名稱加進 `core/ui/icon.tsx` 的 `UI_ICON_NAMES`。品牌色從 `ModuleAccent`（`core/module.ts`）挑；要新的顏色時兩邊一起加，`globals.css` 的 `--accent-*` 淺色與深色各一組。模組專用的樣式放在模組的 `web/*.css`（主題頁的 `theme.css`、`page-background.css`，元件的 `<名稱>.css`），在 `src/app/globals.css` 照位置用 `@import` 引入，class 的前綴登記在 `src/architecture.test.ts` 的 `MODULE_CSS_PREFIXES`；整頁主題的 class 只放在 `PageTheme` 上（見 CLAUDE.md〈程式碼慣例〉的畫面風格與樣式檔）。
+   - 外部服務呼叫的端點（webhook）不走登入：加進 `src/proxy.ts` 的 matcher 排除清單（整段比對，後面接 `(?:/|$)`），`src/__tests__/proxy.test.ts` 加一條，端點自己驗簽章。
+3. **登記模組**：在 `src/modules/index.ts` 登記 `info`。不會發通知的模組在 `info.ts` 設 `notifies: false`，它就不會出現在「提醒方式」（`src/__tests__/architecture.test.ts` 會檢查這個設定跟有沒有呼叫 `notify()` 一致）。
+4. **圖示與顏色**：`info.ts` 的 `icon` 是 `public/` 底下的單色 SVG（用 CSS mask 上色），畫面上用的通用圖示放 `public/icons/ui/`、名稱加進 `core/ui/icon.tsx` 的 `UI_ICON_NAMES`。品牌色從 `ModuleAccent`（`core/module.ts`）挑；要新的顏色時兩邊一起加，`globals.css` 的 `--accent-*` 淺色與深色各一組。模組專用的樣式放在模組的 `web/*.css`（主題頁的 `theme.css`、`page-background.css`，元件的 `<名稱>.css`），在 `src/app/globals.css` 照位置用 `@import` 引入，class 的前綴登記在 `src/__tests__/architecture.test.ts` 的 `MODULE_CSS_PREFIXES`；整頁主題的 class 只放在 `PageTheme` 上（見 CLAUDE.md〈程式碼慣例〉的畫面風格與樣式檔）。
 5. **排程**（有的話）：
    - 在 `src/modules/cron.ts` 登記，用 `expiringTask()` 包起來。
-   - 加進 `vercel.json`（`src/modules/cron.test.ts` 檢查兩邊一一對應）。Hobby 每條一天最多跑一次，要更頻繁就用同一個路徑多登記幾條（像 `starrail:stamina` 每個 UTC 小時一條）；不要用 GitHub Actions 的定時排程，它常常略過。
-   - `src/modules/cron.cache.integration.test.ts` 的 `EXPECTED` 加一列（這個排程讓哪些 tag 失效）。
+   - 加進 `vercel.json`（`src/modules/__tests__/cron.test.ts` 檢查兩邊一一對應）。Hobby 每條一天最多跑一次，要更頻繁就用同一個路徑多登記幾條（像 `starrail:stamina` 每個 UTC 小時一條）；不要用 GitHub Actions 的定時排程，它常常略過。
+   - `src/modules/__tests__/cron.cache.integration.test.ts` 的 `EXPECTED` 加一列（這個排程讓哪些 tag 失效）。
    - 更新上方的排程表。
 6. **環境變數**（有的話）：加在 `src/core/env.ts`，並依同樣順序加進 `.env.example`；`src/dev/test-env.ts` 加這組的測試值與 `stub…Env()`，並放進跨模組測試用的 `stubAllEnv()`（`env.test.ts` 檢查）；取得方式寫進 [密鑰](secrets.md)。
 7. **首頁卡片**（選填）：在 `web/pages/home-card.tsx` 用 `core/ui/home-card.tsx` 的 `HomeCard` 包住卡片內容（標題列先出現，內容有自己的 Suspense 骨架與錯誤邊界），內容先 `requireSession()` 再讀自己的 `service/cached.ts`；再到 `src/app/(main)/page.tsx` 把它放進 `top`（最上面，寬螢幕 3:2）、`wide`（一張一列，彼此不並排）、`half`（平常一張一列，2xl 以上跟 `compact` 那組各佔半列）或 `compact`（兩張並排）。卡片外框是 `@container`，內容的欄數用容器查詢（`@md:`、`@4xl:`）依卡片寬度決定。`HomeCard` 的 `variant="plain"` 拿掉卡片外框（影片這類本來就有圖的內容），`variant="bare"` 連標題列都由內容自己畫（天氣），`art` 是標題列的背景圖。
 8. **讀寫資料與通知**：
    - 每個人自己的資料表加 `user_id`（NOT NULL，外鍵指向 `core_users`、`on delete cascade`），service 的讀寫一律比對登入者的 id，並寫擁有權（IDOR）測試（規則見 CLAUDE.md〈多人〉）。
-   - 在 `src/account-deletion.integration.test.ts` 的 `seedEverything` 補一筆這張表的資料（寫 SQL）：測試從資料庫的外鍵列出每張指向 `core_users` 的表，沒放資料、不是 cascade 或可以是空的都會失敗。
-   - 排程會用使用者的憑證或寄通知時，略過停用的人（CLAUDE.md〈多人〉的停用＝凍結），在 `src/account-disable.integration.test.ts` 或模組自己的整合測試加一條。
+   - 在 `src/__tests__/account-deletion.integration.test.ts` 的 `seedEverything` 補一筆這張表的資料（寫 SQL）：測試從資料庫的外鍵列出每張指向 `core_users` 的表，沒放資料、不是 cascade 或可以是空的都會失敗。
+   - 排程會用使用者的憑證或寄通知時，略過停用的人（CLAUDE.md〈多人〉的停用＝凍結），在 `src/__tests__/account-disable.integration.test.ts` 或模組自己的整合測試加一條。
    - 頁面讀資料用 `service/cached.ts` 的快取函式，使用者 id 當參數；寫入時讓對應的 tag 失效（規則見 CLAUDE.md〈快取〉）。
    - 發通知用 `core/notify.ts` 的 `notify()`，指定收件人的使用者 id。
 9. **假外部服務**（有的話）：放在 `dev/mock.mjs`，`npm run mock:external` 會自動載入；它的測試用 `src/dev/mock-request.ts` 的 `mockRequest()` 直接呼叫 `handle`。測試共用的 fixture 也放 `dev/`（只有測試能 import）。
@@ -277,10 +277,10 @@ src/
 刪資料表要分兩版（先擴充再收斂：部署時舊程式還在跑，見 [部署 › 之後的部署](deploy.md#之後的部署)）。
 
 1. **這一版：拿掉程式**
-   - 入口：`src/modules/index.ts`、`src/modules/cron.ts`、`src/app` 的頁面與 API、首頁的卡片（`src/app/(main)/page.tsx`）、`vercel.json` 的排程、`src/proxy.ts` 的 matcher 與 `src/proxy.test.ts`。
-   - 刪掉 `src/modules/<id>/`，拿掉 `src/modules/cron.cache.integration.test.ts` 的 `EXPECTED` 與 `src/account-disable.integration.test.ts` 裡它的那一段。
+   - 入口：`src/modules/index.ts`、`src/modules/cron.ts`、`src/app` 的頁面與 API、首頁的卡片（`src/app/(main)/page.tsx`）、`vercel.json` 的排程、`src/proxy.ts` 的 matcher 與 `src/__tests__/proxy.test.ts`。
+   - 刪掉 `src/modules/<id>/`，拿掉 `src/modules/__tests__/cron.cache.integration.test.ts` 的 `EXPECTED` 與 `src/__tests__/account-disable.integration.test.ts` 裡它的那一段。
    - 環境變數：`src/core/env.ts`、`.env.example`、`src/dev/test-env.ts`（含 `stubAllEnv()`），Vercel 上的值也刪掉。
-   - 資料表：表的定義已經跟著 `data/schema.ts` 刪了，`npm run db:generate` 產生的 migration 手動去掉 DROP，這一版只是程式不再讀寫。`src/account-deletion.integration.test.ts` 的 `seedEverything` 留著這張表的那幾筆（表與外鍵都還在）。
+   - 資料表：表的定義已經跟著 `data/schema.ts` 刪了，`npm run db:generate` 產生的 migration 手動去掉 DROP，這一版只是程式不再讀寫。`src/__tests__/account-deletion.integration.test.ts` 的 `seedEverything` 留著這張表的那幾筆（表與外鍵都還在）。
    - 只有它用的圖示、樣式（`web/*.css`、`globals.css` 引入它們的那幾行、`MODULE_CSS_PREFIXES` 與 `SHARED_IN_GLOBALS` 裡它的那幾條）與 `ModuleAccent`、使用聲明、[模組設定與使用](modules.md)、[密鑰](secrets.md)、這頁的排程表與資料表、CLAUDE.md 的那一節、CHANGELOG。
 2. **下一版（舊程式不再上線之後）：刪資料表**
    - migration 手寫 `DROP TABLE`，在 `migrations.integration.test.ts` 明列允許；`seedEverything` 拿掉這張表的那幾筆（不然測試會說沒有這張表）。

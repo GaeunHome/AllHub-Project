@@ -15,7 +15,7 @@ AllHub Project：個人整合系統。
 - 本機：`npm run db:local`（PGlite，要設 `DATABASE_POOL_MAX=1`）、`npm run mock:external`（假外部服務，搭配 `DEV_EXTERNAL_ORIGIN=http://127.0.0.1:4010`）。
 - 帳號：`npm run account create`（第一個是站長，之後是成員）／`passwd <帳號>`（也會解除登入鎖定）／`unlock <帳號>`（只解除登入鎖定，不改密碼）／`list`（含角色與停用），在 `src/dev/account.ts`，用 node 直接執行（型別剝除）。
 
-## 架構規則（`src/architecture.test.ts` 檢查，改規則時兩邊一起改）
+## 架構規則（`src/__tests__/architecture.test.ts` 檢查，改規則時兩邊一起改）
 
 所有程式碼都在 `src/`，根目錄只放設定檔與文件。
 
@@ -138,7 +138,7 @@ AllHub Project：個人整合系統。
   - `next/image` 一律加 `unoptimized`（`architecture.test.ts` 檢查）。
 - 設計風格先問（使用者要的）：要改變畫面的風格或版面方向時（配色、字型、視覺語言、卡片與版面的排法、整頁改版、新頁面長什麼樣子），先把方向與選項拿給使用者看，確認後才動工，不要自己決定後做完再報告；Impeccable、ui-ux-pro-max 這類工具的建議也一樣，先給使用者看，不直接照改。只有跟著既有規則的小修正（對齊、間距、破版、對比、沿用現有元件）不用問。
 - 畫面風格：全站簡潔中性（`globals.css` 的 token：白／淡灰底、灰色細框、陰影很輕），主色只有一個深藍，只用在主要按鈕、連結與焦點框；模組的品牌色（`data-accent`：`blue`／`red`／`violet`／`gold`／`green`，型別是 `core/module.ts` 的 `ModuleAccent`）只用在圖示與小標籤。
-  - 場景圖（使用者要的：只有 icon 太陽春）：首頁、理財、管理、帳號、交通與天氣頁用自己畫的向量場景圖（`public/images/scenes/`：天氣 8 張 `weather-<clear|cloudy|rain|storm>-<day|night>.svg`、橫幅 `banner-*.svg`、首頁入口 `module-*.svg`），不是外部素材，也不放進資料庫。`public/images/` 在 `proxy.ts` 的 matcher 裡（要登入才讀得到），登入與註冊頁不能用。字疊在圖上時用 `Scene`（`core/ui/scene.tsx`）：字色用 `text-white` 這類寫死的白色，不換 `.scene` 的 CSS 變數，不然裡面打開的 `<dialog>` 也跟著變白；只有不含視窗的區塊才換變數（`.scene-facts`、`.card-art`）。`.scene-scrim` 左深右淺，右邊留給圖；圖上的小按鈕用 `.scene-button`。
+  - 場景圖（使用者要的：只有 icon 太陽春）：首頁、理財、管理、帳號與交通頁用自己畫的向量場景圖（天氣頁的大圖是真實照片，見〈天氣〉）（`public/images/scenes/`：天氣 8 張 `weather-<clear|cloudy|rain|storm>-<day|night>.svg`、橫幅 `banner-*.svg`、首頁入口 `module-*.svg`），不是外部素材，也不放進資料庫。`public/images/` 在 `proxy.ts` 的 matcher 裡（要登入才讀得到），登入與註冊頁不能用。字疊在圖上時用 `Scene`（`core/ui/scene.tsx`）：字色用 `text-white` 這類寫死的白色，不換 `.scene` 的 CSS 變數，不然裡面打開的 `<dialog>` 也跟著變白；只有不含視窗的區塊才換變數（`.scene-facts`、`.card-art`）。`.scene-scrim` 左深右淺，右邊留給圖；圖上的小按鈕用 `.scene-button`。
   - 重要提示（使用者要的：不一定要用卡片）：要一眼看到、但不用馬上打斷的事用 `NoticeStrip`＋`NoticeItem`：貼著頁面的一條細線，一件接一件，手機上一件一行；裡面都沒有項目時 `:has()` 整條藏起來。
     - 首頁是「今天要注意」、理財總覽是「要先處理」、管理頁是鎖定的帳號。
     - 帶傘與特報留在天氣卡片的圖上；刪除帳號這類不能復原的動作用 `.danger-zone`（左邊一條紅線，平常收在 `<details>`）。
@@ -175,7 +175,7 @@ AllHub Project：個人整合系統。
 - 模組權限（使用者要的，`core/auth/module-access.ts`）：`core_module_denials` 只記某個人不能用的模組（主鍵是使用者加模組 id），預設全部能用，新模組自動開放；站長一律全部能用、不查這張表，表格裡站長那一列勾選而且不能改。站長在 `/admin` 的表格勾選即存（`setModuleAccessAction`，只檢查模組 id 的格式：core 不能 import 模組清單）；建立邀請連結時先勾要開放的功能（使用者要的，預設都不勾、至少一個，`core_invites.denied_modules` 記沒勾的，舊邀請是空的＝全部能用），註冊時跟建立帳號同一個交易寫進 `core_module_denials`，之後要多開再到表格勾；一般使用者看不到任何權限的文字或入口，沒權限的模組就是不出現。
   - `requireModule(id)`：先 `requireSession()` 再查，不能用時導回首頁、不說原因；Route Handler 用 `canUseModule()`，不能用回 403。權限只用 React `cache` 在同一次請求裡去重，不跨請求快取，關掉後下一次請求就生效。
   - 導覽列、首頁模組入口與卡片、通知頁的篩選、提醒方式只列能用的（`usableModules()`）；能用哪些要讀資料庫，所以導覽列與首頁先出現骨架，被關掉的模組不會閃一下。被關掉的模組的舊通知在鈴鐺、未讀數與通知頁也濾掉（`notifications/visible.ts`，資料保留，恢復後照常；「全部標為已讀」也不動藏起來的，`markAllNotificationsRead()` 帶 `hidden`）。
-  - 沒權限＝那個模組凍結（同停用帳號）：資料全部保留、追蹤照樣算數；`notify()` 跳過對那個模組沒權限的收件人，用使用者憑證或替他做事的排程（星穹鐵道、理財的自動記帳與除權息、天氣、提醒與倒數）都用 `activeOwnerOf(…, 模組 id)` 略過他；重新加密排程例外。跨模組的檢查在 `src/module-access.integration.test.ts`（直接 POST 每個 Server Action、凍結、恢復）。
+  - 沒權限＝那個模組凍結（同停用帳號）：資料全部保留、追蹤照樣算數；`notify()` 跳過對那個模組沒權限的收件人，用使用者憑證或替他做事的排程（星穹鐵道、理財的自動記帳與除權息、天氣、提醒與倒數）都用 `activeOwnerOf(…, 模組 id)` 略過他；重新加密排程例外。跨模組的檢查在 `src/__tests__/module-access.integration.test.ts`（直接 POST 每個 Server Action、凍結、恢復）。
 - 操作紀錄（使用者要的，`core_audit_logs`，`core/audit.ts`）：所有人的登入、登出、註冊與 Server Action（`runAction()` 自動記，不用的動作要自己呼叫 `audit()`），記帳號名稱、IP 原文、功能、操作、對象、結果與批次編號（同一次操作寫出的幾列共用，例如註冊的「註冊帳號」與「使用邀請連結」）；站長在 `/admin/logs` 看（`core/admin/audit-page.tsx`，每次直接讀、不走快取，篩選條件在網址上），保留 7 天（`AUDIT_RETENTION_DAYS`，排程 `audit:cleanup`）。
   - 不記密碼、cookie、API Key、邀請碼與記帳的金額：`ActionScope` 的 `target`、`detail` 不能放這些。不存在的帳號不存原文（`UNKNOWN_ACCOUNT`），有人會把密碼打進帳號欄。續翻每批太多不記，只記「開始翻譯」。
   - 登入與註冊失敗誰都能觸發：同一小時同一件事同一個 IP 併成一列算次數（`merge_key` 唯一、`attempts` 加一），一小時最多 200 列（`MERGED_ROWS_PER_HOUR`），超過的全部併進同一列，7 天最多約 3 萬列。
@@ -210,10 +210,10 @@ AllHub Project：個人整合系統。
 - 共用的主播與頻道：追蹤時 upsert 共用的那一列再加自己的追蹤（同一個交易），取消追蹤只刪自己的；最後一位追蹤者取消時才刪主播／頻道並刪掉 EventSub／WebSub 訂閱（交易裡鎖住那一列再數追蹤者）。刪除帳號留下沒人追蹤的，由每天的 `twitch:sync`、`youtube:renew` 刪掉。
 - 手動的「同步訂閱」（`syncSubscriptionsFor`）與「續訂」（`renewSubscriptionsFor`）所有人都能按，處理的是全站共用的訂閱；回應只說自己追蹤的數量，不透露全站的主播或頻道數；每人 60 秒冷卻（`takeCooldown()`）。排程用不分使用者的 `syncSubscriptions`、`renewSubscriptions`，回應是全站摘要。開台與新影片通知只送給追蹤、而且通知開著（`*_follows.notify_enabled`）的人；主播表、頻道表沒有通知開關（單人版的舊欄位 v0.1.8 刪掉），畫面用 `data/schema.ts` 的 `FollowedStreamer`／`FollowedChannel`（共用那一列加上自己的 `notifyEnabled`）。
 - `notify({ recipients, … })`：收件人是使用者 id 陣列，由各模組決定（Twitch／YouTube 是追蹤而且開著通知的人，星穹鐵道是帳號的擁有者，理財是固定收支、信用卡或持股的擁有者，天氣是開著下雨或警特報通知的人，提醒與倒數是項目的擁有者）；空陣列就不寫，查完之後才刪除帳號的人、被停用的人直接略過。排程寄的提醒同一件事只寄一次：星穹鐵道、天氣與提醒與倒數用 `core/claim.ts` 的 `sendOnce()`／`sendOnceEach()` 先 `claimOnce()` 再寄、寄不出去 `releaseOnce()`，開拓力與理財用條件式 update 認領（`last_stamina_alert_at`、`last_notified_on`、`card_notified_on`；除權息是 `savings_dividend_notices` 的條件式寫入），寄不出去退回。
-- **停用＝凍結**：被停用的帳號資料全部保留，追蹤照樣算數（共用的主播與頻道不會被當成沒人追蹤而刪掉，恢復後不用重建訂閱）；只是 `notify()` 不寫通知給他，星穹鐵道的排程（簽到、開拓力與提醒、自動兌換）不處理他的帳號（`listAccounts()` 只取擁有者沒停用的），理財的 `savings:recurring` 也不替他記帳、不寄到期通知，恢復後自動記的補記停用期間的期別（最多 12 期），要確認的照順序列在這個月要做的事，`savings:dividends` 也不寄除權息通知；天氣的 `weather:rain`、`weather:warnings` 收件人也只取沒停用的，提醒與倒數的 `reminders:daily` 不寄也不刪他的項目（恢復後的下一次排程才刪掉過期的）。新增會用使用者憑證的排程也要照這樣略過停用的人；重新加密排程例外，照樣處理所有人（移除舊金鑰前要全部換好）。通知、追蹤與共用的訂閱、理財的自動記帳與除權息通知、天氣的下雨與警特報提醒、提醒與倒數在 `src/account-disable.integration.test.ts` 一起檢查；星穹鐵道的排程（簽到、開拓力與提醒、自動兌換）在模組自己的整合測試（`service/accounts`、`reminders`、`auto-redeem`）。
+- **停用＝凍結**：被停用的帳號資料全部保留，追蹤照樣算數（共用的主播與頻道不會被當成沒人追蹤而刪掉，恢復後不用重建訂閱）；只是 `notify()` 不寫通知給他，星穹鐵道的排程（簽到、開拓力與提醒、自動兌換）不處理他的帳號（`listAccounts()` 只取擁有者沒停用的），理財的 `savings:recurring` 也不替他記帳、不寄到期通知，恢復後自動記的補記停用期間的期別（最多 12 期），要確認的照順序列在這個月要做的事，`savings:dividends` 也不寄除權息通知；天氣的 `weather:rain`、`weather:warnings` 收件人也只取沒停用的，提醒與倒數的 `reminders:daily` 不寄也不刪他的項目（恢復後的下一次排程才刪掉過期的）。新增會用使用者憑證的排程也要照這樣略過停用的人；重新加密排程例外，照樣處理所有人（移除舊金鑰前要全部換好）。通知、追蹤與共用的訂閱、理財的自動記帳與除權息通知、天氣的下雨與警特報提醒、提醒與倒數在 `src/__tests__/account-disable.integration.test.ts` 一起檢查；星穹鐵道的排程（簽到、開拓力與提醒、自動兌換）在模組自己的整合測試（`service/accounts`、`reminders`、`auto-redeem`）。
 - `user_id` 一律 NOT NULL，新的表也照這樣寫：多人化部署空窗期舊程式寫的、沒有擁有者的列，v0.1.8 的 migration 先刪掉再改成 NOT NULL（見 `docs/deploy.md`）。可以是 null 的只有共用翻譯的發起人 `requested_by`（發起人刪除帳號後）。
 
-## 快取（`src/cache-rules.test.ts` 檢查）
+## 快取（`src/__tests__/cache-rules.test.ts` 檢查）
 
 - 讀取：各模組 `service/cached.ts`（通知在 `core/notifications/cached.ts`，管理頁在 `core/admin/cached.ts`；登入檢查不快取），函式開頭依序 `"use cache: remote"`、`cacheLife("db")`（外部資料見下一點，profile 都定義在 `next.config.ts`）、`cacheTag(...)`。只給頁面與輪詢 API 用；寫入流程、排程、翻譯鎖要讀最新資料，用原本的 service（service、cron、模組的 `web/actions*.ts` 與 `web/routes/`、core 的寫入流程都不能 import cached.ts）。例外：保留影片的 Server Action 用 `cachedVideoInfo()` 拿觀看頁讀過的 oEmbed 當標題快照（外部資料、只是顯示用的，不是寫入的判斷依據），經 `keepVideo()` 的 `lookup` 交給 service；交通的輪詢 API（`web/routes/live.ts`）用 `cachedRoutes()`、`cachedLive()`，每分鐘都會問，全部讀最新的會用掉資料庫與 TDX 的額度（`cache-rules.test.ts` 的 `ALLOWED_READS` 逐條列出）。
 - 一律 `use cache: remote`：Vercel 是 serverless，記憶體快取與 tag 失效跨不了實例。本機與測試自動退回記憶體快取。
@@ -238,7 +238,7 @@ AllHub Project：個人整合系統。
 - **不對真實外部服務發請求**。單元與整合測試把 fetch 或 lib 換成替身；E2E 一律用 `next dev`＋`npm run mock:external`＋`DEV_EXTERNAL_ORIGIN`。
 - fetch 防護：`src/dev/vitest-setup.ts` 把全域 `fetch` 換成只能連 localhost／127.0.0.1 的版本，其他目的地直接丟錯（訊息說明怎麼換成替身）。要回應的測試把 `fakeFetch().impl` 傳給 `fetchImpl`，或 `vi.stubGlobal("fetch", …)`（下一個測試前自動還原成防護版）；`vi.mock(path, { spy: true })` 的函式一定要設定回應，沒設定會呼叫真的實作而被擋下。
 - 自動還原：`vitest.config.mts` 開了 `unstubGlobals`，`vi.stubGlobal` 換掉的全域每個測試前自動還原，不用寫 `afterEach(() => vi.unstubAllGlobals())`；換全域一律在測試或 `beforeEach` 裡（寫在檔案最上層或 `beforeAll` 的會在第一個測試前就被還原）。環境變數不自動還原（`unstubEnvs` 不開：很多測試在 `await import()` 被測模組前就設好，要整個檔案都有效）。`vitest-setup.ts` 每個測試前把 `DEV_EXTERNAL_ORIGIN` 清空，本機 shell 設了假伺服器也看到真正的網址；要用假伺服器的測試自己在測試裡設。
-- 測試檔一律是 `.test.ts`：vitest 只跑這種，`.test.tsx` 這類不會執行（`architecture.test.ts` 檢查）。
+- 測試檔一律是 `.test.ts`，放在同資料夾的 `__tests__/` 裡（使用者要的：跟程式分開放），`__tests__/` 裡也只放測試：vitest 只跑 `.test.ts`，`.test.tsx` 這類不會執行（`architecture.test.ts` 檢查）。相對路徑從 `__tests__/` 算，要多一層 `../`。
 - **production 模式（`next start`）會忽略 `DEV_EXTERNAL_ORIGIN`**，請求會送到真的服務（之前就因此打到一次真的 Twitch）。`next start` 下只測不會對外連線的流程（登入、沒有持股的理財、通知頁、帳號頁，以及還沒追蹤、沒連結帳號、沒有持股的使用者的首頁）；加主播、加頻道、webhook 補資訊、簽到、即時便箋、翻譯、YouTube 頁的背景字幕檢查、新增持股與有持股的理財頁（證交所與櫃買中心的收盤價與除權息預告）、`youtube:cleanup` 排程（讀追蹤中頻道的 RSS、逐支請求 `/shorts/` 找 Shorts）、`starrail:stamina`（便箋與活動日曆）、`starrail:redeem`（社群的兌換碼清單與兌換）、`weather:rain`（全台的天氣預報）、`weather:warnings`（全台的天氣警特報）、`savings:dividends`（除權息預告），以及有追蹤、連結帳號、持股或選了天氣縣市時的首頁（直播狀態、頻道頭像、即時便箋、遊戲頭像、收盤價、天氣預報、警特報與空氣品質）都會對外，只能用 `next dev`＋mock。
 - 改了 CSS（`globals.css` 或模組的 `web/*.css`）畫面卻沒變：停掉 `next dev`、刪 `.next/dev/cache` 再重開（Turbopack 的持久快取偶爾會留著舊的 CSS）。
 - 手機版截圖要一起開觸控模擬（CDP 的 `Emulation.setTouchEmulationEnabled`），`(hover: none)` 才會成立：卡片的 ⋮ 在可以滑過的裝置上要滑過才出現。
@@ -260,10 +260,10 @@ AllHub Project：個人整合系統。
 - 設定新密碼（註冊、改密碼、CLI）用 `credentials.ts` 的 `newPasswordProblem()`：8–256 字、同時有英文大小寫（使用者要的，太長太複雜記不住；舊的常見密碼清單、重複與帳號名稱檢查都拿掉了）；`passwordProblem()` 只管長度，登入不檢查強度，以前設的密碼照樣能用。
 - 解除登入鎖定：管理頁的使用者清單顯示「鎖定中，到 HH:mm」與「解除鎖定」（`unlockUserAction`，只把 `failed_logins` 歸零、清掉 `locked_until`，不改密碼與停用狀態；自己那一列沒有）；站長自己被鎖住時用 `npm run account unlock <帳號>`。鎖定狀態是登入失敗時寫入的，登入流程不讓快取失效（回應時間不能因帳號存在而不同），所以管理頁用 `listLockedUsers()` 每次直接讀，不走 `cached.ts`。
 - 頭像（使用者要的，`core/avatars.ts`、`core/auth/avatar-button.tsx`）：帳號頁按「更換頭像」上傳照片或從範例裡挑，`core_users.avatar` 只存 id：範例是 `public/images/avatars/` 的靜態檔（Microsoft Fluent Emoji，MIT，授權全文在那個資料夾的 `LICENSE.md`，不能刪），上傳的是 `img:<uuid>`。新增範例要同時放圖與改清單（`avatars.test.ts` 檢查一一對應、都是 WebP：SVG 直接開網址時裡面的腳本會在站上執行，不放；授權要允許商用）。`public/images/` 要登入才讀得到，登入與註冊頁不能用。畫在導覽列的人像按鈕、帳號頁、管理頁的使用者清單與旅遊的同行的人（`avatarUrl()` 把 id 換成網址）；認不得的 id 退回文字頭像。讀欄位用 `db/users.ts` 的 `userAvatar`，登入檢查每個請求都會讀，新程式比 migration 先上線時不能讓全站登入失敗。
-  - 上傳（使用者要的：檔案最大 5MB，`avatar-rules.ts` 的 `AVATAR_FILE_MAX_BYTES`）：瀏覽器在 `avatar-image.ts` 的 `shrinkAvatar()` 裁成正中間的正方形、壓成 256×256 的 JPEG 才送出，所以原始檔的大小只在瀏覽器檢查；伺服器（`uploadAvatarAction` → `users.ts` 的 `saveUploadedAvatar()`）只收開頭是 JPEG 標記、200 KB 以內的（`isJpeg()`、`AVATAR_STORED_MAX_BYTES`），超過就是沒經過畫面直接送來的。存在 `core_avatar_images`（bytea，每人一列），換照片時 id 跟著換，改用範例時 `updateAvatar()` 把照片刪掉。
+  - 上傳（使用者要的：檔案最大 5MB，`avatar-rules.ts` 的 `AVATAR_FILE_MAX_BYTES`）：選好照片後在同一個視窗調整（使用者要的，`avatar-cropper.tsx`：拖曳或方向鍵移動、滑桿放大到 4 倍，圓框裡看到的就是存下來的；計算在 `avatar-rules.ts` 的 `panCrop()`、`zoomCrop()`），`avatar-image.ts` 的 `shrinkAvatar()` 再壓成 256×256 的 JPEG 才送出，所以原始檔的大小只在瀏覽器檢查；伺服器（`uploadAvatarAction` → `users.ts` 的 `saveUploadedAvatar()`）只收開頭是 JPEG 標記、200 KB 以內的（`isJpeg()`、`AVATAR_STORED_MAX_BYTES`），超過就是沒經過畫面直接送來的。存在 `core_avatar_images`（bytea，每人一列），換照片時 id 跟著換，改用範例時 `updateAvatar()` 把照片刪掉。
   - 照片由 `GET /api/avatars/<id>`（`avatar-route.ts`）回應：要登入，`nosniff` 加 `default-src 'none'`，內容是使用者上傳的，瀏覽器不能猜類型也不能當網頁執行；同一個網址的內容不變，可以 `immutable` 長期快取。Server Action 預設上限 1MB，縮小之後才送，不用改設定。
 - 暱稱（使用者要的，`core/auth/nickname.ts`）：帳號名稱不能改，每個人在帳號頁改自己的暱稱（視窗，不用密碼，使用者 id 來自 session）：NFC 正規化、連續空白縮成一個，最多 20 字（用 code point 算、輸入框不設 `maxLength`），清空回到 null。顯示一律 `displayNameOf()`（`nickname ?? username`：人像選單、首頁問候語、帳號頁），登入一律用帳號名稱；管理頁同時顯示兩個，站長不能幫別人改。`findSessionUser()` 每個請求都讀暱稱，用 `to_jsonb(core_users) ->> 'nickname'` 取值：新程式比 migration 先上線時欄位還不存在，直接選欄位會讓全站登入失敗。
-- 刪除自己的帳號：帳號頁輸入密碼並確認；最後一個未停用的站長不能刪除自己（交易裡依 id 鎖住所有站長再判斷）。邀請、通知與各模組依使用者的資料跟著外鍵刪除，共用的翻譯只把發起人改成 null（見〈多人〉）。跨模組的檢查在 `src/account-deletion.integration.test.ts`：從資料庫的約束列出每個指向 `core_users` 的外鍵，確認都是 cascade、不能是空的（只有翻譯的發起人是 set null、可以是空的）、每張表都有測試資料、刪除後他的列都是 0；新增依使用者的表要在它的 `seedEverything` 補一筆（寫 SQL，不用 drizzle 的 schema）。
+- 刪除自己的帳號：帳號頁輸入密碼並確認；最後一個未停用的站長不能刪除自己（交易裡依 id 鎖住所有站長再判斷）。邀請、通知與各模組依使用者的資料跟著外鍵刪除，共用的翻譯只把發起人改成 null（見〈多人〉）。跨模組的檢查在 `src/__tests__/account-deletion.integration.test.ts`：從資料庫的約束列出每個指向 `core_users` 的外鍵，確認都是 cascade、不能是空的（只有翻譯的發起人是 set null、可以是空的）、每張表都有測試資料、刪除後他的列都是 0；新增依使用者的表要在它的 `seedEverything` 補一筆（寫 SQL，不用 drizzle 的 schema）。
 - CLI 的錯誤訊息依錯誤代碼判斷：drizzle 會把資料庫錯誤包成 `DrizzleQueryError`（name 是 Error、沒有 code），代碼要往 `cause` 找。連不上資料庫（ECONNREFUSED、ENOTFOUND、28P01、CONNECT_TIMEOUT…）用中文說明原因，並提示檢查連線字串的主機、port 和密碼；不回顯連線字串或密碼。
 - scrypt 雜湊（`scrypt$N$r$p$salt$hash`，網站與 CLI 共用 `credentials.ts`）；帳號不存在或鎖定中也跑一次假的 scrypt，錯誤一律「帳號或密碼錯誤」，只有密碼正確時才說明帳號已停用。改密碼遞增 `session_version` 並重發這台裝置的 cookie。依 IP 的登入失敗次數在記憶體內（多實例下只是盡力而為），依帳號的在 `core_users`。
 
@@ -333,7 +333,7 @@ AllHub Project：個人整合系統。
   - 星穹鐵道頁的顏色寫成 `globals.css` 裡 `.theme-starrail` 的變數（`--sr-gold-ink`、`--sr-avatar-bg`、`--sr-avatar-ring` 這類），元件寫 `text-[var(--sr-…)]`，不寫色碼；金色的伺服器與稀有度標籤用 `sr-visuals.tsx` 的 `GoldChip`；屬性的退回色例外，留在 `sr-visuals.tsx` 的表裡。
   - 遺器副詞條的強化次數用 `lib/characters.ts` 的 `relicUpgrades()`（times − 1）：推定 `times` 跟遊戲資料的詞條次數（Enka 的 `cnt`、Mihomo 的 `count`；hsr-optimizer 用 count − 1 算強化次數）一樣含初始那一次，依據是使用者回報實際畫面每條副詞條都至少 +1、+15 遺器的總次數也對得上，尚未用真實帳號的回應確認（mock 也從 1 起算）。
   - 只在強化過時於數值左邊寫「+N」（照資料寫、不設上限，title 與報讀器是「強化 N 次」），主屬性不顯示。
-- 躍遷紀錄（使用者要的，`/starrail/warps`、`lib/warps.ts`、`service/warps.ts`，**尚未用真實帳號驗證**）：照 genshin.py 的 `fetch_authkey`，用 cookie 向 `genAuthKeyByCookieToken` 換金鑰（`auth_appid` 是 `webview_gacha`，要 `cookie_token_v2` 與 `account_` 開頭的鍵），不用讀遊戲檔案，所以 GeForce Now 也能用；金鑰放在 `getGachaLog` 的網址參數（聯動卡池 21、22 走 `getLdGachaLog`），不存也不記 log。金鑰跟換到時回的 `authkey_ver`、`sign_type` 一起送，另帶 `auth_appid` 與 `region`（`lib/warps.ts` 的 `WarpKey`，跟遊戲開的網址一樣）；抽卡介面的 -100、-101 是金鑰被拒絕，不是 cookie 失效（`interpretWarpPage()`，第一次用真實帳號時回過 `-100：authkey error`）。
+- 躍遷紀錄（使用者要的，`/starrail/warps`、`lib/warps.ts`、`service/warps.ts`，**尚未用真實帳號驗證**）：照 genshin.py 的 `fetch_authkey`，用 cookie 向 `genAuthKeyByCookieToken` 換金鑰（`auth_appid` 是 `webview_gacha`，要 `cookie_token_v2` 與 `account_` 開頭的鍵），不用讀遊戲檔案，所以 GeForce Now 也能用；金鑰放在 `getGachaLog` 的網址參數（聯動卡池 21、22 走 `getLdGachaLog`），不存也不記 log。讀紀錄照 genshin.py 的 `request_gacha_info`：cookie 跟金鑰一起送，參數只有 `authkey_ver=1`、`authkey`、`lang`、`game_biz`、`gacha_type`、`real_gacha_type`、`size`、`end_id`。抽卡介面的 -100、-101 是金鑰被拒絕，不是 cookie 失效（`interpretWarpPage()`）；隨便一串金鑰也是回 `-100：authkey error`。v0.2.2 以前只帶金鑰不帶 cookie，不管加不加 `sign_type`、`auth_appid`、`region` 都回 -100；帶 cookie 這個修正還要用真實帳號確認。log 記金鑰長度（正常約 1024 字），不記金鑰。
   - 同步只抓比資料庫新的，看到存過的就停；一個卡池整段讀完才寫入，中途失敗一筆都不寫，不然「只抓新的」之後補不回這段缺口。`syncWarpsManually()` 每人每分鐘一次（`takeCooldown()`），排程 `starrail:warps` 跳過 cookie 失效與沒有 `cookie_token_v2` 的帳號，一次最多 2 分鐘。換不到金鑰不動帳號的 cookie 失效標記（同開拓月曆）。
   - `starrail_warps` 的 `id` 有 19 位數：資料庫是 bigint 才比得了新舊，程式裡一律是字串（`data/schema.ts` 的 `warpId`）。不存「上次同步時間」：要改 `starrail_accounts`，會讓所有 HoYoLAB 的快取一起失效，畫面改寫最新一抽的時間。
   - 畫面（使用者選的）：星穹鐵道頁一張摘要卡（`warp-card.tsx`），專屬頁是保底進度加五星歷史，全部抽卡收在最下面（`warp-history.tsx`）；卡池、頁數都在網址上。保底：角色 90、光錐 80、新手 50，聯動照同類型。最舊的五星 `partial`（寫至少幾抽，不算進平均）；紀錄裡沒有五星時已墊只是下限。摘要算好才進快取（`cachedWarpSummary()`，`starrail:warps` 與 `starrail:accounts`）。
@@ -394,11 +394,11 @@ AllHub Project：個人整合系統。
 
 ### 天氣（weather）
 - 首頁卡片維持一個縣市（使用者要的：「多城市在首頁，基本就不用放啦」），多城市與一週在天氣頁 `/weather`，見下面的天氣頁。卡片整張是場景圖（`web/weather-view.ts` 的 `weatherScene()` 照現在這一段的天氣與時段挑：有雷、有雨、「晴」開頭、其他都是多雲，霧與雪沒有自己的圖，用多雲），字都疊在圖上。由上到下是縣市與時段（旁邊是資料來源的 i 圓圈與「設定」）、特報標籤、最大的溫度與天氣描述、帶傘提醒（`umbrella` 是實心黃色，其他半透明），最下面一條固定三欄：降雨機率、下一個時段、空氣品質（沒設環境部的授權碼時兩欄），每個縣市都排在同樣的位置。縣市與兩個通知開關在卡片的「設定」視窗（`weather_settings`，每人一列，22 個縣市，資料庫有 check，「台」換成「臺」；`rain_alert`、`warning_alert` 預設開）。還沒選縣市或沒有授權碼時一樣用晴天的圖。
-- 天氣頁 `/weather`（使用者選的「整片天空」，`web/pages/weather-page.tsx`、`web/weather.css`）：上面是 `Scene` 的大圖（圖照今天的天氣，一律用白天的：晚上的圖太暗，字疊上去不好讀），城市是一排膠囊，切換用網址 `?place=`（`web/place-tabs.ts` 的 `pickPlace()` 只從自己的清單挑），下面是一週，溫度條的位置是這一週最低到最高的比例（`web/weekly-view.ts`）。
+- 天氣頁 `/weather`（使用者選的「整片天空」，`web/pages/weather-page.tsx`、`web/weather.css`）：上面是 `Scene` 的大圖（使用者要的：真實的城市照片，內建的每個地點固定一張，跟天氣無關，`lib/city-photos.ts` 的 `cityPhoto()`，`web/weekly-view.ts` 的 `heroImage()` 取圖；清單以外的舊城市退回今天天氣的場景圖，一律用白天的：晚上的圖太暗，字疊上去不好讀；作者與授權放在標題旁的 i 圓圈，`photoCredit()`；`.wx-hero .scene-scrim::before` 在上緣多壓一層暗幕，城市膠囊與 i 圓圈在亮天空上才看得到，手機上下緣也壓暗，字才讀得到），城市是一排膠囊，切換用網址 `?place=`（`web/place-tabs.ts` 的 `pickPlace()` 只從自己的清單挑），下面是一週，溫度條的位置是這一週最低到最高的比例（`web/weekly-view.ts`）。
   - 城市：首頁選的縣市排第一個（`PLACE_HOME`，不是 `weather_places` 的列，不能在這裡刪），其他的存在 `weather_places`（每人最多 10 個 `PLACE_LIMIT`，先 `lockUserRow` 再數；`kind` 是 `county` 或 `world`）。只讀選中的城市，其他的點了才讀。
   - 台灣用氣象署 F-D0047-091（臺灣未來 1 週，沿用 `CWA_API_KEY`，**尚未用真實的授權碼驗證**），國外用 Open-Meteo（不用金鑰、非商業可用、CC BY 4.0，要標示出處，寫在標題旁的 i 圓圈）。Open-Meteo 的額度是每個 IP 每天 1 萬次，Vercel 的 IP 是共用的，有人撞到過限制，所以用座標當快取 key，同一個城市大家共用一份。解析都在 `lib/weekly.ts`。
-  - 國外城市：Open-Meteo 用中文查不穩（首爾、札幌查不到，查到的也是簡體），所以 `lib/cities.ts` 內建 22 個常用城市的繁體名稱，其他的用英文搜尋（`language=en`，`searchCities()`）。
-  - 圖片（使用者要的：不要線條圖示，圖片放 GitHub 的靜態資料夾）：天氣圖是 `public/images/weather/*.png`（Microsoft Fluent Emoji 3D，128px，MIT），國旗是 `public/images/flags/<國碼>.svg`（circle-flags，MIT，檢查過沒有腳本），授權都在各自的 `LICENSE.md`，不能刪。`weatherArt(描述, 是不是晚上)` 挑圖，畫面用 `web/components/weather-images.tsx` 的 `WeatherImage`、`Flag`（`country` 是 null 時不畫）。
+  - 國外城市：Open-Meteo 用中文查不穩（首爾、札幌查不到，查到的也是簡體），所以城市固定用內建清單（使用者要的：不開放搜尋），`lib/cities.ts` 的 `WORLD_CITIES` 22 個加上 22 個縣市。表單只送名稱，`parsePlaceChoice()` 用清單的座標、時區與國碼；以前用英文搜尋加的城市照常能用。
+  - 圖片（使用者要的：不要線條圖示，圖片放 GitHub 的靜態資料夾）：城市照片是 `public/images/cities/*.webp`（2:1，每張 250 KB 內、合計 10 MB 內，都來自 Wikimedia Commons，只收 CC0、公有領域、CC BY、CC BY-SA，每張的作者與授權在同資料夾的 `LICENSE.md`，不能刪，`lib/__tests__/city-photos.test.ts` 檢查一一對應，`/terms` 連到這份清單）；天氣圖是 `public/images/weather/*.png`（Microsoft Fluent Emoji 3D，128px，MIT），國旗是 `public/images/flags/<國碼>.svg`（circle-flags，MIT，檢查過沒有腳本），授權都在各自的 `LICENSE.md`，不能刪。`weatherArt(描述, 是不是晚上)` 挑圖，畫面用 `web/components/weather-images.tsx` 的 `WeatherImage`、`Flag`（`country` 是 null 時不畫）。
 - 設定視窗（`web/components/county-picker.tsx`）存好後的訊息用提示視窗。第一次選縣市時空狀態連同打開視窗的按鈕會被換掉，焦點交給首頁卡片的外框（`HomeCard` 是 `FOCUS_FRAME`）；之後存檔照 `Dialog` 原本的做法，焦點回到「設定」。
 - 帶傘的判斷是 `lib/rain.ts` 的 `rainOutlook()`，卡片與早上的通知共用：一律傳 `upcomingPeriods(forecast, now).slice(0, 2)`（早上 6 點多是今天白天＋今晚，晚上看卡片是今晚＋明天白天），看降雨機率最高的那段（一樣高取比較早的，讀不到的略過）：50% 以上 `umbrella`「記得帶傘」（`UMBRELLA_PERCENT`，通知也用這個門檻）、30% 以上 `maybe`「帶把折傘」（`MAYBE_PERCENT`，只在卡片上）、其他 `dry`「不用帶傘」；兩段都讀不到時不顯示提醒。時段的說法（今天白天、今晚、明天白天…；半夜看前一天 18 點開始、還沒過完的那段也是今晚，不寫日期）是 `lib/forecast.ts` 的 `periodLabel()`，卡片與通知共用；晚上與凌晨開始的時段換成月亮圖示，判斷是同一個檔的 `isNight()`。
 - 早上的下雨通知（排程 `weather:rain`，`service/rain-alerts.ts`；`vercel.json` 是 UTC 22 點，台北 06:00 那個小時）：
@@ -420,17 +420,22 @@ AllHub Project：個人整合系統。
 - 假氣象署（`dev/mock.mjs`）的警特報：臺北市大雨特報、臺南市四種（最壞情況，標籤最長、結束時間都不在今天），其他縣市沒有。預報不帶 `locationName` 時回全部 22 個縣市，每個縣市的提醒固定（臺北市帶傘、高雄市帶把折傘、臺中市不用帶傘，跟幾點看無關；臺南市是最壞情況：天氣描述 11 個字、舒適度 7 個字、降雨機率 100%，看卡片最擠時的排版；完整對照在 `docs/development.md`），截圖與手動跑 `weather:rain` 照這份挑縣市。
 
 ### 交通（transit）
-- 資料都來自交通部 TDX（高鐵、台鐵、捷運、公車），`TDX_CLIENT_ID`、`TDX_CLIENT_SECRET` 選填（`core/env.ts` 的 `transitEnv`，前後空白去掉，`hasTransitEnv()`），沒設定時頁面說明要設定。申請步驟在 `docs/secrets.md`〈交通的金鑰〉。**尚未用真實的金鑰驗證**：第一次設好金鑰時確認每種交通工具的回應格式（`lib/` 的解析都照官方文件寫的）與每分鐘的次數限制（`tdxProblem()` 把 429 寫成額度用完，看系統狀態頁）。
+- 資料都來自交通部 TDX（高鐵、台鐵、捷運、公車），`TDX_CLIENT_ID`、`TDX_CLIENT_SECRET` 選填（`core/env.ts` 的 `transitEnv`，前後空白去掉，`hasTransitEnv()`），沒設定時頁面說明要設定。申請步驟在 `docs/secrets.md`〈交通的金鑰〉。**尚未用真實的金鑰驗證**：第一次設好金鑰時確認每種交通工具的回應格式（`lib/` 的解析都照官方文件寫的，`LocationCity` 的寫法與 `StationOfLine` 的路線編號也要看）與每分鐘的次數限制（`tdxProblem()` 把 429 寫成額度用完，看系統狀態頁）。
 - 額度是這個模組最重要的限制：免費會員一個月 3 點、1 點 1,500 次（官方另有 3,000 次的說法，照少的算），一天大約 100～150 次，所以：
-  - 外部資料都在 `service/cached.ts`，不分使用者，同一條路線大家共用一份：車站與公車站牌 `avatar`、時刻表 `timetable`、公車班距 `records`、即時資料 `board`（一分鐘），讀不到用 `external`。參數都是明確的代碼。
+  - 外部資料都在 `service/cached.ts`，不分使用者，同一條路線大家共用一份：車站、捷運路線（`cachedMetroLines()`，回應空的或欄位不同算讀不到，`readMetroLines()`）與公車站牌 `avatar`、時刻表 `timetable`、公車班距 `records`、即時資料 `board`（一分鐘），讀不到用 `external`。參數都是明確的代碼。
   - 倒數在瀏覽器算（`lib/countdown.ts`）：使用者要的「每 5 秒跑完一輪就更新秒數，像捷運站那樣」（`TICK_MS`，用 `useClockStep()`），捷運與火車同一種，不問 TDX。
   - 校正只在追蹤中的路線、分頁看得到時才問（`web/use-live-reading.ts`，每分鐘一次 `LIVE_INTERVAL_MS`）：台鐵與捷運只在開車前 30 分鐘內（`LIVE_WINDOW_MS`），公車沒有固定時刻所以一律要問，高鐵沒有即時資料不問（`shouldReadLive()`）。常用路線的小卡不輪詢。
   - 每人最多 12 條常用路線（`ROUTE_LIMIT`）、3 條追蹤（`TRACKED_LIMIT`），先 `lockUserRow` 再數。查詢要起訖都選了才讀（`canSearch()`），不然每動一個欄位就用掉一次額度。
+- 換 token 回 400、401 是金鑰不對（`lib/tdx.ts` 的 `TdxKeyError`，系統狀態頁寫要改哪個環境變數）：Client Id 不存在回 400 `invalid_client`，401 推定是 Client Id 對、Secret 錯（**尚未用真實的金鑰確認**）。資料介面帶了無效的 token 也回 401，log 看 `TdxKeyError` 或 `HttpStatusError` 分辨。
 - 各家的差異：捷運的 `EstimateTime` 單位是分鐘，公車是秒；高鐵沒有即時資料；捷運的即時資料只有 TRTC、KRTC、KLRT、TYMC（`hasMetroLive()`），台中捷運兩個介面都沒列，文湖線沒有站別時刻表，只能問看板。台鐵的每日時刻表只有近 60 天（`MAX_DAYS_AHEAD`）。
 - `transit_routes` 一列一條常用路線：`mode`、`system`（捷運系統或公車縣市）、`line`（公車路線）、起訖的代碼與名稱、`tracked`。捷運的迄站是終點站（方向），公車的 `destination_id` 是方向（0 去程、1 返程）。車站與站牌的名稱只信 TDX 查到的（`service/routes.ts`），表單送來的代碼查不到就不收；代碼會放進 TDX 的網址，只收英數（`isStationId()`）。收 id 的讀寫同時比對 `user_id`。
+- 選站（使用者選的：搜尋加分組面板）：台鐵的起訖站與捷運的起站用 `web/components/station-picker.tsx`（`Dialog`），高鐵、公車與捷運的方向維持下拉。沒做附近車站。
+  - 區塊的順序在 `web/station-sections.ts`：先「常用」（`web/frequent-stations.ts`：同一種交通工具、捷運同一系統，只算自己存的路線，不問 TDX；捷運的迄站是方向，只算起站），再分組。
+  - 分組在 `lib/station-groups.ts`：台鐵照官網的順序分縣市（`TRA_REGIONS`，新竹、嘉義的縣市各併一組，資料來自車站清單的 `LocationCity`）；捷運照 `StationOfLine` 的路線，名稱與顏色用 `lib/lines.ts` 的 `metroLine()`。分不進去的放「其他」，全部分不進去時退回「全部車站」，不能讓人選不了站。
+  - 搜尋在 `lib/station-search.ts`，在瀏覽器裡篩：台與臺同字，結尾的「站」可打可不打，組字中不篩。視窗在查詢表單裡，站的按鈕都要 `type="button"`，搜尋框的 Enter 要擋（只剩一站就選它，有好幾站就把焦點移到第一個結果）。
 - 畫面（使用者選的「路線圖」，`web/pages/transit-page.tsx`、`web/transit.css`）：查詢表單的條件都在網址上（`web/search-query.ts`），追蹤中是大卡、其他是小卡（`web/components/route-cards.tsx`），彩色的路線線條上有光點，每 5 秒從起站跑到迄站（顏色在 `lib/lines.ts`，動畫 `@keyframes` 在 `globals.css`，減少動態時停住）；手機上追蹤排在查詢之上。沒有首頁卡片（使用者的決定）。伺服器只給時刻表（`web/route-boards.ts`，今天快沒車才多讀明天），倒數由瀏覽器接手。公車的查詢結果是每站的到站時間與班距。
-- 輪詢用 Route Handler `/api/transit/live?route=<id>`（`web/routes/live.ts`，同通知：同一個分頁的 Server Action 會排隊）：沒登入 401、沒權限 403，路線只從自己的清單找，別人的 id 回 404。系統狀態頁的 `transit:tdx` 由它在 `after()` 回報，快取函式裡不能寫資料庫。
-- 假 TDX 在 `dev/mock.mjs`（token、高鐵、台鐵、捷運、公車 307），見 `docs/development.md`。
+- 輪詢用 Route Handler `/api/transit/live?route=<id>`（`web/routes/live.ts`，同通知：同一個分頁的 Server Action 會排隊）：沒登入 401、沒權限 403，路線只從自己的清單找，別人的 id 回 404。系統狀態頁的 `transit:tdx` 由它與頁面的車站清單在 `after()` 回報，快取函式裡不能寫資料庫。
+- 假 TDX 在 `dev/mock.mjs`（token、高鐵、台鐵、捷運、`StationOfLine`、公車 307），見 `docs/development.md`。
 
 ### 提醒與倒數（reminders）
 - 只有首頁卡片（`homeOnly`），資料表 `reminders_items`（每人多列）。規則都在 `lib/rules.ts` 的 `parseReminder()`：標題 NFC 正規化、連續空白縮成一個，1～30 字（用 code point 算，表單不設 `maxLength`：它算 UTF-16，emoji 打不滿）；日期是真實存在的日期、今天（台北）到 10 年後；通知是不通知或 `NOTIFY_DAYS`（當天、前 1／3／7／14／30 天），新增預設當天。
@@ -475,7 +480,7 @@ AllHub Project：個人整合系統。
   - 不加動畫、數字跳動與圓餅圖，數字一出現就是最後的值；不要一排一樣大的數字方塊。圖只有每月收支的長條（`--fin-income`／`--fin-expense`），進度是中性的細長條 `.fin-meter`（`dashboard/meter.tsx`）。六個分頁共用同一張橫幅（`PageBanner`，`page-frame.tsx`），總覽放總資產、投資放總市值（`hero` prop，大數字與旁邊的合計共用 `dashboard/banner-figure.tsx` 的 `BannerFigure`）。
   - 版面照帳戶頁（使用者說「除了帳戶那邊那個頁面我覺得還不錯」）：一個東西一張卡，大數字、常用動作在卡片上，同一區用 `SectionHeading`（`section-heading.tsx`，標題右邊放合計 `Sum`）＋`CARD_GRID`，最後一格是虛線的新增（`ADD_TILE`，都在 `dashboard/layout.ts`）。帳戶、持股、每月固定、分類都是這樣，新的清單也照做，不要把列塞進一張大白框。
   - 顏色只表示狀態：金額一律 `text-ink`、收入加「+」；損益只寫正負號，不上紅綠（台股紅漲綠跌會跟全站的紅色＝錯誤打架）。一列最多一個標籤，只給逾期、待填帳單、不夠扣、已停用；到期寫「還有 5 天」「逾期 2 天」「今天」（`lib/dates.ts` 的 `dueText()`），日期另外寫。
-  - 不用「·」把好幾件事串成一行（使用者覺得醜，`web/middle-dot.test.ts` 擋正式程式出現 `·`）：標籤加值用 `FactList`，或分成上下兩行（`visuals.tsx` 的 `Lines`）、左右兩欄，看哪種一眼看懂；不加顏色、圖示或動畫。通知文字是一行字，不在此限。
+  - 不用「·」把好幾件事串成一行（使用者覺得醜，`web/__tests__/middle-dot.test.ts` 擋正式程式出現 `·`）：標籤加值用 `FactList`，或分成上下兩行（`visuals.tsx` 的 `Lines`）、左右兩欄，看哪種一眼看懂；不加顏色、圖示或動畫。通知文字是一行字，不在此限。
   - 金額、股數、損益、期別這類顯示用的文字在 `web/format.ts`，client 元件只 import 它，不 import 伺服器端的 view model。
   - view model 一個檔一件事：`accounts-state.ts`（餘額、帳單與總資產，各頁共用的起點）、`account-details.ts`（每個帳戶的數字與視窗的預填）、`form-options.ts`（交給表單的選項）、`expense-rows.ts`（本月支出）、`pending-view.ts`（要處理的事）、`accounts-view.ts`、`investments-view.ts`、`recurring-view.ts`、`overview-view.ts`（各頁的形狀）。
   - 插圖（`web/components/illustration.tsx` 的 `Illustration`，檔案在 `public/illustrations/finance/`，unDraw，授權寫在 `public/illustrations/LICENSE.md`）只用在開始設定與空狀態；顏色用 CSS 變數跟著淺色深色換。
@@ -526,7 +531,7 @@ AllHub Project：個人整合系統。
   - 認領：`savings_dividend_notices` 一個人一檔一個除息日一列，有這一列就是公布寄過了，`amount_notified`、`reminded` 記金額與最後買進日。沒有列時 insert … on conflict do nothing、有列時條件式 update（舊的記號相同才改），同時跑的排程只有一個認領得到；寄不出去用 core 的 `sendOrRelease()` 放掉（刪掉新的那一列或把記號改回）。每次先刪掉除息日過了的列；預告表每次讀最新的、不走快取，沒有持股時不讀。摘要只有數字，log 只記錯誤種類與 id。
   - 投資頁的卡片（`components/investments/dividends-card.tsx`，資料整理在 `web/dividends-view.ts`）：摘要下面（超寬螢幕在右邊一欄、摘要與定期定額之間）列出持股之後要除權息的：代號、名稱、上下兩行「11/18 除息」與「還有 20 天」（今天、明天直接寫，最後買進日那天寫「今天最後買進」，`format.ts` 的 `dividendDateLines()`），右邊是估計金額與每股配息，還沒公布寫「金額還沒公布」；沒有要除權息的持股時整張不顯示，讀不到時是 `EmptyState`「除權息預告暫時讀不到，稍後再看」。`cachedDividends()` 跟收盤價同時讀、同一套快取規則（排序去重的代號當 key、`quotes` 效期、讀不到或只讀到一個來源用 `external`）。骨架照沒有這張卡片的樣子（只在快到除息日時出現）。
 - 通知（`service/notices.ts`，`savings:recurring` 寄給擁有者，連到 `/savings`）：confirm 的固定收支某一期的日期是今天（「今天到期：<名稱> $金額」，薪水是「今天發薪：記得確認實際金額」）；信用卡結帳隔天還沒填帳單（「<卡名> 已結帳：照帳單填金額與截止日」），填了之後帳單的截止日（順延後）前 3 天還沒繳清（自動扣繳的寫「自動扣繳：本期 $X，記得確認」）。用 `last_notified_on`／`card_notified_on` 條件式 update 認領，同一天只寄一次，寄不出去退回；log 只記錯誤種類與 id。
-- 快取：一張表一個 tag（`savings:accounts`、`categories`、`recurring`、`transactions`、`holdings`、`bills`），加上收盤價與除權息預告的 `savings:external`；紀錄一改，餘額、統計與明細都重算。刪除會連帶改到別張表時一起失效（刪除帳戶：紀錄、固定收支、持股、帳單；刪除紀錄：持股、固定收支、帳單；刪除持股：固定收支、紀錄），對照表在 `web/actions.cache.test.ts`。
+- 快取：一張表一個 tag（`savings:accounts`、`categories`、`recurring`、`transactions`、`holdings`、`bills`），加上收盤價與除權息預告的 `savings:external`；紀錄一改，餘額、統計與明細都重算。刪除會連帶改到別張表時一起失效（刪除帳戶：紀錄、固定收支、持股、帳單；刪除紀錄：持股、固定收支、帳單；刪除持股：固定收支、紀錄），對照表在 `web/__tests__/actions.cache.test.ts`。
 - 記帳資料永久保留（帳單除外，見〈資料保留〉），不加清理排程；刪除帳號時一起刪。
 - 測試共用的假資料：`dev/fixtures.ts`（帳戶、固定收支、每月與每天的流量、這個月要做的事的一件、`userError()`，不載入資料庫）與 `dev/db-fixtures.ts`（`savingsRows()` 寫進 PGlite、`dateParams()`）。
 
@@ -535,7 +540,7 @@ AllHub Project：個人整合系統。
 - 推上 main 時 Vercel 部署與 `db-migrate.yml` 平行執行，舊程式會在新的資料表上跑一小段時間，migration 一律先擴充、之後再收斂：
   - 新欄位可為 null 或有預設值，新表直接加；不刪也不改舊欄位（舊程式明列欄位的 select、insert、upsert 仍要能用；唯一例外是 `youtube_settings.id` 加上 BY DEFAULT 的 identity，舊程式明確給 id 照樣寫得進去）。
   - 既有資料的回填寫在同一個 migration 的 SQL 裡（例如 v0.1.1 把單人版的資料歸給最早建立的站長）。
-  - `src/core/db/migrations.integration.test.ts`：這一版有回填或舊寫法要顧時，另外寫測試先套到上一版、用舊程式的寫法寫入，再套新的 migration；基準檔之後的每個 migration 自動檢查一開始設 `lock_timeout = 5s`、沒有 drop、rename、alter column（使用者同意的例外逐條列在測試的 `ALLOWED_CONVERGENCE`，多一條少一條都不行，只給還沒併進基準檔的 migration，併進去時一起拿掉），NOT NULL 的新欄位有預設值，新表開了 RLS。
+  - `src/core/db/__tests__/migrations.integration.test.ts`：這一版有回填或舊寫法要顧時，另外寫測試先套到上一版、用舊程式的寫法寫入，再套新的 migration；基準檔之後的每個 migration 自動檢查一開始設 `lock_timeout = 5s`、沒有 drop、rename、alter column（使用者同意的例外逐條列在測試的 `ALLOWED_CONVERGENCE`，多一條少一條都不行，只給還沒併進基準檔的 migration，併進去時一起拿掉），NOT NULL 的新欄位有預設值，新表開了 RLS。
   - migration 不累積（使用者的決定）：資料夾只留基準檔 `0000_baseline`（v0.1.6 以前的 0000 到 0013 壓成的）與還沒併進去的這一版 migration。上一版的 migration 確認套用到正式資料庫後，下一版開始時把它併進基準檔：用 `drizzle-kit generate` 從現在的 schema 重新產生（另外指定輸出資料夾），欄位順序調成跟正式資料庫一樣，再把兩種方式建出來的資料庫逐項比對（表、欄位與順序、預設值、identity、約束、索引、RLS、sequence），一樣才換掉；journal 的 `when` 等於正式資料庫最後套用的那一個（drizzle 只套時間比最後一筆晚的，正式資料庫會略過基準檔；測試另外模擬這件事）。舊檔留在 git 歷史裡。因此只能從上一版升級，更舊的要先升到上一版。
   - 收斂（刪舊欄位或舊表、把 `user_id` 改成 NOT NULL、刪掉舊索引）要等舊程式不再上線之後的版本，改成 NOT NULL 前先把 null 的列補回或刪掉。drizzle 的查詢會明列 schema 裡的每個欄位，所以刪欄位要分兩版：先從 schema 拿掉（migration 手動去掉 DROP），再下一版才刪。db-migrate 用 GitHub Secrets 的 `MIGRATION_DATABASE_URL`（Session pooler 5432），網站用 `DATABASE_URL`（Transaction pooler 6543）。
     - 例外：v0.1.8 由使用者同意一次做完（`0001_weather_cleanup` 直接刪掉主播表與頻道表的舊 `notify_enabled`、`youtube_settings` 的三個 `*_key_hint`、`savings_accounts.purpose_id` 與 `savings_purposes`、`core_notifications_unread_idx`，`user_id` 先刪掉 null 的列再改成 NOT NULL）。代價：推上 main 後到新版部署完成前（大約一兩分鐘），還在線上的 v0.1.7 讀寫到被刪的欄位會出錯，理財、Twitch、YouTube 的頁面與 webhook 都受影響（Twitch、YouTube 會重送 webhook）；所以推送時避開排程的時段（台北 0 點到 7 點）、不要正在用網站，之後也不能回到 v0.1.7。之後的版本照舊分兩版。
@@ -546,13 +551,13 @@ AllHub Project：個人整合系統。
   - `starrail:stamina` 同一個路徑每個 UTC 小時各一條（24 條），大約每小時跑一次；GitHub Actions 的定時排程常漏跑（實際一天只跑 4–5 次、間隔 3–8 小時），不要用，`.github/workflows/cron.yml` 只給手動執行。
   - `audit:cleanup` 每天一條（UTC 20:50＝台北 04:50，刪掉超過 7 天的操作紀錄）。
   - `travel:cleanup` 每天一條（UTC 19:10＝台北 03:10）。
-  - `notifications:cleanup` 跟其他每天一次的排程錯開小時（`core/cron.test.ts`），開拓力提醒與天氣警特報每個小時都有、不算。
-  - `starrail:redeem` 每天一條（UTC 04:00＝台北 12:00；`modules/cron.test.ts` 檢查只有一條）。
-  - `weather:rain` 每天一條（UTC 22:00＝台北 06:00，只保證在那個小時內；`modules/cron.test.ts` 檢查只有一條、在那個小時）。
+  - `notifications:cleanup` 跟其他每天一次的排程錯開小時（`core/__tests__/cron.test.ts`），開拓力提醒與天氣警特報每個小時都有、不算。
+  - `starrail:redeem` 每天一條（UTC 04:00＝台北 12:00；`modules/__tests__/cron.test.ts` 檢查只有一條）。
+  - `weather:rain` 每天一條（UTC 22:00＝台北 06:00，只保證在那個小時內；`modules/__tests__/cron.test.ts` 檢查只有一條、在那個小時）。
   - `savings:dividends` 每天一條（UTC 00:00＝台北 08:00，9 點開盤前；同樣檢查只有一條、在那個小時）。
   - `reminders:daily` 每天兩條（UTC 23:00＝台北 07:00、UTC 04:00＝台北 12:00：中午那一次補寄早上沒寄出去的，排程不只一條才會有下一次，不然寄不出去的提醒隔天就被刪掉）。
   - `starrail:warps` 每天一條（UTC 05:20＝台北 13:20，抓新的躍遷紀錄）。
-  - `weather:warnings` 同一個路徑每個 UTC 小時各一條（24 條，共 66 條，`modules/cron.test.ts` 也檢查總數在 100 條內）。
+  - `weather:warnings` 同一個路徑每個 UTC 小時各一條（24 條，共 66 條，`modules/__tests__/cron.test.ts` 也檢查總數在 100 條內）。
   - 排程的 route 沒有設 `maxDuration`，靠 Vercel 的 Fluid compute 預設 300 秒（Hobby）：`youtube:cleanup`（外部請求最多 60 秒）、`starrail:redeem`（約 45 秒）、`weather:rain`、`weather:warnings`（讀全台資料最多等 15 秒）、`savings:dividends`（兩個預告表各最多等 15 秒）都要它開著，關掉時預設只有 10 秒。
-  - 新增排程要登記到 `src/modules/cron.ts`、`vercel.json` 與 `docs/architecture.md` 的排程表（`modules/cron.test.ts` 檢查登記的排程跟 `vercel.json` 的路徑一一對應，只能手動跑的列在它的 `MANUAL_ONLY`）。
+  - 新增排程要登記到 `src/modules/cron.ts`、`vercel.json` 與 `docs/architecture.md` 的排程表（`modules/__tests__/cron.test.ts` 檢查登記的排程跟 `vercel.json` 的路徑一一對應，只能手動跑的列在它的 `MANUAL_ONLY`）。
 - 發版：`package.json` 的 version 與 `CHANGELOG.md` 一起改。CHANGELOG 新的一版加在最上面（版本與日期），分「新增／改善／修正」，有的才寫；給人看，寫使用者看得到的改變，不寫內部實作。資料庫 migration 寫在那一版的「資料庫」（沒有就寫沒有），升級時要注意的事另外寫進 `docs/deploy.md` 的〈之後的部署〉。

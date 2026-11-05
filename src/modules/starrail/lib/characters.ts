@@ -184,9 +184,11 @@ export function parseCharacters(data: unknown): CharacterList {
         }),
         traces: listAt(c, "skills", at("skills")).flatMap((value) => {
           const skill = asRecord(value);
-          const kind = TRACE_KINDS[numberOf(skill?.point_type) ?? -1];
+          const pointType = numberOf(skill?.point_type);
+          const kind = TRACE_KINDS[pointType ?? -1];
           if (!skill || !kind) {
-            missing.add(at("skills[].point_type"));
+            // 真實回應有沒看過的代碼 記下數字才知道是什麼
+            missing.add(at(pointType === null ? "skills[].point_type" : `skills[].point_type=${pointType}`));
             return [];
           }
           const stage = asRecord((Array.isArray(skill.skill_stages) ? skill.skill_stages : [])[0]);

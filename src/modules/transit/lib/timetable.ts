@@ -5,7 +5,10 @@ import { asArray, asRecord, numberOf, text } from "@/core/json";
 
 /** at 是開車時間的毫秒時間戳 伺服器與瀏覽器算起來才會一樣 */
 export type Departure = { at: number; arrivesAt: number | null; trainNo: string | null; kind: string | null; toward: string | null };
-export type Station = { id: string; name: string };
+/** city 只有台鐵的面板用 車站清單本來就帶著 分組不用多問一次 TDX */
+export type Station = { id: string; name: string; city?: string };
+/** 一條線上的車站代碼 照路線上的順序 */
+export type MetroLine = { id: string; stationIds: string[] };
 
 const CLOCK = /^(\d{2}):(\d{2})/;
 /** 跨夜車次在這個時間之前才經過起站 就是隔天的事 */
@@ -80,12 +83,35 @@ export function metroDirections(json: unknown): Station[] {
 }
 
 export function parseStations(json: unknown): Station[] {
-  const stations = new Map<string, string>();
+  const stations = new Map<string, Station>();
   for (const value of asArray(json)) {
     const row = asRecord(value);
     const id = text(row?.StationID);
     const name = zhName(row?.StationName);
-    if (id && name && !stations.has(id)) stations.set(id, name);
+    const city = text(row?.LocationCity);
+    if (id && name && !stations.has(id)) stations.set(id, { id, name, ...(city ? { city } : {}) });
   }
-  return [...stations].map(([id, name]) => ({ id, name }));
+  return [...stations.values()];
+}
+
+function stopsInOrder(value: unknown): string[] {
+  const stops = asArray(value).flatMap((stop) => {
+    const entry = asRecord(stop);
+    const id = text(entry?.StationID);
+    return id ? [{ id, sequence: numberOf(entry?.Sequence) ?? Number.MAX_SAFE_INTEGER }] : [];
+  });
+  return stops.sort((a, b) => a.sequence - b.sequence).map((stop) => stop.id);
+}
+
+/** 支線可能跟主線同一個 LineNo 併成一條 一條線上同一站只留一次 */
+export function parseMetroLines(json: unknown): MetroLine[] {
+  const lines = new Map<string, Set<string>>();
+  for (const value of asArray(json)) {
+    const row = asRecord(value);
+    const id = text(row?.LineNo) ?? text(row?.LineID);
+    const stops = stopsInOrder(row?.Stations);
+    if (!id || stops.length === 0) continue;
+    lines.set(id, new Set([...(lines.get(id) ?? []), ...stops]));
+  }
+  return [...lines].map(([id, stationIds]) => ({ id, stationIds: [...stationIds] }));
 }

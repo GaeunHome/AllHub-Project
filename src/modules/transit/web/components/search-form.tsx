@@ -6,12 +6,14 @@ import { Icon } from "@/core/ui/icon";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import { BUS_CITIES, isBusCity } from "../../lib/bus";
 import { METRO_SYSTEMS, MODES, MODE_LABELS, isMetroSystem, type Mode } from "../../lib/modes";
+import type { StationGroup } from "../../lib/station-groups";
 import type { Station } from "../../lib/timetable";
 import { searchHref, type SearchQuery } from "../search-query";
+import { StationPicker } from "./station-picker";
 
 const MODE_OPTIONS = MODES.map((id) => ({ id, label: MODE_LABELS[id] }));
 
-type SearchFormProps = { query: SearchQuery; stations: Station[]; directions: Station[]; today: string; maxDate: string };
+type SearchFormProps = { query: SearchQuery; stations: Station[]; groups: StationGroup[]; frequent: Station[]; directions: Station[]; today: string; maxDate: string };
 
 function StationSelect({ name, label, value, options, onChange, prefix = "" }: { name: string; label: string; value: string; options: Station[]; onChange: (value: string) => void; prefix?: string }) {
   return (
@@ -31,7 +33,7 @@ function StationSelect({ name, label, value, options, onChange, prefix = "" }: {
 }
 
 /** 捷運換站要重讀方向 所以馬上換網址 高鐵與台鐵按查詢才問 TDX */
-export function SearchForm({ query, stations, directions, today, maxDate }: SearchFormProps) {
+export function SearchForm({ query, stations, groups, frequent, directions, today, maxDate }: SearchFormProps) {
   const router = useRouter();
   const [from, setFrom] = useState(query.from);
   const [to, setTo] = useState(query.to);
@@ -39,12 +41,21 @@ export function SearchForm({ query, stations, directions, today, maxDate }: Sear
   const [line, setLine] = useState(query.line);
   const metro = query.mode === "metro";
   const bus = query.mode === "bus";
+  const tra = query.mode === "tra";
+  const picker = { stations, groups, frequent, metroSystem: metro ? query.system : null };
   const go = (next: Partial<SearchQuery>) => router.replace(searchHref({ ...query, from, to, date, line: line.trim(), direction: 0, ...next }), { scroll: false });
   const switchMode = (mode: Mode) => {
     setFrom("");
     setTo("");
     setLine("");
     go({ mode, system: mode === "bus" ? "Taipei" : "TRTC", line: "", from: "", to: "" });
+  };
+  const chooseFrom = (value: string) => {
+    setFrom(value);
+    if (metro) {
+      setTo("");
+      go({ from: value, to: "" });
+    }
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -94,22 +105,13 @@ export function SearchForm({ query, stations, directions, today, maxDate }: Sear
             </label>
           </>
         )}
-        {!bus && (
+        {(tra || metro) && <StationPicker label="起站" value={from} onChange={chooseFrom} {...picker} />}
+        {tra && <StationPicker label="迄站" value={to} onChange={setTo} {...picker} />}
+        {metro && <StationSelect name="to" label="方向" value={to} options={directions} prefix="往" onChange={setTo} />}
+        {query.mode === "thsr" && (
           <>
-            <StationSelect
-              name="from"
-              label="起站"
-              value={from}
-              options={stations}
-              onChange={(value) => {
-                setFrom(value);
-                if (metro) {
-                  setTo("");
-                  go({ from: value, to: "" });
-                }
-              }}
-            />
-            <StationSelect name="to" label={metro ? "方向" : "迄站"} value={to} options={metro ? directions : stations} prefix={metro ? "往" : ""} onChange={setTo} />
+            <StationSelect name="from" label="起站" value={from} options={stations} onChange={chooseFrom} />
+            <StationSelect name="to" label="迄站" value={to} options={stations} onChange={setTo} />
           </>
         )}
         {!metro && !bus && (

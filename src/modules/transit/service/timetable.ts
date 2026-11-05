@@ -4,8 +4,8 @@ import { soonestEta, parseBusEta, parseBusRoute, parseBusSchedule, type BusDirec
 import type { LiveReading } from "../lib/countdown";
 import { parseMetroEstimate, parseTraDelays } from "../lib/live";
 import { hasMetroLive, type Mode } from "../lib/modes";
-import { busRequest, dailyTimetablePath, stationFilter, stationsPath, tdxGet, tdxProblem } from "../lib/tdx";
-import { metroDirections, parseDailyTimetable, parseMetroTimetable, parseStations, type Departure, type Station } from "../lib/timetable";
+import { busRequest, dailyTimetablePath, stationFilter, stationOfLinePath, stationsPath, tdxGet, tdxProblem } from "../lib/tdx";
+import { metroDirections, parseDailyTimetable, parseMetroLines, parseMetroTimetable, parseStations, type Departure, type MetroLine, type Station } from "../lib/timetable";
 
 // 向 TDX 讀資料 讀不到回摘要 不丟錯 一條路線讀不到不影響其他路線
 
@@ -21,6 +21,12 @@ async function read<T>(work: () => Promise<T>): Promise<Read<T>> {
 }
 
 export const readStations = (mode: Exclude<Mode, "bus">, system: string): Promise<Read<Station[]>> => read(async () => parseStations(await tdxGet(stationsPath(mode, system))));
+
+/** 欄位不同時讀不出路線 算讀不到 空的才不會在快取裡留一天 */
+export async function readMetroLines(system: string): Promise<Read<MetroLine[]>> {
+  const result = await read(async () => parseMetroLines(await tdxGet(stationOfLinePath(system))));
+  return result.ok && result.data.length === 0 ? { ok: false, problem: "TDX 的路線資料是空的或格式不同" } : result;
+}
 
 const metroTimetable = (system: string, stationId: string) => tdxGet(`/v2/Rail/Metro/StationTimeTable/${system}`, stationFilter(stationId));
 

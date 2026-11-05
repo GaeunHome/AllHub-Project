@@ -208,7 +208,6 @@ export async function handle({ url, json }) {
     return json(200, dataset(names ? names.split(",") : COUNTIES));
   }
   if (url.pathname === "/v1/forecast") return json(200, openMeteoResponse(url));
-  if (url.pathname === "/v1/search") return json(200, url.searchParams.get("name")?.toLowerCase() === "seoul" ? { results: [{ name: "Seoul", country: "South Korea", country_code: "KR", latitude: 37.566, longitude: 126.978, timezone: "Asia/Seoul" }] } : {});
   if (url.pathname === "/api/v2/aqx_p_432") {
     const key = url.searchParams.get("api_key") ?? "";
     if (!key || key.startsWith("bad")) return json(401, { message: "api_key 錯誤" });

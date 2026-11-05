@@ -9,8 +9,8 @@ import { FormFeedback } from "../ui/form-message";
 import { Icon } from "../ui/icon";
 import { InfoTip } from "../ui/info-tip";
 import { UserAvatar } from "../ui/user-avatar";
-import { updateAvatarAction, uploadAvatarAction } from "./actions";
-import { shrinkAvatar } from "./avatar-image";
+import { updateAvatarAction } from "./actions";
+import { AvatarCropper } from "./avatar-cropper";
 import { KEEP_AVATAR, avatarFileProblem } from "./avatar-rules";
 
 type AvatarProps = { username: string; name: string; avatar: string | null };
@@ -28,23 +28,30 @@ export function AvatarButton(props: AvatarProps) {
       }
       title="更換頭像"
     >
-      {({ done, close }) => (
-        <div className="stack">
-          <PhotoUpload onDone={done} />
-          <AvatarForm {...props} onDone={done} onCancel={close} />
-        </div>
-      )}
+      {({ done, close }) => <AvatarChoices {...props} onDone={done} onCancel={close} />}
     </DialogButton>
   );
 }
 
-/** 選了檔案就上傳 瀏覽器先裁成正方形縮成小圖 所以 5MB 的照片也只送幾十 KB */
-function PhotoUpload({ onDone }: DoneProps) {
+/** 選了照片就在同一個視窗裡調整 取消回到選頭像 */
+function AvatarChoices({ onDone, onCancel, ...props }: AvatarProps & DoneProps & { onCancel: () => void }) {
+  const [bitmap, setBitmap] = useState<ImageBitmap | null>(null);
+  if (bitmap) return <AvatarCropper bitmap={bitmap} onDone={onDone} onCancel={() => setBitmap(null)} />;
+  return (
+    <div className="stack">
+      <PhotoPicker onPicked={setBitmap} />
+      <AvatarForm {...props} onDone={onDone} onCancel={onCancel} />
+    </div>
+  );
+}
+
+/** 瀏覽器先解開照片才看得到預覽 手機的 HEIC 這類解不開的在這裡就擋下 */
+function PhotoPicker({ onPicked }: { onPicked: (bitmap: ImageBitmap) => void }) {
   const inputId = useId();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const upload = async (event: ChangeEvent<HTMLInputElement>) => {
+  const pick = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -53,14 +60,9 @@ function PhotoUpload({ onDone }: DoneProps) {
     if (problem) return;
     setBusy(true);
     try {
-      const form = new FormData();
-      form.set("photo", await shrinkAvatar(file), "avatar.jpg");
-      const result = await uploadAvatarAction({}, form);
-      if (result.error) setError(result.error);
-      else onDone(result.message);
+      onPicked(await createImageBitmap(file));
     } catch {
       setError("這張照片讀不到，請換一張");
-    } finally {
       setBusy(false);
     }
   };
@@ -70,10 +72,10 @@ function PhotoUpload({ onDone }: DoneProps) {
       <div className="flex items-center gap-1">
         <label htmlFor={inputId} aria-disabled={busy} className="btn-secondary w-fit cursor-pointer has-[:focus-visible]:outline-2">
           <Icon name="upload" className="size-4" />
-          {busy ? "上傳中…" : "上傳照片"}
-          <input id={inputId} type="file" accept="image/*" disabled={busy} onChange={upload} className="sr-only" />
+          {busy ? "讀取中…" : "上傳照片"}
+          <input id={inputId} type="file" accept="image/*" disabled={busy} onChange={pick} className="sr-only" />
         </label>
-        <InfoTip label="上傳照片的說明">檔案最大 5MB。會自動裁成正中間的正方形並縮小，存下來的是小圖；換照片時舊的會刪掉。</InfoTip>
+        <InfoTip label="上傳照片的說明">檔案最大 5MB。選好後可以拖曳與放大縮小，存下來的是小圖；換照片時舊的會刪掉。</InfoTip>
       </div>
       {error && <FormFeedback state={{ error }} />}
     </div>

@@ -1,4 +1,15 @@
 /* 天氣頁 整片場景圖配大溫度 字疊在圖上一律寫死白色 一週的卡片壓在圖的下緣 */
+/* 照片的天空常常很亮 上緣再壓暗一層 城市膠囊與 i 圓圈才讀得到 手機上字鋪滿下半部 下緣也要壓暗 */
+.wx-hero .scene-scrim::before {
+  @apply absolute inset-0;
+  content: "";
+  background: linear-gradient(180deg, rgb(7 13 28 / 0.5) 0%, rgb(7 13 28 / 0) 38%);
+}
+@media (width < 40rem) {
+  .wx-hero .scene-scrim::before {
+    background: linear-gradient(180deg, rgb(7 13 28 / 0.5) 0%, rgb(7 13 28 / 0) 34%, rgb(7 13 28 / 0) 42%, rgb(7 13 28 / 0.62) 100%);
+  }
+}
 .wx-hero-body {
   @apply flex min-h-96 flex-col justify-between gap-8 p-5 pb-12 sm:p-6 sm:pb-12;
 }

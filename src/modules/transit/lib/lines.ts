@@ -6,18 +6,26 @@ const TRA = "#2f6fd0";
 const METRO = "#0f8a7e";
 const BUS = "#16a34a";
 
-/** 車站代碼開頭就是路線 長的放前面 BR 不能被當成 B */
-const LINES: Record<string, [string, string][]> = {
-  TRTC: [["BR", "#c48c31"], ["BL", "#0070bd"], ["R", "#e3002c"], ["G", "#008659"], ["O", "#f8b61c"], ["Y", "#d4b106"]],
-  NTMC: [["Y", "#d4b106"]],
-  KRTC: [["R", "#e20b65"], ["O", "#faa73f"]],
-  TYMC: [["A", "#8246af"]],
-  KLRT: [["C", "#7cbd52"]],
+/** 車站代碼與 TDX 的 LineNo 開頭就是路線 長的放前面 BR 不能被當成 B */
+const LINES: Record<string, [prefix: string, color: string, name: string][]> = {
+  TRTC: [["BR", "#c48c31", "文湖線"], ["BL", "#0070bd", "板南線"], ["R", "#e3002c", "淡水信義線"], ["G", "#008659", "松山新店線"], ["O", "#f8b61c", "中和新蘆線"], ["Y", "#d4b106", "環狀線"]],
+  NTMC: [["Y", "#d4b106", "環狀線"]],
+  KRTC: [["R", "#e20b65", "紅線"], ["O", "#faa73f", "橘線"]],
+  TYMC: [["A", "#8246af", "機場線"]],
+  KLRT: [["C", "#7cbd52", "環狀輕軌"]],
+  NTDLRT: [["V", METRO, "淡海輕軌"]],
+  NTALRT: [["K", METRO, "安坑輕軌"]],
 };
+
+/** code 是車站代碼或 LineNo 認不得的路線沒有名稱 */
+export function metroLine(system: string, code: string): { name: string | null; color: string } {
+  const line = (LINES[system] ?? []).find(([prefix]) => code.startsWith(prefix));
+  return { name: line?.[2] ?? null, color: line?.[1] ?? METRO };
+}
 
 export function routeColor(mode: Mode, system: string, stationId: string): string {
   if (mode === "thsr") return THSR;
   if (mode === "tra") return TRA;
   if (mode === "bus") return BUS;
-  return (LINES[system] ?? []).find(([prefix]) => stationId.startsWith(prefix))?.[1] ?? METRO;
+  return metroLine(system, stationId).color;
 }

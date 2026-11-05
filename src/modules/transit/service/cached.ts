@@ -3,11 +3,11 @@ import { cacheLife, cacheTag } from "next/cache";
 import type { BusDirection, BusEta, BusSchedule } from "../lib/bus";
 import type { LiveReading } from "../lib/countdown";
 import type { Mode } from "../lib/modes";
-import type { Departure, Station } from "../lib/timetable";
+import type { Departure, MetroLine, Station } from "../lib/timetable";
 import type { TransitRoute } from "../data/schema";
 import { transitTags } from "./cache-tags";
 import { listRoutes } from "./routes";
-import { readBusEta, readBusRoute, readBusSchedule, readDepartures, readDirections, readLive, readStations, type Read } from "./timetable";
+import { readBusEta, readBusRoute, readBusSchedule, readDepartures, readDirections, readLive, readMetroLines, readStations, type Read } from "./timetable";
 
 // 只給頁面與輪詢 API 用 外部資料不存資料庫 不分使用者 同一條路線大家共用同一份 才省額度
 
@@ -22,6 +22,15 @@ export async function cachedStations(mode: Exclude<Mode, "bus">, system: string)
   "use cache: remote";
   cacheTag(transitTags.external);
   const result = await readStations(mode, system);
+  if (result.ok) cacheLife("avatar");
+  else cacheLife("external");
+  return result;
+}
+
+export async function cachedMetroLines(system: string): Promise<Read<MetroLine[]>> {
+  "use cache: remote";
+  cacheTag(transitTags.external);
+  const result = await readMetroLines(system);
   if (result.ok) cacheLife("avatar");
   else cacheLife("external");
   return result;

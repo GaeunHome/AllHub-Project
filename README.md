@@ -37,12 +37,12 @@ AllHub 是個人製作、非商業的整合網站，把平常會用到的小工�
   - 把想去的點拖進每一天，時間照順序與停留時間自動算，改順序不用重排。
   - 貼 Google Maps 連結就帶入地點，也有留言與出發前清單。
   - 旅途中打開就看到下一站與導航，行程可以複製成文字貼到 LINE。
-- **交通**：查高鐵、台鐵、捷運與公車的班次，存常用路線；追蹤的路線有路線圖與每 5 秒更新的倒數，開車前用即時資料校正。站長要先申請免費的 TDX 金鑰。
-- **天氣**：卡片的背景圖跟著天氣與日夜換，顯示現在與下一個時段的天氣、降雨機率與空氣品質，天氣頁看台灣與國外城市的一週預報。站長要先申請免費的授權碼。
+- **交通**：查高鐵、台鐵、捷運與公車的班次，台鐵與捷運可以搜尋或依縣市、路線選站，存常用路線；追蹤的路線有路線圖與每 5 秒更新的倒數，開車前用即時資料校正。站長要先申請免費的 TDX 金鑰。
+- **天氣**：卡片的背景圖跟著天氣與日夜換，顯示現在與下一個時段的天氣、降雨機率與空氣品質，天氣頁有每個城市的真實照片與一週預報。站長要先申請免費的授權碼。
   - 會下雨時早上提醒帶傘，有特報或警報時也會通知，都可以關掉。
 - **提醒與倒數**：寫下要記得的事與日期，可以選當天或提前幾天通知，日期過了自動刪除。
 - **網站通知**：各模組的通知集中在鈴鐺，提示音與瀏覽器通知可以依模組分開開關。
-- **帳號**：可以改暱稱、頭像、密碼與外觀（淺色、深色或跟隨系統），也可以刪除自己的帳號與資料。登入與註冊有圖形驗證碼，錯太多次會暫時鎖定。
+- **帳號**：可以改暱稱、密碼與外觀，上傳頭像時能拖曳與放大裁切（淺色、深色或跟隨系統），也可以刪除自己的帳號與資料。登入與註冊有圖形驗證碼，錯太多次會暫時鎖定。
 - **管理（站長）**：建立邀請連結並決定開放哪些功能，停用或刪除帳號，勾選每個人能用的功能，查看操作紀錄（保留 7 天）與排程、外部服務的狀態。
 
 使用聲明在 `/terms`。
@@ -128,6 +128,7 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 - YouTube、Twitch 標誌：[Simple Icons](https://simpleicons.org)（CC0 1.0）。
 - 範例頭像與天氣圖：[Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji)（MIT，授權全文在 `public/images/avatars/LICENSE.md`、`public/images/weather/LICENSE.md`）。
 - 國旗：[circle-flags](https://github.com/HatScripts/circle-flags)（MIT，授權全文在 `public/images/flags/LICENSE.md`）。
+- 天氣頁的城市照片：[Wikimedia Commons](https://commons.wikimedia.org) 的 44 張照片（CC0、公有領域、CC BY、CC BY-SA，每張的作者與授權見 [public/images/cities/LICENSE.md](public/images/cities/LICENSE.md)）。
 - 理財頁的插圖：[unDraw](https://undraw.co)（unDraw License，可以商用與修改，見 [public/illustrations/LICENSE.md](public/illustrations/LICENSE.md)）。
 
 **遊戲素材**（著作權屬於 HoYoverse（COGNOSPHERE），不在本專案的授權範圍內，詳見 [public/icons/LICENSE.md](public/icons/LICENSE.md)）

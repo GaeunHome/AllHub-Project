@@ -37,8 +37,9 @@
 | HoYoLAB | 社群的兌換碼清單（hoyo-codes 的 `/codes?game=hkrpg`） | 自動兌換讀這份：`GIFTAUTO2026`、`GIFTLIVESTREAM`、`STARRAILGIFT` 第一次會成功（同一個 UID 第二次是已兌換），`OMEGA` 在假伺服器是無效，`EXPIREDCODE1` 過期。手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/starrail:redeem`，帳號要先在「帳號設定」打開自動兌換 |
 | 天氣 | 氣象署 F-C0032-001 | 時段照現在的台北時間算（從最近的 6 點或 18 點起三段）；帶 `locationName` 只回那個縣市，沒帶（早上的 `weather:rain`）回全部 22 個縣市。每個縣市照名稱固定一種天氣，現在與下一段的降雨機率決定卡片的提醒，見下表 |
 | 交通 | 高鐵、台鐵、捷運 | 假 TDX 的時刻表每天 6 點到 23 點多：高鐵每 15 分鐘、台鐵每 20 分鐘、捷運每 6 分鐘一班，明天的日期也有車；金鑰填什麼都可以 |
+| 交通 | 選站 | 假台鐵有全部縣市的車站（竹北與新竹、民雄與嘉義分開寫，看得到併組）；假捷運的路線各系統共用同一份臺北捷運的資料，`板橋` 用同一個代碼放在兩條線，`七張`、`小碧潭` 是同一個 LineNo 的支線；捷運系統選「淡海輕軌」時 `StationOfLine` 回 404，看得到退回完整清單 |
 | 交通 | 公車 | 只有路線 307（`/transit?mode=bus&system=Taipei&line=307`），有每站的到站秒數、末班車已過的站與班距 |
-| 天氣 | 氣象署 F-D0047-091、Open-Meteo | 一週預報照今天的日期產生；Open-Meteo 的城市搜尋只有 `seoul` 查得到結果 |
+| 天氣 | 氣象署 F-D0047-091、Open-Meteo | 一週預報照今天的日期產生 |
 | 旅遊 | Google Maps 短網址 `https://maps.app.goo.gl/mapshortabc` | 假伺服器轉到清水寺的完整網址，名稱與座標自動帶入；`mapshortbroken` 回 500，要手動填名稱 |
 | 天氣 | 背景圖 | 照現在這一段的天氣描述：臺北市是雷雨、臺中市這類 `dry` 的縣市看得到晴天或多雲；白天或晚上看的是現在這一段的開始時間 |
 | 天氣 | 授權碼 `bad` 開頭（`CWA_API_KEY`、`MOENV_API_KEY`） | 回 401，像授權碼打錯 |
@@ -129,7 +130,7 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
   - `docs/secrets.md` 產生亂數密鑰的那行指令，測試會實際執行，並用 `core/env.ts` 檢查每個值；改那行時測試也要通過。
   - 共用的測試輔助都在 `src/dev/`，用法見 CLAUDE.md〈架構規則〉：環境變數（跨模組的測試用 `stubAllEnv()`）、測試帳號（`insertTestUsers()` 建站長 alice 與成員 bob）、登入狀態、`next/navigation` 與 ⋮ 選單的替身、假 fetch 與假 localStorage、算繪成 HTML 與取出看得到的字（`markup()`、`textOf()`）、直接呼叫假外部服務的 `mockRequest()`、`next/cache` 的 spy。模組自己的測試 fixture 放在模組的 `dev/`，只有測試能 import。
   - `vi.stubGlobal` 換掉的全域（`fetch`、`localStorage`、`window`…）每個測試前自動還原（`vitest.config.mts` 的 `unstubGlobals`），測試不用自己還原；環境變數不自動還原。每個測試開始時 `DEV_EXTERNAL_ORIGIN` 是空的，本機 shell 設了假伺服器也不影響測試。
-- **規則檢查**：`src/architecture.test.ts` 與 `src/cache-rules.test.ts` 檢查架構與快取規則（見 [架構](architecture.md)），包括 `process.env` 只出現在允許的地方、Server Action 先確認登入、模組 id 一致。`src/modules/cron.test.ts` 檢查排程跟 `vercel.json` 一一對應，`src/account-deletion.integration.test.ts` 從資料庫的外鍵檢查刪除帳號時每張表都刪乾淨。
+- **規則檢查**：`src/__tests__/architecture.test.ts` 與 `src/__tests__/cache-rules.test.ts` 檢查架構與快取規則（見 [架構](architecture.md)），包括 `process.env` 只出現在允許的地方、Server Action 先確認登入、模組 id 一致。`src/modules/__tests__/cron.test.ts` 檢查排程跟 `vercel.json` 一一對應，`src/__tests__/account-deletion.integration.test.ts` 從資料庫的外鍵檢查刪除帳號時每張表都刪乾淨。
 - **CI 的順序**：`ci.yml` 的測試跟 lint → build → typecheck 是兩個同時跑的工作，各自最多 30 分鐘（公開 repo 的 Actions 不計分鐘，上限只是避免卡住的工作掛很久）。`typecheck` 要用 build 產生的 `.next/types`，所以本機也要先 build。
 - **在瀏覽器裡測試**：一律用 `next dev` 加上 `npm run mock:external` 與 `DEV_EXTERNAL_ORIGIN`。
   - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、沒有持股的理財、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像、即時便箋、股價、天氣與警特報，只有還沒追蹤、沒連結帳號、沒有持股、沒選縣市的使用者才不會對外；新增持股、有持股的投資頁（股價與除權息預告）、`starrail:stamina`、`starrail:redeem`、`weather:rain`、`weather:warnings`、`savings:dividends` 也都會對外。

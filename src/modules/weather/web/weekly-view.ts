@@ -1,4 +1,5 @@
 import { formatTaipeiLongDate } from "@/core/time";
+import { cityPhoto } from "../lib/city-photos";
 import type { WeekDay } from "../lib/weekly";
 import { weatherArt, weatherScene, type WeatherArt, type WeatherScene } from "./weather-view";
 
@@ -24,7 +25,10 @@ export function weekRows(week: readonly WeekDay[]): WeekRow[] {
 }
 
 /** 圖照今天的天氣 晚上的圖太暗 字疊上去不好讀 一律用白天的 */
-export const heroScene = (today: WeekDay | undefined): WeatherScene => weatherScene(today?.weather ?? "", false);
+const heroScene = (today: WeekDay | undefined): WeatherScene => weatherScene(today?.weather ?? "", false);
+
+/** 內建地點用固定的照片 清單以外的舊城市沒有照片 退回場景圖 */
+export const heroImage = (name: string, today: WeekDay | undefined): string => cityPhoto(name)?.src ?? heroScene(today);
 
 export function todayText(today: WeekDay): string {
   const parts = [today.weather, today.rain === null ? null : `降雨機率 ${today.rain}%`, today.high === null ? null : `最高 ${today.high}°`, today.low === null ? null : `最低 ${today.low}°`];

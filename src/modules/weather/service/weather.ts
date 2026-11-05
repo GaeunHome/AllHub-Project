@@ -5,7 +5,7 @@ import { parseStations, type Station } from "../lib/aqi";
 import type { County } from "../lib/counties";
 import { parseForecast, type Forecast } from "../lib/forecast";
 import { parseWarnings, type Warning } from "../lib/warnings";
-import { parseCityResults, parseCwaWeek, parseOpenMeteoWeek, type WeekDay, type WorldPlace } from "../lib/weekly";
+import { parseCwaWeek, parseOpenMeteoWeek, type WeekDay, type WorldPlace } from "../lib/weekly";
 
 // 授權碼只在伺服器用 不進快取的 key 也不進回傳值
 
@@ -14,9 +14,7 @@ const WARNING_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0033-0
 const AQI_URL = "https://data.moenv.gov.tw/api/v2/aqx_p_432";
 const WEEK_URL = "https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-D0047-091";
 const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
-const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
 const WEEK_DAYS = "7";
-const CITY_RESULTS = "5";
 // 首頁在等 等不到就先顯示讀不到
 const TIMEOUT_MS = 8_000;
 // 排程沒有人在等 全台的回應也比較大 多等一點
@@ -40,14 +38,6 @@ export async function fetchWorldWeek({ latitude, longitude, timezone }: Pick<Wor
   url.search = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude), daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max", timezone, forecast_days: WEEK_DAYS }).toString();
   const json = await readJson(url, "國外的預報", fetchImpl);
   return json === null ? null : parseOpenMeteoWeek(json);
-}
-
-/** 英文搜尋城市 結果用英文 用中文回的是簡體字 */
-export async function searchCities(name: string, fetchImpl?: typeof fetch): Promise<WorldPlace[] | null> {
-  const url = new URL(GEOCODING_URL);
-  url.search = new URLSearchParams({ name, count: CITY_RESULTS, language: "en" }).toString();
-  const json = await readJson(url, "城市搜尋", fetchImpl);
-  return json === null ? null : parseCityResults(json);
 }
 
 /** 有沒有設定授權碼 沒有時卡片說明要去哪裡申請 */

@@ -12,9 +12,21 @@ function range(from, to, step) {
 }
 
 const THSR = ["1000:台北", "1010:板橋", "1020:桃園", "1030:新竹", "1040:台中", "1050:嘉義", "1060:台南", "1070:左營"];
-const TRA = ["1000:臺北", "1020:板橋", "1080:桃園", "1210:新竹", "3300:臺中", "4220:臺南", "4400:高雄"];
-const TRTC = ["R10:台北車站", "R07:東門", "BL12:台北車站(板南線)", "BL18:市政府", "G09:古亭", "O07:古亭(中和新蘆線)", "BR10:忠孝復興"];
-const stations = (list) => list.map((row) => ({ StationID: row.split(":")[0], StationName: { Zh_tw: row.split(":")[1], En: "Station" } }));
+// 新竹與嘉義的縣市分開寫 看得到併成一組
+const TRA = ["0900:基隆:基隆市", "1000:臺北:臺北市", "1020:板橋:新北市", "1080:桃園:桃園市", "1180:竹北:新竹縣", "1210:新竹:新竹市", "3160:苗栗:苗栗縣", "3300:臺中:臺中市", "3360:彰化:彰化縣", "3430:集集:南投縣", "3470:斗六:雲林縣", "4060:民雄:嘉義縣", "4080:嘉義:嘉義市", "4220:臺南:臺南市", "4400:高雄:高雄市", "5000:屏東:屏東縣", "6000:臺東:臺東縣", "7000:花蓮:花蓮縣", "7190:宜蘭:宜蘭縣"];
+// 跟真的一樣 轉乘站多半在兩條線各有代碼而且同名 板橋故意同一個代碼放在兩條線 七張 小碧潭是同一個 LineNo 的支線
+const TRTC_LINES = [
+  ["BL", "BL", ["BL01:頂埔", "BL07:板橋", "BL12:台北車站", "BL15:忠孝復興", "BL18:市政府", "BL23:南港展覽館"]],
+  ["BR", "BR", ["BR01:動物園", "BR10:忠孝復興", "BR24:南港展覽館"]],
+  ["G", "G", ["G01:新店", "G03:七張", "G09:古亭", "G19:松山"]],
+  ["G", "G-1", ["G03:七張", "G03A:小碧潭"]],
+  ["O", "O", ["O01:南勢角", "O07:古亭", "O21:迴龍"]],
+  ["R", "R", ["R02:象山", "R07:東門", "R10:台北車站", "R28:淡水"]],
+  ["Y", "Y", ["Y07:大坪林", "BL07:板橋", "Y20:新北產業園區"]],
+];
+const TRTC = [...new Set(TRTC_LINES.flatMap(([, , list]) => list))];
+const stations = (list) => list.map((row) => ({ StationID: row.split(":")[0], StationName: { Zh_tw: row.split(":")[1], En: "Station" }, ...(row.split(":")[2] ? { LocationCity: row.split(":")[2] } : {}) }));
+const stationsOfLine = () => TRTC_LINES.map(([LineNo, LineID, list]) => ({ LineNo, LineID, Stations: list.map((row, index) => ({ Sequence: index + 1, StationID: row.split(":")[0], StationName: { Zh_tw: row.split(":")[1], En: "Station" } })) }));
 
 function dailyRows(url, ending, kinds, trainBase, step, ride) {
   const date = url.pathname.split("/").at(-1);
@@ -75,6 +87,9 @@ export async function handle({ url, req, json }) {
   if (path === "THSR/Station") json(200, stations(THSR));
   else if (path === "TRA/Station") json(200, stations(TRA));
   else if (path.startsWith("Metro/Station/")) json(200, stations(TRTC));
+  // 淡海輕軌讀不到路線 本機看得到面板退回完整清單
+  else if (path === "Metro/StationOfLine/NTDLRT") json(404, { Message: "no data" });
+  else if (path.startsWith("Metro/StationOfLine/")) json(200, stationsOfLine());
   else if (path.startsWith("THSR/DailyTimetable/OD/")) json(200, dailyRows(url, "左營", null, 600, 15, 94));
   else if (path.startsWith("TRA/DailyTimetable/OD/")) json(200, dailyRows(url, "高雄", ["自強(3000)", "區間", "莒光"], 100, 20, 55));
   else if (path.startsWith("TRA/LiveBoard/Station/")) json(200, [{ TrainNo: "103", DelayTime: 3 }]);

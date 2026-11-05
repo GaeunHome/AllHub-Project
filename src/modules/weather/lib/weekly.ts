@@ -1,13 +1,12 @@
 import { asArray, asRecord, numberOf, text } from "@/core/json";
-import { COUNTIES, type County } from "./counties";
+import type { County } from "./counties";
 
 // 一週預報 台灣用氣象署 F-D0047-091 國外用 Open-Meteo 兩邊整理成同一種形狀
 // 氣象署的格式照官方文件 還沒用真實授權碼驗證
 
 export type WeekDay = { date: string; weather: string | null; high: number | null; low: number | null; rain: number | null };
-/** country 是兩個小寫字母的國家代碼 畫國旗用 搜尋結果偶爾沒有 */
-export type WorldPlace = { name: string; country: string | null; latitude: number; longitude: number; timezone: string };
-export type PlaceChoice = { kind: "county"; name: County; country: null; latitude: null; longitude: null; timezone: null } | ({ kind: "world" } & WorldPlace);
+/** country 是兩個小寫字母的國家代碼 畫國旗用 */
+export type WorldPlace = { name: string; country: string; latitude: number; longitude: number; timezone: string };
 
 const WMO_RANGES: [number, number, string][] = [
   [0, 0, "晴"],
@@ -75,45 +74,4 @@ export function parseCwaWeek(json: unknown, county: County): WeekDay[] {
     const daytime = weathers.find((period) => period.hour >= 6 && period.hour < 18) ?? weathers[0];
     return { date, weather: text(daytime?.value), high: extreme(numbers("最高溫度"), Math.max), low: extreme(numbers("最低溫度"), Math.min), rain: extreme(numbers("12小時降雨機率"), Math.max) };
   });
-}
-
-export function parseCityResults(json: unknown): WorldPlace[] {
-  return asArray(asRecord(json)?.results).flatMap((value) => {
-    const row = asRecord(value);
-    const name = text(row?.name);
-    const latitude = numberOf(row?.latitude);
-    const longitude = numberOf(row?.longitude);
-    const timezone = text(row?.timezone);
-    if (!name || latitude === null || longitude === null || !timezone) return [];
-    const country = text(row?.country);
-    return [{ name: country ? `${name}, ${country}` : name, country: text(row?.country_code)?.toLowerCase() ?? null, latitude, longitude, timezone }];
-  });
-}
-
-const NAME_MAX = 40;
-const TIMEZONE = /^[A-Za-z_]+(\/[A-Za-z_+-]+)*$/;
-// 代碼會組成圖片的路徑
-const COUNTRY = /^[a-z]{2}$/;
-const isCounty = (name: string): name is County => (COUNTIES as readonly string[]).includes(name);
-export const isLatitude = (value: unknown): value is number => typeof value === "number" && value >= -90 && value <= 90;
-export const isLongitude = (value: unknown): value is number => typeof value === "number" && value >= -180 && value <= 180;
-
-/** 視窗的選項值是 JSON 表單可能被改過 一項一項檢查 */
-export function parsePlaceChoice(raw: string): { ok: true; value: PlaceChoice } | { ok: false; error: string } {
-  const invalid = { ok: false as const, error: "請選擇城市" };
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return invalid;
-  }
-  const row = asRecord(parsed);
-  const name = text(row?.name);
-  if (!name || [...name].length > NAME_MAX) return invalid;
-  if (row?.kind === "county") return isCounty(name) ? { ok: true, value: { kind: "county", name, country: null, latitude: null, longitude: null, timezone: null } } : invalid;
-  const { latitude, longitude, timezone } = row ?? {};
-  const country = text(row?.country);
-  if (country !== null && !COUNTRY.test(country)) return invalid;
-  if (row?.kind !== "world" || !isLatitude(latitude) || !isLongitude(longitude) || typeof timezone !== "string" || !TIMEZONE.test(timezone)) return invalid;
-  return { ok: true, value: { kind: "world", name, country, latitude, longitude, timezone } };
 }

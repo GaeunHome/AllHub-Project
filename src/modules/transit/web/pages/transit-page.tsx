@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import { requireModule } from "@/core/auth";
 import { hasTransitEnv } from "@/core/env";
@@ -10,11 +11,14 @@ import { PageBanner } from "@/core/ui/page-banner";
 import { SectionTitle } from "@/core/ui/page-header";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { ROUTE_LIMIT } from "../../lib/rules";
+import { cityGroups, lineGroups, type StationGroup } from "../../lib/station-groups";
 import type { Station } from "../../lib/timetable";
-import { cachedBusEta, cachedBusRoute, cachedBusSchedule, cachedDepartures, cachedDirections, cachedRoutes, cachedStations } from "../../service/cached";
+import { reportTdx } from "../../service/health";
+import { cachedBusEta, cachedBusRoute, cachedBusSchedule, cachedDepartures, cachedDirections, cachedMetroLines, cachedRoutes, cachedStations } from "../../service/cached";
 import { RouteCard, TrackedCard } from "../components/route-cards";
 import { SearchForm } from "../components/search-form";
 import { BusResults, TrainResults } from "../components/search-results";
+import { frequentStations } from "../frequent-stations";
 import { loadBoards } from "../route-boards";
 import { MAX_DAYS_AHEAD, canSearch, parseSearch, type SearchQuery } from "../search-query";
 
@@ -56,7 +60,7 @@ export async function TransitBody({ searchParams }: { searchParams: SearchParams
     <div className="page-stack">
       {/* 手機上一眼要看到倒數 查詢表單很高 排到追蹤的後面 */}
       <div className="page-stack max-sm:order-2">
-        <SearchForm query={query} stations={search.stations} directions={search.directions} today={today} maxDate={taipeiDateKey(new Date(now.getTime() + MAX_DAYS_AHEAD * DAY_MS))} />
+        <SearchForm query={query} stations={search.stations} groups={search.groups} frequent={frequentStations(routes, query)} directions={search.directions} today={today} maxDate={taipeiDateKey(new Date(now.getTime() + MAX_DAYS_AHEAD * DAY_MS))} />
         {search.results}
       </div>
       {tracked.length > 0 && (
@@ -91,19 +95,22 @@ export async function TransitBody({ searchParams }: { searchParams: SearchParams
   );
 }
 
-type SearchParts = { stations: Station[]; directions: Station[]; results: ReactNode };
+type SearchParts = { stations: Station[]; groups: StationGroup[]; directions: Station[]; results: ReactNode };
 
-/** 高鐵 台鐵與捷運 車站清單一天讀一次 班次要選好起訖才查 */
+/** 高鐵 台鐵與捷運 車站清單一天讀一次 班次要選好起訖才查 台鐵的縣市在車站清單裡 只有捷運要多讀路線 */
 async function railSearch(query: SearchQuery, now: Date, canAdd: boolean, today: string): Promise<SearchParts> {
   const { mode } = query;
-  if (mode === "bus") return { stations: [], directions: [], results: null };
+  if (mode === "bus") return { stations: [], groups: [], directions: [], results: null };
   const metro = mode === "metro";
   const system = metro ? query.system : "";
-  const [stations, directions, results] = await Promise.all([cachedStations(mode, system), metro && query.from ? cachedDirections(system, query.from) : null, canSearch(query) ? cachedDepartures(mode, system, query.from, query.to, metro ? today : query.date) : null]);
+  const [stations, lines, directions, results] = await Promise.all([cachedStations(mode, system), metro ? cachedMetroLines(system) : null, metro && query.from ? cachedDirections(system, query.from) : null, canSearch(query) ? cachedDepartures(mode, system, query.from, query.to, metro ? today : query.date) : null]);
+  const problem = !stations.ok ? stations.problem : lines?.ok === false ? lines.problem : null;
+  after(() => reportTdx(problem));
   const stationList = stations.ok ? stations.data : [];
   const directionList = directions?.ok ? directions.data : [];
   return {
     stations: stationList,
+    groups: mode === "tra" ? cityGroups(stationList) : lines?.ok ? lineGroups(system, stationList, lines.data) : [],
     directions: directionList,
     results: (
       <>
@@ -118,12 +125,12 @@ const minutesOfDay = (now: Date) => Number(formatTaipeiHourMinute(now).slice(0, 
 
 /** 路線先讀 查得到才讀到站時間與班距 打錯路線名稱不用多花額度 */
 async function busSearch(query: SearchQuery, now: Date, canAdd: boolean): Promise<SearchParts> {
-  if (!canSearch(query)) return { stations: [], directions: [], results: null };
+  if (!canSearch(query)) return { stations: [], groups: [], directions: [], results: null };
   const route = await cachedBusRoute(query.system, query.line);
-  if (!route.ok || route.data.length === 0) return { stations: [], directions: [], results: <BusResults route={route} eta={null} schedule={null} query={query} canAdd={canAdd} /> };
+  if (!route.ok || route.data.length === 0) return { stations: [], groups: [], directions: [], results: <BusResults route={route} eta={null} schedule={null} query={query} canAdd={canAdd} /> };
   const direction = route.data.find((candidate) => candidate.direction === query.direction)?.direction ?? route.data[0].direction;
   const [eta, schedule] = await Promise.all([cachedBusEta(query.system, query.line, direction), cachedBusSchedule(query.system, query.line, direction, taipeiDateKey(now), minutesOfDay(now))]);
-  return { stations: [], directions: [], results: <BusResults route={route} eta={eta} schedule={schedule.ok ? schedule.data : null} query={query} canAdd={canAdd} /> };
+  return { stations: [], groups: [], directions: [], results: <BusResults route={route} eta={eta} schedule={schedule.ok ? schedule.data : null} query={query} canAdd={canAdd} /> };
 }
 
 function TransitSkeleton() {

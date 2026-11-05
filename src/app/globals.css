@@ -934,6 +934,34 @@
     outline-offset: 3px;
   }
 
+  /* 圓框外蓋一層暗色 圓框裡看到的就是存下來的頭像 */
+  .avatar-crop {
+    @apply relative mx-auto aspect-square w-full max-w-72 overflow-hidden rounded-2xl;
+  }
+  .avatar-crop canvas {
+    @apply block size-full cursor-grab;
+    touch-action: none;
+  }
+  .avatar-crop canvas:active {
+    cursor: grabbing;
+  }
+  .avatar-crop::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.5);
+    pointer-events: none;
+  }
+  .avatar-crop:has(:focus-visible) {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+  .avatar-crop-zoom {
+    @apply h-11 w-full cursor-pointer;
+    accent-color: var(--brand);
+  }
+
   /* 卡片裡可以點的一列 左右內距由外層的負邊距抵掉 文字跟卡片內容對齊 */
   .home-row {
     @apply flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2 text-left;

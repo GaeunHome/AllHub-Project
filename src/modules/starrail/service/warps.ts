@@ -6,7 +6,7 @@ import { reportService } from "@/core/status";
 import { starrailAccounts, starrailWarps, type StarrailAccount } from "../data/schema";
 import { cookieKeys } from "../lib/cookie";
 import { fetchWarpAuthkey, fetchWarpPage } from "../lib/hoyolab";
-import { WARP_BANNERS, WARP_LIMIT, WARP_PAGE_SIZE, summarizeBanner, type BannerSummary, type Warp, type WarpKey } from "../lib/warps";
+import { WARP_BANNERS, WARP_LIMIT, WARP_PAGE_SIZE, summarizeBanner, type BannerSummary, type Warp } from "../lib/warps";
 import { UNDECRYPTABLE, cookieOf, isolate, listAccounts, ownAccount, pageAccount, trackingAccountChanges, type Outcome } from "./accounts";
 
 // 躍遷紀錄 只新增不覆蓋 官方只留最近一段時間 存下來才不會消失
@@ -27,7 +27,7 @@ type WarpClock = { now: () => number; sleep: (ms: number) => Promise<void> };
 const realClock: WarpClock = { now: () => Date.now(), sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) };
 
 /** 看到存過的就停 整個卡池讀完才回傳 中途失敗時不寫入 不然這段缺口之後補不回來 */
-async function newWarps(accountId: number, bannerType: number, key: WarpKey, clock: WarpClock): Promise<Outcome<{ warps: Warp[] }>> {
+async function newWarps(accountId: number, bannerType: number, cookie: string, key: string, clock: WarpClock): Promise<Outcome<{ warps: Warp[] }>> {
   const [{ latest }] = await db()
     .select({ latest: max(starrailWarps.id) })
     .from(starrailWarps)
@@ -36,9 +36,10 @@ async function newWarps(accountId: number, bannerType: number, key: WarpKey, clo
   let endId = "0";
   for (let page = 0; page < MAX_PAGES; page++) {
     if (page > 0) await clock.sleep(PAGE_GAP_MS);
-    const result = await fetchWarpPage(key, bannerType, endId);
+    const result = await fetchWarpPage(cookie, key, bannerType, endId);
     if (!result.ok) {
-      console.error("[starrail] 讀取躍遷紀錄失敗", accountId, bannerType, `retcode ${result.retcode}`);
+      // 金鑰正常約 1024 字 只記長度 看得出是金鑰壞了還是被伺服器拒絕
+      console.error("[starrail] 讀取躍遷紀錄失敗", accountId, bannerType, `retcode ${result.retcode}`, `金鑰長度 ${key.length}`);
       return { ok: false, error: result.message };
     }
     if (result.data.missing.length > 0) console.error("[starrail] 躍遷紀錄的格式和預期不同", accountId, `缺少或看不懂：${result.data.missing.join("、")}`);
@@ -83,7 +84,7 @@ async function syncAccount(account: StarrailAccount, cookie: string, clock: Warp
   }
   let added = 0;
   for (const banner of WARP_BANNERS) {
-    const fresh = await newWarps(account.id, banner.id, key.data, clock);
+    const fresh = await newWarps(account.id, banner.id, cookie, key.data, clock);
     if (!fresh.ok) {
       await reportService("starrail:warps", fresh.error);
       return fresh;

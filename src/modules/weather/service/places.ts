@@ -4,7 +4,7 @@ import { db } from "@/core/db";
 import { lockUserRow } from "@/core/db/users";
 import { UserError } from "@/core/form";
 import { weatherPlaces, type WeatherPlace } from "../data/schema";
-import { parsePlaceChoice } from "../lib/weekly";
+import { parsePlaceChoice } from "../lib/cities";
 
 // userId 一律是登入者 表單送來的 id 只決定操作哪一筆 別人的當作不存在
 

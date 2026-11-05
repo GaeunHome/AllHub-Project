@@ -9,13 +9,14 @@ import { InfoTip } from "@/core/ui/info-tip";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { Scene } from "@/core/ui/scene";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
+import { cityPhoto, photoCredit } from "../../lib/city-photos";
 import type { County } from "../../lib/counties";
 import { PLACE_HOME, placeHref, pickPlace, type PlaceTab } from "../place-tabs";
 import { cachedCountyWeek, cachedPlaces, cachedSettings, cachedWorldWeek } from "../../service/cached";
 import { deletePlaceAction } from "../actions";
 import { AddPlaceButton } from "../components/place-form";
 import { Flag, WeatherImage } from "../components/weather-images";
-import { heroScene, todayText, weekRows, type WeekRow } from "../weekly-view";
+import { heroImage, todayText, weekRows, type WeekRow } from "../weekly-view";
 
 // web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
 export function WeatherPage({ info, searchParams }: { info: ModuleInfo; searchParams: SearchParams }) {
@@ -46,10 +47,11 @@ export async function WeatherPageBody({ searchParams }: { searchParams: SearchPa
   const week = await weekOf(selected);
   const rows = week ? weekRows(week) : [];
   const today = week?.[0];
+  const photo = cityPhoto(selected.name);
 
   return (
     <>
-      <Scene src={heroScene(today)} eager className="wx-hero">
+      <Scene src={heroImage(selected.name, today)} eager className="wx-hero">
         <div className="wx-hero-body">
           <div className="flex items-start gap-2">
             <nav aria-label="城市" {...DRAG_SCROLL} className="no-scrollbar flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
@@ -61,7 +63,9 @@ export async function WeatherPageBody({ searchParams }: { searchParams: SearchPa
               ))}
               <AddPlaceButton />
             </nav>
-            <InfoTip label="天氣頁的說明">資料來源：台灣是中央氣象署，國外是 Open-Meteo（CC BY 4.0）。最多 10 個城市，首頁的卡片維持一個縣市。</InfoTip>
+            <InfoTip label="天氣頁的說明">
+              資料來源：台灣是中央氣象署，國外是 Open-Meteo（CC BY 4.0）。最多 10 個城市，首頁的卡片維持一個縣市。{photo && photoCredit(photo)}
+            </InfoTip>
             {selected.id !== null && (
               <MoreMenu label={`${selected.name}的選項`} triggerClassName="scene-button">
                 <DeleteMenuItem action={deletePlaceAction} fields={{ id: selected.id }} confirmMessage={`確定刪除「${selected.name}」？`} label="刪除這個城市" deletedMessage="已刪除城市" />

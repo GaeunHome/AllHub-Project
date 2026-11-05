@@ -26,13 +26,6 @@ export type Warp = { id: string; bannerType: number; gachaId: number | null; ite
 
 export type WarpPage = { warps: Warp[]; missing: string[] };
 
-/** 讀紀錄時要一起送的東西 版本與簽章方式是換金鑰時回的 伺服器是這個遊戲帳號的 */
-export type WarpKey = { authkey: string; authkeyVer: string; signType: string; region: string };
-
-// 官方的抽卡網址寫死這兩個值 回應沒給時用它
-const DEFAULT_AUTHKEY_VER = 1;
-const DEFAULT_SIGN_TYPE = 2;
-
 /** 抽卡介面的這兩個代碼是金鑰被拒絕 跟登入無關 重貼 cookie 沒有用 */
 const KEY_REJECTED: readonly number[] = [-100, -101];
 
@@ -79,16 +72,9 @@ function decodedAuthkey(raw: string): string {
   return authkey;
 }
 
-export function parseAuthkey(data: unknown, region: string): WarpKey | null {
-  const root = asRecord(data);
-  const authkey = text(root?.authkey);
-  if (!authkey) return null;
-  return {
-    authkey: decodedAuthkey(authkey),
-    authkeyVer: String(numberOf(root?.authkey_ver) ?? DEFAULT_AUTHKEY_VER),
-    signType: String(numberOf(root?.sign_type) ?? DEFAULT_SIGN_TYPE),
-    region,
-  };
+export function parseAuthkey(data: unknown): string | null {
+  const authkey = text(asRecord(data)?.authkey);
+  return authkey ? decodedAuthkey(authkey) : null;
 }
 
 export type FiveStar = {
