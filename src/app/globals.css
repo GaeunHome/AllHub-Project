@@ -1459,6 +1459,8 @@
   @import "../modules/twitch/web/twitch.css";
   @import "../modules/starrail/web/starrail.css";
   @import "../modules/travel/web/travel.css";
+  @import "../modules/transit/web/transit.css";
+  @import "../modules/weather/web/weather.css";
   @import "../modules/youtube/web/player.css";
 
   /* 只有沒要求減少動態時才加上閃動 滑入 搖動與浮起 */
@@ -1551,6 +1553,24 @@
   from {
     opacity: 0;
     transform: translateY(0.5rem) scale(0.97);
+  }
+}
+
+/* 交通頁路線上的光點 動畫名稱是全域的 跟其他 keyframes 放一起 */
+@keyframes trn-ride {
+  from {
+    left: 0;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  to {
+    left: 100%;
+    opacity: 0;
   }
 }
 

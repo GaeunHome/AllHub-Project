@@ -14,7 +14,9 @@ import { formatClock, scheduleDay, type ScheduledItem } from "../../lib/schedule
 import type { TripComment, TripItem } from "../../service/trips";
 import { addCommentAction, deleteCommentAction, deleteItemAction, moveItemAction } from "../actions";
 import { adjacentListMove, isSamePlace, itemsOfDay, moveInBoard, neighbourMove, type Move } from "../board-model";
+import { dayText } from "../trip-text";
 import type { DayView } from "../trip-view";
+import { CopyTripButton } from "./copy-trip-button";
 import { ItemForm, KIND_LABELS } from "./item-form";
 import { useBoardDrag } from "./use-board-drag";
 
@@ -22,6 +24,7 @@ const KIND_ICONS: Record<ItemKind, UiIconName> = { place: "map-pin", food: "uten
 
 type TripBoardProps = {
   tripId: number;
+  tripTitle: string;
   destination: string | null;
   days: DayView[];
   items: TripItem[];
@@ -82,7 +85,7 @@ export function TripBoard({ days, items, ...rest }: TripBoardProps) {
       <div data-board data-dragging={dragging ? "" : undefined} className="trv-board no-scrollbar">
         <Column context={context} day={null} title="想去的點" />
         {days.map((day) => (
-          <Column key={day.date} context={context} day={day.date} title={day.label} detail={day.detail} />
+          <Column key={day.date} context={context} day={day.date} title={day.label} detail={day.detail} view={day} />
         ))}
       </div>
       {dragging && (
@@ -96,8 +99,8 @@ export function TripBoard({ days, items, ...rest }: TripBoardProps) {
 
 const stopOf = ({ title, lat, lng }: TripItem): RouteStop => ({ title, lat, lng });
 
-function Column({ context, day, title, detail }: { context: BoardContext; day: string | null; title: string; detail?: string }) {
-  const { items, drag, tripId, destination } = context;
+function Column({ context, day, title, detail, view }: { context: BoardContext; day: string | null; title: string; detail?: string; view?: DayView }) {
+  const { items, drag, tripId, tripTitle, destination } = context;
   const list = itemsOfDay(items, day);
   const schedule = day ? scheduleDay(list) : [];
   const route = day ? dayRouteUrl(list.map(stopOf)) : null;
@@ -110,6 +113,7 @@ function Column({ context, day, title, detail }: { context: BoardContext; day: s
           <h2 className="font-semibold text-ink">{title}</h2>
           {detail && <p className="text-sm text-ink-soft">{detail}</p>}
         </div>
+        {view && list.length > 0 && <CopyTripButton text={dayText({ title: tripTitle, destination }, view, list)} label={`複製${title}的行程`} iconOnly className="btn-ghost btn-sm btn-icon" />}
         {route && (
           <a href={route} target="_blank" rel="noreferrer" className="btn-ghost btn-sm shrink-0">
             <Icon name="map-pin" className="size-4" />

@@ -163,10 +163,10 @@ describe("終局挑戰：還剩一到兩天、進度沒滿（活動日曆）", (
     const log = captureErrorLog();
     hoyolab.fetchActCalendar.mockResolvedValueOnce({ ok: false, retcode: 10102, message: "資料沒有公開", cookieInvalid: false, body: "raw-body" });
 
-    expect(await checkStaminaAll(new Date("2026-10-17T10:30:00Z"))).toContain("100/300");
+    expect(await checkStaminaAll(new Date("2026-10-17T10:30:00Z"))).toBe("查詢 1 個帳號");
 
     hoyolab.fetchActCalendar.mockRejectedValueOnce(new Error("boom"));
-    expect(await checkStaminaAll(new Date("2026-10-17T11:30:00Z"))).toContain("100/300");
+    expect(await checkStaminaAll(new Date("2026-10-17T11:30:00Z"))).toBe("查詢 1 個帳號");
     expect(JSON.stringify(log.mock.calls)).not.toContain("raw-body");
   });
 });

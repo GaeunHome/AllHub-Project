@@ -1,0 +1,49 @@
+/* 天氣頁 整片場景圖配大溫度 字疊在圖上一律寫死白色 一週的卡片壓在圖的下緣 */
+.wx-hero-body {
+  @apply flex min-h-96 flex-col justify-between gap-8 p-5 pb-12 sm:p-6 sm:pb-12;
+}
+.wx-chip {
+  @apply inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full px-3.5 text-sm font-semibold whitespace-nowrap text-white;
+  background-color: rgb(255 255 255 / 0.18);
+  backdrop-filter: blur(8px);
+}
+.wx-chip[aria-current="page"] {
+  color: rgb(15 23 42);
+  background-color: #fff;
+}
+.wx-city {
+  @apply flex items-center gap-2 text-2xl font-bold text-white;
+  text-shadow: 0 2px 12px rgb(0 0 0 / 0.4);
+}
+.wx-temp {
+  @apply text-8xl leading-none font-extralight tracking-tight text-white tabular-nums sm:text-9xl;
+  text-shadow: 0 2px 20px rgb(0 0 0 / 0.3);
+}
+.wx-today {
+  @apply text-white;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.45);
+}
+.wx-week {
+  @apply relative mx-3 -mt-6 flex flex-col gap-0 py-2 sm:mx-6;
+}
+.wx-row {
+  @apply grid items-center gap-2 border-t border-line py-2.5 first:border-t-0 sm:gap-3;
+  grid-template-columns: 3.5rem 2rem 2.5rem 2rem minmax(0, 1fr) 2rem;
+}
+.wx-rain {
+  @apply text-sm font-semibold text-accent tabular-nums;
+}
+.wx-low {
+  @apply text-right text-ink-soft tabular-nums;
+}
+.wx-high {
+  @apply text-right font-semibold text-ink tabular-nums;
+}
+.wx-bar {
+  @apply relative h-1.5 rounded-full;
+  background-color: var(--line);
+}
+.wx-bar i {
+  @apply absolute inset-y-0 rounded-full;
+  background: linear-gradient(90deg, #4a9dea, #f7b733 60%, #f2694a);
+}

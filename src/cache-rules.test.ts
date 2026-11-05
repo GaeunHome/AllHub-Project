@@ -171,7 +171,11 @@ describe("快取規則", () => {
       /^modules\/[^/]+\/web\/routes\//.test(file) ||
       coreWriters.includes(file);
     // CLAUDE.md 寫明的例外 保留影片的標題快照用觀看頁讀過的 oEmbed 只是顯示用
-    const ALLOWED_READS: Record<string, string[]> = { "modules/youtube/web/actions.ts": ["cachedVideoInfo"] };
+    const ALLOWED_READS: Record<string, string[]> = {
+      "modules/youtube/web/actions.ts": ["cachedVideoInfo"],
+      // 倒數卡片的輪詢 不是寫入流程 同一站要共用快取才省 TDX 的額度
+      "modules/transit/web/routes/live.ts": ["cachedLive", "cachedRoutes"],
+    };
     const offenders = sources.filter(isWriter).flatMap((file) =>
       [...read(file).matchAll(/\bimport\s+(type\s+)?([^;]*?)\s*from\s*["']([^"']*\/cached)["']/g)].flatMap((m) => {
         const names = /^\{[^}]*\}$/.test(m[2].trim()) ? m[2].trim().slice(1, -1).split(",").map((name) => name.trim().replace(/^type\s+/, "")).filter(Boolean) : null;

@@ -195,7 +195,9 @@ describe("架構規則", () => {
     const APP_CORE_ENTRIES = [
       "core/admin/admin-page.tsx",
       "core/admin/audit-page.tsx",
+      "core/admin/status-page.tsx",
       "core/auth/account-page.tsx",
+      "core/auth/avatar-route.ts",
       "core/auth/captcha-route.ts",
       "core/auth/login-page.tsx",
       "core/auth/register-page.tsx",
@@ -285,10 +287,21 @@ describe("架構規則", () => {
     expect(problems).toEqual([]);
   });
 
+  it("系統狀態：模組在 info.ts 宣告的外部服務跟實際回報的一一對應，不然站長頁面會多一盞永遠沒資料的燈，或回報了卻沒地方顯示", () => {
+    const issues = moduleIds.flatMap((id) => {
+      const declared = [...read(`modules/${id}/info.ts`).matchAll(/id: "([a-z-]+:[a-z-]+)"/g)].map((match) => match[1]);
+      const reported = files.filter((file) => file.startsWith(`modules/${id}/service/`) && !file.endsWith(".test.ts")).flatMap((file) => [...read(file).matchAll(/(?:reportService|trackService)\("([^"]+)"/g)].map((match) => match[1]));
+      const missing = declared.filter((service) => !reported.includes(service)).map((service) => `${id}：${service} 宣告了但沒有回報`);
+      const extra = [...new Set(reported)].filter((service) => !declared.includes(service)).map((service) => `${id}：${service} 有回報但 info.ts 沒宣告`);
+      return [...missing, ...extra];
+    });
+    expect(issues).toEqual([]);
+  });
+
   // 模組 id 是通知的 module 提醒偏好與 localStorage 的 key 認領與冷卻的 scope
   // 寫錯一個字 提醒方式的開關就對不到那個模組的通知 log 也分不出是誰
   it("模組 id 一致：info.id、通知與 log 的 module、權限檢查（requireModule、canUseModule、activeOwnerOf）、認領與冷卻的 scope 前綴、allhub: 開頭的 localStorage key 都等於資料夾名稱", async () => {
-    const SCOPE_FIRST = ["claimOnce", "releaseOnce", "takeCooldown"];
+    const SCOPE_FIRST = ["claimOnce", "releaseOnce", "takeCooldown", "reportService", "trackService"];
     const SCOPE_OPTION = ["sendOnce", "sendOnceEach", "recordAttempt", "checkAttempts"];
     const problems: string[] = [];
     for (const id of moduleIds) {
@@ -632,9 +645,11 @@ describe("架構規則", () => {
   // 模組 CSS 的 class 前綴 新增有樣式的模組時登記一列 前綴不能跟別的模組重疊
   const MODULE_CSS_PREFIXES: Record<string, string[]> = {
     savings: ["fin-"],
+    transit: ["trn-"],
     starrail: ["sr-"],
     travel: ["trv-"],
     twitch: ["tw-"],
+    weather: ["wx-"],
     youtube: ["yt-", "player-", "subtitle-"],
   };
   const isModuleClass = (name: string) => Object.values(MODULE_CSS_PREFIXES).some((prefixes) => prefixes.some((p) => name.startsWith(p))) || moduleIds.some((id) => name === `theme-${id}`);

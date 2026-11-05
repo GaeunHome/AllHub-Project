@@ -1,10 +1,10 @@
-import { DAY_MS, formatTaipeiLongDate, formatTaipeiMonthDay } from "@/core/time";
+import { DAY_MS, formatTaipeiLongDate, formatTaipeiMonthDay, formatTaipeiShortDate } from "@/core/time";
 import { deleteDateOf, tripDays } from "../lib/rules";
 import type { TripSummary } from "../service/trips";
 
 // 伺服器把日期整理成要顯示的文字 畫面只負責排版
 
-export type DayView = { date: string; label: string; detail: string };
+export type DayView = { date: string; label: string; detail: string; short: string };
 
 /** 日期字串當成台北中午 再用 core/time 格式化 不直接用 Intl */
 const dateOf = (key: string) => new Date(`${key}T12:00:00+08:00`);
@@ -14,7 +14,7 @@ export const shortDate = (key: string) => formatTaipeiMonthDay(dateOf(key));
 export const dateRange = (trip: Pick<TripSummary, "startDate" | "endDate">) => (trip.startDate === trip.endDate ? shortDate(trip.startDate) : `${shortDate(trip.startDate)}–${shortDate(trip.endDate)}`);
 
 export function dayViews(trip: Pick<TripSummary, "startDate" | "endDate">): DayView[] {
-  return tripDays(trip.startDate, trip.endDate).map((date, index) => ({ date, label: `第 ${index + 1} 天`, detail: formatTaipeiLongDate(dateOf(date)) }));
+  return tripDays(trip.startDate, trip.endDate).map((date, index) => ({ date, label: `第 ${index + 1} 天`, detail: formatTaipeiLongDate(dateOf(date)), short: formatTaipeiShortDate(dateOf(date)) }));
 }
 
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);

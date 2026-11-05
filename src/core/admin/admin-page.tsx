@@ -24,7 +24,17 @@ export function AdminPage({ modules }: { modules: ModuleInfo[] }) {
   return (
     // 寬螢幕兩欄等寬 不把表單拉滿整個畫面 邀請清單每列才不會擠成三行
     <div className="page-stack xl:grid xl:grid-cols-2 xl:items-start">
-      <PageBanner image="/images/scenes/banner-admin.svg" icon={<Icon name="shield-check" />} title="管理" className="xl:col-span-2" actions={<Link href="/admin/logs" className="scene-button">操作紀錄</Link>}>
+      <PageBanner image="/images/scenes/banner-admin.svg" icon={<Icon name="shield-check" />} title="管理" className="xl:col-span-2" actions={
+          <>
+            <Link href="/admin/status" className="scene-button">
+              系統狀態
+            </Link>
+            <Link href="/admin/logs" className="scene-button">
+              操作紀錄
+            </Link>
+          </>
+        }
+      >
         {/* 數字等確認是站長才讀 成員打開這一頁時先出現的外框只有標題 */}
         <Suspense fallback={<div className="h-14" />}>
           <AdminStats />

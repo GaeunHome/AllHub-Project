@@ -58,6 +58,7 @@ CREATE TABLE "core_users" (
 	"failed_logins" integer DEFAULT 0 NOT NULL,
 	"locked_until" timestamp with time zone,
 	"nickname" text,
+	"avatar" text,
 	CONSTRAINT "core_users_username_unique" UNIQUE("username"),
 	CONSTRAINT "core_users_username_format" CHECK ("core_users"."username" ~ '^[a-z0-9_.-]{3,32}$'),
 	CONSTRAINT "core_users_role_valid" CHECK ("core_users"."role" in ('owner', 'member')),
@@ -268,6 +269,20 @@ CREATE TABLE "starrail_redeem_codes" (
 );
 --> statement-breakpoint
 ALTER TABLE "starrail_redeem_codes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "starrail_warps" (
+	"account_id" integer NOT NULL,
+	"id" bigint NOT NULL,
+	"banner_type" integer NOT NULL,
+	"gacha_id" integer,
+	"item_id" integer,
+	"name" text NOT NULL,
+	"item_type" text,
+	"rarity" integer NOT NULL,
+	"time" timestamp with time zone NOT NULL,
+	CONSTRAINT "starrail_warps_account_id_id_pk" PRIMARY KEY("account_id","id")
+);
+--> statement-breakpoint
+ALTER TABLE "starrail_warps" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE TABLE "twitch_follows" (
 	"user_id" uuid NOT NULL,
 	"streamer_id" integer NOT NULL,
@@ -426,6 +441,7 @@ ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_card_bil
 ALTER TABLE "starrail_accounts" ADD CONSTRAINT "starrail_accounts_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "starrail_checkin_logs" ADD CONSTRAINT "starrail_checkin_logs_account_id_starrail_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."starrail_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "starrail_redeem_codes" ADD CONSTRAINT "starrail_redeem_codes_account_id_starrail_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."starrail_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "starrail_warps" ADD CONSTRAINT "starrail_warps_account_id_starrail_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."starrail_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "twitch_follows" ADD CONSTRAINT "twitch_follows_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "twitch_follows" ADD CONSTRAINT "twitch_follows_streamer_id_twitch_streamers_id_fk" FOREIGN KEY ("streamer_id") REFERENCES "public"."twitch_streamers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "weather_settings" ADD CONSTRAINT "weather_settings_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -463,6 +479,7 @@ CREATE INDEX "savings_transactions_holding_id_idx" ON "savings_transactions" USI
 CREATE INDEX "savings_transactions_card_bill_id_idx" ON "savings_transactions" USING btree ("card_bill_id");--> statement-breakpoint
 CREATE INDEX "starrail_accounts_user_id_idx" ON "starrail_accounts" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "starrail_redeem_codes_account_code" ON "starrail_redeem_codes" USING btree ("account_id","code");--> statement-breakpoint
+CREATE INDEX "starrail_warps_account_banner_idx" ON "starrail_warps" USING btree ("account_id","banner_type","id");--> statement-breakpoint
 CREATE INDEX "twitch_follows_streamer_id_idx" ON "twitch_follows" USING btree ("streamer_id");--> statement-breakpoint
 CREATE INDEX "youtube_follows_channel_id_idx" ON "youtube_follows" USING btree ("channel_id");--> statement-breakpoint
 CREATE INDEX "youtube_saved_videos_user_updated_at_idx" ON "youtube_saved_videos" USING btree ("user_id","updated_at");--> statement-breakpoint

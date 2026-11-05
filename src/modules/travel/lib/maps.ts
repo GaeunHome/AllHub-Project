@@ -72,6 +72,12 @@ export function directionsUrl(from: RouteStop, to: RouteStop): string {
   return `https://www.google.com/maps/dir/?${new URLSearchParams({ api: "1", origin: spot(from), destination: spot(to), travelmode: "transit" })}`;
 }
 
+/** 當天模式開導航 不帶出發地 Google Maps 才會用手機現在的位置 */
+export function navigateUrl(stop: RouteStop, destination: string | null): string {
+  const target = stop.lat !== null && stop.lng !== null ? spot(stop) : [stop.title, destination].filter(Boolean).join(" ");
+  return `https://www.google.com/maps/dir/?${new URLSearchParams({ api: "1", destination: target, dir_action: "navigate" })}`;
+}
+
 /** Google Maps 的網址最多帶 9 個中途點 多的略過 */
 const MAX_WAYPOINTS = 9;
 

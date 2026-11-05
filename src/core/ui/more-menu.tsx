@@ -20,7 +20,8 @@ type MoreMenuProps = {
 const GAP = 4;
 const EDGE = 8;
 
-const OPENS_DIALOG = '[aria-haspopup="dialog"]';
+/** 打開視窗或做完就結束的項目 例如複製 按了就收起 */
+const CLOSES_MENU = '[aria-haspopup="dialog"], [data-closes-menu]';
 
 /**
  * 卡片與頻道上的 ⋮ 選單 寬螢幕貼著按鈕 手機從底部升起
@@ -85,7 +86,7 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
   // 打開視窗的項目也收起 焦點先回到 ⋮ 視窗關掉後才回得來 不會留在視窗後面
   const onPanelClick = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
-    if (target.closest(OPENS_DIALOG)) {
+    if (target.closest(CLOSES_MENU)) {
       setOpen(false);
       buttonRef.current?.focus();
     } else if (target.closest("a")) {

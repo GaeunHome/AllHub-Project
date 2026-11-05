@@ -160,9 +160,8 @@ describe("checkStaminaAll（PGlite 整合）", () => {
     await linkAccount(COOKIE);
     hoyolab.fetchDailyNote.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true });
 
-    const summary = await checkStaminaAll(NOON);
+    expect(await checkStaminaAll(NOON)).toBe("查詢 1 個帳號，1 個失敗");
 
-    expect(summary).toContain("查詢失敗");
     const [account] = await getDb().select().from(starrailAccounts);
     expect(account.cookieInvalid).toBe(true);
   });
@@ -210,9 +209,9 @@ describe("錯誤隔離（PGlite 整合）", () => {
     const summary = await checkinAll();
 
     expect(hoyolab.signIn).toHaveBeenCalledTimes(2);
-    expect(summary).toContain("簽到成功");
-    expect(summary).not.toContain("boom");
+    expect(summary).toBe("處理 2 個 HoYoLAB 帳號，1 個失敗");
     expect(notify).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ body: expect.stringContaining("簽到成功") }));
   });
 
   it("checkStaminaAll_某個帳號丟例外_其他帳號照樣檢查", async () => {
@@ -222,8 +221,21 @@ describe("錯誤隔離（PGlite 整合）", () => {
     const summary = await checkStaminaAll(NOON);
 
     expect(hoyolab.fetchDailyNote).toHaveBeenCalledTimes(2);
-    expect(summary).toContain("100/300");
-    expect(summary).not.toContain("boom");
+    expect(summary).toBe("查詢 2 個帳號，1 個失敗");
+  });
+});
+
+describe("排程的摘要會顯示在站長的系統狀態頁 不能有成員的資料", () => {
+  it("便箋與簽到的摘要只有數量 不寫遊戲暱稱與開拓力", async () => {
+    hoyolab.fetchGameRoles.mockResolvedValue(ok([role({ nickname: "星期日的開拓者" })]));
+    await linkAccount(COOKIE);
+    hoyolab.fetchDailyNote.mockResolvedValue(ok(note(100)));
+    hoyolab.fetchCheckinInfo.mockResolvedValue(ok({ isSigned: true, totalSignDay: 1 }));
+
+    const summaries = `${await checkStaminaAll(NOON)} ${await checkinAll()}`;
+
+    expect(summaries).not.toContain("星期日的開拓者");
+    expect(summaries).not.toContain("100/300");
   });
 });
 

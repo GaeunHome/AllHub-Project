@@ -115,6 +115,12 @@ npm run account create
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
 - **之後可以收斂的欄位**：只在一張卡還沒有帳單時當截止日預設的 `savings_accounts.due_day`（程式只讀不寫）。不用它之後照舊分兩版刪：先從 schema 拿掉（程式不再讀寫，migration 手動去掉 DROP），再下一版才真的刪（刪除要在 `migrations.integration.test.ts` 明列允許）。
+- **從 v0.2.1 升級到 v0.2.2**：一般的升級，新增五張表，刪掉兩個舊欄位。
+  - **環境變數**（選填）：交通頁要 `TDX_CLIENT_ID`、`TDX_CLIENT_SECRET`（見 [密鑰管理 › 交通的金鑰](secrets.md#交通的金鑰)）。先貼到 Vercel 再推送，部署時就會帶上；推送後才貼要重新部署。沒貼時交通頁只有說明，其他功能不受影響。
+  - **db-migrate 套用 `0001_transit_weather_status`**（`0001_avatar_warps` 已經併進基準檔），一開始設 `lock_timeout = 5s`：新表 `core_avatar_images`、`core_cron_status`、`core_service_status`、`transit_routes`、`weather_places`，並刪掉 `youtube_videos.zh_captions`、`zh_captions_checked_at`（v0.2.1 已經不讀，線上的舊程式不受影響）。
+  - 排程數量不變。交通是新模組，既有的成員預設能用，不想開給某個人就到管理頁的模組權限取消勾選。
+  - 部署比 migration 先完成時：排程與網站照常，只有系統狀態頁、交通頁、天氣頁與上傳頭像那一兩分鐘會出錯，狀態寫不進去只記 log。
+  - 要退回 v0.2.1 時可以用 Instant Rollback，再往前不行：v0.2.0 的查詢會讀被刪掉的欄位。
 - **從 v0.2.0 升級到 v0.2.1**：一般的升級，多一張表與一個欄位，推送前不用另外設定。db-migrate 套用 `0001_avatar_warps`（`core_users.avatar` 可以是空的，新表 `starrail_warps` 放躍遷紀錄，一開始設 `lock_timeout = 5s`）；`0001_audit_log`、`0002_travel` 已經併進基準檔。多一個排程 `starrail:warps`（`vercel.json` 合計 66 條），沒有新的環境變數。部署比 migration 先完成時：登入與各頁照常，都當成沒有選頭像，只有「更換頭像」那一兩分鐘會失敗。中文字幕判斷拿掉了，`youtube_videos.zh_captions`、`zh_captions_checked_at` 這一版只從 schema 拿掉，資料庫裡的欄位留著（舊程式還讀得到），下一版才刪。要退回 v0.2.0 時可以用 Instant Rollback：舊程式不讀這個欄位。
 - **從 v0.1.11 升級到 v0.2.0**：一般的升級，新增五張表，推送前不用另外設定。db-migrate 套用 `0002_travel`；多一個排程 `travel:cleanup`（`vercel.json` 合計 65 條）；沒有新的環境變數。旅遊是新模組，既有的成員預設能用，不想開給某個人就到管理頁的模組權限取消勾選。
 - **從 v0.1.10 升級**：一般的升級，新增一張表與一個欄位，推送前不用另外設定。
@@ -150,6 +156,7 @@ npm run account create
 > 其他不能回滾的版本（見〈[之後的部署](#之後的部署)〉）：
 >
 > - 升級到 v0.1.6 之後不能回到 v0.1.5：舊程式會把「到期請我確認」的固定收支照原日自動記帳。
+> - 升級到 v0.2.2 之後不能回到 v0.2.0：v0.2.2 的 migration 刪掉了 v0.2.0 的查詢還會讀的 `zh_captions`，回到 v0.2.1 可以。
 > - 升級到 v0.1.8 之後不能回到 v0.1.7：v0.1.8 的 migration 刪掉了 v0.1.7 的查詢還會用到的欄位與表，回去之後理財、Twitch、YouTube 都會出錯。Hobby 方案的 Instant Rollback 會回到上一個 production 部署（就是 v0.1.7），不要按。
 >
 > 下面說的是多人化以前的版本（v0.1.0）。

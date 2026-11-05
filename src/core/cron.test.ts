@@ -6,9 +6,11 @@ import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 stubCoreEnv();
 
 vi.mock("./notifications/service", { spy: true });
+vi.mock("./status", () => ({ recordCronRun: vi.fn() }));
 
 const { runCron } = await import("./cron");
 const { cleanupNotifications } = mocksOf(await import("./notifications/service"), "cleanupNotifications");
+const { recordCronRun } = mocksOf(await import("./status"), "recordCronRun");
 
 const tasks = {
   "demo:ok": vi.fn(),
@@ -21,6 +23,7 @@ beforeEach(() => {
   tasks["demo:ok"].mockReset().mockResolvedValue("完成");
   tasks["demo:boom"].mockReset().mockRejectedValue(new Error("Cookie: ltoken_v2=v2_top_secret 無效"));
   cleanupNotifications.mockReset().mockResolvedValue("刪除 2 筆超過 14 天的網站通知");
+  recordCronRun.mockReset().mockResolvedValue(undefined);
 });
 
 describe("runCron", () => {
@@ -71,6 +74,32 @@ describe("runCron", () => {
     expect(log).toHaveBeenCalled();
     const logged = loggedText(log);
     expect(logged).not.toContain("top_secret");
+  });
+});
+
+describe("記下每個排程最後一次的結果", () => {
+  it("跑完記下名稱 成功與摘要", async () => {
+    await runCron(authed(), "demo:ok", tasks);
+
+    expect(recordCronRun).toHaveBeenCalledWith(expect.objectContaining({ task: "demo:ok", ok: true, summary: "完成" }));
+  });
+
+  it("丟錯時記成失敗 只寫錯誤種類 不寫錯誤原文", async () => {
+    captureErrorLog();
+
+    await runCron(authed(), "demo:boom", tasks);
+
+    const [run] = recordCronRun.mock.calls[0];
+    expect(run).toMatchObject({ task: "demo:boom", ok: false });
+    expect(run.summary).toContain("Error");
+    expect(run.summary).not.toContain("top_secret");
+  });
+
+  it("未知的排程與密鑰不對都不記", async () => {
+    await runCron(authed(), "demo:nope", tasks);
+    await runCron(new Request("https://hub.test/api/cron"), "demo:ok", tasks);
+
+    expect(recordCronRun).not.toHaveBeenCalled();
   });
 });
 

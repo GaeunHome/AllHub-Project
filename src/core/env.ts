@@ -66,6 +66,21 @@ export const weatherEnv = defineEnv(
   }),
 );
 
+// 交通模組 都是選填 沒設時交通頁說明要去哪裡申請
+export const transitEnv = defineEnv(
+  "交通模組",
+  z.object({
+    TDX_CLIENT_ID: z.string().trim().min(1).optional(),
+    TDX_CLIENT_SECRET: z.string().trim().min(1).optional(),
+  }),
+);
+
+/** 畫面用 兩個都有才算設定好 */
+export function hasTransitEnv(): boolean {
+  const { TDX_CLIENT_ID, TDX_CLIENT_SECRET } = transitEnv();
+  return Boolean(TDX_CLIENT_ID && TDX_CLIENT_SECRET);
+}
+
 // 本機測試 選填 production 會忽略
 const devSchema = z.object({
   DEV_EXTERNAL_ORIGIN: z.url().optional(),

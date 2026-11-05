@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 const MIGRATIONS = "src/core/db/migrations";
 const BASELINE = "0000_baseline";
 // 正式資料庫最後套用的 migration 的時間戳記
-const LAST_APPLIED_BEFORE_BASELINE = 1793767687613;
+const LAST_APPLIED_BEFORE_BASELINE = 1793782817719;
 const cleanups: Array<() => Promise<void> | void> = [];
 
 afterEach(async () => {
@@ -113,7 +113,10 @@ const statementsOf = (tag: string) =>
 
 // 部署時舊程式還在跑 刪表 刪欄位或改名會讓它出錯
 // 例外要使用者同意那一版直接收斂 照 migration 名稱逐條列在這裡 代價寫在 docs/deploy.md
-const ALLOWED_CONVERGENCE: Record<string, string[]> = {};
+const ALLOWED_CONVERGENCE: Record<string, string[]> = {
+  // v0.2.1 已經從 schema 拿掉 線上的舊程式不會讀這兩個欄位
+  "0001_transit_weather_status": ['ALTER TABLE "youtube_videos" DROP COLUMN "zh_captions";', 'ALTER TABLE "youtube_videos" DROP COLUMN "zh_captions_checked_at";'],
+};
 
 describe("基準檔之後的 migration 都只擴充（明列的收斂例外除外）", () => {
   const pending = journal().entries.filter((entry) => entry.tag !== BASELINE);

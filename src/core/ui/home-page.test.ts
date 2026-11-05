@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, TEST_SESSION, requireSession, usableModules } from "@/dev/session-stub";
 import { textOf } from "@/dev/test-helpers";
 import type { ModuleInfo } from "../module";
+import type { HomeSlot } from "./home-page";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 
@@ -23,7 +24,9 @@ const SLOTS = {
   compact: [card("savings", "並排的卡片"), card("other", "另一張並排的卡片")],
 };
 
-const cards = async (slots: Partial<typeof SLOTS> = {}) => renderToStaticMarkup((await HomeCards({ ...SLOTS, ...slots })) as ReactElement);
+const cards = async (slots: Partial<Record<keyof typeof SLOTS, HomeSlot[]>> = {}) => renderToStaticMarkup((await HomeCards({ ...SLOTS, ...slots })) as ReactElement);
+/** 平常不出現的卡片 例如今天沒有行程時的旅遊 */
+const hidden = (id: string, text: string) => ({ ...card(id, text), shown: async () => false });
 const links = async () => renderToStaticMarkup((await HomeModuleLinks({ modules: MODULES })) as ReactElement);
 /** 只留下這些模組以外的 跟資料庫關掉模組的效果一樣 */
 const denyModules = (...ids: string[]) => usableModules.mockImplementation((async (items: { id: string }[]) => items.filter((item) => !ids.includes(item.id))) as typeof usableModules);
@@ -148,5 +151,33 @@ describe("首頁的問候語", () => {
     requireSession.mockResolvedValue(TEST_SESSION);
 
     expect(await GreetingName()).toContain(TEST_SESSION.username);
+  });
+});
+
+describe("平常不出現的卡片（使用者要的：旅遊今天沒有行程時首頁不要出現）", () => {
+  it("shown 回 false_整張不算繪 連外框都沒有", async () => {
+    const html = await cards({ compact: [card("savings", "並排的卡片"), hidden("travel", "旅遊的卡片")] });
+
+    expect(html).not.toContain("旅遊的卡片");
+  });
+
+  it("shown 回 true_照常出現", async () => {
+    const html = await cards({ compact: [{ ...card("travel", "旅遊的卡片"), shown: async () => true }] });
+
+    expect(html).toContain("旅遊的卡片");
+  });
+
+  it("不出現的卡片不算格子 未讀通知才不會旁邊空一格", async () => {
+    const onlySavings = [card("savings", "並排的卡片")];
+    const withHidden = [...onlySavings, hidden("travel", "旅遊的卡片")];
+
+    expect(spans(notificationCard(await cards({ compact: withHidden, half: [] })))).toEqual(spans(notificationCard(await cards({ compact: onlySavings, half: [] }))));
+  });
+
+  it("判斷時出錯_只藏那一張 首頁其他卡片照常", async () => {
+    const html = await cards({ compact: [card("savings", "並排的卡片"), { ...card("travel", "旅遊的卡片"), shown: () => Promise.reject(new Error("db")) }] });
+
+    expect(html).toContain("並排的卡片");
+    expect(html).not.toContain("旅遊的卡片");
   });
 });

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import { avatarOf, avatarSrc } from "../avatars";
+import { avatarUrl } from "../avatars";
 
 const SIZES = {
   xs: { box: "size-7 text-xs", px: 28 },
@@ -18,11 +18,11 @@ export function avatarHue(seed: string): number {
 
 type UserAvatarProps = { username: string; name: string; size: keyof typeof SIZES; avatar?: string | null };
 
-/** 選了範例頭像就畫圖 沒選時顏色跟著帳號名稱 暱稱改了顏色也不變 */
+/** 選了範例頭像或上傳了照片就畫圖 沒有時顏色跟著帳號名稱 暱稱改了顏色也不變 */
 export function UserAvatar({ username, name, size, avatar }: UserAvatarProps) {
-  const picture = avatarOf(avatar);
+  const picture = avatarUrl(avatar);
   const { box, px } = SIZES[size];
-  if (picture) return <Image src={avatarSrc(picture)} alt="" width={px} height={px} unoptimized className={`user-avatar-image ${box}`} />;
+  if (picture) return <Image src={picture} alt="" width={px} height={px} unoptimized className={`user-avatar-image ${box}`} />;
   const initial = Array.from(name.trim())[0]?.toUpperCase() ?? "?";
   return (
     <span aria-hidden style={{ "--avatar-hue": avatarHue(username) } as CSSProperties} className={`user-avatar ${box}`}>

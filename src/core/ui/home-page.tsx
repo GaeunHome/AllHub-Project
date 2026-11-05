@@ -18,8 +18,11 @@ const MODULE_LINKS = "grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end
 // 單數個時最後一個撐滿一列 手機上旁邊才不會空一格 sm 以上是 flex 不受影響
 const fillsRow = (index: number, count: number) => count % 2 === 1 && index === count - 1;
 
-/** id 是模組 id core 依它過濾 被關掉的模組整張卡片不算繪 */
-export type HomeSlot = { id: string; card: ReactNode };
+/**
+ * id 是模組 id core 依它過濾 被關掉的模組整張卡片不算繪
+ * shown 給平常不出現的卡片 回 false 時跟被關掉一樣 不算格子 不留外框
+ */
+export type HomeSlot = { id: string; card: ReactNode; shown?: () => Promise<boolean> };
 
 type HomeCardsProps = {
   /** 最上面的區塊 寬螢幕天氣佔大半 提醒在旁邊 窄的時候單欄 */
@@ -45,6 +48,13 @@ type HomePageProps = HomeCardsProps & {
 };
 
 const cardsOf = (slots: HomeSlot[]) => slots.map(({ id, card }) => <Fragment key={id}>{card}</Fragment>);
+
+/** 判斷時出錯只藏那一張 不影響首頁其他卡片 */
+async function shownSlots(slots: HomeSlot[]): Promise<HomeSlot[]> {
+  const usable = await usableModules(slots);
+  const flags = await Promise.all(usable.map(({ shown }) => (shown ? shown().catch(() => false) : true)));
+  return usable.filter((_, index) => flags[index]);
+}
 
 /** core 不 import 模組 卡片由 src/app 組合進來 這裡只負責過濾與排版 */
 export function HomePage({ modules, notices, top, wide, half, compact }: HomePageProps) {
@@ -130,7 +140,7 @@ export async function HomeNotices({ notices }: { notices: HomeSlot[] }) {
 }
 
 export async function HomeCards({ top, wide, half, compact }: HomeCardsProps) {
-  const [shownTop, shownWide, shownHalf, shownCompact] = await Promise.all([usableModules(top), usableModules(wide), usableModules(half), usableModules(compact)]);
+  const [shownTop, shownWide, shownHalf, shownCompact] = await Promise.all([shownSlots(top), shownSlots(wide), shownSlots(half), shownSlots(compact)]);
   const hasHalf = shownHalf.length > 0;
   // 張數照過濾後算 理財被關掉時未讀通知要獨佔一整列
   const compactOdd = shownCompact.length % 2 === 1;

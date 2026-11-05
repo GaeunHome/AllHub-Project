@@ -2,7 +2,10 @@
 
 [![CI](https://github.com/GaeunHome/AllHub-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/GaeunHome/AllHub-Project/actions/workflows/ci.yml)
 
-AllHub 是個人製作、非商業的整合網站，把平常會用到的幾個小工具放在同一個地方：Twitch 開台通知、YouTube 新影片與韓文字幕即時翻譯、星穹鐵道的便箋、簽到與提醒、理財（帳戶、收支、信用卡帳單與持股）、跟同行的人一起排的旅遊行程，以及首頁的天氣、空氣品質、帶傘提醒、天氣警特報與提醒倒數。第一個帳號（站長）在自己電腦上用命令列建立；其他人只能用站長發的邀請連結註冊，網站不開放自行註冊。
+AllHub 是個人製作、非商業的整合網站，把平常會用到的小工具放在同一個地方。
+
+- **邀請制**：第一個帳號（站長）用命令列建立，其他人只能用站長發的邀請連結註冊。
+- **資料分開**：每個人的資料各自分開，只有 YouTube 翻好的字幕與一起排的旅程共用。
 
 ## 畫面
 
@@ -16,20 +19,33 @@ AllHub 是個人製作、非商業的整合網站，把平常會用到的幾個�
 
 ## 功能
 
-- **首頁**：最上面一條「今天要注意」列出逾期的帳單、今天與明天的提醒、開拓力快滿這些事；接著是跟著天氣換圖的天氣卡片與提醒倒數，再來是正在直播的追蹤主播、追蹤頻道的最新影片、星穹鐵道的開拓力與委託、理財的總資產與這個月要做的事、最新的未讀通知，一進網站就看得到。
-- **Twitch**：追蹤主播，開台時收到通知（直播標題與分類）。整頁是 Twitch 的深色風格，點主播打開滿版的大面板，看放大的直播預覽。
-- **YouTube**：追蹤頻道的新影片（不含 Shorts），可以邊播邊翻：用自己的 AI API Key（Claude、OpenAI 或 Gemini）把韓文字幕翻成中文，翻好的字幕所有人共用、永久保留；別人翻到一半的，要自己按了才會用你的 Key 接著翻。想之後再看的影片可以「保留」，翻譯過的也會自動加入（每人最多 15 部）。
-- **星穹鐵道**：連結自己的 HoYoLAB 帳號，提供即時便箋、活動日曆、角色與遺器、開拓月曆、終局戰績、兌換碼（也能每天自動兌換社群整理的新兌換碼）、躍遷紀錄（已墊幾抽與五星歷史）、每日自動簽到，以及開拓力快滿、每日實訓、每週內容與終局挑戰的提醒（非官方介面）。整頁是遊戲風格的星空，帳號名牌有遊戲裡的頭像，角色詳情的立繪佔畫面大半，也可以切回看完整的圖。
-- **理財**：分成總覽、紀錄、帳戶、投資、每月固定、設定六頁。第一次用有「開始設定」清單帶著做；總覽有放在橫幅上的總資產、要先處理的事、「我要…」快捷按鈕與串成時間軸的「這個月要做的事」。記一筆、更新餘額、填信用卡帳單、買進賣出這些常用動作直接放在每個帳戶與持股上；持股照證交所與櫃買中心的收盤價算市值，薪水入帳後照設定分配到各帳戶。
-  - 固定收支可以每幾個月一次、遇假日提前或延後，到期在「這個月要做的事」按一下確認（薪水確認時填實際金額再分配到各帳戶），也能設成自動記。
-  - 信用卡照銀行的帳單填，跟紀錄的差額自動補一筆；投資帳戶記持股，市值照證交所與櫃買中心的收盤價自動算。
-  - 持股要除權息時，投資頁列出除息日與估計的配息；公布除息日、補上配息金額與最後買進日當天各發一則通知。
-- **旅遊**：跟同行的人一起排行程，用群組連結邀請。把想去的點拖進每一天，時間照順序與停留時間自動算，改順序不用重排；貼 Google Maps 連結就帶入地點，一鍵查路線與整天路線；也有留言與出發前清單。回程 7 天後自動刪除。
-- **天氣**：首頁的一張卡片，背景圖跟著天氣與日夜換，選好縣市就顯示現在與下一個時段的天氣、溫度、降雨機率，以及空氣品質（中央氣象署與環境部的開放資料，站長要先申請免費的授權碼）；卡片上提醒要不要帶傘，早上會下雨時發通知提醒帶傘，有天氣特報或警報時列在卡片上並發通知（都可以關掉）。
-- **提醒與倒數**：首頁的一張卡片，寫下要記得的事與日期，大數字寫出還有幾天，可以選當天或提前幾天通知，日期過了自動刪除。
-- **網站通知**：各模組的通知集中在導覽列的鈴鐺，提示音與瀏覽器通知可以依模組分開開關。
-- **帳號與邀請**：管理頁與帳號頁都有場景圖的橫幅，管理頁一眼看得到使用者、有效邀請與鎖定中的人數。站長在「管理」頁建立有期限、限次數的邀請連結，建立時先決定開放哪些功能，也可以停用（凍結：不能登入、排程與通知暫停，資料保留）或刪除帳號，並用表格勾選每個帳號能用哪些功能（預設全部能用）。每個人可以設定自己的暱稱，也可以從內建的範例挑頭像（不用上傳，不佔資料庫）。站長可以在操作紀錄頁看所有人的登入與操作（含 IP 位址，保留 7 天）。每個人的追蹤名單、API Key、HoYoLAB 帳號、理財與通知各自分開，只有 YouTube 翻好的字幕共用。登入與註冊要輸入圖形驗證碼，登入錯太多次會暫時鎖定；可以改密碼、登出或刪除自己的帳號（資料一起刪除）。使用聲明在 `/terms`。
-- **外觀與資料**：導覽列的人像選單可以選淺色、深色或跟隨系統；YouTube 頁照 YouTube 網站的版面。頭像、縮圖這類圖片由瀏覽器直接向各平台載入，即時讀的外部資料（即時便箋、戰績、直播畫面、股價）只放快取、不存進資料庫。
+- **首頁**：最上面列出今天要注意的事，下面是天氣、提醒與倒數、正在直播、最新影片、星穹鐵道便箋、理財摘要與未讀通知；今天有行程時也會出現。
+- **Twitch**：追蹤主播，開台時收到通知，點主播看放大的直播預覽。
+- **YouTube**：追蹤頻道的新影片（不含 Shorts），用自己的 AI API Key（Claude、OpenAI 或 Gemini）邊播邊把韓文字幕翻成中文。
+  - 翻好的字幕所有人共用、永久保留；別人翻到一半的，要自己按了才會用你的 Key 接著翻。
+  - 想之後再看的影片可以保留，每人最多 15 部。
+- **星穹鐵道**（非官方介面）：連結自己的 HoYoLAB 帳號。
+  - 查看：即時便箋、活動日曆、角色與遺器、開拓月曆、終局戰績與躍遷紀錄。
+  - 自動：每日簽到、兌換社群整理的新兌換碼。
+  - 提醒：開拓力快滿，以及每日、每週與終局挑戰。
+- **理財**：管理帳戶、收支、信用卡帳單、持股與每月固定收支，第一次用有「開始設定」清單帶著做。
+  - 總覽有總資產、要先處理的事與「這個月要做的事」，常用動作直接放在帳戶和持股上。
+  - 固定收支可以設間隔、遇假日提前或延後，到期按一下確認，也能設成自動記；薪水入帳後照設定分配到各帳戶。
+  - 信用卡照銀行的帳單填，跟紀錄的差額自動補一筆。
+  - 持股照證交所與櫃買中心的收盤價算市值，除權息前會通知。
+- **旅遊**：跟同行的人一起排行程，用群組連結邀請，回程 7 天後自動刪除。
+  - 把想去的點拖進每一天，時間照順序與停留時間自動算，改順序不用重排。
+  - 貼 Google Maps 連結就帶入地點，也有留言與出發前清單。
+  - 旅途中打開就看到下一站與導航，行程可以複製成文字貼到 LINE。
+- **交通**：查高鐵、台鐵、捷運與公車的班次，存常用路線；追蹤的路線有路線圖與每 5 秒更新的倒數，開車前用即時資料校正。站長要先申請免費的 TDX 金鑰。
+- **天氣**：卡片的背景圖跟著天氣與日夜換，顯示現在與下一個時段的天氣、降雨機率與空氣品質，天氣頁看台灣與國外城市的一週預報。站長要先申請免費的授權碼。
+  - 會下雨時早上提醒帶傘，有特報或警報時也會通知，都可以關掉。
+- **提醒與倒數**：寫下要記得的事與日期，可以選當天或提前幾天通知，日期過了自動刪除。
+- **網站通知**：各模組的通知集中在鈴鐺，提示音與瀏覽器通知可以依模組分開開關。
+- **帳號**：可以改暱稱、頭像、密碼與外觀（淺色、深色或跟隨系統），也可以刪除自己的帳號與資料。登入與註冊有圖形驗證碼，錯太多次會暫時鎖定。
+- **管理（站長）**：建立邀請連結並決定開放哪些功能，停用或刪除帳號，勾選每個人能用的功能，查看操作紀錄（保留 7 天）與排程、外部服務的狀態。
+
+使用聲明在 `/terms`。
 
 ## 技術
 
@@ -37,7 +53,7 @@ Next.js 16（App Router、Cache Components）、React 19、TypeScript、Tailwind
 
 ## 快速開始（本機試用）
 
-只需要 Node.js 24.2 以上，不需要任何雲端帳號：資料庫用 PGlite，Twitch、YouTube、HoYoLAB、AI 與股價都由假伺服器回應。Windows 請在 Git Bash 執行下面的指令（Git for Windows 內建 openssl）。
+只需要 Node.js 24.2 以上，不需要任何雲端帳號：資料庫用 PGlite，外部服務都由假伺服器回應。Windows 請在 Git Bash 執行下面的指令（Git for Windows 內建 openssl）。
 
 ```bash
 npm install
@@ -54,11 +70,15 @@ TWITCH_CLIENT_SECRET=mock
 TWITCH_EVENTSUB_SECRET=$(openssl rand -hex 32)
 PUBLIC_BASE_URL=http://localhost:3000
 YOUTUBE_WEBSUB_SECRET=$(openssl rand -hex 32)
+TDX_CLIENT_ID=mock
+TDX_CLIENT_SECRET=mock
+CWA_API_KEY=mock
+MOENV_API_KEY=mock
 DEV_EXTERNAL_ORIGIN=http://127.0.0.1:4010
 EOF
 
 npm run db:local        # 終端機 1：本機資料庫（資料存在 .pglite/）
-npm run mock:external   # 終端機 2：假的 Twitch／YouTube／HoYoLAB／AI／股價
+npm run mock:external   # 終端機 2：假的外部服務
 npm run db:migrate      # 終端機 3：建資料表
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/postgres npm run account create
 npm run dev             # 開 http://localhost:3000，用剛建立的帳號登入
@@ -70,18 +90,23 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 
 ## 部署
 
-- 網站、資料庫、排程都在雲端執行：Vercel（Hobby）、Supabase（免費方案），都在東京；排程用 Vercel Cron（GitHub Actions 只用來手動補跑）。部署之後電腦不用開著。
-- 正式環境的密鑰只放在 Vercel 的環境變數和 GitHub Secrets，電腦上不保存。
-- 第一次部署的順序（除了建帳號，都在網頁上操作）：
-  1. 在 Supabase 建專案，取得兩個連線字串。
-  2. 在 Vercel 匯入這個 repo，填環境變數。
-  3. 在 GitHub Secrets 填 `MIGRATION_DATABASE_URL`、`CRON_SECRET`、`HUB_URL`，再到 Vercel 重新部署。
-  4. 執行 db-migrate workflow 建資料表。
-  5. 執行 `npm run account create`，依提示貼上連線字串，建好站長帳號（第一個帳號就是站長）後登入；其他人用「管理」頁的邀請連結註冊。
-- 完整步驟，以及換成自己網域的做法，見 [部署](docs/deploy.md)。
-- 升級前先看 [更新紀錄](CHANGELOG.md)（每一版改了什麼、有沒有 migration）與 [之後的部署](docs/deploy.md#之後的部署)（升級時要注意的事；只能從上一版升級）。
-- 網站不讓搜尋引擎收錄；登入與註冊的次數限制、被攻擊時的處理與兩步驟驗證見 [防機器人與被攻擊時](docs/deploy.md#防機器人與被攻擊時)。
-- **有成員之後不能回滾**到多人化以前的版本（v0.1.0），升級到 v0.1.6 之後也不能回滾到 v0.1.5、v0.1.8 之後不能回滾到 v0.1.7，只能往前修；Vercel 的 Deployment Protection 要保持開啟、Supabase 的 Data API 建議關閉，見 [回滾與部署保護](docs/deploy.md#回滾與部署保護)。
+網站、資料庫與排程都在雲端執行（Vercel Hobby、Supabase 免費方案，都在東京），部署之後電腦不用開著。正式環境的密鑰只放在 Vercel 的環境變數和 GitHub Secrets。
+
+第一次部署的順序（除了建帳號，都在網頁上操作）：
+
+1. 在 Supabase 建專案，取得兩個連線字串。
+2. 在 Vercel 匯入這個 repo，填環境變數。
+3. 在 GitHub Secrets 填 `MIGRATION_DATABASE_URL`、`CRON_SECRET`、`HUB_URL`，再到 Vercel 重新部署。
+4. 執行 db-migrate workflow 建資料表。
+5. 執行 `npm run account create`，依提示貼上連線字串，建好站長帳號後登入；其他人用「管理」頁的邀請連結註冊。
+
+完整步驟與自己的網域見 [部署](docs/deploy.md)。
+
+上線之後：
+
+- **升級**：先看 [更新紀錄](CHANGELOG.md) 與 [之後的部署](docs/deploy.md#之後的部署)，只能從上一版升級。
+- **回滾**：有些版本不能回滾，只能往前修；Deployment Protection 要保持開啟、Supabase 的 Data API 建議關閉，見 [回滾與部署保護](docs/deploy.md#回滾與部署保護)。
+- **防護**：網站不讓搜尋引擎收錄；次數限制與被攻擊時的處理見 [防機器人與被攻擊時](docs/deploy.md#防機器人與被攻擊時)。
 
 ## 文件
 
@@ -89,18 +114,42 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 |---|---|
 | [部署](docs/deploy.md) | 部署到 Vercel 與 Supabase 的步驟、升級與回滾、部署保護、防機器人、邀請成員、帳號管理、換成自己的網域 |
 | [密鑰管理](docs/secrets.md) | 每個密鑰是什麼、去哪裡拿、要貼到哪裡，以及更換的步驟與影響 |
-| [模組設定與使用](docs/modules.md) | Twitch、YouTube、星穹鐵道、理財、網站通知怎麼設定與使用 |
+| [模組設定與使用](docs/modules.md) | 每個模組與網站通知怎麼設定與使用 |
 | [架構](docs/architecture.md) | 程式碼結構與新增、移除模組，排程、資料保留、快取、安全 |
 | [本機開發](docs/development.md) | 本機環境的細節、假伺服器的特殊輸入、模擬 webhook、指令與測試 |
 | [更新紀錄](CHANGELOG.md) | 每一版的新增、改善與修正，以及要套用的資料庫 migration |
+| [規劃](docs/plans/) | 還沒做的功能規劃，做完就刪掉 |
 
 ## 第三方聲明
 
-- **圖示與字型**：介面圖示來自 [Lucide](https://lucide.dev)（ISC），範例頭像來自 [Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji)（MIT，授權全文在 `public/images/avatars/LICENSE.md`），YouTube、Twitch 標誌來自 [Simple Icons](https://simpleicons.org)（CC0 1.0）；《崩壞：星穹鐵道》的標誌（`public/images/starrail-logo.png`）著作權與商標屬於 HoYoverse（COGNOSPHERE），只用來標示串接的服務，不在本專案的授權範圍內；星穹鐵道頁的元素、命途、屬性圖示（`public/icons/starrail/`）來自社群整理的 [StarRailRes](https://github.com/Mar-7th/StarRailRes)（從遊戲解出的素材），著作權屬於 HoYoverse（COGNOSPHERE），只用在本專案的非商業用途，不在本專案的授權範圍內。詳見 [public/icons/LICENSE.md](public/icons/LICENSE.md)。理財頁的插圖來自 [unDraw](https://undraw.co)（unDraw License，可以商用與修改，見 [public/illustrations/LICENSE.md](public/illustrations/LICENSE.md)）。字型是 [Geist](https://vercel.com/font)、Geist Mono 與 [Rajdhani](https://fonts.google.com/specimen/Rajdhani)（星穹鐵道頁的數字，皆為 SIL Open Font License 1.1）。
-- **商標**：YouTube、Twitch、HoYoLAB、《崩壞：星穹鐵道》、Claude、OpenAI、Gemini 是各自公司的商標，本專案與這些公司沒有關係。
-- **非官方做法**：HoYoLAB 的資料讀取、簽到與兌換，YouTube 的字幕讀取、頻道頭像與 Shorts 判斷都不是官方 API，可能失效或違反服務條款，請只用在自己的帳號（見 [模組設定與使用](docs/modules.md)）。
-- **資料來源**：天氣預報來自中央氣象署的氣象資料開放平臺，空氣品質來自環境部的環境資料開放平臺（都依政府資料開放授權條款使用）；股價與除權息預告是臺灣證券交易所與證券櫃檯買賣中心 OpenAPI 的每日收盤價與除權除息預告表；假日照行政院人事行政總處的辦公日曆表（政府資料開放平臺）；自動兌換用的兌換碼清單來自社群整理的 [hoyo-codes](https://github.com/seriaati/hoyo-codes)。
+**圖示與圖片**
+
+- 介面圖示：[Lucide](https://lucide.dev)（ISC）。
+- YouTube、Twitch 標誌：[Simple Icons](https://simpleicons.org)（CC0 1.0）。
+- 範例頭像與天氣圖：[Microsoft Fluent Emoji](https://github.com/microsoft/fluentui-emoji)（MIT，授權全文在 `public/images/avatars/LICENSE.md`、`public/images/weather/LICENSE.md`）。
+- 國旗：[circle-flags](https://github.com/HatScripts/circle-flags)（MIT，授權全文在 `public/images/flags/LICENSE.md`）。
+- 理財頁的插圖：[unDraw](https://undraw.co)（unDraw License，可以商用與修改，見 [public/illustrations/LICENSE.md](public/illustrations/LICENSE.md)）。
+
+**遊戲素材**（著作權屬於 HoYoverse（COGNOSPHERE），不在本專案的授權範圍內，詳見 [public/icons/LICENSE.md](public/icons/LICENSE.md)）
+
+- 《崩壞：星穹鐵道》的標誌（`public/images/starrail-logo.png`）：只用來標示串接的服務，商標也屬於 HoYoverse。
+- 元素、命途、屬性圖示（`public/icons/starrail/`）：來自社群整理的 [StarRailRes](https://github.com/Mar-7th/StarRailRes)（從遊戲解出的素材），只用在本專案的非商業用途。
+
+**字型**：[Geist](https://vercel.com/font)、Geist Mono 與 [Rajdhani](https://fonts.google.com/specimen/Rajdhani)（星穹鐵道頁的數字），都是 SIL Open Font License 1.1。
+
+**資料來源**
+
+- 天氣預報：中央氣象署的氣象資料開放平臺。空氣品質：環境部的環境資料開放平臺。都依政府資料開放授權條款使用。
+- 國外城市的一週預報：[Open-Meteo](https://open-meteo.com)（CC BY 4.0）。
+- 交通：交通部的 [TDX](https://tdx.transportdata.tw) 運輸資料流通服務。
+- 股價與除權息預告：臺灣證券交易所與證券櫃檯買賣中心的 OpenAPI。
+- 假日：行政院人事行政總處的辦公日曆表（政府資料開放平臺）。
+- 自動兌換的兌換碼清單：社群整理的 [hoyo-codes](https://github.com/seriaati/hoyo-codes)。
+
+**商標**：YouTube、Twitch、HoYoLAB、《崩壞：星穹鐵道》、Claude、OpenAI、Gemini 是各自公司的商標，本專案與這些公司沒有關係。
+
+**非官方做法**：HoYoLAB 的資料讀取、簽到與兌換，YouTube 的字幕讀取、頻道頭像與 Shorts 判斷都不是官方 API，可能失效或違反服務條款，請只用在自己的帳號（見 [模組設定與使用](docs/modules.md)）。
 
 ## 授權
 
-尚未指定授權條款。本專案是個人製作、非商業用途的網站：不收費、不放廣告，也不拿來營利；專案裡的第三方素材（見〈第三方聲明〉，例如 HoYoverse 的遊戲圖示與標誌）只在非商業用途下使用，著作權屬於原權利人。
+尚未指定授權條款。本專案是個人製作、非商業用途的網站：不收費、不放廣告，也不拿來營利。專案裡的第三方素材只在非商業用途下使用，著作權屬於原權利人（見〈第三方聲明〉）。

@@ -8,4 +8,10 @@ export const starrailInfo: ModuleInfo = {
   icon: "/icons/ui/train-front.svg",
   cover: "/images/scenes/module-starrail.svg",
   accent: "gold",
+  services: [
+    { id: "starrail:note", label: "HoYoLAB 即時便箋" },
+    { id: "starrail:checkin", label: "HoYoLAB 簽到" },
+    { id: "starrail:warps", label: "HoYoLAB 躍遷紀錄" },
+    { id: "starrail:codes", label: "社群的兌換碼清單" },
+  ],
 };

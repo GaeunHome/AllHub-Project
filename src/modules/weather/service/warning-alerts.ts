@@ -2,6 +2,7 @@ import "server-only";
 import { claimKey, sendOnceEach } from "@/core/claim";
 import { logError } from "@/core/errors";
 import { notify } from "@/core/notify";
+import { reportService } from "@/core/status";
 import { HOUR_MS, taipeiDateKey } from "@/core/time";
 import { activeWarnings, warningEndText } from "../lib/warnings";
 import { recipientsByCounty } from "./recipients";
@@ -35,6 +36,7 @@ export async function sendWarningAlerts(now = new Date()): Promise<string> {
   const groups = await recipientsByCounty("warningAlert");
   if (groups.size === 0) return "沒有開著天氣警特報通知的人";
   const warnings = await fetchWarnings(null, undefined, ALL_COUNTIES_TIMEOUT_MS);
+  await reportService("weather:warnings", warnings === null ? "讀不到天氣警特報" : null);
   if (warnings === null) return "讀不到天氣警特報，這一輪略過";
 
   const alertDay = taipeiDateKey(new Date(now.getTime() - ALERT_DAY_START_MS));

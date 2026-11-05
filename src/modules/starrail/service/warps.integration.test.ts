@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { encryptSecret } from "@/core/crypto";
-import { coreUsers } from "@/core/db/schema";
+import { coreServiceStatus, coreUsers } from "@/core/db/schema";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
@@ -125,6 +125,31 @@ describe("同步", () => {
 
     expect(hoyolab.fetchWarpPage).not.toHaveBeenCalled();
     expect((await getDb().select().from(starrailAccounts))[0].cookieInvalid).toBe(false);
+  });
+
+  it("系統狀態：全部讀完算正常", async () => {
+    await syncWarpsFor(me, accountId, noWait);
+
+    const [row] = await getDb().select().from(coreServiceStatus);
+    expect(row).toMatchObject({ service: "starrail:warps", lastError: null });
+    expect(row.lastOkAt).not.toBeNull();
+  });
+
+  it("系統狀態：金鑰被拒絕時記下原因（使用者遇過 -100：authkey error）", async () => {
+    hoyolab.fetchWarpPage.mockResolvedValue({ ok: false, retcode: -100, message: "HoYoverse 不接受（-100：authkey error）", cookieInvalid: false });
+
+    await syncWarpsFor(me, accountId, noWait);
+
+    const [row] = await getDb().select().from(coreServiceStatus);
+    expect(row).toMatchObject({ service: "starrail:warps", lastError: "HoYoverse 不接受（-100：authkey error）", lastOkAt: null });
+  });
+
+  it("系統狀態：cookie 失效是使用者自己的問題 不算服務有問題", async () => {
+    hoyolab.fetchWarpAuthkey.mockResolvedValue({ ok: false, retcode: -100, message: "請重新貼上 cookie", cookieInvalid: true });
+
+    await syncWarpsFor(me, accountId, noWait);
+
+    expect(await getDb().select().from(coreServiceStatus)).toEqual([]);
   });
 
   it("回應裡沒有金鑰_回錯誤，不讀紀錄", async () => {

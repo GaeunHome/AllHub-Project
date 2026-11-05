@@ -1,0 +1,107 @@
+/* 路線圖 線條顏色由 --trn-line 帶進來 高鐵 台鐵與捷運各線不同 其他照全站的變數 */
+.trn-tracked {
+  @apply grid gap-4 xl:grid-cols-2;
+}
+.trn-grid {
+  @apply grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4;
+}
+.trn-card {
+  @apply relative overflow-hidden;
+  background-image: linear-gradient(120deg, color-mix(in srgb, var(--trn-line) 9%, transparent), transparent 45%);
+}
+.trn-train {
+  @apply flex min-w-0 flex-1 items-center gap-2 font-semibold text-ink-soft;
+}
+.trn-dot {
+  @apply size-2.5 shrink-0 rounded-full;
+  background-color: var(--trn-line);
+}
+.trn-track {
+  @apply inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-2 font-semibold;
+  color: var(--trn-line);
+}
+.trn-count {
+  @apply flex flex-wrap items-baseline gap-x-2 text-5xl leading-tight font-extrabold tracking-tight text-ink tabular-nums sm:text-6xl;
+}
+.trn-count small {
+  @apply ml-1 text-2xl font-bold text-ink-soft;
+}
+.trn-line {
+  @apply relative mx-2 mt-3 mb-9 h-1.5 rounded-full;
+  background-color: color-mix(in srgb, var(--trn-line) 28%, var(--line));
+}
+.trn-stop {
+  @apply absolute top-1/2 size-4.5 -translate-y-1/2 rounded-full;
+  border: 4px solid var(--trn-line);
+  background-color: var(--surface);
+}
+.trn-stop[data-end="start"] {
+  @apply left-0 -translate-x-1/2;
+}
+.trn-stop[data-end="end"] {
+  @apply right-0 translate-x-1/2;
+}
+.trn-name {
+  @apply absolute top-4 max-w-[48%] truncate font-bold text-ink;
+}
+.trn-name[data-end="start"] {
+  @apply -left-2;
+}
+.trn-name[data-end="end"] {
+  @apply -right-2 text-right;
+}
+.trn-pulse {
+  @apply absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full;
+  background-color: var(--trn-line);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--trn-line) 28%, transparent);
+  animation: trn-ride 5s linear both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trn-pulse {
+    animation: none;
+    display: none;
+  }
+}
+.trn-foot {
+  @apply flex flex-wrap items-center gap-x-3 gap-y-1.5 text-ink;
+}
+.trn-foot b {
+  @apply text-lg font-bold;
+}
+.trn-note {
+  @apply text-sm text-ink-soft;
+}
+.trn-pill {
+  @apply rounded-full bg-[var(--line)] px-2.5 py-0.5 text-sm font-semibold text-ink;
+}
+.trn-mini {
+  @apply flex flex-col gap-2;
+}
+.trn-mini-line {
+  @apply relative mx-1 block h-1 rounded-full;
+  background-color: var(--trn-line);
+}
+.trn-mini-line::before,
+.trn-mini-line::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0.625rem;
+  height: 0.625rem;
+  border: 2.5px solid var(--trn-line);
+  border-radius: 9999px;
+  background-color: var(--surface);
+  transform: translateY(-50%);
+}
+.trn-mini-line::before {
+  left: -0.25rem;
+}
+.trn-mini-line::after {
+  right: -0.25rem;
+}
+.trn-mini-count {
+  @apply text-xl font-extrabold text-ink;
+}
+.trn-add {
+  @apply flex min-h-32 items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-line font-semibold text-ink-soft;
+}

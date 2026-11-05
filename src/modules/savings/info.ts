@@ -8,4 +8,5 @@ export const savingsInfo: ModuleInfo = {
   icon: "/icons/ui/wallet.svg",
   cover: "/images/scenes/module-savings.svg",
   accent: "green",
+  services: [{ id: "savings:dividends", label: "證交所與櫃買中心 除權息預告" }],
 };

@@ -1,15 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { AVATAR_IDS, avatarName, avatarOf, avatarSrc } from "../avatars";
+import { useId, useState, type ChangeEvent } from "react";
+import { AVATAR_IDS, avatarName, avatarOf, avatarSrc, avatarUrl } from "../avatars";
 import { DialogButton, useDialogForm } from "../ui/dialog";
 import { FormButtons } from "../ui/form-buttons";
 import { FormFeedback } from "../ui/form-message";
 import { Icon } from "../ui/icon";
+import { InfoTip } from "../ui/info-tip";
 import { UserAvatar } from "../ui/user-avatar";
-import { updateAvatarAction } from "./actions";
+import { updateAvatarAction, uploadAvatarAction } from "./actions";
+import { shrinkAvatar } from "./avatar-image";
+import { KEEP_AVATAR, avatarFileProblem } from "./avatar-rules";
 
 type AvatarProps = { username: string; name: string; avatar: string | null };
+type DoneProps = { onDone: (message: string | undefined) => void };
 
 /** 跟修改暱稱排在一起 存好後關掉視窗 結果用提示視窗 */
 export function AvatarButton(props: AvatarProps) {
@@ -23,23 +28,80 @@ export function AvatarButton(props: AvatarProps) {
       }
       title="更換頭像"
     >
-      {({ done, close }) => <AvatarForm {...props} onDone={done} onCancel={close} />}
+      {({ done, close }) => (
+        <div className="stack">
+          <PhotoUpload onDone={done} />
+          <AvatarForm {...props} onDone={done} onCancel={close} />
+        </div>
+      )}
     </DialogButton>
   );
 }
 
-type AvatarFormProps = AvatarProps & { onDone: (message: string | undefined) => void; onCancel: () => void };
+/** 選了檔案就上傳 瀏覽器先裁成正方形縮成小圖 所以 5MB 的照片也只送幾十 KB */
+function PhotoUpload({ onDone }: DoneProps) {
+  const inputId = useId();
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const upload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const problem = avatarFileProblem(file);
+    setError(problem);
+    if (problem) return;
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.set("photo", await shrinkAvatar(file), "avatar.jpg");
+      const result = await uploadAvatarAction({}, form);
+      if (result.error) setError(result.error);
+      else onDone(result.message);
+    } catch {
+      setError("這張照片讀不到，請換一張");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-1">
+        <label htmlFor={inputId} aria-disabled={busy} className="btn-secondary w-fit cursor-pointer has-[:focus-visible]:outline-2">
+          <Icon name="upload" className="size-4" />
+          {busy ? "上傳中…" : "上傳照片"}
+          <input id={inputId} type="file" accept="image/*" disabled={busy} onChange={upload} className="sr-only" />
+        </label>
+        <InfoTip label="上傳照片的說明">檔案最大 5MB。會自動裁成正中間的正方形並縮小，存下來的是小圖；換照片時舊的會刪掉。</InfoTip>
+      </div>
+      {error && <FormFeedback state={{ error }} />}
+    </div>
+  );
+}
+
+type AvatarFormProps = AvatarProps & DoneProps & { onCancel: () => void };
 
 function AvatarForm({ username, name, avatar, onDone, onCancel }: AvatarFormProps) {
   const { state, pending, formProps } = useDialogForm(updateAvatarAction, onDone);
   const current = avatarOf(avatar);
+  const url = avatarUrl(avatar);
+  // 上傳的照片不在範例裡 要多一格 不然打開就變成選了文字頭像
+  const uploaded = current === null ? url : null;
 
   return (
     <form {...formProps} className="stack">
       <fieldset className="grid grid-cols-4 gap-3 sm:grid-cols-6">
         <legend className="sr-only">選一個頭像</legend>
+        {uploaded && (
+          <label className="avatar-choice">
+            <input type="radio" name="avatar" value={KEEP_AVATAR} defaultChecked data-autofocus="" className="sr-only" />
+            <Image src={uploaded} alt="" width={48} height={48} unoptimized className="user-avatar-image size-12" />
+            <span className="sr-only">目前的照片</span>
+          </label>
+        )}
         <label className="avatar-choice">
-          <input type="radio" name="avatar" value="" defaultChecked={current === null} data-autofocus={current === null ? "" : undefined} className="sr-only" />
+          <input type="radio" name="avatar" value="" defaultChecked={url === null} data-autofocus={url === null ? "" : undefined} className="sr-only" />
           <UserAvatar username={username} name={name} size="md" />
           <span className="sr-only">文字頭像</span>
         </label>

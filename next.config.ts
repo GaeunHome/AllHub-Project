@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
     external: { stale: 30, revalidate: 60, expire: 300 },
     // Twitch 的直播狀態 觀看人數與預覽圖 最多 2 分鐘前
     live: { stale: 30, revalidate: 60, expire: 120 },
+    // 台鐵與捷運的即時看板 同一站一分鐘只問 TDX 一次 倒數由瀏覽器自己算
+    board: { stale: 5, revalidate: 45, expire: 60 },
+    // 高鐵 台鐵與捷運的時刻表 一天內很少變 TDX 免費額度有限
+    timetable: { stale: 30, revalidate: 43_200, expire: 86_400 },
     // 頭像 封面 影片資訊這類很少變的外部資料 最多一天前
     avatar: { stale: 30, revalidate: 43_200, expire: 86_400 },
     // HoYoLAB 的角色 開拓月曆 終局戰績 最多 30 分鐘前

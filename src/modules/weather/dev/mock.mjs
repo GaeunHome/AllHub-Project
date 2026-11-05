@@ -147,9 +147,55 @@ export function aqiResponse(now = new Date()) {
   return { fields: [], records: STATIONS.map(([county, sitename, aqi]) => ({ sitename, county, aqi, pollutant: "", status: "", publishtime })) };
 }
 
+/** F-D0047-091 每個縣市七天 每天白天與晚上各一段 */
+function weekResponse(names) {
+  const element = (ElementName, key, values) => ({ ElementName, Time: values.map(([StartTime, value]) => ({ StartTime, ElementValue: [{ [key]: value }] })) });
+  const WEATHER = ["多雲", "晴時多雲", "短暫雨", "陰", "晴", "多雲時陰", "午後短暫雷陣雨"];
+  const periods = Array.from({ length: 14 }, (_, index) => {
+    const start = periodStarts()[0] + index * 12 * HOUR;
+    return { time: cwaTime(start), day: Math.floor(index / 2) };
+  });
+  return {
+    success: "true",
+    records: {
+      Locations: [
+        {
+          LocationsName: "臺灣",
+          Location: names.map((LocationName, offset) => ({
+            LocationName,
+            WeatherElement: [
+              element("最高溫度", "MaxTemperature", periods.map(({ time, day }) => [time, String(24 + ((day + offset) % 5))])),
+              element("最低溫度", "MinTemperature", periods.map(({ time, day }) => [time, String(17 + ((day + offset) % 4))])),
+              element("12小時降雨機率", "ProbabilityOfPrecipitation", periods.map(({ time, day }) => [time, String(((day + offset) % 7) * 10)])),
+              element("天氣現象", "Weather", periods.map(({ time, day }) => [time, WEATHER[(day + offset) % WEATHER.length]])),
+            ],
+          })),
+        },
+      ],
+    },
+  };
+}
+
+function openMeteoResponse(url) {
+  const base = Number(url.searchParams.get("latitude") ?? 0);
+  const start = Date.now();
+  const time = Array.from({ length: 7 }, (_, index) => new Date(start + index * 24 * HOUR).toISOString().slice(0, 10));
+  return {
+    timezone: url.searchParams.get("timezone"),
+    daily: {
+      time,
+      weather_code: [0, 2, 3, 61, 80, 1, 95],
+      temperature_2m_max: time.map((_, index) => 18.4 + ((index + Math.round(base)) % 6)),
+      temperature_2m_min: time.map((_, index) => 9.6 + ((index + Math.round(base)) % 4)),
+      precipitation_probability_max: [5, 20, 40, 90, 70, 10, 60],
+    },
+  };
+}
+
 const CWA_DATASETS = new Map([
   ["/api/v1/rest/datastore/F-C0032-001", forecastResponse],
   ["/api/v1/rest/datastore/W-C0033-001", warningResponse],
+  ["/api/v1/rest/datastore/F-D0047-091", weekResponse],
 ]);
 
 /** Authorization 或 api_key 是 bad 開頭時回 401 像授權碼打錯 */
@@ -158,9 +204,11 @@ export async function handle({ url, json }) {
   if (dataset) {
     const key = url.searchParams.get("Authorization") ?? "";
     if (!key || key.startsWith("bad")) return json(401, { message: "Unauthorized" });
-    const names = url.searchParams.get("locationName");
+    const names = url.searchParams.get("locationName") ?? url.searchParams.get("LocationName");
     return json(200, dataset(names ? names.split(",") : COUNTIES));
   }
+  if (url.pathname === "/v1/forecast") return json(200, openMeteoResponse(url));
+  if (url.pathname === "/v1/search") return json(200, url.searchParams.get("name")?.toLowerCase() === "seoul" ? { results: [{ name: "Seoul", country: "South Korea", country_code: "KR", latitude: 37.566, longitude: 126.978, timezone: "Asia/Seoul" }] } : {});
   if (url.pathname === "/api/v2/aqx_p_432") {
     const key = url.searchParams.get("api_key") ?? "";
     if (!key || key.startsWith("bad")) return json(401, { message: "api_key 錯誤" });

@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { sendOrRelease } from "@/core/claim";
 import { db } from "@/core/db";
 import { logError } from "@/core/errors";
+import { reportService } from "@/core/status";
 import { fetchDailyNote } from "../lib/hoyolab";
 import { endgameCheckDue } from "../lib/reminders";
 import { formatTaipeiTime, staminaFullAt, type DailyNote, type HoyolabResult } from "../lib/responses";
@@ -25,20 +26,23 @@ export async function getDailyNote(account: StarrailAccount, changes?: AccountCh
 /** 每小時一次 開拓力快滿 每日實訓 每週內容與終局挑戰的提醒都在這裡 */
 export async function checkStaminaAll(now = new Date()): Promise<string> {
   const accounts = await listAccounts();
-  const lines: string[] = [];
+  if (accounts.length === 0) return "沒有連結的帳號";
+  let failed = 0;
 
   await trackingAccountChanges(async (changes) => {
     for (const account of accounts) {
-      const name = account.nickname ?? account.uid;
       const result = await isolate(account, () => checkStamina(account, now, changes));
-      lines.push(`${name}：${result.ok ? result.message : `查詢失敗 — ${result.error}`}`);
+      if (!result.ok) failed += 1;
     }
   });
-  return lines.join("；") || "沒有連結的帳號";
+  // 摘要會顯示在站長的系統狀態頁 不寫成員的遊戲暱稱與開拓力
+  return `查詢 ${accounts.length} 個帳號${failed > 0 ? `，${failed} 個失敗` : ""}`;
 }
 
 async function checkStamina(account: StarrailAccount, now: Date, changes: AccountChanges): Promise<Outcome<{ message: string }>> {
   const note = await getDailyNote(account, changes);
+  if (note.ok) await reportService("starrail:note", null);
+  else if (!note.cookieInvalid) await reportService("starrail:note", note.message);
   if (!note.ok) return { ok: false, error: note.message };
 
   const action = staminaAlertAction(note.data, account.staminaAlertThreshold, account.lastStaminaAlertAt !== null);

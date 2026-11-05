@@ -33,6 +33,7 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 | `TWITCH_EVENTSUB_SECRET`、`YOUTUBE_WEBSUB_SECRET` | 兩個 webhook 的簽章密鑰，用上面的指令產生 | Vercel |
 | `CWA_API_KEY` | 選填，中央氣象署的授權碼，首頁的天氣卡片、早上的下雨提醒與天氣警特報用（見下方〈天氣的授權碼〉）；沒填時卡片說明要設定、不發下雨與警特報提醒 | Vercel |
 | `MOENV_API_KEY` | 選填，環境部的 API Key，天氣卡片的空氣品質用（見下方〈天氣的授權碼〉）；沒填時不顯示空氣品質 | Vercel |
+| `TDX_CLIENT_ID`、`TDX_CLIENT_SECRET` | 選填，交通部 TDX 的金鑰，交通頁用（見下方〈交通的金鑰〉）；沒填時交通頁只有說明 | Vercel |
 | AI API Key、HoYoLAB cookie | 在網站上填，加密後存在資料庫，不是環境變數 | — |
 
 ## 天氣的授權碼
@@ -54,6 +55,18 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 - **介面可能會改**：步驟照兩個平臺 2026 年 10 月的說明整理，按鈕名稱如果不一樣，找「授權碼」「API 金鑰」或「會員」相關的選項。
 - **只放在 Vercel**：跟其他密鑰一樣不要存在電腦上；貼的時候前後的空白網站會自動去掉。
 - **授權條款**：兩個平臺的資料都依政府資料開放授權條款提供，要標示出處，所以天氣卡片下面寫著「資料來源：中央氣象署、環境部」。
+
+## 交通的金鑰
+
+交通頁的高鐵、台鐵、捷運與公車都來自交通部的 TDX（運輸資料流通服務），免費會員就夠用。
+
+1. 打開 [會員註冊](https://tdx.transportdata.tw/register)，填資料完成註冊，到信箱點確認信。
+2. 登入後打開 [API 金鑰](https://tdx.transportdata.tw/user/dataservice/key)，建立一組金鑰，畫面上的 **Client Id** 貼到 `TDX_CLIENT_ID`、**Client Secret** 貼到 `TDX_CLIENT_SECRET`。
+3. 貼到 Vercel 的環境變數，重新部署就會出現。
+
+- **額度**：免費會員一個月 3 點，大約一天 100～150 次。網站用快取省著用，也只在分頁開著、快開車時才問即時資料；用量可以在 TDX 的會員中心看。
+- **介面可能會改**：步驟照 2026 年 11 月的說明整理，按鈕名稱如果不一樣，找「API 金鑰」或「資料服務」相關的選項。
+- **授權條款**：TDX 的資料要標示出處，交通頁標題旁的 i 圓圈寫著資料來自交通部 TDX。
 
 ## 填到 Vercel
 

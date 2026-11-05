@@ -442,3 +442,41 @@ describe("地圖短網址", () => {
     expect(loggedText(log)).not.toContain("AbC");
   });
 });
+
+describe("todayTrip：首頁卡片只在今天有行程時出現（使用者要的）", () => {
+  const TODAY = "2026-12-02";
+  const onDay = (tripId: number, day: string | null) => addItem(me, tripId, day, ITEM);
+
+  it("今天有排項目_回那一趟", async () => {
+    const tripId = await tripOf();
+    await onDay(tripId, TODAY);
+
+    expect(await trips.todayTrip(me, TODAY)).toMatchObject({ id: tripId, title: TRIP.title });
+  });
+
+  it("旅途中但今天沒排項目_沒有", async () => {
+    const tripId = await tripOf();
+    await onDay(tripId, "2026-12-01");
+
+    expect(await trips.todayTrip(me, TODAY)).toBeNull();
+  });
+
+  it("只有想去的點 還沒排進今天_沒有", async () => {
+    await onDay(await tripOf(), null);
+
+    expect(await trips.todayTrip(me, TODAY)).toBeNull();
+  });
+
+  it("還沒出發或已經結束_沒有", async () => {
+    await onDay(await tripOf(), TODAY);
+
+    expect(await trips.todayTrip(me, "2026-11-30")).toBeNull();
+    expect(await trips.todayTrip(me, "2026-12-04")).toBeNull();
+  });
+
+  it("別人的旅程_沒有", async () => {
+    await onDay(await tripOf(), TODAY);
+
+    expect(await trips.todayTrip(other, TODAY)).toBeNull();
+  });
+});

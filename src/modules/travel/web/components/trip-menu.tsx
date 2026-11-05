@@ -6,10 +6,11 @@ import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import type { TripSummary } from "../../service/trips";
 import { deleteTripAction, leaveTripAction } from "../actions";
+import { CopyTripButton } from "./copy-trip-button";
 import { TripForm } from "./trip-form";
 
 /** 成員都能改旅程 只有建立的人能刪 視窗放在選單外面才不會跟著收起 */
-export function TripMenu({ trip, isManager }: { trip: TripSummary; isManager: boolean }) {
+export function TripMenu({ trip, isManager, copyText }: { trip: TripSummary; isManager: boolean; copyText: string }) {
   const edit = useDialog();
   return (
     <>
@@ -18,6 +19,7 @@ export function TripMenu({ trip, isManager }: { trip: TripSummary; isManager: bo
           <Icon name="pencil" className="size-4" />
           修改旅程
         </button>
+        <CopyTripButton text={copyText} label="複製整趟行程" className="menu-item" />
         <ActionButton action={leaveTripAction} fields={{ tripId: trip.id }} confirmMessage={`確定離開「${trip.title}」？`} formClassName="flex flex-col" className="menu-item">
           <Icon name="log-out" className="size-4" />
           離開旅程

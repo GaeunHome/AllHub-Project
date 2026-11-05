@@ -26,6 +26,16 @@ export type Warp = { id: string; bannerType: number; gachaId: number | null; ite
 
 export type WarpPage = { warps: Warp[]; missing: string[] };
 
+/** 讀紀錄時要一起送的東西 版本與簽章方式是換金鑰時回的 伺服器是這個遊戲帳號的 */
+export type WarpKey = { authkey: string; authkeyVer: string; signType: string; region: string };
+
+// 官方的抽卡網址寫死這兩個值 回應沒給時用它
+const DEFAULT_AUTHKEY_VER = 1;
+const DEFAULT_SIGN_TYPE = 2;
+
+/** 抽卡介面的這兩個代碼是金鑰被拒絕 跟登入無關 重貼 cookie 沒有用 */
+const KEY_REJECTED: readonly number[] = [-100, -101];
+
 const SERVER_TIME = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/;
 const DEFAULT_TIME_ZONE = 8;
 
@@ -56,13 +66,29 @@ function parseWarpPage(data: unknown, bannerType: number): WarpPage {
 }
 
 export function interpretWarpPage(json: unknown, bannerType: number): HoyolabResult<WarpPage> {
-  return interpretWith(json, (data) => parseWarpPage(data, bannerType));
+  const result = interpretWith(json, (data) => parseWarpPage(data, bannerType));
+  if (result.ok || result.retcode === null || !KEY_REJECTED.includes(result.retcode)) return result;
+  const reason = `${result.retcode}：${text(asRecord(json)?.message) ?? ""}`;
+  return { ...result, cookieInvalid: false, message: `HoYoverse 不接受讀躍遷紀錄的金鑰（${reason}），這不是 cookie 的問題，重貼也不會好` };
 }
 
-/** 回應是網址編碼過的 解開才不會在送出時編碼兩次 */
-export function parseAuthkey(data: unknown): string | null {
-  const authkey = text(asRecord(data)?.authkey);
-  return authkey ? decodeURIComponent(authkey) : null;
+/** 回應可能編碼過一次以上 genshin.py 解兩次 這裡也是 金鑰是 base64 不會有百分比符號 */
+function decodedAuthkey(raw: string): string {
+  let authkey = raw;
+  for (let i = 0; i < 2 && authkey.includes("%"); i++) authkey = decodeURIComponent(authkey);
+  return authkey;
+}
+
+export function parseAuthkey(data: unknown, region: string): WarpKey | null {
+  const root = asRecord(data);
+  const authkey = text(root?.authkey);
+  if (!authkey) return null;
+  return {
+    authkey: decodedAuthkey(authkey),
+    authkeyVer: String(numberOf(root?.authkey_ver) ?? DEFAULT_AUTHKEY_VER),
+    signType: String(numberOf(root?.sign_type) ?? DEFAULT_SIGN_TYPE),
+    region,
+  };
 }
 
 export type FiveStar = {

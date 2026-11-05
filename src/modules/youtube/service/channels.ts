@@ -7,6 +7,7 @@ import { youtubeEnv } from "@/core/env";
 import { logError } from "@/core/errors";
 import { UserError } from "@/core/form";
 import { notify } from "@/core/notify";
+import { reportService } from "@/core/status";
 import { DAY_MS } from "@/core/time";
 import { checkIsShort, fetchChannelFeed, hubRequest, resolveHandle } from "../lib/api";
 import { parseChannelInput } from "../lib/parse";
@@ -304,6 +305,7 @@ export async function renewSubscriptions(): Promise<string> {
     const updated = await subscribe(channel);
     if (isSubscriptionFailure(updated.subscriptionStatus)) failed++;
   }
+  await reportService("youtube:websub", failed > 0 ? `${failed} 個頻道續訂失敗` : null);
   let removed = 0;
   for (const { channel } of channels.filter((c) => c.followers === 0)) {
     if (await removeUnfollowed(channel)) removed++;

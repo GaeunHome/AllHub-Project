@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, customType, index, integer, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 // account CLI 用純 node 載入 只能 import 套件 不能用 @/ 或省略副檔名的路徑
 
@@ -165,3 +165,33 @@ export const coreAuditLogs = pgTable(
   },
   (t) => [check("core_audit_logs_outcome", sql`${t.outcome} in ('success', 'failure')`), index("core_audit_logs_created_at_idx").on(t.createdAt)],
 ).enableRLS();
+
+/** 每個排程一列 跑完蓋過上一次 資料量不會隨時間長大 站長的系統狀態頁看 */
+export const coreCronStatus = pgTable("core_cron_status", {
+  task: text("task").primaryKey(),
+  lastRunAt: timestamp("last_run_at", { withTimezone: true }).notNull(),
+  durationMs: integer("duration_ms").notNull(),
+  ok: boolean("ok").notNull(),
+  summary: text("summary").notNull(),
+}).enableRLS();
+
+/** 每個外部服務一列 同樣只更新 lastError 只放畫面上的摘要 不放憑證與回應原文 */
+export const coreServiceStatus = pgTable("core_service_status", {
+  service: text("service").primaryKey(),
+  lastOkAt: timestamp("last_ok_at", { withTimezone: true }),
+  lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
+  lastError: text("last_error"),
+}).enableRLS();
+
+const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
+
+/** 自己上傳的頭像 瀏覽器縮成小圖才送來 每人一列 換照片時舊的刪掉 id 就是網址 換了才看得到新圖 */
+export const coreAvatarImages = pgTable("core_avatar_images", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => coreUsers.id, { onDelete: "cascade" }),
+  image: bytea("image").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();

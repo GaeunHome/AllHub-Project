@@ -2,6 +2,7 @@ import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/core/db";
 import { logError } from "@/core/errors";
+import { reportService } from "@/core/status";
 import { fetchCheckinInfo, signIn } from "../lib/hoyolab";
 import { CHECKIN_PAGE } from "../lib/urls";
 import { starrailAccounts, starrailCheckinLogs, type StarrailAccount } from "../data/schema";
@@ -45,6 +46,7 @@ export async function checkin(account: StarrailAccount, changes?: AccountChanges
     if (outcome.result === "success" && totalSignDay !== null) totalSignDay += 1;
     // 原始回應可能帶有帳號資料 只記 retcode
     if (outcome.result === "failed") console.error("[starrail] 簽到失敗", account.uid, `retcode ${outcome.retcode}`);
+    if (!outcome.cookieInvalid) await reportService("starrail:checkin", outcome.result === "failed" ? message : null);
     await setCookieInvalid(account.id, outcome.cookieInvalid, changes);
   }
 
@@ -94,5 +96,7 @@ export async function checkinAll(): Promise<string> {
       logError("starrail", "簽到通知失敗", error);
     }
   }
-  return lines.join("；");
+  // 摘要會顯示在站長的系統狀態頁 不寫成員的遊戲暱稱
+  const failed = [...seenLtuid.values()].filter((result) => !result.ok).length;
+  return `處理 ${seenLtuid.size} 個 HoYoLAB 帳號${failed > 0 ? `，${failed} 個失敗` : ""}`;
 }

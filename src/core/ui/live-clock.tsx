@@ -1,7 +1,7 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-import { formatTaipeiHourMinuteSecond } from "../time";
+import { useCallback, useSyncExternalStore } from "react";
+import { MINUTE_MS, formatTaipeiHourMinuteSecond } from "../time";
 import { Icon } from "./icon";
 
 const SECOND_MS = 1000;
@@ -51,6 +51,17 @@ export function currentSecond(): number | null {
 
 // 預先算繪的 HTML 之後隨時可能被拿去用 伺服器一律只放預留的位置
 const serverSecond = () => null;
+
+/** 每隔 stepMs 才變一次的時間戳 只有這時才重畫 伺服器與第一次算繪是 null */
+export function useClockStep(stepMs: number): number | null {
+  const snapshot = useCallback(() => {
+    const now = currentSecond();
+    return now === null ? null : now - (now % stepMs);
+  }, [stepMs]);
+  return useSyncExternalStore(subscribeSecond, snapshot, serverSecond);
+}
+
+export const useCurrentMinute = () => useClockStep(MINUTE_MS);
 
 const CLOCK_CLASS = "inline-flex items-center gap-1.5 self-stretch text-[0.8125rem] font-medium whitespace-nowrap text-ink-soft tabular-nums sm:text-sm";
 

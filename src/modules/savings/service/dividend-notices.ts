@@ -6,6 +6,7 @@ import { coreUsers } from "@/core/db/schema";
 import { activeOwnerOf } from "@/core/db/users";
 import { logError } from "@/core/errors";
 import { notify } from "@/core/notify";
+import { reportService } from "@/core/status";
 import { savingsAccounts, savingsDividendNotices, savingsHoldings } from "../data/schema";
 import { taipeiToday, type DateKey } from "../lib/dates";
 import { dividendNotice, dueDividendNotices, heldDividends, heldShares, type DividendEvent, type DividendNotice, type HeldDividend, type HeldShares } from "../lib/dividends";
@@ -102,6 +103,7 @@ async function noticeHeldDividends(today: DateKey, fetchImpl?: typeof fetch): Pr
   const holdings = await heldSharesByUser();
   if (holdings.size === 0) return "沒有持股，不讀除權息預告";
   const fetched = await fetchDividends({ timeoutMs: CRON_TIMEOUT_MS, fetchImpl });
+  await reportService("savings:dividends", !fetched.ok ? "兩邊的預告表都讀不到" : fetched.complete ? null : "只讀到其中一邊的預告表");
   if (!fetched.ok) return "讀不到除權息預告，今天略過";
 
   const sent = await db()

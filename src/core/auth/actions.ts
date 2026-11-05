@@ -16,7 +16,8 @@ import { CAPTCHA_ERROR, CAPTCHA_FIELD, HONEYPOT_FIELD, INVALID_CREDENTIALS, safe
 import { normalizeUsername } from "./credentials";
 import { clientIp, createFailureLimiter } from "./rate-limit";
 import { registerMember, type RegisterResult } from "./registration";
-import { authenticate, changePassword, deleteOwnAccount, updateAvatar, updateNickname } from "./users";
+import { KEEP_AVATAR } from "./avatar-rules";
+import { authenticate, changePassword, deleteOwnAccount, saveUploadedAvatar, updateAvatar, updateNickname } from "./users";
 
 export type LoginState = { error?: string; username?: string };
 export type RegisterState = { error?: string; username?: string };
@@ -167,7 +168,21 @@ export async function updateAvatarAction(_prev: FormState, formData: FormData): 
     if (!result.ok) return { error: result.error };
     // 管理頁的使用者清單與旅遊的同行的人都畫頭像
     updateTags(authTags.users);
+    if (result.avatar === KEEP_AVATAR) return "頭像沒有變更";
     return result.avatar ? "已更換頭像" : "已改回文字頭像";
+  });
+}
+
+/** 檔案已經在瀏覽器縮成小圖 內容由 service 再檢查一次 */
+export async function uploadAvatarAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireSession();
+  return runAction({ module: "auth", action: "上傳頭像" }, async () => {
+    const photo = formData.get("photo");
+    if (!(photo instanceof File)) return { error: "請選擇照片" };
+    const result = await saveUploadedAvatar(session.id, Buffer.from(await photo.arrayBuffer()));
+    if (!result.ok) return { error: result.error };
+    updateTags(authTags.users);
+    return "已更換頭像";
   });
 }
 

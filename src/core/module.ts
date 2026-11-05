@@ -16,12 +16,14 @@ export type ModuleInfo = {
   notifies?: boolean;
   /** 只有首頁卡片 沒有自己的頁面 導覽列與首頁的模組入口不列出 href 填首頁 */
   homeOnly?: boolean;
+  /** 排程或按鈕用到的外部服務 系統狀態頁照這份列出 id 是給 reportService 的 模組 id 開頭 architecture.test 會檢查 */
+  services?: { id: `${string}:${string}`; label: string }[];
 };
 
 /** 只有首頁卡片的模組沒有頁面 不放進導覽列與首頁的模組入口 */
 export const pageModules = <T extends Pick<ModuleInfo, "homeOnly">>(modules: readonly T[]): T[] => modules.filter((m) => !m.homeOnly);
 
-/** 回傳的摘要會原樣寫進 /api/cron 的回應 不能夾帶憑證或原始錯誤 */
+/** 回傳的摘要會寫進 /api/cron 的回應與站長的系統狀態頁 不能夾帶憑證 原始錯誤與成員的資料 */
 export type CronTask = () => Promise<string>;
 
 /** src/app 的頁面交給頁面元件的網址參數 同一個名稱出現好幾次時是陣列 */

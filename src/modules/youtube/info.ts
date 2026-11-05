@@ -8,4 +8,5 @@ export const youtubeInfo: ModuleInfo = {
   icon: "/icons/brands/youtube.svg",
   cover: "/images/scenes/module-youtube.svg",
   accent: "red",
+  services: [{ id: "youtube:websub", label: "YouTube 新影片訂閱" }],
 };

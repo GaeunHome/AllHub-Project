@@ -10,10 +10,12 @@ import { PageBanner } from "@/core/ui/page-banner";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { TRAVEL_HREF } from "../../lib/urls";
 import { cachedTrip } from "../../service/cached";
+import { TodayCard } from "../components/today-card";
 import { TripBoard } from "../components/trip-board";
 import { TripMenu } from "../components/trip-menu";
 import { TripRefresh } from "../components/trip-refresh";
 import { Checklist, Members } from "../components/trip-side";
+import { tripText } from "../trip-text";
 import { dateRange, dayViews, tripStatus } from "../trip-view";
 import { TRAVEL_BANNER } from "./travel-page";
 
@@ -39,6 +41,7 @@ export async function TripBody({ info, params }: TripPageProps) {
   const trip = await cachedTrip(user.id, id);
   if (!trip) notFound();
   const today = taipeiDateKey(new Date());
+  const days = dayViews(trip);
 
   return (
     <>
@@ -57,13 +60,14 @@ export async function TripBody({ info, params }: TripPageProps) {
             <Link href={TRAVEL_HREF} className="scene-button">
               所有旅程
             </Link>
-            <TripMenu trip={trip} isManager={trip.managerId === user.id} />
+            <TripMenu trip={trip} isManager={trip.managerId === user.id} copyText={tripText(trip, days, trip.items)} />
           </>
         }
       >
         <p className="font-medium text-white tabular-nums">{[trip.destination, dateRange(trip), tripStatus(trip, today)].filter(Boolean).join("，")}</p>
       </PageBanner>
-      <TripBoard tripId={trip.id} destination={trip.destination} days={dayViews(trip)} items={trip.items} comments={trip.comments} userId={user.id} managerId={trip.managerId} />
+      <TodayCard days={days} items={trip.items} destination={trip.destination} expected={today >= trip.startDate && today <= trip.endDate} />
+      <TripBoard tripId={trip.id} tripTitle={trip.title} destination={trip.destination} days={days} items={trip.items} comments={trip.comments} userId={user.id} managerId={trip.managerId} />
       <div className="grid items-start gap-8 lg:grid-cols-2">
         <Members tripId={trip.id} members={trip.members} managerId={trip.managerId} userId={user.id} joinPath={trip.joinPath} />
         <Checklist tripId={trip.id} checks={trip.checks} />

@@ -36,6 +36,9 @@
 | HoYoLAB | 兌換碼 | `STARRAILGIFT` 或 `GIFT` 開頭成功（同一個 UID 第二次是已兌換）、`USED` 開頭已兌換、`EXPIRED` 開頭過期、`LEVEL` 開頭等級不足、`RISK` 開頭要求驗證（10035，自動兌換會整批停下），其他無效；同一個 UID 5 秒內再兌換是太頻繁。cookie 要有 `cookie_token_v2`（`account_id_v2` 沒貼時網站用 `ltuid_v2` 補上） |
 | HoYoLAB | 社群的兌換碼清單（hoyo-codes 的 `/codes?game=hkrpg`） | 自動兌換讀這份：`GIFTAUTO2026`、`GIFTLIVESTREAM`、`STARRAILGIFT` 第一次會成功（同一個 UID 第二次是已兌換），`OMEGA` 在假伺服器是無效，`EXPIREDCODE1` 過期。手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/starrail:redeem`，帳號要先在「帳號設定」打開自動兌換 |
 | 天氣 | 氣象署 F-C0032-001 | 時段照現在的台北時間算（從最近的 6 點或 18 點起三段）；帶 `locationName` 只回那個縣市，沒帶（早上的 `weather:rain`）回全部 22 個縣市。每個縣市照名稱固定一種天氣，現在與下一段的降雨機率決定卡片的提醒，見下表 |
+| 交通 | 高鐵、台鐵、捷運 | 假 TDX 的時刻表每天 6 點到 23 點多：高鐵每 15 分鐘、台鐵每 20 分鐘、捷運每 6 分鐘一班，明天的日期也有車；金鑰填什麼都可以 |
+| 交通 | 公車 | 只有路線 307（`/transit?mode=bus&system=Taipei&line=307`），有每站的到站秒數、末班車已過的站與班距 |
+| 天氣 | 氣象署 F-D0047-091、Open-Meteo | 一週預報照今天的日期產生；Open-Meteo 的城市搜尋只有 `seoul` 查得到結果 |
 | 旅遊 | Google Maps 短網址 `https://maps.app.goo.gl/mapshortabc` | 假伺服器轉到清水寺的完整網址，名稱與座標自動帶入；`mapshortbroken` 回 500，要手動填名稱 |
 | 天氣 | 背景圖 | 照現在這一段的天氣描述：臺北市是雷雨、臺中市這類 `dry` 的縣市看得到晴天或多雲；白天或晚上看的是現在這一段的開始時間 |
 | 天氣 | 授權碼 `bad` 開頭（`CWA_API_KEY`、`MOENV_API_KEY`） | 回 401，像授權碼打錯 |

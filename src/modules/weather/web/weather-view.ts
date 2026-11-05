@@ -1,4 +1,3 @@
-import type { UiIconName } from "@/core/ui/icon";
 import type { StatusBadge } from "@/core/ui/status-chip";
 import { aqiWarns, countyAqi, type Station } from "../lib/aqi";
 import type { County } from "../lib/counties";
@@ -9,14 +8,21 @@ import { activeWarnings, warningEndText, type Warning } from "../lib/warnings";
 // 伺服器把預報整理成要顯示的文字 卡片只負責排版
 
 /** 照氣象署的天氣描述挑圖示 晚上的晴天與多雲換成月亮 */
-export function weatherIcon(description: string, night: boolean): UiIconName {
-  if (description.includes("雷")) return "cloud-lightning";
-  if (description.includes("雪")) return "snowflake";
-  if (description.includes("雨")) return "cloud-rain";
-  if (description.includes("霧")) return "cloud-fog";
+/** public/images/weather 的檔名 使用者要的：不用線條圖示 圖是靜態檔不佔資料庫 */
+export type WeatherArt = "sun" | "sun-small-cloud" | "sun-cloud" | "sun-large-cloud" | "sun-rain" | "cloud" | "rain" | "storm" | "snow" | "fog" | "moon";
+
+export function weatherArt(description: string, night: boolean): WeatherArt {
+  if (description.includes("雷")) return "storm";
+  if (description.includes("雪")) return "snow";
+  if (description.includes("雨")) return !night && description.includes("晴") ? "sun-rain" : "rain";
+  if (description.includes("霧")) return "fog";
   if (description.includes("陰")) return "cloud";
-  if (description.includes("多雲")) return night ? "cloud-moon" : "cloud-sun";
-  if (description.includes("晴")) return night ? "moon-star" : "sun";
+  if (description.includes("多雲")) {
+    if (night) return "cloud";
+    if (description.startsWith("晴")) return "sun-small-cloud";
+    return description.includes("晴") ? "sun-cloud" : "sun-large-cloud";
+  }
+  if (description.includes("晴")) return night ? "moon" : "sun";
   return "cloud";
 }
 
@@ -38,7 +44,7 @@ export function temperatureText(period: Pick<ForecastPeriod, "minTemp" | "maxTem
   return `${minTemp}–${maxTemp}°`;
 }
 
-export type PeriodView = { label: string; description: string; icon: UiIconName; temperature: string | null; rain: number | null; comfort: string | null };
+export type PeriodView = { label: string; description: string; temperature: string | null; rain: number | null; comfort: string | null };
 
 /** 卡片上要不要帶傘 detail 是降雨機率最高的那一段 */
 export type Reminder = { level: RainLevel; title: string; detail: string };
@@ -67,7 +73,7 @@ export type WeatherView = {
 
 function periodView(period: ForecastPeriod, now: Date): PeriodView {
   const start = new Date(period.start);
-  return { label: periodLabel(start, now), description: period.description, icon: weatherIcon(period.description, isNight(start)), temperature: temperatureText(period), rain: period.rain, comfort: period.comfort };
+  return { label: periodLabel(start, now), description: period.description, temperature: temperatureText(period), rain: period.rain, comfort: period.comfort };
 }
 
 function reminderOf(periods: readonly ForecastPeriod[], now: Date): Reminder | null {

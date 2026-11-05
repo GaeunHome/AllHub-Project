@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, count, desc, eq, gt, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, exists, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { coreUsers } from "@/core/db/schema";
 import { db } from "@/core/db";
 import { lockUserRow, userAvatar } from "@/core/db/users";
@@ -202,12 +202,16 @@ export async function cleanupTrips(now = new Date()): Promise<string> {
   return `刪除 ${expired.length} 趟結束超過 ${RETENTION_DAYS} 天的旅程、${orphaned.length} 趟沒有成員的旅程`;
 }
 
-/** 首頁卡片用 還沒結束的最近一趟 */
-export async function nextTrip(userId: string, today: string): Promise<TripSummary | null> {
+/** 首頁卡片用 今天有排項目的那一趟 想去的點還沒有日期 不算 */
+export async function todayTrip(userId: string, today: string): Promise<TripSummary | null> {
+  const scheduledToday = db()
+    .select({ id: travelItems.id })
+    .from(travelItems)
+    .where(and(eq(travelItems.tripId, travelTrips.id), eq(travelItems.day, today)));
   const [trip] = await db()
     .select(SUMMARY_COLUMNS)
     .from(travelTrips)
-    .where(and(isMemberOf(userId), gt(travelTrips.endDate, addDays(today, -1))))
+    .where(and(isMemberOf(userId), exists(scheduledToday)))
     .orderBy(asc(travelTrips.startDate), desc(travelTrips.id))
     .limit(1);
   return trip ? { ...trip, memberCount: 0 } : null;

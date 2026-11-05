@@ -46,10 +46,19 @@ export function formatTaipeiHourMinuteSecond(date: Date): string {
 
 const WEEKDAYS = "日一二三四五六";
 
-/** 首頁的日期 例如 11 月 4 日 星期三 星期用台北的日期算 不用伺服器的時區 */
+/** 星期用台北的日期算 不用伺服器的時區 */
+const weekdayOf = (year: number, month: number, day: number) => WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+
+/** 首頁的日期 例如 11 月 4 日 星期三 */
 export function formatTaipeiLongDate(date: Date): string {
   const { year, month, day } = taipeiFields(date);
-  return `${month} 月 ${day} 日 星期${WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]}`;
+  return `${month} 月 ${day} 日 星期${weekdayOf(year, month, day)}`;
+}
+
+/** 位置不夠時的日期 例如 11/4（三） */
+export function formatTaipeiShortDate(date: Date): string {
+  const { year, month, day } = taipeiFields(date);
+  return `${month}/${day}（${weekdayOf(year, month, day)}）`;
 }
 
 /** 例如 2026-01-05 判斷是不是台北的同一天或算相差幾天用 */
@@ -72,7 +81,7 @@ export function taipeiMonthKey(date: Date): string {
   return taipeiDateKey(date).slice(0, 7);
 }
 
-const MINUTE_MS = 60_000;
+export const MINUTE_MS = 60_000;
 export const HOUR_MS = 60 * MINUTE_MS;
 export const DAY_MS = 24 * HOUR_MS;
 

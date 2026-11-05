@@ -2,10 +2,11 @@ import "server-only";
 import { and, asc, count, desc, eq, max, notInArray } from "drizzle-orm";
 import { takeCooldown } from "@/core/cooldown";
 import { db } from "@/core/db";
+import { reportService } from "@/core/status";
 import { starrailAccounts, starrailWarps, type StarrailAccount } from "../data/schema";
 import { cookieKeys } from "../lib/cookie";
 import { fetchWarpAuthkey, fetchWarpPage } from "../lib/hoyolab";
-import { WARP_BANNERS, WARP_LIMIT, WARP_PAGE_SIZE, summarizeBanner, type BannerSummary, type Warp } from "../lib/warps";
+import { WARP_BANNERS, WARP_LIMIT, WARP_PAGE_SIZE, summarizeBanner, type BannerSummary, type Warp, type WarpKey } from "../lib/warps";
 import { UNDECRYPTABLE, cookieOf, isolate, listAccounts, ownAccount, pageAccount, trackingAccountChanges, type Outcome } from "./accounts";
 
 // 躍遷紀錄 只新增不覆蓋 官方只留最近一段時間 存下來才不會消失
@@ -26,7 +27,7 @@ type WarpClock = { now: () => number; sleep: (ms: number) => Promise<void> };
 const realClock: WarpClock = { now: () => Date.now(), sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)) };
 
 /** 看到存過的就停 整個卡池讀完才回傳 中途失敗時不寫入 不然這段缺口之後補不回來 */
-async function newWarps(accountId: number, bannerType: number, authkey: string, clock: WarpClock): Promise<Outcome<{ warps: Warp[] }>> {
+async function newWarps(accountId: number, bannerType: number, key: WarpKey, clock: WarpClock): Promise<Outcome<{ warps: Warp[] }>> {
   const [{ latest }] = await db()
     .select({ latest: max(starrailWarps.id) })
     .from(starrailWarps)
@@ -35,7 +36,7 @@ async function newWarps(accountId: number, bannerType: number, authkey: string, 
   let endId = "0";
   for (let page = 0; page < MAX_PAGES; page++) {
     if (page > 0) await clock.sleep(PAGE_GAP_MS);
-    const result = await fetchWarpPage(authkey, bannerType, endId);
+    const result = await fetchWarpPage(key, bannerType, endId);
     if (!result.ok) {
       console.error("[starrail] 讀取躍遷紀錄失敗", accountId, bannerType, `retcode ${result.retcode}`);
       return { ok: false, error: result.message };
@@ -73,15 +74,23 @@ async function syncAccount(account: StarrailAccount, cookie: string, clock: Warp
   const key = await fetchWarpAuthkey(cookie, account.uid, account.region);
   if (!key.ok) {
     console.error("[starrail] 換不到躍遷紀錄的金鑰", account.id, `retcode ${key.retcode}`);
+    if (!key.cookieInvalid) await reportService("starrail:warps", key.message);
     return { ok: false, error: key.message };
   }
-  if (!key.data) return { ok: false, error: "HoYoverse 沒有回傳金鑰，稍後再試" };
+  if (!key.data) {
+    await reportService("starrail:warps", "HoYoverse 沒有回傳金鑰");
+    return { ok: false, error: "HoYoverse 沒有回傳金鑰，稍後再試" };
+  }
   let added = 0;
   for (const banner of WARP_BANNERS) {
     const fresh = await newWarps(account.id, banner.id, key.data, clock);
-    if (!fresh.ok) return fresh;
+    if (!fresh.ok) {
+      await reportService("starrail:warps", fresh.error);
+      return fresh;
+    }
     added += await saveWarps(account.id, fresh.warps);
   }
+  await reportService("starrail:warps", null);
   if (added > 0) await pruneWarps(account.id);
   return { ok: true, added };
 }

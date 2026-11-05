@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { AVATAR_IDS, avatarOf, avatarSrc } from "./avatars";
+import { AVATAR_IDS, avatarOf, avatarSrc, avatarUrl } from "./avatars";
 
 const FOLDER = "public/images/avatars";
 
@@ -32,3 +32,18 @@ describe("範例頭像", () => {
     for (const value of [null, undefined, "", "unknown", "constructor", "__proto__", "../secret"]) expect(avatarOf(value)).toBeNull();
   });
 });
+
+describe("avatarUrl：畫面上要載入哪一張圖", () => {
+  it("範例頭像是靜態檔", () => {
+    expect(avatarUrl("cat")).toBe("/images/avatars/cat.webp");
+  });
+
+  it("自己上傳的經 API 讀", () => {
+    expect(avatarUrl("img:6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f")).toBe("/api/avatars/6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f");
+  });
+
+  it.each([[null], [undefined], [""], ["img:../../admin"], ["不存在的頭像"], ["constructor"]])("%s 當成沒有頭像 退回文字頭像", (value) => {
+    expect(avatarUrl(value)).toBeNull();
+  });
+});
+

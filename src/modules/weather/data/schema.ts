@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, doublePrecision, pgTable, serial, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { coreUsers } from "@/core/db/schema";
 import { COUNTIES } from "../lib/counties";
 
@@ -17,3 +17,24 @@ export const weatherSettings = pgTable(
   },
   (t) => [check("weather_settings_county", sql`${t.county} in (${sql.raw(COUNTIES.map((county) => `'${county}'`).join(", "))})`)],
 ).enableRLS();
+
+/** 天氣頁多看的城市 首頁維持 weather_settings 的一個縣市 county 用氣象署 world 用 Open-Meteo */
+export const weatherPlaces = pgTable(
+  "weather_places",
+  {
+    id: serial("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["county", "world"] }).notNull(),
+    name: text("name").notNull(),
+    country: text("country"),
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    timezone: text("timezone"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("weather_places_kind", sql`${t.kind} in ('county', 'world')`), uniqueIndex("weather_places_user_name").on(t.userId, t.name)],
+).enableRLS();
+
+export type WeatherPlace = typeof weatherPlaces.$inferSelect;

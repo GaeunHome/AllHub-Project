@@ -2,6 +2,7 @@ import "server-only";
 import { and, inArray } from "drizzle-orm";
 import { db } from "@/core/db";
 import { logError } from "@/core/errors";
+import { reportService } from "@/core/status";
 import { DAY_MS, taipeiDateKey } from "@/core/time";
 import { fetchActiveCodes, type PublicCode } from "../lib/codes";
 import { withAccountIds } from "../lib/cookie";
@@ -40,6 +41,7 @@ export async function autoRedeemAll(clock: RedeemClock = realClock): Promise<str
   const accounts = (await listAccounts()).filter((account) => account.autoRedeem && !account.cookieInvalid);
   if (accounts.length === 0) return "沒有打開自動兌換的帳號";
   const codes = await fetchActiveCodes();
+  await reportService("starrail:codes", codes === null ? "讀不到兌換碼清單" : null);
   if (codes === null) return "讀不到兌換碼清單，明天再試";
   if (codes.length === 0) return "目前沒有有效的兌換碼";
 

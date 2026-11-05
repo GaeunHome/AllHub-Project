@@ -8,4 +8,5 @@ export const twitchInfo: ModuleInfo = {
   icon: "/icons/brands/twitch.svg",
   cover: "/images/scenes/module-twitch.svg",
   accent: "violet",
+  services: [{ id: "twitch:eventsub", label: "Twitch 開台訂閱" }],
 };

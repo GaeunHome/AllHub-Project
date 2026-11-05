@@ -74,3 +74,53 @@
   transform: translate(0.75rem, -50%);
   will-change: translate;
 }
+
+/* 當天模式的時間軸 線串起每一站的圓點 走過的變淡 */
+.trv-today-list {
+  @apply flex min-w-0 flex-col;
+}
+.trv-today-stop {
+  @apply relative flex items-baseline gap-3 py-1.5 pl-7 text-ink;
+}
+.trv-today-stop::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: calc(0.4375rem - 1px);
+  width: 2px;
+  background-color: var(--line-strong);
+}
+.trv-today-stop:first-child::before {
+  top: 1rem;
+}
+.trv-today-stop:last-child::before {
+  bottom: calc(100% - 1rem);
+}
+.trv-today-stop::after {
+  content: "";
+  position: absolute;
+  top: 0.625rem;
+  left: 0;
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid var(--line-strong);
+  border-radius: 9999px;
+  background-color: var(--surface);
+}
+.trv-today-stop[data-state="done"] {
+  @apply text-ink-soft;
+}
+.trv-today-stop[data-state="done"]::after {
+  background-color: var(--line-strong);
+}
+.trv-today-stop[data-state="here"],
+.trv-today-stop[data-state="next"] {
+  @apply font-semibold;
+}
+.trv-today-stop[data-state="here"]::after {
+  border-color: var(--accent);
+  background-color: var(--accent);
+}
+.trv-today-stop[data-state="next"]::after {
+  border-color: var(--accent);
+}

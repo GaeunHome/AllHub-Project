@@ -26,6 +26,11 @@ export const TEST_WEATHER_ENV = {
   MOENV_API_KEY: "moenv-test-key-5678",
 };
 
+export const TEST_TRANSIT_ENV = {
+  TDX_CLIENT_ID: "tdx-test-client",
+  TDX_CLIENT_SECRET: "tdx-test-secret",
+};
+
 type CoreOverrides = Partial<Record<keyof typeof TEST_CORE_ENV | "ENCRYPTION_KEY_PREVIOUS", string>>;
 
 function stubAll<T extends Record<string, string>>(vars: T): T {
@@ -42,5 +47,7 @@ export const stubYoutubeEnv = (overrides: Partial<typeof TEST_YOUTUBE_ENV> = {})
 
 export const stubWeatherEnv = (overrides: Partial<typeof TEST_WEATHER_ENV> = {}) => stubAll({ ...TEST_WEATHER_ENV, ...overrides });
 
+export const stubTransitEnv = (overrides: Partial<typeof TEST_TRANSIT_ENV> = {}) => stubAll({ ...TEST_TRANSIT_ENV, ...overrides });
+
 /** 跨模組的測試一次設好核心與每個模組 新模組的設定也要加進來 */
-export const stubAllEnv = () => ({ ...stubCoreEnv(), ...stubTwitchEnv(), ...stubYoutubeEnv(), ...stubWeatherEnv() });
+export const stubAllEnv = () => ({ ...stubCoreEnv(), ...stubTwitchEnv(), ...stubYoutubeEnv(), ...stubWeatherEnv(), ...stubTransitEnv() });

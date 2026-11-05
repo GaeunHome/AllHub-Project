@@ -1,5 +1,5 @@
 {
-  "id": "f0ad118c-4e56-41c4-b375-7f2c52e63165",
+  "id": "0c47a1f4-ff19-43f6-a7f4-f58562b9a202",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -529,6 +529,12 @@
         },
         "nickname": {
           "name": "nickname",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "avatar": {
+          "name": "avatar",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2427,6 +2433,123 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
+    "public.starrail_warps": {
+      "name": "starrail_warps",
+      "schema": "",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "banner_type": {
+          "name": "banner_type",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gacha_id": {
+          "name": "gacha_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "item_id": {
+          "name": "item_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_type": {
+          "name": "item_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rarity": {
+          "name": "rarity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time": {
+          "name": "time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "starrail_warps_account_banner_idx": {
+          "name": "starrail_warps_account_banner_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "banner_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "starrail_warps_account_id_starrail_accounts_id_fk": {
+          "name": "starrail_warps_account_id_starrail_accounts_id_fk",
+          "tableFrom": "starrail_warps",
+          "tableTo": "starrail_accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "starrail_warps_account_id_id_pk": {
+          "name": "starrail_warps_account_id_id_pk",
+          "columns": [
+            "account_id",
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
+    },
     "public.travel_checks": {
       "name": "travel_checks",
       "schema": "",
@@ -3236,7 +3359,7 @@
       "checkConstraints": {
         "weather_settings_county": {
           "name": "weather_settings_county",
-          "value": "\"weather_settings\".\"county\" in ('臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣')"
+          "value": "\"weather_settings\".\"county\" in ('\u81fa\u5317\u5e02', '\u65b0\u5317\u5e02', '\u57fa\u9686\u5e02', '\u6843\u5712\u5e02', '\u65b0\u7af9\u5e02', '\u65b0\u7af9\u7e23', '\u82d7\u6817\u7e23', '\u81fa\u4e2d\u5e02', '\u5f70\u5316\u7e23', '\u5357\u6295\u7e23', '\u96f2\u6797\u7e23', '\u5609\u7fa9\u5e02', '\u5609\u7fa9\u7e23', '\u81fa\u5357\u5e02', '\u9ad8\u96c4\u5e02', '\u5c4f\u6771\u7e23', '\u5b9c\u862d\u7e23', '\u82b1\u84ee\u7e23', '\u81fa\u6771\u7e23', '\u6f8e\u6e56\u7e23', '\u91d1\u9580\u7e23', '\u9023\u6c5f\u7e23')"
         }
       },
       "isRLSEnabled": true
@@ -3788,19 +3911,6 @@
         },
         "notified_at": {
           "name": "notified_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "zh_captions": {
-          "name": "zh_captions",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unknown'"
-        },
-        "zh_captions_checked_at": {
-          "name": "zh_captions_checked_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

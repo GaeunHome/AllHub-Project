@@ -58,16 +58,43 @@ describe("interpretWarpPage：一頁躍遷紀錄", () => {
   it("金鑰過期（-101）_回失敗", () => {
     expect(interpretWarpPage({ retcode: -101, message: "authkey timeout", data: null }, 11).ok).toBe(false);
   });
+
+  it("金鑰被拒絕（-100）_不是 cookie 的問題 不能叫使用者重貼（真實帳號回過這個）", () => {
+    const result = interpretWarpPage({ retcode: -100, message: "authkey error", data: null }, 11);
+
+    expect(result).toMatchObject({ ok: false, retcode: -100, cookieInvalid: false });
+    expect(!result.ok && result.message).toContain("-100：authkey error");
+    expect(!result.ok && result.message).not.toContain("請重新登入");
+    expect(!result.ok && result.message).not.toContain("已失效");
+  });
 });
 
 describe("parseAuthkey：用 cookie 換到的金鑰", () => {
+  const REGION = "prod_official_cht";
+
   it("回應是網址編碼過的 要解開 送出時才不會編碼兩次（genshin.py 也先 unquote）", () => {
-    expect(parseAuthkey({ authkey: "abc%2Bdef%3D%3D", authkey_ver: 1, sign_type: 2 })).toBe("abc+def==");
+    expect(parseAuthkey({ authkey: "abc%2Bdef%3D%3D", authkey_ver: 1, sign_type: 2 }, REGION)?.authkey).toBe("abc+def==");
+  });
+
+  it("編碼兩次也解得開（genshin.py 解兩次）", () => {
+    expect(parseAuthkey({ authkey: "abc%252Bdef%253D%253D", authkey_ver: 1, sign_type: 2 }, REGION)?.authkey).toBe("abc+def==");
+  });
+
+  it("沒編碼過的金鑰照原樣（國服的介面回的是這種）", () => {
+    expect(parseAuthkey({ authkey: "abc+d/ef==", authkey_ver: 1, sign_type: 2 }, REGION)?.authkey).toBe("abc+d/ef==");
+  });
+
+  it("金鑰的版本與簽章方式要跟著金鑰一起送 也記下是哪個伺服器", () => {
+    expect(parseAuthkey({ authkey: "k", authkey_ver: 3, sign_type: 4 }, REGION)).toEqual({ authkey: "k", authkeyVer: "3", signType: "4", region: REGION });
+  });
+
+  it("回應沒給版本與簽章方式_用官方網址上的 1 與 2", () => {
+    expect(parseAuthkey({ authkey: "k" }, REGION)).toMatchObject({ authkeyVer: "1", signType: "2" });
   });
 
   it("沒有金鑰_回 null", () => {
-    expect(parseAuthkey({})).toBeNull();
-    expect(parseAuthkey(null)).toBeNull();
+    expect(parseAuthkey({}, REGION)).toBeNull();
+    expect(parseAuthkey(null, REGION)).toBeNull();
   });
 });
 

@@ -71,6 +71,9 @@ async function seedEverything(userId: string, n: number) {
   );
   await first(sql`insert into savings_dividend_notices (user_id, symbol, ex_date) values (${userId}, '006208', '2026-11-18')`);
   await first(sql`insert into weather_settings (user_id, county) values (${userId}, '臺北市')`);
+  await first(sql`insert into weather_places (user_id, kind, name) values (${userId}, 'county', '臺南市')`);
+  await first(sql`insert into transit_routes (user_id, mode, origin_id, origin_name, destination_id, destination_name) values (${userId}, 'thsr', '1000', '台北', '1070', '左營')`);
+  await first(sql`insert into core_avatar_images (user_id, image) values (${userId}, '\xffd8ff'::bytea)`);
   await first(sql`insert into reminders_items (user_id, title, date, notify_days_before) values (${userId}, '繳房屋稅', '2026-11-30', 7)`);
   await first(sql`insert into core_notifications (user_id, module, kind, title) values (${userId}, 'twitch', 'stream_online', '開台了')`);
   await first(sql`insert into core_module_denials (user_id, module_id) values (${userId}, 'savings')`);

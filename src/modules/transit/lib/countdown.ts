@@ -1,0 +1,50 @@
+import type { Mode } from "./modes";
+import type { Departure } from "./timetable";
+
+// 使用者要的：看板每 5 秒更新一次 跟捷運站一樣
+// 秒數是用時刻表與最新的即時資料算的 真的每 5 秒問 TDX 免費額度一天撐不到 10 分鐘
+
+export const TICK_MS = 5000;
+/** 開車前多久才開始問即時資料 台鐵的看板也只有前後 30 分鐘 */
+export const LIVE_WINDOW_MS = 30 * 60_000;
+export const LIVE_INTERVAL_MS = 60_000;
+
+/** estimate 是還有幾秒到 捷運只給到分鐘 公車有秒 status 是沒有車時的說明 */
+export type LiveReading = { kind: "delays"; delays: Record<string, number> } | { kind: "estimate"; seconds: number | null; readAt: number; status?: string | null } | { kind: "none" };
+
+/** 大字與小字分開排 空的代表車已經到了 */
+export function countdownUnits(ms: number): { value: number; unit: string }[] {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds <= 0) return [];
+  if (seconds >= 3600) return [{ value: Math.floor(seconds / 3600), unit: "小時" }, { value: Math.floor((seconds % 3600) / 60), unit: "分" }];
+  return seconds >= 60 ? [{ value: Math.floor(seconds / 60), unit: "分" }, { value: seconds % 60, unit: "秒" }] : [{ value: seconds, unit: "秒" }];
+}
+
+export function countdownText(ms: number): string {
+  const units = countdownUnits(ms);
+  return units.length > 0 ? units.map(({ value, unit }) => `${value} ${unit}`).join(" ") : "進站中";
+}
+
+export const upcoming = (departures: readonly Departure[], now: number) => departures.filter((departure) => departure.at > now).sort((a, b) => a.at - b.at);
+
+const blank = (at: number): Departure => ({ at, arrivesAt: null, trainNo: null, kind: null, toward: null });
+
+export function withLive(departures: readonly Departure[], live: LiveReading, now: number): Departure[] {
+  if (live.kind === "delays") {
+    const delayed = departures.map((departure) => ({ ...departure, at: departure.at + (departure.trainNo === null ? 0 : (live.delays[departure.trainNo] ?? 0)) * 60_000 }));
+    return upcoming(delayed, now);
+  }
+  const scheduled = upcoming(departures, now);
+  if (live.kind === "none" || live.seconds === null) return scheduled;
+  const at = live.readAt + live.seconds * 1000;
+  return [{ ...(scheduled[0] ?? blank(at)), at }, ...scheduled.slice(1).filter((departure) => departure.at > at)];
+}
+
+/** nextAt 是 null 代表時刻表上沒有下一班 捷運的文湖線本來就沒有時刻表 只能問看板 */
+export function shouldReadLive(mode: Mode, nextAt: number | null, now: number): boolean {
+  if (mode === "thsr") return false;
+  // 公車沒有固定的時刻 只能一直看預估
+  if (mode === "bus") return true;
+  if (nextAt === null) return mode === "metro";
+  return nextAt - now <= LIVE_WINDOW_MS;
+}

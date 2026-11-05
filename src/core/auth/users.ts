@@ -1,9 +1,10 @@
 import "server-only";
 import { and, asc, eq, isNull, lte, or, sql, type SQL } from "drizzle-orm";
-import { avatarOf, type AvatarId } from "../avatars";
+import { avatarOf, uploadedAvatar } from "../avatars";
 import { db } from "../db";
-import { coreUsers, type UserRole } from "../db/schema";
+import { coreAvatarImages, coreUsers, type UserRole } from "../db/schema";
 import { userAvatar } from "../db/users";
+import { AVATAR_STORED_MAX_BYTES, KEEP_AVATAR, isJpeg } from "./avatar-rules";
 import { hashPassword, needsRehash, newPasswordProblem, normalizeUsername, usernameProblem, verifyPassword } from "./credentials";
 import { nicknameProblem, normalizeNickname } from "./nickname";
 import type { SessionClaims } from "./session";
@@ -28,7 +29,7 @@ export type DeleteAccountResult = { ok: true } | { ok: false; reason: "wrong_pas
 
 export type UpdateNicknameResult = { ok: true; nickname: string | null } | { ok: false; error: string };
 
-export type UpdateAvatarResult = { ok: true; avatar: AvatarId | null } | { ok: false; error: string };
+export type UpdateAvatarResult = { ok: true; avatar: string | null } | { ok: false; error: string };
 
 const NOT_FOUND_MESSAGE = "找不到這個帳號，請重新登入";
 
@@ -123,12 +124,38 @@ export async function updateNickname(userId: string, input: string): Promise<Upd
   return rows.length > 0 ? { ok: true, nickname } : { ok: false, error: NOT_FOUND_MESSAGE };
 }
 
-/** 空字串是改回文字頭像 只存範例頭像的 id 換一張就是蓋掉舊的 userId 一律來自 session */
+/**
+ * 空字串是改回文字頭像 範例頭像只存 id 換一張就是蓋掉舊的 userId 一律來自 session
+ * 改成別的頭像時上傳的照片一起刪 不留在資料庫佔空間 KEEP_AVATAR 是留著目前的照片
+ */
 export async function updateAvatar(userId: string, input: string): Promise<UpdateAvatarResult> {
+  if (input === KEEP_AVATAR) return { ok: true, avatar: input };
   const avatar = avatarOf(input);
   if (input !== "" && avatar === null) return { ok: false, error: "找不到這個頭像，請重新整理頁面" };
-  const rows = await db().update(coreUsers).set({ avatar, updatedAt: new Date() }).where(eq(coreUsers.id, userId)).returning({ id: coreUsers.id });
+  const rows = await db().transaction(async (tx) => {
+    await tx.delete(coreAvatarImages).where(eq(coreAvatarImages.userId, userId));
+    return tx.update(coreUsers).set({ avatar, updatedAt: new Date() }).where(eq(coreUsers.id, userId)).returning({ id: coreUsers.id });
+  });
   return rows.length > 0 ? { ok: true, avatar } : { ok: false, error: NOT_FOUND_MESSAGE };
+}
+
+/** 瀏覽器已經裁好縮好 這裡再看一次內容與大小 Server Action 可以被直接 POST */
+export async function saveUploadedAvatar(userId: string, image: Buffer): Promise<UpdateAvatarResult> {
+  if (image.length > AVATAR_STORED_MAX_BYTES || !isJpeg(image)) return { ok: false, error: "這張照片不能用，請換一張" };
+  const avatar = await db().transaction(async (tx) => {
+    // 先刪再新增 id 換新 網址跟著換 瀏覽器才不會留著舊圖
+    await tx.delete(coreAvatarImages).where(eq(coreAvatarImages.userId, userId));
+    const [row] = await tx.insert(coreAvatarImages).values({ userId, image }).returning({ id: coreAvatarImages.id });
+    const value = uploadedAvatar(row.id);
+    await tx.update(coreUsers).set({ avatar: value, updatedAt: new Date() }).where(eq(coreUsers.id, userId));
+    return value;
+  });
+  return { ok: true, avatar };
+}
+
+export async function readAvatarImage(id: string): Promise<Buffer | null> {
+  const [row] = await db().select({ image: coreAvatarImages.image }).from(coreAvatarImages).where(eq(coreAvatarImages.id, id));
+  return row?.image ?? null;
 }
 
 /**

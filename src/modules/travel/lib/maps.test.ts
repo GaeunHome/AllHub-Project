@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayRouteUrl, directionsUrl, isMapsUrl, isShortMapsUrl, mapsSearchUrl, parseMapsUrl } from "./maps";
+import { dayRouteUrl, directionsUrl, isMapsUrl, isShortMapsUrl, mapsSearchUrl, navigateUrl, parseMapsUrl } from "./maps";
 
 const KIYOMIZU = "https://www.google.com/maps/place/%E6%B8%85%E6%B0%B4%E5%AF%BA/@34.9948561,135.7850463,17z/data=!3m1!4b1!4m6!3m5!1s0x60!8m2!3d34.9946662!4d135.7849782";
 
@@ -84,5 +84,25 @@ describe("打開 Google Maps 的網址（免費，不用金鑰）", () => {
   it("不到兩個點沒有路線", () => {
     expect(dayRouteUrl([A])).toBeNull();
     expect(dayRouteUrl([])).toBeNull();
+  });
+});
+
+describe("navigateUrl：當天模式的開導航", () => {
+  const query = (url: string) => new URL(url).searchParams;
+
+  it("不帶出發地 Google Maps 才會用手機現在的位置", () => {
+    expect(query(navigateUrl({ title: "清水寺", lat: 34.99, lng: 135.78 }, "京都")).has("origin")).toBe(false);
+  });
+
+  it("有座標時用座標 比名稱準", () => {
+    expect(query(navigateUrl({ title: "清水寺", lat: 34.99, lng: 135.78 }, "京都")).get("destination")).toBe("34.99,135.78");
+  });
+
+  it("沒有座標時用名稱加目的地查 同名的地方才不會跑去別的城市", () => {
+    expect(query(navigateUrl({ title: "清水寺", lat: null, lng: null }, "京都")).get("destination")).toBe("清水寺 京都");
+  });
+
+  it("旅程沒填目的地時只用名稱", () => {
+    expect(query(navigateUrl({ title: "清水寺", lat: null, lng: null }, null)).get("destination")).toBe("清水寺");
   });
 });

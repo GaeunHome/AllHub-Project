@@ -2,6 +2,7 @@ import "server-only";
 import { claimKey, sendOnceEach } from "@/core/claim";
 import { logError } from "@/core/errors";
 import { notify } from "@/core/notify";
+import { reportService } from "@/core/status";
 import { taipeiDateKey } from "@/core/time";
 import type { County } from "../lib/counties";
 import { periodLabel, upcomingPeriods, type ForecastPeriod } from "../lib/forecast";
@@ -41,6 +42,7 @@ export async function sendRainAlerts(now = new Date()): Promise<string> {
   const groups = await recipientsByCounty("rainAlert");
   if (groups.size === 0) return "沒有開著下雨提醒的人";
   const forecasts = await fetchForecasts([...groups.keys()]);
+  await reportService("weather:forecast", forecasts === null ? "讀不到天氣預報" : null);
   if (forecasts === null) return "讀不到天氣預報，今天略過";
 
   const today = taipeiDateKey(now);

@@ -8,6 +8,7 @@ import { logError } from "@/core/errors";
 import { UserError } from "@/core/form";
 import { notify } from "@/core/notify";
 import { deleteExpired } from "@/core/retention-cleanup";
+import { trackService } from "@/core/status";
 import {
   TwitchApiError,
   createSubscription,
@@ -202,7 +203,11 @@ async function ensureSubscriptions(streamer: TwitchStreamer, existing: Map<strin
  * 對照 Twitch 上的訂閱清單更新狀態 缺的或壞掉的重建
  * 沒人追蹤的主播連同訂閱一起刪掉 例如最後一位追蹤者刪了帳號
  */
-export async function syncSubscriptions(): Promise<string> {
+export function syncSubscriptions(): Promise<string> {
+  return trackService("twitch:eventsub", syncAllSubscriptions);
+}
+
+async function syncAllSubscriptions(): Promise<string> {
   const subscriptions = await listSubscriptions();
   const callback = eventSubCallbackUrl();
   const existing = new Map(

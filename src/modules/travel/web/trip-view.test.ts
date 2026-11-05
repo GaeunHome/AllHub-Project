@@ -5,7 +5,7 @@ const TRIP = { startDate: "2026-12-01", endDate: "2026-12-03" };
 
 describe("旅程的日期文字", () => {
   it("每一天寫第幾天與星期：2026/12/1 是星期二", () => {
-    expect(dayViews(TRIP)[0]).toEqual({ date: "2026-12-01", label: "第 1 天", detail: "12 月 1 日 星期二" });
+    expect(dayViews(TRIP)[0]).toEqual({ date: "2026-12-01", label: "第 1 天", detail: "12 月 1 日 星期二", short: "12/1（二）" });
     expect(dayViews(TRIP)).toHaveLength(3);
   });
 
