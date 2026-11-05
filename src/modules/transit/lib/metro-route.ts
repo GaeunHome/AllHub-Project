@@ -8,7 +8,7 @@ import type { MetroLine, Station } from "./timetable";
 export type MetroSystemData = { system: string; stations: Station[]; lines: MetroLine[] };
 export type NetworkLine = MetroLine & { system: string };
 export type MetroNetwork = { stations: Station[]; lines: NetworkLine[] };
-export type MetroLeg = { line: string; color: string; system: string; from: Station; to: Station; towardId: string; towardName: string; stops: number };
+export type MetroLeg = { line: string; color: string; system: string; from: Station; to: Station; towardId: string; towardName: string; stops: number; stationIds: string[] };
 
 /** 環狀線可能兩個系統都列 同一條線留後面的系統 TDX 的環狀線是新北捷運 */
 export function metroNetwork(systems: MetroSystemData[]): MetroNetwork {
@@ -100,6 +100,13 @@ export function planRoute({ stations, lines: listed }: MetroNetwork, fromId: str
     const start = ride[0].at;
     const end = ride.at(-1)!.at;
     const toward = station(line.stationIds[end > start ? line.stationIds.length - 1 : 0]);
-    return { line: metroLineName(line.system, line.id), color: metroLine(line.system, line.id).color, system: line.system, from: station(line.stationIds[start]), to: station(line.stationIds[end]), towardId: toward.id, towardName: toward.name, stops: ride.length - 1 };
+    const passed = line.stationIds.slice(Math.min(start, end), Math.max(start, end) + 1);
+    return { line: metroLineName(line.system, line.id), color: metroLine(line.system, line.id).color, system: line.system, from: station(line.stationIds[start]), to: station(line.stationIds[end]), towardId: toward.id, towardName: toward.name, stops: ride.length - 1, stationIds: end > start ? passed : passed.reverse() };
   });
+}
+
+/** 票價表只有同一個系統裡的站 跨系統時不問 TDX 問了也是空的 */
+export function fareSystemOf(legs: { system: string }[]): string | null {
+  const [first, ...others] = legs;
+  return first && others.every(({ system }) => system === first.system) ? first.system : null;
 }

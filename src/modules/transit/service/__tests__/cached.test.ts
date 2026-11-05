@@ -7,7 +7,7 @@ import { captureErrorLog, tagged } from "@/dev/test-helpers";
 stubCoreEnv();
 stubTransitEnv();
 
-const { cachedMetroLines, cachedMetroNetwork } = await import("../cached");
+const { cachedMetroFare, cachedMetroLines, cachedMetroNetwork, cachedMetroTravelTimes, cachedThsrFares, cachedTraFares } = await import("../cached");
 const { resetTdxToken } = await import("../../lib/tdx");
 
 const TOKEN = () => Response.json({ access_token: "the-token", expires_in: 86400 });
@@ -102,6 +102,41 @@ describe("捷運的路網：三個系統併在一起", () => {
     stubNetwork(() => FAILED);
 
     expect(await cachedMetroNetwork()).toEqual({ ok: false, problem: "TDX 回 500" });
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
+  });
+});
+
+describe("票價與行車時間的快取", () => {
+  const answer = (route: RegExp, response: () => Response) => vi.stubGlobal("fetch", fakeFetch(byUrl([[/openid-connect\/token/, TOKEN], [route, response]])).impl);
+  const THSR = [{ OriginStationID: "1000", DestinationStationID: "1070", Fares: [{ TicketType: 1, FareClass: 1, CabinClass: 1, Price: 1490 }] }];
+  const TRA = { ODFares: [{ Direction: 1, TrainType: 3, Fares: [{ TicketType: 1, FareClass: 1, Price: 994 }] }] };
+  const METRO = [{ Fares: [{ TicketType: 1, FareClass: 1, Price: 40 }] }];
+  const S2S = [{ TrainType: 1, TravelTimes: [{ FromStationID: "BL22", ToStationID: "BL21", RunTime: 109, StopTime: 0 }] }];
+  const READS: [name: string, route: RegExp, body: unknown, read: () => Promise<unknown>][] = [
+    ["高鐵票價", /THSR\/ODFare/, THSR, () => cachedThsrFares("1000", "1070")],
+    ["台鐵票價", /TRA\/ODFare/, TRA, () => cachedTraFares("1000", "4400")],
+    ["捷運票價", /Metro\/ODFare/, METRO, () => cachedMetroFare("TRTC", "BL12", "BL01")],
+    ["捷運行車時間", /S2STravelTime/, S2S, () => cachedMetroTravelTimes("TRTC")],
+  ];
+
+  it.each(READS)("%s：讀到時留一天 票價幾乎不會變 免費額度很緊", async (_name, route, body, read) => {
+    answer(route, () => Response.json(body));
+
+    await read();
+
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("avatar");
+    expect(tagged()).toEqual(["transit:external"]);
+  });
+
+  it.each(READS)("%s：空的或讀不到都不能留一天 幾分鐘後再試", async (_name, route, _body, read) => {
+    captureErrorLog();
+    answer(route, () => Response.json([]));
+    await read();
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
+
+    vi.mocked(cacheLife).mockClear();
+    answer(route, () => new Response("", { status: 500 }));
+    await read();
     expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
   });
 });

@@ -1,5 +1,5 @@
 {
-  "id": "25ab3d8a-222b-4673-9db5-2f51adf2d004",
+  "id": "78b5f986-ac9d-444c-9ab8-1110e51f9531",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2574,123 +2574,6 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
-    "public.starrail_warps": {
-      "name": "starrail_warps",
-      "schema": "",
-      "columns": {
-        "account_id": {
-          "name": "account_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "id": {
-          "name": "id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "banner_type": {
-          "name": "banner_type",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "gacha_id": {
-          "name": "gacha_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "item_id": {
-          "name": "item_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "item_type": {
-          "name": "item_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "rarity": {
-          "name": "rarity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "time": {
-          "name": "time",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "starrail_warps_account_banner_idx": {
-          "name": "starrail_warps_account_banner_idx",
-          "columns": [
-            {
-              "expression": "account_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "banner_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "starrail_warps_account_id_starrail_accounts_id_fk": {
-          "name": "starrail_warps_account_id_starrail_accounts_id_fk",
-          "tableFrom": "starrail_warps",
-          "tableTo": "starrail_accounts",
-          "columnsFrom": [
-            "account_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "starrail_warps_account_id_id_pk": {
-          "name": "starrail_warps_account_id_id_pk",
-          "columns": [
-            "account_id",
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
     "public.transit_routes": {
       "name": "transit_routes",
       "schema": "",
@@ -3646,6 +3529,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         }
       },
       "indexes": {

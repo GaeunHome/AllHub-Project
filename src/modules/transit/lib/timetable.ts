@@ -4,7 +4,9 @@ import { asArray, asRecord, numberOf, text } from "@/core/json";
 // 欄位照 TDX 的 OpenAPI 文件 還沒用真實金鑰驗證 讀不到的那一班略過
 
 /** at 是開車時間的毫秒時間戳 伺服器與瀏覽器算起來才會一樣 */
-export type Departure = { at: number; arrivesAt: number | null; trainNo: string | null; kind: string | null; toward: string | null };
+export type Departure = { at: number; arrivesAt: number | null; trainNo: string | null; kind: string | null; toward: string | null; fareKey?: FareKey };
+/** 台鐵的票價表靠這兩個對到班次 同一段路兩個方向的價錢不同 */
+export type FareKey = { trainType: number; direction: number };
 /** city 只有台鐵的面板用 車站清單本來就帶著 分組不用多問一次 TDX */
 export type Station = { id: string; name: string; city?: string };
 /** 一條線上的車站代碼 照路線上的順序 */
@@ -24,6 +26,13 @@ const stamp = (date: string, minutes: number) => Date.parse(`${date}T00:00:00+08
 
 const zhName = (value: unknown) => text(asRecord(value)?.Zh_tw);
 
+/** 高鐵沒有車種代碼 這裡也就沒有 */
+function fareKeyOf(info: Record<string, unknown>): { fareKey?: FareKey } {
+  const trainType = numberOf(info.TrainTypeCode);
+  const direction = numberOf(info.Direction);
+  return trainType === null || direction === null ? {} : { fareKey: { trainType, direction } };
+}
+
 function dailyDeparture(value: unknown, date: string): Departure[] {
   const row = asRecord(value);
   const info = asRecord(row?.DailyTrainInfo);
@@ -33,7 +42,7 @@ function dailyDeparture(value: unknown, date: string): Departure[] {
   const at = stamp(date, departs) + (overnight ? DAY_MS : 0);
   const arrives = minutesOf(asRecord(row?.DestinationStopTime)?.ArrivalTime);
   const arrivesAt = arrives === null ? null : stamp(date, arrives) + (overnight ? DAY_MS : 0);
-  return [{ at, arrivesAt: arrivesAt !== null && arrivesAt < at ? arrivesAt + DAY_MS : arrivesAt, trainNo: text(info.TrainNo), kind: zhName(info.TrainTypeName), toward: zhName(info.EndingStationName) }];
+  return [{ at, arrivesAt: arrivesAt !== null && arrivesAt < at ? arrivesAt + DAY_MS : arrivesAt, trainNo: text(info.TrainNo), kind: zhName(info.TrainTypeName), toward: zhName(info.EndingStationName), ...fareKeyOf(info) }];
 }
 
 export function parseDailyTimetable(json: unknown, date: string): Departure[] {

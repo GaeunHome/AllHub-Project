@@ -1,3 +1,4 @@
+import { groupDigits } from "@/core/number";
 import { trainNoOf } from "../lib/modes";
 import { routeColor } from "../lib/lines";
 import type { TransitRoute } from "../data/schema";
@@ -36,5 +37,7 @@ export function rideText(minutes: number): string {
   if (hours === 0) return `${rest} 分`;
   return rest === 0 ? `${hours} 小時` : `${hours} 小時 ${rest} 分`;
 }
+
+export const fareText = (price: number) => `${groupDigits(price)} 元`;
 
 export const lineColor = ({ mode, system, originId }: Pick<TransitRoute, "mode" | "system" | "originId">) => routeColor(mode, system, originId);

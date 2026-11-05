@@ -11,13 +11,13 @@ stubTransitEnv();
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
-vi.mock("../../../service/cached", () => ({ cachedRoutes: vi.fn(), cachedStations: vi.fn(), cachedMetroNetwork: vi.fn(), cachedDepartures: vi.fn(), cachedLive: vi.fn(), cachedBusRoute: vi.fn(), cachedBusEta: vi.fn(), cachedBusSchedule: vi.fn() }));
+vi.mock("../../../service/cached", () => ({ cachedRoutes: vi.fn(), cachedStations: vi.fn(), cachedMetroNetwork: vi.fn(), cachedDepartures: vi.fn(), cachedLive: vi.fn(), cachedBusRoute: vi.fn(), cachedBusEta: vi.fn(), cachedBusSchedule: vi.fn(), cachedThsrFares: vi.fn(), cachedTraFares: vi.fn(), cachedMetroFare: vi.fn(), cachedMetroTravelTimes: vi.fn() }));
 vi.mock("next/server", () => ({ after: (work: () => void) => work() }));
 vi.mock("../../../service/health", () => ({ reportTdx: vi.fn() }));
 vi.mock("../../actions", () => ({ addRouteAction: vi.fn(), deleteRouteAction: vi.fn(), setTrackedAction: vi.fn() }));
 vi.mock("../../components/search-form", { spy: true });
 
-const cached = mocksOf(await import("../../../service/cached"), "cachedRoutes", "cachedStations", "cachedMetroNetwork", "cachedDepartures", "cachedLive", "cachedBusRoute", "cachedBusEta", "cachedBusSchedule");
+const cached = mocksOf(await import("../../../service/cached"), "cachedRoutes", "cachedStations", "cachedMetroNetwork", "cachedDepartures", "cachedLive", "cachedBusRoute", "cachedBusEta", "cachedBusSchedule", "cachedThsrFares", "cachedTraFares", "cachedMetroFare", "cachedMetroTravelTimes");
 const { TransitBody } = await import("../transit-page");
 const { reportTdx } = await import("../../../service/health");
 const { SearchForm } = await import("../../components/search-form");
@@ -54,6 +54,10 @@ beforeEach(() => {
   cached.cachedBusRoute.mockReset().mockResolvedValue({ ok: true, data: [{ direction: 0, name: "臺北車站", stops: [{ id: "TPE1", name: "板橋" }, { id: "TPE2", name: "西門" }] }, { direction: 1, name: "板橋", stops: [{ id: "TPE3", name: "西門" }] }] });
   cached.cachedBusEta.mockReset().mockResolvedValue({ ok: true, data: { TPE1: { seconds: 200, status: null }, TPE2: { seconds: null, status: "末班車已過" } } });
   cached.cachedBusSchedule.mockReset().mockResolvedValue({ ok: true, data: { headway: { min: 8, max: 12 }, departures: [] } });
+  cached.cachedThsrFares.mockReset().mockResolvedValue({ ok: true, data: null });
+  cached.cachedTraFares.mockReset().mockResolvedValue({ ok: true, data: null });
+  cached.cachedMetroFare.mockReset().mockResolvedValue({ ok: true, data: null });
+  cached.cachedMetroTravelTimes.mockReset().mockResolvedValue({ ok: true, data: null });
 });
 
 describe("交通頁", () => {
@@ -145,6 +149,14 @@ describe("交通頁", () => {
     await render();
 
     expect(reportTdx).toHaveBeenLastCalledWith(null);
+  });
+
+  it("車站從快取讀到、時刻表讀不到_系統狀態要記下這個問題，不能蓋成沒事", async () => {
+    cached.cachedDepartures.mockResolvedValue({ ok: false, problem: "TDX 回 429" });
+
+    await render({ mode: "thsr", from: "1000", to: "1070", date: taipeiDateKey(new Date()) });
+
+    expect(reportTdx).toHaveBeenLastCalledWith("TDX 回 429");
   });
 
   it("使用者要的：台鐵的起訖站用搜尋視窗 高鐵照舊是下拉", async () => {
@@ -579,5 +591,160 @@ describe("公車：儲值卡", () => {
 
   it("使用者不喜歡灰字：結果裡沒有灰色的字", async () => {
     expect(/<section[\s\S]*?<\/section>/.exec(await html(search))![0]).not.toContain("text-ink-soft");
+  });
+});
+
+describe("票價", () => {
+  const thsr = { mode: "thsr", from: "1000", to: "1070" };
+  const tra = { mode: "tra", from: "1000", to: "4400" };
+  const CABINS = [{ cabin: "標準", price: 1490 }, { cabin: "商務", price: 2440 }, { cabin: "自由", price: 1445 }];
+  const onTrain = (minutes: number, kind: string, fareKey?: { trainType: number; direction: number }) => ({ ...later(minutes), kind, ...(fareKey ? { fareKey } : {}) });
+  const EXPRESS = { trainType: 3, direction: 1 };
+  const LOCAL = { trainType: 6, direction: 1 };
+  const TRA_FARES = [{ trainType: 3, direction: 0, price: 1286 }, { trainType: 3, direction: 1, price: 994 }, { trainType: 6, direction: 1, price: 394 }];
+
+  it("還沒選好起訖站不問票價 免費額度有限", async () => {
+    await render({ mode: "thsr", from: "1000" });
+    await render({ mode: "tra", to: "4400" });
+
+    expect(cached.cachedThsrFares).not.toHaveBeenCalled();
+    expect(cached.cachedTraFares).not.toHaveBeenCalled();
+  });
+
+  it("使用者要的：高鐵的標準 商務 自由全票在標題寫一次 不是每張票都寫", async () => {
+    cached.cachedThsrFares.mockResolvedValue({ ok: true, data: CABINS });
+
+    const text = await render(thsr);
+
+    expect(cached.cachedThsrFares).toHaveBeenCalledWith("1000", "1070");
+    expect(text).toContain("標準 1,490 元");
+    expect(text).toContain("商務 2,440 元");
+    expect(text).toContain("自由 1,445 元");
+    expect(text.match(/1,490 元/g)).toHaveLength(1);
+  });
+
+  it("高鐵讀不到票價_班次照列 不寫價錢", async () => {
+    const text = await render(thsr);
+
+    expect(text).toContain("610 車次");
+    expect(text).not.toContain("元");
+  });
+
+  it("使用者要的：台鐵每一班寫同一種車 同一個方向的全票", async () => {
+    cached.cachedDepartures.mockResolvedValue({ ok: true, data: [onTrain(10, "自強", EXPRESS), onTrain(20, "區間", LOCAL)] });
+    cached.cachedTraFares.mockResolvedValue({ ok: true, data: TRA_FARES });
+
+    const markup = await html(tra);
+    const rows = [...markup.matchAll(/<li class="trn-result"[\s\S]*?<\/li>/g)].map(([row]) => textOf(row));
+
+    expect(rows[0]).toContain("994 元");
+    expect(rows[0]).not.toContain("1,286");
+    expect(rows[1]).toContain("394 元");
+    expect(textOf(markup)).not.toContain("元起");
+  });
+
+  it("使用者要的：認不得的車種那一班不寫 標題的起價只算列出來的班次 沒有列出來的區間 394 不算", async () => {
+    cached.cachedDepartures.mockResolvedValue({ ok: true, data: [onTrain(10, "自強", EXPRESS), onTrain(20, "觀光列車", { trainType: 99, direction: 1 })] });
+    cached.cachedTraFares.mockResolvedValue({ ok: true, data: [{ trainType: 6, direction: 0, price: 100 }, ...TRA_FARES] });
+
+    const markup = await html(tra);
+    const rows = [...markup.matchAll(/<li class="trn-result"[\s\S]*?<\/li>/g)].map(([row]) => textOf(row));
+
+    expect(rows[1]).not.toContain("元");
+    expect(textOf(markup)).toContain("994 元起");
+  });
+
+  it("使用者要的：少了票價不是 TDX 出問題 系統狀態頁不變紅", async () => {
+    await render(thsr);
+
+    expect(reportTdx).toHaveBeenLastCalledWith(null);
+  });
+
+  it("額度用完讀不到票價_班次照列 問題記到系統狀態頁", async () => {
+    cached.cachedTraFares.mockResolvedValue({ ok: false, problem: "TDX 回 429" });
+
+    const text = await render(tra);
+
+    expect(text).toContain("610 車次");
+    expect(reportTdx).toHaveBeenLastCalledWith("TDX 回 429");
+  });
+});
+
+describe("捷運的總時間與票價", () => {
+  const search = { mode: "metro", from: "BL06", to: "R28" };
+  const TIMES = { TRTC: { runs: { "BL06>BL12": 600, "R10>R28": 1800 }, stops: {} }, TYMC: { runs: { "A12>A1": 2100 }, stops: {} } };
+
+  beforeEach(() => {
+    cached.cachedMetroTravelTimes.mockImplementation(async (system: keyof typeof TIMES) => ({ ok: true, data: TIMES[system] ?? null }));
+  });
+
+  it("使用者要的：每段的時間加起來 每轉一次加固定的時間 10 + 30 + 5", async () => {
+    expect(await render(search)).toContain("約 45 分鐘");
+  });
+
+  it("每個系統只讀一次 整個系統的行車時間大家共用", async () => {
+    await render(search);
+
+    expect(cached.cachedMetroTravelTimes.mock.calls).toEqual([["TRTC"]]);
+  });
+
+  it("有一段算不出來就不寫時間 不能少算一段", async () => {
+    cached.cachedMetroTravelTimes.mockResolvedValue({ ok: true, data: { runs: { "BL06>BL12": 600 }, stops: {} } });
+
+    expect(await render(search)).not.toContain("分鐘");
+  });
+
+  it("同一個系統裡寫票價 問的是真的上下車的站", async () => {
+    cached.cachedMetroFare.mockResolvedValue({ ok: true, data: 45 });
+
+    expect(await render(search)).toContain("票價 45 元");
+    expect(cached.cachedMetroFare).toHaveBeenCalledWith("TRTC", "BL06", "R28");
+  });
+
+  it("使用者要的：跨進機場捷運沒有合併的票價 不問也不寫 時間照算", async () => {
+    const text = await render({ mode: "metro", from: "A12", to: "R28" });
+
+    expect(cached.cachedMetroFare).not.toHaveBeenCalled();
+    expect(text).not.toContain("票價");
+    expect(text).toContain("約 70 分鐘");
+  });
+
+  it("同一站或走不到時不問", async () => {
+    await render({ mode: "metro", from: "BL12", to: "R10" });
+    await render({ mode: "metro", from: "BL06", to: "Y07" });
+
+    expect(cached.cachedMetroFare).not.toHaveBeenCalled();
+    expect(cached.cachedMetroTravelTimes).not.toHaveBeenCalled();
+  });
+
+  it("使用者要的：少了票價或時間不是 TDX 出問題", async () => {
+    cached.cachedMetroTravelTimes.mockResolvedValue({ ok: true, data: null });
+
+    await render(search);
+
+    expect(reportTdx).toHaveBeenLastCalledWith(null);
+  });
+
+  it("額度用完時路線照列 問題記到系統狀態頁", async () => {
+    cached.cachedMetroFare.mockResolvedValue({ ok: false, problem: "TDX 回 429" });
+
+    const text = await render(search);
+
+    expect(text).toContain("淡水信義線");
+    expect(reportTdx).toHaveBeenLastCalledWith("TDX 回 429");
+  });
+
+  it("使用者要的：每一站寫站牌代碼 文湖線的深色字來自路線色", async () => {
+    const markup = await html({ mode: "metro", from: "BR01", to: "BR24" });
+
+    expect(textOf(markup)).toMatch(/BR01.*動物園/);
+    expect(textOf(markup)).toMatch(/BR24.*南港展覽館/);
+    expect(markup).toContain("--trn-plate-ink:#15171c");
+  });
+
+  it("標題用共用的場景圖 三種交通工具各一張", async () => {
+    expect(await html(search)).toContain("/images/scenes/transit-metro.svg");
+    expect(await html({ mode: "thsr", from: "1000", to: "1070" })).toContain("/images/scenes/transit-thsr.svg");
+    expect(await html({ mode: "tra", from: "1000", to: "1070" })).toContain("/images/scenes/transit-tra.svg");
   });
 });

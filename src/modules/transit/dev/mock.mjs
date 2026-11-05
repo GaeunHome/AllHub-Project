@@ -40,7 +40,7 @@ function dailyRows(url, ending, kinds, trainBase, step, ride) {
   const date = url.pathname.split("/").at(-1);
   return range(6 * 60, 23 * 60, step).map((minute, index) => ({
     TrainDate: date,
-    DailyTrainInfo: { TrainNo: String(trainBase + index), Direction: 0, EndingStationName: { Zh_tw: ending }, ...(kinds ? { TrainTypeName: { Zh_tw: kinds[index % kinds.length] } } : {}) },
+    DailyTrainInfo: { TrainNo: String(trainBase + index), Direction: kinds ? 1 : 0, EndingStationName: { Zh_tw: ending }, ...(kinds ? { TrainTypeCode: kinds[index % kinds.length][1], TrainTypeName: { Zh_tw: kinds[index % kinds.length][0] } } : {}) },
     OriginStopTime: { StationID: "1", DepartureTime: clock(minute), ArrivalTime: clock(minute) },
     DestinationStopTime: { StationID: "2", ArrivalTime: clock(minute + ride), DepartureTime: clock(minute + ride) },
   }));
@@ -65,6 +65,61 @@ function metroTimetable(system, stationId) {
     ServiceDay: ALL_WEEK,
     Timetables: range(6 * 60, 23 * 60 + 54, 6).map((minute, index) => ({ Sequence: index + 1, ArrivalTime: clock(minute), DepartureTime: clock(minute) })),
   }));
+}
+
+// 票價 高鐵台北到左營是真實的票價 其他照站數比例算 台鐵照每公里的費率 捷運照代碼的距離 只求看起來合理
+const fare = (TicketType, FareClass, Price, CabinClass) => ({ TicketType, FareClass, ...(CabinClass ? { CabinClass } : {}), Price });
+const roundToFive = (price) => Math.round(price / 5) * 5;
+
+function thsrFares(originId, destinationId) {
+  const hops = Math.abs(THSR.findIndex((row) => idOf(row) === originId) - THSR.findIndex((row) => idOf(row) === destinationId));
+  if (hops === 0) return [];
+  const price = (full) => roundToFive((full * hops) / (THSR.length - 1));
+  return [{ OriginStationID: originId, DestinationStationID: destinationId, Direction: 0, Fares: [fare(1, 1, price(1490), 1), fare(1, 1, price(2440), 2), fare(1, 1, price(1445), 3), fare(1, 9, price(745), 1), fare(8, 1, price(1192), 1)] }];
+}
+
+// 代碼照真的 3 自強 4 莒光 6 區間 7 普快 11 自強(3000)
+const TRA_RATES = { 3: 2.27, 4: 1.75, 6: 1.46, 7: 1.06, 11: 2.27 };
+const KM_BETWEEN_STATIONS = 20;
+const AROUND_THE_ISLAND_KM = 600;
+
+/** 臺北到基隆只列時刻表沒有的車種 本機才看得到標題的起價 */
+function traFares(originId, destinationId) {
+  const hops = Math.abs(TRA.findIndex((row) => idOf(row) === originId) - TRA.findIndex((row) => idOf(row) === destinationId));
+  const types = originId === "1000" && destinationId === "0900" ? [3, 7] : Object.keys(TRA_RATES).map(Number);
+  const row = (Direction, km) => types.map((TrainType) => ({ OriginStationID: originId, DestinationStationID: destinationId, Direction, TrainType, TravelDistance: km, Fares: [fare(1, 1, Math.round(km * TRA_RATES[TrainType]), 1), fare(1, 3, Math.round((km * TRA_RATES[TrainType]) / 2), 1)] }));
+  const km = hops * KM_BETWEEN_STATIONS;
+  return { UpdateTime: "2026-11-05T00:00:00+08:00", ODFares: [...row(1, km), ...row(0, km + AROUND_THE_ISLAND_KM)] };
+}
+
+const codeNumber = (id) => Number(/\d+/.exec(id)?.[0] ?? 0);
+
+/** 跟真的一樣 全票列兩次 還有孩童票 跨系統查不到 */
+function metroFares(system, originId, destinationId) {
+  const ids = metroStations(system).map(idOf);
+  if (!ids.includes(originId) || !ids.includes(destinationId)) return [];
+  const Price = Math.min(65, 20 + 5 * Math.floor(Math.abs(codeNumber(originId) - codeNumber(destinationId)) / 3));
+  return [{ OriginStationID: originId, DestinationStationID: destinationId, TrainType: 0, TravelDistance: 12.3, Fares: [fare(1, 1, Price), fare(1, 1, Price), { ...fare(1, 3, Math.round(Price * 0.4)), CitizenCode: "NWT" }, fare(1, 4, Math.round(Price * 0.4))] }];
+}
+
+const DWELL_SECONDS = 30;
+const RUN_SECONDS = 110;
+
+/** 臺北捷運與環狀線只列一個方向 第一段沒有停站時間 */
+function adjacentTravelTimes(system) {
+  return METRO[system].map(([LineNo, LineID, list]) => {
+    const stops = list.toReversed().map(idOf);
+    return { LineNo, LineID, RouteID: `${LineID}-1`, TrainType: 1, TravelTimes: stops.slice(1).map((ToStationID, index) => ({ Sequence: index + 1, FromStationID: stops[index], ToStationID, RunTime: RUN_SECONDS, StopTime: index === 0 ? 0 : DWELL_SECONDS })) };
+  });
+}
+
+const AIRPORT_EXPRESS_STOPS = ["A1", "A3", "A8", "A12", "A13"];
+
+/** 機場捷運是任兩站的累計時間 普通車與直達車各一組 */
+function airportTravelTimes() {
+  const ids = METRO.TYMC[0][2].map(idOf);
+  const pairs = (list, secondsPerStop) => list.flatMap((from, start) => list.flatMap((to, end) => (start === end ? [] : [{ Sequence: 1, FromStationID: from, ToStationID: to, RunTime: Math.abs(start - end) * secondsPerStop, StopTime: 0 }])));
+  return [{ LineNo: "A", LineID: "A", RouteID: "", TrainType: 1, TravelTimes: pairs(ids, 240) }, { LineNo: "A", LineID: "A", RouteID: "", TrainType: 2, TravelTimes: pairs(AIRPORT_EXPRESS_STOPS, 500) }];
 }
 
 // 公車 307 假資料 去程往臺北車站 一站比一站晚 兩分鐘 最後一站末班車已過 看得到每一種狀態
@@ -96,16 +151,22 @@ export async function handle({ url, req, json }) {
     if (url.pathname.includes("/Schedule/")) return json(200, known ? busSchedule() : []);
     return false;
   }
+  const traFare = /^\/api\/basic\/v3\/Rail\/TRA\/ODFare\/([^/]+)\/to\/([^/]+)$/.exec(url.pathname);
+  if (traFare) return json(200, traFares(traFare[1], traFare[2]));
   if (!url.pathname.startsWith("/api/basic/v2/Rail/")) return false;
   const path = url.pathname.slice("/api/basic/v2/Rail/".length);
-  const filter = /StationID eq '([^']+)'/.exec(url.searchParams.get("$filter") ?? "")?.[1] ?? "";
+  const query = url.searchParams.get("$filter") ?? "";
+  const filter = /StationID eq '([^']+)'/.exec(query)?.[1] ?? "";
   const system = path.split("/")[2];
   if (path === "THSR/Station") json(200, stations(THSR));
   else if (path === "TRA/Station") json(200, stations(TRA));
   else if (path.startsWith("Metro/Station/")) json(200, stations(metroStations(system)));
   else if (path.startsWith("Metro/StationOfLine/")) json(METRO[system] ? 200 : 404, METRO[system] ? stationsOfLine(system) : []);
   else if (path.startsWith("THSR/DailyTimetable/OD/")) json(200, dailyRows(url, "左營", null, 600, 15, 94));
-  else if (path.startsWith("TRA/DailyTimetable/OD/")) json(200, dailyRows(url, "高雄", ["自強(3000)", "區間", "莒光"], 100, 20, 55));
+  else if (path.startsWith("TRA/DailyTimetable/OD/")) json(200, dailyRows(url, "高雄", [["自強(3000)", "11"], ["區間", "6"], ["莒光", "4"]], 100, 20, 55));
+  else if (path.startsWith("THSR/ODFare/")) json(200, thsrFares(...path.slice("THSR/ODFare/".length).split("/to/")));
+  else if (path.startsWith("Metro/ODFare/")) json(200, metroFares(system, /OriginStationID eq '([^']+)'/.exec(query)?.[1], /DestinationStationID eq '([^']+)'/.exec(query)?.[1]));
+  else if (path.startsWith("Metro/S2STravelTime/")) json(200, system === "TYMC" ? airportTravelTimes() : adjacentTravelTimes(system));
   else if (path.startsWith("TRA/LiveBoard/Station/")) json(200, [{ TrainNo: "103", DelayTime: 3 }]);
   else if (path.startsWith("Metro/StationTimeTable/")) json(200, metroTimetable(system, filter));
   else if (path.startsWith("Metro/LiveBoard/")) json(200, metroTimetable(system, filter).map((row) => ({ StationID: filter, DestinationStationID: row.DestinationStaionID, DestinationStationName: row.DestinationStationName, EstimateTime: 3, ServiceStatus: 0 })));

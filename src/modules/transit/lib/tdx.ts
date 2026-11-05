@@ -73,3 +73,12 @@ export const busRequest = (kind: "StopOfRoute" | "EstimatedTimeOfArrival" | "Sch
 
 /** 車站代碼已經驗證過只有英數 不會改變查詢條件 */
 export const stationFilter = (stationId: string) => ({ $filter: `StationID eq '${stationId}'` });
+
+export const thsrFarePath = (originId: string, destinationId: string) => `/v2/Rail/THSR/ODFare/${originId}/to/${destinationId}`;
+
+/** 台鐵要用 v3 v2 的票種是文字而且沒有車種 */
+export const traFarePath = (originId: string, destinationId: string) => `/v3/Rail/TRA/ODFare/${originId}/to/${destinationId}`;
+
+export const metroFareRequest = (system: string, originId: string, destinationId: string) => [`/v2/Rail/Metro/ODFare/${system}`, { $filter: `OriginStationID eq '${originId}' and DestinationStationID eq '${destinationId}'` }] as const;
+
+export const travelTimePath = (system: string) => `/v2/Rail/Metro/S2STravelTime/${system}`;

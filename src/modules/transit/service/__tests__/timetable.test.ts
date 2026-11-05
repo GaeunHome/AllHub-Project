@@ -6,7 +6,7 @@ import { stubCoreEnv, stubTransitEnv } from "@/dev/test-env";
 stubCoreEnv();
 stubTransitEnv({ TDX_CLIENT_SECRET: "tdx-top-secret" });
 
-const { readDepartures, readLive, readMetroLines, readStations } = await import("../timetable");
+const { problemOf, readDepartures, readLive, readMetroFare, readMetroLines, readStations, readThsrFares, readTraFares, readTravelTimes } = await import("../timetable");
 const { resetTdxToken } = await import("../../lib/tdx");
 
 const TOKEN = () => Response.json({ access_token: "the-token", expires_in: 86400 });
@@ -170,5 +170,81 @@ describe("即時資料", () => {
     stub([[/Metro\/LiveBoard/, () => Response.json([{ DestinationStationID: "R28", EstimateTime: 3, ServiceStatus: 0 }])]]);
 
     expect(await readLive(target("metro", "TRTC", "R10", "R28"), NOW)).toEqual({ ok: true, data: { kind: "estimate", seconds: 180, readAt: NOW.getTime() } });
+  });
+});
+
+describe("票價與捷運的行車時間", () => {
+  const THSR = [{ OriginStationID: "1000", DestinationStationID: "1070", Direction: 0, Fares: [{ TicketType: 1, FareClass: 1, CabinClass: 1, Price: 1490 }] }];
+  const TRA = { ODFares: [{ OriginStationID: "1000", DestinationStationID: "4400", Direction: 1, TrainType: 3, Fares: [{ TicketType: 1, FareClass: 1, CabinClass: 1, Price: 994 }] }] };
+
+  it("高鐵問那一段路的票價", async () => {
+    const fake = stub([[/THSR\/ODFare/, () => Response.json(THSR)]]);
+
+    expect(await readThsrFares("1000", "1070")).toEqual({ ok: true, data: [{ cabin: "標準", price: 1490 }] });
+    expect(fake.urls.some((url) => url.includes("/v2/Rail/THSR/ODFare/1000/to/1070"))).toBe(true);
+  });
+
+  it("台鐵用 v3 才有車種", async () => {
+    const fake = stub([[/TRA\/ODFare/, () => Response.json(TRA)]]);
+
+    expect(await readTraFares("1000", "4400")).toEqual({ ok: true, data: [{ trainType: 3, direction: 1, price: 994 }] });
+    expect(fake.urls.some((url) => url.includes("/v3/Rail/TRA/ODFare/1000/to/4400"))).toBe(true);
+  });
+
+  it("捷運用查詢條件指定起訖站 才不用下載整個系統的票價表", async () => {
+    const fake = stub([[/Metro\/ODFare\/TRTC/, () => Response.json([{ OriginStationID: "BL12", DestinationStationID: "BL01", Fares: [{ TicketType: 1, FareClass: 1, Price: 40 }] }])]]);
+
+    expect(await readMetroFare("TRTC", "BL12", "BL01")).toEqual({ ok: true, data: 40 });
+    const url = decodeURIComponent(fake.urls.find((candidate) => candidate.includes("ODFare"))!.replaceAll("+", " "));
+    expect(url).toContain("OriginStationID eq 'BL12' and DestinationStationID eq 'BL01'");
+  });
+
+  it("捷運的行車時間一個系統讀一次", async () => {
+    stub([[/S2STravelTime\/TRTC/, () => Response.json([{ TrainType: 1, TravelTimes: [{ FromStationID: "BL22", ToStationID: "BL21", RunTime: 109, StopTime: 0 }] }])]]);
+
+    expect(await readTravelTimes("TRTC")).toEqual({ ok: true, data: { runs: { "BL22>BL21": 109 }, stops: {} } });
+  });
+
+  it("空的回 null 讓快取函式知道不能留一天", async () => {
+    stub([[/ODFare|S2STravelTime/, () => Response.json([])]]);
+
+    expect(await readThsrFares("1000", "1070")).toEqual({ ok: true, data: null });
+    expect(await readMetroFare("TRTC", "BL12", "BL01")).toEqual({ ok: true, data: null });
+    expect(await readTravelTimes("TRTC")).toEqual({ ok: true, data: null });
+  });
+
+  it("欄位不同時只記欄位名稱 價錢與車站都不進 log", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    stub([[/THSR\/ODFare/, () => Response.json([{ OriginStationID: "1000", DestinationStationID: "1070", Price: 1490 }])]]);
+
+    expect(await readThsrFares("1000", "1070")).toEqual({ ok: true, data: null });
+    expect(warn.mock.lastCall?.join(" ")).toContain("Fares");
+    expect(warn.mock.lastCall?.join(" ")).not.toMatch(/1490|1070/);
+  });
+
+  it("使用者要的：少了票價不是 TDX 出問題 回 404 或不是 JSON 都不算", async () => {
+    captureErrorLog();
+    stub([[/ODFare/, () => new Response("", { status: 404 })]]);
+    expect(await readThsrFares("1000", "1070")).toEqual({ ok: true, data: null });
+
+    stub([[/ODFare/, () => new Response("<html>維護中</html>")]]);
+    expect(await readThsrFares("1000", "1070")).toEqual({ ok: true, data: null });
+  });
+
+  it("額度用完照實記 站長才看得到原因", async () => {
+    captureErrorLog();
+    stub([[/ODFare/, () => new Response("", { status: 429 })]]);
+
+    expect(await readThsrFares("1000", "1070")).toEqual({ ok: false, problem: "TDX 回 429：這個月的額度或每分鐘的次數用完了" });
+  });
+});
+
+describe("problemOf：好幾個讀取一起回報", () => {
+  it("都讀到或沒有讀 沒有問題", () => {
+    expect(problemOf({ ok: true, data: 1 }, null)).toBeNull();
+  });
+
+  it("回報第一個讀不到的原因", () => {
+    expect(problemOf({ ok: true, data: 1 }, { ok: false, problem: "第一個" }, { ok: false, problem: "第二個" })).toBe("第一個");
   });
 });

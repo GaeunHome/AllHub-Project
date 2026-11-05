@@ -131,7 +131,57 @@
   @apply flex flex-col gap-3 p-5 sm:flex-row sm:flex-wrap sm:items-end sm:p-6 xl:flex-nowrap;
 }
 
-/* 查詢結果 照出發時段分組 標題右邊一條路線色的線 */
+/* 查詢結果的主題 高鐵是車票 台鐵是站牌 捷運是站名牌 都不用官方的標誌與圖 */
+.trn-results {
+  --trn-sign: #0b3a7e;
+  --trn-sign-tint: rgb(11 58 126 / 0.06);
+}
+@variant dark {
+  .trn-results {
+    --trn-sign-tint: rgb(120 165 235 / 0.1);
+  }
+}
+/* 標題疊在場景圖上 卡片本身有外框 這裡只留上面的圓角 */
+.trn-scene {
+  @apply flex min-h-36 flex-col justify-end;
+  border-radius: calc(1rem - 1px) calc(1rem - 1px) 0 0;
+  box-shadow: none;
+}
+.trn-scene .scene-image {
+  object-position: 50% 62%;
+}
+/* 手機上字佔滿寬度 整片壓暗 圖再亮白字也讀得到 */
+.trn-scene .scene-scrim {
+  background: rgb(7 13 28 / 0.66);
+}
+/* 寬螢幕字只在左邊 右邊留給圖 */
+@media (min-width: 64rem) {
+  .trn-scene .scene-scrim {
+    background: linear-gradient(90deg, rgb(7 13 28 / 0.8) 0%, rgb(7 13 28 / 0.66) 62%, rgb(7 13 28 / 0.12) 100%);
+  }
+}
+.trn-scene-body {
+  @apply flex flex-col gap-1.5 p-5 pr-16 sm:p-6 sm:pr-16 lg:max-w-[60%] lg:pr-6;
+}
+.trn-scene-title {
+  @apply text-xl font-bold text-white sm:text-2xl;
+}
+.trn-scene-facts {
+  @apply flex flex-wrap items-center gap-x-4 gap-y-0.5 font-semibold text-white tabular-nums;
+}
+/* 全站的關閉鈕是深色字 放在圖上要換成白的 右邊的圖沒有壓暗 所以有自己的底 */
+.trn-scene .trn-scene-close {
+  @apply absolute top-3 right-3;
+  color: white;
+  background-color: rgb(7 13 28 / 0.6);
+}
+.trn-scene .trn-scene-close:hover {
+  background-color: rgb(7 13 28 / 0.8);
+}
+.trn-scene .trn-scene-close:focus-visible {
+  outline-color: white;
+}
+/* 照出發時段分組 標題右邊一條路線色的線 */
 .trn-parts {
   @apply flex flex-col gap-1 border-t border-line pb-2;
 }
@@ -149,12 +199,48 @@ details .trn-parts {
   border-radius: 9999px;
   background-color: var(--trn-line);
 }
-/* 台鐵 一班一列 出發與抵達最大 中間是一小段路線圖 手機上車次換到下一行 */
+.trn-train-name {
+  @apply inline-flex min-w-0 items-center gap-1.5 text-ink tabular-nums;
+}
+/* 台鐵 深藍的站牌 下緣一條細白線 像車站月台的站名牌 */
+.trn-sign {
+  @apply flex items-center gap-3 px-5 pt-3 pb-5 text-xl font-extrabold tracking-wider text-white sm:px-6 sm:text-2xl;
+  background-color: var(--trn-sign);
+  background-image: linear-gradient(white, white);
+  background-position: 0 calc(100% - 0.5rem);
+  background-repeat: no-repeat;
+  background-size: 100% 2px;
+}
+.trn-sign > span {
+  @apply min-w-0 flex-1 truncate;
+}
+.trn-sign > span:first-child {
+  @apply text-right;
+}
+.trn-sign-arrows {
+  @apply h-3.5 w-11 shrink-0;
+}
+/* 時段的標題跟站牌同一個顏色 分組看起來才像同一塊看板 */
+.trn-board {
+  @apply gap-0 border-t-0 pb-0;
+}
+.trn-board .trn-part-title {
+  @apply py-1.5 text-white;
+  background-color: var(--trn-sign);
+}
+.trn-board .trn-part-title::after {
+  height: 1px;
+  background-color: white;
+}
+/* 一班一列 出發與抵達最大 中間是一小段路線圖 手機上車次換到下一行 */
 .trn-result-list {
   @apply divide-y divide-line;
 }
 .trn-result {
   @apply flex flex-col gap-2 px-5 py-3.5 sm:px-6 lg:flex-row lg:items-center lg:gap-8;
+}
+.trn-board .trn-result:nth-child(even) {
+  background-color: var(--trn-sign-tint);
 }
 .trn-times {
   @apply flex items-center gap-3 lg:w-full lg:max-w-xl;
@@ -188,33 +274,70 @@ details .trn-parts {
 .trn-result-info {
   @apply flex min-h-9 min-w-0 flex-1 flex-wrap items-center gap-2;
 }
-/* 高鐵 一班一張車票 左邊一條路線色 同一列的車票一樣高 動作固定在最下面 */
+.trn-fare {
+  @apply inline-flex items-center gap-1 font-bold text-ink tabular-nums;
+}
+/* 高鐵 一班一張車票 陰影放外層 遮罩會把裡面的陰影一起切掉 同一列的車票一樣高 */
 .trn-tickets {
-  @apply grid gap-3 px-5 py-2 sm:px-6 lg:grid-cols-2 2xl:grid-cols-3;
+  @apply grid gap-3 px-3 py-2 sm:px-6 lg:grid-cols-2 2xl:grid-cols-3;
 }
 .trn-ticket {
-  @apply flex flex-col gap-3 rounded-xl py-3.5 pr-4 pl-4;
-  border: 1px solid var(--line);
-  border-left: 0.375rem solid var(--trn-line);
-  background-color: var(--surface);
+  @apply grid;
+  container-type: inline-size;
+  filter: drop-shadow(0 1px 2px rgb(64 44 14 / 0.24));
 }
-.trn-ticket .trn-clock {
-  @apply text-3xl;
+/* 紙的圖案只是淡淡的纖維 字色用全站的變數 淺色深色都讀得到 */
+.trn-ticket-paper {
+  --trn-paper: #fbf4e4;
+  --trn-stub: 5.5rem;
+  --trn-notch-x: calc(100% - var(--trn-stub));
+  @apply relative grid overflow-hidden rounded-xl text-ink;
+  grid-template-columns: minmax(0, 1fr) var(--trn-stub);
+  background-color: var(--trn-paper);
+  background-image: url("/images/transit/ticket-paper.svg");
+  background-size: 15rem;
+  /* 撕線碰到上下緣的地方打兩個半圓的洞 */
+  mask-image: radial-gradient(circle 0.5625rem at var(--trn-notch-x) 0, transparent 97%, black), radial-gradient(circle 0.5625rem at var(--trn-notch-x) 100%, transparent 97%, black);
+  mask-composite: intersect;
+}
+@variant dark {
+  .trn-ticket-paper {
+    --trn-paper: #2a2620;
+    background-image: url("/images/transit/ticket-paper-dark.svg");
+  }
+}
+.trn-ticket-paper::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 0.4375rem;
+  background-color: var(--trn-line);
+}
+.trn-ticket-main {
+  @apply flex min-w-0 flex-col gap-3 pt-5 pr-3 pb-4 pl-3.5;
 }
 .trn-ticket-head {
   @apply flex flex-wrap items-center gap-2;
 }
+/* 上下兩列 時間與箭頭一列 站名與行車時間一列 DOM 順序留著給報讀器 */
 .trn-ticket-route {
-  @apply flex items-stretch gap-3;
+  @apply mt-auto grid items-center gap-x-2 gap-y-1.5;
+  grid-auto-flow: column;
+  grid-template-rows: auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
 }
-.trn-ticket-stop {
-  @apply flex shrink-0 flex-col gap-1.5;
-}
+.trn-ticket-stop,
 .trn-ticket-ride {
-  @apply flex min-w-0 flex-1 flex-col items-center justify-between gap-1 pt-3.5;
+  display: contents;
 }
-.trn-ticket-ride + .trn-ticket-stop {
-  @apply text-right;
+.trn-ticket-name {
+  @apply inline-flex items-center gap-1 font-semibold text-ink;
+}
+.trn-ticket-ride + .trn-ticket-stop > * {
+  @apply justify-self-end text-right;
+}
+.trn-ticket-time {
+  @apply inline-flex items-center gap-1 justify-self-center text-sm font-semibold whitespace-nowrap text-ink tabular-nums;
 }
 /* 箭頭只用 CSS 畫 線的右端接一個三角形 */
 .trn-ticket-arrow {
@@ -230,11 +353,55 @@ details .trn-parts {
   border-left: 0.5rem solid var(--trn-line);
   transform: translateY(-50%);
 }
-/* 虛線像車票的撕線 隔開資訊與動作 */
-.trn-ticket-action {
-  @apply mt-auto flex min-h-9 items-center justify-end border-t border-dashed border-line pt-3;
+/* 票根 左邊的虛線是撕線 窄的時候按鈕的圖示疊在字上面才放得下 */
+.trn-ticket-stub {
+  @apply flex min-w-0 flex-col items-center justify-between gap-2 px-1.5 pt-5 pb-3;
+  border-left: 2px dashed color-mix(in srgb, var(--ink) 38%, transparent);
 }
-/* 捷運 一段一列 每段用自己路線的顏色 */
+.trn-barcode {
+  @apply block h-10 w-full;
+  background-color: currentColor;
+  mask: url("/images/transit/barcode.svg") center / 100% 100% no-repeat;
+}
+.trn-ticket-stub .btn-sm {
+  @apply flex-col gap-0 px-1 py-0.5;
+}
+@container (width >= 22rem) {
+  .trn-ticket-paper {
+    --trn-stub: 6.75rem;
+  }
+  .trn-ticket .trn-clock {
+    @apply text-3xl;
+  }
+}
+@container (width >= 26rem) {
+  .trn-ticket-stub .btn-sm {
+    @apply flex-row gap-1 px-2;
+  }
+}
+/* 手機上站名與行車時間排在同一列 拿掉圖示才不會疊在一起 */
+@container (width < 20rem) {
+  .trn-ticket-name > :first-child,
+  .trn-ticket-time > :first-child {
+    display: none;
+  }
+}
+/* 最窄的手機 時間縮小才放得下箭頭 */
+@container (width < 19rem) {
+  .trn-ticket .trn-clock {
+    @apply text-xl;
+  }
+  .trn-ticket-time {
+    @apply text-xs;
+  }
+}
+/* 捷運 總時間與票價在最上面 每段用自己路線的顏色 */
+.trn-summary {
+  @apply flex min-h-14 flex-wrap items-center gap-x-5 gap-y-2;
+}
+.trn-summary-fact {
+  @apply inline-flex items-center gap-1.5 text-lg font-bold text-ink tabular-nums;
+}
 .trn-legs {
   @apply flex flex-col divide-y divide-line border-y border-line;
 }
@@ -242,21 +409,19 @@ details .trn-parts {
   @apply flex flex-col gap-2 px-5 py-3 sm:px-6;
 }
 .trn-leg-path {
-  @apply flex flex-wrap items-center gap-x-2 gap-y-1;
+  @apply flex flex-wrap items-center gap-x-2 gap-y-1.5;
 }
-.trn-leg-stop {
-  @apply flex items-center gap-2 font-bold text-ink;
+/* 站名牌 代碼是路線色的圓角方塊 字色照路線色選 文湖線與中和新蘆線是深色字 */
+.trn-plate {
+  @apply inline-flex min-w-0 items-center gap-1.5 font-bold text-ink;
 }
-.trn-leg-stop::before {
-  content: "";
-  width: 0.75rem;
-  height: 0.75rem;
-  flex-shrink: 0;
-  border-radius: 9999px;
+.trn-plate-code {
+  @apply inline-grid min-h-7 min-w-10 shrink-0 place-items-center rounded-lg px-1.5 text-sm font-extrabold tabular-nums;
+  color: var(--trn-plate-ink);
   background-color: var(--trn-line);
 }
 .trn-leg-rail {
-  @apply h-1 w-12 rounded-full sm:w-20;
+  @apply h-1 w-8 rounded-full sm:w-20;
   background-color: var(--trn-line);
 }
 .trn-leg-next {

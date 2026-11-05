@@ -1,12 +1,16 @@
+import Image from "next/image";
 import type { CSSProperties } from "react";
 import { formatTaipeiHourMinute, taipeiDateKey } from "@/core/time";
+import { Icon } from "@/core/ui/icon";
+import { lowestTraFare, traFareOf, type CabinFare, type TraFare } from "../../lib/fares";
 import { routeColor } from "../../lib/lines";
 import type { Departure, Station } from "../../lib/timetable";
 import type { Read } from "../../service/timetable";
 import { trainsAfter, type SearchQuery } from "../search-query";
 import { fastestTrain, groupByDayPart, rideOf } from "../train-groups";
-import { kindChipClass, rideText } from "../transit-view";
-import { AddRoute, CloseResults, stationName } from "./result-parts";
+import { fareText, kindChipClass, rideText } from "../transit-view";
+import { AddRoute, stationName } from "./result-parts";
+import { ResultScene } from "./result-scene";
 
 /** 查詢結果先列這麼多班 其他收起來 高鐵一天有上百班 */
 const SHOWN_RESULTS = 20;
@@ -16,7 +20,7 @@ const BADGE_CHIPS: Record<string, string> = { 下一班: "chip chip-success", �
 const rideLabel = (departure: Departure) => rideText(Math.round((rideOf(departure) ?? 0) / 60_000));
 
 type AddTrain = { fields: Record<string, string>; saved: boolean } | null;
-type TrainProps = { departure: Departure; add: AddTrain; badges: string[]; from: string; to: string };
+type TrainProps = { departure: Departure; add: AddTrain; badges: string[]; from: string; to: string; fare: number | null };
 
 function TrainBadges({ badges }: { badges: string[] }) {
   return badges.map((badge) => (
@@ -28,9 +32,12 @@ function TrainBadges({ badges }: { badges: string[] }) {
 
 function TrainName({ departure: { trainNo, toward } }: { departure: Departure }) {
   return (
-    <span className="min-w-0 text-ink tabular-nums">
-      {trainNo && `${trainNo} 車次 `}
-      {toward && `往${toward}`}
+    <span className="trn-train-name">
+      {trainNo && <Icon name="ticket" className="size-4 shrink-0" />}
+      <span className="min-w-0">
+        {trainNo && `${trainNo} 車次 `}
+        {toward && `往${toward}`}
+      </span>
     </span>
   );
 }
@@ -58,7 +65,7 @@ function TrainTimes({ departure }: { departure: Departure }) {
 }
 
 /** 台鐵的時刻表列 */
-function TrainRow({ departure, add, badges }: TrainProps) {
+function TrainRow({ departure, add, badges, fare }: TrainProps) {
   return (
     <li className="trn-result">
       <TrainTimes departure={departure} />
@@ -66,6 +73,12 @@ function TrainRow({ departure, add, badges }: TrainProps) {
         {departure.kind && <span className={kindChipClass(departure.kind)}>{departure.kind}</span>}
         <TrainName departure={departure} />
         <TrainBadges badges={badges} />
+        {fare !== null && (
+          <span className="trn-fare">
+            <Icon name="banknote" className="size-4 shrink-0" />
+            {fareText(fare)}
+          </span>
+        )}
         {add && (
           <span className="ml-auto shrink-0">
             <AddTrainButton add={add} />
@@ -76,52 +89,72 @@ function TrainRow({ departure, add, badges }: TrainProps) {
   );
 }
 
-function TicketStop({ at, name }: { at: number; name: string }) {
+function TicketStop({ at, name, icon }: { at: number; name: string; icon: "circle-dot" | "map-pin" }) {
   return (
     <span className="trn-ticket-stop">
       <time className="trn-clock">{formatTaipeiHourMinute(new Date(at))}</time>
-      <span className="font-semibold text-ink">{name}</span>
+      <span className="trn-ticket-name">
+        <Icon name={icon} className="size-3.5 shrink-0" />
+        {name}
+      </span>
     </span>
   );
 }
 
-/** 高鐵的車票 使用者看過的樣子 左邊一條路線色 虛線撕開資訊與動作 */
+/** 高鐵的車票 右邊的票根用虛線撕開 條碼只是裝飾 */
 function TrainTicket({ departure, add, badges, from, to }: TrainProps) {
   const { at, arrivesAt } = departure;
   return (
     <li className="trn-ticket">
-      <div className="trn-ticket-head">
-        <TrainName departure={departure} />
-        <TrainBadges badges={badges} />
-      </div>
-      <div className="trn-ticket-route">
-        <TicketStop at={at} name={from} />
-        {arrivesAt && (
-          <>
-            <span className="trn-ticket-ride">
-              <span aria-hidden="true" className="trn-ticket-arrow" />
-              <span className="text-sm font-semibold text-ink tabular-nums">{rideLabel(departure)}</span>
-            </span>
-            <TicketStop at={arrivesAt} name={to} />
-          </>
-        )}
-      </div>
-      {add && (
-        <div className="trn-ticket-action">
-          <AddTrainButton add={add} />
+      <div className="trn-ticket-paper">
+        <div className="trn-ticket-main">
+          <div className="trn-ticket-head">
+            <TrainName departure={departure} />
+            <TrainBadges badges={badges} />
+          </div>
+          <div className="trn-ticket-route">
+            <TicketStop at={at} name={from} icon="circle-dot" />
+            {arrivesAt && (
+              <>
+                <span className="trn-ticket-ride">
+                  <span aria-hidden="true" className="trn-ticket-arrow" />
+                  <span className="trn-ticket-time">
+                    <Icon name="timer" className="size-3.5 shrink-0" />
+                    {rideLabel(departure)}
+                  </span>
+                </span>
+                <TicketStop at={arrivesAt} name={to} icon="map-pin" />
+              </>
+            )}
+          </div>
         </div>
-      )}
+        <div className="trn-ticket-stub">
+          <span aria-hidden="true" className="trn-barcode" />
+          {add && <AddTrainButton add={add} />}
+        </div>
+      </div>
     </li>
+  );
+}
+
+/** 跟標題重複 只是站牌的樣子 報讀器不用再念一次 */
+function StationSign({ from, to }: { from: string; to: string }) {
+  return (
+    <p aria-hidden="true" className="trn-sign">
+      <span>{from}</span>
+      <Image src="/images/transit/sign-arrows.svg" alt="" width={44} height={14} unoptimized className="trn-sign-arrows" />
+      <span>{to}</span>
+    </p>
   );
 }
 
 // 網址的日期是 YYYY-MM-DD 標題寫月與日就夠
 const shortDate = (date: string) => date.slice(5).replace("-", "/");
 
-type TrainResultsProps = { results: Read<Departure[]>; query: SearchQuery; stations: Station[]; now: Date; canAdd: boolean; saved: readonly string[] };
+type TrainResultsProps = { results: Read<Departure[]>; cabins: CabinFare[]; traFares: TraFare[]; query: SearchQuery; stations: Station[]; now: Date; canAdd: boolean; saved: readonly string[] };
 
 /** 高鐵與台鐵共用分組與標籤 只有每一班的樣子不同 */
-export function TrainResults({ results, query, stations, now, canAdd, saved }: TrainResultsProps) {
+export function TrainResults({ results, cabins, traFares, query, stations, now, canAdd, saved }: TrainResultsProps) {
   if (!results.ok) return <p className="text-ink">時刻表暫時讀不到，稍後再試</p>;
   const trains = trainsAfter(results.data, { date: query.date, time: query.time, now: now.getTime() });
   const from = stationName(stations, query.from);
@@ -140,14 +173,16 @@ export function TrainResults({ results, query, stations, now, canAdd, saved }: T
     const isSaved = saved.includes(trainNo);
     return isSaved || canAdd ? { fields: { ...route, line: trainNo }, saved: isSaved } : null;
   };
+  // 有一班對不上票價時才寫起價 全部對得上時每一列都有價錢
+  const startingFare = trains.some(({ fareKey }) => traFareOf(traFares, fareKey) === null) ? lowestTraFare(traFares, trains) : null;
   const listed = (list: Departure[]) => (
-    <div className="trn-parts">
+    <div className={ticket ? "trn-parts" : "trn-parts trn-board"}>
       {groupByDayPart(list).map((group) => (
         <div key={group.trains[0].at}>
           <h3 className="trn-part-title">{group.part}</h3>
           <ul className={ticket ? "trn-tickets" : "trn-result-list"}>
             {group.trains.map((departure) => (
-              <Train key={`${departure.at}-${departure.trainNo}`} departure={departure} add={addOf(departure)} badges={badgesOf(departure)} from={from} to={to} />
+              <Train key={`${departure.at}-${departure.trainNo}`} departure={departure} add={addOf(departure)} badges={badgesOf(departure)} from={from} to={to} fare={traFareOf(traFares, departure.fareKey)} />
             ))}
           </ul>
         </div>
@@ -156,16 +191,23 @@ export function TrainResults({ results, query, stations, now, canAdd, saved }: T
   );
   return (
     <section aria-label="查詢結果" className="card p-0 trn-results" style={{ "--trn-line": routeColor(query.mode, "", query.from) } as CSSProperties}>
-      <header className="card-row flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h2 className="font-semibold text-ink">
-          {from} → {to}
-        </h2>
-        <span className="text-sm text-ink tabular-nums">{shortDate(query.date)}</span>
-        <span className="text-sm text-ink tabular-nums">共 {trains.length} 班</span>
-        <span className="ml-auto flex items-center gap-2">
-          <CloseResults query={query} />
-        </span>
-      </header>
+      <ResultScene mode={ticket ? "thsr" : "tra"} from={from} to={to} query={query}>
+        <p className="trn-scene-facts">
+          <span>{shortDate(query.date)}</span>
+          <span>共 {trains.length} 班</span>
+          {startingFare !== null && <span>{fareText(startingFare)}起</span>}
+        </p>
+        {cabins.length > 0 && (
+          <ul aria-label="全票票價" className="trn-scene-facts">
+            {cabins.map(({ cabin, price }) => (
+              <li key={cabin}>
+                {cabin} {fareText(price)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </ResultScene>
+      {!ticket && <StationSign from={from} to={to} />}
       {trains.length === 0 ? <p className="card-row text-ink">{query.time ? "這個時間之後沒有班次了" : "這一天沒有班次了"}</p> : listed(trains.slice(0, SHOWN_RESULTS))}
       {trains.length > SHOWN_RESULTS && (
         <details className="disclosure card-row">

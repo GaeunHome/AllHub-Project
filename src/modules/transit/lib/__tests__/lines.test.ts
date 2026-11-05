@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { metroLine, routeColor } from "../lines";
+import { MODE_COLORS, metroLine, plateInk, routeColor } from "../lines";
 import { METRO_SYSTEMS } from "../modes";
 
 const LINE_OF: Record<string, string> = { TRTC: "R", NTMC: "Y", TYMC: "A" };
@@ -41,5 +41,50 @@ describe("metroLine：捷運的路線名稱與顏色", () => {
 
   it("認不得的路線沒有名稱 顏色用預設色", () => {
     expect(metroLine("TRTC", "X")).toEqual({ name: null, color: routeColor("metro", "TRTC", "X1") });
+  });
+});
+
+// WCAG 的對比公式 文字至少 4.5:1
+const channels = (hex: string) => [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
+const linear = (value: number) => (value / 255 <= 0.04045 ? value / 255 / 12.92 : ((value / 255 + 0.055) / 1.055) ** 2.4);
+const luminance = (hex: string) => {
+  const [red, green, blue] = channels(hex);
+  return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
+};
+const contrast = (a: string, b: string) => {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+};
+
+describe("plateInk：站牌代碼的字色", () => {
+  it("使用者要的：文湖線的棕色與中和新蘆線的黃色用深色字", () => {
+    const white = "#ffffff";
+
+    expect(plateInk(metroLine("TRTC", "BR").color)).not.toBe(white);
+    expect(plateInk(metroLine("TRTC", "O").color)).not.toBe(white);
+  });
+
+  it("板南線的藍色與淡水信義線的紅色用白字", () => {
+    expect(plateInk(metroLine("TRTC", "BL").color)).toBe("#ffffff");
+    expect(plateInk(metroLine("TRTC", "R").color)).toBe("#ffffff");
+  });
+
+  it.each([
+    ["TRTC", "BR"],
+    ["TRTC", "BL"],
+    ["TRTC", "R"],
+    ["TRTC", "G"],
+    ["TRTC", "O"],
+    ["NTMC", "Y"],
+    ["TYMC", "A"],
+    ["TRTC", "認不得的路線"],
+  ])("%s %s 的底色配上選到的字色至少 4.5:1", (system, code) => {
+    const { color } = metroLine(system, code);
+
+    expect(contrast(color, plateInk(color))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("分頁的捷運顏色也是這個預設色", () => {
+    expect(contrast(MODE_COLORS.metro, plateInk(MODE_COLORS.metro))).toBeGreaterThanOrEqual(4.5);
   });
 });

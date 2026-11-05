@@ -27,6 +27,18 @@ describe("parseDailyTimetable：高鐵與台鐵的起訖站時刻表", () => {
     expect(parseDailyTimetable([row], DATE)[0]).toMatchObject({ kind: "自強(3000)", toward: "花蓮" });
   });
 
+  it("台鐵帶著車種代碼與方向 票價要靠這兩個才對得起來", () => {
+    const row = { ...thsrRow("123", "08:16", "09:50"), DailyTrainInfo: { TrainNo: "123", Direction: 1, TrainTypeCode: "3", TrainTypeName: { Zh_tw: "自強" } } };
+
+    expect(parseDailyTimetable([row], DATE)[0].fareKey).toEqual({ trainType: 3, direction: 1 });
+  });
+
+  it("少了方向或車種代碼時沒有票價的依據", () => {
+    const row = { ...thsrRow("123", "08:16", "09:50"), DailyTrainInfo: { TrainNo: "123", TrainTypeCode: "3" } };
+
+    expect(parseDailyTimetable([row], DATE)[0].fareKey).toBeUndefined();
+  });
+
   it("時間帶秒也收", () => {
     expect(parseDailyTimetable([thsrRow("0627", "08:16:00", "09:50:00")], DATE)[0].at).toBe(at(DATE, "08:16"));
   });

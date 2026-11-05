@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { mockRequest } from "@/dev/mock-request";
-import { metroNetwork, planRoute } from "../../lib/metro-route";
+import { parseMetroFare, parseThsrFares, parseTraFares, traFareOf } from "../../lib/fares";
+import { fareSystemOf, metroNetwork, planRoute } from "../../lib/metro-route";
 import { METRO_SYSTEMS, type MetroSystem } from "../../lib/modes";
 import { cityGroups, lineGroups } from "../../lib/station-groups";
-import { metroDirections, parseMetroLines, parseMetroTimetable, parseStations } from "../../lib/timetable";
+import { metroDirections, parseDailyTimetable, parseMetroLines, parseMetroTimetable, parseStations } from "../../lib/timetable";
+import { parseTravelTimes, tripMinutes } from "../../lib/travel-time";
 import { handle } from "../mock.mjs";
 
 const rail = async (path: string) => mockRequest(handle, `/api/basic/v2/Rail/${path}`);
@@ -66,5 +68,71 @@ describe("假 TDX 的捷運路網", () => {
 
   it("別的系統查不到這一站 跟真的一樣回空的", async () => {
     expect(await timetable("TRTC", "A12")).toEqual([]);
+  });
+});
+
+describe("假 TDX 的票價 格式跟真的一樣 解析得出來才看得到畫面", () => {
+  const traFares = async (from: string, to: string) => parseTraFares((await mockRequest(handle, `/api/basic/v3/Rail/TRA/ODFare/${from}/to/${to}`)).data, from, to).fares;
+  const traTrains = async (from: string, to: string) => parseDailyTimetable(await dataOf(`TRA/DailyTimetable/OD/${from}/to/${to}/2026-11-05`), "2026-11-05");
+  const metroFare = async (system: string, from: string, to: string) => parseMetroFare(await dataOf(`Metro/ODFare/${system}?$filter=${encodeURIComponent(`OriginStationID eq '${from}' and DestinationStationID eq '${to}'`)}`), from, to).fare;
+
+  it("高鐵台北到左營是真實的票價 其他票種也列著", async () => {
+    const data = await dataOf("THSR/ODFare/1000/to/1070");
+
+    expect(parseThsrFares(data, "1000", "1070").fares).toEqual([{ cabin: "標準", price: 1490 }, { cabin: "商務", price: 2440 }, { cabin: "自由", price: 1445 }]);
+  });
+
+  it("台鐵一段路兩個方向 繞遠路的比較貴", async () => {
+    const fares = await traFares("1000", "4400");
+    const local = fares.filter((fare) => fare.trainType === 6);
+
+    expect(local.map((fare) => fare.direction).sort()).toEqual([0, 1]);
+    expect(local.find((fare) => fare.direction === 0)!.price).toBeGreaterThan(local.find((fare) => fare.direction === 1)!.price);
+  });
+
+  it("台鐵每一班都對得到票價", async () => {
+    const fares = await traFares("1000", "4400");
+
+    for (const { fareKey } of await traTrains("1000", "4400")) expect(traFareOf(fares, fareKey)).not.toBeNull();
+  });
+
+  it("臺北到基隆故意對不上 本機看得到標題的起價", async () => {
+    const fares = await traFares("1000", "0900");
+
+    expect(fares.length).toBeGreaterThan(0);
+    for (const { fareKey } of await traTrains("1000", "0900")) expect(traFareOf(fares, fareKey)).toBeNull();
+  });
+
+  it("捷運同一個系統有票價 跨進機場捷運是空的", async () => {
+    expect(await metroFare("TRTC", "BL06", "R28")).toBeGreaterThanOrEqual(20);
+    expect(await metroFare("TRTC", "BL12", "A1")).toBeNull();
+    expect(await metroFare("TYMC", "A1", "R28")).toBeNull();
+  });
+
+  it.each([
+    ["BL06", "R28"],
+    ["A12", "R28"],
+    ["O54", "O01"],
+    ["BL06", "Y10"],
+  ])("%s 到 %s 算得出總時間", async (from, to) => {
+    const legs = planRoute(await network(), from, to)!;
+    const entries = await Promise.all(SYSTEMS.map(async (system) => [system, parseTravelTimes(await dataOf(`Metro/S2STravelTime/${system}`)).times] as const));
+
+    expect(tripMinutes(legs, Object.fromEntries(entries))).toBeGreaterThan(0);
+  });
+
+  it("臺北捷運的回應只有一個方向 跟真的一樣 機場捷運是任兩站的表 直達車另外一組", async () => {
+    const trtc = (await dataOf("Metro/S2STravelTime/TRTC")) as { LineID: string; TravelTimes: { FromStationID: string; ToStationID: string; StopTime: number }[] }[];
+    const blue = trtc.find((row) => row.LineID === "BL")!.TravelTimes;
+    const airport = (await dataOf("Metro/S2STravelTime/TYMC")) as { TrainType: number; TravelTimes: unknown[] }[];
+
+    expect(blue[0]).toMatchObject({ FromStationID: "BL23", ToStationID: "BL22", StopTime: 0 });
+    expect(blue.some((step) => step.FromStationID === "BL22" && step.ToStationID === "BL23")).toBe(false);
+    expect(airport.find((row) => row.TrainType === 1)!.TravelTimes).toHaveLength(13 * 12);
+    expect(airport.find((row) => row.TrainType === 2)!.TravelTimes.length).toBeGreaterThan(0);
+  });
+
+  it("規劃跨系統的路線時票價問不到 畫面不會顯示", async () => {
+    expect(fareSystemOf(planRoute(await network(), "A12", "R28")!)).toBeNull();
   });
 });

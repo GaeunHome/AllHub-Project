@@ -100,6 +100,8 @@ export const UI_ICON_NAMES = [
   "star",
   "sun",
   "target",
+  "ticket",
+  "timer",
   "train-front",
   "train-front-tunnel",
   "tram-front",

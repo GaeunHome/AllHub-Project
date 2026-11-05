@@ -2,12 +2,14 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { BusDirection, BusEta, BusSchedule } from "../lib/bus";
 import type { LiveReading } from "../lib/countdown";
+import type { CabinFare, TraFare } from "../lib/fares";
 import { METRO_SYSTEMS, type MetroSystem, type Mode } from "../lib/modes";
 import type { Departure, MetroLine, Station } from "../lib/timetable";
+import type { TravelTimes } from "../lib/travel-time";
 import type { TransitRoute } from "../data/schema";
 import { transitTags } from "./cache-tags";
 import { listRoutes } from "./routes";
-import { joinMetroSystems, readBusEta, readBusRoute, readBusSchedule, readDepartures, readLive, readMetroLines, readStations, type NetworkRead, type Read } from "./timetable";
+import { joinMetroSystems, readBusEta, readBusRoute, readBusSchedule, readDepartures, readLive, readMetroFare, readMetroLines, readStations, readThsrFares, readTraFares, readTravelTimes, type NetworkRead, type Read } from "./timetable";
 
 // 只給頁面與輪詢 API 用 外部資料不存資料庫 不分使用者 同一條路線大家共用同一份 才省額度
 
@@ -52,6 +54,45 @@ export async function cachedDepartures(mode: Exclude<Mode, "bus">, system: strin
   cacheTag(transitTags.external);
   const result = await readDepartures(mode, system, originId, destinationId, date);
   if (result.ok) cacheLife("timetable");
+  else cacheLife("external");
+  return result;
+}
+
+// 票價與行車時間幾乎不會變 空的不能留一天 幾分鐘後再試
+
+export async function cachedThsrFares(originId: string, destinationId: string): Promise<Read<CabinFare[] | null>> {
+  "use cache: remote";
+  cacheTag(transitTags.external);
+  const result = await readThsrFares(originId, destinationId);
+  if (result.ok && result.data !== null) cacheLife("avatar");
+  else cacheLife("external");
+  return result;
+}
+
+export async function cachedTraFares(originId: string, destinationId: string): Promise<Read<TraFare[] | null>> {
+  "use cache: remote";
+  cacheTag(transitTags.external);
+  const result = await readTraFares(originId, destinationId);
+  if (result.ok && result.data !== null) cacheLife("avatar");
+  else cacheLife("external");
+  return result;
+}
+
+export async function cachedMetroFare(system: string, originId: string, destinationId: string): Promise<Read<number | null>> {
+  "use cache: remote";
+  cacheTag(transitTags.external);
+  const result = await readMetroFare(system, originId, destinationId);
+  if (result.ok && result.data !== null) cacheLife("avatar");
+  else cacheLife("external");
+  return result;
+}
+
+/** 一個系統一天讀一次 路線怎麼換都用同一份 */
+export async function cachedMetroTravelTimes(system: string): Promise<Read<TravelTimes | null>> {
+  "use cache: remote";
+  cacheTag(transitTags.external);
+  const result = await readTravelTimes(system);
+  if (result.ok && result.data !== null) cacheLife("avatar");
   else cacheLife("external");
   return result;
 }

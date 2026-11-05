@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { metroNetwork, planRoute, type MetroLeg } from "../metro-route";
+import { fareSystemOf, metroNetwork, planRoute, type MetroLeg } from "../metro-route";
 import type { Station } from "../timetable";
 
 // 照臺北捷運的路線圖手寫的 答案也是對著路線圖數站數算出來的
@@ -176,5 +176,46 @@ describe("metroNetwork：三個系統併成一張路網", () => {
     const { lines } = metroNetwork([{ system: "TRTC", stations: [], lines: [{ id: "G", stationIds: ["G01", "G03"] }, { id: "G", stationIds: ["G03", "G03A"] }] }]);
 
     expect(lines).toHaveLength(2);
+  });
+});
+
+describe("每一段經過的車站 算總時間要用", () => {
+  it("照搭車的方向列出來 頭尾是這一段的起訖站", () => {
+    const [first] = plan("BL06", "BL09")!;
+
+    expect(first.stationIds).toEqual(["BL06", "BL07", "BL08", "BL09"]);
+  });
+
+  it("反方向的順序也跟著反過來", () => {
+    expect(plan("BL09", "BL06")![0].stationIds).toEqual(["BL09", "BL08", "BL07", "BL06"]);
+  });
+
+  it("每一段的站數跟經過的車站對得起來", () => {
+    for (const leg of plan("BL06", "R28")!) expect(leg.stationIds).toHaveLength(leg.stops + 1);
+  });
+});
+
+describe("fareSystemOf：票價要在同一個系統裡", () => {
+  it("同一個系統的轉乘照樣有一個票價", () => {
+    expect(fareSystemOf(plan("BL06", "R28")!)).toBe("TRTC");
+  });
+
+  it("使用者要的：跨進機場捷運沒有合併的票價 不自己加", () => {
+    expect(fareSystemOf(plan("A12", "R28")!)).toBeNull();
+  });
+
+  it("臺北捷運轉環狀線 TDX 也沒有跨系統的那一列 不多問一次", () => {
+    expect(fareSystemOf(plan("BL06", "Y10")!)).toBeNull();
+  });
+
+  it("選板橋時整趟可能只坐環狀線 系統與起站都要看規劃出來的路段 不是表單的代碼", () => {
+    const legs = plan("BL07", "Y10")!;
+
+    expect(fareSystemOf(legs)).toBe("NTMC");
+    expect(legs[0].from.id).toBe("Y16");
+  });
+
+  it("沒有路段時沒有票價", () => {
+    expect(fareSystemOf([])).toBeNull();
   });
 });

@@ -23,13 +23,34 @@
   color: rgb(15 23 42);
   background-color: #fff;
 }
+/* 列會裁掉超出的部分 上下留空間給拖曳時的陰影 */
+.wx-chips {
+  @apply -my-2 py-2;
+}
 /* 可以排序與移除的城市 把手與 ✕ 平常淡一點 不搶城市名稱 */
 .wx-chip-editable {
-  @apply gap-0 px-1;
+  @apply gap-0 px-1 select-none;
+  transition: scale 150ms ease;
+}
+.wx-chips[data-sorting] .wx-chip-editable:not([data-dragging]) {
+  transition: translate 150ms ease;
 }
 .wx-chip-editable[data-dragging] {
-  opacity: 0.75;
-  outline: 2px solid currentColor;
+  z-index: 1;
+  scale: 1.06;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.4);
+}
+.wx-chip-editable[data-dragging]:not([data-current]) {
+  background-color: rgb(15 23 42 / 0.8);
+}
+.wx-chips[data-sorting],
+.wx-chips[data-sorting] a {
+  cursor: grabbing;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wx-chips[data-sorting] .wx-chip-editable:not([data-dragging]) {
+    transition: none;
+  }
 }
 .wx-chip-link {
   @apply inline-flex min-h-9 items-center gap-1 px-0.5;
@@ -47,6 +68,15 @@
 .wx-chip-remove:hover,
 .wx-chip-remove:focus-visible {
   opacity: 1;
+}
+/* 滑鼠按住整顆膠囊就能拖 把手留給鍵盤 移到時才出現 觸控筆電有手指要用所以不藏 */
+@media not (any-pointer: coarse) {
+  .wx-chip-handle:not(:focus-visible) {
+    @apply sr-only;
+  }
+  .wx-chip-link {
+    cursor: grab;
+  }
 }
 /* 列會橫向捲動 超出的部分會被裁掉 所以直接把觸控的按鈕做到 44px 高 */
 @media (pointer: coarse) {
