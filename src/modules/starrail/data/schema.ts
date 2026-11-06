@@ -34,17 +34,21 @@ export const starrailAccounts = pgTable(
   (t) => [index("starrail_accounts_user_id_idx").on(t.userId)],
 ).enableRLS();
 
-export const starrailCheckinLogs = pgTable("starrail_checkin_logs", {
-  id: serial("id").primaryKey(),
-  accountId: integer("account_id")
-    .notNull()
-    .references(() => starrailAccounts.id, { onDelete: "cascade" }),
-  /** success already 或 failed */
-  result: text("result").notNull(),
-  message: text("message"),
-  totalSignDay: integer("total_sign_day"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}).enableRLS();
+export const starrailCheckinLogs = pgTable(
+  "starrail_checkin_logs",
+  {
+    id: serial("id").primaryKey(),
+    accountId: integer("account_id")
+      .notNull()
+      .references(() => starrailAccounts.id, { onDelete: "cascade" }),
+    /** success already 或 failed */
+    result: text("result").notNull(),
+    message: text("message"),
+    totalSignDay: integer("total_sign_day"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("starrail_checkin_logs_account_created_at_idx").on(t.accountId, t.createdAt), index("starrail_checkin_logs_created_at_idx").on(t.createdAt)],
+).enableRLS();
 
 /**
  * 自動兌換試過的兌換碼 每個遊戲帳號一碼一列 試過的不再送出

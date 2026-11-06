@@ -4,9 +4,10 @@ import { stubCoreEnv } from "@/dev/test-env";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { weatherPlaces } from "../../data/schema";
 import { WORLD_CITIES } from "../../lib/cities";
+import { PLACE_LIMIT } from "../../lib/place-order";
 
 stubCoreEnv();
-const { PLACE_LIMIT, addPlace, deletePlace, listPlaces, movePlace } = await import("../places");
+const { addPlace, deletePlace, listPlaces, movePlace } = await import("../places");
 
 const getDb = setupTestDb();
 
@@ -64,7 +65,7 @@ describe("天氣頁的城市", () => {
   });
 });
 
-describe("拖曳調整城市的順序", () => {
+describe("調整城市的順序", () => {
   const names = async (userId = me) => (await listPlaces(userId)).map((place) => place.name);
   const three = async () => [await addPlace(me, "東京"), await addPlace(me, "首爾"), await addPlace(me, "京都")];
 

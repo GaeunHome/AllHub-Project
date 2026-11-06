@@ -12,7 +12,7 @@ const { createReminderAction, updateReminderAction } = await import("../../actio
 const { ReminderForm } = await import("../reminder-form");
 
 const LIMITS = { today: "2026-11-02", latest: "2036-11-02" };
-const ROW: ReminderItem = { id: 7, title: "繳房屋稅", date: "2026-11-30", notifyDaysBefore: null };
+const ROW: ReminderItem = { id: 7, title: "繳房屋稅", date: "2026-11-30", notifyDaysBefore: null, repeat: "none" };
 
 const formMarkup = (item?: ReminderItem) => render(createElement(ReminderForm, { item, ...LIMITS, onDone: vi.fn(), onCancel: vi.fn() }));
 
@@ -48,7 +48,7 @@ describe("新增與修改提醒的表單", () => {
     data.set("title", "新的");
     data.set("date", "2026-11-30");
     await createReminderAction({}, data);
-    expect(items.createItem.mock.calls[0][1]).toEqual({ title: "新的", date: "2026-11-30", notify: "0" });
+    expect(items.createItem.mock.calls[0][1]).toEqual({ title: "新的", date: "2026-11-30", notify: "0", repeat: "none" });
   });
 
   it("標題的字數交給伺服器：瀏覽器的 maxLength 算 UTF-16 單位，一個 emoji 算兩個，20 個 emoji 就打不下去，規則卻是 30 字", () => {
@@ -73,7 +73,7 @@ describe("新增與修改提醒的表單", () => {
     expect(markup).toContain('value="繳房屋稅"');
 
     await updateReminderAction({}, submitted(markup));
-    expect(items.updateItem.mock.calls[0].slice(1, 3)).toEqual([7, { title: "繳房屋稅", date: "2026-11-30", notify: "none" }]);
+    expect(items.updateItem.mock.calls[0].slice(1, 3)).toEqual([7, { title: "繳房屋稅", date: "2026-11-30", notify: "none", repeat: "none" }]);
   });
 
   it("有開通知的項目修改時選中原本的天數", () => {

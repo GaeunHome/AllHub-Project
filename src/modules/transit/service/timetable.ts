@@ -7,8 +7,8 @@ import { parseMetroFare, parseThsrFares, parseTraFares, type CabinFare, type Tra
 import { parseMetroEstimate, parseTraDelays } from "../lib/live";
 import { metroNetwork, type MetroNetwork } from "../lib/metro-route";
 import { hasMetroLive, type MetroSystem, type Mode } from "../lib/modes";
-import { busRequest, dailyTimetablePath, metroFareRequest, stationFilter, stationOfLinePath, stationsPath, tdxGet, tdxProblem, thsrFarePath, traFarePath, travelTimePath } from "../lib/tdx";
-import { metroDirections, parseDailyTimetable, parseMetroLines, parseMetroTimetable, parseStations, type Departure, type MetroLine, type Station } from "../lib/timetable";
+import { busRequest, dailyTimetablePath, metroFareRequest, stationFilter, stationOfLinePath, stationsPath, tdxGet, tdxGetNow, tdxProblem, thsrFarePath, traFarePath, travelTimePath } from "../lib/tdx";
+import { metroDirections, parseDailyTimetable, parseLineStations, parseMetroLines, parseMetroTimetable, parseStations, type Departure, type MetroLine, type Station } from "../lib/timetable";
 import { parseTravelTimes, type TravelTimes } from "../lib/travel-time";
 
 // 向 TDX 讀資料 讀不到回摘要 不丟錯 一條路線讀不到不影響其他路線
@@ -45,25 +45,25 @@ async function readExtra<T>(what: string, work: () => Promise<{ value: T | null;
 
 export const readThsrFares = (originId: string, destinationId: string): Promise<Read<CabinFare[] | null>> =>
   readExtra("高鐵票價", async () => {
-    const { fares, missing } = parseThsrFares(await tdxGet(thsrFarePath(originId, destinationId)), originId, destinationId);
+    const { fares, missing } = parseThsrFares(await tdxGetNow(thsrFarePath(originId, destinationId)), originId, destinationId);
     return { value: fares.length > 0 ? fares : null, missing };
   });
 
 export const readTraFares = (originId: string, destinationId: string): Promise<Read<TraFare[] | null>> =>
   readExtra("台鐵票價", async () => {
-    const { fares, missing } = parseTraFares(await tdxGet(traFarePath(originId, destinationId)), originId, destinationId);
+    const { fares, missing } = parseTraFares(await tdxGetNow(traFarePath(originId, destinationId)), originId, destinationId);
     return { value: fares.length > 0 ? fares : null, missing };
   });
 
 export const readMetroFare = (system: string, originId: string, destinationId: string): Promise<Read<number | null>> =>
   readExtra("捷運票價", async () => {
-    const { fare, missing } = parseMetroFare(await tdxGet(...metroFareRequest(system, originId, destinationId)), originId, destinationId);
+    const { fare, missing } = parseMetroFare(await tdxGetNow(...metroFareRequest(system, originId, destinationId)), originId, destinationId);
     return { value: fare, missing };
   });
 
 export const readTravelTimes = (system: string): Promise<Read<TravelTimes | null>> =>
   readExtra("捷運行車時間", async () => {
-    const { times, missing } = parseTravelTimes(await tdxGet(travelTimePath(system)));
+    const { times, missing } = parseTravelTimes(await tdxGetNow(travelTimePath(system)));
     return { value: Object.keys(times.runs).length > 0 ? times : null, missing };
   });
 
@@ -73,33 +73,27 @@ export async function readStations(mode: Exclude<Mode, "bus">, system: string): 
   return result.ok && result.data.length === 0 ? { ok: false, problem: "TDX 的車站資料是空的或格式不同" } : result;
 }
 
-/** 欄位不同時讀不出路線 算讀不到 空的才不會在快取裡留一天 */
-export async function readMetroLines(system: string): Promise<Read<MetroLine[]>> {
-  const result = await read(async () => parseMetroLines(await tdxGet(stationOfLinePath(system))));
-  return result.ok && result.data.length === 0 ? { ok: false, problem: "TDX 的路線資料是空的或格式不同" } : result;
+export type MetroSystemLines = { stations: Station[]; lines: MetroLine[] };
+
+/** 車站與路線在同一個回應裡 省下一次 欄位不同時讀不出來 算讀不到 空的才不會在快取裡留一天 */
+export async function readMetroSystem(system: string): Promise<Read<MetroSystemLines>> {
+  const result = await read(async () => {
+    const json = await tdxGet(stationOfLinePath(system));
+    return { stations: parseLineStations(json), lines: parseMetroLines(json) };
+  });
+  return result.ok && (result.data.stations.length === 0 || result.data.lines.length === 0) ? { ok: false, problem: "TDX 的路線資料是空的或格式不同" } : result;
 }
 
-export type MetroSystemRead = { system: MetroSystem; stations: Read<Station[]>; lines: Read<MetroLine[]> };
+export type MetroSystemRead = { system: MetroSystem; read: Read<MetroSystemLines> };
 /** missing 是資料不完整的系統 problem 給站長看 */
 export type NetworkRead = { network: MetroNetwork; missing: MetroSystem[]; problem: string | null };
 
-const EMPTY_STATIONS = "TDX 的車站資料是空的或格式不同";
-
-function systemProblem({ stations, lines }: MetroSystemRead): string | null {
-  if (!stations.ok) return stations.problem;
-  if (stations.data.length === 0) return EMPTY_STATIONS;
-  return lines.ok ? null : lines.problem;
-}
-
-/** 一個系統讀不到時留其他的 只讀到車站也留著 不能讓人選不了站 全部都沒有車站才算失敗 */
+/** 一個系統讀不到時留其他的 不能讓人選不了站 全部都讀不到才算失敗 */
 export function joinMetroSystems(reads: MetroSystemRead[]): Read<NetworkRead> {
-  const failed = reads.flatMap((read) => {
-    const problem = systemProblem(read);
-    return problem === null ? [] : [{ system: read.system, problem }];
-  });
-  const network = metroNetwork(reads.map(({ system, stations, lines }) => ({ system, stations: stations.ok ? stations.data : [], lines: lines.ok ? lines.data : [] })));
+  const failed = reads.flatMap(({ system, read }) => (read.ok ? [] : [{ system, problem: read.problem }]));
+  const network = metroNetwork(reads.flatMap(({ system, read }) => (read.ok ? [{ system, ...read.data }] : [])));
   const problem = failed[0]?.problem ?? null;
-  if (network.stations.length === 0) return { ok: false, problem: problem ?? EMPTY_STATIONS };
+  if (network.stations.length === 0) return { ok: false, problem: problem ?? "TDX 的路線資料是空的或格式不同" };
   return { ok: true, data: { network, missing: failed.map(({ system }) => system), problem } };
 }
 
@@ -121,10 +115,10 @@ type LiveTarget = { mode: Mode; system: string; line: string; originId: string; 
 
 async function liveReading({ mode, system, line, originId, destinationId }: LiveTarget, now: Date): Promise<LiveReading> {
   const readAt = now.getTime();
-  if (mode === "tra") return { kind: "delays", delays: parseTraDelays(await tdxGet(`/v2/Rail/TRA/LiveBoard/Station/${originId}`)) };
-  if (mode === "bus") return { kind: "estimate", ...soonestEta(await tdxGet(...busRequest("EstimatedTimeOfArrival", system, line)), originId, Number(destinationId)), readAt };
+  if (mode === "tra") return { kind: "delays", delays: parseTraDelays(await tdxGetNow(`/v2/Rail/TRA/LiveBoard/Station/${originId}`)) };
+  if (mode === "bus") return { kind: "estimate", ...soonestEta(await tdxGetNow(...busRequest("EstimatedTimeOfArrival", system, line)), originId, Number(destinationId)), readAt };
   if (mode === "metro" && hasMetroLive(system)) {
-    const minutes = parseMetroEstimate(await tdxGet(`/v2/Rail/Metro/LiveBoard/${system}`, stationFilter(originId)), destinationId);
+    const minutes = parseMetroEstimate(await tdxGetNow(`/v2/Rail/Metro/LiveBoard/${system}`, stationFilter(originId)), destinationId);
     return { kind: "estimate", seconds: minutes === null ? null : minutes * 60, readAt };
   }
   return { kind: "none" };

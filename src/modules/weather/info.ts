@@ -12,4 +12,8 @@ export const weatherInfo: ModuleInfo = {
     { id: "weather:forecast", label: "氣象署 天氣預報" },
     { id: "weather:warnings", label: "氣象署 天氣警特報" },
   ],
+  crons: [
+    { id: "weather:rain", label: "下雨提醒" },
+    { id: "weather:warnings", label: "警特報提醒" },
+  ],
 };

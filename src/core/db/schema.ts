@@ -183,6 +183,58 @@ export const coreServiceStatus = pgTable("core_service_status", {
   lastError: text("last_error"),
 }).enableRLS();
 
+/** 停止服務 不停機維護 一般公告 */
+export const ANNOUNCEMENT_KINDS = ["outage", "maintenance", "general"] as const;
+export type AnnouncementKind = (typeof ANNOUNCEMENT_KINDS)[number];
+
+/** 站長在管理頁發的公告 首頁最下面列出 ends_at 過了就不顯示 列留著由站長自己刪 */
+export const coreAnnouncements = pgTable(
+  "core_announcements",
+  {
+    id: serial("id").primaryKey(),
+    kind: text("kind", { enum: ANNOUNCEMENT_KINDS }).notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull().default(""),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("core_announcements_kind", sql`${t.kind} in ('outage', 'maintenance', 'general')`),
+    check("core_announcements_period", sql`${t.startsAt} is null or ${t.endsAt} is null or ${t.endsAt} > ${t.startsAt}`),
+  ],
+).enableRLS();
+
+export type CoreAnnouncement = typeof coreAnnouncements.$inferSelect;
+
+/** 一支手機一列 endpoint 是瀏覽器給的推播網址 同一支手機重新訂閱時蓋過去 */
+export const corePushSubscriptions = pgTable(
+  "core_push_subscriptions",
+  {
+    endpoint: text("endpoint").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("core_push_subscriptions_user_id_idx").on(t.userId)],
+).enableRLS();
+
+/** 這支手機不想收推播的模組 只記關掉的 跟 core_module_denials 一樣 */
+export const corePushMutes = pgTable(
+  "core_push_mutes",
+  {
+    endpoint: text("endpoint")
+      .notNull()
+      .references(() => corePushSubscriptions.endpoint, { onDelete: "cascade" }),
+    moduleId: text("module_id").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.endpoint, t.moduleId] })],
+).enableRLS();
+
 const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
 
 /** 自己上傳的頭像 瀏覽器縮成小圖才送來 每人一列 換照片時舊的刪掉 id 就是網址 換了才看得到新圖 */

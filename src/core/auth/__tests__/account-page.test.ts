@@ -23,13 +23,13 @@ describe("帳號頁", () => {
 
     expect(textOf(markup)).toContain("刪除帳號");
     expect(markup).toMatch(/<input[^>]*type="password"[^>]*name="password"|<input[^>]*name="password"[^>]*type="password"/);
-    expect(textOf(markup)).toContain("刪除後無法復原");
+    expect(textOf(markup)).toContain("資料全部刪除且無法復原");
   });
 
   it("一般成員_忘記密碼要請站長重設，不提命令列", async () => {
     const text = textOf(await html());
 
-    expect(text).toContain("忘記密碼時請聯絡站長重設");
+    expect(text).toContain("忘記密碼請找站長重設");
     expect(text).not.toContain("npm run account");
   });
 

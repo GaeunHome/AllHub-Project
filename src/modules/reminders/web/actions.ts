@@ -9,7 +9,7 @@ import { remindersTags } from "../service/cache-tags";
 import { ReminderNotFoundError } from "../service/errors";
 import { createItem, deleteItem, updateItem } from "../service/items";
 
-const fieldsOf = (formData: FormData) => ({ title: formText(formData, "title"), date: formText(formData, "date"), notify: formText(formData, "notifyDaysBefore") });
+const fieldsOf = (formData: FormData) => ({ title: formText(formData, "title"), date: formText(formData, "date"), notify: formText(formData, "notifyDaysBefore"), repeat: formText(formData, "repeat") });
 
 /** 格式不對的 id 跟別人的 id 一樣當作不存在 */
 function itemIdOf(formData: FormData): number {

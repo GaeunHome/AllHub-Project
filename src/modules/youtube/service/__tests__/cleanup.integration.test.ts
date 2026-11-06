@@ -60,7 +60,7 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
   /** 22 支發布 3 到 24 天前的影片 最新 20 支是 old03 到 old22 */
   const olderVideos = (channelId = CH) => Array.from({ length: 22 }, (_, i) => video(`old${String(i + 3).padStart(2, "0")}${channelId.slice(-6)}`, i + 3, i + 3, channelId));
   const leftIds = async () => (await testDb.select({ videoId: youtubeVideos.videoId }).from(youtubeVideos)).map((v) => v.videoId).sort();
-  const translationOf = (videoId: string) => ({ videoId, sourceKind: "upload" as const, sourceCues: [], translated: [], batches: [] });
+  const translationOf = (videoId: string) => ({ videoId, sourceKind: "upload" as const, sourceCues: [], translated: [] });
 
   // 清理時會逐支確認 RSS 認不出來但還在清單上的影片
   // 沒特別說的都當成 YouTube 回答一般影片

@@ -74,7 +74,7 @@ describe("帳號設定的「每日、每週與終局提醒」開關（站長的�
     const tip = tipOf(markup(true));
 
     expect(markup(true)).not.toContain("<p");
-    expect(tip.bubble).toContain("開拓力提醒看門檻");
+    expect(tip.bubble).toContain("快到期時通知你");
     expect(markup(true).indexOf('role="switch"')).toBeLessThan(markup(true).indexOf("info-tip-button"));
   });
 });

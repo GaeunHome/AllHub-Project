@@ -4,12 +4,12 @@ import type { BusDirection, BusEta, BusSchedule } from "../lib/bus";
 import type { LiveReading } from "../lib/countdown";
 import type { CabinFare, TraFare } from "../lib/fares";
 import { METRO_SYSTEMS, type MetroSystem, type Mode } from "../lib/modes";
-import type { Departure, MetroLine, Station } from "../lib/timetable";
+import type { Departure, Station } from "../lib/timetable";
 import type { TravelTimes } from "../lib/travel-time";
 import type { TransitRoute } from "../data/schema";
 import { transitTags } from "./cache-tags";
 import { listRoutes } from "./routes";
-import { joinMetroSystems, readBusEta, readBusRoute, readBusSchedule, readDepartures, readLive, readMetroFare, readMetroLines, readStations, readThsrFares, readTraFares, readTravelTimes, type NetworkRead, type Read } from "./timetable";
+import { joinMetroSystems, readBusEta, readBusRoute, readBusSchedule, readDepartures, readLive, readMetroFare, readMetroSystem, readStations, readThsrFares, readTraFares, readTravelTimes, type MetroSystemLines, type NetworkRead, type Read } from "./timetable";
 
 // 只給頁面與輪詢 API 用 外部資料不存資料庫 不分使用者 同一條路線大家共用同一份 才省額度
 
@@ -24,27 +24,27 @@ export async function cachedStations(mode: Exclude<Mode, "bus">, system: string)
   "use cache: remote";
   cacheTag(transitTags.external);
   const result = await readStations(mode, system);
-  if (result.ok) cacheLife("avatar");
+  if (result.ok) cacheLife("stations");
   else cacheLife("external");
   return result;
 }
 
-export async function cachedMetroLines(system: string): Promise<Read<MetroLine[]>> {
+export async function cachedMetroSystem(system: string): Promise<Read<MetroSystemLines>> {
   "use cache: remote";
   cacheTag(transitTags.external);
-  const result = await readMetroLines(system);
-  if (result.ok) cacheLife("avatar");
+  const result = await readMetroSystem(system);
+  if (result.ok) cacheLife("stations");
   else cacheLife("external");
   return result;
 }
 
-/** 每個系統各自快取 一個系統讀不到時幾分鐘後只重讀它 其他的留一天才省額度 */
+/** 每個系統各自快取 一個系統讀不到時幾分鐘後只重讀它 其他的留著才省額度 */
 export async function cachedMetroNetwork(): Promise<Read<NetworkRead>> {
   "use cache: remote";
   cacheTag(transitTags.external);
   const systems = Object.keys(METRO_SYSTEMS) as MetroSystem[];
-  const result = joinMetroSystems(await Promise.all(systems.map(async (system) => ({ system, stations: await cachedStations("metro", system), lines: await cachedMetroLines(system) }))));
-  if (result.ok && result.data.problem === null) cacheLife("avatar");
+  const result = joinMetroSystems(await Promise.all(systems.map(async (system) => ({ system, read: await cachedMetroSystem(system) }))));
+  if (result.ok && result.data.problem === null) cacheLife("stations");
   else cacheLife("external");
   return result;
 }

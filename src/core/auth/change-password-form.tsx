@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useActionState, useEffect, useId, useState } from "react";
+import { thisPhoneEndpoint } from "../notifications/push-client";
 import { FormFeedback, type FormState } from "../ui/form-message";
 import { Icon } from "../ui/icon";
 import { InfoTip } from "../ui/info-tip";
@@ -21,9 +22,18 @@ export function ChangePasswordForm({ username }: { username: string }) {
   const toast = useToast();
   const [state, action, pending] = useActionState<FormState, FormData>(withToast(toast, changePasswordAction, { errors: false }), {});
   const id = useId();
+  // 其他手機的通知跟著舊的登入一起失效 這支要留著
+  const [endpoint, setEndpoint] = useState("");
+
+  useEffect(() => {
+    thisPhoneEndpoint()
+      .then((value) => setEndpoint(value ?? ""))
+      .catch(() => {});
+  }, []);
 
   return (
     <form action={action} className="stack">
+      <input type="hidden" name="pushEndpoint" value={endpoint} />
       {/* 讓密碼管理工具知道是哪個帳號的密碼 */}
       <input type="text" name="username" value={username} autoComplete="username" readOnly hidden />
       {/* 密碼欄位裡有按鈕 label 不能包住它 改用 htmlFor 對應 */}
@@ -33,7 +43,7 @@ export function ChangePasswordForm({ username }: { username: string }) {
             <label htmlFor={`${id}-${field.name}`} className="field-label">
               {field.label}
             </label>
-            {field.name === "newPassword" && <InfoTip label="新密碼的規則">新密碼至少 {PASSWORD_MIN_LENGTH} 個字元，{PASSWORD_CASE_RULE}；變更後其他裝置都會被登出。</InfoTip>}
+            {field.name === "newPassword" && <InfoTip label="新密碼的規則">至少 {PASSWORD_MIN_LENGTH} 字，{PASSWORD_CASE_RULE}，變更後其他裝置會登出</InfoTip>}
           </span>
           <PasswordInput
             id={`${id}-${field.name}`}

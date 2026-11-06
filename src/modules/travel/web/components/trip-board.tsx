@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useLayoutEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { ActionButton } from "@/core/ui/action-button";
 import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
 import { Dialog, DialogButton, useDialog, useDialogForm } from "@/core/ui/dialog";
@@ -17,6 +17,7 @@ import { adjacentListMove, isSamePlace, itemsOfDay, moveInBoard, neighbourMove, 
 import { dayText } from "../trip-text";
 import type { DayView } from "../trip-view";
 import { CopyTripButton } from "./copy-trip-button";
+import { DayTabs, useStartDay } from "./day-tabs";
 import { ItemForm, KIND_LABELS } from "./item-form";
 import { useBoardDrag } from "./use-board-drag";
 
@@ -47,6 +48,8 @@ export function TripBoard({ days, items, ...rest }: TripBoardProps) {
   const [shown, applyMove] = useOptimistic(items, moveInBoard);
   const [announcement, setAnnouncement] = useState("");
   const focusItem = useRef<number | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  useStartDay(boardRef, days);
   const lists = [{ day: null, label: "想去的點" }, ...days.map((day) => ({ day: day.date, label: `${day.label}（${day.detail}）` }))];
   const move = (next: Move) => {
     if (isSamePlace(shown, next)) return;
@@ -81,12 +84,15 @@ export function TripBoard({ days, items, ...rest }: TripBoardProps) {
       <p role="status" className="sr-only">
         {announcement}
       </p>
-      {/* 拖曳時關掉捲動吸附 不然跟自動捲動互相打架 卡在原地 */}
-      <div data-board data-dragging={dragging ? "" : undefined} className="trv-board no-scrollbar">
-        <Column context={context} day={null} title="想去的點" />
-        {days.map((day) => (
-          <Column key={day.date} context={context} day={day.date} title={day.label} detail={day.detail} view={day} />
-        ))}
+      <div className="stack">
+        <DayTabs boardRef={boardRef} days={days} />
+        {/* 拖曳時關掉捲動吸附 不然跟自動捲動互相打架 卡在原地 */}
+        <div ref={boardRef} data-board data-dragging={dragging ? "" : undefined} className="trv-board no-scrollbar">
+          <Column context={context} day={null} title="想去的點" />
+          {days.map((day) => (
+            <Column key={day.date} context={context} day={day.date} title={day.label} detail={day.detail} view={day} />
+          ))}
+        </div>
       </div>
       {dragging && (
         <div ref={attachGhost} aria-hidden className="trv-ghost">
@@ -115,9 +121,8 @@ function Column({ context, day, title, detail, view }: { context: BoardContext; 
         </div>
         {view && list.length > 0 && <CopyTripButton text={dayText({ title: tripTitle, destination }, view, list)} label={`複製${title}的行程`} iconOnly className="btn-ghost btn-sm btn-icon" />}
         {route && (
-          <a href={route} target="_blank" rel="noreferrer" className="btn-ghost btn-sm shrink-0">
-            <Icon name="map-pin" className="size-4" />
-            整天路線
+          <a href={route} target="_blank" rel="noreferrer" aria-label={`${title}的整天路線`} title="整天路線" className="btn-ghost btn-sm btn-icon shrink-0">
+            <Icon name="map" className="size-4" />
           </a>
         )}
       </header>
@@ -151,14 +156,15 @@ function Column({ context, day, title, detail, view }: { context: BoardContext; 
 
 const DropLine = () => <li aria-hidden className="trv-drop-line" />;
 
-/** 兩站之間的交通 時間由使用者照查到的填 這一行一鍵開 Google Maps 查 */
+/** 兩站之間的交通 時間由使用者照查到的填 整行一鍵開 Google Maps 查 */
 function Leg({ from, to }: { from: TripItem; to: TripItem }) {
+  const text = to.travelMinutes > 0 ? `交通 ${to.travelMinutes} 分鐘` : "還沒填交通時間";
   return (
     <li className="trv-leg">
-      <Icon name="bus" className="size-3.5 shrink-0" />
-      <span className="tabular-nums">{to.travelMinutes > 0 ? `交通 ${to.travelMinutes} 分鐘` : "還沒填交通時間"}</span>
-      <a href={directionsUrl(stopOf(from), stopOf(to))} target="_blank" rel="noreferrer" className="link">
-        查路線
+      <a href={directionsUrl(stopOf(from), stopOf(to))} target="_blank" rel="noreferrer" aria-label={`${text}，查路線`} title="查路線" className="trv-leg-link">
+        <Icon name="bus" className="size-3.5 shrink-0" />
+        <span className="tabular-nums">{text}</span>
+        <Icon name="external-link" className="size-3 shrink-0" />
       </a>
     </li>
   );
@@ -174,16 +180,17 @@ function ItemCard({ item, slot, context, destination }: { item: TripItem; slot?:
       <button type="button" aria-label={`移動「${item.title}」，可以拖曳，或按方向鍵`} {...drag.handleProps(item.id, item.title)} className="trv-handle">
         <Icon name="grip-vertical" className="size-4" />
       </button>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        {slot && <TimeLine slot={slot} />}
-        <p className="flex min-w-0 items-center gap-1.5 font-medium text-ink">
-          <Icon name={KIND_ICONS[item.kind]} label={KIND_LABELS[item.kind]} className="size-4 shrink-0 text-accent" />
+      {slot && <Clock slot={slot} />}
+      <div className="trv-card-body">
+        <p className="trv-card-title">
+          <Icon name={KIND_ICONS[item.kind]} label={KIND_LABELS[item.kind]} className="mt-1 size-4 shrink-0 text-accent" />
           <span className="min-w-0 break-words">{item.title}</span>
         </p>
-        {item.note && <p className="text-sm break-words whitespace-pre-line text-ink-soft">{item.note}</p>}
-        <div className="flex flex-wrap items-center gap-x-3">
-          <a href={mapLink} target="_blank" rel="noreferrer" className="link text-sm">
-            {item.mapsUrl ? "看地圖" : "查地圖"}
+        {item.note && <p className="trv-note">{item.note}</p>}
+        <div className="trv-tools">
+          {slot && slot.late > 0 && <span className="chip chip-danger">晚 {slot.late} 分鐘</span>}
+          <a href={mapLink} target="_blank" rel="noreferrer" aria-label={item.mapsUrl ? `看「${item.title}」的地圖` : `在地圖上查「${item.title}」`} title={item.mapsUrl ? "看地圖" : "查地圖"} className="trv-tool">
+            <Icon name="map" className="size-4" />
           </a>
           <CommentsButton item={item} context={context} />
         </div>
@@ -193,13 +200,12 @@ function ItemCard({ item, slot, context, destination }: { item: TripItem; slot?:
   );
 }
 
-function TimeLine({ slot }: { slot: ScheduledItem }) {
+function Clock({ slot }: { slot: ScheduledItem }) {
   return (
-    <p className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-ink tabular-nums">
-      <span>
-        {formatClock(slot.arrive)}–{formatClock(slot.leave)}
-      </span>
-      {slot.late > 0 && <span className="chip chip-danger">晚 {slot.late} 分鐘</span>}
+    <p className="trv-clock">
+      <b>{formatClock(slot.arrive)}</b>
+      <span className="sr-only">到</span>
+      <span>{formatClock(slot.leave)}</span>
     </p>
   );
 }
@@ -263,12 +269,16 @@ function ItemMenu({ item, context, tripId }: { item: TripItem; context: BoardCon
 
 function CommentsButton({ item, context }: { item: TripItem; context: BoardContext }) {
   const { comments, tripId, userId, managerId } = context;
+  const dialog = useDialog();
   const mine = comments.filter((comment) => comment.itemId === item.id);
-  const label: ReactNode = mine.length > 0 ? `留言 ${mine.length}` : "留言";
 
   return (
-    <DialogButton label={label} buttonClassName="link text-sm" title={`「${item.title}」的留言`} size="sm">
-      {({ done }) => (
+    <>
+      <button {...dialog.triggerProps} aria-label={mine.length > 0 ? `「${item.title}」的留言，${mine.length} 則` : `「${item.title}」的留言`} title="留言" className="trv-tool">
+        <Icon name="message-circle" className="size-4" />
+        {mine.length > 0 && <span className="tabular-nums">{mine.length}</span>}
+      </button>
+      <Dialog {...dialog.dialogProps} title={`「${item.title}」的留言`} size="sm">
         <div className="stack">
           {mine.length > 0 && (
             <ul className="stack">
@@ -287,10 +297,10 @@ function CommentsButton({ item, context }: { item: TripItem; context: BoardConte
               ))}
             </ul>
           )}
-          <CommentForm tripId={tripId} itemId={item.id} onDone={done} />
+          <CommentForm tripId={tripId} itemId={item.id} onDone={dialog.done} />
         </div>
-      )}
-    </DialogButton>
+      </Dialog>
+    </>
   );
 }
 

@@ -1,21 +1,21 @@
 import "server-only";
-import { and, asc, count, eq, gte, sql } from "drizzle-orm";
+import { and, asc, count, eq, gte, ne, or, sql } from "drizzle-orm";
 import { db } from "@/core/db";
 import { lockUserRow } from "@/core/db/users";
 import { taipeiDateKey } from "@/core/time";
 import { remindersItems } from "../data/schema";
-import { ITEM_LIMIT, parseReminder, type ReminderInput, type ReminderValues } from "../lib/rules";
+import { ITEM_LIMIT, nextOccurrence, parseReminder, type ReminderInput, type ReminderValues } from "../lib/rules";
 import { ReminderNotFoundError, ReminderUserError } from "./errors";
 
 // userId 一律是登入者 表單送來的 id 只決定操作哪一筆 別人的當作不存在
 
 export type ReminderItem = ReminderValues & { id: number };
 
-const ITEM_COLUMNS = { id: remindersItems.id, title: remindersItems.title, date: remindersItems.date, notifyDaysBefore: remindersItems.notifyDaysBefore };
+const ITEM_COLUMNS = { id: remindersItems.id, title: remindersItems.title, date: remindersItems.date, notifyDaysBefore: remindersItems.notifyDaysBefore, repeat: remindersItems.repeat };
 
 const ownRow = (userId: string, id: number) => and(eq(remindersItems.id, id), eq(remindersItems.userId, userId));
-/** 日期當天還沒過期 隔天才算 */
-const notExpired = (today: string) => gte(remindersItems.date, today);
+/** 日期當天還沒過期 隔天才算 重複的不會過期 */
+const notExpired = (today: string) => or(gte(remindersItems.date, today), ne(remindersItems.repeat, "none"));
 
 function parsed(input: ReminderInput, today: string): ReminderValues {
   const result = parseReminder(input, today);
@@ -51,9 +51,16 @@ export async function createItem(userId: string, input: ReminderInput, now = new
 export async function updateItem(userId: string, id: number, input: ReminderInput, now = new Date()): Promise<ReminderItem> {
   const today = taipeiDateKey(now);
   const values = parsed(input, today);
+  const [current] = await db()
+    .select(ITEM_COLUMNS)
+    .from(remindersItems)
+    .where(and(ownRow(userId, id), notExpired(today)));
+  if (!current) throw new ReminderNotFoundError();
+  // 視窗顯示的是下一次 沒改就留第一次的日期 不然 31 號存成 30 號之後就回不去了
+  const unchanged = values.repeat === current.repeat && values.date === nextOccurrence(current, today);
   const [row] = await db()
     .update(remindersItems)
-    .set({ ...values, updatedAt: sql`now()` })
+    .set({ ...values, date: unchanged ? current.date : values.date, updatedAt: sql`now()` })
     .where(and(ownRow(userId, id), notExpired(today)))
     .returning(ITEM_COLUMNS);
   if (!row) throw new ReminderNotFoundError();

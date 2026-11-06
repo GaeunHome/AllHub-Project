@@ -103,6 +103,11 @@ export function parseStations(json: unknown): Station[] {
   return [...stations.values()];
 }
 
+/** 每條線的車站已經帶站名 車站清單不用另外問 同一站在兩條線上只留一個 */
+export function parseLineStations(json: unknown): Station[] {
+  return parseStations(asArray(json).flatMap((line) => asArray(asRecord(line)?.Stations)));
+}
+
 function stopsInOrder(value: unknown): string[] {
   const stops = asArray(value).flatMap((stop) => {
     const entry = asRecord(stop);

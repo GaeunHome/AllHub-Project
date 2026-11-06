@@ -41,6 +41,10 @@ describe("proxy", () => {
     expect(needsLogin("/login")).toBe(false);
     expect(needsLogin("/api/cron/twitch:sync")).toBe(false);
     expect(needsLogin("/robots.txtx")).toBe(true);
+    expect(needsLogin("/sw.js")).toBe(false);
+    expect(needsLogin("/manifest.webmanifest")).toBe(false);
+    expect(needsLogin("/sw.jsx")).toBe(true);
+    expect(needsLogin("/api/push")).toBe(true);
     expect(needsLogin("/loginx")).toBe(true);
     expect(needsLogin("/twitch")).toBe(true);
     expect(needsLogin("/")).toBe(true);

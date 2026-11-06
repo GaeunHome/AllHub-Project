@@ -1,6 +1,7 @@
 /* 行程看板 一天一欄 橫向捲動 手機一次看一欄 */
+/* relative 才收得住給報讀器的隱藏文字 不然畫面外的欄會把整頁撐寬 */
 .trv-board {
-  @apply -mx-4 flex items-start gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0;
+  @apply relative -mx-4 flex items-start gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0;
   scroll-snap-type: x proximity;
   scroll-padding-inline: 1rem;
 }
@@ -8,9 +9,15 @@
 .trv-board[data-dragging] {
   scroll-snap-type: none;
 }
+/* 手機是整頁寬的一天 用上面的切換列換天 看板還是橫向 拖到別天才不用另外做 */
+@media (width < 40rem) {
+  .trv-board {
+    scroll-snap-type: x mandatory;
+  }
+}
 .trv-column {
-  @apply flex flex-col gap-3 rounded-2xl p-4;
-  flex: 1 0 min(19rem, 84vw);
+  @apply flex flex-col gap-2 rounded-2xl p-3;
+  flex: 1 0 min(20rem, 84vw);
   max-width: 24rem;
   scroll-snap-align: start;
   border: 1px solid var(--line);
@@ -21,6 +28,32 @@
   background-color: var(--surface-muted);
   box-shadow: none;
 }
+@media (width < 40rem) {
+  .trv-column {
+    flex: 0 0 100%;
+    max-width: none;
+  }
+  .trv-column[data-pool] {
+    order: 1;
+  }
+}
+/* 手機換天 捲到長的那一天中間也要換得到 所以貼在導覽列下面 */
+.trv-days {
+  @apply sticky z-30 -mx-4 flex gap-1.5 overflow-x-auto px-4 py-2 sm:hidden;
+  top: 4.0625rem;
+  background-color: var(--bg-base);
+}
+.trv-day {
+  @apply flex min-h-11 shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl px-3 leading-tight;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background-color: var(--surface-solid);
+}
+.trv-day[aria-current] {
+  border-color: var(--brand);
+  color: var(--on-brand);
+  background-color: var(--brand);
+}
 /* 留一點高度 空的那天才放得進去 */
 .trv-list {
   @apply flex min-h-20 flex-col gap-2;
@@ -30,8 +63,9 @@
   border: 1px dashed var(--line-strong);
   color: var(--ink-soft);
 }
+/* 使用者覺得擠 時間一欄 內容一欄 一眼看完 */
 .trv-card {
-  @apply flex items-start gap-1 rounded-xl p-2;
+  @apply flex items-start gap-1.5 rounded-xl px-1 py-1.5;
   border: 1px solid var(--line);
   background-color: var(--surface-solid);
 }
@@ -40,7 +74,7 @@
 }
 /* 只有把手能拖 手機上按其他地方照樣能捲動頁面 */
 .trv-handle {
-  @apply grid size-9 shrink-0 cursor-grab place-items-center rounded-lg;
+  @apply grid h-9 w-6 shrink-0 cursor-grab place-items-center rounded-lg;
   color: var(--ink-soft);
   touch-action: none;
   user-select: none;
@@ -60,9 +94,74 @@
   @apply h-1 rounded-full;
   background-color: var(--brand);
 }
-.trv-leg {
-  @apply flex items-center gap-1.5 pl-3 text-sm;
+.trv-clock {
+  @apply flex w-11 shrink-0 flex-col pt-0.5 text-xs leading-5 tabular-nums;
   color: var(--ink-soft);
+}
+.trv-clock b {
+  @apply text-sm font-semibold text-ink;
+}
+.trv-card-body {
+  @apply flex min-w-0 flex-1 flex-col gap-0.5 pt-0.5;
+}
+.trv-card-title {
+  @apply flex items-start gap-1.5 font-semibold text-ink;
+}
+.trv-note {
+  @apply line-clamp-2 text-sm text-ink;
+}
+.trv-tools {
+  @apply -ml-1 flex flex-wrap items-center gap-1;
+}
+/* 圖示看起來小 點擊範圍撐到 44px 手機才按得到 */
+.trv-tool {
+  @apply relative inline-flex h-7 min-w-7 cursor-pointer items-center justify-center gap-1 rounded-lg px-1 text-sm font-semibold text-ink;
+}
+.trv-tool::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 100%;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  translate: -50% -50%;
+}
+.trv-tool:hover {
+  background-color: var(--surface-muted);
+}
+.trv-leg {
+  @apply pl-7 text-sm;
+}
+.trv-leg-link {
+  @apply inline-flex min-h-7 items-center gap-1.5 rounded-lg px-1 font-medium text-ink;
+}
+.trv-leg-link:hover {
+  background-color: var(--surface-muted);
+}
+/* 平常收起來 標題那一列就看得到有幾人 還有幾項 */
+.trv-fold > summary {
+  @apply flex min-h-7 cursor-pointer list-none items-center gap-2 font-medium text-ink;
+}
+.trv-fold > summary::-webkit-details-marker {
+  display: none;
+}
+.trv-fold > summary h2 {
+  @apply flex-1 text-lg font-semibold;
+}
+.trv-fold > summary::after {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  rotate: 45deg;
+  transition: rotate 150ms ease;
+}
+.trv-fold[open] > summary {
+  @apply mb-4;
+}
+.trv-fold[open] > summary::after {
+  rotate: -135deg;
 }
 /* 跟著手指的標籤 不擋事件 放開位置才算得出來 */
 .trv-ghost {

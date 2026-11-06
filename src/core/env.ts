@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { CAPTCHA_ALPHABET, CAPTCHA_LENGTH } from "./auth/messages";
+import { pushSubject } from "./push/rules";
 
 // 分組與順序跟 .env.example 一致
 // 各組用到時才驗證 沒用到的模組不必填
@@ -79,6 +80,24 @@ export const transitEnv = defineEnv(
 export function hasTransitEnv(): boolean {
   const { TDX_CLIENT_ID, TDX_CLIENT_SECRET } = transitEnv();
   return Boolean(TDX_CLIENT_ID && TDX_CLIENT_SECRET);
+}
+
+// 手機推播 都是選填 沒設時通知頁不顯示手機通知 其他功能照常
+const pushEnv = defineEnv(
+  "手機推播",
+  z.object({
+    VAPID_PUBLIC_KEY: z.string().trim().min(1).optional(),
+    VAPID_PRIVATE_KEY: z.string().trim().min(1).optional(),
+    PUBLIC_BASE_URL: publicBaseUrl.optional(),
+  }),
+);
+
+export type PushKeys = { subject: string; publicKey: string; privateKey: string };
+
+/** 兩把都有才算設定好 */
+export function pushKeys(): PushKeys | null {
+  const { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, PUBLIC_BASE_URL } = pushEnv();
+  return VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY ? { subject: pushSubject(PUBLIC_BASE_URL), publicKey: VAPID_PUBLIC_KEY, privateKey: VAPID_PRIVATE_KEY } : null;
 }
 
 // 本機測試 選填 production 會忽略

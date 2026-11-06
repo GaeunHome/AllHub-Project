@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NOTIFY_OPTIONS, latestDate, parseReminder } from "../rules";
+import { NOTIFY_OPTIONS, latestDate, nextOccurrence, parseReminder } from "../rules";
 
 const TODAY = "2026-11-02";
 const parse = (fields: Partial<Parameters<typeof parseReminder>[0]>, today = TODAY) => parseReminder({ title: "繳房屋稅", date: "2026-11-30", notify: "0", ...fields }, today);
@@ -70,5 +70,46 @@ describe("通知選項", () => {
 
   it("清單以外的值拒絕：資料庫的 check 只收這幾個，Server Action 又可以直接 POST", () => {
     for (const notify of ["", "2", "-1", "0.5", "30天", "null"]) expect(errorOf({ notify }), notify).toBe("請從清單選擇通知時間");
+  });
+});
+
+describe("重複", () => {
+  it("沒選是不重複 只收每月與每年", () => {
+    expect(parse({}).ok && (parse({}) as { value: { repeat: string } }).value.repeat).toBe("none");
+    expect(parse({ repeat: "yearly" })).toMatchObject({ ok: true, value: { repeat: "yearly" } });
+    expect(errorOf({ repeat: "weekly" })).toBe("請從清單選擇重複的方式");
+  });
+});
+
+describe("nextOccurrence：下一次是哪一天", () => {
+  const next = (date: string, repeat: "none" | "monthly" | "yearly", today: string) => nextOccurrence({ date, repeat }, today);
+
+  it("不重複 當天還在 隔天沒有下一次", () => {
+    expect(next("2026-11-30", "none", "2026-11-30")).toBe("2026-11-30");
+    expect(next("2026-11-30", "none", "2026-12-01")).toBeNull();
+  });
+
+  it("還沒到第一次 就是第一次", () => {
+    expect(next("2026-12-15", "monthly", "2026-11-02")).toBe("2026-12-15");
+    expect(next("2027-03-01", "yearly", "2026-11-02")).toBe("2027-03-01");
+  });
+
+  it.each([
+    ["2026-02-01", "2026-02-28", "2 月沒有 31 號 算月底"],
+    ["2026-02-28", "2026-02-28", "今天也算"],
+    ["2026-03-01", "2026-03-31", "下個月又回到 31 號 不會變成 28 號"],
+    ["2026-04-01", "2026-04-30", "4 月只有 30 天"],
+    ["2026-12-31", "2026-12-31", "年底"],
+    ["2027-01-01", "2027-01-31", "跨年"],
+  ])("每月 31 號 今天 %s → %s（%s）", (today, expected) => {
+    expect(next("2026-01-31", "monthly", today)).toBe(expected);
+  });
+
+  it.each([
+    ["2026-01-01", "2026-02-28", "平年沒有 2/29"],
+    ["2026-03-01", "2027-02-28", "今年過了 明年"],
+    ["2028-01-01", "2028-02-29", "閏年回到 2/29"],
+  ])("每年 2/29 今天 %s → %s（%s）", (today, expected) => {
+    expect(next("2024-02-29", "yearly", today)).toBe(expected);
   });
 });

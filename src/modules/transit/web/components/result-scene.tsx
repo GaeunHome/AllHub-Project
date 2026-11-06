@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Scene } from "@/core/ui/scene";
 import type { SearchQuery } from "../search-query";
 import { CloseResults } from "./result-parts";
+import { EditSearchButton } from "./search-shell";
 
 type ResultSceneProps = { mode: "thsr" | "tra" | "metro"; from: string; to: string; query: SearchQuery; children?: ReactNode };
 
@@ -16,7 +17,10 @@ export function ResultScene({ mode, from, to, query, children }: ResultSceneProp
           </h2>
           {children}
         </div>
-        <CloseResults query={query} className="trn-scene-close" />
+        <div className="trn-scene-actions">
+          <EditSearchButton className="scene-button trn-scene-edit" />
+          <CloseResults query={query} className="trn-scene-close" />
+        </div>
       </Scene>
     </header>
   );

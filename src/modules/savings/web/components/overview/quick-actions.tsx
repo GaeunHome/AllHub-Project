@@ -49,7 +49,7 @@ export function QuickActions({ view, menu }: { view: QuickActionsView; menu?: Re
       <CardHeader id={headingId} actions={menu}>
         <span className="inline-flex items-center gap-1">
           我要…
-          <InfoTip label="平常怎麼用">花錢可以隨手記一筆；不想每筆都記，月底照銀行 App 按「更新餘額」對齊。每個月照「這個月要做的事」做完就好。</InfoTip>
+          <InfoTip label="平常怎麼用">隨手記一筆，或月底按更新餘額對齊</InfoTip>
         </span>
       </CardHeader>
       <div className="grid grid-cols-3 gap-2 @2xl:grid-cols-6 @2xl:gap-3">

@@ -7,64 +7,70 @@ import { captureErrorLog, tagged } from "@/dev/test-helpers";
 stubCoreEnv();
 stubTransitEnv();
 
-const { cachedMetroFare, cachedMetroLines, cachedMetroNetwork, cachedMetroTravelTimes, cachedThsrFares, cachedTraFares } = await import("../cached");
-const { resetTdxToken } = await import("../../lib/tdx");
+const { cachedMetroFare, cachedMetroNetwork, cachedMetroSystem, cachedMetroTravelTimes, cachedStations, cachedThsrFares, cachedTraFares } = await import("../cached");
+const { resetTdx } = await import("../../lib/tdx");
 
 const TOKEN = () => Response.json({ access_token: "the-token", expires_in: 86400 });
 const stub = (line: () => Response) => vi.stubGlobal("fetch", fakeFetch(byUrl([[/openid-connect\/token/, TOKEN], [/StationOfLine/, line]])).impl);
 
-beforeEach(() => resetTdxToken());
+beforeEach(() => resetTdx());
 
-describe("捷運路線的快取", () => {
-  it("讀到時留一天 路線幾乎不會變 免費額度很緊", async () => {
-    stub(() => Response.json([{ LineNo: "R", Stations: [{ Sequence: 1, StationID: "R02" }] }]));
+describe("一個捷運系統的快取", () => {
+  it("讀到時留久一點 車站幾乎不會變 每天第一次打開不用等下一分鐘", async () => {
+    stub(() => Response.json([{ LineNo: "R", Stations: [{ Sequence: 1, StationID: "R02", StationName: { Zh_tw: "象山" } }] }]));
 
-    expect(await cachedMetroLines("TRTC")).toEqual({ ok: true, data: [{ id: "R", stationIds: ["R02"] }] });
-    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("avatar");
+    expect(await cachedMetroSystem("TRTC")).toEqual({ ok: true, data: { stations: [{ id: "R02", name: "象山" }], lines: [{ id: "R", stationIds: ["R02"] }] } });
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("stations");
     expect(tagged()).toEqual(["transit:external"]);
   });
 
   it("讀不到或欄位不同時幾分鐘後再試 不能把沒有分組留一天", async () => {
     captureErrorLog();
     stub(() => new Response("", { status: 500 }));
-    await cachedMetroLines("TRTC");
+    await cachedMetroSystem("TRTC");
     expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
 
     vi.mocked(cacheLife).mockClear();
     stub(() => Response.json([]));
-    await cachedMetroLines("TRTC");
+    await cachedMetroSystem("TRTC");
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
+  });
+});
+
+describe("車站清單的快取", () => {
+  it("高鐵與台鐵的車站也留久一點 讀不到時幾分鐘後再試", async () => {
+    vi.stubGlobal("fetch", fakeFetch(byUrl([[/openid-connect\/token/, TOKEN], [/TRA\/Station/, () => Response.json([{ StationID: "1000", StationName: { Zh_tw: "臺北" } }])]])).impl);
+    await cachedStations("tra", "");
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("stations");
+
+    vi.mocked(cacheLife).mockClear();
+    vi.stubGlobal("fetch", fakeFetch(byUrl([[/openid-connect\/token/, TOKEN], [/TRA\/Station/, () => Response.json([])]])).impl);
+    await cachedStations("tra", "");
     expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
   });
 });
 
 describe("捷運的路網：三個系統併在一起", () => {
-  const stationRow = (StationID: string, name: string) => ({ StationID, StationName: { Zh_tw: name } });
-  const DATA: Record<string, { stations: unknown[]; lines: unknown[] }> = {
-    TRTC: { stations: [stationRow("R10", "台北車站")], lines: [{ LineNo: "R", Stations: [{ Sequence: 1, StationID: "R10" }] }] },
-    NTMC: { stations: [stationRow("Y07", "大坪林")], lines: [{ LineNo: "Y", Stations: [{ Sequence: 1, StationID: "Y07" }] }] },
-    TYMC: { stations: [stationRow("A1", "臺北車站")], lines: [{ LineNo: "A", Stations: [{ Sequence: 1, StationID: "A1" }] }] },
-  };
+  const line = (LineNo: string, StationID: string, name: string) => [{ LineNo, Stations: [{ Sequence: 1, StationID, StationName: { Zh_tw: name } }] }];
+  const LINES: Record<string, unknown[]> = { TRTC: line("R", "R10", "台北車站"), NTMC: line("Y", "Y07", "大坪林"), TYMC: line("A", "A1", "臺北車站") };
   const FAILED = () => new Response("", { status: 500 });
-  const answers = (broken: (system: string, kind: "Station" | "StationOfLine") => (() => Response) | null) =>
-    Object.entries(DATA).flatMap(([system, { stations, lines }]): [RegExp, () => Response][] => [
-      [new RegExp(`/Metro/Station/${system}`), broken(system, "Station") ?? (() => Response.json(stations))],
-      [new RegExp(`/Metro/StationOfLine/${system}`), broken(system, "StationOfLine") ?? (() => Response.json(lines))],
-    ]);
-  const stubNetwork = (broken: Parameters<typeof answers>[0] = () => null) => {
-    const fake = fakeFetch(byUrl([[/openid-connect\/token/, TOKEN], ...answers(broken)]));
+  const stubNetwork = (broken: (system: string) => (() => Response) | null = () => null) => {
+    const routes = Object.entries(LINES).map(([system, lines]): [RegExp, () => Response] => [new RegExp(`/Metro/StationOfLine/${system}`), broken(system) ?? (() => Response.json(lines))]);
+    const fake = fakeFetch(byUrl([[/openid-connect\/token/, TOKEN], ...routes]));
     vi.stubGlobal("fetch", fake.impl);
     return fake;
   };
 
-  it("全部讀到時留一天 每個系統的車站與路線各讀一次 免費額度很緊", async () => {
+  it("全部讀到時留久一點 三個系統只問三次 免費會員每分鐘只有 5 次", async () => {
     const fake = stubNetwork();
 
     const result = await cachedMetroNetwork();
 
     expect(result).toMatchObject({ ok: true, data: { missing: [], problem: null } });
-    expect(result.ok && result.data.network.lines.map((line) => line.id)).toEqual(["R", "Y", "A"]);
-    expect(fake.urls.filter((url) => url.includes("/Metro/"))).toHaveLength(6);
-    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("avatar");
+    expect(result.ok && result.data.network.lines.map((row) => row.id)).toEqual(["R", "Y", "A"]);
+    expect(result.ok && result.data.network.stations.map((station) => station.id)).toEqual(["R10", "Y07", "A1"]);
+    expect(fake.urls.filter((url) => url.includes("/Metro/"))).toHaveLength(3);
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("stations");
     expect(tagged()).toContain("transit:external");
   });
 
@@ -80,20 +86,9 @@ describe("捷運的路網：三個系統併在一起", () => {
   });
 
   it("一個系統回空的也算讀不到 不能把沒有車站留一天", async () => {
-    stubNetwork((system, kind) => (system === "TYMC" && kind === "Station" ? () => Response.json([]) : null));
+    stubNetwork((system) => (system === "TYMC" ? () => Response.json([]) : null));
 
     expect(await cachedMetroNetwork()).toMatchObject({ ok: true, data: { missing: ["TYMC"] } });
-    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
-  });
-
-  it("路線讀不到但車站讀得到_車站留著 不能讓人選不了站", async () => {
-    captureErrorLog();
-    stubNetwork((_system, kind) => (kind === "StationOfLine" ? FAILED : null));
-
-    const result = await cachedMetroNetwork();
-
-    expect(result).toMatchObject({ ok: true, data: { missing: ["TRTC", "NTMC", "TYMC"], problem: "TDX 回 500" } });
-    expect(result.ok && result.data.network.stations).toHaveLength(3);
     expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
   });
 

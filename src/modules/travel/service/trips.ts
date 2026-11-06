@@ -2,12 +2,13 @@ import "server-only";
 import { and, asc, count, desc, eq, exists, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { coreUsers } from "@/core/db/schema";
 import { db } from "@/core/db";
-import { lockUserRow, userAvatar } from "@/core/db/users";
+import { lockUserRow } from "@/core/db/users";
 import { taipeiDateKey } from "@/core/time";
 import { travelChecks, travelComments, travelItems, travelMembers, travelTrips } from "../data/schema";
 import { MEMBER_LIMIT, RETENTION_DAYS, TRIP_LIMIT, addDays, parseTrip } from "../lib/rules";
-import { assertManager, inMemberTrip, isMemberOf, managerOf } from "./access";
+import { assertManager, displayName, inMemberTrip, isMemberOf, managerOf, personColumns } from "./access";
 import { TravelUserError, TripNotFoundError } from "./errors";
+import { formerPeople, readMoney, type TripMoney } from "./expenses";
 import { isJoinToken, joinPath } from "./join-link";
 
 // userId 一律是登入者 網址與表單送來的 id 只決定操作哪一趟
@@ -18,10 +19,8 @@ export type TripMember = { id: string; username: string; name: string; avatar: s
 export type TripItem = Omit<typeof travelItems.$inferSelect, "createdAt" | "updatedAt">;
 export type TripComment = { id: number; itemId: number; userId: string; authorName: string; body: string; createdAt: Date };
 export type TripCheck = { id: number; title: string; done: boolean };
-export type TripDetail = TripSummary & { members: TripMember[]; managerId: string | null; items: TripItem[]; comments: TripComment[]; checks: TripCheck[]; joinPath: string | null };
-
-/** 暱稱優先 service 不 import 登入 所以寫在 SQL 裡 */
-const displayName = sql<string>`coalesce(${coreUsers.nickname}, ${coreUsers.username})`;
+/** people 比 members 多了已經離開 但還留在帳上的人 */
+export type TripDetail = TripSummary & TripMoney & { members: TripMember[]; people: TripMember[]; managerId: string | null; items: TripItem[]; comments: TripComment[]; checks: TripCheck[]; joinPath: string | null };
 
 const SUMMARY_COLUMNS = { id: travelTrips.id, title: travelTrips.title, destination: travelTrips.destination, startDate: travelTrips.startDate, endDate: travelTrips.endDate };
 
@@ -56,7 +55,7 @@ export async function tripDetail(userId: string, tripId: number): Promise<TripDe
     .where(and(eq(travelTrips.id, tripId), isMemberOf(userId)));
   if (!trip) return null;
   const [members, items, comments, checks, managerId] = await Promise.all([
-    db().select({ id: coreUsers.id, username: coreUsers.username, name: displayName, avatar: userAvatar }).from(travelMembers).innerJoin(coreUsers, eq(travelMembers.userId, coreUsers.id)).where(eq(travelMembers.tripId, tripId)).orderBy(asc(travelMembers.joinedAt), asc(travelMembers.userId)),
+    db().select(personColumns).from(travelMembers).innerJoin(coreUsers, eq(travelMembers.userId, coreUsers.id)).where(eq(travelMembers.tripId, tripId)).orderBy(asc(travelMembers.joinedAt), asc(travelMembers.userId)),
     db()
       .select({
         id: travelItems.id,
@@ -87,6 +86,8 @@ export async function tripDetail(userId: string, tripId: number): Promise<TripDe
     db().select({ id: travelChecks.id, title: travelChecks.title, done: travelChecks.done }).from(travelChecks).where(eq(travelChecks.tripId, tripId)).orderBy(asc(travelChecks.id)),
     managerOf(db(), tripId),
   ]);
+  const money = await readMoney(db(), tripId);
+  const former = await formerPeople(db(), money, new Set(members.map(({ id }) => id)));
   const canShare = managerId === userId && trip.joinOpen;
   return {
     id: trip.id,
@@ -96,6 +97,8 @@ export async function tripDetail(userId: string, tripId: number): Promise<TripDe
     endDate: trip.endDate,
     memberCount: members.length,
     members,
+    people: [...members, ...former],
+    ...money,
     managerId,
     items,
     comments,

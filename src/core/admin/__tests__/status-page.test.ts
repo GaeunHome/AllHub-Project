@@ -36,9 +36,46 @@ describe("系統狀態頁", () => {
     const text = textOf(await render());
 
     expect(text).toContain("HoYoLAB 躍遷紀錄");
-    expect(text).toContain("有問題");
+    expect(text).toContain("異常");
     expect(text).toContain("-100：authkey error");
     expect(text).toContain("2026/11/5 13:20");
+  });
+
+  it("有異常時 最上面寫出幾個異常 服務與排程都算", async () => {
+    expect(textOf(await render())).toContain("2 個異常");
+  });
+
+  it("都正常時 最上面寫全部正常", async () => {
+    status.listStatus.mockResolvedValue({
+      services: [{ service: "starrail:warps", lastOkAt: AT, lastErrorAt: null, lastError: null }],
+      cron: [{ task: "starrail:warps", lastRunAt: AT, durationMs: 2500, ok: true, summary: "完成" }],
+    });
+
+    const html = await render();
+
+    expect(textOf(html)).toContain("全部正常");
+    expect(html).not.toContain("status-dot-danger");
+  });
+
+  it("使用者要的 正常是綠色圓圈 異常是紅色圓圈 排程只成功一部分也是紅色", async () => {
+    const html = await render();
+
+    expect(html).toContain("status-dot-danger");
+    expect(html).not.toContain("status-dot-warning");
+
+    status.listStatus.mockResolvedValue({
+      services: [{ service: "starrail:warps", lastOkAt: AT, lastErrorAt: null, lastError: null }],
+      cron: [],
+    });
+
+    expect(await render()).toContain("status-dot-success");
+  });
+
+  it("排程寫中文名稱 代碼放在旁邊", async () => {
+    const text = textOf(renderToStaticMarkup((await StatusSections({ modules: MODULES, tasks: ["starrail:warps"], cronLabels: { "starrail:warps": "讀躍遷紀錄" } })) as ReactElement));
+
+    expect(text).toContain("讀躍遷紀錄");
+    expect(text).toContain("starrail:warps");
   });
 
   it("排程寫出最後一次的結果與花了多久", async () => {

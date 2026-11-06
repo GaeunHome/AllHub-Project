@@ -19,6 +19,8 @@ const nextConfig: NextConfig = {
     timetable: { stale: 30, revalidate: 43_200, expire: 86_400 },
     // 頭像 封面 影片資訊這類很少變的外部資料 最多一天前
     avatar: { stale: 30, revalidate: 43_200, expire: 86_400 },
+    // 車站與路線幾乎不會變 舊的先給畫面 背景再更新 TDX 每分鐘只有 5 次 不能讓人等下一分鐘
+    stations: { stale: 30, revalidate: 86_400, expire: 2_592_000 },
     // HoYoLAB 的角色 開拓月曆 終局戰績 最多 30 分鐘前
     records: { stale: 30, revalidate: 900, expire: 1800 },
     // 證交所與櫃買的收盤價一天更新一次 每小時看一次就能接到早上的更新

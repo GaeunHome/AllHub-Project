@@ -41,11 +41,12 @@ export function PlaceForm({ onDone, onCancel }: { onDone: (message: string | und
   );
 }
 
-export function AddPlaceButton({ className = "wx-chip" }: { className?: string }) {
+/** 還沒有城市時才用 有城市之後新增在管理視窗 */
+export function AddPlaceButton() {
   const dialog = useDialog();
   return (
     <>
-      <button {...dialog.triggerProps} className={className}>
+      <button {...dialog.triggerProps} className="btn-primary">
         <Icon name="plus" className="size-4" />
         新增城市
       </button>

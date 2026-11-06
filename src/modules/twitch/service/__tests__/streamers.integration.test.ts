@@ -34,7 +34,7 @@ describe("handleNotification（PGlite 整合）", () => {
     await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     const [event] = await testDb.select().from(twitchStreamEvents);
-    expect(event).toMatchObject({ messageId: "m1", type: "online", title: "今天玩鐵道", category: "Honkai: Star Rail" });
+    expect(event).toMatchObject({ messageId: "m1", title: "今天玩鐵道", category: "Honkai: Star Rail" });
     const [streamer] = await testDb.select().from(twitchStreamers);
     expect(streamer.isLive).toBe(true);
     expect(notify).toHaveBeenCalledOnce();
@@ -59,7 +59,7 @@ describe("handleNotification（PGlite 整合）", () => {
     await handleNotification("m1", ONLINE_SUBSCRIPTION, ALICE_EVENT);
 
     const [event] = await testDb.select().from(twitchStreamEvents);
-    expect(event).toMatchObject({ messageId: "m1", type: "online", title: "今天玩鐵道", category: "Honkai: Star Rail" });
+    expect(event).toMatchObject({ messageId: "m1", title: "今天玩鐵道", category: "Honkai: Star Rail" });
     const [streamer] = await testDb.select().from(twitchStreamers);
     expect(streamer.isLive).toBe(true);
     expect(notify).not.toHaveBeenCalled();
@@ -195,12 +195,12 @@ describe("cleanupStreamEvents（PGlite 整合）", () => {
   const NOW = new Date("2026-10-21T12:00:00Z");
   const daysAgo = (days: number) => new Date(NOW.getTime() - days * 24 * 3600_000);
 
-  it("只刪超過 14 天的開台紀錄_主播不動；以前留下的關台列照一樣的時間清掉", async () => {
+  it("只刪超過 14 天的開台紀錄_主播不動", async () => {
     await testDb.insert(twitchStreamEvents).values([
-      { messageId: "old", broadcasterId: "42", type: "online", receivedAt: daysAgo(15) },
-      { messageId: "old-offline", broadcasterId: "42", type: "offline", receivedAt: daysAgo(15) },
-      { messageId: "edge", broadcasterId: "42", type: "offline", receivedAt: daysAgo(14) },
-      { messageId: "new", broadcasterId: "42", type: "online", receivedAt: daysAgo(1) },
+      { messageId: "old", broadcasterId: "42", receivedAt: daysAgo(15) },
+      { messageId: "old-offline", broadcasterId: "42", receivedAt: daysAgo(15) },
+      { messageId: "edge", broadcasterId: "42", receivedAt: daysAgo(14) },
+      { messageId: "new", broadcasterId: "42", receivedAt: daysAgo(1) },
     ]);
 
     expect(await cleanupStreamEvents(NOW)).toBe("刪除 2 筆超過 14 天的開台紀錄");
@@ -211,7 +211,7 @@ describe("cleanupStreamEvents（PGlite 整合）", () => {
   });
 
   it("沒有過期紀錄_刪除 0 筆", async () => {
-    await testDb.insert(twitchStreamEvents).values({ messageId: "new", broadcasterId: "42", type: "online", receivedAt: daysAgo(1) });
+    await testDb.insert(twitchStreamEvents).values({ messageId: "new", broadcasterId: "42", receivedAt: daysAgo(1) });
 
     expect(await cleanupStreamEvents(NOW)).toBe("刪除 0 筆超過 14 天的開台紀錄");
     expect(await testDb.select().from(twitchStreamEvents)).toHaveLength(1);
@@ -293,24 +293,12 @@ describe("每個人的追蹤各自一份（PGlite 整合）", () => {
   it("開台紀錄只列自己追蹤的主播", async () => {
     await getDb().insert(twitchStreamers).values({ broadcasterId: "77", login: "bobby", displayName: "Bobby" });
     await testDb.insert(twitchStreamEvents).values([
-      { messageId: "a", broadcasterId: "42", type: "online" },
-      { messageId: "b", broadcasterId: "77", type: "online" },
+      { messageId: "a", broadcasterId: "42" },
+      { messageId: "b", broadcasterId: "77" },
     ]);
 
     expect((await recentEvents(me)).map((e) => e.login)).toEqual(["alice"]);
     expect(await recentEvents(other)).toEqual([]);
-  });
-
-  it("以前留下的關台列不列出來，也不佔筆數的名額：開台紀錄比關台舊時照樣排得進去", async () => {
-    const at = (hour: number) => new Date(`2026-10-20T${String(hour).padStart(2, "0")}:00:00Z`);
-    await testDb.insert(twitchStreamEvents).values([
-      { messageId: "on-1", broadcasterId: "42", type: "online", title: "第一場", receivedAt: at(1) },
-      { messageId: "off-1", broadcasterId: "42", type: "offline", receivedAt: at(2) },
-      { messageId: "on-2", broadcasterId: "42", type: "online", title: "第二場", receivedAt: at(3) },
-      { messageId: "off-2", broadcasterId: "42", type: "offline", receivedAt: at(4) },
-    ]);
-
-    expect((await recentEvents(me, 2)).map((e) => e.title)).toEqual(["第二場", "第一場"]);
   });
 
   it("刪除帳號時，他的追蹤一起刪除；主播是共用的，留著", async () => {

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, exists, isNotNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, exists, isNotNull, lt } from "drizzle-orm";
 import { claimKey, sendOnce } from "@/core/claim";
 import { db } from "@/core/db";
 import { coreUsers } from "@/core/db/schema";
@@ -9,6 +9,7 @@ import { notify } from "@/core/notify";
 import { taipeiDateKey } from "@/core/time";
 import { remindersItems } from "../data/schema";
 import { countdownText, daysUntil, formatDate } from "../lib/countdown";
+import { nextOccurrence } from "../lib/rules";
 
 // 排程 reminders:daily 台北 7 點多與 12 點多各跑一次 先寄今天要寄的 再刪日期過了的
 // 中午那一次補寄早上寄不出去的 停用或被關掉模組的人凍結 不寄也不刪 恢復後的下一次排程才處理
@@ -21,17 +22,23 @@ type DueItem = { id: number; userId: string; title: string; date: string };
 
 /**
  * 擁有者還能用 今天是當天或提前那天的項目 提前的日子過了就只剩當天
+ * 重複的下一次要算才知道 每人最多 50 個 全部讀出來在這裡挑
  * 通知新的在上面 首頁未讀只顯示最新幾則 所以日子近的排後面 最後寫入
  */
-async function dueItems(today: string): Promise<DueItem[]> {
-  const isDay = eq(remindersItems.date, today);
-  const isAdvanceDay = sql`${remindersItems.date} - ${remindersItems.notifyDaysBefore} = ${today}::date`;
-  return db()
-    .select({ id: remindersItems.id, userId: remindersItems.userId, title: remindersItems.title, date: remindersItems.date })
+async function dueItems(today: string, now: Date): Promise<DueItem[]> {
+  const rows = await db()
+    .select({ id: remindersItems.id, userId: remindersItems.userId, title: remindersItems.title, date: remindersItems.date, repeat: remindersItems.repeat, notifyDaysBefore: remindersItems.notifyDaysBefore })
     .from(remindersItems)
     .innerJoin(coreUsers, activeOwnerOf(remindersItems.userId, MODULE_ID))
-    .where(and(isNotNull(remindersItems.notifyDaysBefore), or(isDay, isAdvanceDay)))
-    .orderBy(desc(remindersItems.date), desc(remindersItems.id));
+    .where(isNotNull(remindersItems.notifyDaysBefore));
+  return rows
+    .flatMap(({ repeat, notifyDaysBefore, ...item }) => {
+      const date = nextOccurrence({ date: item.date, repeat }, today);
+      if (date === null) return [];
+      const days = daysUntil(date, now);
+      return days === 0 || days === notifyDaysBefore ? [{ ...item, date }] : [];
+    })
+    .toSorted((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
 }
 
 /** 同一天重跑不重複寄 回傳這次有沒有寄 寄不出去時丟出錯誤 */
@@ -52,7 +59,7 @@ async function deleteExpiredItems(today: string): Promise<number> {
   const owner = db().select({ id: coreUsers.id }).from(coreUsers).where(activeOwnerOf(remindersItems.userId, MODULE_ID));
   const deleted = await db()
     .delete(remindersItems)
-    .where(and(lt(remindersItems.date, today), exists(owner)))
+    .where(and(lt(remindersItems.date, today), eq(remindersItems.repeat, "none"), exists(owner)))
     .returning({ id: remindersItems.id });
   return deleted.length;
 }
@@ -73,7 +80,7 @@ function summary({ sent, already, failed, deleted }: Tally): string {
 export async function sendDailyReminders(now = new Date()): Promise<string> {
   const today = taipeiDateKey(now);
   const tally = { sent: 0, already: 0, failed: 0 };
-  for (const item of await dueItems(today)) {
+  for (const item of await dueItems(today, now)) {
     try {
       if (await sendDue(item, today, now)) tally.sent++;
       else tally.already++;

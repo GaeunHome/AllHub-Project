@@ -60,7 +60,7 @@ export async function WarpsArea({ searchParams }: { searchParams: SearchParams }
         </Link>
         <h2 className="sr-title flex items-center gap-1.5">
           躍遷紀錄
-          <InfoTip label="躍遷紀錄的說明">資料來自 HoYoLAB 官方的躍遷紀錄頁，打開時才讀，最多是 30 分鐘前的資料。官方只給五星與目前已墊幾抽，沒有抽卡時間，也看不到三星與四星。</InfoTip>
+          <InfoTip label="躍遷紀錄的說明">來自 HoYoLAB 官方，只有五星與已墊幾抽，最多是 30 分鐘前的資料</InfoTip>
         </h2>
       </div>
       {read.ok ? <BannerArea accountId={account.id} summaries={read.summaries} requested={params.banner} /> : <FormMessage tone="error">{read.message}</FormMessage>}

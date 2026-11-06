@@ -25,7 +25,7 @@ export function savingsRows(getDb: () => TestDb, owner: () => string, defaults: 
     insertAccount: async (values: Insert<typeof savingsAccounts> & { name: string }) =>
       first(await getDb().insert(savingsAccounts).values({ userId: owner(), kind: "deposit", ...defaults.account, ...values }).returning()),
     insertCategory: async (values: Insert<typeof savingsCategories> & { name: string }) =>
-      first(await getDb().insert(savingsCategories).values({ userId: owner(), kind: "expense", color: "orange", ...defaults.category, ...values }).returning()),
+      first(await getDb().insert(savingsCategories).values({ userId: owner(), kind: "expense", ...defaults.category, ...values }).returning()),
     insertRule: async (values: Insert<typeof savingsRecurring> & { accountId: number; dayOfMonth: number }) =>
       first(await getDb().insert(savingsRecurring).values({ userId: owner(), kind: "expense", amount: 100, ...defaults.rule, ...values }).returning()),
     insertHolding: async (values: Insert<typeof savingsHoldings> & { accountId: number }) =>

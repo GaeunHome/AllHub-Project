@@ -67,7 +67,7 @@ export function ItemForm({ tripId, day = null, item, onDone, onCancel }: ItemFor
           <label htmlFor="trv-fixed-time" className="field-label">
             固定時間（選填）
           </label>
-          <InfoTip label="固定時間的說明">訂位或搭車這類不能改的時間。排在第一個就是這一天的開始；來不及時會標出晚幾分鐘。</InfoTip>
+          <InfoTip label="固定時間的說明">訂位或搭車這類不能改的時間</InfoTip>
         </span>
         <input id="trv-fixed-time" name="fixedTime" type="time" defaultValue={item?.fixedTime ?? ""} className="input" />
       </div>

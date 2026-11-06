@@ -13,6 +13,7 @@ import { isRealDateKey } from "@/core/time";
 import { TRAVEL_HREF, tripHref } from "../lib/urls";
 import { travelTags } from "../service/cache-tags";
 import { TripNotFoundError } from "../service/errors";
+import { addExpense, deleteExpense, settleTransfer, undoSettlement, updateExpense, type ExpenseInput } from "../service/expenses";
 import { addCheck, addComment, deleteCheck, deleteComment, setCheckDone } from "../service/extras";
 import { addItem, deleteItem, moveItem, updateItem, type ItemInput } from "../service/items";
 import { announceTripChange } from "../service/notices";
@@ -30,6 +31,15 @@ const itemFields = (formData: FormData): ItemInput => ({
   stayMinutes: formText(formData, "stayMinutes"),
   travelMinutes: formText(formData, "travelMinutes"),
   fixedTime: formText(formData, "fixedTime"),
+});
+
+const expenseFields = (formData: FormData): ExpenseInput => ({
+  title: formText(formData, "title"),
+  amount: formText(formData, "amount"),
+  currency: formText(formData, "currency"),
+  rate: formText(formData, "rate"),
+  paidBy: formUuid(formData, "paidBy"),
+  shares: formData.getAll("shares").map(String),
 });
 
 /** 格式不對的 id 跟別人的旅程一樣當作不存在 */
@@ -227,5 +237,61 @@ export async function deleteCheckAction(_prev: FormState, formData: FormData): P
     if (tripId === null) throw new TripNotFoundError();
     await deleteCheck(userId, tripId, idOf(formData, "checkId"));
     updateTags(travelTags.checks);
+  });
+}
+
+export async function addExpenseAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireModule("travel");
+  const tripId = formId(formData, "tripId");
+  return run("新增分帳", tripId, async () => {
+    if (tripId === null) throw new TripNotFoundError();
+    const { title } = await addExpense(user.id, tripId, expenseFields(formData));
+    updateTags(travelTags.expenses);
+    announce(user, tripId);
+    return `已記下「${title}」`;
+  });
+}
+
+export async function updateExpenseAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireModule("travel");
+  const tripId = formId(formData, "tripId");
+  return run("修改分帳", tripId, async () => {
+    if (tripId === null) throw new TripNotFoundError();
+    const { title } = await updateExpense(user.id, tripId, idOf(formData, "expenseId"), expenseFields(formData));
+    updateTags(travelTags.expenses);
+    announce(user, tripId);
+    return `已儲存「${title}」`;
+  });
+}
+
+export async function deleteExpenseAction(tripId: number, _prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireModule("travel");
+  return run("刪除分帳", tripId, async () => {
+    await deleteExpense(user.id, tripId, idOf(formData, "id"));
+    updateTags(travelTags.expenses);
+    announce(user, tripId);
+  });
+}
+
+export async function settleTransferAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireModule("travel");
+  const tripId = formId(formData, "tripId");
+  return run("結清分帳", tripId, async () => {
+    const [from, to, amount] = [formUuid(formData, "from"), formUuid(formData, "to"), Number(formData.get("amount"))];
+    if (tripId === null || !from || !to) throw new TripNotFoundError();
+    await settleTransfer(user.id, tripId, { from, to, amount });
+    updateTags(travelTags.expenses);
+    announce(user, tripId);
+  });
+}
+
+export async function undoSettlementAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireModule("travel");
+  const tripId = formId(formData, "tripId");
+  return run("復原結清", tripId, async () => {
+    if (tripId === null) throw new TripNotFoundError();
+    await undoSettlement(user.id, tripId, idOf(formData, "settlementId"));
+    updateTags(travelTags.expenses);
+    announce(user, tripId);
   });
 }

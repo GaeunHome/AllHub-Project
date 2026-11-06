@@ -66,7 +66,7 @@ describe("紀錄（savings_transactions）", () => {
   });
 
   it("分類只有收入與支出能用", async () => {
-    const [category] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "餐飲", color: "orange" }).returning();
+    const [category] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "餐飲" }).returning();
 
     expect(await failureOf(transaction({ kind: "transfer", counterAccountId: post, categoryId: category.id }))).toContain("savings_transactions_category");
     expect(await failureOf(transaction({ kind: "adjust", categoryId: category.id }))).toContain("savings_transactions_category");
@@ -87,12 +87,10 @@ describe("帳戶（savings_accounts）", () => {
     await account({ kind: "investment", monthlyPlan: 100, targetAmount: 100_000_000 });
   });
 
-  it("繳款日（1–31）與扣款帳戶只有信用卡能設，扣款帳戶不能是自己", async () => {
-    expect(await failureOf(account({ dueDay: 6 }))).toContain("savings_accounts_due_day");
-    expect(await failureOf(account({ kind: "credit", dueDay: 32 }))).toContain("savings_accounts_due_day");
+  it("扣款帳戶只有信用卡能設，不能是自己", async () => {
     expect(await failureOf(account({ payFromAccountId: deposit }))).toContain("savings_accounts_pay_from");
     expect(await failureOf(account({ id: 1000, kind: "credit", payFromAccountId: 1000 }))).toContain("savings_accounts_pay_from");
-    await account({ kind: "credit", dueDay: 31, payFromAccountId: deposit });
+    await account({ kind: "credit", payFromAccountId: deposit });
   });
 
   it("成本只有投資能設（0 到 1 億）；起始餘額在正負 1 億之間（信用卡的未繳是負的）", async () => {
@@ -111,7 +109,7 @@ describe("帳戶（savings_accounts）", () => {
     expect(await failureOf(account({ statementDay: 5 }))).toContain("savings_accounts_statement_day");
     expect(await failureOf(account({ kind: "credit", statementDay: 0 }))).toContain("savings_accounts_statement_day");
     expect(await failureOf(account({ autopay: true }))).toContain("savings_accounts_autopay");
-    await account({ kind: "credit", statementDay: 31, dueDay: 20, autopay: true });
+    await account({ kind: "credit", statementDay: 31, autopay: true });
   });
 });
 
@@ -176,15 +174,11 @@ describe("信用卡帳單（savings_card_bills）", () => {
 });
 
 describe("分類", () => {
-  it("顏色只能是色盤裡的", async () => {
-    expect(await failureOf(getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "餐飲", color: "pink" as "blue" }))).toContain("savings_categories_color");
-  });
-
   it("預算只有支出能設，1 元到 1 億", async () => {
     const category = (values: Partial<typeof savingsCategories.$inferInsert>) =>
       getDb()
         .insert(savingsCategories)
-        .values({ userId: me, kind: "expense", name: "分類", color: "blue", ...values });
+        .values({ userId: me, kind: "expense", name: "分類", ...values });
 
     expect(await failureOf(category({ kind: "income", monthlyBudget: 100 }))).toContain("savings_categories_budget");
     expect(await failureOf(category({ monthlyBudget: 0 }))).toContain("savings_categories_budget");
@@ -198,9 +192,9 @@ describe("名稱：同一個人不能重複（分類是同一類裡），別人�
     expect(await failureOf(account({ name: "國泰", kind: "credit" }))).toContain("savings_accounts_user_name_idx");
     await account({ name: "國泰", userId: other });
 
-    await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "其他", color: "slate" });
-    expect(await failureOf(getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "其他", color: "blue" }))).toContain("savings_categories_user_kind_name_idx");
-    await getDb().insert(savingsCategories).values({ userId: me, kind: "income", name: "其他", color: "slate" });
+    await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "其他" });
+    expect(await failureOf(getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "其他" }))).toContain("savings_categories_user_kind_name_idx");
+    await getDb().insert(savingsCategories).values({ userId: me, kind: "income", name: "其他" });
   });
 });
 
@@ -212,7 +206,7 @@ describe("固定收支（savings_recurring）", () => {
   });
 
   it("轉帳一定要有不同的轉入帳戶、不能有分類；不能是調整", async () => {
-    const [category] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "訂閱", color: "violet" }).returning();
+    const [category] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "訂閱" }).returning();
 
     expect(await failureOf(rule({ kind: "transfer" }))).toContain("savings_recurring_counter");
     expect(await failureOf(rule({ kind: "transfer", counterAccountId: deposit }))).toContain("savings_recurring_counter");

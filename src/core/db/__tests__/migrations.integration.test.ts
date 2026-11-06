@@ -113,7 +113,14 @@ const statementsOf = (tag: string) =>
 
 // 部署時舊程式還在跑 刪表 刪欄位或改名會讓它出錯
 // 例外要使用者同意那一版直接收斂 照 migration 名稱逐條列在這裡 代價寫在 docs/deploy.md
-const ALLOWED_CONVERGENCE: Record<string, string[]> = {};
+const ALLOWED_CONVERGENCE: Record<string, string[]> = {
+  // 使用者要的 資料表整理 這三欄下一版才刪 這裡先讓新程式不用寫它們
+  "0001_tidy_and_new_tables": [
+    'ALTER TABLE "savings_categories" ALTER COLUMN "color" DROP NOT NULL;',
+    'ALTER TABLE "twitch_stream_events" ALTER COLUMN "type" DROP NOT NULL;',
+    'ALTER TABLE "youtube_translations" ALTER COLUMN "batches" DROP NOT NULL;',
+  ],
+};
 
 describe("基準檔之後的 migration 都只擴充（明列的收斂例外除外）", () => {
   const pending = journal().entries.filter((entry) => entry.tag !== BASELINE);
@@ -136,6 +143,41 @@ describe("基準檔之後的 migration 都只擴充（明列的收斂例外除�
 });
 
 // 刪除帳號時各表的外鍵 在 src/account-deletion.integration.test.ts 從資料庫的約束動態列出來檢查
+describe("資料表整理的回填", { timeout: 30_000 }, () => {
+  it("三家 AI 的金鑰拆成一人一家一列 沒設定的那一家不寫 舊的關台紀錄刪掉 開台的留著", async () => {
+    const [baseline] = readMigrationFiles({ migrationsFolder: MIGRATIONS });
+    for (const statement of baseline.sql) await client.exec(statement);
+    await insertUser(USERS.early, "early");
+    await client.query(`insert into youtube_settings (user_id, provider, anthropic_key, anthropic_model, gemini_model) values ($1, 'anthropic', 'v1:cipher', 'claude-x', 'gemini-x')`, [USERS.early]);
+    await client.exec(`insert into twitch_stream_events (message_id, broadcaster_id, type) values ('on', '42', 'online'), ('off', '42', 'offline')`);
+    const [, tidy] = readMigrationFiles({ migrationsFolder: MIGRATIONS });
+
+    await client.transaction(async (tx) => {
+      for (const statement of tidy.sql) await tx.exec(statement);
+    });
+
+    const keys = await client.query<{ provider: string; api_key: string | null; model: string | null }>(`select provider, api_key, model from youtube_ai_keys order by provider`);
+    expect(keys.rows).toEqual([
+      { provider: "anthropic", api_key: "v1:cipher", model: "claude-x" },
+      { provider: "gemini", api_key: null, model: "gemini-x" },
+    ]);
+    expect((await client.query(`select message_id from twitch_stream_events`)).rows).toEqual([{ message_id: "on" }]);
+  });
+
+  it("舊程式在部署空窗期照樣寫得進去 新程式不寫的欄位可以是空的", async () => {
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+    await insertUser(USERS.early, "early");
+
+    await client.query(`insert into savings_categories (user_id, kind, name, color) values ($1, 'expense', '舊程式', 'blue')`, [USERS.early]);
+    await client.query(`insert into savings_categories (user_id, kind, name) values ($1, 'expense', '新程式')`, [USERS.early]);
+    await client.exec(`insert into twitch_stream_events (message_id, broadcaster_id, type) values ('old', '42', 'online')`);
+    await client.exec(`insert into twitch_stream_events (message_id, broadcaster_id) values ('new', '42')`);
+    await client.exec(`insert into youtube_translations (video_id, source_kind, source_cues, translated) values ('video000001', 'manual', '[]', '[]')`);
+
+    expect((await client.query(`select 1 from savings_categories`)).rows).toHaveLength(2);
+  });
+});
+
 describe("模組內資料之間的外鍵與唯一限制", { timeout: 30_000 }, () => {
   beforeEach(async () => {
     await migrate(db, { migrationsFolder: MIGRATIONS });

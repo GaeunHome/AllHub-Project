@@ -47,6 +47,7 @@ export type RecurringDraft = EntryValues & {
   mode: RecurringMode;
   holdingId: number | null;
   allocate: boolean;
+  subscription: boolean;
   active: boolean;
   lastPostedMonth: string | null;
   createdAt: string;

@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { auditCron } from "@/core/audit-cron";
+import { coreCronLabels } from "@/core/cron";
 import { notificationsCron } from "@/core/notifications/cron";
 import { cronTasks } from "../cron";
+import { modules } from "../index";
 
 const { crons } = JSON.parse(readFileSync(new URL("../../../vercel.json", import.meta.url), "utf8")) as { crons: { path: string; schedule: string }[] };
 
@@ -11,6 +13,12 @@ const { crons } = JSON.parse(readFileSync(new URL("../../../vercel.json", import
 const MANUAL_ONLY: string[] = [];
 
 describe("排程清單", () => {
+  it("每個排程都有中文名稱 系統狀態頁才不會只看到代碼", () => {
+    const labels = [...modules.flatMap((module) => (module.crons ?? []).map((cron) => cron.id)), ...Object.keys(coreCronLabels)].sort();
+
+    expect(labels).toEqual([...Object.keys(cronTasks), ...Object.keys(notificationsCron), ...Object.keys(auditCron)].sort());
+  });
+
   it("登記的排程（模組的與 core 的 notifications:cleanup、audit:cleanup）跟 vercel.json 的路徑一一對應；只能手動跑的另外列", () => {
     const registered = [...Object.keys(cronTasks), ...Object.keys(notificationsCron), ...Object.keys(auditCron)];
     const scheduled = [...new Set(crons.map((c) => c.path))].sort();

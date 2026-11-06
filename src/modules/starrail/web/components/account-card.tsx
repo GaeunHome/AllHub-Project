@@ -136,7 +136,7 @@ export function AutoRedeemSetting({ account }: { account: StarrailAccountView })
   return (
     <SettingWithTip
       tipLabel="關於自動兌換"
-      tip={account.canAutoRedeem ? "每天中午把社群整理的新兌換碼用這個帳號兌換，兌換成功會通知你。" : "需要 cookie 裡的 cookie_token_v2：用「新增帳號或更新 cookie」重新貼上完整的 cookie。"}
+      tip={account.canAutoRedeem ? "每天中午自動兌換新的兌換碼，成功會通知你" : "cookie 少了 cookie_token_v2，請重新貼上"}
     >
       <ActionButton
         action={setAutoRedeemAction}
@@ -157,7 +157,7 @@ export function AutoRedeemSetting({ account }: { account: StarrailAccountView })
 /** 開拓力提醒另外看門檻 這裡只管每日實訓 每週內容與終局挑戰 */
 export function GameRemindersSetting({ account }: { account: StarrailAccountView }) {
   return (
-    <SettingWithTip tipLabel="關於每日、每週與終局提醒" tip="每日實訓、每週內容快重置還沒做完，或終局挑戰快結束還沒拿滿時通知你；開拓力提醒看門檻。">
+    <SettingWithTip tipLabel="關於每日、每週與終局提醒" tip="每日、每週內容與終局挑戰快到期時通知你">
       <ActionButton
         action={setGameRemindersAction}
         fields={{ accountId: account.id, enabled: String(!account.gameReminders) }}

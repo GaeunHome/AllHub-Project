@@ -5,6 +5,7 @@ import { Fragment, Suspense, type ReactNode } from "react";
 import { requireSession, usableModules } from "../auth";
 import { displayNameOf } from "../auth/nickname";
 import { pageModules, type ModuleInfo } from "../module";
+import { HomeAnnouncements } from "../announcements/home-announcements";
 import { HomeNotifications } from "../notifications/home-notifications";
 import { formatTaipeiLongDate } from "../time";
 import { QuietErrorBoundary } from "./card-error-boundary";
@@ -89,6 +90,12 @@ export function HomePage({ modules, notices, top, wide, half, compact }: HomePag
       <Suspense fallback={<HomeCardsSkeleton />}>
         <HomeCards top={top} wide={wide} half={half} compact={compact} />
       </Suspense>
+      {/* 公告不該拖累上面的卡片 讀不到也不留外框 */}
+      <QuietErrorBoundary>
+        <Suspense fallback={null}>
+          <HomeAnnouncements />
+        </Suspense>
+      </QuietErrorBoundary>
     </div>
   );
 }

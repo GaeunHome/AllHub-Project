@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { heroImage, todayText, weekRows } from "../weekly-view";
+import { heroImage, hourColumns, todayText, weekRows } from "../weekly-view";
 
 const day = (date: string, low: number | null, high: number | null, weather: string | null = "晴", rain: number | null = 10) => ({ date, weather, high, low, rain });
 
@@ -46,5 +46,19 @@ describe("todayText", () => {
 
   it("讀不到的不寫", () => {
     expect(todayText(day("2026-11-05", null, 18, null, null))).toBe("最高 18°");
+  });
+});
+
+describe("hourColumns：照日期分開的每小時", () => {
+  it("每一天各一組，寫出幾點，晚上的晴天是月亮", () => {
+    const columns = hourColumns([
+      { time: "2026-11-07T14:00", temperature: 22, rain: 10, weather: "晴" },
+      { time: "2026-11-07T20:00", temperature: 19, rain: null, weather: "晴" },
+      { time: "2026-11-08T05:00", temperature: 16, rain: 0, weather: "晴" },
+    ]);
+
+    expect(Object.keys(columns)).toEqual(["2026-11-07", "2026-11-08"]);
+    expect(columns["2026-11-07"].map(({ clock, art }) => [clock, art])).toEqual([["14:00", "sun"], ["20:00", "moon"]]);
+    expect(columns["2026-11-08"][0].art).toBe("moon");
   });
 });

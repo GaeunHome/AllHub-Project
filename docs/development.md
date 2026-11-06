@@ -10,9 +10,10 @@
 - **`DEV_EXTERNAL_ORIGIN`**：只在開發模式有效。`npm run build && npm start` 會忽略它，請求會送到真的服務。
 - **`DEV_CAPTCHA_CODE`**：登入與註冊有圖形驗證碼；本機想固定驗證碼（例如自動測試）時設成 5 個字，例如 `DEV_CAPTCHA_CODE=K7MRX`。只在開發模式有效，production 一定不會生效。
 - **`PUBLIC_BASE_URL`**：要指向開發伺服器（預設 `http://localhost:3000`），假的 WebSub hub 才回呼得到。開發伺服器換 port 時要一起改。
-- **假伺服器的設定**：下面兩個變數是假伺服器自己讀的，不讀 `.env.local`，要寫在指令前面，例如 `MOCK_AI_MS_PER_LINE=0 npm run mock:external`。
+- **假伺服器的設定**：下面的變數是假伺服器自己讀的，不讀 `.env.local`，要寫在指令前面，例如 `MOCK_AI_MS_PER_LINE=0 npm run mock:external`。
   - `MOCK_PORT`：改假伺服器的 port（預設 4010）。改了的話，`DEV_EXTERNAL_ORIGIN` 也要跟著改。
   - `MOCK_AI_MS_PER_LINE`：調整假 AI 的回應延遲。
+  - `MOCK_TDX_PER_MINUTE`：假 TDX 每分鐘的上限，超過回 429 與 `Retry-After`，平常不擋。改交通的讀取時設成 5（免費會員的上限），重開 `next dev` 清掉快取，看第一次打開會不會讀不到。
 - **重設本機資料**：資料存在 `.pglite/`（不進版控）。要重來就停掉 `db:local`、刪掉這個資料夾，再跑一次 `db:migrate` 與 `account create`。
 - **播放器**：觀看頁的 YouTube 播放器是瀏覽器直接向 youtube.com 載入的，不經過假伺服器。
 - **場景圖**：首頁、理財、管理、帳號的背景圖是 `public/images/scenes/` 的靜態 SVG，自己畫的，開發時也是真的圖；`public/images/` 要登入才讀得到，直接開網址會被導到登入頁。
@@ -43,6 +44,8 @@
 | 交通 | 捷運總時間 | `S2STravelTime` 跟真的一樣：臺北捷運與環狀線只列一個方向，每段 110 秒、停站 30 秒，第一段沒有停站時間；機場捷運是任兩站的累計時間，直達車另外一組。`from=BL06&to=R28` 寫約幾分鐘，含一次轉乘的 5 分鐘 |
 | 交通 | 公車 | 只有路線 307（`/transit?mode=bus&system=Taipei&line=307`），有每站的到站秒數、末班車已過的站與班距 |
 | 天氣 | 氣象署 F-D0047-091、Open-Meteo | 一週預報照今天的日期產生 |
+| 天氣 | 氣象署 F-D0047-089、Open-Meteo 的 `hourly` | 每小時預報：氣象署只有三天，溫度每小時一筆，降雨機率與天氣 3 小時一段；國外跟一週預報同一個回應，帶當地時區 |
+| 手機通知 | 推送服務 `/fcm/send/<id>` | 一律回 201，`id` 結尾是 `gone` 時回 410，網站會刪掉那支手機。瀏覽器的 `pushManager.subscribe` 連不到真的推送服務，本機只能看畫面與伺服器這一半 |
 | 旅遊 | Google Maps 短網址 `https://maps.app.goo.gl/mapshortabc` | 假伺服器轉到清水寺的完整網址，名稱與座標自動帶入；`mapshortbroken` 回 500，要手動填名稱 |
 | 天氣 | 背景圖 | 照現在這一段的天氣描述：臺北市是雷雨、臺中市這類 `dry` 的縣市看得到晴天或多雲；白天或晚上看的是現在這一段的開始時間 |
 | 天氣 | 授權碼 `bad` 開頭（`CWA_API_KEY`、`MOENV_API_KEY`） | 回 401，像授權碼打錯 |

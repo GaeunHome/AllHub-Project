@@ -1,5 +1,5 @@
 import type { StationGroup } from "../lib/station-groups";
-import { matchesStation, plainName } from "../lib/station-search";
+import { isSameStation, matchesStation, plainName } from "../lib/station-search";
 import type { Station } from "../lib/timetable";
 
 /** 平常先列常用再列分組 讀不到分組時列完整清單 沒有站的區塊不留 */
@@ -8,9 +8,12 @@ function allSections(stations: Station[], groups: StationGroup[], frequent: Stat
   return [{ id: "frequent", name: "常用", stations: frequent }, ...listed].filter((section) => section.stations.length > 0);
 }
 
-/** 打字時只留對得上的站 同一站只列一次 常用排前面 */
-export function pickerSections(stations: Station[], groups: StationGroup[], frequent: Station[], query: string): StationGroup[] {
-  const sections = allSections(stations, groups, frequent);
+const withoutStation = (sections: StationGroup[], except: Station) => sections.map((section) => ({ ...section, stations: section.stations.filter((station) => !isSameStation(station, except)) })).filter((section) => section.stations.length > 0);
+
+/** except 是另一端選好的站 使用者要的 起站選了台北 迄站就不列台北 打字時只留對得上的站 同一站只列一次 常用排前面 */
+export function pickerSections(stations: Station[], groups: StationGroup[], frequent: Station[], query: string, except: Station | null = null): StationGroup[] {
+  const all = allSections(stations, groups, frequent);
+  const sections = except ? withoutStation(all, except) : all;
   if (plainName(query) === "") return sections;
   const seen = new Set<string>();
   const firstMatches = (station: Station) => {

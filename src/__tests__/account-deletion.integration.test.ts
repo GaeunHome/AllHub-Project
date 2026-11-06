@@ -2,7 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { hashPassword } from "@/core/auth/credentials";
 import { deleteOwnAccount } from "@/core/auth/users";
-import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { insertTestUser, insertTestUsers, setupTestDb } from "@/dev/test-db";
 
 // 刪除帳號跟各模組的資料表只靠外鍵連在一起
 // core 不能 import 模組 所以跨模組的檢查放在 src 底下
@@ -42,8 +42,9 @@ async function seedEverything(userId: string, n: number) {
   const channel = `UC${String(n).repeat(22)}`;
   await first(sql`insert into youtube_channels (channel_id, title) values (${channel}, '頻道')`);
   await first(sql`insert into youtube_follows (user_id, channel_id) values (${userId}, ${channel})`);
-  await first(sql`insert into youtube_settings (user_id, provider, anthropic_key) values (${userId}, 'anthropic', 'v1:cipher')`);
-  await first(sql`insert into youtube_translations (video_id, status, source_kind, source_cues, translated, batches, requested_by) values (${`video000000${n}`.slice(-11)}, 'done', 'manual', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, ${userId})`);
+  await first(sql`insert into youtube_settings (user_id, provider) values (${userId}, 'anthropic')`);
+  await first(sql`insert into youtube_ai_keys (user_id, provider, api_key) values (${userId}, 'anthropic', 'v1:cipher')`);
+  await first(sql`insert into youtube_translations (video_id, status, source_kind, source_cues, translated, requested_by) values (${`video000000${n}`.slice(-11)}, 'done', 'manual', '[]'::jsonb, '[]'::jsonb, ${userId})`);
   // 兩個人都保留同一支影片 刪掉一個人的清單不影響另一個人
   await first(sql`insert into youtube_saved_videos (user_id, video_id, title, pinned) values (${userId}, 'dQw4w9WgXcQ', '影片', true)`);
   const game = await first(sql`insert into starrail_accounts (user_id, ltuid, cookie_encrypted, uid, region) values (${userId}, ${String(n)}, 'v1:cipher', ${`80000000${n}`}, 'prod_official_asia') returning id`);
@@ -52,8 +53,10 @@ async function seedEverything(userId: string, n: number) {
   await first(sql`insert into travel_members (trip_id, user_id) values (${trip.id}, ${userId})`);
   const stop = await first(sql`insert into travel_items (trip_id, position, kind, title, stay_minutes, travel_minutes) values (${trip.id}, 0, 'place', '清水寺', 60, 0) returning id`);
   await first(sql`insert into travel_comments (item_id, user_id, body) values (${stop.id}, ${userId}, '留言')`);
+  const spending = await first(sql`insert into travel_expenses (trip_id, paid_by, title, amount_cents, currency, rate_micros) values (${trip.id}, ${userId}, '晚餐', 100000, 'TWD', 1000000) returning id`);
+  await first(sql`insert into travel_expense_shares (expense_id, user_id) values (${spending.id}, ${userId})`);
   await first(sql`insert into starrail_redeem_codes (account_id, code, result) values (${game.id}, 'STARRAILGIFT', 'success')`);
-  const category = await first(sql`insert into savings_categories (user_id, kind, name, color, monthly_budget) values (${userId}, 'expense', '餐飲', 'orange', 6000) returning id`);
+  const category = await first(sql`insert into savings_categories (user_id, kind, name, monthly_budget) values (${userId}, 'expense', '餐飲', 6000) returning id`);
   const deposit = await first(sql`insert into savings_accounts (user_id, name, kind, opening_balance) values (${userId}, '存款', 'deposit', 1000) returning id`);
   const card = await first(sql`insert into savings_accounts (user_id, name, kind, statement_day, pay_from_account_id, opening_balance) values (${userId}, '信用卡', 'credit', 5, ${deposit.id}, -500) returning id`);
   const broker = await first(sql`insert into savings_accounts (user_id, name, kind) values (${userId}, '證券', 'investment') returning id`);
@@ -74,6 +77,7 @@ async function seedEverything(userId: string, n: number) {
   await first(sql`insert into weather_places (user_id, kind, name) values (${userId}, 'county', '臺南市')`);
   await first(sql`insert into transit_routes (user_id, mode, origin_id, origin_name, destination_id, destination_name) values (${userId}, 'thsr', '1000', '台北', '1070', '左營')`);
   await first(sql`insert into core_avatar_images (user_id, image) values (${userId}, '\xffd8ff'::bytea)`);
+  await first(sql`insert into core_push_subscriptions (endpoint, user_id, p256dh, auth) values (${`https://push.example/${n}`}, ${userId}, 'key', 'auth')`);
   await first(sql`insert into reminders_items (user_id, title, date, notify_days_before) values (${userId}, '繳房屋稅', '2026-11-30', 7)`);
   await first(sql`insert into core_notifications (user_id, module, kind, title) values (${userId}, 'twitch', 'stream_online', '開台了')`);
   await first(sql`insert into core_module_denials (user_id, module_id) values (${userId}, 'savings')`);
@@ -85,6 +89,10 @@ beforeEach(async () => {
   await first(sql`update core_users set password_hash = ${await hashPassword(PASSWORD)} where id = ${member}`);
   await seedEverything(member, 1);
   await seedEverything(owner, 2);
+  // 結清一定是兩個人之間 另一邊用第三個人 刪掉其中一個才不會動到另一個的列
+  const third = await insertTestUser(getDb(), "third");
+  const trip = await first(sql`select id from travel_trips limit 1`);
+  for (const userId of [member, owner]) await first(sql`insert into travel_settlements (trip_id, from_user, to_user, amount_twd) values (${trip.id}, ${userId}, ${third}, 100), (${trip.id}, ${third}, ${userId}, 100)`);
 });
 
 describe("刪除自己的帳號：外鍵指向 core_users 的資料一起刪除，共用的翻譯留下但不再連到他", () => {

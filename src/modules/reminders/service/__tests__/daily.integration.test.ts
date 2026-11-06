@@ -39,6 +39,34 @@ beforeEach(async () => {
   notify.mockClear();
 });
 
+describe("重複的提醒（reminders:daily）", () => {
+  it("每年的生日 到日子寄 日期過了不刪 明年還在", async () => {
+    await insertItem(getDb(), alice, { title: "媽媽生日", date: "2020-11-02", repeat: "yearly", notifyDaysBefore: 0 });
+
+    expect(await sendDailyReminders(MORNING)).toBe("寄出 1 則提醒");
+
+    expect(await titlesOf(alice)).toEqual(["今天：媽媽生日"]);
+    expect(await itemsOf(getDb(), alice)).toHaveLength(1);
+  });
+
+  it("每月的繳費 提前那天也寄 內文寫下一次的日期 不是第一次", async () => {
+    await insertItem(getDb(), alice, { title: "繳管理費", date: "2026-01-05", repeat: "monthly", notifyDaysBefore: 3 });
+
+    await sendDailyReminders(MORNING);
+
+    expect(await notificationsOf(alice)).toEqual([{ module: "reminders", kind: "due", title: "還有 3 天：繳管理費", body: "11/5", url: "/" }]);
+  });
+
+  it("不重複的日期過了照舊刪掉 重複的留著", async () => {
+    await insertItem(getDb(), alice, { title: "過期", date: YESTERDAY });
+    await insertItem(getDb(), alice, { title: "每月", date: YESTERDAY, repeat: "monthly", notifyDaysBefore: null });
+
+    expect(await sendDailyReminders(MORNING)).toBe("刪除 1 個過期的提醒");
+
+    expect((await itemsOf(getDb(), alice)).map((item) => item.title)).toEqual(["每月"]);
+  });
+});
+
 describe("到日子寄提醒（reminders:daily）", () => {
   it("當天：標題「今天：<標題>」、內文寫日期、連到首頁；只寄給擁有者", async () => {
     await insertItem(getDb(), alice, { title: "繳房屋稅", date: TODAY, notifyDaysBefore: 0 });

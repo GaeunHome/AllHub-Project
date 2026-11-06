@@ -1,4 +1,5 @@
 import { usableModules } from "../auth";
+import { pushKeys } from "../env";
 import type { NotificationModule } from "./notification-summary";
 import { AlertSettingsHelp, AlertSwitchTable, BrowserPermissionNotice, NotificationSettings } from "./settings";
 
@@ -18,5 +19,5 @@ export async function BellAlertSettings({ modules }: { modules: NotificationModu
 
 /** 通知頁 */
 export async function UsableNotificationSettings({ modules }: { modules: NotificationModule[] }) {
-  return <NotificationSettings modules={await usableModules(modules)} />;
+  return <NotificationSettings modules={await usableModules(modules)} pushKey={pushKeys()?.publicKey ?? null} />;
 }

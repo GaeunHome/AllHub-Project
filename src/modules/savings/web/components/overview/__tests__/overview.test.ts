@@ -289,7 +289,7 @@ describe("開始設定", () => {
     const lines = [...header.matchAll(/<p[^>]*>(.*?)<\/p>/g)].map((m) => textOf(m[1]));
 
     expect(lines).toEqual(["已完成 1/5"]);
-    expect(header).toMatch(/role="tooltip"[^>]*>照著做一遍，之後每個月照「這個月要做的事」做就好。/);
+    expect(header).toMatch(/role="tooltip"[^>]*>照著做一遍，之後每月照清單做/);
   });
 
   it("還沒有分類時，清單上面先有「開始使用」建預設分類", async () => {

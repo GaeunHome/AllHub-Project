@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ModuleInfo } from "../../module";
-import { cronViews, serviceViews } from "../status-view";
+import { cronViews, serviceViews, statusSummary } from "../status-view";
 
 const AT = new Date("2026-11-05T05:20:00Z");
 const EARLIER = new Date("2026-11-04T05:20:00Z");
@@ -57,7 +57,7 @@ describe("cronViews：排程清單", () => {
   });
 
   it("登記了但沒有紀錄的排程也列出來 才看得到它根本沒跑", () => {
-    expect(cronViews(["demo:never"], [])).toEqual([{ task: "demo:never", state: "none", at: null, durationMs: null, summary: null }]);
+    expect(cronViews(["demo:never"], [])).toEqual([{ task: "demo:never", label: "demo:never", state: "none", at: null, durationMs: null, summary: null }]);
   });
 
   it("已經拿掉的排程留下的紀錄不列", () => {
@@ -68,5 +68,28 @@ describe("cronViews：排程清單", () => {
     const rows = [run("demo:old", true, "完成", EARLIER), run("demo:new", true, "完成"), run("demo:warn", true, "1 個失敗"), run("demo:fail", false, "失敗")];
 
     expect(cronViews(["demo:never", "demo:old", "demo:new", "demo:warn", "demo:fail"], rows).map((view) => view.task)).toEqual(["demo:fail", "demo:warn", "demo:new", "demo:old", "demo:never"]);
+  });
+});
+
+describe("cronViews：排程的中文名稱", () => {
+  it("有登記中文名稱的用中文 沒有的退回代碼 不能整列空白", () => {
+    const views = cronViews(["demo:a", "demo:b"], [], { "demo:a": "開拓力提醒" });
+
+    expect(views.map((view) => view.label).toSorted()).toEqual(["demo:b", "開拓力提醒"].toSorted());
+  });
+});
+
+describe("statusSummary：最上面的總結", () => {
+  const ok = { state: "ok" } as const;
+  const none = { state: "none" } as const;
+
+  it("服務有問題 排程失敗或只成功一部分都算異常 還沒有紀錄的不算", () => {
+    const summary = statusSummary([{ state: "problem" }, ok, none], [{ state: "failed" }, { state: "warning" }, ok, none]);
+
+    expect(summary).toEqual({ problems: 3, services: 3, crons: 4 });
+  });
+
+  it("都正常時沒有異常", () => {
+    expect(statusSummary([ok], [ok]).problems).toBe(0);
   });
 });

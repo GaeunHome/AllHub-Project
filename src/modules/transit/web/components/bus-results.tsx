@@ -6,6 +6,7 @@ import { MODE_COLORS } from "../../lib/lines";
 import type { Read } from "../../service/timetable";
 import { searchHref, type SearchQuery } from "../search-query";
 import { AddRoute, CloseResults } from "./result-parts";
+import { EditSearchButton } from "./search-shell";
 
 function scheduleText(schedule: BusSchedule | null): string | null {
   if (!schedule) return null;
@@ -29,7 +30,10 @@ export function BusResults({ route, eta, schedule, query, canAdd }: BusResultsPr
       <header className="trn-bus-card">
         <div className="flex items-center justify-between gap-2">
           <p className="font-semibold">{city}公車</p>
-          <CloseResults query={query} className="trn-bus-close" />
+          <span className="flex shrink-0 items-center gap-1">
+            <EditSearchButton className="trn-bus-direction trn-bus-edit" />
+            <CloseResults query={query} className="trn-bus-close" />
+          </span>
         </div>
         <h2 className="trn-bus-line">{query.line}</h2>
         {note && <p className="tabular-nums">{note}</p>}

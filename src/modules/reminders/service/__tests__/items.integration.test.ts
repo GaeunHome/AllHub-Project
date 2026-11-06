@@ -21,6 +21,43 @@ beforeEach(async () => {
   [alice, bob] = await insertTestUsers(getDb());
 });
 
+describe("重複的提醒", () => {
+  it("新增時存下重複的方式", async () => {
+    await createItem(alice, { ...FIELDS, repeat: "monthly" }, NOW);
+
+    expect((await itemsOf(getDb(), alice))[0].repeat).toBe("monthly");
+  });
+
+  it("第一次的日期過了還是算在上限裡 也改得到", async () => {
+    await insertItems(getDb(), alice, 49, "2026-11-30");
+    await insertItem(getDb(), alice, { date: "2026-01-31", repeat: "monthly" });
+
+    await expect(createItem(alice, FIELDS, NOW)).rejects.toThrow("提醒已滿 50 個");
+  });
+
+  it("只改標題時日期還是畫面上那一次 第一次的日期不動 31 號才不會變成 30 號", async () => {
+    const item = await insertItem(getDb(), alice, { date: "2026-01-31", repeat: "monthly" });
+
+    await updateItem(alice, item.id, { title: "改標題", date: "2026-11-30", notify: "0", repeat: "monthly" }, NOW);
+
+    expect((await itemsOf(getDb(), alice))[0]).toMatchObject({ title: "改標題", date: "2026-01-31" });
+  });
+
+  it("改了日期或重複的方式 就從新的日期算", async () => {
+    const item = await insertItem(getDb(), alice, { date: "2026-01-31", repeat: "monthly" });
+
+    await updateItem(alice, item.id, { title: "繳費", date: "2026-11-15", notify: "0", repeat: "monthly" }, NOW);
+
+    expect((await itemsOf(getDb(), alice))[0].date).toBe("2026-11-15");
+  });
+
+  it("別人的 id 當作不存在", async () => {
+    const item = await insertItem(getDb(), alice, { date: "2026-01-31", repeat: "monthly" });
+
+    await expect(updateItem(bob, item.id, { ...FIELDS, repeat: "monthly" }, NOW)).rejects.toThrow(NOT_FOUND);
+  });
+});
+
 describe("新增提醒", () => {
   it("存的是正規化後的標題、日期與通知天數，寫給呼叫時傳進來的使用者", async () => {
     const created = await createItem(alice, { title: "  媽媽　　生日 ", date: "2026-11-30", notify: "7" }, NOW);
@@ -198,7 +235,7 @@ describe("讀取", () => {
     const items = await listItems(alice);
 
     expect(items.map((item) => item.title)).toEqual(["過期的", "同一天先建立的", "同一天後建立的", "十二月"]);
-    expect(items[1]).toEqual({ id: expect.any(Number), title: "同一天先建立的", date: "2026-11-05", notifyDaysBefore: null });
+    expect(items[1]).toEqual({ id: expect.any(Number), title: "同一天先建立的", date: "2026-11-05", notifyDaysBefore: null, repeat: "none" });
   });
 
   it("刪除帳號時一起刪除", async () => {

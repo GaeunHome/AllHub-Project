@@ -179,9 +179,9 @@ describe("enterCardBill（填帳單：金額與截止日照銀行的，跟紀錄
 
   it("補的刷卡可以選自己的支出分類；別人的分類、收入的分類_擋下，什麼都不寫", async () => {
     const { card } = await cathay();
-    const [food] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "餐飲", color: "orange" }).returning();
-    const [salary] = await getDb().insert(savingsCategories).values({ userId: me, kind: "income", name: "薪水", color: "green" }).returning();
-    const [theirs] = await getDb().insert(savingsCategories).values({ userId: other, kind: "expense", name: "別人的", color: "blue" }).returning();
+    const [food] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "餐飲" }).returning();
+    const [salary] = await getDb().insert(savingsCategories).values({ userId: me, kind: "income", name: "薪水" }).returning();
+    const [theirs] = await getDb().insert(savingsCategories).values({ userId: other, kind: "expense", name: "別人的" }).returning();
 
     expect(await userError(enterCardBill(me, billFields(card.id, { categoryId: String(theirs.id) }), NOW))).toBe("找不到這個分類，可能已經刪除了");
     expect(await userError(enterCardBill(me, billFields(card.id, { categoryId: String(salary.id) }), NOW))).toBe("分類跟收支類型不符");
@@ -271,8 +271,8 @@ describe("payCard 帶帳單金額（填這一期的帳單再記繳款，同一�
   it("一起填帳單時補的刷卡可以選自己的支出分類；別人的分類_擋下，連繳款也不寫", async () => {
     const living = await insertAccount({ name: "生活費帳戶", openingBalance: 80_000 });
     const card = await insertAccount({ name: "國泰卡", kind: "credit", openingBalance: -3000, statementDay: 5, payFromAccountId: living.id });
-    const [food] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "餐飲", color: "orange" }).returning();
-    const [theirs] = await getDb().insert(savingsCategories).values({ userId: other, kind: "expense", name: "別人的", color: "blue" }).returning();
+    const [food] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "餐飲" }).returning();
+    const [theirs] = await getDb().insert(savingsCategories).values({ userId: other, kind: "expense", name: "別人的" }).returning();
 
     expect(await userError(payCard(me, pay(card.id, living.id, { billAmount: "12,480", dueDate: "2026-10-20", categoryId: String(theirs.id) }), NOW))).toBe("找不到這個分類，可能已經刪除了");
     expect(await transactions()).toEqual([]);
@@ -359,7 +359,7 @@ describe("帳單紀錄、撤銷與修改", () => {
 
   it("補的刷卡只能改分類和備註（照原本送回金額與日期）；改金額或日期_擋下；補的調整不能改", async () => {
     const { card } = await cardWithBills();
-    const [food] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "餐飲", color: "orange" }).returning();
+    const [food] = await getDb().insert(savingsCategories).values({ userId: me, kind: "expense", name: "餐飲" }).returning();
     await enterCardBill(me, billFields(card.id), NOW);
     const [expense] = await reconciles();
     const same = { kind: "expense", accountId: String(card.id), counterAccountId: "", categoryId: String(food.id), amount: "9,480", date: "2026-10-05", note: "聚餐" };

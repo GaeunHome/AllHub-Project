@@ -7,10 +7,10 @@ import type { Quote } from "../lib/quotes";
 import type { CardBillRecord } from "../service/cards";
 
 /**
- * 總覽要的帳戶欄位 信用卡多了結帳日與自動扣繳 dueDay 只當第一張帳單截止日的預設
+ * 總覽要的帳戶欄位 信用卡多了結帳日與自動扣繳
  * label 是用途 cardStyle 是信用卡的卡面顏色 沒帶當成沒設
  */
-export type OverviewAccount = AccountLike & { statementDay: number | null; autopay: boolean; dueDay: number | null; label?: string | null; cardStyle?: CardStyle | null };
+export type OverviewAccount = AccountLike & { statementDay: number | null; autopay: boolean; label?: string | null; cardStyle?: CardStyle | null };
 
 export type AccountsInput = {
   accounts: OverviewAccount[];

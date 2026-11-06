@@ -9,7 +9,6 @@ import {
   HOLIDAY_RULES,
   INTERVAL_MONTHS,
   MAX_SHARES,
-  PALETTE,
   RECURRING_MODES,
   SYMBOL_PATTERN,
   TRANSACTION_KINDS,
@@ -18,7 +17,6 @@ import {
   type CategoryKind,
   type EntryKind,
   type HolidayRule,
-  type PaletteColor,
   type RecurringMode,
   type TransactionKind,
 } from "../lib/kinds";
@@ -45,7 +43,6 @@ export const savingsCategories = pgTable(
     userId: owner(),
     kind: text("kind").$type<CategoryKind>().notNull(),
     name: text("name").notNull(),
-    color: text("color").$type<PaletteColor>().notNull(),
     monthlyBudget: integer("monthly_budget"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: createdAt(),
@@ -55,7 +52,6 @@ export const savingsCategories = pgTable(
   (t) => [
     uniqueIndex("savings_categories_user_kind_name_idx").on(t.userId, t.kind, t.name),
     check("savings_categories_kind", oneOf(t.kind, CATEGORY_KINDS)),
-    check("savings_categories_color", oneOf(t.color, PALETTE)),
     check("savings_categories_budget", sql`${t.monthlyBudget} is null or (${t.kind} = 'expense' and ${t.monthlyBudget} between 1 and ${MAX})`),
   ],
 ).enableRLS();
@@ -74,8 +70,6 @@ export const savingsAccounts = pgTable(
     openingCost: integer("opening_cost"),
     monthlyPlan: integer("monthly_plan"),
     targetAmount: integer("target_amount"),
-    // 舊的繳款截止日設定 不再修改 只當第一張帳單截止日的預設 之後的版本刪掉
-    dueDay: smallint("due_day"),
     payFromAccountId: integer("pay_from_account_id").references((): AnyPgColumn => savingsAccounts.id, { onDelete: "set null" }),
     active: boolean("active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
@@ -98,7 +92,6 @@ export const savingsAccounts = pgTable(
     check("savings_accounts_opening_cost", sql`${t.openingCost} is null or (${t.kind} = 'investment' and ${t.openingCost} between 0 and ${MAX})`),
     check("savings_accounts_monthly_plan", sql`${t.monthlyPlan} is null or (${t.kind} <> 'credit' and ${t.monthlyPlan} between 1 and ${MAX})`),
     check("savings_accounts_target_amount", sql`${t.targetAmount} is null or (${t.kind} <> 'credit' and ${t.targetAmount} between 1 and ${MAX})`),
-    check("savings_accounts_due_day", sql`${t.dueDay} is null or (${t.kind} = 'credit' and ${t.dueDay} between 1 and 31)`),
     check("savings_accounts_pay_from", sql`${t.payFromAccountId} is null or (${t.kind} = 'credit' and ${t.payFromAccountId} <> ${t.id})`),
     check("savings_accounts_statement_day", sql`${t.statementDay} is null or (${t.kind} = 'credit' and ${t.statementDay} between 1 and 31)`),
     check("savings_accounts_autopay", sql`not ${t.autopay} or ${t.kind} = 'credit'`),
@@ -216,6 +209,8 @@ export const savingsRecurring = pgTable(
     allocate: boolean("allocate").notNull().default(false),
     // 到期通知寄到哪一天 排程用條件式 update 認領 同一天只寄一次
     lastNotifiedOn: date("last_notified_on", { mode: "string" }),
+    // 訂閱 例如 Netflix 每月固定頁自己一區 續訂前 3 天提醒
+    subscription: boolean("subscription").notNull().default(false),
   },
   (t) => [
     index("savings_recurring_user_id_idx").on(t.userId),
@@ -236,6 +231,7 @@ export const savingsRecurring = pgTable(
     // 定期定額要股數 薪水要實際金額 都只能確認
     check("savings_recurring_holding", sql`${t.holdingId} is null or (${t.kind} = 'transfer' and ${t.mode} = 'confirm')`),
     check("savings_recurring_allocate", sql`not ${t.allocate} or (${t.kind} = 'income' and ${t.mode} = 'confirm')`),
+    check("savings_recurring_subscription", sql`not ${t.subscription} or ${t.kind} = 'expense'`),
   ],
 ).enableRLS();
 

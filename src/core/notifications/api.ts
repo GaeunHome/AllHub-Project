@@ -4,6 +4,7 @@ import { currentSession, deniedModules, type SessionUser } from "../auth";
 import { expireTags } from "../cache";
 import { logError } from "../errors";
 import { MODULE_ID_PATTERN } from "../ids";
+import { isSameOrigin } from "../same-origin";
 import { notificationsTag } from "./cache-tags";
 import { cachedFeed } from "./cached";
 import { markAllNotificationsRead, markNotificationsRead } from "./service";
@@ -56,17 +57,5 @@ async function withSession(handle: (user: SessionUser) => Promise<Response>): Pr
     // 資料庫錯誤可能夾帶 SQL 或連線資訊 回應只給摘要 log 只記錯誤種類
     logError("notifications", "API 失敗", error);
     return json({ error: "暫時無法讀取通知" }, 500);
-  }
-}
-
-/** 跟 Server Action 一樣比對 Origin 與 Host 這個標頭由瀏覽器帶上 網頁的 JavaScript 改不了 */
-function isSameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return false;
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
   }
 }

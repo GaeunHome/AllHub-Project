@@ -44,6 +44,7 @@ const RECURRING_FIELDS = [
   "mode",
   "holdingId",
   "allocate",
+  "subscription",
 ] as const;
 const SALARY_FIELDS = ["accountId", "categoryId", "amount", "date", "note", "ruleId", "period"] as const;
 const HOLDING_FIELDS = ["accountId", "symbol", "shares", "cost"] as const;

@@ -27,7 +27,7 @@ let other: string;
 beforeEach(async () => {
   me = await insertTestUser(testDb, "alice", { role: "owner" });
   other = await insertTestUser(testDb, "bob");
-  const [category] = await testDb.insert(savingsCategories).values({ userId: me, kind: "expense", name: "訂閱", color: "violet" }).returning();
+  const [category] = await testDb.insert(savingsCategories).values({ userId: me, kind: "expense", name: "訂閱" }).returning();
   const [account] = await testDb.insert(savingsAccounts).values({ userId: me, name: "國泰", kind: "deposit" }).returning();
   const [rule] = await testDb.insert(savingsRecurring).values({ userId: me, kind: "expense", accountId: account.id, categoryId: category.id, amount: 390, dayOfMonth: 6, name: "Netflix" }).returning();
   await testDb.insert(savingsTransactions).values([

@@ -9,9 +9,11 @@ import { NoticeItem, NoticeStrip } from "../ui/notice-strip";
 import { PageBanner } from "../ui/page-banner";
 import { CardHeader } from "../ui/page-header";
 import { ListSkeleton, LoadingState, Skeleton } from "../ui/skeleton";
+import { cachedAnnouncements } from "../announcements/cached";
 import { inviteStatus } from "../auth/invites";
 import { displayNameOf } from "../auth/nickname";
 import { formatTaipeiHourMinute } from "../time";
+import { AnnouncementList } from "./announcement-list";
 import { cachedInvites, cachedUsers } from "./cached";
 import { CreateInviteForm } from "./create-invite-form";
 import { InviteList } from "./invite-list";
@@ -61,6 +63,16 @@ export function AdminPage({ modules }: { modules: ModuleInfo[] }) {
         <Suspense fallback={<ModuleAccessSkeleton />}>
           <ModuleAccessSection modules={modules} />
         </Suspense>
+
+        {/* 刪掉最後一則後清單不見 焦點落在這張卡片 */}
+        <section aria-labelledby="admin-announcements" {...FOCUS_FRAME} className="card stack">
+          <CardHeader id="admin-announcements" icon={<Icon name="bell" />}>
+            公告
+          </CardHeader>
+          <Suspense fallback={<ListSkeleton rows={2} label="載入公告…" />}>
+            <AnnouncementSection />
+          </Suspense>
+        </section>
       </div>
 
       <section aria-labelledby="admin-invites" className="card stack">
@@ -113,6 +125,13 @@ export async function LockedNotices() {
       ))}
     </NoticeStrip>
   );
+}
+
+export async function AnnouncementSection() {
+  await requireOwner();
+  // 有沒有結束要用這次請求的時間算 預先抓取時不能先算好
+  await connection();
+  return <AnnouncementList rows={await cachedAnnouncements()} now={new Date()} />;
 }
 
 export async function InviteSection({ modules }: { modules: ModuleInfo[] }) {

@@ -67,7 +67,7 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
           <div className="flex flex-col gap-1">
             <p className="flex items-center gap-1 font-semibold text-ink">
               還沒有銀行帳戶或信用卡
-              <InfoTip label="怎麼開始">先新增常用的銀行帳戶，填銀行 App 上的目前餘額；有信用卡也加進來，之後每期照帳單填。</InfoTip>
+              <InfoTip label="怎麼開始">先加銀行帳戶與信用卡，填 App 上的目前餘額</InfoTip>
             </p>
           </div>
         </div>

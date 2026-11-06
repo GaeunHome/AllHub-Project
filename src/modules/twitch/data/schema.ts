@@ -34,17 +34,21 @@ export const twitchFollows = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.streamerId] }), index("twitch_follows_streamer_id_idx").on(t.streamerId)],
 ).enableRLS();
 
-export const twitchStreamEvents = pgTable("twitch_stream_events", {
-  id: serial("id").primaryKey(),
-  /** Twitch 可能重送同一則通知 用 message id 去重 */
-  messageId: text("message_id").notNull().unique(),
-  broadcasterId: text("broadcaster_id").notNull(),
-  type: text("type", { enum: ["online", "offline"] }).notNull(),
-  title: text("title"),
-  category: text("category"),
-  startedAt: timestamp("started_at", { withTimezone: true }),
-  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
-}).enableRLS();
+/** 只記開台 關台只改主播的 is_live */
+export const twitchStreamEvents = pgTable(
+  "twitch_stream_events",
+  {
+    id: serial("id").primaryKey(),
+    /** Twitch 可能重送同一則通知 用 message id 去重 */
+    messageId: text("message_id").notNull().unique(),
+    broadcasterId: text("broadcaster_id").notNull(),
+    title: text("title"),
+    category: text("category"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("twitch_stream_events_broadcaster_id_idx").on(t.broadcasterId), index("twitch_stream_events_received_at_idx").on(t.receivedAt)],
+).enableRLS();
 
 export type TwitchStreamer = typeof twitchStreamers.$inferSelect;
 

@@ -87,7 +87,6 @@ export async function recentEvents(userId: string, limit = 20) {
     .from(twitchStreamEvents)
     .innerJoin(twitchStreamers, eq(twitchStreamers.broadcasterId, twitchStreamEvents.broadcasterId))
     .innerJoin(twitchFollows, and(eq(twitchFollows.streamerId, twitchStreamers.id), eq(twitchFollows.userId, userId)))
-    .where(eq(twitchStreamEvents.type, "online"))
     .orderBy(desc(twitchStreamEvents.receivedAt))
     .limit(limit);
 }
@@ -297,7 +296,6 @@ export async function handleNotification(
     .values({
       messageId,
       broadcasterId: event.broadcaster_user_id,
-      type: "online",
       startedAt: event.started_at ? new Date(event.started_at) : undefined,
     })
     .onConflictDoNothing({ target: twitchStreamEvents.messageId })

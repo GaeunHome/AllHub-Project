@@ -14,26 +14,6 @@ const URGENT_MS = 15_000;
 /** 前方先翻好這麼遠 看的時候才不會追上翻譯 之後再從頭補完給重看與下載 */
 const LOOKAHEAD_MS = 150_000;
 
-/** 批次太大容易漏句或被截斷 單句就超過字數上限時自成一批 才不會卡住 */
-export function planBatches(cues: Cue[], maxCues = MAX_CUES, maxChars = MAX_CHARS): Batch[] {
-  const batches: Batch[] = [];
-  let start = 0;
-  let chars = 0;
-
-  cues.forEach((cue, i) => {
-    const length = cue.text.length;
-    if (i > start && (i - start >= maxCues || chars + length > maxChars)) {
-      batches.push({ start, end: i });
-      start = i;
-      chars = 0;
-    }
-    chars += length;
-  });
-
-  if (start < cues.length) batches.push({ start, end: cues.length });
-  return batches;
-}
-
 const isPending = (translated: Translated, i: number) => translated[i] == null;
 
 /** 遇到翻好的句子就停 不重複花錢 單句超過字數上限也自成一批 才不會卡住 */
@@ -67,10 +47,4 @@ export function pickNextBatch(cues: Cue[], translated: Translated, positionMs?: 
   }
   const first = cues.findIndex((_, i) => isPending(translated, i));
   return first < 0 ? null : pendingRun(cues, translated, first, MAX_CUES);
-}
-
-/** next_batch 沿用從頭連續翻好幾批的意思 翻譯順序改由 pickNextBatch 決定 */
-export function countCompletedBatches(batches: Batch[], translated: Translated): number {
-  const index = batches.findIndex((batch) => Array.from({ length: batch.end - batch.start }, (_, k) => batch.start + k).some((i) => isPending(translated, i)));
-  return index < 0 ? batches.length : index;
 }

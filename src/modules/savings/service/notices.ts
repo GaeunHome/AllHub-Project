@@ -22,8 +22,14 @@ import { accountMonthFlows } from "./transactions";
 // service 不能 import 模組根目錄的 info 模組 id 寫在這裡
 const MODULE_ID = "savings";
 const PAGE = "/savings";
+
+/** 手機的鎖定畫面別人看得到 金額與名稱只留在鈴鐺裡 使用者要的 */
+export const LOCK_SCREEN_PUSH = { title: "理財有一件事要處理" };
+const RECURRING_PAGE = "/savings/recurring";
 // 信用卡在帳單的截止日前幾天提醒繳款
 const CARD_NOTICE_DAYS = 3;
+// 訂閱在續訂前幾天提醒 來得及取消
+const RENEWAL_NOTICE_DAYS = 3;
 
 export type NoticeResult = { sent: number; failed: number };
 
@@ -39,8 +45,16 @@ async function ruleTitle(rule: SavingsRecurring, accounts: { id: number; name: s
   return recurringTitle(rule, recurringNames({ accounts, categories, holdings }));
 }
 
-/** 某一期的日期是今天才寄 帳戶停用的不寄 待處理也不會列 */
-async function noticeRule(rule: SavingsRecurring, today: DateKey): Promise<boolean> {
+/** 續訂前 3 天的訂閱 或今天到期要確認的 都不是回 null 用游標判斷 提早確認過的那一期不再提醒 */
+function ruleNoticeOf(rule: SavingsRecurring, today: DateKey): { kind: "subscription_renewal"; date: DateKey } | { kind: "recurring_due" } | null {
+  const renewal = addDays(today, RENEWAL_NOTICE_DAYS);
+  if (rule.subscription && pendingOccurrences(rule, today, RENEWAL_NOTICE_DAYS).some((occurrence) => occurrence.date === renewal)) return { kind: "subscription_renewal", date: renewal };
+  if (rule.mode === "confirm" && pendingOccurrences(rule, today).some((occurrence) => occurrence.date === today)) return { kind: "recurring_due" };
+  return null;
+}
+
+/** 帳戶停用的不寄 待處理也不會列 */
+async function noticeRule(rule: SavingsRecurring, notice: NonNullable<ReturnType<typeof ruleNoticeOf>>, today: DateKey): Promise<boolean> {
   const ids = accountIdsOf(rule);
   const accounts = await db()
     .select({ id: savingsAccounts.id, name: savingsAccounts.name, active: savingsAccounts.active })
@@ -55,10 +69,12 @@ async function noticeRule(rule: SavingsRecurring, today: DateKey): Promise<boole
     .returning({ id: savingsRecurring.id });
   if (claimed.length === 0) return false;
 
+  const name = `${await ruleTitle(rule, accounts)} ${formatTwd(rule.amount)}`;
   // 薪水每月不一樣 提醒填實際的金額
-  const title = rule.allocate ? "今天發薪：記得確認實際金額" : `今天到期：${await ruleTitle(rule, accounts)} ${formatTwd(rule.amount)}`;
+  const dueTitle = rule.allocate ? "今天發薪：記得確認實際金額" : `今天到期：${name}`;
+  const title = notice.kind === "subscription_renewal" ? `${formatSlashDate(notice.date)} 續訂：${name}` : dueTitle;
   await sendOrRelease(
-    () => notify({ recipients: [rule.userId], module: MODULE_ID, kind: "recurring_due", title, url: PAGE }),
+    () => notify({ recipients: [rule.userId], module: MODULE_ID, kind: notice.kind, title, url: notice.kind === "subscription_renewal" ? RECURRING_PAGE : PAGE, push: LOCK_SCREEN_PUSH }),
     () => db().update(savingsRecurring).set({ lastNotifiedOn: rule.lastNotifiedOn }).where(and(eq(savingsRecurring.id, rule.id), eq(savingsRecurring.lastNotifiedOn, today))),
     RELEASE_LOG,
   );
@@ -93,7 +109,7 @@ async function noticeCards(userId: string, cards: NotifiableCard[], today: DateK
         .returning({ id: savingsAccounts.id });
       if (claimed.length === 0) continue;
       await sendOrRelease(
-        () => notify({ recipients: [userId], module: MODULE_ID, kind: notice.kind, title: notice.title, url: PAGE }),
+        () => notify({ recipients: [userId], module: MODULE_ID, kind: notice.kind, title: notice.title, url: PAGE, push: LOCK_SCREEN_PUSH }),
         () => db().update(savingsAccounts).set({ cardNotifiedOn: card.cardNotifiedOn }).where(and(eq(savingsAccounts.id, card.id), eq(savingsAccounts.cardNotifiedOn, today))),
         RELEASE_LOG,
       );
@@ -105,19 +121,20 @@ async function noticeCards(userId: string, cards: NotifiableCard[], today: DateK
   }
 }
 
-/** 要確認的固定收支今天到期 信用卡結帳隔天還沒填帳單 或帳單 3 天後截止還沒繳清 */
+/** 要確認的固定收支今天到期 訂閱 3 天後續訂 信用卡結帳隔天還沒填帳單 或帳單 3 天後截止還沒繳清 */
 export async function sendDueNotices(today: DateKey): Promise<NoticeResult> {
   const result: NoticeResult = { sent: 0, failed: 0 };
   const rules = await db()
     .select(getTableColumns(savingsRecurring))
     .from(savingsRecurring)
     .innerJoin(coreUsers, activeOwnerOf(savingsRecurring.userId, "savings"))
-    .where(and(eq(savingsRecurring.mode, "confirm"), eq(savingsRecurring.active, true)))
+    .where(and(or(eq(savingsRecurring.mode, "confirm"), eq(savingsRecurring.subscription, true)), eq(savingsRecurring.active, true)))
     .orderBy(asc(savingsRecurring.id));
   for (const rule of rules) {
-    if (!pendingOccurrences(rule, today).some((occurrence) => occurrence.date === today)) continue;
+    const notice = ruleNoticeOf(rule, today);
+    if (notice === null) continue;
     try {
-      if (await noticeRule(rule, today)) result.sent++;
+      if (await noticeRule(rule, notice, today)) result.sent++;
     } catch (error) {
       result.failed++;
       // 只記錯誤種類與 id 不記名稱與金額

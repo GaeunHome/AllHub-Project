@@ -40,7 +40,7 @@ export function TradeForm({ record, accounts, today, onDone, onCancel }: TradeFo
       <NoteField defaultValue={record.note} />
       <p className="flex items-center gap-1 text-sm font-medium text-ink">
         金額與股數不能在這裡改
-        <InfoTip label="金額與股數不能在這裡改的原因">要改金額或股數，請刪除後重記。</InfoTip>
+        <InfoTip label="金額與股數不能在這裡改的原因">要改請刪除後重記</InfoTip>
       </p>
       {!pending && <FormFeedback state={{ error: state.error }} />}
       <FormButtons pending={pending} onCancel={onCancel} label="儲存" pendingLabel="儲存中…" />

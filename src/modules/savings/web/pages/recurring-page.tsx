@@ -13,10 +13,11 @@ import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { OtherRecurringList } from "../components/recurring/other-recurring-list";
 import { RegularBuyList } from "../components/recurring/regular-buy-list";
 import { SalarySection } from "../components/recurring/salary-section";
+import { SubscriptionList } from "../components/recurring/subscription-list";
 import { SAVINGS_PATHS, type RecurringPreset } from "../paths";
 import { recurringPageView } from "../recurring-view";
 
-const PRESETS: readonly RecurringPreset[] = ["salary", "regular-buy", "other"];
+const PRESETS: readonly RecurringPreset[] = ["salary", "regular-buy", "subscription", "other"];
 
 /** 網址的 add 參數 認不得的不打開 */
 function presetFrom(raw: string | string[] | undefined): RecurringPreset | null {
@@ -24,7 +25,7 @@ function presetFrom(raw: string | string[] | undefined): RecurringPreset | null 
 }
 
 /**
- * 由上到下 薪水 定期定額 其他固定收支 每一條一張卡
+ * 由上到下 薪水 定期定額 訂閱 其他固定收支 每一條一張卡
  * 網址的 edit 只認自己的固定收支 別人的或不存在的不打開
  */
 export async function RecurringSection({ searchParams }: { searchParams: SearchParams }) {
@@ -65,6 +66,7 @@ export async function RecurringSection({ searchParams }: { searchParams: SearchP
     <div className="page-stack">
       <SalarySection items={view.salaries} form={view.form} salaryAccounts={view.salaryAccounts} allocationAccounts={view.allocationAccounts} openAdd={add === "salary"} openEditId={openEditId} />
       <RegularBuyList items={view.regularBuys} form={view.form} openAdd={add === "regular-buy"} openEditId={openEditId} />
+      <SubscriptionList items={view.subscriptions} monthly={view.subscriptionMonthly} form={view.form} openAdd={add === "subscription"} openEditId={openEditId} />
       <OtherRecurringList items={view.others} form={view.form} openAdd={add === "other"} openEditId={openEditId} />
     </div>
   );
@@ -95,6 +97,7 @@ function RecurringSkeleton() {
     <LoadingState label="載入每月固定…" className="page-stack">
       <SectionSkeleton cards={2} />
       <SectionSkeleton cards={1} />
+      <SectionSkeleton cards={2} />
       <SectionSkeleton cards={3} />
     </LoadingState>
   );

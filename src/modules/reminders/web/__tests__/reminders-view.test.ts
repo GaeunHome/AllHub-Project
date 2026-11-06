@@ -8,10 +8,19 @@ const NOON = new Date("2026-11-02T04:00:00Z");
 const NEXT_DAY = new Date("2026-11-02T16:10:00Z");
 
 let nextId = 1;
-const item = (date: string, title = "提醒"): ReminderItem => ({ id: nextId++, title, date, notifyDaysBefore: 0 });
+const item = (date: string, title = "提醒", repeat: ReminderItem["repeat"] = "none"): ReminderItem => ({ id: nextId++, title, date, notifyDaysBefore: 0, repeat });
 const dates = (rows: readonly { date: string }[]) => rows.map((row) => row.date);
 
 describe("首頁卡片的清單", () => {
+  it("重複的提醒照下一次的日期倒數與排序 第一次過了也還在", () => {
+    const view = remindersView([item("2026-01-05", "每月", "monthly"), item("2026-11-03", "明天")], NOON);
+
+    expect(view.shown.map((row) => [row.title, row.date, row.days])).toEqual([
+      ["明天", "2026-11-03", 1],
+      ["每月", "2026-11-05", 3],
+    ]);
+  });
+
   it("過期還沒刪的不顯示：日期當天還在，隔天就消失，不等排程", () => {
     const items = [item("2026-11-01"), item("2026-11-02"), item("2026-11-03")];
 

@@ -19,7 +19,7 @@ type OtherRecurringListProps = {
   openEditId?: number | null;
 };
 
-/** 房租 訂閱 電費這類 照下一期排 到期時確認與略過在卡片上 */
+/** 房租 電費這類 照下一期排 到期時確認與略過在卡片上 */
 export function OtherRecurringList({ items, form, openAdd = false, openEditId = null }: OtherRecurringListProps) {
   const add = useDialog();
   const addTrigger = useLinkedTrigger(add, openAdd, SAVINGS_PATHS.recurring);
@@ -36,7 +36,7 @@ export function OtherRecurringList({ items, form, openAdd = false, openEditId = 
       addForm={<RecurringForm preset="other" accounts={accounts} categories={form.categories} holdings={[]} today={form.today} onDone={add.done} onCancel={add.close} />}
       empty={
         items.length === 0 ? (
-          <p className="text-ink">{accounts.length > 0 ? "還沒有其他固定收支。房租、訂閱、電費這類每個月都有的，按「新增」設定後，到期時會提醒你確認。" : "先新增帳戶，才能設定固定收支。"}</p>
+          <p className="text-ink">{accounts.length > 0 ? "還沒有其他固定收支。房租、電費這類每個月都有的，按「新增」設定後，到期時會提醒你確認。" : "先新增帳戶，才能設定固定收支。"}</p>
         ) : undefined
       }
     >

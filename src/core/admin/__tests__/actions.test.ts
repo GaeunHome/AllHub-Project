@@ -14,7 +14,7 @@ const invites = mocksOf(await import("../../auth/invites"), "createInvite", "rev
 const { AdminUserError } = await import("../service");
 const service = mocksOf(await import("../service"), "setUserDisabled", "deleteUser", "unlockUser", "setModuleAccess");
 const { audit } = await import("@/dev/audit-stub");
-const { createInviteAction, deleteUserAction, revokeInviteAction, setModuleAccessAction, setUserDisabledAction, unlockUserAction } = await import("../actions");
+const { createAnnouncementAction, createInviteAction, deleteAnnouncementAction, deleteUserAction, revokeInviteAction, setModuleAccessAction, setUserDisabledAction, unlockUserAction, updateAnnouncementAction } = await import("../actions");
 const { INVALID_FORM_MESSAGE } = await import("../../form");
 
 const TOKEN = "T".repeat(43);
@@ -39,6 +39,9 @@ describe("只有站長能用", () => {
     ["setModuleAccessAction", setModuleAccessAction, { userId: MEMBER_ID, moduleId: "savings", allowed: "false" }],
     ["deleteUserAction", deleteUserAction, { userId: MEMBER_ID }],
     ["unlockUserAction", unlockUserAction, { userId: MEMBER_ID }],
+    ["createAnnouncementAction", createAnnouncementAction, { kind: "general", title: "公告" }],
+    ["updateAnnouncementAction", updateAnnouncementAction, { id: "1", kind: "general", title: "公告" }],
+    ["deleteAnnouncementAction", deleteAnnouncementAction, { id: "1" }],
   ];
 
   it.each(cases)("%s_不是站長（requireOwner 導向首頁）_在動到資料前就被擋下", async (_name, action, fields) => {

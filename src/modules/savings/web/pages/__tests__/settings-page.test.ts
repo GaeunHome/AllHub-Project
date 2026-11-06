@@ -18,8 +18,8 @@ const { SettingsPage, CategoriesLoader, LegacyLinkRedirect } = await import("../
 const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: true };
 const CREATED = new Date("2026-09-01T02:00:00Z");
 const CATEGORIES = [
-  { id: 11, userId: "u", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: 6000, sortOrder: 1, createdAt: CREATED, icon: "utensils" },
-  { id: 21, userId: "u", kind: "income", name: "薪水", color: "green", monthlyBudget: null, sortOrder: 2, createdAt: CREATED, icon: null },
+  { id: 11, userId: "u", kind: "expense", name: "餐飲", monthlyBudget: 6000, sortOrder: 1, createdAt: CREATED, icon: "utensils" },
+  { id: 21, userId: "u", kind: "income", name: "薪水", monthlyBudget: null, sortOrder: 2, createdAt: CREATED, icon: null },
 ];
 
 const hrefs = (markup: string) => [...markup.matchAll(/<a [^>]*href="([^"]+)"/g)].map((m) => m[1]);

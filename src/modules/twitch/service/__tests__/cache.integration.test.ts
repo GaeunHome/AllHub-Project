@@ -31,7 +31,7 @@ describe("Twitch 的快取讀取", () => {
   });
 
   it("cachedRecentEvents_讀了紀錄、主播名稱與追蹤三張表_三個 tag 都標", async () => {
-    await testDb.insert(twitchStreamEvents).values({ messageId: "m0", broadcasterId: "42", type: "online" });
+    await testDb.insert(twitchStreamEvents).values({ messageId: "m0", broadcasterId: "42" });
 
     expect((await cachedRecentEvents(me)).map((e) => e.displayName)).toEqual(["Alice"]);
     expect(tagged()).toEqual(["twitch:events", "twitch:follows", "twitch:streamers"]);

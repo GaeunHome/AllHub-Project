@@ -9,6 +9,7 @@ import {
   recurringTitle,
   scheduleText,
   scheduledDate,
+  subscriptionMonthlyTotal,
   type RecurringLike,
 } from "../recurring";
 
@@ -260,5 +261,19 @@ describe("recurringTitle（待處理與通知的名稱）", () => {
     expect(recurringTitle(base, names)).toBe("未分類");
     expect(recurringTitle({ ...base, kind: "transfer", counterAccountId: 2 }, names)).toBe("台銀 → 臺銀證券");
     expect(recurringTitle({ ...base, kind: "transfer", counterAccountId: 2, holdingId: 3 }, names)).toBe("006208 定期定額");
+  });
+});
+
+describe("subscriptionMonthlyTotal（訂閱每個月平均花多少）", () => {
+  it("年繳除以 12 再加上月繳：Netflix 每月 390 加上年繳 1,200 的 iCloud 是每月 490", () => {
+    expect(subscriptionMonthlyTotal([{ amount: 390, intervalMonths: 1 }, { amount: 1200, intervalMonths: 12 }])).toBe(490);
+  });
+
+  it("先加總再四捨五入：兩個 100 元的季繳每月 66.67 元，合起來是 67 元，不是各捨成 33 元的 66 元", () => {
+    expect(subscriptionMonthlyTotal([{ amount: 100, intervalMonths: 3 }, { amount: 100, intervalMonths: 3 }])).toBe(67);
+  });
+
+  it("沒有訂閱是 0", () => {
+    expect(subscriptionMonthlyTotal([])).toBe(0);
   });
 });

@@ -3,11 +3,14 @@ import { errorKind } from "@/core/errors";
 import { HttpStatusError, externalFetch } from "@/core/external-url";
 import type { Mode } from "./modes";
 
-// 交通部 TDX 免費會員一個月 3 點 軌道 API 1 點 1,500 次 所以讀取都要放快取 不能每次打開就問
+// 交通部 TDX 免費會員一個月 3 點 軌道 API 1 點 1,500 次 每把金鑰每分鐘只有 5 次
+// 所以讀取都要放快取 不能每次打開就問
 
 const BASE = "https://tdx.transportdata.tw/api/basic";
 const TOKEN_URL = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token";
 const REFRESH_MARGIN_MS = 60_000;
+/** 下一分鐘就有新的次數 比這更久的是這個月的額度用完了 等不到 */
+const MAX_WAIT_MS = 65_000;
 
 /** 換 token 被拒絕 是金鑰不對 不是 TDX 暫時出問題 */
 export class TdxKeyError extends HttpStatusError {
@@ -17,6 +20,8 @@ export class TdxKeyError extends HttpStatusError {
 let token: { value: string; expiresAt: number } | undefined;
 // 頁面會同時查好幾條路線 還沒有 token 時共用同一個請求
 let pendingToken: Promise<string> | undefined;
+// 被擋時大家一起等 不用每個都再問一次
+let blockedUntil = 0;
 
 async function requestToken(): Promise<string> {
   const { TDX_CLIENT_ID, TDX_CLIENT_SECRET } = transitEnv();
@@ -37,19 +42,44 @@ function accessToken(): Promise<string> {
   return pendingToken;
 }
 
-/** 測試之間清掉記在記憶體的 token */
-export function resetTdxToken(): void {
+/** 測試之間清掉記在記憶體的 token 與等待 */
+export function resetTdx(): void {
   token = undefined;
+  blockedUntil = 0;
 }
 
-export async function tdxGet(path: string, query: Record<string, string> = {}): Promise<unknown> {
-  const url = `${BASE}${path}?${new URLSearchParams({ $format: "JSON", ...query })}`;
-  const response = await externalFetch(url, { headers: { Authorization: `Bearer ${await accessToken()}`, Accept: "application/json" }, cache: "no-store" });
-  // token 可能提早失效 下一次重新拿
-  if (response.status === 401) token = undefined;
-  if (!response.ok) throw new HttpStatusError(response.status);
-  return response.json();
+const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+/** TDX 的上限是整分鐘算的 沒說要等多久就等到下一分鐘 */
+function retryDelayMs(response: Response, now: number): number {
+  const seconds = Number(response.headers.get("Retry-After"));
+  return seconds > 0 ? seconds * 1000 : 60_000 - (now % 60_000);
 }
+
+async function request(path: string, query: Record<string, string>, maxWaitMs: number): Promise<unknown> {
+  const url = `${BASE}${path}?${new URLSearchParams({ $format: "JSON", ...query })}`;
+  const giveUpAt = Date.now() + maxWaitMs;
+  for (;;) {
+    const now = Date.now();
+    if (blockedUntil > giveUpAt) throw new HttpStatusError(429);
+    if (blockedUntil > now) await pause(blockedUntil - now);
+    const response = await externalFetch(url, { headers: { Authorization: `Bearer ${await accessToken()}`, Accept: "application/json" }, cache: "no-store" });
+    // token 可能提早失效 下一次重新拿
+    if (response.status === 401) token = undefined;
+    if (response.status === 429) {
+      blockedUntil = Date.now() + retryDelayMs(response, Date.now());
+      continue;
+    }
+    if (!response.ok) throw new HttpStatusError(response.status);
+    return response.json();
+  }
+}
+
+/** 畫面少不了的資料 次數用完時等到下一分鐘 */
+export const tdxGet = (path: string, query: Record<string, string> = {}): Promise<unknown> => request(path, query, MAX_WAIT_MS);
+
+/** 票價 行車時間與即時校正是多的 次數用完時不等 不能卡住畫面 */
+export const tdxGetNow = (path: string, query: Record<string, string> = {}): Promise<unknown> => request(path, query, 0);
 
 /** 給站長看的摘要 不帶網址與 token */
 export function tdxProblem(error: unknown): string {

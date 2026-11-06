@@ -28,7 +28,7 @@ export async function addPlaceAction(_prev: FormState, formData: FormData): Prom
   });
 }
 
-/** 拖曳時不是表單 參數可能被改過 只收正整數 */
+/** 上移下移不是表單 參數可能被改過 只收正整數 */
 export async function movePlaceAction(id: number, beforeId: number | null): Promise<FormState> {
   const { id: userId } = await requireModule("weather");
   if (!Number.isSafeInteger(id) || (beforeId !== null && !Number.isSafeInteger(beforeId))) return { error: INVALID_FORM_MESSAGE };

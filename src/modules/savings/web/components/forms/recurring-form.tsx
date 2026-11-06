@@ -13,7 +13,7 @@ import { defaultIncomeCategory, nextRunText } from "../../form-math";
 import { pickAccount, pickOtherAccount } from "../../last-used";
 import { SAVINGS_PATHS, type RecurringPreset } from "../../paths";
 import { TransferAccounts, useEntryChoice } from "./entry-form";
-import { AccountSelect, AmountField, CategoryChips, DayOfMonthSelect, type SelectableAccount } from "./fields";
+import { AccountSelect, AmountField, CategoryChips, CheckboxField, DayOfMonthSelect, type SelectableAccount } from "./fields";
 import type { CategoryOption, HoldingOption, RecurringDraft } from "./options";
 import {
   PRESET_TYPES,
@@ -161,6 +161,8 @@ export function RecurringForm(props: RecurringFormProps) {
         {next}
       </p>
       <ModeSelect mode={mode} locked={locked ? LOCKED_HINTS[locked] : null} onChange={(value) => dispatch({ type: "mode", value })} />
+      {/* 以前記在其他固定收支的 Netflix 打勾就搬到訂閱 */}
+      {form.type === "expense" && <CheckboxField name="subscription" label="這是訂閱，續訂前 3 天提醒我" defaultChecked={rule ? rule.subscription : preset === "subscription"} />}
       {!pending && <FormFeedback state={{ error: state.error }} />}
       <FormButtons pending={pending} onCancel={onCancel} label={rule ? "儲存" : "新增"} pendingLabel={rule ? "儲存中…" : "新增中…"} icon={rule ? "check" : "plus"} disabled={(form.type === "transfer" && choice.cannotTransfer) || cannotRegular} />
     </form>

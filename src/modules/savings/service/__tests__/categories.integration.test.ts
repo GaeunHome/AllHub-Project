@@ -59,15 +59,6 @@ describe("createCategory", () => {
     expect(category).toMatchObject({ userId: me, kind: "expense", name: "餐飲", monthlyBudget: 6000, sortOrder: 3, icon: "utensils" });
   });
 
-  it("顏色由伺服器給（畫面不顯示，資料表要一個）_同一類自己還沒用過的第一個；收入與別人的不算", async () => {
-    await insertCategory({ name: "交通", color: "blue" });
-    await insertCategory({ name: "薪水", kind: "income", color: "teal" });
-    await insertCategory({ name: "別人的", color: "teal", userId: other });
-
-    expect(await createCategory(me, fields({ name: "餐飲" }))).toMatchObject({ color: "teal" });
-    expect(await createCategory(me, fields({ kind: "income", name: "獎金" }))).toMatchObject({ color: "blue" });
-  });
-
   it("沒選圖示_存成 null", async () => {
     expect(await createCategory(me, fields())).toMatchObject({ icon: null });
   });
@@ -113,7 +104,6 @@ describe("updateCategory", () => {
     expect(await updateCategory(me, food.id, fields({ kind: "income", name: "吃飯", monthlyBudget: "", icon: "coffee" }))).toMatchObject({
       kind: "expense",
       name: "吃飯",
-      color: "orange",
       monthlyBudget: null,
       icon: "coffee",
     });
@@ -128,9 +118,9 @@ describe("updateCategory", () => {
   });
 
   it("資料庫裡還是灰色的分類（舊資料）_照樣改得了，顏色留著", async () => {
-    const cash = await insertCategory({ name: "提領現金", color: "slate", monthlyBudget: 3000 });
+    const cash = await insertCategory({ name: "提領現金", monthlyBudget: 3000 });
 
-    expect(await updateCategory(me, cash.id, fields({ name: "領現金", monthlyBudget: "3000" }))).toMatchObject({ name: "領現金", color: "slate" });
+    expect(await updateCategory(me, cash.id, fields({ name: "領現金", monthlyBudget: "3000" }))).toMatchObject({ name: "領現金" });
   });
 
   it("收入分類_送來的預算忽略", async () => {

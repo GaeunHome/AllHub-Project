@@ -45,23 +45,11 @@ describe("defaultDueDate（填帳單時截止日的預設是帳單上印的日�
     ["2026-10-05", bill(1, "2026-09-05", "2026-09-25", 1000), "2026-10-25", "10/25 是週日 還是寫印的日子 順延交給 payableDueDate"],
     ["2026-09-30", bill(1, "2026-07-31", "2026-08-31", 1000), "2026-10-31", "9/30 之後的第一個 31 日是 10/31（六） 不順延"],
   ])("%s 結帳、上一張帳單的截止日是 %j_預設 %s（%s）", (statementDate, previous, expected) => {
-    expect(defaultDueDate(statementDate, [previous], null)).toBe(expected);
+    expect(defaultDueDate(statementDate, [previous])).toBe(expected);
   });
 
   it("上一張是這一期之前最新的那張：8/22 與 9/21 截止的兩張，10/5 結帳照 21 日 → 10/21", () => {
-    expect(defaultDueDate("2026-10-05", [bill(2, "2026-09-05", "2026-09-21", 1000), bill(1, "2026-08-05", "2026-08-22", 1000)], null)).toBe("2026-10-21");
-  });
-
-  it("有上一張帳單就照帳單，不看舊的截止日設定（18 日、設定是 25 日 → 11/18）", () => {
-    expect(defaultDueDate("2026-11-05", [bill(1, "2026-10-05", "2026-10-18", 1000)], 25)).toBe("2026-11-18");
-  });
-
-  it.each([
-    [20, "2026-10-20", "結帳日之後的 20 日"],
-    [3, "2026-11-03", "3 日在結帳日之前 換下個月"],
-    [25, "2026-10-25", "10/25 是週日 不順延"],
-  ])("還沒有帳單_用舊的截止日設定 %i 日：10/5 結帳 → %s（%s）", (dueDay, expected) => {
-    expect(defaultDueDate("2026-10-05", [], dueDay)).toBe(expected);
+    expect(defaultDueDate("2026-10-05", [bill(2, "2026-09-05", "2026-09-21", 1000), bill(1, "2026-08-05", "2026-08-22", 1000)])).toBe("2026-10-21");
   });
 
   it.each([
@@ -69,11 +57,11 @@ describe("defaultDueDate（填帳單時截止日的預設是帳單上印的日�
     ["2026-10-10", "2026-10-25", "10/25 是週日 不順延"],
     ["2026-12-20", "2027-01-04", "跨年"],
   ])("沒有帳單也沒有舊的設定_結帳後 15 天：%s → %s（%s）", (statementDate, expected) => {
-    expect(defaultDueDate(statementDate, [], null)).toBe(expected);
+    expect(defaultDueDate(statementDate, [])).toBe(expected);
   });
 
   it("同一期再填一次_預設上次填的截止日（照存的）", () => {
-    expect(defaultDueDate("2026-10-05", [bill(1, "2026-09-05", "2026-09-21", 1000), bill(2, "2026-10-05", "2026-10-25", 1200)], 20)).toBe("2026-10-25");
+    expect(defaultDueDate("2026-10-05", [bill(1, "2026-09-05", "2026-09-21", 1000), bill(2, "2026-10-05", "2026-10-25", 1200)])).toBe("2026-10-25");
   });
 });
 
@@ -196,18 +184,18 @@ describe("billDefaults（填帳單視窗的預設）", () => {
   it("有結帳日：填上次結帳那一期，金額照紀錄算到結帳日（結帳後的刷卡與繳款不算），截止日照上一張帳單的日子（別張卡的不算）", () => {
     const flows = [flow("2026-09-28", { expense: 3000 }), flow("2026-10-03", { expense: 2000 }), flow("2026-10-07", { expense: 1500 }), flow("2026-10-10", { transferIn: 4000 })];
 
-    expect(billDefaults({ id: 5, statementDay: 5, dueDay: null }, -7500, flows, "2026-10-15", [bill(1, "2026-09-05", "2026-09-21", 9000), bill(9, "2026-09-05", "2026-09-30", 1, 6)])).toEqual({
+    expect(billDefaults({ id: 5, statementDay: 5 }, -7500, flows, "2026-10-15", [bill(1, "2026-09-05", "2026-09-21", 9000), bill(9, "2026-09-05", "2026-09-30", 1, 6)])).toEqual({
       statementDate: "2026-10-05",
       estimate: 10_000,
       dueDate: "2026-10-21",
     });
   });
 
-  it("沒有結帳日：填的那天就是結帳日，金額照紀錄算到前一天（今天刷的 300 不算），還沒有帳單時截止日用舊的設定", () => {
-    expect(billDefaults({ id: 5, statementDay: null, dueDay: 25 }, -3800, [flow("2026-10-20", { expense: 300 })], "2026-10-20")).toEqual({
+  it("沒有結帳日：填的那天就是結帳日，金額照紀錄算到前一天（今天刷的 300 不算），還沒有帳單時截止日是結帳後 15 天", () => {
+    expect(billDefaults({ id: 5, statementDay: null }, -3800, [flow("2026-10-20", { expense: 300 })], "2026-10-20")).toEqual({
       statementDate: "2026-10-20",
       estimate: 3500,
-      dueDate: "2026-10-25",
+      dueDate: "2026-11-04",
     });
   });
 });

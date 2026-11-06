@@ -11,6 +11,31 @@ const GROUPS = [
 const ALL = [TAIPEI, BANQIAO, SHULIN];
 const summary = (sections: ReturnType<typeof pickerSections>) => sections.map((section) => [section.name, section.stations.map(({ name }) => name)]);
 
+describe("pickerSections：另一端已經選好的站", () => {
+  it("使用者要的：起站選了臺北 迄站就不列臺北 常用與分組都一樣", () => {
+    expect(summary(pickerSections(ALL, GROUPS, [TAIPEI], "", TAIPEI))).toEqual([["新北市", ["板橋", "樹林"]]]);
+  });
+
+  it("使用者要的：搜尋也找不到另一端選好的站", () => {
+    expect(summary(pickerSections(ALL, GROUPS, [], "台北", TAIPEI))).toEqual([]);
+  });
+
+  it("捷運的轉乘站同名不同代碼 台與臺同字 算同一站", () => {
+    const red = { id: "R10", name: "台北車站" };
+    const blue = { id: "BL12", name: "臺北車站" };
+    const lines = [
+      { id: "R", name: "淡水信義線", stations: [red, { id: "R11", name: "中正紀念堂" }] },
+      { id: "BL", name: "板南線", stations: [blue] },
+    ];
+
+    expect(summary(pickerSections([red, blue], lines, [], "", red))).toEqual([["淡水信義線", ["中正紀念堂"]]]);
+  });
+
+  it("另一端還沒選時全部列出", () => {
+    expect(summary(pickerSections(ALL, [], [], "", null))).toEqual([["全部車站", ["臺北", "板橋", "樹林"]]]);
+  });
+});
+
 describe("pickerSections：面板要列的區塊", () => {
   it("使用者要的：先常用 再分組", () => {
     expect(summary(pickerSections(ALL, GROUPS, [TAIPEI], ""))).toEqual([

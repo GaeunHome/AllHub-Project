@@ -70,6 +70,12 @@ describe("公車的查詢", () => {
   });
 });
 
+describe("parseSearch：起訖是同一站的網址", () => {
+  it("迄站當作沒選 畫面不會起訖都是同一站", () => {
+    expect(parseSearch({ mode: "tra", from: "1000", to: "1000" }, "2026-11-07")).toMatchObject({ from: "1000", to: "" });
+  });
+});
+
 describe("canSearch：起訖都選了才向 TDX 查", () => {
   it("捷運也要起訖兩站 而且不能一樣", () => {
     expect(canSearch({ mode: "metro", line: "", from: "BL06", to: "R28" })).toBe(true);

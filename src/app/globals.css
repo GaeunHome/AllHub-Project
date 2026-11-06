@@ -466,6 +466,72 @@
   .card-row {
     @apply px-5 py-3 sm:px-6;
   }
+  /* 首頁的公告 清單緊接著場景標題 種類靠圖示與文字分開 不只靠顏色 */
+  .announcement-list {
+    @apply -mt-4 overflow-hidden rounded-b-[calc(1rem-1px)] border-t-0;
+  }
+  .announcement-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "tile title mark" "tile meta mark";
+    @apply items-center gap-x-3 gap-y-1 py-3.5;
+  }
+  .announcement-tile {
+    grid-area: tile;
+    @apply size-10 rounded-xl;
+  }
+  [data-kind="outage"] .announcement-tile {
+    border-color: var(--danger-line);
+    color: var(--danger);
+    background-color: var(--danger-soft);
+  }
+  [data-kind="maintenance"] .announcement-tile {
+    border-color: var(--warning-line);
+    color: var(--warning);
+    background-color: var(--warning-soft);
+  }
+  /* 紅線畫在最上層 滑過時的底色才不會蓋掉 */
+  .announcement-list > [data-kind="outage"] {
+    position: relative;
+  }
+  .announcement-list > [data-kind="outage"]::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 1;
+    width: 4px;
+    background-color: var(--danger);
+  }
+  .announcement > summary {
+    cursor: pointer;
+    list-style: none;
+  }
+  .announcement > summary {
+    @apply hover:bg-surface-muted;
+  }
+  /* 清單會裁掉超出圓角的部分 焦點框往內畫 */
+  .announcement > summary:focus-visible {
+    outline-offset: -2px;
+  }
+  .announcement > summary::-webkit-details-marker {
+    display: none;
+  }
+  .announcement > summary::after {
+    content: "";
+    grid-area: mark;
+    width: 0.5em;
+    height: 0.5em;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: translateY(-0.15em) rotate(45deg);
+    transition: transform 150ms ease;
+  }
+  .announcement[open] > summary::after {
+    transform: translateY(0.1em) rotate(-135deg);
+  }
+  .announcement-body {
+    @apply max-w-3xl pt-1 pr-5 pb-4 pl-[4.5rem] leading-relaxed whitespace-pre-line text-ink sm:pr-6 sm:pl-[4.75rem];
+  }
   /* 卡片裡再小一級的區塊 例如統計面板與數字方塊 */
   .panel {
     @apply rounded-xl p-4;
@@ -649,6 +715,14 @@
     border-radius: 9999px;
     background-color: var(--muted);
   }
+  .status-dot-md {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+  .status-dot-lg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
   .status-dot-success {
     background-color: var(--success-dot);
   }
@@ -657,6 +731,46 @@
   }
   .status-dot-danger {
     background-color: var(--danger-dot);
+  }
+
+  /* 手機放不下四欄 每一列改成上下排 不用橫向捲動 */
+  .status-table {
+    @apply w-full border-collapse text-left;
+  }
+  .status-table thead {
+    @apply sr-only;
+  }
+  .status-table tr {
+    @apply grid gap-1 border-t border-line px-5 py-3 sm:px-6;
+  }
+  .status-table tbody tr:first-child {
+    @apply border-t-0;
+  }
+  .status-table th,
+  .status-table td {
+    @apply p-0 font-normal text-ink;
+  }
+  @media (width >= 64rem) {
+    .status-table thead {
+      @apply not-sr-only;
+    }
+    .status-table thead th {
+      @apply px-3 py-3 text-sm font-semibold first:pl-6 last:pr-6;
+    }
+    .status-table tr {
+      @apply table-row border-none p-0;
+    }
+    .status-table tbody tr {
+      @apply border-t border-line;
+    }
+    .status-table tbody th,
+    .status-table tbody td {
+      @apply px-3 py-3 align-top first:pl-6 last:pr-6;
+    }
+    .status-table tbody td:nth-child(2),
+    .status-table tbody td:nth-child(3) {
+      @apply whitespace-nowrap;
+    }
   }
 
   .form-message {

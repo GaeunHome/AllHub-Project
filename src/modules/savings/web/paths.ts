@@ -18,7 +18,7 @@ export const SAVINGS_PATHS = {
 export const addAccountPath = (kind: AccountKind) => (kind === "investment" ? `${SAVINGS_PATHS.investments}?add=investment` : `${SAVINGS_PATHS.accounts}?add=${kind}`);
 
 /** 每月固定頁新增時先選好的類型 */
-export type RecurringPreset = "salary" | "regular-buy" | "other";
+export type RecurringPreset = "salary" | "regular-buy" | "subscription" | "other";
 
 /** 打開每月固定頁就跳出新增的視窗 */
 export const addRecurringPath = (preset: RecurringPreset) => `${SAVINGS_PATHS.recurring}?add=${preset}`;

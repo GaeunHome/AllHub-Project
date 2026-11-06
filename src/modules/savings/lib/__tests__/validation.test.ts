@@ -550,7 +550,15 @@ describe("parseRecurringFields（固定收支）", () => {
     mode: "",
     holdingId: "",
     allocate: "",
+    subscription: "",
     ...fields,
+  });
+
+  it("支出才算訂閱：沒打勾是一般的固定收支，收入與轉帳直接 POST 也不會變成訂閱", () => {
+    expect(parseRecurringFields(rule({ subscription: "on" }))).toMatchObject({ ok: true, value: { subscription: true } });
+    expect(parseRecurringFields(rule())).toMatchObject({ ok: true, value: { subscription: false } });
+    expect(parseRecurringFields(rule({ kind: "income", subscription: "on" }))).toMatchObject({ ok: true, value: { subscription: false } });
+    expect(parseRecurringFields(rule({ kind: "transfer", counterAccountId: "2", subscription: "on" }))).toMatchObject({ ok: true, value: { subscription: false } });
   });
 
   it("每月 6 日的支出_沒填的間隔、假日規則、記帳方式是每月、照原日、到期請我確認", () => {
@@ -571,6 +579,7 @@ describe("parseRecurringFields（固定收支）", () => {
         mode: "confirm",
         holdingId: null,
         allocate: false,
+        subscription: false,
       },
     });
   });

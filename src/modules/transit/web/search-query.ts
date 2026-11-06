@@ -27,13 +27,15 @@ export function parseSearch(params: Record<string, string | string[] | undefined
   const system = one(params.system);
   const line = one(params.line);
   const shown = isMode(mode) ? mode : "thsr";
+  const from = station(params.from);
+  const to = station(params.to);
   return {
     mode: shown,
     system: shown === "bus" ? (isBusCity(system) ? system : "Taipei") : "",
     line: isBusLine(line) ? line : "",
     direction: one(params.dir) === "1" ? 1 : 0,
-    from: station(params.from),
-    to: station(params.to),
+    from,
+    to: to === from ? "" : to,
     date: dateFrom(one(params.date), today),
     time: CLOCK.test(one(params.time)) ? one(params.time) : "",
   };

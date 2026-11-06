@@ -4,6 +4,7 @@ import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
 import { Dialog, useDialog } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
+import { REPEAT_OPTIONS } from "../../lib/rules";
 import { deleteReminderAction } from "../actions";
 import type { DateLimits, ReminderRowView, RemindersView } from "../reminders-view";
 import { ReminderForm } from "./reminder-form";
@@ -73,9 +74,12 @@ function ReminderRow({ row, today, latest }: DateLimits & { row: ReminderRowView
         <p title={row.title} className="truncate font-medium text-ink">
           {row.title}
         </p>
-        <time dateTime={row.date} className="text-sm text-ink-soft tabular-nums">
-          {row.dateText}
-        </time>
+        <p className="flex flex-wrap items-center gap-x-2 text-sm text-ink-soft">
+          <time dateTime={row.date} className="tabular-nums">
+            {row.dateText}
+          </time>
+          {row.repeat !== "none" && <span className="chip">{REPEAT_OPTIONS.find(({ value }) => value === row.repeat)?.label}</span>}
+        </p>
         <span className="sr-only">{row.countdown}</span>
       </div>
       <MoreMenu label={`「${row.title}」的選項`}>

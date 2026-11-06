@@ -46,9 +46,9 @@ beforeEach(() => {
 
 describe("分類與預算", () => {
   const categories = [
-    { id: 11, name: "餐飲", kind: "expense" as const, color: "orange" as const, monthlyBudget: 6000, icon: "utensils" },
-    { id: 21, name: "薪水", kind: "income" as const, color: "green" as const, monthlyBudget: null, icon: "briefcase" },
-    { id: 12, name: "交通", kind: "expense" as const, color: "blue" as const, monthlyBudget: null, icon: null },
+    { id: 11, name: "餐飲", kind: "expense" as const, monthlyBudget: 6000, icon: "utensils" },
+    { id: 21, name: "薪水", kind: "income" as const, monthlyBudget: null, icon: "briefcase" },
+    { id: 12, name: "交通", kind: "expense" as const, monthlyBudget: null, icon: null },
   ];
   const card = () => render(createElement(CategoriesCard, { categories }));
 
@@ -62,7 +62,7 @@ describe("分類與預算", () => {
   });
 
   it("支出那一區的標題旁寫每月預算的合計（6,000 + 2,500）；沒設預算的不算，收入那一區沒有合計", () => {
-    const withBudgets = [...categories, { id: 13, name: "訂閱", kind: "expense" as const, color: "violet" as const, monthlyBudget: 2500, icon: null }];
+    const withBudgets = [...categories, { id: 13, name: "訂閱", kind: "expense" as const, monthlyBudget: 2500, icon: null }];
     const [expense, income] = cards(render(createElement(CategoriesCard, { categories: withBudgets })));
 
     expect(textOf(expense)).toContain("每月預算 $8,500");

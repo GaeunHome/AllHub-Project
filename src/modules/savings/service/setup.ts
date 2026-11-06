@@ -3,16 +3,16 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/core/db";
 import { lockUserRow } from "@/core/db/users";
 import { savingsCategories } from "../data/schema";
-import type { CategoryIcon, CategoryKind, PaletteColor } from "../lib/kinds";
+import type { CategoryIcon, CategoryKind } from "../lib/kinds";
 
-const DEFAULT_CATEGORIES: Record<CategoryKind, { name: string; color: PaletteColor; icon: CategoryIcon }[]> = {
-  income: [{ name: "薪水", color: "green", icon: "briefcase" }],
+const DEFAULT_CATEGORIES: Record<CategoryKind, { name: string; icon: CategoryIcon }[]> = {
+  income: [{ name: "薪水", icon: "briefcase" }],
   expense: [
-    { name: "餐飲", color: "orange", icon: "utensils" },
-    { name: "交通", color: "blue", icon: "bus" },
-    { name: "訂閱", color: "violet", icon: "repeat" },
+    { name: "餐飲", icon: "utensils" },
+    { name: "交通", icon: "bus" },
+    { name: "訂閱", icon: "repeat" },
     // 灰色留給未分類 青色是其他預設都沒用到的顏色
-    { name: "提領現金", color: "teal", icon: "banknote" },
+    { name: "提領現金", icon: "banknote" },
   ],
 };
 

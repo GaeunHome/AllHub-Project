@@ -4,7 +4,7 @@ import { coreUsers } from "@/core/db/schema";
 import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { mocksOf } from "@/dev/test-helpers";
-import { youtubeSettings, youtubeTranslations, youtubeVideos } from "../../data/schema";
+import { youtubeAiKeys, youtubeSettings, youtubeTranslations, youtubeVideos } from "../../data/schema";
 
 stubCoreEnv();
 
@@ -66,17 +66,10 @@ describe("startTranslation", () => {
 
     expect(result).toEqual({ ok: true });
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ videoId: VIDEO, status: "queued", sourceKind: "manual", title: "影片標題", nextBatch: 0 });
+    expect(row).toMatchObject({ videoId: VIDEO, status: "queued", sourceKind: "manual", title: "影片標題" });
     expect(row.sourceCues).toHaveLength(130);
     expect(row.translated).toEqual(Array(130).fill(null));
-    expect(row.batches).toEqual([
-      { start: 0, end: 30 },
-      { start: 30, end: 60 },
-      { start: 60, end: 90 },
-      { start: 90, end: 120 },
-      { start: 120, end: 130 },
-    ]);
-  });
+    });
 
   it("追蹤影片已有標題時不另外查", async () => {
     await getDb().insert(youtubeVideos).values({ videoId: VIDEO, channelId: "UC" + "a".repeat(22), title: "已知標題" });
@@ -102,7 +95,8 @@ describe("startTranslation", () => {
     await saveSettings({ provider: "gemini", keys: {}, clear: [], models: {}, glossaryText: "" });
     await expect(startTranslation(VIDEO)).rejects.toBeInstanceOf(ApiKeySetupError);
 
-    await getDb().update(youtubeSettings).set({ provider: "anthropic", anthropicKey: "v1.00000000.AAAA" });
+    await getDb().update(youtubeSettings).set({ provider: "anthropic" });
+    await getDb().insert(youtubeAiKeys).values({ userId: me, provider: "anthropic", apiKey: "v1.00000000.AAAA" }).onConflictDoUpdate({ target: [youtubeAiKeys.userId, youtubeAiKeys.provider], set: { apiKey: "v1.00000000.AAAA" } });
     await expect(startTranslation(VIDEO)).rejects.toBeInstanceOf(ApiKeySetupError);
   });
 
@@ -135,7 +129,7 @@ describe("uploadSubtitles", () => {
     await continueTranslation(VIDEO, { now });
     await uploadSubtitles(VIDEO, srt);
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ sourceKind: "upload", nextBatch: 0, status: "queued" });
+    expect(row).toMatchObject({ sourceKind: "upload", status: "queued" });
     expect(row.translated).toEqual([null, null]);
   });
 
@@ -176,7 +170,6 @@ describe("continueTranslation", () => {
     expect(translateBatch).toHaveBeenCalledTimes(2);
     expect(progress).toMatchObject({ status: "queued", done: 60, total: 130 });
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row.nextBatch).toBe(2);
     expect(row.translated[0]).toBe("中 문장 0");
     expect(row.translated[125]).toBeNull();
     expect(row.provider).toBe("anthropic");
@@ -209,7 +202,7 @@ describe("continueTranslation", () => {
     expect(progress.error).toContain("預期 30 句");
     expect(progress.error).toContain("重試");
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ status: "failed", lockId: null, nextBatch: 1 });
+    expect(row).toMatchObject({ status: "failed", lockId: null });
     expect(row.translated[0]).toBe("好");
   });
 
@@ -238,7 +231,7 @@ describe("continueTranslation", () => {
     expect(thrown).not.toBeInstanceOf(ApiKeySetupError);
     expect((thrown as Error).message).toContain(message);
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ status: "queued", lockId: null, error: null, nextBatch: 1 });
+    expect(row).toMatchObject({ status: "queued", lockId: null, error: null });
     expect(row.translated[0]).toBe("好");
   });
 
@@ -298,7 +291,7 @@ describe("continueTranslation", () => {
     await continueTranslation(VIDEO, { now });
     await restartTranslation(VIDEO);
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ status: "queued", nextBatch: 0, error: null });
+    expect(row).toMatchObject({ status: "queued", error: null });
     expect(row.translated.every((t) => t === null)).toBe(true);
   });
 
@@ -324,7 +317,7 @@ describe("continueTranslation：鎖的擁有權", () => {
     await continueTranslation(VIDEO, { now });
 
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ sourceKind: "upload", status: "queued", nextBatch: 0, translated: [null, null] });
+    expect(row).toMatchObject({ sourceKind: "upload", status: "queued", translated: [null, null] });
     expect(row.translated).toHaveLength(row.sourceCues.length);
     expect(translateBatch).toHaveBeenCalledOnce();
   });
@@ -338,7 +331,7 @@ describe("continueTranslation：鎖的擁有權", () => {
     await continueTranslation(VIDEO, { now });
 
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ status: "queued", nextBatch: 0 });
+    expect(row).toMatchObject({ status: "queued" });
     expect(row.translated).toEqual(Array(130).fill(null));
     expect(translateBatch).toHaveBeenCalledOnce();
   });
@@ -359,7 +352,7 @@ describe("continueTranslation：鎖的擁有權", () => {
 
     expect(retried?.status).toBe("done");
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ status: "done", nextBatch: 5, error: null });
+    expect(row).toMatchObject({ status: "done", error: null });
     expect(row.translated.every((t) => t?.startsWith("中 "))).toBe(true);
   });
 
@@ -376,7 +369,7 @@ describe("continueTranslation：鎖的擁有權", () => {
     expect(takeover?.status).toBe("done");
     expect(original).toMatchObject({ status: "done", busy: true });
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ status: "done", nextBatch: 5 });
+    expect(row).toMatchObject({ status: "done" });
     expect(row.translated.every((t) => t?.startsWith("中 "))).toBe(true);
     expect(translateBatch).toHaveBeenCalledTimes(6);
   });
@@ -397,7 +390,7 @@ describe("continueTranslation：鎖的擁有權", () => {
     expect(concurrent).toMatchObject({ status: "running", busy: true });
     expect(translateBatch).toHaveBeenCalledOnce();
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ status: "queued", nextBatch: 1 });
+    expect(row).toMatchObject({ status: "queued" });
   });
 });
 
@@ -420,7 +413,7 @@ describe("continueTranslation：觀看中（帶播放位置）", () => {
     expect(progress).toMatchObject({ status: "queued", done: 10, total: 130 });
     expect(progress.translated[20]).toBe("中 문장 20");
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ status: "queued", lockId: null, nextBatch: 0 });
+    expect(row).toMatchObject({ status: "queued", lockId: null });
     expect(row.translated.filter((t) => t !== null)).toHaveLength(10);
   });
 
@@ -448,7 +441,7 @@ describe("continueTranslation：觀看中（帶播放位置）", () => {
     expect(progress).toMatchObject({ status: "done", done: 130 });
     expect(progress?.translated.every((t) => t?.startsWith("中 "))).toBe(true);
     const [row] = await testDb.select().from(youtubeTranslations);
-    expect(row).toMatchObject({ status: "done", nextBatch: 5, lockId: null });
+    expect(row).toMatchObject({ status: "done", lockId: null });
   });
 
   it("拖到後面_下一次呼叫從新位置優先翻", async () => {

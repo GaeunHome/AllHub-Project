@@ -34,6 +34,7 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 | `CWA_API_KEY` | 選填，中央氣象署的授權碼，首頁的天氣卡片、早上的下雨提醒與天氣警特報用（見下方〈天氣的授權碼〉）；沒填時卡片說明要設定、不發下雨與警特報提醒 | Vercel |
 | `MOENV_API_KEY` | 選填，環境部的 API Key，天氣卡片的空氣品質用（見下方〈天氣的授權碼〉）；沒填時不顯示空氣品質 | Vercel |
 | `TDX_CLIENT_ID`、`TDX_CLIENT_SECRET` | 選填，交通部 TDX 的金鑰，交通頁用（見下方〈交通的金鑰〉）；沒填時交通頁只有說明 | Vercel |
+| `VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY` | 選填，手機通知用的一組金鑰（見下方〈手機通知的金鑰〉）；沒填時通知頁不顯示手機通知 | Vercel |
 | AI API Key、HoYoLAB cookie | 在網站上填，加密後存在資料庫，不是環境變數 | — |
 
 ## 天氣的授權碼
@@ -66,10 +67,20 @@ node -e "for(const[n,f]of[['SESSION_SECRET','base64'],['ENCRYPTION_KEY','base64'
 系統狀態頁寫「TDX 拒絕金鑰（401）」時是 Secret 不對，不是網站在海外被擋：重貼之後一定要到 Vercel 按 Redeploy，線上的程式才讀得到新的值。
 3. 貼到 Vercel 的環境變數，重新部署就會出現。
 
-- **額度**：免費會員一個月 3 點，大約一天 100～150 次。網站用快取省著用，票價每段路一天只讀一次，也只在分頁開著、快開車時才問即時資料；用量可以在 TDX 的會員中心看。
+- **額度**：免費會員一個月 3 點，大約一天 100～150 次，而且每把金鑰每分鐘只有 5 次。網站用快取省著用，部署後第一次打開要重讀車站，次數用完時會等到下一分鐘，票價每段路一天只讀一次，也只在分頁開著、快開車時才問即時資料；用量可以在 TDX 的會員中心看。
 - **車站資料讀不到**：站長到 `/admin/status` 看 TDX 那一列。寫「TDX 拒絕金鑰」時，重新複製 Client Id 與 Client Secret，貼到 Vercel（不要帶引號或空白），再重新部署。
 - **介面可能會改**：步驟照 2026 年 11 月的說明整理，按鈕名稱如果不一樣，找「API 金鑰」或「資料服務」相關的選項。
 - **授權條款**：TDX 的資料要標示出處，交通頁標題旁的 i 圓圈寫著資料來自交通部 TDX。
+
+## 手機通知的金鑰
+
+網站關著也要收到通知才需要這組金鑰，不用的話可以跳過。
+
+1. 在專案資料夾執行 `npx web-push generate-vapid-keys`，畫面上會出現兩個值。
+2. 到 Vercel 的環境變數新增 `VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY`，各貼一個值。
+3. 按 **Redeploy**。
+
+金鑰不用存在電腦上，也不要放進 repo。通知頁出現「手機通知」就是設定好了。
 
 ## 填到 Vercel
 
@@ -144,6 +155,7 @@ HoYoLAB cookie 與 AI API Key 是用 `ENCRYPTION_KEY` 加密的。密文會記�
 | `YOUTUBE_WEBSUB_SECRET` | 舊訂閱的推送會被忽略。要等 `youtube:renew` 在租約剩不到 2 天時用新密鑰續訂才會恢復，最多約 3–4 天。想立刻恢復的話，在重新部署後請追蹤這個頻道的每個人都取消追蹤（最後一個人取消時才會取消舊的訂閱），再重新追蹤 |
 | 資料庫密碼 | 在 Supabase 改密碼後，Vercel 的 `DATABASE_URL` 與 GitHub Secrets 的 `MIGRATION_DATABASE_URL` 都要換新 |
 | `TWITCH_CLIENT_SECRET` | 在 Twitch 後台產生新的再貼到 Vercel，不影響既有訂閱 |
+| `VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY` | 兩把要一起換。舊的訂閱全部失效，每支手機要到通知頁重新開啟 |
 
 把主播或頻道移除再加回時，通知開關會變回開啟；過去的紀錄不受影響。
 

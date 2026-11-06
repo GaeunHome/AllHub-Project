@@ -33,7 +33,7 @@ type ShowOptions = {
 
 export function showSystemNotification(item: NotificationItem, { NotificationImpl, onOpen, focus }: ShowOptions): Notification {
   // 同一則用同一個 tag 開好幾個分頁也只會留一個
-  const notification = new NotificationImpl(item.title, { body: item.body, tag: `allhub-notification-${item.id}`, icon: "/favicon.ico" });
+  const notification = new NotificationImpl(item.title, { body: item.body, tag: `allhub-notification-${item.id}`, icon: "/icons/app/192.png" });
   notification.onclick = (event) => {
     event.preventDefault();
     focus();

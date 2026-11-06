@@ -6,8 +6,8 @@ import { stubCoreEnv, stubTransitEnv } from "@/dev/test-env";
 stubCoreEnv();
 stubTransitEnv({ TDX_CLIENT_SECRET: "tdx-top-secret" });
 
-const { problemOf, readDepartures, readLive, readMetroFare, readMetroLines, readStations, readThsrFares, readTraFares, readTravelTimes } = await import("../timetable");
-const { resetTdxToken } = await import("../../lib/tdx");
+const { problemOf, readDepartures, readLive, readMetroFare, readMetroSystem, readStations, readThsrFares, readTraFares, readTravelTimes } = await import("../timetable");
+const { resetTdx } = await import("../../lib/tdx");
 
 const TOKEN = () => Response.json({ access_token: "the-token", expires_in: 86400 });
 
@@ -17,7 +17,7 @@ function stub(routes: Array<[RegExp, () => Response]>) {
   return fake;
 }
 
-beforeEach(() => resetTdxToken());
+beforeEach(() => resetTdx());
 
 describe("向 TDX 讀資料", () => {
   it("先換 token 再帶著它讀", async () => {
@@ -85,7 +85,7 @@ describe("向 TDX 讀資料", () => {
 
   it("429 寫出是額度用完 站長才知道為什麼", async () => {
     captureErrorLog();
-    stub([[/THSR\/Station/, () => new Response("", { status: 429 })]]);
+    stub([[/THSR\/Station/, () => new Response("", { status: 429, headers: { "Retry-After": "86400" } })]]);
 
     expect(await readStations("thsr", "")).toMatchObject({ problem: expect.stringContaining("額度") });
   });
@@ -99,11 +99,19 @@ describe("向 TDX 讀資料", () => {
 });
 
 describe("捷運每條線的車站", () => {
-  it("問這個系統的 StationOfLine", async () => {
-    const fake = stub([[/StationOfLine/, () => Response.json([{ LineNo: "R", Stations: [{ Sequence: 1, StationID: "R02" }] }])]]);
+  const LINE = { LineNo: "R", Stations: [{ Sequence: 1, StationID: "R02", StationName: { Zh_tw: "象山" } }] };
 
-    expect(await readMetroLines("TRTC")).toEqual({ ok: true, data: [{ id: "R", stationIds: ["R02"] }] });
-    expect(fake.urls.at(-1)).toContain("/v2/Rail/Metro/StationOfLine/TRTC");
+  it("一個系統只問一次 StationOfLine 站名與路線都在裡面 每分鐘只有 5 次", async () => {
+    const fake = stub([[/StationOfLine/, () => Response.json([LINE])]]);
+
+    expect(await readMetroSystem("TRTC")).toEqual({ ok: true, data: { stations: [{ id: "R02", name: "象山" }], lines: [{ id: "R", stationIds: ["R02"] }] } });
+    expect(fake.urls.filter((url) => url.includes("/Metro/"))).toEqual([expect.stringContaining("/v2/Rail/Metro/StationOfLine/TRTC")]);
+  });
+
+  it("轉乘站在同一個系統出現兩次時只算一站", async () => {
+    stub([[/StationOfLine/, () => Response.json([LINE, { LineNo: "R", LineID: "R-1", Stations: LINE.Stations }])]]);
+
+    expect(await readMetroSystem("TRTC")).toMatchObject({ ok: true, data: { stations: [{ id: "R02", name: "象山" }] } });
   });
 
   it("車站清單是空的_當成讀不到，不能在快取裡留一天", async () => {
@@ -112,17 +120,40 @@ describe("捷運每條線的車站", () => {
     expect(await readStations("metro", "NTMC")).toEqual({ ok: false, problem: "TDX 的車站資料是空的或格式不同" });
   });
 
-  it("介面失敗_回摘要 面板才退回完整清單", async () => {
+  it("介面失敗_回摘要", async () => {
     captureErrorLog();
     stub([[/StationOfLine/, () => new Response("", { status: 404 })]]);
 
-    expect(await readMetroLines("NTALRT")).toEqual({ ok: false, problem: "TDX 回 404" });
+    expect(await readMetroSystem("NTALRT")).toEqual({ ok: false, problem: "TDX 回 404" });
   });
 
-  it("欄位不同讀不出路線_當成讀不到 空的分組不能留在快取裡一天", async () => {
+  it("欄位不同讀不出路線_當成讀不到 空的不能留在快取裡一天", async () => {
     stub([[/StationOfLine/, () => Response.json([{ Unknown: true }])]]);
 
-    expect(await readMetroLines("TRTC")).toMatchObject({ ok: false });
+    expect(await readMetroSystem("TRTC")).toMatchObject({ ok: false });
+  });
+
+  it("沒有站名時也算讀不到 不能讓人選不了站還留一天", async () => {
+    stub([[/StationOfLine/, () => Response.json([{ LineNo: "R", Stations: [{ Sequence: 1, StationID: "R02" }] }])]]);
+
+    expect(await readMetroSystem("TRTC")).toMatchObject({ ok: false });
+  });
+});
+
+describe("每分鐘用完時 多的資料不等", () => {
+  const BUSY = () => new Response("", { status: 429 });
+
+  it.each([
+    ["高鐵票價", /THSR\/ODFare/, () => readThsrFares("1000", "1070")],
+    ["台鐵票價", /TRA\/ODFare/, () => readTraFares("1000", "4400")],
+    ["捷運票價", /Metro\/ODFare/, () => readMetroFare("TRTC", "BL12", "BL01")],
+    ["捷運行車時間", /S2STravelTime/, () => readTravelTimes("TRTC")],
+    ["即時資料", /LiveBoard/, () => readLive({ mode: "tra", system: "", line: "", originId: "1000", destinationId: "4400" }, new Date())],
+  ] as [string, RegExp, () => Promise<unknown>][])("%s：馬上回來 不佔著畫面", async (_name, route, read) => {
+    captureErrorLog();
+    stub([[route, BUSY]]);
+
+    expect(await read()).toMatchObject({ ok: false, problem: expect.stringContaining("429") });
   });
 });
 

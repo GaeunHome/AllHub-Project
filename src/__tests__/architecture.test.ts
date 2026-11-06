@@ -203,8 +203,10 @@ describe("架構規則", () => {
       "core/auth/register-page.tsx",
       "core/auth/session-guard.tsx",
       "core/cron.ts",
+      "core/manifest.ts",
       "core/notifications/api.ts",
       "core/notifications/notifications-page.tsx",
+      "core/push/api.ts",
       "core/robots.ts",
       "core/ui/app-shell.tsx",
       "core/ui/home-page.tsx",
@@ -289,7 +291,7 @@ describe("架構規則", () => {
 
   it("系統狀態：模組在 info.ts 宣告的外部服務跟實際回報的一一對應，不然站長頁面會多一盞永遠沒資料的燈，或回報了卻沒地方顯示", () => {
     const issues = moduleIds.flatMap((id) => {
-      const declared = [...read(`modules/${id}/info.ts`).matchAll(/id: "([a-z-]+:[a-z-]+)"/g)].map((match) => match[1]);
+      const declared = [...(read(`modules/${id}/info.ts`).match(/services: \[[\s\S]*?\]/)?.[0] ?? "").matchAll(/id: "([a-z-]+:[a-z-]+)"/g)].map((match) => match[1]);
       const reported = files.filter((file) => file.startsWith(`modules/${id}/service/`) && !file.endsWith(".test.ts")).flatMap((file) => [...read(file).matchAll(/(?:reportService|trackService)\("([^"]+)"/g)].map((match) => match[1]));
       const missing = declared.filter((service) => !reported.includes(service)).map((service) => `${id}：${service} 宣告了但沒有回報`);
       const extra = [...new Set(reported)].filter((service) => !declared.includes(service)).map((service) => `${id}：${service} 有回報但 info.ts 沒宣告`);

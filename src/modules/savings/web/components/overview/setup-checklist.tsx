@@ -12,11 +12,11 @@ import { Illustration } from "../illustration";
 import { setupCollapsedPref, setupSkippedPref } from "./overview-prefs";
 
 const STEPS: Record<SetupStep, { title: string; hint: string; href: string; action: string }> = {
-  deposit: { title: "新增銀行帳戶", hint: "填目前的餘額，從今天開始記。", href: addAccountPath("deposit"), action: "新增銀行帳戶" },
-  credit: { title: "新增信用卡", hint: "設定結帳日與扣款帳戶，結帳後會提醒你填帳單。", href: addAccountPath("credit"), action: "新增信用卡" },
-  investment: { title: "新增證券帳戶與持股", hint: "照券商 App 的庫存填股數與成本，市值照收盤價算。", href: addAccountPath("investment"), action: "新增證券帳戶" },
-  salary: { title: "設定薪水", hint: "發薪日與金額，入帳時一次分到各帳戶。", href: addRecurringPath("salary"), action: "設定薪水" },
-  recurring: { title: "設定每月固定支出", hint: "房租、訂閱、電費…到期時會提醒你確認。", href: addRecurringPath("other"), action: "新增固定支出" },
+  deposit: { title: "新增銀行帳戶", hint: "填目前的餘額", href: addAccountPath("deposit"), action: "新增銀行帳戶" },
+  credit: { title: "新增信用卡", hint: "設定結帳日與扣款帳戶", href: addAccountPath("credit"), action: "新增信用卡" },
+  investment: { title: "新增證券帳戶與持股", hint: "照券商 App 填股數與成本", href: addAccountPath("investment"), action: "新增證券帳戶" },
+  salary: { title: "設定薪水", hint: "入帳時一次分到各帳戶", href: addRecurringPath("salary"), action: "設定薪水" },
+  recurring: { title: "設定每月固定支出", hint: "房租、電費，到期時會提醒你", href: addRecurringPath("other"), action: "新增固定支出" },
 };
 
 /**
@@ -54,7 +54,7 @@ export function SetupChecklist({ view }: { view: SetupView }) {
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <h2 id={headingId} className="flex items-center gap-1 text-lg font-semibold text-ink">
             開始設定
-            <InfoTip label="開始設定的說明">{required ? "先新增一個帳戶，總資產與每個月要做的事就會出現在這裡。" : "照著做一遍，之後每個月照「這個月要做的事」做就好。"}</InfoTip>
+            <InfoTip label="開始設定的說明">{required ? "先加一個帳戶，總資產就會出現" : "照著做一遍，之後每月照清單做"}</InfoTip>
           </h2>
           <p className="font-medium text-ink">
             已完成 {done}/{view.status.length}

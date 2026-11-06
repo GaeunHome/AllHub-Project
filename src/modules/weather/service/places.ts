@@ -5,11 +5,10 @@ import { lockUserRow } from "@/core/db/users";
 import { UserError } from "@/core/form";
 import { weatherPlaces, type WeatherPlace } from "../data/schema";
 import { parsePlaceChoice } from "../lib/cities";
-import { movedIds } from "../lib/place-order";
+import { PLACE_LIMIT, movedIds } from "../lib/place-order";
 
 // userId 一律是登入者 表單送來的 id 只決定操作哪一筆 別人的當作不存在
 
-export const PLACE_LIMIT = 10;
 
 export class PlaceUserError extends UserError {
   name = "PlaceUserError";
@@ -39,7 +38,7 @@ export async function addPlace(userId: string, rawChoice: string): Promise<Weath
 
 const NOT_FOUND = "找不到這個城市，請重新整理頁面";
 
-/** 傳放到哪一個前面 不傳位置編號 兩個分頁同時拖也不會互相蓋掉 回傳有沒有改 */
+/** 傳放到哪一個前面 不傳位置編號 兩個分頁同時排也不會互相蓋掉 回傳有沒有改 */
 export async function movePlace(userId: string, id: number, beforeId: number | null): Promise<boolean> {
   return db().transaction(async (tx) => {
     await lockUserRow(tx, userId, "no key update");

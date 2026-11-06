@@ -4,6 +4,5 @@
 
 - `ticket-paper.svg`、`ticket-paper-dark.svg`：高鐵車票的紙紋
 - `barcode.svg`：車票票根的裝飾條碼，不是真的條碼
-- `sign-arrows.svg`：台鐵站牌的雙向箭頭
 
 `public/images/scenes/` 的 `transit-thsr.svg`、`transit-tra.svg`、`transit-metro.svg` 也是自己畫的。

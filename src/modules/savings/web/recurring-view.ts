@@ -6,7 +6,7 @@ import { accountIdsOf, bySortOrder, suggestAllocation, type AccountBalance, type
 import type { MonthKey } from "../lib/month";
 import { pendingItems, type PendingRecurring, type PendingRuleRow } from "../lib/pending";
 import type { Quote } from "../lib/quotes";
-import { nextRunDate, recurringNames, recurringTitle, scheduleDay } from "../lib/recurring";
+import { nextRunDate, recurringNames, recurringTitle, scheduleDay, subscriptionMonthlyTotal } from "../lib/recurring";
 import type { AccountChoice, CategoryOption, HoldingOption, RecurringDraft, SalaryAccountOption } from "./components/forms/options";
 import { categoryOptions, formExtras, salaryAccountOptions } from "./form-options";
 import { pendingEntries, type ConfirmDraft, type SalaryPrefill } from "./pending-view";
@@ -64,6 +64,9 @@ export type RecurringFormOptions = { accounts: AccountChoice[]; categories: Cate
 export type RecurringPageView = {
   salaries: SalaryView[];
   regularBuys: RegularBuyView[];
+  subscriptions: RecurringRowView[];
+  /** 訂閱平均每個月花多少 停用的不算 */
+  subscriptionMonthly: number;
   others: RecurringRowView[];
   form: RecurringFormOptions;
   /** 入帳並分配的入帳與轉入帳戶 */
@@ -107,6 +110,7 @@ const toDraft = (rule: PendingRuleRow): RecurringDraft => ({
   mode: rule.mode,
   holdingId: rule.holdingId,
   allocate: rule.allocate,
+  subscription: rule.subscription,
   active: rule.active,
   lastPostedMonth: rule.lastPostedMonth,
   createdAt: rule.createdAt.toISOString(),
@@ -125,7 +129,7 @@ function dueViews({ accounts, rules, categories, holdings, quotes, today }: Recu
   );
 }
 
-/** 薪水與定期定額各有一區 其他的照下一期排在最後一區 */
+/** 薪水 定期定額與訂閱各有一區 其他的照下一期排在最後一區 */
 export function recurringPageView(sources: RecurringSources): RecurringPageView {
   const { accounts, rules, categories, holdings, balances, today } = sources;
   const accountById = new Map(accounts.map((account) => [account.id, account]));
@@ -191,12 +195,16 @@ export function recurringPageView(sources: RecurringSources): RecurringPageView 
     return { ...row, symbol: holding?.symbol ?? null, holdingName: holding?.name ?? null, fromName: names.accounts.get(rule.accountId) ?? "" };
   });
 
+  const subscriptions = ordered(rules.filter((rule) => rule.subscription));
+
   const active = accounts.filter((account) => account.active).sort(bySortOrder);
   const receivers = active.filter((account) => !withHoldings.has(account.id));
   return {
     salaries,
     regularBuys,
-    others: ordered(rules.filter((rule) => !isSalary(rule) && !isRegular(rule))).map(({ row }) => row),
+    subscriptions: subscriptions.map(({ row }) => row),
+    subscriptionMonthly: subscriptionMonthlyTotal(subscriptions.filter(({ row }) => row.paused === null).map(({ rule }) => rule)),
+    others: ordered(rules.filter((rule) => !isSalary(rule) && !isRegular(rule) && !rule.subscription)).map(({ row }) => row),
     form: recurringFormOptions(accounts, categories, holdings, today),
     salaryAccounts: salaryAccountOptions(accounts, balances, withHoldings),
     allocationAccounts: receivers

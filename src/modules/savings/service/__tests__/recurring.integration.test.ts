@@ -33,7 +33,7 @@ const KIND_MISMATCH = "分類跟收支類型不符";
 
 const { insertAccount, insertCategory, insertRule, insertHolding, ruleOf, transactions } = savingsRows(getDb, () => me, {
   account: { createdAt: LONG_AGO },
-  category: { color: "violet" },
+  category: {  },
   holding: { shares: 0, cost: 0 },
 });
 const rules = () => getDb().select().from(savingsRecurring).orderBy(asc(savingsRecurring.id));
@@ -54,6 +54,7 @@ const fields = (values: Partial<RecurringFields> = {}): RecurringFields => ({
   mode: "auto",
   holdingId: "",
   allocate: "",
+  subscription: "",
   ...values,
 });
 

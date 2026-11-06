@@ -54,9 +54,16 @@ describe("通知頁的「提醒方式」", () => {
   /** 只有這些模組開著提示音時 提示音那一區的圖示名稱 */
   const soundIconWith = (enabled: string[]) => {
     vi.mocked(useAnyAlertPref).mockImplementation((ids, kind) => kind === "sound" && ids.some((id) => enabled.includes(id)));
-    const markup = renderToStaticMarkup(createElement(NotificationSettings, { modules: MODULES }));
+    const markup = renderToStaticMarkup(createElement(NotificationSettings, { modules: MODULES, pushKey: null }));
     return markup.match(/\/icons\/ui\/(volume-[\w-]+)\.svg/)?.[1];
   };
+
+  it("站長還沒設定手機通知的金鑰：不顯示 設定了才有", () => {
+    const page = (pushKey: string | null) => renderToStaticMarkup(createElement(NotificationSettings, { modules: MODULES, pushKey }));
+
+    expect(page(null)).not.toContain("手機通知");
+    expect(page("public-key")).toContain("手機通知");
+  });
 
   it("有模組開著提示音_「提示音」旁是喇叭的圖示", () => {
     expect(soundIconWith(["twitch"])).toBe("volume-2");

@@ -17,6 +17,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // 排除的路徑要整段比對 否則 /loginx 這類新路由會意外變成公開
-  // 排除的是沒登入也要用的頁面 圖片與 robots.txt 以及外部呼叫的端點
-  matcher: ["/((?!(?:login|register|terms|icons|robots\\.txt|api/auth/captcha|api/cron|api/twitch/eventsub|api/youtube/websub)(?:/|$)|_next/static|_next/image|favicon.ico).*)"],
+  // 排除的是沒登入也要用的頁面 圖片 robots.txt 加到主畫面用的檔 以及外部呼叫的端點
+  matcher: ["/((?!(?:login|register|terms|icons|robots\\.txt|manifest\\.webmanifest|sw\\.js|api/auth/captcha|api/cron|api/twitch/eventsub|api/youtube/websub)(?:/|$)|_next/static|_next/image|favicon.ico).*)"],
 };

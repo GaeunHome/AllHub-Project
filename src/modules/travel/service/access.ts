@@ -1,11 +1,18 @@
 import "server-only";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db, type Executor } from "@/core/db";
+import { coreUsers } from "@/core/db/schema";
+import { userAvatar } from "@/core/db/users";
 import { travelMembers, travelTrips } from "../data/schema";
 import { TravelUserError, TripNotFoundError } from "./errors";
 
 export type Trip = typeof travelTrips.$inferSelect;
 type Transaction = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
+
+/** 暱稱優先 service 不 import 登入 所以寫在 SQL 裡 */
+export const displayName = sql<string>`coalesce(${coreUsers.nickname}, ${coreUsers.username})`;
+
+export const personColumns = { id: coreUsers.id, username: coreUsers.username, name: displayName, avatar: userAvatar };
 
 /** 旅程的每個讀寫都用這個條件 不是成員就查不到 */
 export const isMemberOf = (userId: string) => sql`exists (select 1 from ${travelMembers} where ${travelMembers.tripId} = ${travelTrips.id} and ${travelMembers.userId} = ${userId})`;

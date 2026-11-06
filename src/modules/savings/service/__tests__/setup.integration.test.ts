@@ -2,7 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { insertTestUsers, logQueries, pgliteOf, setupTestDb, type TestDb } from "@/dev/test-db";
 import { savingsCategories } from "../../data/schema";
-import { CATEGORY_ICON_NAMES, SELECTABLE_COLORS } from "../../lib/kinds";
+import { CATEGORY_ICON_NAMES } from "../../lib/kinds";
 import { setupDefaults } from "../setup";
 
 let testDb: TestDb;
@@ -21,32 +21,27 @@ const categoriesOf = async (userId: string) =>
       .from(savingsCategories)
       .where(eq(savingsCategories.userId, userId))
       .orderBy(asc(savingsCategories.kind), asc(savingsCategories.sortOrder), asc(savingsCategories.id))
-  ).map((c) => [c.kind, c.name, c.color, c.sortOrder, c.monthlyBudget, c.icon]);
+  ).map((c) => [c.kind, c.name, c.sortOrder, c.monthlyBudget, c.icon]);
 
 const DEFAULT_CATEGORIES = [
-  ["expense", "餐飲", "orange", 0, null, "utensils"],
-  ["expense", "交通", "blue", 1, null, "bus"],
-  ["expense", "訂閱", "violet", 2, null, "repeat"],
-  ["expense", "提領現金", "teal", 3, null, "banknote"],
-  ["income", "薪水", "green", 0, null, "briefcase"],
+  ["expense", "餐飲", 0, null, "utensils"],
+  ["expense", "交通", 1, null, "bus"],
+  ["expense", "訂閱", 2, null, "repeat"],
+  ["expense", "提領現金", 3, null, "banknote"],
+  ["income", "薪水", 0, null, "briefcase"],
 ];
 
 describe("setupDefaults（開始使用）", () => {
-  it("什麼都沒有_建預設的分類（含顏色、順序與圖示）_回傳新建的數量", async () => {
+  it("什麼都沒有_建預設的分類（含順序與圖示）_回傳新建的數量", async () => {
     expect(await setupDefaults(me)).toEqual({ categories: 5 });
 
     expect(await categoriesOf(me)).toEqual(DEFAULT_CATEGORIES);
   });
 
-  it("預設分類的圖示都在選擇器上、顏色都是使用者可以選的（沒有留給未分類的灰色）_同一份清單裡顏色不重複", async () => {
+  it("預設分類的圖示都在選擇器上", async () => {
     await setupDefaults(me);
 
-    const rows = await categoriesOf(me);
-    for (const [, name, color, , , icon] of rows) {
-      expect(SELECTABLE_COLORS, String(name)).toContain(color);
-      expect(CATEGORY_ICON_NAMES, String(name)).toContain(icon);
-    }
-    expect(new Set(rows.map(([, , color]) => color)).size).toBe(rows.length);
+    for (const [, name, , , icon] of await categoriesOf(me)) expect(CATEGORY_ICON_NAMES, String(name)).toContain(icon);
   });
 
   it("再按一次_不會重複", async () => {
@@ -57,19 +52,19 @@ describe("setupDefaults（開始使用）", () => {
   });
 
   it("已經有分類（只有收入的也算）_不再建", async () => {
-    await testDb.insert(savingsCategories).values({ userId: me, kind: "income", name: "獎金", color: "teal" });
+    await testDb.insert(savingsCategories).values({ userId: me, kind: "income", name: "獎金" });
 
     expect(await setupDefaults(me)).toEqual({ categories: 0 });
-    expect(await categoriesOf(me)).toEqual([["income", "獎金", "teal", 0, null, null]]);
+    expect(await categoriesOf(me)).toEqual([["income", "獎金", 0, null, null]]);
   });
 
   it("只看自己的：別人已經有分類也照樣建；別人的資料不受影響", async () => {
     await setupDefaults(other);
-    await testDb.insert(savingsCategories).values({ userId: other, kind: "expense", name: "別人另外加的", color: "rose", sortOrder: 4 });
+    await testDb.insert(savingsCategories).values({ userId: other, kind: "expense", name: "別人另外加的", sortOrder: 4 });
 
     expect(await setupDefaults(me)).toEqual({ categories: 5 });
     expect(await categoriesOf(me)).toEqual(DEFAULT_CATEGORIES);
-    expect(await categoriesOf(other)).toEqual([...DEFAULT_CATEGORIES.slice(0, 4), ["expense", "別人另外加的", "rose", 4, null, null], DEFAULT_CATEGORIES[4]]);
+    expect(await categoriesOf(other)).toEqual([...DEFAULT_CATEGORIES.slice(0, 4), ["expense", "別人另外加的", 4, null, null], DEFAULT_CATEGORIES[4]]);
   });
 
   it("同時按兩次_只建一份", async () => {
@@ -92,7 +87,7 @@ describe("setupDefaults（開始使用）", () => {
           const result = await (query as (...args: unknown[]) => Promise<unknown>)(sql, ...rest);
           if (!raced && /count\(\*\).* from "savings_categories"/i.test(sql)) {
             raced = true;
-            await query(`insert into savings_categories (user_id, kind, name, color) values ($1, 'expense', '餐飲', 'teal')`, [me]);
+            await query(`insert into savings_categories (user_id, kind, name) values ($1, 'expense', '餐飲')`, [me]);
           }
           return result;
         }) as typeof tx.query;
@@ -102,7 +97,7 @@ describe("setupDefaults（開始使用）", () => {
     expect(await setupDefaults(me)).toEqual({ categories: 4 });
 
     expect(raced).toBe(true);
-    expect(await categoriesOf(me)).toEqual([["expense", "餐飲", "teal", 0, null, null], ...DEFAULT_CATEGORIES.slice(1)]);
+    expect(await categoriesOf(me)).toEqual([["expense", "餐飲", 0, null, null], ...DEFAULT_CATEGORIES.slice(1)]);
   });
 
   it("數之前先在同一個交易裡鎖住這個使用者（core_users 那一列）：還沒有分類時沒有列可以鎖；PGlite 只有一條連線、交易本來就一個一個跑，所以直接看送出的 SQL", async () => {

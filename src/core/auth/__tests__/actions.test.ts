@@ -30,6 +30,7 @@ vi.mock("next/navigation", () => ({
 
 const users = vi.hoisted(() => ({ updateAvatar: vi.fn(), authenticate: vi.fn(), changePassword: vi.fn(), findSessionUser: vi.fn(), hasAnyUser: vi.fn(), deleteOwnAccount: vi.fn(), updateNickname: vi.fn() }));
 vi.mock("../users", () => users);
+vi.mock("../../push/service", () => ({ removeOtherSubscriptions: vi.fn() }));
 // 驗證碼本身另外測 這裡預設答對 專心測登入流程
 vi.mock("../captcha", { spy: true });
 
@@ -37,6 +38,7 @@ const captcha = mocksOf(await import("../captcha"), "takeCaptchaToken", "verifyC
 const { audit, auditActor, auditLoginFailure } = await import("@/dev/audit-stub");
 const { changePasswordAction, deleteAccountAction, login, logout, updateAvatarAction, updateNicknameAction } = await import("../actions");
 const { SESSION_COOKIE, signSession, verifySessionToken } = await import("../session");
+const { removeOtherSubscriptions } = await import("../../push/service");
 
 let ipSeq = 0;
 beforeEach(() => {
@@ -211,6 +213,21 @@ describe("changePasswordAction", () => {
 
     expect(state.error).toMatch(/^錯誤次數太多，請 \d+ 分鐘後再試$/);
     expect(users.changePassword).toHaveBeenCalledTimes(5);
+  });
+
+  it("改好密碼：其他手機的通知跟舊的登入一起失效 這支手機留著 打錯密碼不動", async () => {
+    await loggedIn();
+    vi.mocked(removeOtherSubscriptions).mockClear();
+    users.changePassword.mockResolvedValue({ ok: false, reason: "wrong_password", error: "目前的密碼不正確" });
+    await changePasswordAction({}, passwords("wrong password!!", NEW_PASSWORD));
+    expect(removeOtherSubscriptions).not.toHaveBeenCalled();
+
+    users.changePassword.mockResolvedValue({ ok: true, sessionVersion: 2 });
+    const fields = passwords(PASSWORD, NEW_PASSWORD);
+    fields.set("pushEndpoint", "https://fcm.googleapis.com/fcm/send/1");
+    await changePasswordAction({}, fields);
+
+    expect(removeOtherSubscriptions).toHaveBeenCalledWith(USER_ID, "https://fcm.googleapis.com/fcm/send/1");
   });
 
   it("資料庫出錯_回摘要不丟例外", async () => {

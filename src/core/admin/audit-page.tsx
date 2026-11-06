@@ -24,7 +24,7 @@ export function AuditLogPage({ modules, searchParams }: AuditPageProps) {
         title={
           <span className="inline-flex items-center gap-1">
             操作紀錄
-            <InfoTip label="操作紀錄的說明">所有人的登入與操作，保留 {AUDIT_RETENTION_DAYS} 天。不記密碼、cookie、API Key 與記帳的金額。登入失敗同一小時同一個 IP 併成一列；續翻每批不記。</InfoTip>
+            <InfoTip label="操作紀錄的說明">保留 {AUDIT_RETENTION_DAYS} 天，不記密碼、cookie、API Key 與金額</InfoTip>
           </span>
         }
         actions={

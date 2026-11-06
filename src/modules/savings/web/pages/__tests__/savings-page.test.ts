@@ -70,7 +70,6 @@ const category = (id: number, name: string, kind: "income" | "expense", monthlyB
   userId: "u",
   kind,
   name,
-  color: "blue",
   monthlyBudget,
   sortOrder: id,
   createdAt: CREATED,

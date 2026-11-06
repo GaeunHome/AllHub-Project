@@ -25,8 +25,8 @@ const ACCOUNTS = [
   account({ id: 4, name: "臺銀證券", kind: "investment", openingBalance: 100000, openingCost: 100000 }),
   account({ id: 5, name: "元大證券", kind: "investment", openingBalance: 50000, openingCost: 45000 }),
   // 國泰卡與台新卡帳戶上的繳款截止日只當第一張帳單截止日的預設
-  account({ id: 6, name: "國泰卡", kind: "credit", statementDay: 5, dueDay: 20, payFromAccountId: 2 }),
-  account({ id: 7, name: "台新卡", kind: "credit", dueDay: 25, autopay: true, payFromAccountId: 2, openingBalance: -3000 }),
+  account({ id: 6, name: "國泰卡", kind: "credit", statementDay: 5, payFromAccountId: 2 }),
+  account({ id: 7, name: "台新卡", kind: "credit", autopay: true, payFromAccountId: 2, openingBalance: -3000 }),
   account({ id: 8, name: "舊帳戶", kind: "deposit", openingBalance: 9000, active: false }),
 ];
 // 國泰卡 9/20 刷 12,480 是 10/5 結帳的帳單 10/10 再刷 6,000 還沒出帳

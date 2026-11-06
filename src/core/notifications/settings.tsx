@@ -5,6 +5,7 @@ import { Icon } from "../ui/icon";
 import { chime } from "./chime";
 import { ModuleBadge, type NotificationModule } from "./notification-summary";
 import { setAlertPref, useAlertPref, useAnyAlertPref } from "./prefs";
+import { PushSettings } from "./push-settings";
 import { permissionNotice, shouldRequestPermission, type PermissionNotice, type PermissionState } from "./system-notification";
 
 const permissionListeners = new Set<() => void>();
@@ -162,8 +163,8 @@ export function AlertSettingsHelp() {
   );
 }
 
-/** 通知頁的提醒方式 模組開關跟鈴鐺面板是同一份設定 */
-export function NotificationSettings({ modules }: { modules: NotificationModule[] }) {
+/** 通知頁的提醒方式 模組開關跟鈴鐺面板是同一份設定 pushKey 是 null 時站長還沒設定手機通知 */
+export function NotificationSettings({ modules, pushKey }: { modules: NotificationModule[]; pushKey: string | null }) {
   const anySound = useAnyAlertPref(alertModules(modules).map((m) => m.id), "sound");
   const permission = useNotificationPermission();
   const [soundHint, setSoundHint] = useState<string | null>(null);
@@ -186,6 +187,7 @@ export function NotificationSettings({ modules }: { modules: NotificationModule[
   // 外面的卡片與標題列在通知頁 這裡用撐滿卡片的區塊 文字才跟標題對齊
   return (
     <div className="card-list">
+      {pushKey && <PushSettings publicKey={pushKey} modules={alertModules(modules)} />}
       <div className="card-row stack">
         <AlertSwitchTable modules={modules} />
         <AlertSettingsHelp />

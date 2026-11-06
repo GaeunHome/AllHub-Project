@@ -8,3 +8,8 @@ export function matchesStation(name: string, query: string): boolean {
   const key = plainName(query);
   return plainName(name).includes(key.replace(/站$/, "") || key);
 }
+
+type NamedStation = { id: string; name: string };
+
+/** 起訖不能是同一站 同名的轉乘站代碼不同 也算同一站 */
+export const isSameStation = (a: NamedStation, b: NamedStation) => a.id === b.id || plainName(a.name) === plainName(b.name);

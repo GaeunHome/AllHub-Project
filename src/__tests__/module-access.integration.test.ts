@@ -15,7 +15,7 @@ import { savingsAccounts, savingsHoldings, savingsRecurring, savingsTransactions
 import { starrailAccounts } from "@/modules/starrail/data/schema";
 import { twitchFollows, twitchStreamers } from "@/modules/twitch/data/schema";
 import { weatherSettings } from "@/modules/weather/data/schema";
-import { youtubeChannels, youtubeFollows, youtubeSettings } from "@/modules/youtube/data/schema";
+import { youtubeAiKeys, youtubeChannels, youtubeFollows } from "@/modules/youtube/data/schema";
 
 // 關掉模組等於那個模組凍結 跟停用帳號同一個概念 資料全部保留 恢復後照常
 // core 不能 import 模組 所以跨模組的檢查放在 src 底下
@@ -357,7 +357,7 @@ describe("關掉模組＝那個模組凍結：資料全部保留，只是排程�
 
   it("重新加密排程例外：被關掉的人的 cookie 與 API Key 照樣處理，移除舊金鑰前要全部換好", async () => {
     await getDb().insert(starrailAccounts).values({ userId: member, ltuid: "2", cookieEncrypted: encryptSecret("ltoken_v2=x"), uid: "800000002", region: "prod_official_asia" });
-    await getDb().insert(youtubeSettings).values({ userId: member, provider: "anthropic", anthropicKey: encryptSecret("sk-test") });
+    await getDb().insert(youtubeAiKeys).values({ userId: member, provider: "anthropic", apiKey: encryptSecret("sk-test") });
     await deny(member, "starrail");
     await deny(member, "youtube");
 

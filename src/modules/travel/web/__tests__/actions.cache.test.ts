@@ -8,24 +8,26 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("../../service/trips", { spy: true });
 vi.mock("../../service/items", { spy: true });
 vi.mock("../../service/extras", { spy: true });
+vi.mock("../../service/expenses", { spy: true });
 
 const trips = mocksOf(await import("../../service/trips"), "createTrip", "updateTrip", "deleteTrip", "leaveTrip", "removeMember", "setJoinLink", "joinTrip");
 const items = mocksOf(await import("../../service/items"), "addItem", "updateItem", "deleteItem", "moveItem");
 const extras = mocksOf(await import("../../service/extras"), "addComment", "deleteComment", "addCheck", "setCheckDone", "deleteCheck");
+const expenses = mocksOf(await import("../../service/expenses"), "addExpense", "updateExpense", "deleteExpense", "settleTransfer", "undoSettlement");
 const actions = await import("../actions");
 
 const MEMBER = "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f";
 const ok = (run: () => Promise<{ error?: string }>) => run().catch((error: Error) => (error.message.startsWith("NEXT_REDIRECT") ? {} : { error: error.message }));
 
 beforeEach(() => {
-  for (const group of [trips, items, extras]) for (const fn of Object.values(group)) fn.mockReset().mockResolvedValue({ id: 1, title: "京都" } as never);
+  for (const group of [trips, items, extras, expenses]) for (const fn of Object.values(group)) fn.mockReset().mockResolvedValue({ id: 1, title: "京都" } as never);
 });
 
 describe("旅遊的 Server Action：寫入後讓對應的 tag 失效", () => {
   it.each([
     ["createTripAction", ["travel:members", "travel:trips"], () => actions.createTripAction({}, form({}))],
     ["updateTripAction", ["travel:items", "travel:trips"], () => actions.updateTripAction({}, form({ tripId: "1" }))],
-    ["deleteTripAction", ["travel:checks", "travel:comments", "travel:items", "travel:members", "travel:trips"], () => actions.deleteTripAction({}, form({ tripId: "1" }))],
+    ["deleteTripAction", ["travel:checks", "travel:comments", "travel:expenses", "travel:items", "travel:members", "travel:trips"], () => actions.deleteTripAction({}, form({ tripId: "1" }))],
     ["leaveTripAction", ["travel:members", "travel:trips"], () => actions.leaveTripAction({}, form({ tripId: "1" }))],
     ["removeMemberAction", ["travel:members"], () => actions.removeMemberAction({}, form({ tripId: "1", memberId: MEMBER }))],
     ["setJoinLinkAction", ["travel:trips"], () => actions.setJoinLinkAction({}, form({ tripId: "1", open: "true" }))],
@@ -36,6 +38,11 @@ describe("旅遊的 Server Action：寫入後讓對應的 tag 失效", () => {
     ["moveItemAction", ["travel:items"], () => actions.moveItemAction(1, 2, "2026-12-01", null)],
     ["addCommentAction", ["travel:comments"], () => actions.addCommentAction({}, form({ tripId: "1", itemId: "2" }))],
     ["deleteCommentAction", ["travel:comments"], () => actions.deleteCommentAction({}, form({ tripId: "1", commentId: "2" }))],
+    ["addExpenseAction", ["travel:expenses"], () => actions.addExpenseAction({}, form({ tripId: "1" }))],
+    ["updateExpenseAction", ["travel:expenses"], () => actions.updateExpenseAction({}, form({ tripId: "1", expenseId: "2" }))],
+    ["deleteExpenseAction", ["travel:expenses"], () => actions.deleteExpenseAction(1, {}, form({ id: "2" }))],
+    ["settleTransferAction", ["travel:expenses"], () => actions.settleTransferAction({}, form({ tripId: "1", from: MEMBER, to: MEMBER, amount: "100" }))],
+    ["undoSettlementAction", ["travel:expenses"], () => actions.undoSettlementAction({}, form({ tripId: "1", settlementId: "2" }))],
     ["addCheckAction", ["travel:checks"], () => actions.addCheckAction({}, form({ tripId: "1" }))],
     ["setCheckDoneAction", ["travel:checks"], () => actions.setCheckDoneAction({}, form({ tripId: "1", checkId: "2", done: "true" }))],
     ["deleteCheckAction", ["travel:checks"], () => actions.deleteCheckAction({}, form({ tripId: "1", checkId: "2" }))],

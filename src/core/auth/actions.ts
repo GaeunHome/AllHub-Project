@@ -17,6 +17,7 @@ import { normalizeUsername } from "./credentials";
 import { clientIp, createFailureLimiter } from "./rate-limit";
 import { registerMember, type RegisterResult } from "./registration";
 import { KEEP_AVATAR } from "./avatar-rules";
+import { removeOtherSubscriptions } from "../push/service";
 import { authenticate, changePassword, deleteOwnAccount, saveUploadedAvatar, updateAvatar, updateNickname } from "./users";
 
 export type LoginState = { error?: string; username?: string };
@@ -204,6 +205,7 @@ export async function changePasswordAction(_prev: FormState, formData: FormData)
     passwordLimiter.reset(session.id);
     // 版本已遞增 其他裝置的 cookie 失效 這台換發新的 cookie 繼續登入
     await createSession(session.id, result.sessionVersion);
+    await removeOtherSubscriptions(session.id, formText(formData, "pushEndpoint") || null);
     return "已變更密碼。這台裝置保持登入，其他裝置都已登出。";
   });
 }

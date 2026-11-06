@@ -35,6 +35,20 @@ const notices = () =>
     .from(coreNotifications)
     .orderBy(asc(coreNotifications.id));
 
+describe("手機的鎖定畫面別人看得到（使用者要的）", () => {
+  it("推到手機的文字沒有金額與名稱 鈴鐺裡照舊完整", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    await insertRule({ accountId: living.id, dayOfMonth: 20, name: "電費" });
+
+    await postDueRecurring(runAt("2026-10-20"));
+
+    const [input] = notify.mock.calls[0];
+    expect(input.title).toContain("$1,800");
+    expect(JSON.stringify(input.push)).not.toMatch(/電費|1,800/);
+    expect(input.push?.title).toBeTruthy();
+  });
+});
+
 describe("要確認的固定收支：某一期的日期是今天就通知擁有者", () => {
   it("電費 10/20 到期_當天寄「今天到期：電費 $1,800」連到 /savings；再跑一次不重複寄", async () => {
     const living = await insertAccount({ name: "生活費帳戶" });
@@ -140,9 +154,9 @@ describe("信用卡：結帳隔天還沒填帳單、照帳單的截止日前 3 �
     expect(await notices()).toEqual([]);
   });
 
-  it("還沒填帳單就不知道截止日：舊版設的截止日（20 日）不再拿來提醒，10/17 不寄", async () => {
-    await cathay({ dueDay: 20 });
-    await insertAccount({ name: "台新卡", kind: "credit", openingBalance: -3500, dueDay: 20, autopay: true });
+  it("還沒填帳單就不知道截止日：10/17 不寄", async () => {
+    await cathay();
+    await insertAccount({ name: "台新卡", kind: "credit", openingBalance: -3500, autopay: true });
 
     for (const date of ["2026-10-16", "2026-10-17", "2026-10-18"]) await postDueRecurring(runAt(date));
 
@@ -218,5 +232,74 @@ describe("信用卡：結帳隔天還沒填帳單、照帳單的截止日前 3 �
     expect(await postDueRecurring(runAt("2026-10-20"))).toBe("自動記帳 0 筆；通知 3 則");
 
     expect(dateParams(query)).toEqual([]);
+  });
+});
+
+describe("訂閱：續訂前 3 天通知擁有者", () => {
+  it("Netflix 每月 6 日自動記帳_10/3 寄一則「10/6 續訂：Netflix $390」連到每月固定頁，當天不再寄", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    await insertRule({ accountId: living.id, dayOfMonth: 6, name: "Netflix", amount: 390, mode: "auto", subscription: true, lastPostedMonth: "2026-09-01" });
+
+    await postDueRecurring(runAt("2026-10-02"));
+    await postDueRecurring(runAt("2026-10-03"));
+    await postDueRecurring(runAt("2026-10-03"));
+    await postDueRecurring(runAt("2026-10-06"));
+
+    expect(await notices()).toEqual([{ userId: me, module: "savings", kind: "subscription_renewal", title: "10/6 續訂：Netflix $390", url: "/savings/recurring" }]);
+  });
+
+  it("年繳的只在續訂的那一個月前寄", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    await insertRule({ accountId: living.id, dayOfMonth: 15, intervalMonths: 12, startMonth: "2026-12-01", name: "iCloud", amount: 1200, mode: "auto", subscription: true, lastPostedMonth: null });
+
+    await postDueRecurring(runAt("2026-11-12"));
+    await postDueRecurring(runAt("2026-12-12"));
+
+    expect((await notices()).map((n) => n.title)).toEqual(["12/15 續訂：iCloud $1,200"]);
+  });
+
+  it("要確認的訂閱_前 3 天提醒續訂，當天照舊提醒確認", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    await insertRule({ accountId: living.id, dayOfMonth: 6, name: "Spotify", amount: 149, subscription: true });
+
+    await postDueRecurring(runAt("2026-10-03"));
+    await postDueRecurring(runAt("2026-10-06"));
+
+    expect((await notices()).map((n) => n.kind)).toEqual(["subscription_renewal", "recurring_due"]);
+  });
+
+  it("不是訂閱的自動記帳不寄；停用的訂閱與用到停用帳戶的訂閱也不寄", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    const closed = await insertAccount({ name: "舊帳戶", active: false });
+    await insertRule({ accountId: living.id, dayOfMonth: 6, name: "房租", mode: "auto" });
+    await insertRule({ accountId: living.id, dayOfMonth: 6, name: "停用的", mode: "auto", subscription: true, active: false });
+    await insertRule({ accountId: closed.id, dayOfMonth: 6, name: "帳戶停用的", mode: "auto", subscription: true });
+
+    await postDueRecurring(runAt("2026-10-03"));
+
+    expect(await notices()).toEqual([]);
+  });
+
+  it("擁有者被停用時不寄，恢復後才照常", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    await insertRule({ accountId: living.id, dayOfMonth: 6, name: "Netflix", mode: "auto", subscription: true });
+    await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.id, me));
+
+    await postDueRecurring(runAt("2026-10-03"));
+
+    expect(await notices()).toEqual([]);
+  });
+
+  it("寄不出去時放掉認領，同一天重送的排程再寄一次", async () => {
+    const living = await insertAccount({ name: "生活費帳戶" });
+    await insertRule({ accountId: living.id, dayOfMonth: 6, name: "Netflix", amount: 390, mode: "auto", subscription: true });
+    captureErrorLog();
+    notify.mockRejectedValueOnce(new Error("寫入失敗"));
+
+    await postDueRecurring(runAt("2026-10-03"));
+    expect(await notices()).toEqual([]);
+
+    await postDueRecurring(runAt("2026-10-03"));
+    expect((await notices()).map((n) => n.title)).toEqual(["10/6 續訂：Netflix $390"]);
   });
 });

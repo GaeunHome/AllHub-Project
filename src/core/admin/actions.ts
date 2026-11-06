@@ -3,6 +3,9 @@
 import { refresh } from "next/cache";
 import { headers } from "next/headers";
 import { runAction } from "../action";
+import { announcementTags } from "../announcements/cache-tags";
+import { parseAnnouncement } from "../announcements/rules";
+import { createAnnouncement, deleteAnnouncement, updateAnnouncement } from "../announcements/service";
 import { audit, auditActor } from "../audit";
 import { requireOwner } from "../auth";
 import { authTags } from "../auth/cache-tags";
@@ -31,6 +34,57 @@ async function siteOrigin(): Promise<string> {
   const origin = request.get("origin");
   if (origin) return origin;
   return `${request.get("x-forwarded-proto") ?? "https"}://${request.get("x-forwarded-host") ?? request.get("host")}`;
+}
+
+const ANNOUNCEMENT_GONE = "找不到這則公告，請重新整理頁面";
+
+const announcementFields = (formData: FormData) => ({
+  kind: formText(formData, "kind"),
+  title: formText(formData, "title"),
+  body: formText(formData, "body"),
+  startsAt: formText(formData, "startsAt"),
+  endsAt: formText(formData, "endsAt"),
+});
+
+export async function createAnnouncementAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireOwner();
+  const parsed = parseAnnouncement(announcementFields(formData));
+  if (!parsed.ok) return { error: parsed.error };
+  return runAction({ module: "admin", action: "發布公告", target: parsed.value.title }, async () => {
+    await createAnnouncement(parsed.value);
+    updateTags(announcementTags.announcements);
+    return "已發布公告";
+  });
+}
+
+export async function updateAnnouncementAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireOwner();
+  const id = formId(formData, "id");
+  if (id === null) return { error: INVALID_FORM_MESSAGE };
+  const parsed = parseAnnouncement(announcementFields(formData));
+  if (!parsed.ok) return { error: parsed.error };
+  return runAction({ module: "admin", action: "修改公告", target: parsed.value.title }, async () => {
+    if (await updateAnnouncement(id, parsed.value)) {
+      updateTags(announcementTags.announcements);
+      return "已儲存公告";
+    }
+    refresh();
+    return { error: ANNOUNCEMENT_GONE };
+  });
+}
+
+export async function deleteAnnouncementAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireOwner();
+  const id = formId(formData, "id");
+  if (id === null) return { error: INVALID_FORM_MESSAGE };
+  return runAction({ module: "admin", action: "刪除公告", target: `公告 #${id}` }, async () => {
+    if (await deleteAnnouncement(id)) {
+      updateTags(announcementTags.announcements);
+      return;
+    }
+    refresh();
+    return { error: ANNOUNCEMENT_GONE };
+  });
 }
 
 export async function createInviteAction(_prev: InviteFormState, formData: FormData): Promise<InviteFormState> {

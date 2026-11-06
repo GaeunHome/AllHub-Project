@@ -44,7 +44,7 @@ function NicknameForm({ nickname, onDone, onCancel }: NicknameFormProps) {
           <label htmlFor={inputId} className="field-label">
             暱稱
           </label>
-          <InfoTip label="暱稱的說明">顯示在人像選單與首頁，登入還是用帳號名稱。留空就顯示帳號名稱。</InfoTip>
+          <InfoTip label="暱稱的說明">顯示在人像選單與首頁，登入還是用帳號名稱</InfoTip>
         </span>
         <input id={inputId} name="nickname" defaultValue={nickname ?? ""} autoComplete="off" data-autofocus className="input" />
       </div>

@@ -5,10 +5,12 @@ import { form, mocksOf, updated } from "@/dev/test-helpers";
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../auth/invites", { spy: true });
 vi.mock("../service", { spy: true });
+vi.mock("../../announcements/service", { spy: true });
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ origin: "https://hub.example.com" }) }));
 
 const invites = mocksOf(await import("../../auth/invites"), "createInvite", "revokeInvite");
 const service = mocksOf(await import("../service"), "setUserDisabled", "deleteUser", "unlockUser", "setModuleAccess");
+const announcements = mocksOf(await import("../../announcements/service"), "createAnnouncement", "updateAnnouncement", "deleteAnnouncement");
 const actions = await import("../actions");
 
 const MEMBER_ID = "2a3b4c5d-6e7f-4a8b-9c0d-1e2f3a4b5c6d";
@@ -20,6 +22,9 @@ beforeEach(() => {
   service.deleteUser.mockReset().mockResolvedValue(true);
   service.unlockUser.mockReset().mockResolvedValue(true);
   service.setModuleAccess.mockReset().mockResolvedValue(true);
+  announcements.createAnnouncement.mockReset().mockResolvedValue({} as never);
+  announcements.updateAnnouncement.mockReset().mockResolvedValue(true);
+  announcements.deleteAnnouncement.mockReset().mockResolvedValue(true);
 });
 
 /** 建立邀請至少要開放一個功能 */
@@ -37,6 +42,9 @@ describe("管理頁的 Server Action：寫入後用 updateTag 讓對應的清單
     // 刪除帳號時他建立的邀請跟著外鍵刪掉 所以邀請也失效
     ["deleteUserAction", ["core:invites", "core:users"], () => actions.deleteUserAction({}, form({ userId: MEMBER_ID }))],
     ["unlockUserAction", ["core:users"], () => actions.unlockUserAction({}, form({ userId: MEMBER_ID }))],
+    ["createAnnouncementAction", ["core:announcements"], () => actions.createAnnouncementAction({}, form({ kind: "general", title: "公告", body: "", startsAt: "", endsAt: "" }))],
+    ["updateAnnouncementAction", ["core:announcements"], () => actions.updateAnnouncementAction({}, form({ id: "1", kind: "general", title: "公告", body: "", startsAt: "", endsAt: "" }))],
+    ["deleteAnnouncementAction", ["core:announcements"], () => actions.deleteAnnouncementAction({}, form({ id: "1" }))],
   ] as const)("%s_%j", async (_name, tags, run) => {
     await run();
 

@@ -73,12 +73,11 @@ export async function AccountSections() {
               {/* 只有站長拿得到資料庫的連線字串 成員只能請站長重設 */}
               {isOwner ? (
                 <>
-                  忘記密碼時在電腦上執行 <code>npm run account -- passwd {user.username}</code> 重設（也會解除登入鎖定），所有裝置都會被登出。
+                  忘記密碼用 <code>npm run account -- passwd {user.username}</code> 重設，所有裝置會登出
                 </>
               ) : (
-                "忘記密碼時請聯絡站長重設；重設後所有裝置都會被登出。要登出其他裝置，變更一次密碼就可以了。"
-              )}{" "}
-              網站只能用站長的邀請連結註冊，也不寄送忘記密碼的信件，避免公開的網址被拿來灌帳號或搶帳號。
+                "忘記密碼請找站長重設，改密碼會登出其他裝置"
+              )}
             </InfoTip>
           </span>
         </CardHeader>
@@ -90,8 +89,7 @@ export async function AccountSections() {
         <h2 id="account-delete" className="flex items-center gap-1 text-lg font-semibold text-ink">
           刪除帳號
           <InfoTip label="刪除帳號的說明">
-            刪除後無法復原：帳號與你建立的邀請連結會一起刪除，你在各功能存的資料也都會刪除，包括加密的 API Key 與 cookie；共用的翻譯會留下，但不再連到你。保存哪些資料見使用聲明。
-            {isOwner && " 站長帳號至少要留一個：唯一的站長不能刪除自己。"}
+            {isOwner ? "資料全部刪除且無法復原，唯一的站長不能刪除自己" : "資料全部刪除且無法復原，共用的翻譯會留下"}
           </InfoTip>
         </h2>
         <details className="disclosure">

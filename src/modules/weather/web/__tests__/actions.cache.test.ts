@@ -26,7 +26,7 @@ describe("天氣的 Server Action：寫入後用 updateTag 讓對應的 tag 失�
   });
 });
 
-describe("拖曳城市", () => {
+describe("調整城市順序", () => {
   it("順序真的改了_讓城市清單失效", async () => {
     await movePlaceAction(3, 1);
 

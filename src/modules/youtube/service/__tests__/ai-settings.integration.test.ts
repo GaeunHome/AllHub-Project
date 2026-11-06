@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
-import { youtubeSettings } from "../../data/schema";
+import { youtubeAiKeys, youtubeSettings } from "../../data/schema";
 import { VIDEO_ID } from "../../dev/fixtures";
 
 stubCoreEnv();
@@ -35,8 +35,8 @@ beforeEach(async () => {
 
 describe("設定", () => {
   it("金鑰加密儲存_畫面只看到前 8 碼（讀設定時解開來取）_留空不變更_可清除", async () => {
-    const [row] = await testDb.select().from(youtubeSettings);
-    expect(row.anthropicKey).not.toContain("sk-ant");
+    const [row] = await testDb.select().from(youtubeAiKeys);
+    expect(row.apiKey).not.toContain("sk-ant");
 
     await saveSettings({ provider: "openai", keys: { anthropic: "", openai: "sk-openai-9876" }, clear: [], models: { openai: "gpt-6.1-sol" }, glossaryText: "" });
     let view = await getSettingsView();
@@ -46,7 +46,7 @@ describe("設定", () => {
     expect(view.glossaryText).toBe("");
     // 回傳值只有前 8 碼 後面的字與密文都不在裡面
     expect(JSON.stringify(view)).not.toMatch(/ecret|1234|9876/);
-    expect(JSON.stringify(view)).not.toContain(row.anthropicKey!);
+    expect(JSON.stringify(view)).not.toContain(row.apiKey!);
 
     await saveSettings({ provider: "openai", keys: {}, clear: ["anthropic"], models: {}, glossaryText: "" });
     view = await getSettingsView();
@@ -68,14 +68,14 @@ describe("設定", () => {
   it("存進資料庫的是實際的模型 id：預設模型也一樣，下拉選單送什麼就存什麼", async () => {
     await saveSettings({ provider: "anthropic", keys: {}, clear: [], models: { anthropic: "claude-sonnet-5-5", openai: DEFAULT_MODELS.openai, gemini: "gemini-3.5-flash-lite" }, glossaryText: "" });
 
-    const [row] = await testDb.select().from(youtubeSettings);
-    expect(row).toMatchObject({ anthropicModel: "claude-sonnet-5-5", openaiModel: DEFAULT_MODELS.openai, geminiModel: "gemini-3.5-flash-lite" });
+    const rows = await testDb.select().from(youtubeAiKeys);
+    expect(Object.fromEntries(rows.map(({ provider, model }) => [provider, model]))).toEqual({ anthropic: "claude-sonnet-5-5", openai: DEFAULT_MODELS.openai, gemini: "gemini-3.5-flash-lite" });
     expect((await settings.currentAi(me)).ai.model).toBe("claude-sonnet-5-5");
   });
 
   it("存著但解不開的 API Key（換了 ENCRYPTION_KEY 卻沒留舊的）_還是算已設定，前幾碼是空字串，讀設定不會出錯", async () => {
     const lost = encryptSecret("sk-ant-lost-1111", createKeyring(randomBytes(32).toString("base64")));
-    await getDb().update(youtubeSettings).set({ anthropicKey: lost });
+    await getDb().update(youtubeAiKeys).set({ apiKey: lost });
 
     expect((await getSettingsView()).keys).toEqual({ anthropic: "", openai: null, gemini: null });
   });
@@ -83,7 +83,7 @@ describe("設定", () => {
 
 describe("模型只接受清單裡的或這個人原本存的（Server Action 可以被直接 POST，不能只靠下拉選單）", () => {
   const withModels = (models: Parameters<typeof settings.saveSettings>[1]["models"]) => ({ provider: "anthropic" as const, keys: {}, clear: [], models, glossaryText: "" });
-  const storeModel = (userId: string, openaiModel: string) => getDb().update(youtubeSettings).set({ openaiModel }).where(eq(youtubeSettings.userId, userId));
+  const storeModel = (userId: string, model: string) => getDb().insert(youtubeAiKeys).values({ userId, provider: "openai", model }).onConflictDoUpdate({ target: [youtubeAiKeys.userId, youtubeAiKeys.provider], set: { model } });
 
   it("每家清單裡的模型都收得下", async () => {
     for (const [provider, models] of Object.entries(AI_MODELS)) {
@@ -110,7 +110,7 @@ describe("模型只接受清單裡的或這個人原本存的（Server Action �
     expect((await getSettingsView()).models.openai).toBe("gpt-custom-2025");
     await saveSettings(withModels({ openai: "gpt-custom-2025" }));
 
-    expect((await testDb.select().from(youtubeSettings).where(eq(youtubeSettings.userId, me)))[0].openaiModel).toBe("gpt-custom-2025");
+    expect((await testDb.select().from(youtubeAiKeys).where(and(eq(youtubeAiKeys.userId, me), eq(youtubeAiKeys.provider, "openai"))))[0].model).toBe("gpt-custom-2025");
   });
 
   it("換成清單裡的模型後_舊的自訂模型就不收了", async () => {

@@ -17,7 +17,6 @@ export function accountRow(values: Pick<SavingsAccount, "id" | "name" | "kind"> 
     openingCost: null,
     monthlyPlan: null,
     targetAmount: null,
-    dueDay: null,
     payFromAccountId: null,
     active: true,
     sortOrder: values.id,
@@ -51,6 +50,7 @@ export function ruleRow(values: Pick<SavingsRecurring, "id"> & Partial<SavingsRe
     holdingId: null,
     allocate: false,
     lastNotifiedOn: null,
+    subscription: false,
     ...values,
   };
 }

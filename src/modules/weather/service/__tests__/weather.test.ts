@@ -65,6 +65,45 @@ describe("讀預報與空氣品質", () => {
   });
 });
 
+describe("讀每小時預報（F-D0047-089）", () => {
+  const hourlyJson = {
+    records: {
+      Locations: [{ Location: [{ LocationName: "高雄市", WeatherElement: [{ ElementName: "溫度", Time: [{ DataTime: "2026-11-07T18:00:00+08:00", ElementValue: [{ Temperature: "26" }] }] }] }] }],
+    },
+  };
+
+  it("沒有授權碼時不對外請求，回 null", async () => {
+    vi.stubEnv("CWA_API_KEY", "");
+    const { fetchCountyHours } = await load();
+    const fetch = fakeFetch(() => new Response("{}"));
+
+    expect(await fetchCountyHours("高雄市", fetch.impl)).toBeNull();
+    expect(fetch.calls).toEqual([]);
+  });
+
+  it("只問選的縣市，參數是大寫開頭，帶授權碼", async () => {
+    stubWeatherEnv();
+    const { fetchCountyHours } = await load();
+    const fetch = fakeFetch(() => Response.json(hourlyJson));
+
+    expect(await fetchCountyHours("高雄市", fetch.impl)).toEqual([{ time: "2026-11-07T18:00", temperature: 26, rain: null, weather: null }]);
+
+    const url = new URL(fetch.urls[0]);
+    expect(url.pathname).toMatch(/F-D0047-089$/);
+    expect(url.searchParams.get("LocationName")).toBe("高雄市");
+    expect(url.searchParams.get("Authorization")).toBe(TEST_WEATHER_ENV.CWA_API_KEY);
+  });
+
+  it("授權碼被拒時回 null，log 不含授權碼", async () => {
+    stubWeatherEnv();
+    const logged = captureErrorLog();
+    const { fetchCountyHours } = await load();
+
+    expect(await fetchCountyHours("高雄市", fakeFetch(() => new Response("no", { status: 401 })).impl)).toBeNull();
+    expect(loggedText(logged)).not.toContain(TEST_WEATHER_ENV.CWA_API_KEY);
+  });
+});
+
 describe("讀天氣警特報（W-C0033-001）", () => {
   const HEAVY_RAIN = { phenomena: "大雨", significance: "特報", start: "2026-11-02 08:00:00", end: "2026-11-02 20:00:00" };
 

@@ -36,18 +36,22 @@ export const youtubeFollows = pgTable(
 ).enableRLS();
 
 /** 影片共用 每人看自己追蹤頻道的最新 20 支 不在任何人清單裡的由 cleanup 刪掉 */
-export const youtubeVideos = pgTable("youtube_videos", {
-  id: serial("id").primaryKey(),
-  /** 標題或說明改了 hub 會再推一次 用 video_id 去重 */
-  videoId: text("video_id").notNull().unique(),
-  channelId: text("channel_id").notNull(),
-  title: text("title").notNull(),
-  publishedAt: timestamp("published_at", { withTimezone: true }),
-  notifiedAt: timestamp("notified_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-}).enableRLS();
+export const youtubeVideos = pgTable(
+  "youtube_videos",
+  {
+    id: serial("id").primaryKey(),
+    /** 標題或說明改了 hub 會再推一次 用 video_id 去重 */
+    videoId: text("video_id").notNull().unique(),
+    channelId: text("channel_id").notNull(),
+    title: text("title").notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("youtube_videos_channel_id_idx").on(t.channelId)],
+).enableRLS();
 
-/** 每人一列 API Key 用 core/crypto 加密 畫面要顯示的前幾碼讀設定時才解開來取 */
+/** 每人一列 API Key 與模型在 youtube_ai_keys */
 export const youtubeSettings = pgTable("youtube_settings", {
   // 單人版固定寫 id 1 新的列從 2 開始才不會撞到
   id: integer("id").primaryKey().generatedByDefaultAsIdentity({ startWith: 2 }),
@@ -56,54 +60,65 @@ export const youtubeSettings = pgTable("youtube_settings", {
     .unique()
     .references(() => coreUsers.id, { onDelete: "cascade" }),
   provider: text("provider", { enum: AI_PROVIDER_IDS }).notNull().default(DEFAULT_PROVIDER),
-  anthropicKey: text("anthropic_key"),
-  anthropicModel: text("anthropic_model"),
-  openaiKey: text("openai_key"),
-  openaiModel: text("openai_model"),
-  geminiKey: text("gemini_key"),
-  geminiModel: text("gemini_model"),
   glossary: jsonb("glossary").$type<GlossaryEntry[]>().notNull().default([]),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
+
+/** 每人每家 AI 一列 API Key 用 core/crypto 加密 畫面要顯示的前幾碼讀設定時才解開來取 只選了模型時 api_key 是 null */
+export const youtubeAiKeys = pgTable(
+  "youtube_ai_keys",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    provider: text("provider", { enum: AI_PROVIDER_IDS }).notNull(),
+    apiKey: text("api_key"),
+    model: text("model"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.provider] })],
+).enableRLS();
 
 export type TranslationStatus = "queued" | "running" | "done" | "failed";
 export type SourceKind = "manual" | "auto" | "upload";
 
 /** 翻譯共用 同一支影片所有人看同一份 續翻用觀看者自己的 API Key */
-export const youtubeTranslations = pgTable("youtube_translations", {
-  id: serial("id").primaryKey(),
-  videoId: text("video_id").notNull().unique(),
-  /** 使用者可以貼任何影片網址 不一定在 youtube_videos 裡 所以自己存標題 */
-  title: text("title"),
-  status: text("status", { enum: ["queued", "running", "done", "failed"] }).notNull().default("queued"),
-  sourceKind: text("source_kind", { enum: ["manual", "auto", "upload"] }).notNull(),
-  sourceCues: jsonb("source_cues").$type<Cue[]>().notNull(),
-  /** 跟 source_cues 一樣長 還沒翻的位置是 null */
-  translated: jsonb("translated").$type<(string | null)[]>().notNull(),
-  batches: jsonb("batches").$type<{ start: number; end: number }[]>().notNull(),
-  nextBatch: integer("next_batch").notNull().default(0),
-  provider: text("provider"),
-  model: text("model"),
-  error: text("error"),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  /** 也是翻譯鎖的心跳 running 而且最近更新過代表有人正在翻 */
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  /**
-   * 翻譯鎖的 fencing token 上傳 重新翻譯 重試或被接手時換掉 舊請求就寫不回去
-   * 不比 updated_at 是因為 JS Date 只到毫秒 Postgres 存到微秒
-   */
-  lockId: uuid("lock_id"),
-  /**
-   * 發起人 就是開始 上傳或重新翻譯的人
-   * 只有他與站長能重新翻譯或換字幕 刪帳號時翻譯留給其他人
-   */
-  requestedBy: uuid("requested_by").references(() => coreUsers.id, { onDelete: "set null" }),
-  /**
-   * 發起時的專有名詞表快照 誰接著翻都用同一份 譯名才一致
-   * null 是舊程式寫的 續翻時改用觀看者自己的
-   */
-  glossary: jsonb("glossary").$type<GlossaryEntry[]>(),
-}).enableRLS();
+export const youtubeTranslations = pgTable(
+  "youtube_translations",
+  {
+    id: serial("id").primaryKey(),
+    videoId: text("video_id").notNull().unique(),
+    /** 使用者可以貼任何影片網址 不一定在 youtube_videos 裡 所以自己存標題 */
+    title: text("title"),
+    status: text("status", { enum: ["queued", "running", "done", "failed"] }).notNull().default("queued"),
+    sourceKind: text("source_kind", { enum: ["manual", "auto", "upload"] }).notNull(),
+    sourceCues: jsonb("source_cues").$type<Cue[]>().notNull(),
+    /** 跟 source_cues 一樣長 還沒翻的位置是 null */
+    translated: jsonb("translated").$type<(string | null)[]>().notNull(),
+    provider: text("provider"),
+    model: text("model"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** 也是翻譯鎖的心跳 running 而且最近更新過代表有人正在翻 */
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * 翻譯鎖的 fencing token 上傳 重新翻譯 重試或被接手時換掉 舊請求就寫不回去
+     * 不比 updated_at 是因為 JS Date 只到毫秒 Postgres 存到微秒
+     */
+    lockId: uuid("lock_id"),
+    /**
+     * 發起人 就是開始 上傳或重新翻譯的人
+     * 只有他與站長能重新翻譯或換字幕 刪帳號時翻譯留給其他人
+     */
+    requestedBy: uuid("requested_by").references(() => coreUsers.id, { onDelete: "set null" }),
+    /**
+     * 發起時的專有名詞表快照 誰接著翻都用同一份 譯名才一致
+     * null 是舊程式寫的 續翻時改用觀看者自己的
+     */
+    glossary: jsonb("glossary").$type<GlossaryEntry[]>(),
+  },
+  (t) => [index("youtube_translations_requested_by_idx").on(t.requestedBy)],
+).enableRLS();
 
 /**
  * 每人保留的影片 pinned 是手動保留 false 是翻譯時自動加入 滿了先擠掉

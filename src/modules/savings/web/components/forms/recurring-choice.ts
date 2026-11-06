@@ -13,14 +13,15 @@ export function recurringTypeOf(rule: { kind: EntryKind; holdingId: number | nul
   return rule.holdingId !== null ? "regular" : rule.kind;
 }
 
-/** 每月固定頁的三區 修改時照規則所在的那一區 */
-export function presetOf(rule: { allocate: boolean; holdingId: number | null }): RecurringPreset {
+/** 每月固定頁的四區 修改時照規則所在的那一區 */
+export function presetOf(rule: { allocate: boolean; holdingId: number | null; subscription: boolean }): RecurringPreset {
   if (rule.holdingId !== null) return "regular-buy";
+  if (rule.subscription) return "subscription";
   return rule.allocate ? "salary" : "other";
 }
 
 /** 每一區能選的類型 只有一種時表單不顯示類型 */
-export const PRESET_TYPES: Record<RecurringPreset, readonly RecurringType[]> = { salary: ["income"], "regular-buy": ["regular"], other: ["expense", "income", "transfer"] };
+export const PRESET_TYPES: Record<RecurringPreset, readonly RecurringType[]> = { salary: ["income"], "regular-buy": ["regular"], subscription: ["expense"], other: ["expense", "income", "transfer"] };
 
 /** 送出的 kind 定期定額是轉帳 */
 export function entryKindOf(type: RecurringType): EntryKind {
@@ -130,5 +131,7 @@ export function initialRecurringState(rule: RuleStart | undefined, preset: Recur
   // 發薪日遇假日只能提前 不能延後
   if (preset === "salary") return { ...blank, type: "income", allocate: true, holidayRule: "before" };
   if (preset === "regular-buy") return recurringFormReducer(blank, { type: "type", value: "regular" });
+  // 訂閱是到期自己扣款 金額也固定 不用每個月確認
+  if (preset === "subscription") return { ...blank, mode: "auto" };
   return blank;
 }

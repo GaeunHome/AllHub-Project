@@ -59,6 +59,7 @@ export type PendingRuleRow = RecurringLike & {
   categoryId: number | null;
   holdingId: number | null;
   allocate: boolean;
+  subscription: boolean;
   name: string | null;
   note: string | null;
 };

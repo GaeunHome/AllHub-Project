@@ -49,8 +49,8 @@ const BALANCES = new Map([
   [6, balance(0)],
 ]);
 const CATEGORIES = [
-  { id: 11, name: "房租", kind: "expense" as const, color: "orange" as const, monthlyBudget: null, icon: "house" },
-  { id: 21, name: "薪水", kind: "income" as const, color: "green" as const, monthlyBudget: null, icon: "briefcase" },
+  { id: 11, name: "房租", kind: "expense" as const, monthlyBudget: null, icon: "house" },
+  { id: 21, name: "薪水", kind: "income" as const, monthlyBudget: null, icon: "briefcase" },
 ];
 const HOLDINGS = [{ id: 50, accountId: 6, symbol: "006208", name: "富邦台灣50", shares: 238, cost: 24000, sortOrder: 0 }];
 

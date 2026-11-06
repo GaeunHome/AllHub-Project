@@ -18,6 +18,8 @@ export type ModuleInfo = {
   homeOnly?: boolean;
   /** 排程或按鈕用到的外部服務 系統狀態頁照這份列出 id 是給 reportService 的 模組 id 開頭 architecture.test 會檢查 */
   services?: { id: `${string}:${string}`; label: string }[];
+  /** 排程的中文名稱 系統狀態頁用 id 跟 cron 網址一樣 modules/__tests__/cron.test 會檢查 */
+  crons?: { id: `${string}:${string}`; label: string }[];
 };
 
 /** 只有首頁卡片的模組沒有頁面 不放進導覽列與首頁的模組入口 */

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv, stubYoutubeEnv } from "@/dev/test-env";
 import { expiredTags, mocksOf, tagged } from "@/dev/test-helpers";
-import { youtubeChannels, youtubeFollows, youtubeSavedVideos, youtubeSettings, youtubeTranslations, youtubeVideos } from "../../data/schema";
+import { youtubeAiKeys, youtubeChannels, youtubeFollows, youtubeSavedVideos, youtubeTranslations, youtubeVideos } from "../../data/schema";
 import { CHANNEL_ID as CH, VIDEO_ID as VIDEO } from "../../dev/fixtures";
 import { callbackToken, topicFor } from "../../lib/websub";
 
@@ -41,7 +41,7 @@ describe("YouTube 的快取讀取：標上讀到的資料表、用 db 效期", (
 
   it("cachedRecentVideos_讀了影片、頻道名稱、追蹤與翻譯狀態_四個 tag 都標", async () => {
     await testDb.insert(youtubeVideos).values({ videoId: VIDEO, channelId: CH, title: "새 영상", publishedAt: hoursAgo(1) });
-    await testDb.insert(youtubeTranslations).values({ videoId: VIDEO, status: "done", sourceKind: "manual", sourceCues: [], translated: [], batches: [] });
+    await testDb.insert(youtubeTranslations).values({ videoId: VIDEO, status: "done", sourceKind: "manual", sourceCues: [], translated: [] });
 
     const [video] = await cached.cachedRecentVideos(me);
 
@@ -51,13 +51,13 @@ describe("YouTube 的快取讀取：標上讀到的資料表、用 db 效期", (
 
   it("cachedSettingsView_只有前 8 碼：快取裡沒有金鑰原文也沒有密文", async () => {
     await settings.saveSettings(me, { provider: "anthropic", keys: { anthropic: "sk-ant-secret-WXYZ" }, clear: [], models: {}, glossaryText: "" });
-    const [row] = await testDb.select().from(youtubeSettings);
+    const [row] = await testDb.select().from(youtubeAiKeys);
 
     const view = await cached.cachedSettingsView(me);
 
     expect(view.keys.anthropic).toBe("sk-ant-s");
     expect(JSON.stringify(view)).not.toContain("sk-ant-secret");
-    expect(JSON.stringify(view)).not.toContain(row.anthropicKey!);
+    expect(JSON.stringify(view)).not.toContain(row.apiKey!);
     expect(tagged()).toEqual(["youtube:settings"]);
   });
 
@@ -75,7 +75,6 @@ describe("YouTube 的快取讀取：標上讀到的資料表、用 db 效期", (
       sourceKind: "manual",
       sourceCues: [{ start: 0, end: 900, text: "안녕" }],
       translated: ["你好"],
-      batches: [{ start: 0, end: 1 }],
       lockId,
       requestedBy: me,
       glossary: [{ source: "비밀", target: "秘密的譯名" }],

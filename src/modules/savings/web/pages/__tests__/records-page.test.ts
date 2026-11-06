@@ -35,7 +35,7 @@ const ACCOUNTS = [
   accountRow({ id: 3, name: "國泰信用卡", kind: "credit", payFromAccountId: 1, createdAt: CREATED }),
   accountRow({ id: 8, name: "舊帳戶", kind: "deposit", active: false, createdAt: CREATED }),
 ];
-const CATEGORIES = [{ id: 11, userId: "u", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: 6000, sortOrder: 1, createdAt: CREATED }];
+const CATEGORIES = [{ id: 11, userId: "u", kind: "expense", name: "餐飲", monthlyBudget: 6000, sortOrder: 1, createdAt: CREATED }];
 const LUNCH = {
   id: 70,
   userId: "u",

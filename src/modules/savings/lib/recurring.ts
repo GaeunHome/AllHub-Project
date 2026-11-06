@@ -100,6 +100,11 @@ export function nextRunDate(rule: RecurringLike, today: DateKey): DateKey {
   }
 }
 
+/** 訂閱每個月平均花多少 先加總再四捨五入 不然每一項各捨一次會差好幾元 */
+export function subscriptionMonthlyTotal(rules: readonly { amount: number; intervalMonths: number }[]): number {
+  return Math.round(rules.reduce((sum, rule) => sum + rule.amount / rule.intervalMonths, 0));
+}
+
 type PeriodRecord = { kind: TransactionKind; recurringPeriod: string | null };
 
 /** 這一期記下的那一筆 薪水分出去的轉帳也標了同一期 只認跟規則同一種的 */

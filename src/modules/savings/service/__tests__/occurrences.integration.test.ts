@@ -33,7 +33,7 @@ const confirmFields = (ruleId: number, values: Partial<ConfirmFields> = {}): Con
 describe("confirmOccurrence（確認待處理的一期）", () => {
   it("寫一筆紀錄（帶固定收支與期別，金額可以跟預計不同，備註沒填用名稱）並把游標推到這一期", async () => {
     const living = await insertAccount({ name: "生活費帳戶" });
-    const utilities = await insertCategory({ name: "水電", color: "teal" });
+    const utilities = await insertCategory({ name: "水電" });
     const rule = await insertRule({ accountId: living.id, categoryId: utilities.id, name: "電費", dayOfMonth: 13, lastPostedMonth: "2026-09-01" });
 
     const { transaction } = await confirmOccurrence(me, confirmFields(rule.id, { date: "2026-10-14" }), NOW);

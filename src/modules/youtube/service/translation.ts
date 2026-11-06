@@ -10,11 +10,9 @@ import {
   AI_TIMEOUT_MS,
   AiError,
   SubtitleParseError,
-  countCompletedBatches,
   fetchKoreanCaptions,
   parseSubtitles,
   pickNextBatch,
-  planBatches,
   translateBatch,
   type Cue,
 } from "../lib/subtitles";
@@ -77,8 +75,6 @@ async function resetSource(userId: string, videoId: string, sourceKind: YoutubeT
     sourceCues: cues,
     translated: cues.map(() => null),
     // 翻譯順序由 pickNextBatch 決定 這份規劃只用來記錄從頭連續翻好的批數
-    batches: planBatches(cues),
-    nextBatch: 0,
     error: null,
     lockId: null,
     updatedAt: new Date(),
@@ -149,8 +145,7 @@ export async function restartTranslation(actor: TranslationActor, input: string)
     .set({
       status: "queued",
       translated: emptyTranslation,
-      nextBatch: 0,
-      error: null,
+        error: null,
       lockId: null,
       updatedAt: new Date(),
       requestedBy: actor.id,
@@ -180,7 +175,7 @@ export type Progress = {
 export type TranslationView = Pick<YoutubeTranslation, "id" | "title" | "status" | "sourceKind" | "sourceCues" | "translated" | "error" | "updatedAt" | "requestedBy">;
 
 export function progressOf(row: Pick<YoutubeTranslation, "status" | "translated" | "sourceCues" | "error">, busy = false): Progress {
-  // 觀看中會從播放位置跳著翻 已翻句數要直接數 不能用 next_batch 推算
+  // 觀看中會從播放位置跳著翻 已翻句數要直接數
   const done = row.translated.filter((t) => t !== null).length;
   return { status: row.status, done, total: row.sourceCues.length, error: row.error, translated: row.translated, ...(busy ? { busy } : {}) };
 }
@@ -291,7 +286,7 @@ export async function continueTranslation(
       lastBatchMs = now() - batchStarted;
 
       lines.forEach((line, i) => (translated[start + i] = line));
-      await keepOwned({ translated, nextBatch: countCompletedBatches(row.batches, translated) });
+      await keepOwned({ translated });
       batch = pickNextBatch(row.sourceCues, translated, positionMs);
     }
     outcome = { status: batch ? "queued" : "done", error: null };

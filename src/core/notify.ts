@@ -7,15 +7,17 @@ import { canUseModuleSql } from "./db/users";
 import { MODULE_ID_PATTERN, USER_ID_PATTERN } from "./ids";
 import { notificationsTag } from "./notifications/cache-tags";
 import { linkTarget } from "./notifications/links";
+import { pushToPhones } from "./push/send";
 
 /**
  * recipients 是收件人的使用者 id 由各模組依自己的規則決定
  * module 是發通知的模組 id 通知頁依它篩選 導覽列依它標未讀數
+ * push 是手機上顯示的文字 會出現在鎖定畫面 有金額這類內容時才給 鈴鐺裡照舊是完整的 title
  */
-export type NotifyInput = { recipients: readonly string[]; module: string; kind: string; title: string; body?: string; url?: string | null };
+export type NotifyInput = { recipients: readonly string[]; module: string; kind: string; title: string; body?: string; url?: string | null; push?: { title: string; body?: string } };
 
 /** 各模組共用的通知出口 每個收件人各寫一則 他的鈴鐺輪詢時就會看到 */
-export async function notify({ recipients, module, kind, title, body = "", url }: NotifyInput): Promise<void> {
+export async function notify({ recipients, module, kind, title, body = "", url, push }: NotifyInput): Promise<void> {
   // 這些都是呼叫端決定的值 不對就是程式錯誤 直接丟出來
   if (!MODULE_ID_PATTERN.test(module)) throw new Error(`notify：模組 id 格式不對（${module}）`);
   if (!kind.trim() || !title.trim()) throw new Error("notify：缺少 kind 或 title");
@@ -32,15 +34,16 @@ export async function notify({ recipients, module, kind, title, body = "", url }
       .from(coreUsers)
       .where(and(inArray(coreUsers.id, userIds), isNull(coreUsers.disabledAt), canUseModuleSql(module)))
       .for("key share");
-    if (users.length === 0) return 0;
-    const rows = await tx
+    if (users.length === 0) return [];
+    return tx
       .insert(coreNotifications)
       .values(users.map((user) => ({ userId: user.id, ...values })))
-      .returning({ id: coreNotifications.id });
-    return rows.length;
+      .returning({ id: coreNotifications.id, userId: coreNotifications.userId });
   });
+  if (inserted.length === 0) return;
   // 只會在 webhook 排程與 after 裡呼叫 不是 Server Action 所以用 expireTags
-  if (inserted > 0) expireTags(notificationsTag);
+  expireTags(notificationsTag);
+  await pushToPhones(inserted, module, { title: push?.title ?? values.title, body: push ? (push.body ?? "") : values.body, url: values.url });
 }
 
 /**

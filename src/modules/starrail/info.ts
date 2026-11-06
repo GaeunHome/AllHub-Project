@@ -14,4 +14,11 @@ export const starrailInfo: ModuleInfo = {
     { id: "starrail:warps", label: "HoYoLAB 躍遷紀錄" },
     { id: "starrail:codes", label: "社群的兌換碼清單" },
   ],
+  crons: [
+    { id: "starrail:checkin", label: "每日簽到" },
+    { id: "starrail:stamina", label: "開拓力與每日提醒" },
+    { id: "starrail:cleanup", label: "清理簽到紀錄" },
+    { id: "starrail:reencrypt", label: "重新加密 cookie" },
+    { id: "starrail:redeem", label: "自動兌換" },
+  ],
 };

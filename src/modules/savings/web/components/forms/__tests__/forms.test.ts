@@ -445,6 +445,7 @@ describe("固定收支表單", () => {
     id: 30,
     kind: "expense" as const,
     name: "月票",
+    subscription: false,
     accountId: 1,
     counterAccountId: null,
     categoryId: 12,
@@ -473,7 +474,7 @@ describe("固定收支表單", () => {
     expect(selectedOption(selectOf(markup, "intervalMonths"))).toBe("每月");
     expect(selectedOption(selectOf(markup, "dayOfMonth"))).toBe("14 日");
     expect(selectedOption(selectOf(markup, "mode"))).toBe("到期請我確認");
-    expect(fieldNames(markup)).toEqual(["accountId", "amount", "categoryId", "dayOfMonth", "holidayRule", "intervalMonths", "kind", "mode", "name"]);
+    expect(fieldNames(markup)).toEqual(["accountId", "amount", "categoryId", "dayOfMonth", "holidayRule", "intervalMonths", "kind", "mode", "name", "subscription"]);
     expect(formActions()).toEqual([actions.createRecurringAction]);
   });
 
@@ -531,6 +532,17 @@ describe("固定收支表單", () => {
     const markup = render(createElement(RecurringForm, { ...FORM, today: "2026-10-01", rule: { ...rule, dayOfMonth: 10, holidayRule, lastPostedMonth: "2026-09-01" } }));
 
     expect(nextLine(markup)).toBe(expected);
+  });
+
+  it("以前記在其他固定收支的 Netflix 打勾就變成訂閱；新增訂閱時先勾好、預設到期自動記帳", () => {
+    const checkbox = (markup: string) => markup.match(/<input[^>]*name="subscription"[^>]*>/)?.[0];
+
+    expect(checkbox(render(createElement(RecurringForm, { ...FORM, rule })))).not.toContain("checked");
+    expect(checkbox(render(createElement(RecurringForm, { ...FORM, rule: { ...rule, subscription: true } })))).toContain("checked");
+
+    const added = render(createElement(RecurringForm, { ...FORM, rule: undefined, preset: "subscription" }));
+    expect(checkbox(added)).toContain("checked");
+    expect(added).toMatch(/<option value="auto" selected=""/);
   });
 
   it("定期定額：扣款帳戶只列存款帳戶、哪一檔從持股選，轉入是那一檔所在的投資帳戶；記帳方式只能「到期請我確認」", () => {

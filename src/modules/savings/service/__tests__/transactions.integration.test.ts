@@ -60,7 +60,7 @@ describe("listMonthTransactions（某個月的紀錄）", () => {
   it("只有那個月、只有自己的_日期新的在前、同一天後記的在前_帶帳戶與分類的名稱", async () => {
     const cathay = await insertAccount({ name: "國泰" });
     const post = await insertAccount({ name: "郵局" });
-    const food = await insertCategory({ name: "餐飲", color: "orange" });
+    const food = await insertCategory({ name: "餐飲" });
     const theirs = await insertAccount({ name: "別人的", userId: other });
     const first = await insertTransaction({ accountId: cathay.id, categoryId: food.id, amount: 120, date: "2026-10-01", note: "早餐" });
     const transfer = await insertTransaction({ kind: "transfer", accountId: cathay.id, counterAccountId: post.id, amount: 2500, date: "2026-10-31" });
@@ -142,7 +142,7 @@ describe("categoryMonthTotals（每個分類每個月的合計）", () => {
     const cathay = await insertAccount({ name: "國泰" });
     const post = await insertAccount({ name: "郵局" });
     const food = await insertCategory({ name: "餐飲" });
-    const salary = await insertCategory({ name: "薪水", kind: "income", color: "green" });
+    const salary = await insertCategory({ name: "薪水", kind: "income" });
     const theirs = await insertAccount({ name: "別人的", userId: other });
     await insertTransaction({ accountId: cathay.id, categoryId: food.id, amount: 120, date: "2026-10-06" });
     await insertTransaction({ accountId: post.id, categoryId: food.id, amount: 80, date: "2026-10-20" });
@@ -275,7 +275,7 @@ describe("addTransaction（記一筆）", () => {
   it("收入選了支出的分類、支出選了收入的分類_分類跟收支類型不符", async () => {
     const cathay = await insertAccount({ name: "國泰" });
     const food = await insertCategory({ name: "餐飲" });
-    const salary = await insertCategory({ name: "薪水", kind: "income", color: "green" });
+    const salary = await insertCategory({ name: "薪水", kind: "income" });
 
     expect(await userError(addTransaction(me, entry({ kind: "income", accountId: String(cathay.id), categoryId: String(food.id) }), NOW))).toBe(KIND_MISMATCH);
     expect(await userError(addTransaction(me, entry({ accountId: String(cathay.id), categoryId: String(salary.id) }), NOW))).toBe(KIND_MISMATCH);
@@ -355,7 +355,7 @@ describe("updateTransaction（修改紀錄）", () => {
 
   it("未來的日期或分類類型不符_丟使用者錯誤_資料不變", async () => {
     const cathay = await insertAccount({ name: "國泰" });
-    const salary = await insertCategory({ name: "薪水", kind: "income", color: "green" });
+    const salary = await insertCategory({ name: "薪水", kind: "income" });
     const row = await insertTransaction({ accountId: cathay.id, amount: 100, date: "2026-10-01" });
 
     expect(await userError(updateTransaction(me, row.id, entry({ accountId: String(cathay.id), date: "2026-10-15" }), NOW))).toBe("不能記錄未來的日期");
@@ -513,7 +513,7 @@ describe("allocateSalary（發薪分配）", () => {
     const broker = await insertAccount({ name: "證券", kind: "investment" });
     const card = await insertAccount({ name: "卡", kind: "credit" });
     const closed = await insertAccount({ name: "舊帳戶", active: false });
-    const salary = await insertCategory({ name: "薪水", kind: "income", color: "green" });
+    const salary = await insertCategory({ name: "薪水", kind: "income" });
     const food = await insertCategory({ name: "餐飲" });
     return { cathay, post, broker, card, closed, salary, food };
   }

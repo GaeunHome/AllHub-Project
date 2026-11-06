@@ -1,9 +1,10 @@
 import { randomBytes } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, mocksOf } from "@/dev/test-helpers";
-import { youtubeSettings } from "../../data/schema";
+import { youtubeAiKeys } from "../../data/schema";
 import { VIDEO_ID as VIDEO } from "../../dev/fixtures";
 
 vi.mock("../../lib/subtitles", { spy: true });
@@ -29,6 +30,10 @@ let me: string;
 const saveSettings = (input: Parameters<typeof settings.saveSettings>[1]) => settings.saveSettings(me, input);
 const getSettingsView = () => settings.getSettingsView(me);
 
+const store = (provider: "anthropic" | "openai" | "gemini", apiKey: string, userId = me) =>
+  getDb().insert(youtubeAiKeys).values({ userId, provider, apiKey }).onConflictDoUpdate({ target: [youtubeAiKeys.userId, youtubeAiKeys.provider], set: { apiKey } });
+const keyOf = async (provider: string) => (await getDb().select().from(youtubeAiKeys).where(eq(youtubeAiKeys.provider, provider as "openai"))).find((row) => row.userId === me)?.apiKey as string;
+
 beforeEach(async () => {
   me = await insertTestUser(getDb(), "alice", { role: "owner" });
   fetchVideoInfo.mockResolvedValue({ title: "影片標題", channelName: null, channelUrl: null });
@@ -40,7 +45,7 @@ beforeEach(async () => {
 
 describe("換金鑰後、重新加密前（PGlite 整合）", () => {
   it("舊金鑰加密的 API Key_照常用來翻譯", async () => {
-    await getDb().update(youtubeSettings).set({ anthropicKey: encryptSecret("sk-ant-old-9999", createKeyring(OLD)) });
+    await store("anthropic", encryptSecret("sk-ant-old-9999", createKeyring(OLD)));
     await translation.uploadSubtitles({ id: me, role: "owner" }, VIDEO, "1\n00:00:01,000 --> 00:00:02,000\n안녕\n");
 
     expect(await translation.continueTranslation(me, VIDEO)).toMatchObject({ status: "done" });
@@ -48,9 +53,8 @@ describe("換金鑰後、重新加密前（PGlite 整合）", () => {
   });
 
   it("設定頁照樣看得到前 8 碼：舊金鑰與舊格式加密的都解得開，不用重新貼上", async () => {
-    await getDb()
-      .update(youtubeSettings)
-      .set({ anthropicKey: encryptSecret("sk-ant-old-9999", createKeyring(OLD)), geminiKey: encrypt("gemini-legacy-3333", OLDER) });
+    await store("anthropic", encryptSecret("sk-ant-old-9999", createKeyring(OLD)));
+    await store("gemini", encrypt("gemini-legacy-3333", OLDER));
 
     expect((await getSettingsView()).keys).toEqual({ anthropic: "sk-ant-o", openai: null, gemini: "gemini-l" });
   });
@@ -58,35 +62,30 @@ describe("換金鑰後、重新加密前（PGlite 整合）", () => {
 
 describe("reencryptApiKeys（PGlite 整合）", () => {
   it("舊金鑰與舊格式的 API Key 改用目前金鑰_目前金鑰的不動_設定頁看到的前 8 碼不變", async () => {
-    const [before] = await getDb().select().from(youtubeSettings);
-    await getDb()
-      .update(youtubeSettings)
-      .set({
-        openaiKey: encryptSecret("sk-openai-old-2222", createKeyring(OLD)),
-        geminiKey: encrypt("gemini-legacy-3333", OLDER),
-      });
+    const before = await keyOf("anthropic");
+    await store("openai", encryptSecret("sk-openai-old-2222", createKeyring(OLD)));
+    await store("gemini", encrypt("gemini-legacy-3333", OLDER));
 
     expect(await reencryptApiKeys()).toBe("3 把 API Key，重新加密 2 把");
 
-    const [after] = await getDb().select().from(youtubeSettings);
-    expect(after.anthropicKey).toBe(before.anthropicKey);
+    expect(await keyOf("anthropic")).toBe(before);
     // 重新加密完就可以移除 ENCRYPTION_KEY_PREVIOUS
-    expect(decryptSecret(after.openaiKey!, createKeyring(CURRENT))).toBe("sk-openai-old-2222");
-    expect(decryptSecret(after.geminiKey!, createKeyring(CURRENT))).toBe("gemini-legacy-3333");
-    expect(needsReencrypt(after.openaiKey!) || needsReencrypt(after.geminiKey!)).toBe(false);
+    expect(decryptSecret(await keyOf("openai"), createKeyring(CURRENT))).toBe("sk-openai-old-2222");
+    expect(decryptSecret(await keyOf("gemini"), createKeyring(CURRENT))).toBe("gemini-legacy-3333");
+    expect(needsReencrypt(await keyOf("openai")) || needsReencrypt(await keyOf("gemini"))).toBe(false);
     expect((await getSettingsView()).keys).toEqual({ anthropic: "sk-ant-c", openai: "sk-opena", gemini: "gemini-l" });
   });
 
   it("解不開的跳過並計入失敗_其他照樣處理_log 只記錯誤種類", async () => {
     const log = captureErrorLog();
     const lost = encryptSecret("sk-openai-lost-2222", createKeyring(randomBytes(32).toString("base64")));
-    await getDb().update(youtubeSettings).set({ openaiKey: lost, geminiKey: encrypt("gemini-legacy-3333", OLDER) });
+    await store("openai", lost);
+    await store("gemini", encrypt("gemini-legacy-3333", OLDER));
 
     expect(await reencryptApiKeys()).toBe("3 把 API Key，重新加密 1 把（1 把失敗，詳見伺服器 log）");
 
-    const [after] = await getDb().select().from(youtubeSettings);
-    expect(after.openaiKey).toBe(lost);
-    expect(decryptSecret(after.geminiKey!, createKeyring(CURRENT))).toBe("gemini-legacy-3333");
+    expect(await keyOf("openai")).toBe(lost);
+    expect(decryptSecret(await keyOf("gemini"), createKeyring(CURRENT))).toBe("gemini-legacy-3333");
     expect(log).toHaveBeenCalledOnce();
     expect(log.mock.calls[0]).toContain("unknown_key");
     const logged = JSON.stringify(log.mock.calls);
@@ -94,13 +93,11 @@ describe("reencryptApiKeys（PGlite 整合）", () => {
     expect(logged).not.toContain(lost.split(".")[2]);
   });
 
-  it("每個人的 API Key 都會重新加密，包括單人版留下的 id = 1 那一列", async () => {
+  it("每個人的 API Key 都會重新加密", async () => {
     const other = await insertTestUser(getDb(), "bob");
-    const carol = await insertTestUser(getDb(), "carol");
-    await settings.saveSettings(other, { provider: "openai", keys: {}, clear: [], models: {}, glossaryText: "" });
-    await getDb().update(youtubeSettings).set({ openaiKey: encryptSecret("sk-openai-old-2222", createKeyring(OLD)) });
-    await getDb().insert(youtubeSettings).values({ id: 1, userId: carol, geminiKey: encrypt("gemini-legacy-3333", OLDER) });
+    await store("openai", encryptSecret("sk-openai-old-2222", createKeyring(OLD)), other);
+    await store("gemini", encrypt("gemini-legacy-3333", OLDER), other);
 
-    expect(await reencryptApiKeys()).toBe("4 把 API Key，重新加密 3 把");
+    expect(await reencryptApiKeys()).toBe("3 把 API Key，重新加密 2 把");
   });
 });

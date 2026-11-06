@@ -139,10 +139,28 @@ function busEta() {
 const EVERY_DAY = { Sunday: 1, Monday: 1, Tuesday: 1, Wednesday: 1, Thursday: 1, Friday: 1, Saturday: 1 };
 const busSchedule = () => [0, 1].map((direction) => ({ Direction: direction, Frequencys: [{ StartTime: "00:00", EndTime: "23:59", MinHeadwayMins: 8, MaxHeadwayMins: 12, ServiceDay: EVERY_DAY }] }));
 
+// 免費會員每把金鑰每分鐘的上限 設了 MOCK_TDX_PER_MINUTE 才擋 平常開發不用等
+let usedMinute = 0;
+let usedCalls = 0;
+
+function secondsUntilFree() {
+  const limit = Number(process.env.MOCK_TDX_PER_MINUTE);
+  if (!limit) return 0;
+  const now = Date.now();
+  const minute = Math.floor(now / 60_000);
+  if (minute !== usedMinute) [usedMinute, usedCalls] = [minute, 0];
+  usedCalls += 1;
+  return usedCalls > limit ? Math.ceil((minute + 1) * 60 - now / 1000) : 0;
+}
+
 export async function handle({ url, req, json }) {
   if (url.pathname === TOKEN_PATH && req.method === "POST") {
     json(200, { access_token: "mock-tdx-token", expires_in: 86400, token_type: "Bearer" });
     return true;
+  }
+  if (url.pathname.startsWith("/api/basic/")) {
+    const wait = secondsUntilFree();
+    if (wait > 0) return json(429, { message: "API rate limit exceeded" }, { "Retry-After": String(wait) });
   }
   if (url.pathname.startsWith("/api/basic/v2/Bus/")) {
     const known = decodeURIComponent(url.pathname).endsWith("/307");

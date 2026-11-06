@@ -24,7 +24,7 @@ const NOON = new Date("2026-11-02T04:00:00Z");
 const AFTER_MIDNIGHT = new Date("2026-11-02T16:10:00Z");
 
 let nextId = 1;
-const item = (title: string, date: string): ReminderItem => ({ id: nextId++, title, date, notifyDaysBefore: 0 });
+const item = (title: string, date: string): ReminderItem => ({ id: nextId++, title, date, notifyDaysBefore: 0, repeat: "none" });
 
 beforeAll(() => {
   vi.useFakeTimers({ toFake: ["Date"] });

@@ -7,6 +7,7 @@ export const travelTags = {
   items: "travel:items",
   comments: "travel:comments",
   checks: "travel:checks",
+  expenses: "travel:expenses",
 } as const satisfies Record<string, CacheTag<"travel">>;
 
 /** 同行的人的名字與頭像讀自 core_users 由帳號那邊失效 */

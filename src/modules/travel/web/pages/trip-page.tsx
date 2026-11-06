@@ -10,11 +10,13 @@ import { PageBanner } from "@/core/ui/page-banner";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { TRAVEL_HREF } from "../../lib/urls";
 import { cachedTrip } from "../../service/cached";
+import { ExpensePanel } from "../components/expense-panel";
 import { TodayCard } from "../components/today-card";
 import { TripBoard } from "../components/trip-board";
 import { TripMenu } from "../components/trip-menu";
 import { TripRefresh } from "../components/trip-refresh";
 import { Checklist, Members } from "../components/trip-side";
+import { expenseBoard } from "../expense-view";
 import { tripText } from "../trip-text";
 import { dateRange, dayViews, tripStatus } from "../trip-view";
 import { TRAVEL_BANNER } from "./travel-page";
@@ -52,7 +54,7 @@ export async function TripBody({ info, params }: TripPageProps) {
         title={
           <span className="inline-flex flex-wrap items-center gap-x-1">
             {trip.title}
-            <InfoTip label="行程怎麼用">拖曳左邊的把手調整順序，時間會自動重算。交通時間按「查路線」看 Google Maps，再填回來。切回這個分頁時會看到同行的人剛改的內容。</InfoTip>
+            <InfoTip label="行程怎麼用">拖曳把手調整順序，時間會自動重算</InfoTip>
           </span>
         }
         actions={
@@ -68,9 +70,10 @@ export async function TripBody({ info, params }: TripPageProps) {
       </PageBanner>
       <TodayCard days={days} items={trip.items} destination={trip.destination} expected={today >= trip.startDate && today <= trip.endDate} />
       <TripBoard tripId={trip.id} tripTitle={trip.title} destination={trip.destination} days={days} items={trip.items} comments={trip.comments} userId={user.id} managerId={trip.managerId} />
-      <div className="grid items-start gap-8 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <Members tripId={trip.id} members={trip.members} managerId={trip.managerId} userId={user.id} joinPath={trip.joinPath} />
         <Checklist tripId={trip.id} checks={trip.checks} />
+        <ExpensePanel tripId={trip.id} userId={user.id} members={trip.members} board={expenseBoard(trip, user.id)} />
       </div>
     </>
   );

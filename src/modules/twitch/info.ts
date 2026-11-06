@@ -9,4 +9,8 @@ export const twitchInfo: ModuleInfo = {
   cover: "/images/scenes/module-twitch.svg",
   accent: "violet",
   services: [{ id: "twitch:eventsub", label: "Twitch 開台訂閱" }],
+  crons: [
+    { id: "twitch:sync", label: "同步開台訂閱" },
+    { id: "twitch:cleanup", label: "清理開台紀錄" },
+  ],
 };

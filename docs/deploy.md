@@ -114,7 +114,13 @@ npm run account create
 - 一般的部署不會讓登入失效。只有換 `SESSION_SECRET`、改密碼或重建資料庫才會。
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
-- **之後可以收斂的欄位**：只在一張卡還沒有帳單時當截止日預設的 `savings_accounts.due_day`（程式只讀不寫）。不用它之後照舊分兩版刪：先從 schema 拿掉（程式不再讀寫，migration 手動去掉 DROP），再下一版才真的刪（刪除要在 `migrations.integration.test.ts` 明列允許）。
+- **下一版要刪的欄位**：v0.2.7 已經從 schema 拿掉，程式不再讀寫，v0.2.7 確認上線之後的版本才刪（刪除要在 `migrations.integration.test.ts` 明列允許）：`savings_categories.color`（連同它的 check）、`savings_accounts.due_day`（連同它的 check）、`twitch_stream_events.type`、`youtube_settings` 的六個 API Key 與模型欄位、`youtube_translations.batches`、`next_batch`。`youtube_settings.user_id` 到時候也可以改成主鍵、拿掉 `id`。
+- **從 v0.2.6 升級到 v0.2.7**：一般的升級，推送前不用另外設定，排程沒變。
+  - db-migrate 套用一個 migration `0001_tidy_and_new_tables`，一開始設 `lock_timeout = 5s`：新表 `core_announcements`、`core_push_subscriptions`、`core_push_mutes`、`travel_expenses`、`travel_expense_shares`、`travel_settlements`、`youtube_ai_keys`，`reminders_items.repeat`、`savings_recurring.subscription` 都有預設值。原本的 AI API Key 與模型由 migration 複製到 `youtube_ai_keys`，舊欄位留著。程式拿掉的欄位改成可以是空的，舊程式與新表並存時兩邊都寫得進去。
+  - 手機通知是選用的：要用時產生一組金鑰貼到 Vercel 再 Redeploy（見 [密鑰管理 › 手機通知的金鑰](secrets.md#手機通知的金鑰)），沒設定時通知頁不顯示，其他功能照常。
+  - 部署會清掉快取，第一次打開交通頁要重讀車站，每分鐘的次數用完時會等到下一分鐘，查詢表單先出來，常用路線的卡片可能晚幾十秒。捷運路網從每個系統兩次減成一次。
+  - 一張信用卡還沒有帳單時，截止日的預設不再看舊的 `due_day`，改成結帳後 15 天，填的時候照帳單改。
+  - 要退回 v0.2.6 時可以用 Instant Rollback，但升級後才存的 AI API Key、分帳、公告、手機通知舊程式都看不到，重複的提醒會被舊排程當成一次性的，日期過了就刪掉，所以出問題時優先往前修。
 - **從 v0.2.5 升級到 v0.2.6**：一般的升級，推送前不用另外設定，環境變數與排程都沒變。沒有新的 migration：`0001_place_order` 併進基準檔，基準檔的時間戳記等於它，db-migrate 會跑但不套用任何東西。交通多讀三種 TDX 介面：高鐵與台鐵的票價、捷運的票價（有人查詢時才讀，每段路一天一次）、捷運的行車時間（每個系統一天一次），都讀不到時只是不寫，班次照列。要退回 v0.2.5 時可以用 Instant Rollback。
 - **從 v0.2.4 升級到 v0.2.5**：一般的升級，推送前不用另外設定，環境變數與排程都沒變。db-migrate 套用一個 migration `0001_place_order`，一開始設 `lock_timeout = 5s`：`weather_places` 多一個 `sort_order`（有預設值），並刪掉 v0.2.4 起就沒有程式讀寫的 `starrail_warps`。以前存的捷運路線照常能用：常用路線的表沒有改，卡片與校正照路線自己的系統。捷運頁多讀環狀線與機場捷運的車站與路線（每個系統各兩次，一天一次，大家共用）。部署比 migration 先完成時，天氣頁讀城市排序那一兩分鐘會出錯，其他照常。要退回 v0.2.4 時可以用 Instant Rollback：舊程式不讀新欄位，也不讀被刪掉的表。
 - **從 v0.2.3 升級到 v0.2.4**：一般的升級，推送前不用另外設定。沒有新的 migration，環境變數沒變。少一個排程 `starrail:warps`（共 65 條），`starrail_warps` 表留著沒有程式讀寫，下一版刪掉。常用路線的表沒有改：高鐵與台鐵的車次放在原本的 `line` 欄位，以前存的路線照舊列整段路。要退回 v0.2.3 時可以用 Instant Rollback。

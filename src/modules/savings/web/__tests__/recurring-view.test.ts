@@ -93,6 +93,30 @@ describe("每月固定頁的三區", () => {
   });
 });
 
+describe("訂閱有自己一區", () => {
+  const withSubscriptions = () =>
+    recurringPageView({
+      ...SOURCES,
+      rules: [
+        rule(41, { name: "Netflix", amount: 390, subscription: true, mode: "auto" }),
+        rule(42, { name: "iCloud", amount: 1200, intervalMonths: 12, startMonth: "2027-01-01", subscription: true, mode: "auto" }),
+        rule(43, { name: "停用的", amount: 500, subscription: true, active: false }),
+        rule(44, { name: "房租", amount: 15000 }),
+      ],
+    });
+
+  it("訂閱不再列在其他固定收支", () => {
+    const { subscriptions, others } = withSubscriptions();
+
+    expect(subscriptions.map((row) => row.id).sort()).toEqual([41, 42, 43]);
+    expect(others.map((row) => row.id)).toEqual([44]);
+  });
+
+  it("平均每月＝月繳加上年繳除以 12，停用的不算：390 + 1,200 / 12 = 490", () => {
+    expect(withSubscriptions().subscriptionMonthly).toBe(490);
+  });
+});
+
 describe("到期（跟總覽的這個月要做的事同一期：到了或 7 天內會到）", () => {
   it("要確認的固定收支：7 天內會到的那一期可以確認，日期先填今天（不能記未來）", () => {
     const rent = view().others.find((row) => row.id === 32);

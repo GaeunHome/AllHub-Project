@@ -176,12 +176,47 @@ function weekResponse(names) {
   };
 }
 
+/** F-D0047-089 三天 溫度每小時一點 降雨機率與天氣每 3 小時一段 */
+function hoursResponse(names) {
+  const first = periodStarts()[0];
+  const points = Array.from({ length: 72 }, (_, index) => first + index * HOUR);
+  const spans = Array.from({ length: 24 }, (_, index) => first + index * 3 * HOUR);
+  const WEATHER = ["多雲", "晴時多雲", "短暫雨", "陰", "午後短暫雷陣雨"];
+  const span = (key, valueOf) => spans.map((start, index) => ({ StartTime: cwaTime(start), EndTime: cwaTime(start + 3 * HOUR), ElementValue: [{ [key]: valueOf(index) }] }));
+  return {
+    success: "true",
+    records: {
+      Locations: [
+        {
+          LocationsName: "臺灣",
+          Location: names.map((LocationName, offset) => ({
+            LocationName,
+            WeatherElement: [
+              { ElementName: "溫度", Time: points.map((time, index) => ({ DataTime: cwaTime(time), ElementValue: [{ Temperature: String(20 + ((index + offset) % 7)) }] })) },
+              { ElementName: "3小時降雨機率", Time: span("ProbabilityOfPrecipitation", (index) => String(((index + offset) % 8) * 10)) },
+              { ElementName: "天氣現象", Time: span("Weather", (index) => WEATHER[(index + offset) % WEATHER.length]) },
+            ],
+          })),
+        },
+      ],
+    },
+  };
+}
+
 function openMeteoResponse(url) {
   const base = Number(url.searchParams.get("latitude") ?? 0);
   const start = Date.now();
   const time = Array.from({ length: 7 }, (_, index) => new Date(start + index * 24 * HOUR).toISOString().slice(0, 10));
+  const hours = Array.from({ length: 168 }, (_, index) => `${time[Math.floor(index / 24)]}T${pad(index % 24)}:00`);
   return {
     timezone: url.searchParams.get("timezone"),
+    utc_offset_seconds: 0,
+    hourly: {
+      time: hours,
+      temperature_2m: hours.map((_, index) => 12.4 + ((index + Math.round(base)) % 9)),
+      precipitation_probability: hours.map((_, index) => (index % 6) * 15),
+      weather_code: hours.map((_, index) => [0, 2, 3, 61, 80, 1, 95][index % 7]),
+    },
     daily: {
       time,
       weather_code: [0, 2, 3, 61, 80, 1, 95],
@@ -196,6 +231,7 @@ const CWA_DATASETS = new Map([
   ["/api/v1/rest/datastore/F-C0032-001", forecastResponse],
   ["/api/v1/rest/datastore/W-C0033-001", warningResponse],
   ["/api/v1/rest/datastore/F-D0047-091", weekResponse],
+  ["/api/v1/rest/datastore/F-D0047-089", hoursResponse],
 ]);
 
 /** Authorization 或 api_key 是 bad 開頭時回 401 像授權碼打錯 */

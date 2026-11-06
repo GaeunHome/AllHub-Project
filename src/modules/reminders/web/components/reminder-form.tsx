@@ -4,7 +4,7 @@ import { useId } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
-import { DEFAULT_NOTIFY, NOTIFY_OPTIONS, notifyValueOf } from "../../lib/rules";
+import { DEFAULT_NOTIFY, NOTIFY_OPTIONS, REPEAT_OPTIONS, notifyValueOf } from "../../lib/rules";
 import type { ReminderItem } from "../../service/items";
 import { createReminderAction, updateReminderAction } from "../actions";
 import type { DateLimits } from "../reminders-view";
@@ -37,13 +37,23 @@ export function ReminderForm({ item, today, latest, onDone, onCancel }: Reminder
         </label>
         <input id={dateId} type="date" name="date" required defaultValue={item?.date} min={today} max={latest} aria-describedby={`${dateId}-hint`} className="input" />
         <p id={`${dateId}-hint`} className="text-sm text-ink-soft">
-          日期過了隔天會自動刪除
+          不重複的提醒，日期過了隔天會自動刪除
         </p>
       </div>
       <label className="field">
         <span className="field-label">通知</span>
         <select name="notifyDaysBefore" defaultValue={item ? notifyValueOf(item.notifyDaysBefore) : DEFAULT_NOTIFY} className="input">
           {NOTIFY_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        <span className="field-label">重複</span>
+        <select name="repeat" defaultValue={item?.repeat ?? "none"} className="input">
+          {REPEAT_OPTIONS.map(({ value, label }) => (
             <option key={value} value={value}>
               {label}
             </option>

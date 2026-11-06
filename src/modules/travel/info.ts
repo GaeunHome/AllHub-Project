@@ -8,4 +8,5 @@ export const travelInfo: ModuleInfo = {
   icon: "/icons/ui/plane.svg",
   cover: "/images/scenes/module-travel.svg",
   accent: "blue",
+  crons: [{ id: "travel:cleanup", label: "清理結束的旅程" }],
 };

@@ -1,16 +1,13 @@
 /** 橫向列加上這個標記 放不下時滑鼠按住就能拖 手指本來就能滑 */
 export const DRAG_SCROLL = { "data-drag-scroll": "" } as const;
 
-/** 列裡面自己能拖的東西 例如排序的把手 按在上面時整列不捲 */
-export const NO_DRAG_SCROLL = { "data-no-drag-scroll": "" } as const;
-
 /** 點連結時手會抖幾像素 超過才算拖曳 不然連結點不到 */
-export const DRAG_PX = 6;
+const DRAG_PX = 6;
 
 type Press = { row: HTMLElement; pointerId: number; startX: number; startLeft: number; dragging: boolean };
 
 /** 拖過放開時擋掉那一次 click */
-export function swallowNextClick(root: EventTarget) {
+function swallowNextClick(root: EventTarget) {
   const swallow = (event: Event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -27,7 +24,6 @@ export function attachDragScroll(root: EventTarget): () => void {
   const begin = (event: Event) => {
     const { pointerType, button, target, pointerId, clientX } = event as PointerEvent;
     if (pointerType !== "mouse" || button !== 0) return;
-    if ((target as Element).closest?.("[data-no-drag-scroll]")) return;
     const row = (target as Element).closest?.<HTMLElement>("[data-drag-scroll]");
     if (!row || row.scrollWidth <= row.clientWidth) return;
     press = { row, pointerId, startX: clientX, startLeft: row.scrollLeft, dragging: false };

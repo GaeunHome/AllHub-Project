@@ -384,6 +384,7 @@ export type RecurringInput = EntryCore & {
   mode: RecurringMode;
   holdingId: number | null;
   allocate: boolean;
+  subscription: boolean;
 };
 
 export type RecurringFieldName =
@@ -400,7 +401,8 @@ export type RecurringFieldName =
   | "holidayRule"
   | "mode"
   | "holdingId"
-  | "allocate";
+  | "allocate"
+  | "subscription";
 
 function parseInterval(raw: string): Parsed<IntervalMonths> {
   const text = raw.trim();
@@ -451,6 +453,7 @@ export function parseRecurringFields(fields: Fields<RecurringFieldName>): Parsed
     mode,
     holdingId: holdingId.value,
     allocate,
+    subscription: core.value.kind === "expense" && checked(fields.subscription),
   });
 }
 

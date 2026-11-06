@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TripItem } from "../../service/trips";
-import { adjacentListMove, beforeIdAt, isSamePlace, itemsOfDay, moveInBoard, neighbourMove } from "../board-model";
+import { adjacentListMove, beforeIdAt, dayTabs, isSamePlace, itemsOfDay, moveInBoard, neighbourMove, startDay } from "../board-model";
 
 const DAY = "2026-12-01";
 const item = (id: number, day: string | null, position: number) => ({ id, day, position, title: `項目${id}` }) as TripItem;
@@ -103,5 +103,22 @@ describe("方向鍵左右移到旁邊那一排", () => {
   it("已經在最左邊或最右邊時沒有下一步", () => {
     expect(adjacentListMove(ITEMS, LISTS, 4, -1)).toBeUndefined();
     expect(adjacentListMove(ITEMS, [DAY], 1, 1)).toBeUndefined();
+  });
+});
+
+describe("手機一次看一天（使用者選的）", () => {
+  const DAYS = ["2026-12-01", "2026-12-02", "2026-12-03"];
+
+  it("旅途中從今天開始", () => {
+    expect(startDay(DAYS, "2026-12-02")).toBe("2026-12-02");
+  });
+
+  it("還沒出發或已經結束 從第 1 天開始", () => {
+    expect(startDay(DAYS, "2026-11-30")).toBe("2026-12-01");
+    expect(startDay(DAYS, "2026-12-04")).toBe("2026-12-01");
+  });
+
+  it("切換列先是每一天 想去的點放最後", () => {
+    expect(dayTabs([{ day: null, label: "想去的點" }, { day: DAYS[0], label: "第 1 天" }, { day: DAYS[1], label: "第 2 天" }]).map(({ label }) => label)).toEqual(["第 1 天", "第 2 天", "想去的點"]);
   });
 });

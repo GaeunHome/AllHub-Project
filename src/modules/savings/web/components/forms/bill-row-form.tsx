@@ -38,7 +38,7 @@ export function BillRowForm({ record, categories, onDone, onCancel }: BillRowFor
       <NoteField defaultValue={record.note} />
       <p className="flex items-center gap-1 text-sm font-medium text-ink">
         金額不能在這裡改
-        <InfoTip label="金額不能在這裡改的原因">要改金額，請重填這一期的帳單。</InfoTip>
+        <InfoTip label="金額不能在這裡改的原因">要改請重填這一期帳單</InfoTip>
       </p>
       {!pending && <FormFeedback state={{ error: state.error }} />}
       <FormButtons pending={pending} onCancel={onCancel} label="儲存" pendingLabel="儲存中…" />

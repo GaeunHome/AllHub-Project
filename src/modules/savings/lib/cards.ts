@@ -87,15 +87,14 @@ const newest = <T extends CardStatement>(statements: readonly T[]): T | undefine
 
 /**
  * 填帳單時截止日的預設 是帳單上會印的日子 不順延
- * 照上一張帳單截止日的日子 還沒有帳單用舊的截止日設定 都沒有是結帳後 15 天
+ * 照上一張帳單截止日的日子 還沒有帳單是結帳後 15 天
  * 同一期再填一次時是上次填的 statements 只要這張卡的
  */
-export function defaultDueDate(statementDate: DateKey, statements: readonly CardStatement[], legacyDueDay: number | null): DateKey {
+export function defaultDueDate(statementDate: DateKey, statements: readonly CardStatement[]): DateKey {
   const same = statements.find((statement) => statement.statementDate === statementDate);
   if (same) return same.dueDate;
   const previous = newest(statements.filter((statement) => statement.statementDate < statementDate));
-  const day = previous ? Number(previous.dueDate.slice(8, 10)) : legacyDueDay;
-  return day === null ? addDays(statementDate, FALLBACK_DUE_DAYS) : nextDateOnDay(statementDate, day);
+  return previous ? nextDateOnDay(statementDate, Number(previous.dueDate.slice(8, 10))) : addDays(statementDate, FALLBACK_DUE_DAYS);
 }
 
 // 某天之後的紀錄扣回去就是那天的未繳
@@ -192,9 +191,8 @@ export function cardBill(card: CardLike, balance: number, flows: CardDailyFlow[]
 }
 
 /** 填帳單視窗的預設 金額照紀錄算到這一期的結帳日 截止日照 defaultDueDate */
-export function billDefaults(card: CardLike & { dueDay: number | null }, balance: number, flows: readonly CardDailyFlow[], today: DateKey, statements: readonly CardStatement[] = []): BillDefaults {
+export function billDefaults(card: CardLike, balance: number, flows: readonly CardDailyFlow[], today: DateKey, statements: readonly CardStatement[] = []): BillDefaults {
   const statementDate = fillStatementDate(card, today);
   const own = statements.filter((statement) => statement.accountId === card.id);
-  const dueDate = defaultDueDate(statementDate, own, card.dueDay);
-  return { statementDate, estimate: owedThrough(card.id, balance, flows, billCutoff(card, statementDate)), dueDate };
+  return { statementDate, estimate: owedThrough(card.id, balance, flows, billCutoff(card, statementDate)), dueDate: defaultDueDate(statementDate, own) };
 }

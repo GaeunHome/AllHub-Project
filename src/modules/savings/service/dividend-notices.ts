@@ -11,6 +11,7 @@ import { savingsAccounts, savingsDividendNotices, savingsHoldings } from "../dat
 import { taipeiToday, type DateKey } from "../lib/dates";
 import { dividendNotice, dueDividendNotices, heldDividends, heldShares, type DividendEvent, type DividendNotice, type HeldDividend, type HeldShares } from "../lib/dividends";
 import { fetchDividends } from "./dividends";
+import { LOCK_SCREEN_PUSH } from "./notices";
 
 // 排程沒有人在等 比頁面的 8 秒久一點
 const CRON_TIMEOUT_MS = 15_000;
@@ -81,7 +82,7 @@ async function noticeUser(userId: string, holdings: HeldShares[], events: Divide
       const release = await claim(userId, held, row, notices);
       if (release === null) continue;
       const { kind, title } = dividendNotice(notices, held);
-      await sendOrRelease(() => notify({ recipients: [userId], module: MODULE_ID, kind, title, url: PAGE }), release, RELEASE_LOG);
+      await sendOrRelease(() => notify({ recipients: [userId], module: MODULE_ID, kind, title, url: PAGE, push: LOCK_SCREEN_PUSH }), release, RELEASE_LOG);
       tally.sent++;
     } catch (error) {
       tally.failed++;

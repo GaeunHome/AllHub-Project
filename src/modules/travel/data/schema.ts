@@ -96,3 +96,73 @@ export const travelChecks = pgTable(
   },
   (t) => [index("travel_checks_trip_id_idx").on(t.tripId)],
 ).enableRLS();
+
+/**
+ * 一筆分帳 金額是外幣的分 rate_micros 是一元外幣換幾台幣乘上一百萬 台幣是 1000000
+ * 換算後的台幣不存 由這兩個算出來 成員離開後紀錄留著 帳才對得起來
+ */
+export const travelExpenses = pgTable(
+  "travel_expenses",
+  {
+    id: serial("id").primaryKey(),
+    tripId: integer("trip_id")
+      .notNull()
+      .references(() => travelTrips.id, { onDelete: "cascade" }),
+    paidBy: uuid("paid_by")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull(),
+    rateMicros: integer("rate_micros").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("travel_expenses_trip_id_idx").on(t.tripId),
+    index("travel_expenses_paid_by_idx").on(t.paidBy),
+    check("travel_expenses_amount", sql`${t.amountCents} > 0`),
+    check("travel_expenses_rate", sql`${t.rateMicros} > 0`),
+    check("travel_expenses_currency", sql`${t.currency} ~ '^[A-Z]{3}$'`),
+  ],
+).enableRLS();
+
+/** 這筆由哪些人平分 */
+export const travelExpenseShares = pgTable(
+  "travel_expense_shares",
+  {
+    expenseId: integer("expense_id")
+      .notNull()
+      .references(() => travelExpenses.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.expenseId, t.userId] }), index("travel_expense_shares_user_id_idx").on(t.userId)],
+).enableRLS();
+
+/** 已結清的一筆 記下誰給誰多少台幣 之後新增的帳才算得對 刪掉這一列就是復原 */
+export const travelSettlements = pgTable(
+  "travel_settlements",
+  {
+    id: serial("id").primaryKey(),
+    tripId: integer("trip_id")
+      .notNull()
+      .references(() => travelTrips.id, { onDelete: "cascade" }),
+    fromUser: uuid("from_user")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    toUser: uuid("to_user")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    amountTwd: integer("amount_twd").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("travel_settlements_trip_id_idx").on(t.tripId),
+    index("travel_settlements_from_user_idx").on(t.fromUser),
+    index("travel_settlements_to_user_idx").on(t.toUser),
+    check("travel_settlements_amount", sql`${t.amountTwd} > 0`),
+    check("travel_settlements_people", sql`${t.fromUser} <> ${t.toUser}`),
+  ],
+).enableRLS();

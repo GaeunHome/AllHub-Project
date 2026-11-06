@@ -9,4 +9,8 @@ export const savingsInfo: ModuleInfo = {
   cover: "/images/scenes/module-savings.svg",
   accent: "green",
   services: [{ id: "savings:dividends", label: "證交所與櫃買中心 除權息預告" }],
+  crons: [
+    { id: "savings:recurring", label: "固定收支與帳單提醒" },
+    { id: "savings:dividends", label: "除權息通知" },
+  ],
 };

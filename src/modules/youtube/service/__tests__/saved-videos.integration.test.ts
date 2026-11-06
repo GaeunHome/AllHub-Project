@@ -50,7 +50,7 @@ describe("手動保留（觀看頁的「保留」）", () => {
   });
 
   it("其他影片_頻道名稱用呼叫端給的（觀看頁讀過的 oEmbed）；標題跟觀看頁一樣先用共用翻譯存的", async () => {
-    await testDb.insert(youtubeTranslations).values({ videoId: VIDEO, title: "翻譯存的標題", sourceKind: "manual", sourceCues: [], translated: [], batches: [] });
+    await testDb.insert(youtubeTranslations).values({ videoId: VIDEO, title: "翻譯存的標題", sourceKind: "manual", sourceCues: [], translated: [] });
     // 別人追蹤的頻道不算 標題與頻道名稱不從別人的追蹤拿
     await testDb.insert(youtubeChannels).values({ channelId: CH, title: "別人追蹤的頻道" });
     await testDb.insert(youtubeFollows).values({ userId: other, channelId: CH });
@@ -210,8 +210,8 @@ describe("清單與移除：只看得到、動得到自己的", () => {
     await seed(other, [{ videoId: idOf(3), pinned: true }]);
     await testDb.update(youtubeSavedVideos).set({ title: null, channelTitle: "頻道" }).where(eq(youtubeSavedVideos.videoId, idOf(1)));
     await testDb.insert(youtubeTranslations).values([
-      { videoId: idOf(1), title: "翻譯的標題", status: "done", sourceKind: "manual", sourceCues: [], translated: [], batches: [] },
-      { videoId: idOf(2), title: "另一支", status: "running", sourceKind: "auto", sourceCues: [], translated: [], batches: [] },
+      { videoId: idOf(1), title: "翻譯的標題", status: "done", sourceKind: "manual", sourceCues: [], translated: [] },
+      { videoId: idOf(2), title: "另一支", status: "running", sourceKind: "auto", sourceCues: [], translated: [] },
     ]);
 
     const list = await listSavedVideos(me);

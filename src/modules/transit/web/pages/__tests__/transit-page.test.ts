@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToReadableStream, renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DAY_MS, taipeiDateKey } from "@/core/time";
 import { TEST_SESSION, requireModule } from "@/dev/session-stub";
@@ -41,7 +41,11 @@ const METRO_NETWORK = {
   ],
 };
 const networkRead = (data = {}) => ({ ok: true, data: { network: METRO_NETWORK, missing: [], problem: null, ...data } });
-const html = async (params: Record<string, string> = {}) => renderToStaticMarkup((await TransitBody({ searchParams: Promise.resolve(params) })) as ReactElement);
+const html = async (params: Record<string, string> = {}) => {
+  const stream = await renderToReadableStream((await TransitBody({ searchParams: Promise.resolve(params) })) as ReactElement);
+  await stream.allReady;
+  return new Response(stream).text();
+};
 const render = async (params: Record<string, string> = {}) => textOf(await html(params));
 
 beforeEach(() => {
@@ -76,13 +80,13 @@ describe("交通頁", () => {
 
     expect(text).toContain("台北 → 左營");
     expect(text).toContain("610 車次");
-    expect(text).toContain("加到常用");
+    expect(await html({ mode: "thsr", from: "1000", to: "1070" })).toContain('aria-label="把 610 車次加到常用"');
   });
 
   it("常用路線滿了_不放加入的按鈕", async () => {
     cached.cachedRoutes.mockResolvedValue(Array.from({ length: 12 }, (_, id) => route({ id })));
 
-    expect(await render({ mode: "thsr", from: "1000", to: "1070" })).not.toContain("加到常用");
+    expect(await html({ mode: "thsr", from: "1000", to: "1070" })).not.toContain("加到常用");
   });
 
   it("追蹤中的路線放在追蹤區 其他在常用路線", async () => {
@@ -238,13 +242,29 @@ describe("交通頁", () => {
 describe("高鐵與台鐵的查詢結果", () => {
   const search = { mode: "thsr", from: "1000", to: "1070" };
 
-  it("每一班都有車次與加到常用（使用者要的：有車次才加入常用），不再有整段路的按鈕", async () => {
+  it("每一班都有車次與星星（使用者要的：有車次才加入常用），報讀器念得出是哪一班", async () => {
     const markup = await html(search);
 
-    // 還沒有路線時空狀態的說明也提到按鈕 寫在引號裡
-    expect(textOf(markup).match(/加到常用(?!」)/g)).toHaveLength(3);
+    for (const trainNo of ["610", "620", "630"]) {
+      expect(textOf(markup)).toContain(`${trainNo} 車次`);
+      expect(markup).toContain(`aria-label="把 ${trainNo} 車次加到常用"`);
+    }
     expect(markup).not.toContain("加到常用路線");
-    for (const trainNo of ["610", "620", "630"]) expect(textOf(markup)).toContain(`${trainNo} 車次`);
+  });
+
+  it("使用者要的：一次先列接下來 8 班，其他收起來", async () => {
+    cached.cachedDepartures.mockResolvedValue({ ok: true, data: Array.from({ length: 11 }, (_, index) => later(10 + index * 10)) });
+
+    const markup = await html(search);
+    const shown = markup.split("<details")[0];
+
+    expect(shown.match(/車次加到常用/g)).toHaveLength(8);
+    expect(textOf(markup)).toContain("共 11 班");
+    expect(textOf(markup)).toContain("其他 3 班");
+  });
+
+  it("使用者要的：站名只寫一次 不再疊一塊重複的站牌", async () => {
+    expect((await render({ ...search, mode: "tra" })).match(/台北/g)).toHaveLength(1);
   });
 
   it("寫出總共幾班與每班要坐多久", async () => {
@@ -257,16 +277,16 @@ describe("高鐵與台鐵的查詢結果", () => {
   it("已經存過的那一班寫已在常用，其他班照樣能加", async () => {
     cached.cachedRoutes.mockResolvedValue([route({ line: "620" })]);
 
-    const text = await render(search);
+    const markup = await html(search);
 
-    expect(text.match(/已在常用/g)).toHaveLength(1);
-    expect(text.match(/加到常用/g)).toHaveLength(2);
+    expect(markup.match(/aria-label="已在常用"/g)).toHaveLength(1);
+    expect(markup.match(/車次加到常用"/g)).toHaveLength(2);
   });
 
   it("別段路存了同一個車次_不算已在常用", async () => {
     cached.cachedRoutes.mockResolvedValue([route({ line: "620", destinationId: "1040" })]);
 
-    expect(await render(search)).not.toContain("已在常用");
+    expect(await html(search)).not.toContain("已在常用");
   });
 
   it("有關閉按鈕，按了回到不查詢的網址", async () => {
@@ -376,7 +396,7 @@ describe("高鐵與台鐵的查詢結果：時段與標籤", () => {
     expect(await render(onDate())).not.toContain("最快");
   });
 
-  it("超過 20 班時其他的收起來 裡面也照時段分組", async () => {
+  it("超過 8 班時其他的收起來 裡面也照時段分組", async () => {
     const clocks = Array.from({ length: 25 }, (_, index) => `${String(6 + index * 0.5 | 0).padStart(2, "0")}:${index % 2 ? "30" : "00"}`);
     cached.cachedDepartures.mockResolvedValue({ ok: true, data: clocks.map((clock) => train(clock)) });
 
@@ -384,9 +404,9 @@ describe("高鐵與台鐵的查詢結果：時段與標籤", () => {
     const hidden = /<details[\s\S]*<\/details>/.exec(markup)![0];
 
     expect(textOf(markup)).toContain("共 25 班");
-    expect(textOf(hidden)).toContain("其他 5 班");
-    expect(titles(hidden)).toEqual(["下午", "晚上"]);
-    expect(hidden.match(/trn-ticket"/g)).toHaveLength(5);
+    expect(textOf(hidden)).toContain("其他 17 班");
+    expect(titles(hidden)).toEqual(["早上", "下午", "晚上"]);
+    expect(hidden.match(/trn-ticket"/g)).toHaveLength(17);
   });
 
   it("使用者要的：高鐵是車票 寫起訖站名 台鐵是時刻表列", async () => {
@@ -746,5 +766,146 @@ describe("捷運的總時間與票價", () => {
     expect(await html(search)).toContain("/images/scenes/transit-metro.svg");
     expect(await html({ mode: "thsr", from: "1000", to: "1070" })).toContain("/images/scenes/transit-thsr.svg");
     expect(await html({ mode: "tra", from: "1000", to: "1070" })).toContain("/images/scenes/transit-tra.svg");
+  });
+});
+
+describe("版面：查詢與自己的路線分開（使用者選的）", () => {
+  const search = { mode: "thsr", from: "1000", to: "1070" };
+  const sideOf = (page: string) => page.match(/<aside[\s\S]*<\/aside>/)?.[0] ?? "";
+
+  it("追蹤與常用都在旁邊的欄 查詢結果不會把它們推到最下面", async () => {
+    cached.cachedRoutes.mockResolvedValue([route({ id: 1, tracked: true, line: "610" }), route({ id: 2, line: "620" })]);
+
+    const page = await html(search);
+
+    expect(textOf(sideOf(page))).toContain("追蹤中");
+    expect(textOf(sideOf(page))).toContain("常用路線");
+    expect(textOf(sideOf(page))).not.toContain("查詢結果");
+    expect(page.replace(sideOf(page), "")).toContain("查詢結果");
+  });
+
+  it("手機上有路線才排在查詢前面 沒有路線時空狀態不能擋在前面", async () => {
+    expect(await html()).toMatch(/<aside[^>]*data-empty/);
+
+    cached.cachedRoutes.mockResolvedValue([route()]);
+    expect(await html()).not.toMatch(/<aside[^>]*data-empty/);
+  });
+});
+
+describe("查完表單收成一行（使用者選的）", () => {
+  const search = { mode: "thsr", from: "1000", to: "1070" };
+
+  it("還沒查 欄位都在", async () => {
+    const text = await render({ mode: "thsr" });
+
+    expect(text).toContain("起站");
+    expect(text).not.toContain("修改");
+  });
+
+  it("查到結果 欄位收起來 結果上有修改", async () => {
+    const text = await render(search);
+
+    expect(text).not.toContain("起站");
+    expect(text).toContain("修改");
+  });
+
+  it("交通工具的分頁留著 不用先打開表單才能換", async () => {
+    expect(await render(search)).toContain("捷運");
+  });
+
+  it("時刻表讀不到 沒有結果可以改 欄位要開著", async () => {
+    cached.cachedDepartures.mockResolvedValue({ ok: false, problem: "TDX 回 429" });
+
+    const text = await render(search);
+
+    expect(text).toContain("時刻表暫時讀不到");
+    expect(text).toContain("起站");
+  });
+
+  it("公車查不到路線 欄位要開著才能改路線名稱", async () => {
+    cached.cachedBusRoute.mockResolvedValue({ ok: true, data: [] });
+
+    const text = await render({ mode: "bus", line: "999" });
+
+    expect(text).toContain("找不到這條路線");
+    expect(text).toContain("路線");
+    expect(await html({ mode: "bus", line: "999" })).toContain("<input");
+  });
+
+  it("捷運查到路線 欄位也收起來", async () => {
+    expect(await render({ mode: "metro", from: "BL12", to: "BL23" })).not.toContain("起站");
+  });
+});
+
+describe("每分鐘只有 5 次：查詢先問 常用路線排後面", () => {
+  it("常用路線還在等下一分鐘時 查詢表單已經能用", async () => {
+    cached.cachedRoutes.mockResolvedValue([route()]);
+    cached.cachedDepartures.mockReturnValue(new Promise(() => {}));
+
+    const page = textOf(renderToStaticMarkup((await TransitBody({ searchParams: Promise.resolve({ mode: "thsr" }) })) as ReactElement));
+
+    expect(page).toContain("查詢");
+    expect(page).toContain("載入常用路線…");
+  });
+
+  it("車站問完才問常用路線 不能讓常用路線先把次數用完", async () => {
+    cached.cachedRoutes.mockResolvedValue([route()]);
+    let release: (value: unknown) => void = () => {};
+    cached.cachedStations.mockReturnValue(new Promise((resolve) => (release = resolve)));
+
+    const page = render({ mode: "thsr" });
+    await vi.waitFor(() => expect(cached.cachedStations).toHaveBeenCalled());
+    expect(cached.cachedDepartures).not.toHaveBeenCalled();
+
+    release({ ok: true, data: STATIONS });
+    await page;
+    expect(cached.cachedDepartures).toHaveBeenCalled();
+  });
+});
+
+describe("每分鐘只有 5 次：先問時刻表 票價與總時間排後面", () => {
+  /** 時刻表先卡住 看這時候有沒有人去問多的資料 */
+  function holdDepartures() {
+    let release: (value: unknown) => void = () => {};
+    cached.cachedDepartures.mockReturnValue(new Promise((resolve) => (release = resolve)));
+    return () => release({ ok: true, data: [later(10)] });
+  }
+
+  it("台鐵：時刻表問完才問票價 不能讓多的資料佔掉次數", async () => {
+    const release = holdDepartures();
+
+    const page = render({ mode: "tra", from: "1000", to: "4400" });
+    await vi.waitFor(() => expect(cached.cachedDepartures).toHaveBeenCalled());
+    expect(cached.cachedTraFares).not.toHaveBeenCalled();
+
+    release();
+    await page;
+    expect(cached.cachedTraFares).toHaveBeenCalledWith("1000", "4400");
+  });
+
+  it("高鐵：時刻表問完才問票價", async () => {
+    const release = holdDepartures();
+
+    const page = render({ mode: "thsr", from: "1000", to: "1070" });
+    await vi.waitFor(() => expect(cached.cachedDepartures).toHaveBeenCalled());
+    expect(cached.cachedThsrFares).not.toHaveBeenCalled();
+
+    release();
+    await page;
+    expect(cached.cachedThsrFares).toHaveBeenCalledWith("1000", "1070");
+  });
+
+  it("捷運：時刻表問完才問票價與行車時間", async () => {
+    const release = holdDepartures();
+
+    const page = render({ mode: "metro", from: "BL12", to: "BL01" });
+    await vi.waitFor(() => expect(cached.cachedDepartures).toHaveBeenCalled());
+    expect(cached.cachedMetroFare).not.toHaveBeenCalled();
+    expect(cached.cachedMetroTravelTimes).not.toHaveBeenCalled();
+
+    release();
+    await page;
+    expect(cached.cachedMetroFare).toHaveBeenCalled();
+    expect(cached.cachedMetroTravelTimes).toHaveBeenCalled();
   });
 });

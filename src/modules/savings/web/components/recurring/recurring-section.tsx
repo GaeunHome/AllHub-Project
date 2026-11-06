@@ -11,6 +11,8 @@ import type { useLinkedTrigger } from "../settings/open-from-link";
 type RecurringSectionProps = {
   id: string;
   title: string;
+  /** 標題右邊的合計 */
+  summary?: ReactNode;
   /** 新增的視窗 最後一格的新增要用 addTrigger 不能新增時不給 */
   add: ReturnType<typeof useDialog>;
   addTrigger?: ReturnType<typeof useLinkedTrigger>;
@@ -24,7 +26,7 @@ type RecurringSectionProps = {
 };
 
 /** 每月固定頁的一區 外框一直都在 刪除或略過後那一張的按鈕不見時焦點落在這裡 */
-export function RecurringSection({ id, title, add, addTrigger, addLabel, addTitle, addForm, empty, children }: RecurringSectionProps) {
+export function RecurringSection({ id, title, summary, add, addTrigger, addLabel, addTitle, addForm, empty, children }: RecurringSectionProps) {
   const addTile = addTrigger && (
     <button {...addTrigger} className={ADD_TILE}>
       <Icon name="plus" className="size-4" />
@@ -33,7 +35,7 @@ export function RecurringSection({ id, title, add, addTrigger, addLabel, addTitl
   );
   return (
     <section aria-labelledby={id} {...FOCUS_FRAME} className="stack min-w-0">
-      <SectionHeading id={id} title={title} />
+      <SectionHeading id={id} title={title} summary={summary} />
       <Dialog {...add.dialogProps} title={addTitle}>
         {addForm}
       </Dialog>

@@ -1,4 +1,4 @@
-/* 天氣頁 整片場景圖配大溫度 字疊在圖上一律寫死白色 一週的卡片壓在圖的下緣 */
+/* 天氣頁 整片場景圖配大溫度 字疊在圖上一律寫死白色 */
 /* 照片的天空常常很亮 上緣再壓暗一層 城市膠囊與 i 圓圈才讀得到 手機上字鋪滿下半部 下緣也要壓暗 */
 .wx-hero .scene-scrim::before {
   @apply absolute inset-0;
@@ -11,7 +11,14 @@
   }
 }
 .wx-hero-body {
-  @apply flex min-h-96 flex-col justify-between gap-8 p-5 pb-12 sm:p-6 sm:pb-12;
+  @apply flex min-h-96 flex-col justify-between gap-8 p-5 pb-12 sm:p-6 sm:pb-12 lg:h-full lg:pb-6;
+}
+/* 放不下時右緣淡出 看得出還能滑 不會切在管理按鈕旁邊 */
+.wx-places {
+  @apply flex min-w-0 flex-1 gap-1.5 overflow-x-auto;
+  padding-inline-end: 1.25rem;
+  scroll-padding-inline-end: 1.25rem;
+  mask-image: linear-gradient(to right, #000 calc(100% - 1.25rem), transparent);
 }
 .wx-chip {
   @apply inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full px-3.5 text-sm font-semibold whitespace-nowrap text-white;
@@ -23,72 +30,17 @@
   color: rgb(15 23 42);
   background-color: #fff;
 }
-/* 列會裁掉超出的部分 上下留空間給拖曳時的陰影 */
-.wx-chips {
-  @apply -my-2 py-2;
+/* 管理視窗的一列 手機從底部升起時按鈕要留在拇指按得到的右邊 */
+.wx-place {
+  @apply flex min-h-12 items-center justify-between gap-3 border-t border-line py-1.5 first:border-t-0;
 }
-/* 可以排序與移除的城市 把手與 ✕ 平常淡一點 不搶城市名稱 */
-.wx-chip-editable {
-  @apply gap-0 px-1 select-none;
-  transition: scale 150ms ease;
-}
-.wx-chips[data-sorting] .wx-chip-editable:not([data-dragging]) {
-  transition: translate 150ms ease;
-}
-.wx-chip-editable[data-dragging] {
-  z-index: 1;
-  scale: 1.06;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.4);
-}
-.wx-chip-editable[data-dragging]:not([data-current]) {
-  background-color: rgb(15 23 42 / 0.8);
-}
-.wx-chips[data-sorting],
-.wx-chips[data-sorting] a {
-  cursor: grabbing;
-}
-@media (prefers-reduced-motion: reduce) {
-  .wx-chips[data-sorting] .wx-chip-editable:not([data-dragging]) {
-    transition: none;
-  }
-}
-.wx-chip-link {
-  @apply inline-flex min-h-9 items-center gap-1 px-0.5;
-}
-.wx-chip-handle,
-.wx-chip-remove {
-  @apply relative inline-flex size-6 shrink-0 items-center justify-center rounded-full opacity-65;
-}
-.wx-chip-handle {
-  cursor: grab;
-  touch-action: none;
-}
-.wx-chip-handle:hover,
-.wx-chip-handle:focus-visible,
-.wx-chip-remove:hover,
-.wx-chip-remove:focus-visible {
-  opacity: 1;
-}
-/* 滑鼠按住整顆膠囊就能拖 把手留給鍵盤 移到時才出現 觸控筆電有手指要用所以不藏 */
-@media not (any-pointer: coarse) {
-  .wx-chip-handle:not(:focus-visible) {
-    @apply sr-only;
-  }
-  .wx-chip-link {
-    cursor: grab;
-  }
+.wx-place-name {
+  @apply inline-flex min-w-0 items-center gap-2 font-medium break-words text-ink;
 }
 /* 列會橫向捲動 超出的部分會被裁掉 所以直接把觸控的按鈕做到 44px 高 */
 @media (pointer: coarse) {
   .wx-chip {
     @apply min-h-11;
-  }
-  .wx-chip-link {
-    @apply min-h-11;
-  }
-  .wx-chip-handle,
-  .wx-chip-remove {
-    @apply h-11 w-8;
   }
 }
 .wx-city {
@@ -103,12 +55,37 @@
   @apply text-white;
   text-shadow: 0 1px 8px rgb(0 0 0 / 0.45);
 }
-.wx-week {
-  @apply relative mx-3 -mt-6 flex flex-col gap-0 py-2 sm:mx-6;
+/* 寬螢幕一週放在照片右邊 長條不會拉滿整頁 一進來整頁都看得到 窄的時候卡片壓在圖的下緣 */
+.wx-layout {
+  @apply lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-stretch lg:gap-6;
 }
+.wx-week {
+  @apply relative mx-3 -mt-6 flex flex-col gap-0 py-2 sm:mx-6 lg:m-0 lg:justify-center;
+}
+.wx-day {
+  @apply border-t border-line first:border-t-0;
+}
+/* 最後一格給可以點開的箭頭 一直留著 每小時讀到時版面才不會動 */
 .wx-row {
-  @apply grid items-center gap-2 border-t border-line py-2.5 first:border-t-0 sm:gap-3;
-  grid-template-columns: 3.5rem 2rem 2.5rem 2rem minmax(0, 1fr) 2rem;
+  @apply grid w-full items-center gap-2 py-2.5 text-left sm:gap-3;
+  grid-template-columns: 3.5rem 2rem 2.5rem 2rem minmax(0, 1fr) 2rem 1rem;
+}
+.wx-row-button {
+  @apply cursor-pointer rounded-lg text-ink;
+}
+.wx-row-button:hover {
+  background-color: var(--surface-muted);
+}
+/* 視窗裡橫向滑 一格一個時間 */
+.wx-hours {
+  @apply -mx-1 flex gap-1 overflow-x-auto px-1 pb-1;
+}
+.wx-hour {
+  @apply flex w-16 shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-2 text-ink tabular-nums;
+  background-color: var(--surface-muted);
+}
+.wx-hour-temp {
+  @apply text-lg font-bold;
 }
 .wx-rain {
   @apply text-sm font-semibold text-accent tabular-nums;

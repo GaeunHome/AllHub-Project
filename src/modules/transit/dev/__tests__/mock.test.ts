@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mockRequest } from "@/dev/mock-request";
 import { parseMetroFare, parseThsrFares, parseTraFares, traFareOf } from "../../lib/fares";
 import { fareSystemOf, metroNetwork, planRoute } from "../../lib/metro-route";
@@ -134,5 +134,21 @@ describe("假 TDX 的票價 格式跟真的一樣 解析得出來才看得到畫
 
   it("規劃跨系統的路線時票價問不到 畫面不會顯示", async () => {
     expect(fareSystemOf(planRoute(await network(), "A12", "R28")!)).toBeNull();
+  });
+});
+
+describe("每分鐘的上限 跟正式環境一樣 第 6 次回 429", () => {
+  it("設了 MOCK_TDX_PER_MINUTE 才擋 要等的秒數寫在 Retry-After", async () => {
+    vi.useFakeTimers({ now: new Date("2026-11-06T00:00:10Z"), toFake: ["Date"] });
+    vi.stubEnv("MOCK_TDX_PER_MINUTE", "5");
+    const ask = () => mockRequest(handle, "/api/basic/v2/Rail/THSR/Station");
+
+    for (let call = 0; call < 5; call++) expect((await ask()).status).toBe(200);
+    const blocked = await ask();
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers["Retry-After"]).toBe("50");
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
   });
 });

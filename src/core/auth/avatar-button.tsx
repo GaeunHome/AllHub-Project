@@ -75,7 +75,7 @@ function PhotoPicker({ onPicked }: { onPicked: (bitmap: ImageBitmap) => void }) 
           {busy ? "讀取中…" : "上傳照片"}
           <input id={inputId} type="file" accept="image/*" disabled={busy} onChange={pick} className="sr-only" />
         </label>
-        <InfoTip label="上傳照片的說明">檔案最大 5MB。選好後可以拖曳與放大縮小，存下來的是小圖；換照片時舊的會刪掉。</InfoTip>
+        <InfoTip label="上傳照片的說明">檔案最大 5MB，選好後可以拖曳與縮放</InfoTip>
       </div>
       {error && <FormFeedback state={{ error }} />}
     </div>

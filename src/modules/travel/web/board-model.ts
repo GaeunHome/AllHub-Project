@@ -53,3 +53,13 @@ export function adjacentListMove(items: readonly TripItem[], lists: readonly (st
   const next = lists.indexOf(moving.day) + direction;
   return next < 0 || next >= lists.length ? undefined : { itemId, toDay: lists[next], beforeId: null };
 }
+
+/** 手機第一眼看到哪一天 旅途中是今天 其他時候第 1 天 */
+export function startDay(days: readonly string[], today: string): string | null {
+  return days.includes(today) ? today : (days[0] ?? null);
+}
+
+/** 手機的切換列 使用者要先看到行程 想去的點放最後 */
+export function dayTabs<T extends { day: string | null }>(lists: readonly T[]): T[] {
+  return [...lists.filter((list) => list.day !== null), ...lists.filter((list) => list.day === null)];
+}

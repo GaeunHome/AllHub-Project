@@ -70,7 +70,6 @@ describe("createAccount", () => {
       openingCost: null,
       monthlyPlan: 5000,
       targetAmount: 300_000,
-      dueDay: null,
       payFromAccountId: null,
       active: true,
       sortOrder: 4,
@@ -88,7 +87,6 @@ describe("createAccount", () => {
     expect(await createAccount(me, sent)).toMatchObject({
       kind: "credit",
       openingBalance: -3500,
-      dueDay: null,
       payFromAccountId: cathay.id,
     });
   });
@@ -172,12 +170,11 @@ describe("updateAccount", () => {
     expect(await rowsOf(me)).toMatchObject([{ name: "國泰世華", kind: "deposit", openingBalance: 200 }]);
   });
 
-  it("信用卡_改未繳、清掉扣款帳戶；舊版設的繳款截止日不動（只當第一張帳單截止日的預設），送來新的也不收", async () => {
+  it("信用卡_改未繳、清掉扣款帳戶", async () => {
     const cathay = await insertAccount({ name: "國泰" });
-    const card = await insertAccount({ name: "卡", kind: "credit", openingBalance: -100, dueDay: 1, payFromAccountId: cathay.id });
+    const card = await insertAccount({ name: "卡", kind: "credit", openingBalance: -100, payFromAccountId: cathay.id });
 
-    expect(await updateAccount(me, card.id, fields({ name: "卡", openingBalance: "2,000" }))).toMatchObject({ openingBalance: -2000, dueDay: 1, payFromAccountId: null });
-    expect(await updateAccount(me, card.id, { ...fields({ name: "卡" }), dueDay: "25" } as AccountFields)).toMatchObject({ dueDay: 1 });
+    expect(await updateAccount(me, card.id, fields({ name: "卡", openingBalance: "2,000" }))).toMatchObject({ openingBalance: -2000, payFromAccountId: null });
   });
 
   it("扣款帳戶選信用卡自己_要選存款帳戶", async () => {

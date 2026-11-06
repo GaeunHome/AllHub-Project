@@ -1,4 +1,3 @@
-import Image from "next/image";
 import type { CSSProperties } from "react";
 import { formatTaipeiHourMinute, taipeiDateKey } from "@/core/time";
 import { Icon } from "@/core/ui/icon";
@@ -9,17 +8,17 @@ import type { Read } from "../../service/timetable";
 import { trainsAfter, type SearchQuery } from "../search-query";
 import { fastestTrain, groupByDayPart, rideOf } from "../train-groups";
 import { fareText, kindChipClass, rideText } from "../transit-view";
-import { AddRoute, stationName } from "./result-parts";
+import { StarTrain, stationName } from "./result-parts";
 import { ResultScene } from "./result-scene";
 
-/** 查詢結果先列這麼多班 其他收起來 高鐵一天有上百班 */
-const SHOWN_RESULTS = 20;
+/** 使用者要的 先列接下來這麼多班 其他收起來 高鐵一天有上百班 */
+const SHOWN_RESULTS = 8;
 
 const BADGE_CHIPS: Record<string, string> = { 下一班: "chip chip-success", 最快: "chip chip-accent" };
 
 const rideLabel = (departure: Departure) => rideText(Math.round((rideOf(departure) ?? 0) / 60_000));
 
-type AddTrain = { fields: Record<string, string>; saved: boolean } | null;
+type AddTrain = { fields: Record<string, string>; name: string; saved: boolean } | null;
 type TrainProps = { departure: Departure; add: AddTrain; badges: string[]; from: string; to: string; fare: number | null };
 
 function TrainBadges({ badges }: { badges: string[] }) {
@@ -40,10 +39,6 @@ function TrainName({ departure: { trainNo, toward } }: { departure: Departure })
       </span>
     </span>
   );
-}
-
-function AddTrainButton({ add }: { add: NonNullable<AddTrain> }) {
-  return add.saved ? <span className="text-sm font-semibold text-ink">已在常用</span> : <AddRoute fields={add.fields} label="加到常用" />;
 }
 
 /** 出發與抵達最大 中間是一小段路線圖 */
@@ -79,12 +74,12 @@ function TrainRow({ departure, add, badges, fare }: TrainProps) {
             {fareText(fare)}
           </span>
         )}
-        {add && (
-          <span className="ml-auto shrink-0">
-            <AddTrainButton add={add} />
-          </span>
-        )}
       </div>
+      {add && (
+        <span className="trn-result-add">
+          <StarTrain {...add} />
+        </span>
+      )}
     </li>
   );
 }
@@ -130,21 +125,10 @@ function TrainTicket({ departure, add, badges, from, to }: TrainProps) {
         </div>
         <div className="trn-ticket-stub">
           <span aria-hidden="true" className="trn-barcode" />
-          {add && <AddTrainButton add={add} />}
+          {add && <StarTrain {...add} />}
         </div>
       </div>
     </li>
-  );
-}
-
-/** 跟標題重複 只是站牌的樣子 報讀器不用再念一次 */
-function StationSign({ from, to }: { from: string; to: string }) {
-  return (
-    <p aria-hidden="true" className="trn-sign">
-      <span>{from}</span>
-      <Image src="/images/transit/sign-arrows.svg" alt="" width={44} height={14} unoptimized className="trn-sign-arrows" />
-      <span>{to}</span>
-    </p>
   );
 }
 
@@ -171,7 +155,7 @@ export function TrainResults({ results, cabins, traFares, query, stations, now, 
   const addOf = ({ trainNo }: Departure): AddTrain => {
     if (!trainNo) return null;
     const isSaved = saved.includes(trainNo);
-    return isSaved || canAdd ? { fields: { ...route, line: trainNo }, saved: isSaved } : null;
+    return isSaved || canAdd ? { fields: { ...route, line: trainNo }, name: `${trainNo} 車次`, saved: isSaved } : null;
   };
   // 有一班對不上票價時才寫起價 全部對得上時每一列都有價錢
   const startingFare = trains.some(({ fareKey }) => traFareOf(traFares, fareKey) === null) ? lowestTraFare(traFares, trains) : null;
@@ -207,7 +191,6 @@ export function TrainResults({ results, cabins, traFares, query, stations, now, 
           </ul>
         )}
       </ResultScene>
-      {!ticket && <StationSign from={from} to={to} />}
       {trains.length === 0 ? <p className="card-row text-ink">{query.time ? "這個時間之後沒有班次了" : "這一天沒有班次了"}</p> : listed(trains.slice(0, SHOWN_RESULTS))}
       {trains.length > SHOWN_RESULTS && (
         <details className="disclosure card-row">

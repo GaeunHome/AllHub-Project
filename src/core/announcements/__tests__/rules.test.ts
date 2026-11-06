@@ -1,0 +1,69 @@
+import { describe, expect, it } from "vitest";
+import { announcementWhen, dateTimeInputValue, isAnnouncementShown, parseAnnouncement } from "../rules";
+
+const fields = (values: Partial<Record<"kind" | "title" | "body" | "startsAt" | "endsAt", string>> = {}) => ({ kind: "outage", title: "資料庫維護", body: "", startsAt: "", endsAt: "", ...values });
+
+describe("parseAnnouncement（站長填的公告）", () => {
+  it("只有種類與標題是必填，開始與結束都可以不填", () => {
+    expect(parseAnnouncement(fields({ kind: "general", title: "  新功能上線 " }))).toEqual({ ok: true, value: { kind: "general", title: "新功能上線", body: "", startsAt: null, endsAt: null } });
+  });
+
+  it("時間照台北時間算：表單的 2026-11-10T02:00 是 UTC 前一天 18:00", () => {
+    const parsed = parseAnnouncement(fields({ startsAt: "2026-11-10T02:00", endsAt: "2026-11-10T04:30" }));
+
+    expect(parsed).toMatchObject({ ok: true, value: { startsAt: new Date("2026-11-09T18:00:00Z"), endsAt: new Date("2026-11-09T20:30:00Z") } });
+  });
+
+  it.each([
+    ["種類不在清單裡", { kind: "constructor" }, "請選擇公告的種類"],
+    ["標題空白", { title: "   " }, "請填標題"],
+    ["標題太長", { title: "字".repeat(61) }, "標題最多 60 字"],
+    ["內文太長", { body: "字".repeat(2001) }, "內文最多 2000 字"],
+    ["2 月 30 日", { startsAt: "2026-02-30T10:00" }, "開始時間不正確"],
+    ["亂寫的時間", { endsAt: "明天" }, "結束時間不正確"],
+    ["24 點", { endsAt: "2026-11-10T24:00" }, "結束時間不正確"],
+    ["結束不晚於開始", { startsAt: "2026-11-10T04:00", endsAt: "2026-11-10T04:00" }, "結束時間要晚於開始時間"],
+  ])("%s_拒絕", (_name, values, error) => {
+    expect(parseAnnouncement(fields(values))).toEqual({ ok: false, error });
+  });
+});
+
+describe("isAnnouncementShown（結束時間過了自動不顯示）", () => {
+  const now = new Date("2026-11-10T00:00:00Z");
+
+  it("沒有結束時間的一直顯示", () => {
+    expect(isAnnouncementShown({ endsAt: null }, now)).toBe(true);
+  });
+
+  it("結束時間還沒到才顯示，剛好到的那一刻就不顯示", () => {
+    expect(isAnnouncementShown({ endsAt: new Date("2026-11-10T00:00:01Z") }, now)).toBe(true);
+    expect(isAnnouncementShown({ endsAt: now }, now)).toBe(false);
+  });
+});
+
+describe("announcementWhen（列上寫的時間，台北時間）", () => {
+  const createdAt = new Date("2026-11-07T04:00:00Z");
+
+  it("同一天的開始到結束只寫一次日期", () => {
+    expect(announcementWhen({ createdAt, startsAt: new Date("2026-11-09T18:00:00Z"), endsAt: new Date("2026-11-09T20:30:00Z") })).toBe("11/10 02:00–04:30");
+  });
+
+  it("跨日的兩邊都寫日期", () => {
+    expect(announcementWhen({ createdAt, startsAt: new Date("2026-11-09T18:00:00Z"), endsAt: new Date("2026-11-10T18:00:00Z") })).toBe("11/10 02:00–11/11 02:00");
+  });
+
+  it("只有開始、只有結束、都沒有", () => {
+    expect(announcementWhen({ createdAt, startsAt: new Date("2026-11-09T18:00:00Z"), endsAt: null })).toBe("11/10 02:00 起");
+    expect(announcementWhen({ createdAt, startsAt: null, endsAt: new Date("2026-11-09T20:30:00Z") })).toBe("到 11/10 04:30");
+    expect(announcementWhen({ createdAt, startsAt: null, endsAt: null })).toBe("11/7 發布");
+  });
+});
+
+describe("dateTimeInputValue（修改時帶回表單）", () => {
+  it("台北時間的 YYYY-MM-DDTHH:mm，存下去再讀出來一樣", () => {
+    const value = dateTimeInputValue(new Date("2026-11-09T18:00:00Z"));
+
+    expect(value).toBe("2026-11-10T02:00");
+    expect(parseAnnouncement(fields({ startsAt: value }))).toMatchObject({ ok: true, value: { startsAt: new Date("2026-11-09T18:00:00Z") } });
+  });
+});

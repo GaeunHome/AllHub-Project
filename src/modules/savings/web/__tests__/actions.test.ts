@@ -29,7 +29,7 @@ const actions = await import("../actions");
 
 const NOW = new Date("2026-10-14T04:00:00Z");
 const account = (id: number, name: string, kind: AccountKind = "deposit") => accountRow({ id, name, kind, userId: TEST_SESSION.id, createdAt: NOW });
-const category = (id: number, name: string, kind: "expense" | "income") => ({ id, userId: TEST_SESSION.id, kind, name, color: "orange" as const, monthlyBudget: null, sortOrder: id, createdAt: NOW, icon: null });
+const category = (id: number, name: string, kind: "expense" | "income") => ({ id, userId: TEST_SESSION.id, kind, name, monthlyBudget: null, sortOrder: id, createdAt: NOW, icon: null });
 const tx = (fields: Record<string, unknown>) => ({
   id: 70,
   userId: TEST_SESSION.id,
@@ -84,6 +84,7 @@ const RULE_FIELDS = {
   mode: "confirm",
   holdingId: "",
   allocate: "",
+  subscription: "",
 };
 const HOLDING_FIELDS = { accountId: "4", symbol: "006208", shares: "12", cost: "3,000" };
 const BUY_FIELDS = { holdingId: "21", fromAccountId: "1", shares: "19", amount: "4,916", date: "2026-10-05", note: "" };
@@ -450,8 +451,8 @@ describe("持股、買賣、待處理與繳卡費：FormData 的欄位名稱照 
     ["createRecurringAction", () => actions.createRecurringAction({}, form(RULE_FIELDS)), () => recurring.createRecurring, [RULE_FIELDS]],
     ["createAccountAction（信用卡的卡面顏色；舊的表單送來繳款截止日與用途 id 也不交給 service）", () => actions.createAccountAction({}, form({ ...ACCOUNT_FIELDS, kind: "credit", cardStyle: "green", dueDay: "20", purposeId: "5", statementDay: "5", autopay: "on" })), () => accounts.createAccount, [{ ...ACCOUNT_FIELDS, kind: "credit", cardStyle: "green", statementDay: "5", autopay: "on" }]],
     ["updateAccountAction（舊的表單送來繳款截止日與用途 id 也不交給 service）", () => actions.updateAccountAction({}, form({ id: "3", ...ACCOUNT_FIELDS, kind: "credit", dueDay: "20", purposeId: "5", statementDay: "5" })), () => accounts.updateAccount, [3, { ...ACCOUNT_FIELDS, kind: "credit", statementDay: "5" }]],
-    ["createCategoryAction（圖示；舊的表單送來的顏色不交給 service，顏色由 service 給）", () => actions.createCategoryAction({}, form({ kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "6,000", icon: "utensils" })), () => categories.createCategory, [{ kind: "expense", name: "餐飲", monthlyBudget: "6,000", icon: "utensils" }]],
-    ["updateCategoryAction（圖示；送來的顏色不交給 service，修改不動顏色）", () => actions.updateCategoryAction({}, form({ id: "11", kind: "expense", name: "餐飲", color: "orange", monthlyBudget: "", icon: "coffee" })), () => categories.updateCategory, [11, { kind: "expense", name: "餐飲", monthlyBudget: "", icon: "coffee" }]],
+    ["createCategoryAction（圖示；舊的表單送來的顏色不交給 service，顏色由 service 給）", () => actions.createCategoryAction({}, form({ kind: "expense", name: "餐飲", monthlyBudget: "6,000", icon: "utensils" })), () => categories.createCategory, [{ kind: "expense", name: "餐飲", monthlyBudget: "6,000", icon: "utensils" }]],
+    ["updateCategoryAction（圖示；送來的顏色不交給 service，修改不動顏色）", () => actions.updateCategoryAction({}, form({ id: "11", kind: "expense", name: "餐飲", monthlyBudget: "", icon: "coffee" })), () => categories.updateCategory, [11, { kind: "expense", name: "餐飲", monthlyBudget: "", icon: "coffee" }]],
   ] as const)("%s", async (_name, run, service, args) => {
     expect(await run()).not.toHaveProperty("error");
 

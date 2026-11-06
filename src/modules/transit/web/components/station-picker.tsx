@@ -10,7 +10,7 @@ import type { Station } from "../../lib/timetable";
 import { pickerSections, soleStation } from "../station-sections";
 
 type PickerData = { stations: Station[]; groups: StationGroup[]; frequent: Station[] };
-type PickerChoice = { value: string; onPick: (stationId: string) => void };
+type PickerChoice = { value: string; except?: Station | null; onPick: (stationId: string) => void };
 type StationLine = { name: string; color: string };
 
 const dotStyle = (color: string) => ({ "--trn-line": color }) as CSSProperties;
@@ -31,7 +31,7 @@ function StationButton({ station, line, selected, onPick }: { station: Station; 
   );
 }
 
-function StationSection({ section, lines, value, onPick }: { section: StationGroup; lines: Map<string, StationLine> } & PickerChoice) {
+function StationSection({ section, lines, value, onPick }: { section: StationGroup; lines: Map<string, StationLine> } & Omit<PickerChoice, "except">) {
   const titleId = useId();
   return (
     <section aria-labelledby={titleId} className="trn-picker-group">
@@ -51,10 +51,10 @@ function StationSection({ section, lines, value, onPick }: { section: StationGro
 }
 
 /** 只在視窗開著時掛上 所以每次打開都是空的搜尋框 全部在瀏覽器裡篩 不問伺服器 */
-export function StationPanel({ stations, groups, frequent, value, onPick }: PickerData & PickerChoice) {
+export function StationPanel({ stations, groups, frequent, value, except = null, onPick }: PickerData & PickerChoice) {
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
-  const sections = pickerSections(stations, groups, frequent, query);
+  const sections = pickerSections(stations, groups, frequent, query, except);
   const lines = stationLines(groups);
   const searching = plainName(query) !== "";
   const found = sections.reduce((total, section) => total + section.stations.length, 0);
@@ -102,10 +102,10 @@ export function StationPanel({ stations, groups, frequent, value, onPick }: Pick
   );
 }
 
-type StationPickerProps = PickerData & { label: string; value: string; onChange: (stationId: string) => void };
+type StationPickerProps = PickerData & { label: string; value: string; except: Station | null; onChange: (stationId: string) => void };
 
 /** 台鐵與捷運站太多 長長的下拉很難用 高鐵的站少 照舊是下拉 */
-export function StationPicker({ label, value, onChange, ...data }: StationPickerProps) {
+export function StationPicker({ label, value, except, onChange, ...data }: StationPickerProps) {
   const dialog = useDialog();
   const chosen = data.stations.find((station) => station.id === value) ?? data.frequent.find((station) => station.id === value);
   const shown = chosen?.name ?? "請選擇";
@@ -124,7 +124,7 @@ export function StationPicker({ label, value, onChange, ...data }: StationPicker
         <Icon name="chevron-down" className="size-4 shrink-0" />
       </button>
       <Dialog {...dialog.dialogProps} title={`選擇${label}`} size="lg" className="trn-picker">
-        <StationPanel {...data} value={value} onPick={pick} />
+        <StationPanel {...data} value={value} except={except} onPick={pick} />
       </Dialog>
     </div>
   );

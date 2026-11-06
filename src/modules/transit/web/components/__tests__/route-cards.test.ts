@@ -38,11 +38,11 @@ describe("常用路線的班次卡", () => {
   });
 
   it("捷運寫方向 迄站也寫方向 沒有到站時間就不寫", () => {
-    const html = card({ mode: "metro", system: "TRTC", line: "", originName: "府中", destinationName: "南港展覽館" }, [departure({ arrivesAt: null, trainNo: null, kind: null })]);
+    const html = card({ mode: "metro", system: "TRTC", line: "", originId: "BL05", originName: "府中", destinationId: "BL23", destinationName: "南港展覽館" }, [departure({ arrivesAt: null, trainNo: null, kind: null })]);
     const text = textOf(html, { spaced: true });
 
     expect(text).toContain("往南港展覽館");
-    expect(text).toMatch(/府中 22:40 往南港展覽館 /);
+    expect(text).toMatch(/BL05 府中 22:40 BL23 往南港展覽館 /);
     expect(html).not.toContain("chip");
   });
 
@@ -83,5 +83,39 @@ describe("追蹤中的大卡", () => {
 
     expect(html).not.toContain("text-ink-soft");
     expect(textOf(html)).toContain("150 車次");
+  });
+});
+
+describe("實體票卡（使用者選的：高鐵車票 台鐵站牌 捷運站名牌 公車儲值卡）", () => {
+  const tracked = (routeFields = {}) => markup(createElement(TrackedCard, { route: route({ tracked: true, ...routeFields }), departures: [departure()], problem: null, status: null }));
+  const metro = { mode: "metro" as const, system: "TRTC", line: "", originId: "BL12", originName: "台北車站", destinationId: "BL23", destinationName: "南港展覽館" };
+
+  it.each(["thsr", "tra", "metro", "bus"] as const)("%s：大卡與小卡都照交通工具換樣子", (mode) => {
+    expect(card({ mode })).toContain(`data-mode="${mode}"`);
+    expect(tracked({ mode })).toContain(`data-mode="${mode}"`);
+  });
+
+  it("捷運的起訖站都帶站號，跟查詢結果的站名牌一樣", () => {
+    for (const html of [card(metro), tracked(metro)]) {
+      const text = textOf(html, { spaced: true });
+
+      expect(text).toContain("BL12 台北車站");
+      expect(text).toContain("BL23 往南港展覽館");
+    }
+  });
+
+  it("站號的字色照路線色選：藍線是白字，文湖線是深色字", () => {
+    expect(card(metro)).toContain("--trn-plate-ink:#ffffff");
+    expect(card({ ...metro, originId: "BR02", destinationId: "BR24" })).toMatch(/--trn-plate-ink:#(?!ffffff)/);
+  });
+
+  it("其他交通工具的代碼不給使用者看", () => {
+    expect(textOf(card({ mode: "tra" }))).not.toContain("1000");
+  });
+
+  it("高鐵的條碼只是裝飾，報讀器不念，其他交通工具沒有", () => {
+    expect(card({ mode: "thsr" })).toMatch(/aria-hidden="true" class="trn-barcode"/);
+    expect(tracked({ mode: "thsr" })).toMatch(/aria-hidden="true" class="trn-barcode"/);
+    expect(card({ mode: "tra" })).not.toContain("trn-barcode");
   });
 });

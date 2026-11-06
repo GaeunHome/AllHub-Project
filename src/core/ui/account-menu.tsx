@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, type FocusEvent, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { logout } from "../auth/actions";
+import { leaveThisPhone } from "../notifications/push-client";
 import { useHeaderMenu, useHeaderMenuRoot } from "./header-menus";
 import { Icon, type UiIconName } from "./icon";
 import { menuFocusIndex } from "./menu-state";
@@ -10,6 +11,12 @@ import { THEME_OPTIONS } from "./theme";
 import { useThemePref } from "./theme-sync";
 
 type FocusTarget = "first" | "last";
+
+/** 訂閱是綁在手機上的 先關掉 不然登出後還會收到這個人的通知 */
+async function logoutFromThisPhone() {
+  await leaveThisPhone();
+  await logout();
+}
 
 const menuItems = (menu: HTMLElement | null) => Array.from(menu?.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menuitemradio"]') ?? []);
 
@@ -134,7 +141,7 @@ export function AccountMenu({ username, avatar, ownerItems }: { username: ReactN
             </AccountMenuLink>
             <li role="none">
               {/* 送出時才收起 在 click 就卸載表單的話瀏覽器會取消送出 */}
-              <form action={logout} onSubmit={close}>
+              <form action={logoutFromThisPhone} onSubmit={close}>
                 <button type="submit" role="menuitem" className="menu-item menu-item-danger">
                   <Icon name="log-out" className="size-4" />
                   登出

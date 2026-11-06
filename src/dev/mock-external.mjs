@@ -20,6 +20,8 @@ createServer(async (req, res) => {
   console.log(`[mock] ${req.method} ${url.pathname}${url.search}`);
 
   const ctx = mockContext({ req, url, body, res });
+  // 假推送服務 網址結尾是 gone 時回 410 看得到壞掉的手機被刪掉
+  if (url.pathname.startsWith("/fcm/send/")) return ctx.json(url.pathname.endsWith("gone") ? 410 : 201, {});
   for (const mock of mocks) if (await mock.handle(ctx)) return;
   ctx.json(404, { message: `mock 沒有這個路徑：${url.pathname}` });
 }).listen(port, "127.0.0.1", () => console.log(`[mock] listening on http://127.0.0.1:${port}（${mocks.map((m) => m.id).join("、")}）`));
