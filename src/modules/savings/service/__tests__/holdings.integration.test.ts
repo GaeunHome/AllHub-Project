@@ -57,12 +57,12 @@ describe("addHolding（新增持股：照券商 App 的庫存頁填目前股數�
     expect((await listHoldings(me)).map((h) => h.symbol)).toEqual(["006208", "00679B"]);
   });
 
-  it("清單裡沒有這個代號_找不到這個代號；清單讀不到_暫時讀不到股價清單；都不寫入", async () => {
+  it("清單裡沒有這個代號_找不到這個代號；清單讀不到_股價清單暫時無法讀取；都不寫入", async () => {
     const { broker } = await setup();
     const fields = { accountId: String(broker.id), symbol: "9999", shares: "1", cost: "1" };
 
     expect(await userError(addHolding(me, fields, lookupOf(QUOTES)))).toBe("找不到這個代號：只支援台股上市櫃股票與 ETF");
-    expect(await userError(addHolding(me, fields, lookupOf(QUOTES, false)))).toBe("暫時讀不到股價清單，請稍後再試");
+    expect(await userError(addHolding(me, fields, lookupOf(QUOTES, false)))).toBe("股價清單暫時無法讀取，請稍後再試");
     expect(await listHoldings(me)).toHaveLength(1);
   });
 

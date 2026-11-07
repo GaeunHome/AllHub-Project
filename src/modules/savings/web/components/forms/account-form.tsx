@@ -52,13 +52,13 @@ const OPENING_LABELS: Record<AccountKind, { create: string; edit: string }> = {
   investment: { create: "目前市值（元）", edit: "起始市值（元）" },
   credit: { create: "目前未繳（元）", edit: "起始未繳（元）" },
 };
-const CREDIT_HINT = "多繳（溢繳）時填負數。";
+const CREDIT_HINT = "多繳（溢繳）時填負數";
 // 截止日每期照帳單填 這裡只設結帳日
-const STATEMENT_HINT = "設了之後，每次結帳後「這個月要做的事」會提醒你填帳單。";
-const EDIT_HINTS: Record<AccountKind, string> = {
-  deposit: "這是開始記帳時的數字；要對帳請按帳戶上的「更新餘額」。",
-  investment: "這是開始記帳時的數字；目前的市值看「投資」頁。",
-  credit: "這是開始記帳時的數字；要對帳請照銀行的帳單「填帳單」。",
+const STATEMENT_TIP = "設了之後，每次結帳後「這個月要做的事」會提醒你填帳單";
+const EDIT_TIPS: Record<AccountKind, string> = {
+  deposit: "這是開始記帳時的數字，要對帳請按帳戶上的「更新餘額」",
+  investment: "這是開始記帳時的數字，目前的市值看「投資」頁",
+  credit: "這是開始記帳時的數字，要對帳請照銀行的帳單「填帳單」",
 };
 
 /** 新增與修改帳戶 欄位依類型不同 類型建立後不能改 */
@@ -68,7 +68,6 @@ export function AccountForm({ account, kind: fixedKind, payFromAccounts, onDone,
   const opening = OPENING_LABELS[kind];
   // 表單填的是銀行 App 上的數字 信用卡是未繳 存的卻是負的餘額
   const openingValue = account ? shownFigure(account.kind, account.openingBalance) : undefined;
-  const openingHint = [kind === "credit" ? CREDIT_HINT : "", account ? EDIT_HINTS[kind] : ""].join("") || undefined;
   // 停用的存款帳戶不能再選 但原本選的留著 儲存時才不會默默改掉
   const payFrom = payFromAccounts.filter((option) => option.id !== account?.id && (option.active || option.id === account?.payFromAccountId));
 
@@ -93,7 +92,8 @@ export function AccountForm({ account, kind: fixedKind, payFromAccounts, onDone,
           label={account ? opening.edit : opening.create}
           defaultValue={openingValue}
           placeholder="0"
-          hint={openingHint}
+          hint={kind === "credit" ? CREDIT_HINT : undefined}
+          tip={account ? EDIT_TIPS[kind] : undefined}
           allowNegative={kind === "credit"}
         />
         {kind === "investment" && <AmountField name="openingCost" label="成本（元，選填）" defaultValue={account?.openingCost} />}
@@ -101,7 +101,7 @@ export function AccountForm({ account, kind: fixedKind, payFromAccounts, onDone,
       {kind === "credit" ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
-            <DayOfMonthSelect name="statementDay" label="結帳日" defaultValue={account?.statementDay} allowEmpty hint={STATEMENT_HINT} />
+            <DayOfMonthSelect name="statementDay" label="結帳日" defaultValue={account?.statementDay} allowEmpty tip={STATEMENT_TIP} />
             <label className="field self-start">
               <span className="field-label">扣款帳戶</span>
               <select name="payFromAccountId" defaultValue={account?.payFromAccountId ?? ""} className="input">

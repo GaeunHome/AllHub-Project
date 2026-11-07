@@ -175,9 +175,11 @@ function LightConeCard({ lightCone }: { lightCone: LightCone }) {
       </span>
       <div className="flex min-w-0 flex-col gap-1">
         <p className="line-clamp-2 text-lg leading-snug font-semibold text-ink">{dash(lightCone.name)}</p>
-        <p className="text-ink-soft">
-          <span className="sr-num text-lg font-bold text-ink">Lv.{dash(lightCone.level)}</span> · 疊影{" "}
-          <span className="sr-num text-lg font-bold text-ink">{dash(lightCone.superimposition)}</span>
+        <p className="flex flex-wrap items-baseline gap-x-4 text-ink-soft">
+          <span className="sr-num text-lg font-bold text-ink">Lv.{dash(lightCone.level)}</span>
+          <span>
+            疊影 <span className="sr-num text-lg font-bold text-ink">{dash(lightCone.superimposition)}</span>
+          </span>
         </p>
         {rarity && <p className="text-[var(--sr-gold-ink)]">{rarity}</p>}
       </div>

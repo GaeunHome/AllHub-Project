@@ -41,13 +41,13 @@ describe("首頁卡片是焦點的外框", () => {
 });
 
 describe("卡片出錯時（CardError）", () => {
-  it("不顯示錯誤內容（可能夾帶 SQL 參數或憑證），只說這張卡片暫時讀不到，可以重試", () => {
+  it("不顯示錯誤內容（可能夾帶 SQL 參數或憑證），只說這張卡片暫時無法讀取，可以重試", () => {
     const markup = renderToStaticMarkup(CardError({}, { error: new Error("password=hunter2 select * from core_users"), retry: vi.fn(), reset: vi.fn() }) as ReactElement);
 
     expect(markup).not.toContain("hunter2");
     expect(markup).not.toContain("core_users");
     expect(markup).toContain('role="alert"');
-    expect(textOf(markup)).toContain("這張卡片暫時讀不到資料");
+    expect(textOf(markup)).toContain("這張卡片暫時無法讀取");
     expect(markup).toMatch(/<button[^>]*type="button"[^>]*>.*重試/);
   });
 });

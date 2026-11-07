@@ -54,7 +54,7 @@ function ChannelList({ channels }: { channels: FollowedChannel[] }) {
         <RenewButton />
       </div>
       {channels.length === 0 ? (
-        <p className="text-[0.9375rem] text-ink-soft">還沒有追蹤頻道：在上面貼頻道網址或 @帳號，新影片上架時就會通知你</p>
+        <p className="text-[0.9375rem] text-ink">還沒有追蹤頻道：在上面貼頻道網址或 @帳號，新影片上架時就會通知你</p>
       ) : (
         // 寬螢幕每一列有滑過時底色用的左右內距 清單往外撐開同樣距離 頭像才對齊標題
         <ul {...DRAG_SCROLL} className="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-1 lg:-mx-2 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:px-0">

@@ -48,8 +48,9 @@ export function UnreadDigestList({ loaded, items, more, modules, now, onOpen }: 
                 <ModuleBadge module={source} className="size-9" />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-semibold text-ink">{item.title}</span>
-                  <span className="truncate text-sm text-ink-soft">
-                    {source?.name ?? item.module} · {relativeTime(item.createdAt, now)}
+                  <span className="flex min-w-0 gap-x-3 text-sm text-ink-soft">
+                    <span className="truncate">{source?.name ?? item.module}</span>
+                    <span className="shrink-0">{relativeTime(item.createdAt, now)}</span>
                   </span>
                 </span>
               </button>

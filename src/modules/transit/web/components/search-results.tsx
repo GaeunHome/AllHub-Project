@@ -6,13 +6,11 @@ import { routeColor } from "../../lib/lines";
 import type { Departure, Station } from "../../lib/timetable";
 import type { Read } from "../../service/timetable";
 import { trainsAfter, type SearchQuery } from "../search-query";
-import { fastestTrain, groupByDayPart, rideOf } from "../train-groups";
+import { fastestTrain, rideOf } from "../fastest-train";
 import { fareText, kindChipClass, rideText } from "../transit-view";
+import { ResultPages } from "./result-pages";
 import { StarTrain, stationName } from "./result-parts";
 import { ResultScene } from "./result-scene";
-
-/** 使用者要的 先列接下來這麼多班 其他收起來 高鐵一天有上百班 */
-const SHOWN_RESULTS = 8;
 
 const BADGE_CHIPS: Record<string, string> = { 下一班: "chip chip-success", 最快: "chip chip-accent" };
 
@@ -137,9 +135,9 @@ const shortDate = (date: string) => date.slice(5).replace("-", "/");
 
 type TrainResultsProps = { results: Read<Departure[]>; cabins: CabinFare[]; traFares: TraFare[]; query: SearchQuery; stations: Station[]; now: Date; canAdd: boolean; saved: readonly string[] };
 
-/** 高鐵與台鐵共用分組與標籤 只有每一班的樣子不同 */
+/** 高鐵與台鐵共用分頁與標籤 只有每一班的樣子不同 */
 export function TrainResults({ results, cabins, traFares, query, stations, now, canAdd, saved }: TrainResultsProps) {
-  if (!results.ok) return <p className="text-ink">時刻表暫時讀不到，稍後再試</p>;
+  if (!results.ok) return <p className="text-ink">時刻表暫時無法讀取</p>;
   const trains = trainsAfter(results.data, { date: query.date, time: query.time, now: now.getTime() });
   const from = stationName(stations, query.from);
   const to = stationName(stations, query.to);
@@ -159,20 +157,7 @@ export function TrainResults({ results, cabins, traFares, query, stations, now, 
   };
   // 有一班對不上票價時才寫起價 全部對得上時每一列都有價錢
   const startingFare = trains.some(({ fareKey }) => traFareOf(traFares, fareKey) === null) ? lowestTraFare(traFares, trains) : null;
-  const listed = (list: Departure[]) => (
-    <div className={ticket ? "trn-parts" : "trn-parts trn-board"}>
-      {groupByDayPart(list).map((group) => (
-        <div key={group.trains[0].at}>
-          <h3 className="trn-part-title">{group.part}</h3>
-          <ul className={ticket ? "trn-tickets" : "trn-result-list"}>
-            {group.trains.map((departure) => (
-              <Train key={`${departure.at}-${departure.trainNo}`} departure={departure} add={addOf(departure)} badges={badgesOf(departure)} from={from} to={to} fare={traFareOf(traFares, departure.fareKey)} />
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
-  );
+  const items = trains.map((departure) => <Train key={`${departure.at}-${departure.trainNo}`} departure={departure} add={addOf(departure)} badges={badgesOf(departure)} from={from} to={to} fare={traFareOf(traFares, departure.fareKey)} />);
   return (
     <section aria-label="查詢結果" className="card p-0 trn-results" style={{ "--trn-line": routeColor(query.mode, "", query.from) } as CSSProperties}>
       <ResultScene mode={ticket ? "thsr" : "tra"} from={from} to={to} query={query}>
@@ -191,12 +176,11 @@ export function TrainResults({ results, cabins, traFares, query, stations, now, 
           </ul>
         )}
       </ResultScene>
-      {trains.length === 0 ? <p className="card-row text-ink">{query.time ? "這個時間之後沒有班次了" : "這一天沒有班次了"}</p> : listed(trains.slice(0, SHOWN_RESULTS))}
-      {trains.length > SHOWN_RESULTS && (
-        <details className="disclosure card-row">
-          <summary>其他 {trains.length - SHOWN_RESULTS} 班</summary>
-          {listed(trains.slice(SHOWN_RESULTS))}
-        </details>
+      {trains.length === 0 ? (
+        <p className="card-row text-ink">{query.time ? "這個時間之後沒有班次了" : "這一天沒有班次了"}</p>
+      ) : (
+        // 換條件時回到第一頁
+        <ResultPages key={`${query.from}-${query.to}-${query.date}-${query.time}`} items={items} listClassName={ticket ? "trn-tickets" : "trn-result-list trn-board"} />
       )}
     </section>
   );

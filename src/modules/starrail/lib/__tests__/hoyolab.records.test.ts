@@ -62,12 +62,12 @@ describe("fetchLedger：開拓月曆（srledger/month_info）", () => {
     expect(result).toMatchObject({ cookieInvalid: false });
   });
 
-  it("回 -100、欄位都在（account_mid_v2 由 ltmid_v2 補上也算）_說開拓月曆讀不到並附上代碼，請貼最新的 cookie，不說整個 cookie 失效", async () => {
+  it("回 -100、欄位都在（account_mid_v2 由 ltmid_v2 補上也算）_說開拓月曆無法讀取並附上代碼，請貼最新的 cookie，不說整個 cookie 失效", async () => {
     vi.stubGlobal("fetch", fakeFetch(loginRequired(-100)).impl);
 
     const result = await fetchLedger(`${COOKIE}; ltmid_v2=mid_x; cookie_token_v2=v2_ct`, "900000001", "prod_official_cht", "202610");
 
-    expect(result).toMatchObject({ ok: false, cookieInvalid: false, message: "開拓月曆讀不到（-100：请先登录），請重新貼上最新的 cookie" });
+    expect(result).toMatchObject({ ok: false, cookieInvalid: false, message: "開拓月曆無法讀取（-100：请先登录），請重新貼上最新的 cookie" });
     expect(JSON.stringify(result)).not.toContain("v2_ct");
   });
 

@@ -40,7 +40,8 @@ export async function CalendarPanel({ account }: { account: StarrailAccountView 
         <h3 id={TITLE_ID} className="sr-title">
           活動日曆
         </h3>
-        <span className="text-sm text-ink-soft">{result.calendar.version ? `目前版本 ${result.calendar.version} · ${updated}` : updated}</span>
+        {result.calendar.version && <span className="text-sm text-ink-soft">目前版本 {result.calendar.version}</span>}
+        <span className="text-sm text-ink-soft">{updated}</span>
       </div>
       <div className={LIST_GRID}>
         <CalendarList title="終局挑戰" empty="目前沒有進行中的終局挑戰">
@@ -82,7 +83,11 @@ function Row({ leading, title, details, endsAt, now }: { leading?: ReactNode; ti
       {leading}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="truncate font-medium text-ink">{title}</p>
-        <p className="text-sm text-ink-soft">{lines.filter(Boolean).join(" · ")}</p>
+        <p className="flex flex-wrap gap-x-3 text-sm text-ink-soft">
+          {lines.filter(Boolean).map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </p>
       </div>
       {left && <span className="sr-num shrink-0 text-right text-base font-semibold whitespace-nowrap text-ink">{left}</span>}
     </li>

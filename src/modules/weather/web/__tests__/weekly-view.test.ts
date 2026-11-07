@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { heroImage, hourColumns, todayText, weekRows } from "../weekly-view";
+import { NO_DETAILS, weekDay } from "../../dev/fixtures";
+import { detailTiles, heroImage, hourColumns, todayText, weekRows } from "../weekly-view";
 
-const day = (date: string, low: number | null, high: number | null, weather: string | null = "晴", rain: number | null = 10) => ({ date, weather, high, low, rain });
+const day = (date: string, low: number | null, high: number | null, weather: string | null = "晴", rain: number | null = 10) => weekDay(date, { weather, high, low, rain });
 
 describe("weekRows：一週的溫度條", () => {
   it("位置照這一週最低到最高的比例 10 到 20 度時 15 度在正中間", () => {
@@ -60,5 +61,43 @@ describe("hourColumns：照日期分開的每小時", () => {
     expect(Object.keys(columns)).toEqual(["2026-11-07", "2026-11-08"]);
     expect(columns["2026-11-07"].map(({ clock, art }) => [clock, art])).toEqual([["14:00", "sun"], ["20:00", "moon"]]);
     expect(columns["2026-11-08"][0].art).toBe("moon");
+  });
+});
+
+describe("detailTiles：今天的細節 讀不到的那一格不畫", () => {
+  const TAIPEI = { feelsHigh: 27, feelsLow: 19, humidity: 78, wind: { direction: "東北風", level: 3 }, uv: 6, sunrise: null, sunset: null };
+
+  it("台灣的縣市：體感溫度、濕度、風（方向與級數）、紫外線（指數與等級），一週預報沒有日出日落", () => {
+    expect(detailTiles(TAIPEI)).toEqual([
+      { label: "體感溫度", value: "19–27°", sub: null },
+      { label: "濕度", value: "78%", sub: null },
+      { label: "風", value: "東北風", sub: "3 級" },
+      { label: "紫外線", value: "6", sub: "高量級" },
+    ]);
+  });
+
+  it("國外的城市多了日出與日落", () => {
+    expect(detailTiles({ ...TAIPEI, sunrise: "06:05", sunset: "16:38" }).slice(-2)).toEqual([
+      { label: "日出", value: "06:05", sub: null },
+      { label: "日落", value: "16:38", sub: null },
+    ]);
+  });
+
+  it("讀不到濕度與紫外線時只剩體感與風", () => {
+    expect(detailTiles({ ...TAIPEI, humidity: null, uv: null }).map(({ label }) => label)).toEqual(["體感溫度", "風"]);
+  });
+
+  it("體感只讀到一個數字時寫一個 風只讀到級數時寫級數", () => {
+    const tiles = detailTiles({ ...NO_DETAILS, feelsHigh: 30, wind: { direction: null, level: 2 } });
+
+    expect(tiles.map(({ value }) => value)).toEqual(["30°", "2 級"]);
+  });
+
+  it("晴朗的晚上紫外線是 0 也照寫 那是讀得到的數字", () => {
+    expect(detailTiles({ ...NO_DETAILS, uv: 0 })).toEqual([{ label: "紫外線", value: "0", sub: "低量級" }]);
+  });
+
+  it("全部讀不到時沒有格子 整區不出現", () => {
+    expect(detailTiles(NO_DETAILS)).toEqual([]);
   });
 });

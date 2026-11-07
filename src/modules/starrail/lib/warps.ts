@@ -25,7 +25,7 @@ export type WarpCursor = { versionId: string; maxId: string };
 export type WarpPage = { rows: WarpRow[]; next: WarpCursor | null; incomplete: boolean; missing: string[] };
 
 /** 活動頁靠 cookie_token_v2 登入 在別的地方登入就會換掉它 其他鍵照樣能用 */
-const TOKEN_STALE = "躍遷紀錄讀不到：cookie 裡的 cookie_token_v2 已過期，請登出 HoYoLAB 再登入，用「新增帳號或更新 cookie」重新貼上";
+const TOKEN_STALE = "躍遷紀錄無法讀取：cookie 裡的 cookie_token_v2 已過期，請登出 HoYoLAB 再登入，用「新增帳號或更新 cookie」重新貼上";
 export const NEEDS_COOKIE_TOKEN = "躍遷紀錄要用 cookie 裡的 cookie_token_v2：請用「新增帳號或更新 cookie」重新貼上完整的 cookie";
 
 const BADGE_TOKEN = "e_hkrpg_token";

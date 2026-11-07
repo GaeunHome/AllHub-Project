@@ -53,7 +53,7 @@ export function SearchForm({ query, stations, groups, frequent, today, maxDate }
   const metro = query.mode === "metro";
   const bus = query.mode === "bus";
   const tra = query.mode === "tra";
-  const picker = { stations, groups, frequent };
+  const picker = { stations, groups, frequent, map: metro };
   const stationOf = (id: string) => stations.find((station) => station.id === id) ?? frequent.find((station) => station.id === id) ?? null;
   const go = (next: Partial<SearchQuery>) => router.replace(searchHref({ ...query, from, to, date, time, line: line.trim(), direction: 0, ...next }), { scroll: false });
   const switchMode = (mode: Mode) => {

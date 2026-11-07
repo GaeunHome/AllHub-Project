@@ -7,8 +7,8 @@ import type { FormState } from "./form-message";
 import { useToast } from "./toast";
 import { withToast } from "./toast-queue";
 
-/** 送出中不設 disabled 停用的按鈕會丟掉焦點 改成標 aria-disabled 並變淡 */
-export const BUSY_CLASS = "aria-disabled:cursor-wait aria-disabled:opacity-55";
+/** 送出中不設 disabled 停用的按鈕會丟掉焦點 改成標 aria-disabled 樣子跟停用一樣 游標換成等待 */
+export const BUSY_CLASS = "aria-disabled:cursor-wait";
 
 type ActionButtonProps = Omit<ComponentProps<"button">, "children" | "type" | "onClick"> & {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;

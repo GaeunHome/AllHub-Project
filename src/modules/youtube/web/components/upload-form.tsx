@@ -35,7 +35,7 @@ export function UploadForm({ id, videoId }: { id: string; videoId: string }) {
   return (
     <form id={id} action={action} className="stack border-t border-line pt-4">
       <input type="hidden" name="videoId" value={videoId} />
-      <p className="leading-relaxed text-ink-soft">
+      <p className="leading-relaxed text-ink">
         上傳自己的韓文字幕檔（.srt／.vtt），會取代目前的字幕並從頭翻譯。可以用 <code>yt-dlp --write-subs --write-auto-subs --sub-langs ko --skip-download 影片網址</code> 下載。
       </p>
       <div className="flex flex-wrap gap-2">

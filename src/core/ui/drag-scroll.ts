@@ -1,8 +1,8 @@
 /** 橫向列加上這個標記 放不下時滑鼠按住就能拖 手指本來就能滑 */
 export const DRAG_SCROLL = { "data-drag-scroll": "" } as const;
 
-/** 點連結時手會抖幾像素 超過才算拖曳 不然連結點不到 */
-const DRAG_PX = 6;
+/** 點連結或按鈕時手會抖幾像素 超過才算拖曳 不然點不到 */
+export const DRAG_PX = 6;
 
 type Press = { row: HTMLElement; pointerId: number; startX: number; startLeft: number; dragging: boolean };
 

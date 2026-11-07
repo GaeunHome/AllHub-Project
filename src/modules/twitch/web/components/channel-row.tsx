@@ -39,7 +39,7 @@ export function ChannelRow({ streamer: s, now }: RowProps) {
               {s.isLive && <span className="truncate text-[0.8125rem] text-ink-soft">{s.live?.gameName ?? "直播中"}</span>}
             </span>
             {/* 通知關掉或訂閱有問題時在列上也看得到 */}
-            {!s.notifyEnabled && <Icon name="bell-off" label="通知已關閉" className="size-3.5 text-muted" />}
+            {!s.notifyEnabled && <Icon name="bell-off" label="通知已關閉" className="size-3.5 text-ink-soft" />}
             {badge.tone === "danger" && <Icon name="circle-alert" label={badge.label} className="size-3.5 text-danger" />}
             {s.isLive ? (
               <span className="flex shrink-0 items-center gap-1.5 text-[0.8125rem] text-ink-soft tabular-nums">
@@ -47,7 +47,7 @@ export function ChannelRow({ streamer: s, now }: RowProps) {
                 {viewers ?? "直播中"}
               </span>
             ) : (
-              <span className="shrink-0 text-[0.8125rem] text-muted">離線</span>
+              <span className="shrink-0 text-[0.8125rem] text-ink-soft">離線</span>
             )}
             <Icon name="chevron-right" className="size-3.5 shrink-0 text-muted" />
           </>
@@ -113,7 +113,7 @@ export function ChannelDetail({ streamer: s, now }: RowProps) {
             <span className="text-sm font-medium text-ink-soft">訂閱狀態</span>
             <StatusChip badge={badge} />
           </div>
-          {badge.detail && <p className={`text-sm leading-relaxed ${badge.tone === "danger" ? "text-danger" : "text-ink-soft"}`}>{badge.detail}</p>}
+          {badge.detail && <p className={`text-sm leading-relaxed ${badge.tone === "danger" ? "text-danger" : "text-ink"}`}>{badge.detail}</p>}
         </div>
         {/* 右欄只有 22rem 很長的帳號截斷 不撐出橫向捲動 */}
         <a href={twitchChannelUrl(s.login)} target="_blank" rel="noreferrer" className="btn-secondary">

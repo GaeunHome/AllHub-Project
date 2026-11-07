@@ -153,7 +153,7 @@ export function AlertSettingsHelp() {
   return (
     <details className="disclosure text-sm">
       <summary>這些開關怎麼運作？</summary>
-      <ul className="flex list-disc flex-col gap-1 pl-5 leading-relaxed text-ink-soft">
+      <ul className="flex list-disc flex-col gap-1 pl-5 leading-relaxed text-ink">
         <li>每個模組分開設定，存在這台裝置的瀏覽器，每台裝置可以不同。</li>
         <li>兩個都關的模組不跳提示卡片也不響，只算進未讀數字；未讀數字一律照常顯示。</li>
         <li>提示音要先在頁面上點過任何地方才能播放（瀏覽器的規定）。</li>
@@ -220,7 +220,7 @@ export function NotificationSettings({ modules, pushKey }: { modules: Notificati
               瀏覽器通知
               {permission && <span className={PERMISSION_CHIP[permission].chip}>{PERMISSION_CHIP[permission].label}</span>}
             </p>
-            {permission && PERMISSION_CHIP[permission].action && <p className="text-sm leading-relaxed text-ink-soft">{PERMISSION_CHIP[permission].action}</p>}
+            {permission && PERMISSION_CHIP[permission].action && <p className="text-sm leading-relaxed text-ink">{PERMISSION_CHIP[permission].action}</p>}
           </div>
         </div>
         {(permission === "default" || permission === "granted") && (

@@ -1,3 +1,4 @@
+import { htmlFlagScript, setHtmlFlag, type HtmlRoot } from "@/core/ui/html-flag";
 import { createLocalPref } from "@/core/ui/local-pref";
 
 /** 照 YouTube 一般大小右邊是接下來播放 劇院模式在寬螢幕撐滿內容寬度 */
@@ -28,11 +29,6 @@ export function usePlayerSize(): [PlayerSize, (size: PlayerSize) => void] {
 export const THEATER_ATTRIBUTE = "data-youtube-theater";
 
 // 放在播放器與骨架之前的同步腳本 第一次繪製前就標好 其他值一律當成一般大小
-export const PLAYER_SIZE_INIT_SCRIPT = `(function(){try{if(localStorage.getItem(${JSON.stringify(KEY)})==="theater")document.documentElement.setAttribute(${JSON.stringify(THEATER_ATTRIBUTE)},"")}catch(e){}})()`;
+export const PLAYER_SIZE_INIT_SCRIPT = htmlFlagScript(KEY, "theater", THEATER_ATTRIBUTE);
 
-type Root = { setAttribute(name: string, value: string): void; removeAttribute(name: string): void };
-
-export function applyPlayerSize(root: Root, size: PlayerSize): void {
-  if (size === "theater") root.setAttribute(THEATER_ATTRIBUTE, "");
-  else root.removeAttribute(THEATER_ATTRIBUTE);
-}
+export const applyPlayerSize = (root: HtmlRoot, size: PlayerSize): void => setHtmlFlag(root, THEATER_ATTRIBUTE, size === "theater");

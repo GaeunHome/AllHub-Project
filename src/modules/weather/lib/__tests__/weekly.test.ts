@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fromToday, parseCwaHours, parseCwaWeek, parseOpenMeteoHours, parseOpenMeteoWeek, upcomingHours, wmoText } from "../weekly";
+import { NO_DETAILS } from "../../dev/fixtures";
+import { fromToday, nextDayHours, parseCwaHours, parseCwaWeek, parseOpenMeteoHours, parseOpenMeteoWeek, upcomingHours, wmoText } from "../weekly";
 
 describe("wmoText：Open-Meteo 的天氣代碼換成中文", () => {
   it.each([[0, "晴"], [2, "多雲"], [3, "陰"], [45, "霧"], [61, "雨"], [80, "陣雨"], [71, "雪"], [95, "雷雨"]])("%i_%s", (code, text) => {
@@ -16,8 +17,8 @@ describe("parseOpenMeteoWeek", () => {
     const json = { daily: { time: ["2026-11-05", "2026-11-06"], weather_code: [63, 0], temperature_2m_max: [22.7, 20.4], temperature_2m_min: [13.8, 13.3], precipitation_probability_max: [95, null] } };
 
     expect(parseOpenMeteoWeek(json)).toEqual([
-      { date: "2026-11-05", weather: "雨", high: 23, low: 14, rain: 95 },
-      { date: "2026-11-06", weather: "晴", high: 20, low: 13, rain: null },
+      { date: "2026-11-05", weather: "雨", high: 23, low: 14, rain: 95, details: NO_DETAILS },
+      { date: "2026-11-06", weather: "晴", high: 20, low: 13, rain: null, details: NO_DETAILS },
     ]);
   });
 
@@ -50,8 +51,8 @@ const cwa = (county: string) => ({
 describe("parseCwaWeek：氣象署一週預報是每 12 小時一段 併成每一天", () => {
   it("高溫取最高 低溫取最低 降雨機率取最高 天氣用白天那一段", () => {
     expect(parseCwaWeek(cwa("臺北市"), "臺北市")).toEqual([
-      { date: "2026-11-05", weather: "多雲", high: 24, low: 17, rain: 60 },
-      { date: "2026-11-06", weather: "晴時多雲", high: 25, low: 18, rain: null },
+      { date: "2026-11-05", weather: "多雲", high: 24, low: 17, rain: 60, details: NO_DETAILS },
+      { date: "2026-11-06", weather: "晴時多雲", high: 25, low: 18, rain: null, details: NO_DETAILS },
     ]);
   });
 
@@ -139,7 +140,7 @@ describe("upcomingHours：今天過去的小時不用列", () => {
 });
 
 describe("fromToday：一週從當地的今天算", () => {
-  const days = [{ date: "2026-11-06" }, { date: "2026-11-07" }, { date: "2026-11-08" }].map((day) => ({ ...day, weather: "晴", high: 25, low: 18, rain: 10 }));
+  const days = [{ date: "2026-11-06" }, { date: "2026-11-07" }, { date: "2026-11-08" }].map((day) => ({ ...day, weather: "晴", high: 25, low: 18, rain: 10, details: NO_DETAILS }));
   const dates = (now: string, offsetHours: number) => fromToday(days, new Date(now), offsetHours * 3600).map(({ date }) => date);
 
   it("台北 11/7 03:20 昨晚那一段不算", () => {
@@ -148,5 +149,83 @@ describe("fromToday：一週從當地的今天算", () => {
 
   it("同一個瞬間洛杉磯還是 11/6 那天要留著", () => {
     expect(dates("2026-11-06T19:20:00Z", -8)).toEqual(["2026-11-06", "2026-11-07", "2026-11-08"]);
+  });
+});
+
+describe("今天的細節：國外跟一週預報同一個 Open-Meteo 回應", () => {
+  const json = {
+    hourly: { time: ["2026-11-07T00:00", "2026-11-07T12:00", "2026-11-08T00:00"], relative_humidity_2m: [80, 61, 90] },
+    daily: {
+      time: ["2026-11-07", "2026-11-08"],
+      weather_code: [1, 3],
+      temperature_2m_max: [19.6, 17.2],
+      temperature_2m_min: [12.2, 11.4],
+      precipitation_probability_max: [10, 40],
+      apparent_temperature_max: [18.6, null],
+      apparent_temperature_min: [10.4, null],
+      wind_speed_10m_max: [4.2, null],
+      wind_direction_10m_dominant: [48, null],
+      uv_index_max: [3.55, null],
+      sunrise: ["2026-11-07T06:05", null],
+      sunset: ["2026-11-07T16:38", null],
+    },
+  };
+
+  it("體感是當天最高與最低 濕度是當天每小時的平均 風是最大風速的級數與主要風向 紫外線四捨五入 日出日落是當地時間", () => {
+    expect(parseOpenMeteoWeek(json)[0].details).toEqual({ feelsHigh: 19, feelsLow: 10, humidity: 71, wind: { direction: "東北風", level: 3 }, uv: 4, sunrise: "06:05", sunset: "16:38" });
+  });
+
+  it("讀不到的欄位留空 不亂猜", () => {
+    expect(parseOpenMeteoWeek(json)[1].details).toEqual({ ...NO_DETAILS, humidity: 90 });
+  });
+});
+
+describe("今天的細節：台灣用同一份 F-D0047-091", () => {
+  const MORNING = "2026-11-07T06:00:00+08:00";
+  const NIGHT = "2026-11-07T18:00:00+08:00";
+  const values = (ElementName: string, rows: [string, Record<string, string>][]) => ({ ElementName, Time: rows.map(([StartTime, value]) => ({ StartTime, EndTime: StartTime, ElementValue: [value] })) });
+  const week = (...elements: unknown[]) => ({ records: { Locations: [{ Location: [{ LocationName: "臺北市", WeatherElement: elements }] }] } });
+  const weather = element("天氣現象", "Weather", [[MORNING, "多雲"], [NIGHT, "陰"]]);
+  const full = week(
+    weather,
+    element("最高體感溫度", "MaxApparentTemperature", [[MORNING, "27"], [NIGHT, "23"]]),
+    element("最低體感溫度", "MinApparentTemperature", [[MORNING, "22"], [NIGHT, "19"]]),
+    element("平均相對濕度", "RelativeHumidity", [[MORNING, "70"], [NIGHT, "85"]]),
+    values("風速", [[MORNING, { WindSpeed: "5", BeaufortScale: "3" }], [NIGHT, { WindSpeed: "2", BeaufortScale: "2" }]]),
+    element("風向", "WindDirection", [[MORNING, "東北風"], [NIGHT, "偏北風"]]),
+    values("紫外線指數", [[MORNING, { UVIndex: "6", UVExposureLevel: "高量級" }]]),
+  );
+
+  it("體感取兩段裡最高與最低 濕度是兩段的平均 風看白天那一段 紫外線只有白天 一週預報沒有日出日落", () => {
+    expect(parseCwaWeek(full, "臺北市")[0].details).toEqual({ feelsHigh: 27, feelsLow: 19, humidity: 78, wind: { direction: "東北風", level: 3 }, uv: 6, sunrise: null, sunset: null });
+  });
+
+  it("晚上看時今天只剩晚上那一段：風看那一段 晚上沒有紫外線", () => {
+    const night = week(element("天氣現象", "Weather", [[NIGHT, "陰"]]), values("風速", [[NIGHT, { WindSpeed: "2", BeaufortScale: "2" }]]), element("風向", "WindDirection", [[NIGHT, "偏北風"]]));
+
+    expect(parseCwaWeek(night, "臺北市")[0].details).toEqual({ ...NO_DETAILS, wind: { direction: "偏北風", level: 2 } });
+  });
+
+  it("級數讀不到時照風速換算 每秒 6 公尺是 4 級", () => {
+    const json = week(weather, values("風速", [[MORNING, { WindSpeed: "6", BeaufortScale: "" }]]));
+
+    expect(parseCwaWeek(json, "臺北市")[0].details.wind).toEqual({ direction: null, level: 4 });
+  });
+});
+
+describe("nextDayHours：接下來 24 小時", () => {
+  const hourly = (from: string, count: number) => Array.from({ length: count }, (_, index) => ({ time: new Date(Date.parse(`${from}:00Z`) + index * 3_600_000).toISOString().slice(0, 16), temperature: 20, rain: null, weather: null }));
+
+  it("台北 14:30 時從 14:00 這一格到明天 13:00 剛好 24 格", () => {
+    const hours = nextDayHours(hourly("2026-11-07T10:00", 40), new Date("2026-11-07T06:30:00Z"), 8 * 3600);
+
+    expect(hours).toHaveLength(24);
+    expect([hours[0].time, hours.at(-1)?.time]).toEqual(["2026-11-07T14:00", "2026-11-08T13:00"]);
+  });
+
+  it("氣象署三小時一格時也只到 24 小時後", () => {
+    const every3 = hourly("2026-11-07T15:00", 40).filter((_, index) => index % 3 === 0);
+
+    expect(nextDayHours(every3, new Date("2026-11-07T06:30:00Z"), 8 * 3600).map(({ time }) => time.slice(11))).toEqual(["15:00", "18:00", "21:00", "00:00", "03:00", "06:00", "09:00", "12:00"]);
   });
 });

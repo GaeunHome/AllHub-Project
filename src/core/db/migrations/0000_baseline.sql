@@ -16,7 +16,8 @@ CREATE TABLE "core_invites" (
 	CONSTRAINT "core_invites_note_length" CHECK (char_length("core_invites"."note") <= 50)
 );
 --> statement-breakpoint
-ALTER TABLE "core_invites" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "core_invites" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "core_module_denials" (
 	"user_id" uuid NOT NULL,
 	"module_id" text NOT NULL,
@@ -24,7 +25,8 @@ CREATE TABLE "core_module_denials" (
 	CONSTRAINT "core_module_denials_user_id_module_id_pk" PRIMARY KEY("user_id","module_id")
 );
 --> statement-breakpoint
-ALTER TABLE "core_module_denials" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "core_module_denials" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "core_notifications" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"module" text NOT NULL,
@@ -37,7 +39,8 @@ CREATE TABLE "core_notifications" (
 	"user_id" uuid NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "core_notifications" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "core_notifications" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "core_rate_limits" (
 	"scope" text NOT NULL,
 	"key_hash" text NOT NULL,
@@ -46,7 +49,8 @@ CREATE TABLE "core_rate_limits" (
 	CONSTRAINT "core_rate_limits_scope_key_hash_pk" PRIMARY KEY("scope","key_hash")
 );
 --> statement-breakpoint
-ALTER TABLE "core_rate_limits" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "core_rate_limits" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "core_users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"username" text NOT NULL,
@@ -66,7 +70,8 @@ CREATE TABLE "core_users" (
 	CONSTRAINT "core_users_failed_logins_non_negative" CHECK ("core_users"."failed_logins" >= 0)
 );
 --> statement-breakpoint
-ALTER TABLE "core_users" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "core_users" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "reminders_items" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -75,10 +80,13 @@ CREATE TABLE "reminders_items" (
 	"notify_days_before" integer,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "reminders_items_notify_days" CHECK ("reminders_items"."notify_days_before" in (0, 1, 3, 7, 14, 30))
+	"repeat" text DEFAULT 'none' NOT NULL,
+	CONSTRAINT "reminders_items_notify_days" CHECK ("reminders_items"."notify_days_before" in (0, 1, 3, 7, 14, 30)),
+	CONSTRAINT "reminders_items_repeat" CHECK ("reminders_items"."repeat" in ('none', 'monthly', 'yearly'))
 );
 --> statement-breakpoint
-ALTER TABLE "reminders_items" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "reminders_items" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "savings_accounts" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -110,7 +118,8 @@ CREATE TABLE "savings_accounts" (
 	CONSTRAINT "savings_accounts_card_style" CHECK ("savings_accounts"."card_style" is null or ("savings_accounts"."kind" = 'credit' and "savings_accounts"."card_style" in ('blue', 'green', 'purple', 'orange', 'black', 'silver')))
 );
 --> statement-breakpoint
-ALTER TABLE "savings_accounts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "savings_accounts" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "savings_card_bills" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -122,13 +131,14 @@ CREATE TABLE "savings_card_bills" (
 	CONSTRAINT "savings_card_bills_amount" CHECK ("savings_card_bills"."amount" between 0 and 100000000)
 );
 --> statement-breakpoint
-ALTER TABLE "savings_card_bills" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "savings_card_bills" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "savings_categories" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
 	"kind" text NOT NULL,
 	"name" text NOT NULL,
-	"color" text NOT NULL,
+	"color" text,
 	"monthly_budget" integer,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -138,7 +148,8 @@ CREATE TABLE "savings_categories" (
 	CONSTRAINT "savings_categories_budget" CHECK ("savings_categories"."monthly_budget" is null or ("savings_categories"."kind" = 'expense' and "savings_categories"."monthly_budget" between 1 and 100000000))
 );
 --> statement-breakpoint
-ALTER TABLE "savings_categories" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "savings_categories" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "savings_dividend_notices" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -150,7 +161,8 @@ CREATE TABLE "savings_dividend_notices" (
 	CONSTRAINT "savings_dividend_notices_symbol" CHECK ("savings_dividend_notices"."symbol" ~ '^[0-9A-Z]{4,6}$')
 );
 --> statement-breakpoint
-ALTER TABLE "savings_dividend_notices" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "savings_dividend_notices" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "savings_holdings" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -166,7 +178,8 @@ CREATE TABLE "savings_holdings" (
 	CONSTRAINT "savings_holdings_cost" CHECK ("savings_holdings"."cost" between 0 and 100000000)
 );
 --> statement-breakpoint
-ALTER TABLE "savings_holdings" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "savings_holdings" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "savings_recurring" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -188,6 +201,7 @@ CREATE TABLE "savings_recurring" (
 	"holding_id" integer,
 	"allocate" boolean DEFAULT false NOT NULL,
 	"last_notified_on" date,
+	"subscription" boolean DEFAULT false NOT NULL,
 	CONSTRAINT "savings_recurring_kind" CHECK ("savings_recurring"."kind" in ('expense', 'income', 'transfer')),
 	CONSTRAINT "savings_recurring_amount" CHECK ("savings_recurring"."amount" between 1 and 100000000),
 	CONSTRAINT "savings_recurring_day_of_month" CHECK ("savings_recurring"."day_of_month" between 1 and 31),
@@ -199,10 +213,12 @@ CREATE TABLE "savings_recurring" (
 	CONSTRAINT "savings_recurring_holiday_rule" CHECK ("savings_recurring"."holiday_rule" in ('none', 'before', 'after')),
 	CONSTRAINT "savings_recurring_mode" CHECK ("savings_recurring"."mode" in ('confirm', 'auto')),
 	CONSTRAINT "savings_recurring_holding" CHECK ("savings_recurring"."holding_id" is null or ("savings_recurring"."kind" = 'transfer' and "savings_recurring"."mode" = 'confirm')),
-	CONSTRAINT "savings_recurring_allocate" CHECK (not "savings_recurring"."allocate" or ("savings_recurring"."kind" = 'income' and "savings_recurring"."mode" = 'confirm'))
+	CONSTRAINT "savings_recurring_allocate" CHECK (not "savings_recurring"."allocate" or ("savings_recurring"."kind" = 'income' and "savings_recurring"."mode" = 'confirm')),
+	CONSTRAINT "savings_recurring_subscription" CHECK (not "savings_recurring"."subscription" or "savings_recurring"."kind" = 'expense')
 );
 --> statement-breakpoint
-ALTER TABLE "savings_recurring" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "savings_recurring" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "savings_transactions" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -230,7 +246,8 @@ CREATE TABLE "savings_transactions" (
 	CONSTRAINT "savings_transactions_recurring_period_first_day" CHECK ("savings_transactions"."recurring_period" is null or extract(day from "savings_transactions"."recurring_period") = 1)
 );
 --> statement-breakpoint
-ALTER TABLE "savings_transactions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "savings_transactions" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "starrail_accounts" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"ltuid" text NOT NULL,
@@ -250,7 +267,8 @@ CREATE TABLE "starrail_accounts" (
 	CONSTRAINT "starrail_accounts_uid_unique" UNIQUE("uid")
 );
 --> statement-breakpoint
-ALTER TABLE "starrail_accounts" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "starrail_accounts" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "starrail_checkin_logs" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"account_id" integer NOT NULL,
@@ -260,7 +278,8 @@ CREATE TABLE "starrail_checkin_logs" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "starrail_checkin_logs" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "starrail_checkin_logs" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "starrail_redeem_codes" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"account_id" integer NOT NULL,
@@ -269,7 +288,8 @@ CREATE TABLE "starrail_redeem_codes" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "starrail_redeem_codes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "starrail_redeem_codes" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "twitch_follows" (
 	"user_id" uuid NOT NULL,
 	"streamer_id" integer NOT NULL,
@@ -278,12 +298,13 @@ CREATE TABLE "twitch_follows" (
 	CONSTRAINT "twitch_follows_user_id_streamer_id_pk" PRIMARY KEY("user_id","streamer_id")
 );
 --> statement-breakpoint
-ALTER TABLE "twitch_follows" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "twitch_follows" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "twitch_stream_events" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"message_id" text NOT NULL,
 	"broadcaster_id" text NOT NULL,
-	"type" text NOT NULL,
+	"type" text,
 	"title" text,
 	"category" text,
 	"started_at" timestamp with time zone,
@@ -291,7 +312,8 @@ CREATE TABLE "twitch_stream_events" (
 	CONSTRAINT "twitch_stream_events_message_id_unique" UNIQUE("message_id")
 );
 --> statement-breakpoint
-ALTER TABLE "twitch_stream_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "twitch_stream_events" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "twitch_streamers" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"broadcaster_id" text NOT NULL,
@@ -306,7 +328,8 @@ CREATE TABLE "twitch_streamers" (
 	CONSTRAINT "twitch_streamers_broadcaster_id_unique" UNIQUE("broadcaster_id")
 );
 --> statement-breakpoint
-ALTER TABLE "twitch_streamers" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "twitch_streamers" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "weather_settings" (
 	"user_id" uuid PRIMARY KEY NOT NULL,
 	"county" text NOT NULL,
@@ -316,7 +339,8 @@ CREATE TABLE "weather_settings" (
 	CONSTRAINT "weather_settings_county" CHECK ("weather_settings"."county" in ('臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣'))
 );
 --> statement-breakpoint
-ALTER TABLE "weather_settings" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "weather_settings" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "youtube_channels" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"channel_id" text NOT NULL,
@@ -328,7 +352,8 @@ CREATE TABLE "youtube_channels" (
 	CONSTRAINT "youtube_channels_channel_id_unique" UNIQUE("channel_id")
 );
 --> statement-breakpoint
-ALTER TABLE "youtube_channels" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "youtube_channels" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "youtube_follows" (
 	"user_id" uuid NOT NULL,
 	"channel_id" text NOT NULL,
@@ -337,7 +362,8 @@ CREATE TABLE "youtube_follows" (
 	CONSTRAINT "youtube_follows_user_id_channel_id_pk" PRIMARY KEY("user_id","channel_id")
 );
 --> statement-breakpoint
-ALTER TABLE "youtube_follows" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "youtube_follows" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "youtube_saved_videos" (
 	"user_id" uuid NOT NULL,
 	"video_id" text NOT NULL,
@@ -349,7 +375,8 @@ CREATE TABLE "youtube_saved_videos" (
 	CONSTRAINT "youtube_saved_videos_user_id_video_id_pk" PRIMARY KEY("user_id","video_id")
 );
 --> statement-breakpoint
-ALTER TABLE "youtube_saved_videos" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "youtube_saved_videos" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "youtube_settings" (
 	"id" integer PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY (sequence name "youtube_settings_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 2 CACHE 1),
 	"provider" text DEFAULT 'anthropic' NOT NULL,
@@ -365,7 +392,8 @@ CREATE TABLE "youtube_settings" (
 	CONSTRAINT "youtube_settings_user_id_unique" UNIQUE("user_id")
 );
 --> statement-breakpoint
-ALTER TABLE "youtube_settings" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "youtube_settings" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "youtube_translations" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"video_id" text NOT NULL,
@@ -374,7 +402,7 @@ CREATE TABLE "youtube_translations" (
 	"source_kind" text NOT NULL,
 	"source_cues" jsonb NOT NULL,
 	"translated" jsonb NOT NULL,
-	"batches" jsonb NOT NULL,
+	"batches" jsonb,
 	"next_batch" integer DEFAULT 0 NOT NULL,
 	"provider" text,
 	"model" text,
@@ -387,7 +415,8 @@ CREATE TABLE "youtube_translations" (
 	CONSTRAINT "youtube_translations_video_id_unique" UNIQUE("video_id")
 );
 --> statement-breakpoint
-ALTER TABLE "youtube_translations" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "youtube_translations" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "youtube_videos" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"video_id" text NOT NULL,
@@ -399,74 +428,142 @@ CREATE TABLE "youtube_videos" (
 	CONSTRAINT "youtube_videos_video_id_unique" UNIQUE("video_id")
 );
 --> statement-breakpoint
-ALTER TABLE "youtube_videos" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "core_invites" ADD CONSTRAINT "core_invites_created_by_core_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "core_notifications" ADD CONSTRAINT "core_notifications_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "reminders_items" ADD CONSTRAINT "reminders_items_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_accounts" ADD CONSTRAINT "savings_accounts_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_accounts" ADD CONSTRAINT "savings_accounts_pay_from_account_id_savings_accounts_id_fk" FOREIGN KEY ("pay_from_account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_card_bills" ADD CONSTRAINT "savings_card_bills_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_card_bills" ADD CONSTRAINT "savings_card_bills_account_id_savings_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_categories" ADD CONSTRAINT "savings_categories_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_dividend_notices" ADD CONSTRAINT "savings_dividend_notices_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_holdings" ADD CONSTRAINT "savings_holdings_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_holdings" ADD CONSTRAINT "savings_holdings_account_id_savings_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_account_id_savings_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_counter_account_id_savings_accounts_id_fk" FOREIGN KEY ("counter_account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_category_id_savings_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."savings_categories"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_holding_id_savings_holdings_id_fk" FOREIGN KEY ("holding_id") REFERENCES "public"."savings_holdings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_account_id_savings_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_counter_account_id_savings_accounts_id_fk" FOREIGN KEY ("counter_account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_category_id_savings_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."savings_categories"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_recurring_id_savings_recurring_id_fk" FOREIGN KEY ("recurring_id") REFERENCES "public"."savings_recurring"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_holding_id_savings_holdings_id_fk" FOREIGN KEY ("holding_id") REFERENCES "public"."savings_holdings"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_card_bill_id_savings_card_bills_id_fk" FOREIGN KEY ("card_bill_id") REFERENCES "public"."savings_card_bills"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "starrail_accounts" ADD CONSTRAINT "starrail_accounts_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "starrail_checkin_logs" ADD CONSTRAINT "starrail_checkin_logs_account_id_starrail_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."starrail_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "starrail_redeem_codes" ADD CONSTRAINT "starrail_redeem_codes_account_id_starrail_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."starrail_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "twitch_follows" ADD CONSTRAINT "twitch_follows_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "twitch_follows" ADD CONSTRAINT "twitch_follows_streamer_id_twitch_streamers_id_fk" FOREIGN KEY ("streamer_id") REFERENCES "public"."twitch_streamers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "weather_settings" ADD CONSTRAINT "weather_settings_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "youtube_follows" ADD CONSTRAINT "youtube_follows_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "youtube_follows" ADD CONSTRAINT "youtube_follows_channel_id_youtube_channels_channel_id_fk" FOREIGN KEY ("channel_id") REFERENCES "public"."youtube_channels"("channel_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "youtube_saved_videos" ADD CONSTRAINT "youtube_saved_videos_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "youtube_settings" ADD CONSTRAINT "youtube_settings_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "youtube_translations" ADD CONSTRAINT "youtube_translations_requested_by_core_users_id_fk" FOREIGN KEY ("requested_by") REFERENCES "public"."core_users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "core_invites_created_by_idx" ON "core_invites" USING btree ("created_by");--> statement-breakpoint
-CREATE INDEX "core_notifications_created_at_idx" ON "core_notifications" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX "core_notifications_user_created_at_idx" ON "core_notifications" USING btree ("user_id","created_at");--> statement-breakpoint
-CREATE INDEX "core_notifications_user_unread_idx" ON "core_notifications" USING btree ("user_id","module") WHERE "core_notifications"."read_at" is null;--> statement-breakpoint
-CREATE INDEX "core_rate_limits_window_started_at_idx" ON "core_rate_limits" USING btree ("window_started_at");--> statement-breakpoint
-CREATE INDEX "reminders_items_user_date_idx" ON "reminders_items" USING btree ("user_id","date");--> statement-breakpoint
-CREATE INDEX "reminders_items_date_idx" ON "reminders_items" USING btree ("date");--> statement-breakpoint
-CREATE UNIQUE INDEX "savings_accounts_user_name_idx" ON "savings_accounts" USING btree ("user_id","name");--> statement-breakpoint
-CREATE INDEX "savings_accounts_pay_from_account_id_idx" ON "savings_accounts" USING btree ("pay_from_account_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "savings_card_bills_account_statement_idx" ON "savings_card_bills" USING btree ("account_id","statement_date");--> statement-breakpoint
-CREATE INDEX "savings_card_bills_user_id_idx" ON "savings_card_bills" USING btree ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "savings_categories_user_kind_name_idx" ON "savings_categories" USING btree ("user_id","kind","name");--> statement-breakpoint
-CREATE UNIQUE INDEX "savings_dividend_notices_user_symbol_date_idx" ON "savings_dividend_notices" USING btree ("user_id","symbol","ex_date");--> statement-breakpoint
-CREATE UNIQUE INDEX "savings_holdings_account_symbol_idx" ON "savings_holdings" USING btree ("account_id","symbol");--> statement-breakpoint
-CREATE INDEX "savings_holdings_user_id_idx" ON "savings_holdings" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "savings_recurring_user_id_idx" ON "savings_recurring" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "savings_recurring_account_id_idx" ON "savings_recurring" USING btree ("account_id");--> statement-breakpoint
-CREATE INDEX "savings_recurring_counter_account_id_idx" ON "savings_recurring" USING btree ("counter_account_id");--> statement-breakpoint
-CREATE INDEX "savings_recurring_category_id_idx" ON "savings_recurring" USING btree ("category_id");--> statement-breakpoint
-CREATE INDEX "savings_recurring_holding_id_idx" ON "savings_recurring" USING btree ("holding_id");--> statement-breakpoint
-CREATE INDEX "savings_transactions_user_id_date_idx" ON "savings_transactions" USING btree ("user_id","date");--> statement-breakpoint
-CREATE INDEX "savings_transactions_account_id_idx" ON "savings_transactions" USING btree ("account_id");--> statement-breakpoint
-CREATE INDEX "savings_transactions_counter_account_id_idx" ON "savings_transactions" USING btree ("counter_account_id");--> statement-breakpoint
-CREATE INDEX "savings_transactions_category_id_idx" ON "savings_transactions" USING btree ("category_id");--> statement-breakpoint
-CREATE INDEX "savings_transactions_recurring_id_idx" ON "savings_transactions" USING btree ("recurring_id");--> statement-breakpoint
-CREATE INDEX "savings_transactions_holding_id_idx" ON "savings_transactions" USING btree ("holding_id");--> statement-breakpoint
-CREATE INDEX "savings_transactions_card_bill_id_idx" ON "savings_transactions" USING btree ("card_bill_id");--> statement-breakpoint
-CREATE INDEX "starrail_accounts_user_id_idx" ON "starrail_accounts" USING btree ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "starrail_redeem_codes_account_code" ON "starrail_redeem_codes" USING btree ("account_id","code");--> statement-breakpoint
-CREATE INDEX "twitch_follows_streamer_id_idx" ON "twitch_follows" USING btree ("streamer_id");--> statement-breakpoint
-CREATE INDEX "youtube_follows_channel_id_idx" ON "youtube_follows" USING btree ("channel_id");--> statement-breakpoint
-CREATE INDEX "youtube_saved_videos_user_updated_at_idx" ON "youtube_saved_videos" USING btree ("user_id","updated_at");--> statement-breakpoint
-ALTER TABLE "core_module_denials" ADD CONSTRAINT "core_module_denials_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "youtube_videos" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE "core_invites" ADD CONSTRAINT "core_invites_created_by_core_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "core_notifications" ADD CONSTRAINT "core_notifications_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "reminders_items" ADD CONSTRAINT "reminders_items_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_accounts" ADD CONSTRAINT "savings_accounts_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_accounts" ADD CONSTRAINT "savings_accounts_pay_from_account_id_savings_accounts_id_fk" FOREIGN KEY ("pay_from_account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE set null ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_card_bills" ADD CONSTRAINT "savings_card_bills_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_card_bills" ADD CONSTRAINT "savings_card_bills_account_id_savings_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_categories" ADD CONSTRAINT "savings_categories_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_dividend_notices" ADD CONSTRAINT "savings_dividend_notices_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_holdings" ADD CONSTRAINT "savings_holdings_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_holdings" ADD CONSTRAINT "savings_holdings_account_id_savings_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_account_id_savings_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_counter_account_id_savings_accounts_id_fk" FOREIGN KEY ("counter_account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_category_id_savings_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."savings_categories"("id") ON DELETE set null ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_recurring" ADD CONSTRAINT "savings_recurring_holding_id_savings_holdings_id_fk" FOREIGN KEY ("holding_id") REFERENCES "public"."savings_holdings"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_account_id_savings_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_counter_account_id_savings_accounts_id_fk" FOREIGN KEY ("counter_account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_category_id_savings_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."savings_categories"("id") ON DELETE set null ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_recurring_id_savings_recurring_id_fk" FOREIGN KEY ("recurring_id") REFERENCES "public"."savings_recurring"("id") ON DELETE set null ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_holding_id_savings_holdings_id_fk" FOREIGN KEY ("holding_id") REFERENCES "public"."savings_holdings"("id") ON DELETE set null ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "savings_transactions" ADD CONSTRAINT "savings_transactions_card_bill_id_savings_card_bills_id_fk" FOREIGN KEY ("card_bill_id") REFERENCES "public"."savings_card_bills"("id") ON DELETE set null ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "starrail_accounts" ADD CONSTRAINT "starrail_accounts_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "starrail_checkin_logs" ADD CONSTRAINT "starrail_checkin_logs_account_id_starrail_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."starrail_accounts"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "starrail_redeem_codes" ADD CONSTRAINT "starrail_redeem_codes_account_id_starrail_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."starrail_accounts"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "twitch_follows" ADD CONSTRAINT "twitch_follows_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "twitch_follows" ADD CONSTRAINT "twitch_follows_streamer_id_twitch_streamers_id_fk" FOREIGN KEY ("streamer_id") REFERENCES "public"."twitch_streamers"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "weather_settings" ADD CONSTRAINT "weather_settings_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "youtube_follows" ADD CONSTRAINT "youtube_follows_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "youtube_follows" ADD CONSTRAINT "youtube_follows_channel_id_youtube_channels_channel_id_fk" FOREIGN KEY ("channel_id") REFERENCES "public"."youtube_channels"("channel_id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "youtube_saved_videos" ADD CONSTRAINT "youtube_saved_videos_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "youtube_settings" ADD CONSTRAINT "youtube_settings_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "youtube_translations" ADD CONSTRAINT "youtube_translations_requested_by_core_users_id_fk" FOREIGN KEY ("requested_by") REFERENCES "public"."core_users"("id") ON DELETE set null ON UPDATE no action;
+--> statement-breakpoint
+CREATE INDEX "core_invites_created_by_idx" ON "core_invites" USING btree ("created_by");
+--> statement-breakpoint
+CREATE INDEX "core_notifications_created_at_idx" ON "core_notifications" USING btree ("created_at");
+--> statement-breakpoint
+CREATE INDEX "core_notifications_user_created_at_idx" ON "core_notifications" USING btree ("user_id","created_at");
+--> statement-breakpoint
+CREATE INDEX "core_notifications_user_unread_idx" ON "core_notifications" USING btree ("user_id","module") WHERE "core_notifications"."read_at" is null;
+--> statement-breakpoint
+CREATE INDEX "core_rate_limits_window_started_at_idx" ON "core_rate_limits" USING btree ("window_started_at");
+--> statement-breakpoint
+CREATE INDEX "reminders_items_user_date_idx" ON "reminders_items" USING btree ("user_id","date");
+--> statement-breakpoint
+CREATE INDEX "reminders_items_date_idx" ON "reminders_items" USING btree ("date");
+--> statement-breakpoint
+CREATE UNIQUE INDEX "savings_accounts_user_name_idx" ON "savings_accounts" USING btree ("user_id","name");
+--> statement-breakpoint
+CREATE INDEX "savings_accounts_pay_from_account_id_idx" ON "savings_accounts" USING btree ("pay_from_account_id");
+--> statement-breakpoint
+CREATE UNIQUE INDEX "savings_card_bills_account_statement_idx" ON "savings_card_bills" USING btree ("account_id","statement_date");
+--> statement-breakpoint
+CREATE INDEX "savings_card_bills_user_id_idx" ON "savings_card_bills" USING btree ("user_id");
+--> statement-breakpoint
+CREATE UNIQUE INDEX "savings_categories_user_kind_name_idx" ON "savings_categories" USING btree ("user_id","kind","name");
+--> statement-breakpoint
+CREATE UNIQUE INDEX "savings_dividend_notices_user_symbol_date_idx" ON "savings_dividend_notices" USING btree ("user_id","symbol","ex_date");
+--> statement-breakpoint
+CREATE UNIQUE INDEX "savings_holdings_account_symbol_idx" ON "savings_holdings" USING btree ("account_id","symbol");
+--> statement-breakpoint
+CREATE INDEX "savings_holdings_user_id_idx" ON "savings_holdings" USING btree ("user_id");
+--> statement-breakpoint
+CREATE INDEX "savings_recurring_user_id_idx" ON "savings_recurring" USING btree ("user_id");
+--> statement-breakpoint
+CREATE INDEX "savings_recurring_account_id_idx" ON "savings_recurring" USING btree ("account_id");
+--> statement-breakpoint
+CREATE INDEX "savings_recurring_counter_account_id_idx" ON "savings_recurring" USING btree ("counter_account_id");
+--> statement-breakpoint
+CREATE INDEX "savings_recurring_category_id_idx" ON "savings_recurring" USING btree ("category_id");
+--> statement-breakpoint
+CREATE INDEX "savings_recurring_holding_id_idx" ON "savings_recurring" USING btree ("holding_id");
+--> statement-breakpoint
+CREATE INDEX "savings_transactions_user_id_date_idx" ON "savings_transactions" USING btree ("user_id","date");
+--> statement-breakpoint
+CREATE INDEX "savings_transactions_account_id_idx" ON "savings_transactions" USING btree ("account_id");
+--> statement-breakpoint
+CREATE INDEX "savings_transactions_counter_account_id_idx" ON "savings_transactions" USING btree ("counter_account_id");
+--> statement-breakpoint
+CREATE INDEX "savings_transactions_category_id_idx" ON "savings_transactions" USING btree ("category_id");
+--> statement-breakpoint
+CREATE INDEX "savings_transactions_recurring_id_idx" ON "savings_transactions" USING btree ("recurring_id");
+--> statement-breakpoint
+CREATE INDEX "savings_transactions_holding_id_idx" ON "savings_transactions" USING btree ("holding_id");
+--> statement-breakpoint
+CREATE INDEX "savings_transactions_card_bill_id_idx" ON "savings_transactions" USING btree ("card_bill_id");
+--> statement-breakpoint
+CREATE INDEX "starrail_accounts_user_id_idx" ON "starrail_accounts" USING btree ("user_id");
+--> statement-breakpoint
+CREATE UNIQUE INDEX "starrail_redeem_codes_account_code" ON "starrail_redeem_codes" USING btree ("account_id","code");
+--> statement-breakpoint
+CREATE INDEX "twitch_follows_streamer_id_idx" ON "twitch_follows" USING btree ("streamer_id");
+--> statement-breakpoint
+CREATE INDEX "youtube_follows_channel_id_idx" ON "youtube_follows" USING btree ("channel_id");
+--> statement-breakpoint
+CREATE INDEX "youtube_saved_videos_user_updated_at_idx" ON "youtube_saved_videos" USING btree ("user_id","updated_at");
+--> statement-breakpoint
+ALTER TABLE "core_module_denials" ADD CONSTRAINT "core_module_denials_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
 CREATE TABLE "core_audit_logs" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -485,8 +582,10 @@ CREATE TABLE "core_audit_logs" (
 	CONSTRAINT "core_audit_logs_outcome" CHECK ("core_audit_logs"."outcome" in ('success', 'failure'))
 );
 --> statement-breakpoint
-ALTER TABLE "core_audit_logs" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE INDEX "core_audit_logs_created_at_idx" ON "core_audit_logs" USING btree ("created_at");--> statement-breakpoint
+ALTER TABLE "core_audit_logs" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE INDEX "core_audit_logs_created_at_idx" ON "core_audit_logs" USING btree ("created_at");
+--> statement-breakpoint
 CREATE TABLE "travel_checks" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"trip_id" integer NOT NULL,
@@ -495,7 +594,8 @@ CREATE TABLE "travel_checks" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "travel_checks" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "travel_checks" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "travel_comments" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"item_id" integer NOT NULL,
@@ -504,7 +604,8 @@ CREATE TABLE "travel_comments" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "travel_comments" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "travel_comments" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "travel_items" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"trip_id" integer NOT NULL,
@@ -524,7 +625,8 @@ CREATE TABLE "travel_items" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "travel_items" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "travel_items" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "travel_members" (
 	"trip_id" integer NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -532,7 +634,8 @@ CREATE TABLE "travel_members" (
 	CONSTRAINT "travel_members_trip_id_user_id_pk" PRIMARY KEY("trip_id","user_id")
 );
 --> statement-breakpoint
-ALTER TABLE "travel_members" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "travel_members" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "travel_trips" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"title" text NOT NULL,
@@ -546,42 +649,61 @@ CREATE TABLE "travel_trips" (
 	CONSTRAINT "travel_trips_dates" CHECK ("travel_trips"."end_date" >= "travel_trips"."start_date")
 );
 --> statement-breakpoint
-ALTER TABLE "travel_trips" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "travel_checks" ADD CONSTRAINT "travel_checks_trip_id_travel_trips_id_fk" FOREIGN KEY ("trip_id") REFERENCES "public"."travel_trips"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "travel_comments" ADD CONSTRAINT "travel_comments_item_id_travel_items_id_fk" FOREIGN KEY ("item_id") REFERENCES "public"."travel_items"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "travel_comments" ADD CONSTRAINT "travel_comments_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "travel_items" ADD CONSTRAINT "travel_items_trip_id_travel_trips_id_fk" FOREIGN KEY ("trip_id") REFERENCES "public"."travel_trips"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "travel_members" ADD CONSTRAINT "travel_members_trip_id_travel_trips_id_fk" FOREIGN KEY ("trip_id") REFERENCES "public"."travel_trips"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "travel_members" ADD CONSTRAINT "travel_members_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "travel_checks_trip_id_idx" ON "travel_checks" USING btree ("trip_id");--> statement-breakpoint
-CREATE INDEX "travel_comments_item_id_idx" ON "travel_comments" USING btree ("item_id");--> statement-breakpoint
-CREATE INDEX "travel_comments_user_id_idx" ON "travel_comments" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "travel_items_trip_day_idx" ON "travel_items" USING btree ("trip_id","day","position");--> statement-breakpoint
-CREATE INDEX "travel_members_user_id_idx" ON "travel_members" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "travel_trips_end_date_idx" ON "travel_trips" USING btree ("end_date");--> statement-breakpoint
+ALTER TABLE "travel_trips" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE "travel_checks" ADD CONSTRAINT "travel_checks_trip_id_travel_trips_id_fk" FOREIGN KEY ("trip_id") REFERENCES "public"."travel_trips"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_comments" ADD CONSTRAINT "travel_comments_item_id_travel_items_id_fk" FOREIGN KEY ("item_id") REFERENCES "public"."travel_items"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_comments" ADD CONSTRAINT "travel_comments_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_items" ADD CONSTRAINT "travel_items_trip_id_travel_trips_id_fk" FOREIGN KEY ("trip_id") REFERENCES "public"."travel_trips"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_members" ADD CONSTRAINT "travel_members_trip_id_travel_trips_id_fk" FOREIGN KEY ("trip_id") REFERENCES "public"."travel_trips"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_members" ADD CONSTRAINT "travel_members_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+CREATE INDEX "travel_checks_trip_id_idx" ON "travel_checks" USING btree ("trip_id");
+--> statement-breakpoint
+CREATE INDEX "travel_comments_item_id_idx" ON "travel_comments" USING btree ("item_id");
+--> statement-breakpoint
+CREATE INDEX "travel_comments_user_id_idx" ON "travel_comments" USING btree ("user_id");
+--> statement-breakpoint
+CREATE INDEX "travel_items_trip_day_idx" ON "travel_items" USING btree ("trip_id","day","position");
+--> statement-breakpoint
+CREATE INDEX "travel_members_user_id_idx" ON "travel_members" USING btree ("user_id");
+--> statement-breakpoint
+CREATE INDEX "travel_trips_end_date_idx" ON "travel_trips" USING btree ("end_date");
+--> statement-breakpoint
 CREATE TABLE "core_avatar_images" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
 	"image" "bytea" NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "core_avatar_images_user_id_unique" UNIQUE("user_id")
-);--> statement-breakpoint
-ALTER TABLE "core_avatar_images" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+);
+--> statement-breakpoint
+ALTER TABLE "core_avatar_images" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "core_cron_status" (
 	"task" text PRIMARY KEY NOT NULL,
 	"last_run_at" timestamp with time zone NOT NULL,
 	"duration_ms" integer NOT NULL,
 	"ok" boolean NOT NULL,
 	"summary" text NOT NULL
-);--> statement-breakpoint
-ALTER TABLE "core_cron_status" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+);
+--> statement-breakpoint
+ALTER TABLE "core_cron_status" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "core_service_status" (
 	"service" text PRIMARY KEY NOT NULL,
 	"last_ok_at" timestamp with time zone,
 	"last_error_at" timestamp with time zone,
 	"last_error" text
-);--> statement-breakpoint
-ALTER TABLE "core_service_status" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+);
+--> statement-breakpoint
+ALTER TABLE "core_service_status" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "transit_routes" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -595,8 +717,10 @@ CREATE TABLE "transit_routes" (
 	"tracked" boolean DEFAULT false NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "transit_routes_mode" CHECK ("transit_routes"."mode" in ('thsr', 'tra', 'metro', 'bus'))
-);--> statement-breakpoint
-ALTER TABLE "transit_routes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+);
+--> statement-breakpoint
+ALTER TABLE "transit_routes" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 CREATE TABLE "weather_places" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -609,10 +733,144 @@ CREATE TABLE "weather_places" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "weather_places_kind" CHECK ("weather_places"."kind" in ('county', 'world'))
-);--> statement-breakpoint
-ALTER TABLE "weather_places" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
-ALTER TABLE "core_avatar_images" ADD CONSTRAINT "core_avatar_images_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "transit_routes" ADD CONSTRAINT "transit_routes_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "weather_places" ADD CONSTRAINT "weather_places_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE UNIQUE INDEX "transit_routes_user_route" ON "transit_routes" USING btree ("user_id","mode","system","line","origin_id","destination_id");--> statement-breakpoint
+);
+--> statement-breakpoint
+ALTER TABLE "weather_places" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE "core_avatar_images" ADD CONSTRAINT "core_avatar_images_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "transit_routes" ADD CONSTRAINT "transit_routes_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "weather_places" ADD CONSTRAINT "weather_places_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+CREATE UNIQUE INDEX "transit_routes_user_route" ON "transit_routes" USING btree ("user_id","mode","system","line","origin_id","destination_id");
+--> statement-breakpoint
 CREATE UNIQUE INDEX "weather_places_user_name" ON "weather_places" USING btree ("user_id","name");
+--> statement-breakpoint
+CREATE TABLE "core_announcements" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"kind" text NOT NULL,
+	"title" text NOT NULL,
+	"body" text DEFAULT '' NOT NULL,
+	"starts_at" timestamp with time zone,
+	"ends_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "core_announcements_kind" CHECK ("core_announcements"."kind" in ('outage', 'maintenance', 'general')),
+	CONSTRAINT "core_announcements_period" CHECK ("core_announcements"."starts_at" is null or "core_announcements"."ends_at" is null or "core_announcements"."ends_at" > "core_announcements"."starts_at")
+);
+--> statement-breakpoint
+ALTER TABLE "core_announcements" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE TABLE "core_push_mutes" (
+	"endpoint" text NOT NULL,
+	"module_id" text NOT NULL,
+	CONSTRAINT "core_push_mutes_endpoint_module_id_pk" PRIMARY KEY("endpoint","module_id")
+);
+--> statement-breakpoint
+ALTER TABLE "core_push_mutes" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE TABLE "core_push_subscriptions" (
+	"endpoint" text PRIMARY KEY NOT NULL,
+	"user_id" uuid NOT NULL,
+	"p256dh" text NOT NULL,
+	"auth" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+ALTER TABLE "core_push_subscriptions" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE TABLE "travel_expense_shares" (
+	"expense_id" integer NOT NULL,
+	"user_id" uuid NOT NULL,
+	CONSTRAINT "travel_expense_shares_expense_id_user_id_pk" PRIMARY KEY("expense_id","user_id")
+);
+--> statement-breakpoint
+ALTER TABLE "travel_expense_shares" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE TABLE "travel_expenses" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"trip_id" integer NOT NULL,
+	"paid_by" uuid NOT NULL,
+	"title" text NOT NULL,
+	"amount_cents" integer NOT NULL,
+	"currency" text NOT NULL,
+	"rate_micros" integer NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "travel_expenses_amount" CHECK ("travel_expenses"."amount_cents" > 0),
+	CONSTRAINT "travel_expenses_rate" CHECK ("travel_expenses"."rate_micros" > 0),
+	CONSTRAINT "travel_expenses_currency" CHECK ("travel_expenses"."currency" ~ '^[A-Z]{3}$')
+);
+--> statement-breakpoint
+ALTER TABLE "travel_expenses" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE TABLE "travel_settlements" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"trip_id" integer NOT NULL,
+	"from_user" uuid NOT NULL,
+	"to_user" uuid NOT NULL,
+	"amount_twd" integer NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "travel_settlements_amount" CHECK ("travel_settlements"."amount_twd" > 0),
+	CONSTRAINT "travel_settlements_people" CHECK ("travel_settlements"."from_user" <> "travel_settlements"."to_user")
+);
+--> statement-breakpoint
+ALTER TABLE "travel_settlements" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE TABLE "youtube_ai_keys" (
+	"user_id" uuid NOT NULL,
+	"provider" text NOT NULL,
+	"api_key" text,
+	"model" text,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "youtube_ai_keys_user_id_provider_pk" PRIMARY KEY("user_id","provider")
+);
+--> statement-breakpoint
+ALTER TABLE "youtube_ai_keys" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+ALTER TABLE "core_push_mutes" ADD CONSTRAINT "core_push_mutes_endpoint_core_push_subscriptions_endpoint_fk" FOREIGN KEY ("endpoint") REFERENCES "public"."core_push_subscriptions"("endpoint") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "core_push_subscriptions" ADD CONSTRAINT "core_push_subscriptions_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_expense_shares" ADD CONSTRAINT "travel_expense_shares_expense_id_travel_expenses_id_fk" FOREIGN KEY ("expense_id") REFERENCES "public"."travel_expenses"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_expense_shares" ADD CONSTRAINT "travel_expense_shares_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_expenses" ADD CONSTRAINT "travel_expenses_trip_id_travel_trips_id_fk" FOREIGN KEY ("trip_id") REFERENCES "public"."travel_trips"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_expenses" ADD CONSTRAINT "travel_expenses_paid_by_core_users_id_fk" FOREIGN KEY ("paid_by") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_settlements" ADD CONSTRAINT "travel_settlements_trip_id_travel_trips_id_fk" FOREIGN KEY ("trip_id") REFERENCES "public"."travel_trips"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_settlements" ADD CONSTRAINT "travel_settlements_from_user_core_users_id_fk" FOREIGN KEY ("from_user") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_settlements" ADD CONSTRAINT "travel_settlements_to_user_core_users_id_fk" FOREIGN KEY ("to_user") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "youtube_ai_keys" ADD CONSTRAINT "youtube_ai_keys_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+CREATE INDEX "core_push_subscriptions_user_id_idx" ON "core_push_subscriptions" USING btree ("user_id");
+--> statement-breakpoint
+CREATE INDEX "travel_expense_shares_user_id_idx" ON "travel_expense_shares" USING btree ("user_id");
+--> statement-breakpoint
+CREATE INDEX "travel_expenses_trip_id_idx" ON "travel_expenses" USING btree ("trip_id");
+--> statement-breakpoint
+CREATE INDEX "travel_expenses_paid_by_idx" ON "travel_expenses" USING btree ("paid_by");
+--> statement-breakpoint
+CREATE INDEX "travel_settlements_trip_id_idx" ON "travel_settlements" USING btree ("trip_id");
+--> statement-breakpoint
+CREATE INDEX "travel_settlements_from_user_idx" ON "travel_settlements" USING btree ("from_user");
+--> statement-breakpoint
+CREATE INDEX "travel_settlements_to_user_idx" ON "travel_settlements" USING btree ("to_user");
+--> statement-breakpoint
+CREATE INDEX "starrail_checkin_logs_account_created_at_idx" ON "starrail_checkin_logs" USING btree ("account_id","created_at");
+--> statement-breakpoint
+CREATE INDEX "starrail_checkin_logs_created_at_idx" ON "starrail_checkin_logs" USING btree ("created_at");
+--> statement-breakpoint
+CREATE INDEX "twitch_stream_events_broadcaster_id_idx" ON "twitch_stream_events" USING btree ("broadcaster_id");
+--> statement-breakpoint
+CREATE INDEX "twitch_stream_events_received_at_idx" ON "twitch_stream_events" USING btree ("received_at");
+--> statement-breakpoint
+CREATE INDEX "youtube_translations_requested_by_idx" ON "youtube_translations" USING btree ("requested_by");
+--> statement-breakpoint
+CREATE INDEX "youtube_videos_channel_id_idx" ON "youtube_videos" USING btree ("channel_id");

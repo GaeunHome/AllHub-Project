@@ -74,7 +74,7 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
     await getDb().insert(youtubeVideos).values(olderVideos());
     const [oldest] = olderVideos().slice(-1);
     await getDb().insert(youtubeTranslations).values([translationOf(oldest.videoId), translationOf("old03aaaaaa"), translationOf("pastedvideo")]);
-    await getDb().insert(youtubeSettings).values({ id: 1, userId: me });
+    await getDb().insert(youtubeSettings).values({ userId: me });
 
     expect(await cleanupVideos(NOW)).toBe("刪除 2 支不在任何人最新 20 支裡的影片");
 

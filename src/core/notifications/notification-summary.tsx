@@ -32,8 +32,9 @@ export function NotificationSummary({ item, module, time }: { item: Notification
           {!item.read && <span className="sr-only">（未讀）</span>}
         </span>
         {item.body && <span className="line-clamp-2 text-[0.8125rem] leading-relaxed whitespace-pre-line text-ink-soft">{item.body}</span>}
-        <span className="text-xs text-muted">
-          {module?.name ?? item.module} · {time}
+        <span className="flex flex-wrap gap-x-3 text-xs text-ink-soft">
+          <span>{module?.name ?? item.module}</span>
+          <span>{time}</span>
         </span>
       </span>
     </>

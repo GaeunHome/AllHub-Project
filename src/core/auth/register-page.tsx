@@ -24,12 +24,13 @@ export function RegisterPage({ searchParams }: { searchParams: SearchParams }) {
       <Suspense fallback={<RegisterSkeleton />}>
         <RegisterGate searchParams={searchParams} />
       </Suspense>
-      <p className="text-center leading-relaxed">
-        已經有帳號了？
-        <Link href="/login" className="link">
-          登入
-        </Link>
-        <span aria-hidden> · </span>
+      <p className="flex flex-wrap justify-center gap-x-4 gap-y-1 leading-relaxed">
+        <span>
+          已經有帳號了？
+          <Link href="/login" className="link">
+            登入
+          </Link>
+        </span>
         <Link href="/terms" className="link">
           使用聲明
         </Link>

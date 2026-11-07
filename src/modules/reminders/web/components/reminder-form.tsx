@@ -4,6 +4,7 @@ import { useId } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
+import { InfoTip } from "@/core/ui/info-tip";
 import { DEFAULT_NOTIFY, NOTIFY_OPTIONS, REPEAT_OPTIONS, notifyValueOf } from "../../lib/rules";
 import type { ReminderItem } from "../../service/items";
 import { createReminderAction, updateReminderAction } from "../actions";
@@ -32,13 +33,13 @@ export function ReminderForm({ item, today, latest, onDone, onCancel }: Reminder
         <input name="title" required defaultValue={item?.title} placeholder="例如：繳房屋稅、媽媽生日" autoComplete="off" data-autofocus className="input" />
       </label>
       <div className="field">
-        <label htmlFor={dateId} className="field-label">
-          日期
-        </label>
-        <input id={dateId} type="date" name="date" required defaultValue={item?.date} min={today} max={latest} aria-describedby={`${dateId}-hint`} className="input" />
-        <p id={`${dateId}-hint`} className="text-sm text-ink-soft">
-          不重複的提醒，日期過了隔天會自動刪除
-        </p>
+        <span className="flex items-center gap-1">
+          <label htmlFor={dateId} className="field-label">
+            日期
+          </label>
+          <InfoTip label="日期的說明">不重複的提醒，日期過了隔天會自動刪除</InfoTip>
+        </span>
+        <input id={dateId} type="date" name="date" required defaultValue={item?.date} min={today} max={latest} className="input" />
       </div>
       <label className="field">
         <span className="field-label">通知</span>

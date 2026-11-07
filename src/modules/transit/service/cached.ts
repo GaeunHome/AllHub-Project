@@ -3,13 +3,13 @@ import { cacheLife, cacheTag } from "next/cache";
 import type { BusDirection, BusEta, BusSchedule } from "../lib/bus";
 import type { LiveReading } from "../lib/countdown";
 import type { CabinFare, TraFare } from "../lib/fares";
-import { METRO_SYSTEMS, type MetroSystem, type Mode } from "../lib/modes";
+import { METRO_SYSTEMS, type MetroSystem, type Mode, type TrainMode } from "../lib/modes";
 import type { Departure, Station } from "../lib/timetable";
 import type { TravelTimes } from "../lib/travel-time";
 import type { TransitRoute } from "../data/schema";
 import { transitTags } from "./cache-tags";
 import { listRoutes } from "./routes";
-import { joinMetroSystems, readBusEta, readBusRoute, readBusSchedule, readDepartures, readLive, readMetroFare, readMetroSystem, readStations, readThsrFares, readTraFares, readTravelTimes, type MetroSystemLines, type NetworkRead, type Read } from "./timetable";
+import { joinMetroSystems, readBusEta, readBusRoute, readBusSchedule, readDepartures, readLive, readMetroDepartures, readMetroFare, readMetroSystem, readStations, readThsrFares, readTraFares, readTravelTimes, type MetroSystemLines, type NetworkRead, type Read } from "./timetable";
 
 // 只給頁面與輪詢 API 用 外部資料不存資料庫 不分使用者 同一條路線大家共用同一份 才省額度
 
@@ -49,10 +49,20 @@ export async function cachedMetroNetwork(): Promise<Read<NetworkRead>> {
   return result;
 }
 
-export async function cachedDepartures(mode: Exclude<Mode, "bus">, system: string, originId: string, destinationId: string, date: string): Promise<Read<Departure[]>> {
+export async function cachedDepartures(mode: TrainMode, originId: string, destinationId: string, date: string): Promise<Read<Departure[]>> {
   "use cache: remote";
   cacheTag(transitTags.external);
-  const result = await readDepartures(mode, system, originId, destinationId, date);
+  const result = await readDepartures(mode, originId, destinationId, date);
+  if (result.ok) cacheLife("timetable");
+  else cacheLife("external");
+  return result;
+}
+
+/** 一站每個方向都在裡面 查詢與常用路線共用 */
+export async function cachedMetroDepartures(system: string, stationId: string, date: string): Promise<Read<Departure[]>> {
+  "use cache: remote";
+  cacheTag(transitTags.external);
+  const result = await readMetroDepartures(system, stationId, date);
   if (result.ok) cacheLife("timetable");
   else cacheLife("external");
   return result;

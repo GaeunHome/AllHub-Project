@@ -94,7 +94,6 @@ export async function saveSettings(userId: string, input: SettingsInput): Promis
   const values = { provider: input.provider, glossary, updatedAt: new Date() };
 
   await db().transaction(async (tx) => {
-    // id 由資料庫從 2 開始自動編號 不會撞到單人版固定的 1
     await tx
       .insert(youtubeSettings)
       .values({ userId, ...values })

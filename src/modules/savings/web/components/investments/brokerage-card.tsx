@@ -60,7 +60,7 @@ export function BrokerageCard({ brokerage, depositAccounts, payFromAccounts, tod
         summary={
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {/* 讀不到股價時市值是先用成本算的 */}
-            {hasHoldings && !brokerage.priced && <span className="text-ink">股價暫時讀不到</span>}
+            {hasHoldings && !brokerage.priced && <span className="text-ink">股價暫時無法讀取</span>}
             <Sum label="市值" amount={brokerage.value} />
             <Link href={brokerage.recordsHref} className="card-header-link">
               查看紀錄

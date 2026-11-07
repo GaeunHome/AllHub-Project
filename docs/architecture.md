@@ -239,7 +239,7 @@ src/
 - **手動同步訂閱與續訂**：Twitch 的「同步訂閱」與 YouTube 的「續訂」處理的是共用的訂閱，所有人都能按；回應只說自己追蹤的主播或頻道，不透露全站的數量。每個人 60 秒只能按一次（冷卻時間記在 `core_rate_limits`）。
 - **每個操作都再驗證一次**：`proxy.ts` 會擋下未登入的請求，每個 Server Action 與讀資料的元件還會再確認一次登入；不用登入的只有登入、註冊（各自有次數限制與驗證碼）、登出（只刪自己的 cookie）、使用聲明與驗證碼圖片。
 - **只碰自己的資料**：表單或網址送來的 id 只決定操作哪一筆，service 一律用登入者的 id 比對擁有者；改 id 去操作別人的資料會被當作不存在（每一類都有測試）。
-- **公開頁面**：`/login`、`/register`、`/terms` 與驗證碼圖片 `/api/auth/captcha` 不用登入（`proxy.ts` 的 matcher 整段比對，`/registerx` 這類路徑照樣要登入）；加到主畫面用的 `/manifest.webmanifest`、`/sw.js` 與 `public/icons/` 也是，裡面沒有任何人的資料。
+- **公開頁面**：`/login`、`/register`、`/terms` 與驗證碼圖片 `/api/auth/captcha` 不用登入（`proxy.ts` 的 matcher 整段比對，`/registerx` 這類路徑照樣要登入）；加到主畫面用的 `/manifest.webmanifest`、`/sw.js`、`public/icons/` 與瀏覽器分頁的圖示 `/favicon.ico` 也是，裡面沒有任何人的資料。
 - **手機通知**：內容用手機自己的金鑰加密，推送服務（Apple、Google、Mozilla、Microsoft）看不到；鎖定畫面上會被別人看到，所以理財的通知只寫「理財有一件事要處理」。訂閱的網址是瀏覽器送來的，只收推送服務的網域，內部位址一律拒絕。Service Worker 只處理推播，不快取也不接 fetch，換人登入時看不到上一個人的資料。
 - **不讓搜尋引擎收錄**：`/robots.txt` 全部 Disallow，每一頁帶 `noindex, nofollow`；登入、註冊與驗證碼圖片另外可以用 Vercel Firewall 限制次數（見 [部署 › 防機器人與被攻擊時](deploy.md#防機器人與被攻擊時)）。
 - **外部服務的端點各自驗證**：

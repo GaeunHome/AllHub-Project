@@ -12,7 +12,6 @@ export function MonthSwitcher({ month, current, options }: { month: MonthKey; cu
   const previous = addMonths(month, -1);
   const next = addMonths(month, 1);
   const arrow = "btn-secondary btn-icon";
-  const disabled = `${arrow} cursor-not-allowed opacity-55`;
 
   return (
     <nav aria-label="切換月份" className="button-row">
@@ -21,7 +20,7 @@ export function MonthSwitcher({ month, current, options }: { month: MonthKey; cu
           <Icon name="chevron-left" className="size-4" />
         </Link>
       ) : (
-        <span aria-disabled="true" className={disabled}>
+        <span aria-disabled="true" className={arrow}>
           <Icon name="chevron-left" className="size-4" />
           <span className="sr-only">上一個月</span>
         </span>
@@ -32,7 +31,7 @@ export function MonthSwitcher({ month, current, options }: { month: MonthKey; cu
           <Icon name="chevron-right" className="size-4" />
         </Link>
       ) : (
-        <span aria-disabled="true" title="還沒到下個月" className={disabled}>
+        <span aria-disabled="true" title="還沒到下個月" className={arrow}>
           <Icon name="chevron-right" className="size-4" />
           <span className="sr-only">下一個月（還沒到）</span>
         </span>

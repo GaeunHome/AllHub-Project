@@ -50,7 +50,7 @@ export function parseSubtitles(text: string): Cue[] {
   finish();
 
   const result = collapseRolling(cues.sort((a, b) => a.start - b.start));
-  if (result.length === 0) throw new SubtitleParseError("讀不到任何字幕，請確認檔案是 SRT 或 WebVTT 格式");
+  if (result.length === 0) throw new SubtitleParseError("無法讀取字幕，請確認檔案是 SRT 或 WebVTT 格式");
   return result;
 }
 

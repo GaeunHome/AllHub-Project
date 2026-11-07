@@ -6,7 +6,7 @@ import { stubCoreEnv, stubTransitEnv } from "@/dev/test-env";
 stubCoreEnv();
 stubTransitEnv({ TDX_CLIENT_SECRET: "tdx-top-secret" });
 
-const { problemOf, readDepartures, readLive, readMetroFare, readMetroSystem, readStations, readThsrFares, readTraFares, readTravelTimes } = await import("../timetable");
+const { problemOf, readDepartures, readLive, readMetroDepartures, readMetroFare, readMetroSystem, readStations, readThsrFares, readTraFares, readTravelTimes } = await import("../timetable");
 const { resetTdx } = await import("../../lib/tdx");
 
 const TOKEN = () => Response.json({ access_token: "the-token", expires_in: 86400 });
@@ -60,7 +60,7 @@ describe("向 TDX 讀資料", () => {
   it("高鐵用起訖站與日期的時刻表", async () => {
     const fake = stub([[/DailyTimetable/, () => Response.json([])]]);
 
-    await readDepartures("thsr", "", "1000", "1070", "2026-11-05");
+    await readDepartures("thsr", "1000", "1070", "2026-11-05");
 
     expect(fake.urls.at(-1)).toContain("/v2/Rail/THSR/DailyTimetable/OD/1000/to/1070/2026-11-05");
   });
@@ -68,7 +68,7 @@ describe("向 TDX 讀資料", () => {
   it("捷運用站別時刻表 只查這一站 才不會一次下載全部的站", async () => {
     const fake = stub([[/StationTimeTable/, () => Response.json([])]]);
 
-    await readDepartures("metro", "TRTC", "R10", "R28", "2026-11-05");
+    await readMetroDepartures("TRTC", "R10", "2026-11-05");
 
     expect(new URL(fake.urls.at(-1)!).searchParams.get("$filter")).toBe("StationID eq 'R10'");
   });

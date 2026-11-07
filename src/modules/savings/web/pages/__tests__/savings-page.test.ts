@@ -205,12 +205,12 @@ describe("總資產", () => {
     ]);
   });
 
-  it("股價讀不到：寫暫時讀不到，不寫損益與收盤日期", async () => {
+  it("股價讀不到：寫暫時無法讀取，不寫損益與收盤日期", async () => {
     cached.cachedQuotes.mockResolvedValue(null);
 
     const facts = factsOf(await render(sections.HeroSection()));
 
-    expect(facts).toContainEqual(["股價", "暫時讀不到"]);
+    expect(facts).toContainEqual(["股價", "暫時無法讀取"]);
     expect(facts.map(([label]) => label).join()).not.toContain("損益");
   });
 

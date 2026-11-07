@@ -8,8 +8,6 @@ import { markup as render, mocksOf } from "@/dev/test-helpers";
 import { accountView } from "../../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
-// next/font 只能在 Next 的建置裡執行
-vi.mock("../../game-font", () => ({ gameFont: { variable: "" } }));
 vi.mock("../../../service/cached", { spy: true });
 
 const cached = mocksOf(await import("../../../service/cached"), "cachedAccounts");

@@ -147,14 +147,22 @@ export function aqiResponse(now = new Date()) {
   return { fields: [], records: STATIONS.map(([county, sitename, aqi]) => ({ sitename, county, aqi, pollutant: "", status: "", publishtime })) };
 }
 
-/** F-D0047-091 每個縣市七天 每天白天與晚上各一段 */
+// 氣象署的寫法 跟網站換算 Open-Meteo 角度用的是同一套
+const WIND_DIRECTIONS = ["偏北風", "東北風", "偏東風", "東南風", "偏南風", "西南風", "偏西風", "西北風"];
+// 每秒 2 到 6 公尺照蒲福風級表是 2 到 4 級
+const BEAUFORT = { 2: "2", 3: "2", 4: "3", 5: "3", 6: "4" };
+const uvExposure = (index) => (index <= 2 ? "低量級" : index <= 5 ? "中量級" : index <= 7 ? "高量級" : index <= 10 ? "過量級" : "危險級");
+
+/** F-D0047-091 每個縣市七天 每天白天與晚上各一段 紫外線只有白天那一段 */
 function weekResponse(names) {
-  const element = (ElementName, key, values) => ({ ElementName, Time: values.map(([StartTime, value]) => ({ StartTime, ElementValue: [{ [key]: value }] })) });
+  const element = (ElementName, key, values) => ({ ElementName, Time: values.map(([StartTime, EndTime, value]) => ({ StartTime, EndTime, ElementValue: [{ [key]: value }] })) });
+  const records = (ElementName, values) => ({ ElementName, Time: values.map(([StartTime, EndTime, value]) => ({ StartTime, EndTime, ElementValue: [value] })) });
   const WEATHER = ["多雲", "晴時多雲", "短暫雨", "陰", "晴", "多雲時陰", "午後短暫雷陣雨"];
   const periods = Array.from({ length: 14 }, (_, index) => {
     const start = periodStarts()[0] + index * 12 * HOUR;
-    return { time: cwaTime(start), day: Math.floor(index / 2) };
+    return { time: cwaTime(start), end: cwaTime(start + 12 * HOUR), day: Math.floor(index / 2), daytime: taipei(start).getUTCHours() === 6 };
   });
+  const each = (offset, valueOf) => periods.map((period) => [period.time, period.end, valueOf(period.day + offset, period)]);
   return {
     success: "true",
     records: {
@@ -164,10 +172,19 @@ function weekResponse(names) {
           Location: names.map((LocationName, offset) => ({
             LocationName,
             WeatherElement: [
-              element("最高溫度", "MaxTemperature", periods.map(({ time, day }) => [time, String(24 + ((day + offset) % 5))])),
-              element("最低溫度", "MinTemperature", periods.map(({ time, day }) => [time, String(17 + ((day + offset) % 4))])),
-              element("12小時降雨機率", "ProbabilityOfPrecipitation", periods.map(({ time, day }) => [time, String(((day + offset) % 7) * 10)])),
-              element("天氣現象", "Weather", periods.map(({ time, day }) => [time, WEATHER[(day + offset) % WEATHER.length]])),
+              element("最高溫度", "MaxTemperature", each(offset, (seed) => String(24 + (seed % 5)))),
+              element("最低溫度", "MinTemperature", each(offset, (seed) => String(17 + (seed % 4)))),
+              element("12小時降雨機率", "ProbabilityOfPrecipitation", each(offset, (seed) => String((seed % 7) * 10))),
+              element("天氣現象", "Weather", each(offset, (seed) => WEATHER[seed % WEATHER.length])),
+              element("最高體感溫度", "MaxApparentTemperature", each(offset, (seed) => String(26 + (seed % 5)))),
+              element("最低體感溫度", "MinApparentTemperature", each(offset, (seed) => String(16 + (seed % 4)))),
+              element("平均相對濕度", "RelativeHumidity", each(offset, (seed) => String(60 + (seed % 6) * 5))),
+              records("風速", each(offset, (seed, { daytime }) => ({ WindSpeed: String(2 + ((seed + Number(daytime)) % 5)), BeaufortScale: BEAUFORT[2 + ((seed + Number(daytime)) % 5)] }))),
+              element("風向", "WindDirection", each(offset, (seed, { daytime }) => WIND_DIRECTIONS[(seed + Number(daytime)) % WIND_DIRECTIONS.length])),
+              records(
+                "紫外線指數",
+                each(offset, (seed) => ({ UVIndex: String(2 + (seed % 8)), UVExposureLevel: uvExposure(2 + (seed % 8)) })).filter((_, index) => periods[index].daytime),
+              ),
             ],
           })),
         },
@@ -203,11 +220,15 @@ function hoursResponse(names) {
   };
 }
 
+/** 跟真的一樣 沒帶 wind_speed_unit=ms 時風速是每小時公里 */
 function openMeteoResponse(url) {
   const base = Number(url.searchParams.get("latitude") ?? 0);
+  const speedUnit = url.searchParams.get("wind_speed_unit") === "ms" ? 1 : 3.6;
   const start = Date.now();
   const time = Array.from({ length: 7 }, (_, index) => new Date(start + index * 24 * HOUR).toISOString().slice(0, 10));
   const hours = Array.from({ length: 168 }, (_, index) => `${time[Math.floor(index / 24)]}T${pad(index % 24)}:00`);
+  const max = time.map((_, index) => 18.4 + ((index + Math.round(base)) % 6));
+  const min = time.map((_, index) => 9.6 + ((index + Math.round(base)) % 4));
   return {
     timezone: url.searchParams.get("timezone"),
     utc_offset_seconds: 0,
@@ -216,13 +237,21 @@ function openMeteoResponse(url) {
       temperature_2m: hours.map((_, index) => 12.4 + ((index + Math.round(base)) % 9)),
       precipitation_probability: hours.map((_, index) => (index % 6) * 15),
       weather_code: hours.map((_, index) => [0, 2, 3, 61, 80, 1, 95][index % 7]),
+      relative_humidity_2m: hours.map((_, index) => 55 + ((index * 7) % 35)),
     },
     daily: {
       time,
       weather_code: [0, 2, 3, 61, 80, 1, 95],
-      temperature_2m_max: time.map((_, index) => 18.4 + ((index + Math.round(base)) % 6)),
-      temperature_2m_min: time.map((_, index) => 9.6 + ((index + Math.round(base)) % 4)),
+      temperature_2m_max: max,
+      temperature_2m_min: min,
       precipitation_probability_max: [5, 20, 40, 90, 70, 10, 60],
+      apparent_temperature_max: max.map((value) => Math.round((value - 1.3) * 10) / 10),
+      apparent_temperature_min: min.map((value) => Math.round((value - 2.4) * 10) / 10),
+      wind_speed_10m_max: time.map((_, index) => Math.round((1.8 + ((index + Math.round(base)) % 6) * 1.3) * speedUnit * 10) / 10),
+      wind_direction_10m_dominant: time.map((_, index) => (index * 53 + Math.round(base) * 7) % 360),
+      uv_index_max: time.map((_, index) => Math.round((1.4 + ((index + Math.round(base)) % 7) * 1.25) * 100) / 100),
+      sunrise: time.map((date, index) => `${date}T06:${pad(5 + index)}`),
+      sunset: time.map((date, index) => `${date}T17:${pad(12 - index)}`),
     },
   };
 }

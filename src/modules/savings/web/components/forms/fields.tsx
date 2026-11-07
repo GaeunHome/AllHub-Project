@@ -2,6 +2,7 @@
 
 import { useId, type ChangeEvent, type ReactNode } from "react";
 import { Icon } from "@/core/ui/icon";
+import { InfoTip } from "@/core/ui/info-tip";
 import { MIN_DATE } from "../../../lib/dates";
 import { LABEL_MAX_LENGTH, NAME_MAX_LENGTH, NOTE_MAX_LENGTH, categoryIconOf } from "../../../lib/kinds";
 import { UNCATEGORIZED_LABEL } from "../../entry-display";
@@ -28,6 +29,8 @@ type AmountFieldProps = {
   placeholder?: string;
   /** 欄位下面的說明 報讀器在欄位上會一起念 */
   hint?: ReactNode;
+  /** 不用一直看的說明 放進標籤旁的 i 圓圈 */
+  tip?: string;
   /** 給信用卡填負的溢繳 iPhone 的數字鍵盤沒有負號 所以改用一般鍵盤 */
   allowNegative?: boolean;
 };
@@ -36,14 +39,12 @@ type AmountFieldProps = {
  * 用文字欄位不用 number 手機一樣跳數字鍵盤 滑鼠滾輪也不會改到數字
  * 金額只收整數元 可以打千分位
  */
-export function AmountField({ name, label, defaultValue, value, onValueChange, required = false, autoFocus = false, large = false, placeholder, hint, allowNegative = false }: AmountFieldProps) {
+export function AmountField({ name, label, defaultValue, value, onValueChange, required = false, autoFocus = false, large = false, placeholder, hint, tip, allowNegative = false }: AmountFieldProps) {
   const id = useId();
   const controlled = value !== undefined ? { value, onChange: (event: ChangeEvent<HTMLInputElement>) => onValueChange?.(event.target.value) } : { defaultValue: defaultValue ?? undefined };
   return (
     <div className="field">
-      <label htmlFor={id} className="field-label">
-        {label}
-      </label>
+      <FieldLabel htmlFor={id} label={label} tip={tip} />
       <div className="relative flex items-center">
         <span aria-hidden className={`pointer-events-none absolute left-3.5 font-semibold text-ink-soft ${large ? "text-xl" : ""}`}>
           $
@@ -62,11 +63,27 @@ export function AmountField({ name, label, defaultValue, value, onValueChange, r
         />
       </div>
       {hint && (
-        <p id={`${id}-hint`} className="text-sm text-ink-soft">
+        <p id={`${id}-hint`} className="text-sm text-ink">
           {hint}
         </p>
       )}
     </div>
+  );
+}
+
+/** 標籤旁有 i 圓圈時不能用 label 包住按鈕 改用 htmlFor 對應 */
+function FieldLabel({ htmlFor, label, tip }: { htmlFor: string; label: ReactNode; tip?: string }) {
+  const text = (
+    <label htmlFor={htmlFor} className="field-label">
+      {label}
+    </label>
+  );
+  if (!tip) return text;
+  return (
+    <span className="flex items-center gap-1">
+      {text}
+      <InfoTip label={typeof label === "string" ? `${label}的說明` : "說明"}>{tip}</InfoTip>
+    </span>
   );
 }
 
@@ -178,17 +195,16 @@ type DayOfMonthSelectProps = {
   /** 信用卡的結帳日可以不設 */
   allowEmpty?: boolean;
   hint?: ReactNode;
+  tip?: string;
 };
 
 /** 固定收支的日期與信用卡的結帳日 間隔不一定是每月 所以選項只寫幾日 */
-export function DayOfMonthSelect({ name, label, defaultValue, value, onValueChange, allowEmpty = false, hint }: DayOfMonthSelectProps) {
+export function DayOfMonthSelect({ name, label, defaultValue, value, onValueChange, allowEmpty = false, hint, tip }: DayOfMonthSelectProps) {
   const id = useId();
   const controlled = value !== undefined ? { value, onChange: (event: ChangeEvent<HTMLSelectElement>) => onValueChange?.(Number(event.target.value)) } : { defaultValue: defaultValue ?? "" };
   return (
     <div className="field">
-      <label htmlFor={id} className="field-label">
-        {label}
-      </label>
+      <FieldLabel htmlFor={id} label={label} tip={tip} />
       <select id={id} name={name} required={!allowEmpty} aria-describedby={hint ? `${id}-hint` : undefined} {...controlled} className="input">
         {allowEmpty && <option value="">未設定</option>}
         {DAYS.map((day) => (
@@ -198,7 +214,7 @@ export function DayOfMonthSelect({ name, label, defaultValue, value, onValueChan
         ))}
       </select>
       {hint && (
-        <p id={`${id}-hint`} className="text-sm text-ink-soft">
+        <p id={`${id}-hint`} className="text-sm text-ink">
           {hint}
         </p>
       )}

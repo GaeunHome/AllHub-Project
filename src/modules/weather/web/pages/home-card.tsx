@@ -6,12 +6,12 @@ import { Icon, type UiIconName } from "@/core/ui/icon";
 import { InfoTip } from "@/core/ui/info-tip";
 import { Scene } from "@/core/ui/scene";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
-import { StatusChip } from "@/core/ui/status-chip";
 import type { RainLevel } from "../../lib/rain";
 import { cachedForecast, cachedSettings, cachedStations, cachedWarnings } from "../../service/cached";
 import type { WeatherSettings } from "../../service/settings";
 import { weatherKeys } from "../../service/weather";
 import { CountyPicker } from "../components/county-picker";
+import { WarningChips } from "../components/warning-chips";
 import { weatherView, type PeriodView, type Reminder, type WeatherView } from "../weather-view";
 
 // web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
@@ -53,12 +53,6 @@ function WeatherPrompt({ title, hint, action }: { title: string; hint: string; a
   );
 }
 
-/**
- * 超長的特報最寬到卡片內容 在標籤內換行 結束時間才看得到
- * 圓角 12px 比一行的半高大 一行時還是膠囊 多行時字才不會超出轉角
- */
-const WARNING_CHIP = "max-w-full rounded-xl whitespace-normal";
-
 /** 上面是今天的樣子 下面一條是數字 所有縣市都排在同樣的位置 一眼就找得到 */
 function WeatherBody({ view, settings }: { view: WeatherView; settings: WeatherSettings }) {
   return (
@@ -76,14 +70,8 @@ function WeatherBody({ view, settings }: { view: WeatherView; settings: WeatherS
           </InfoTip>
           <CountyPicker settings={settings} />
         </div>
-        {view.warnings.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {view.warnings.map((warning) => (
-              <StatusChip key={warning.label} badge={warning} className={WARNING_CHIP} />
-            ))}
-          </div>
-        )}
-        {view.now ? <CurrentPeriod period={view.now} /> : <p className="mt-auto text-lg font-semibold text-white">{view.county}的天氣預報暫時讀不到，幾分鐘後會再試</p>}
+        {view.warnings.length > 0 && <WarningChips chips={view.warnings} />}
+        {view.now ? <CurrentPeriod period={view.now} /> : <p className="mt-auto text-lg font-semibold text-white">{view.county}的天氣預報暫時無法讀取</p>}
         {view.reminder && <RainReminder reminder={view.reminder} />}
       </div>
       <WeatherStats view={view} />
@@ -148,7 +136,7 @@ function WeatherStats({ view: { now, next, air } }: { view: WeatherView }) {
       )}
       {air !== undefined && (
         <Stat label="空氣品質" sub={air && [`AQI ${air.aqi}`, air.site, air.time].filter(Boolean).join(" ")}>
-          {air ? airLevel(air) : "暫時讀不到"}
+          {air ? airLevel(air) : "暫時無法讀取"}
         </Stat>
       )}
     </dl>

@@ -58,7 +58,7 @@ export function NotifyToggle({ action, id, enabled, subject, ...look }: NotifyTo
       title={shown ? "通知開啟中，點一下關閉" : "通知已關閉，點一下開啟"}
       aria-disabled={busy}
       onClick={toggle}
-      className={`${shown ? "btn-secondary btn-sm btn-icon sm:w-auto sm:px-3" : "btn-ghost btn-sm btn-icon text-muted sm:w-auto sm:px-3"} ${BUSY_CLASS}`}
+      className={`${shown ? "btn-secondary btn-sm btn-icon sm:w-auto sm:px-3" : "btn-ghost btn-sm btn-icon sm:w-auto sm:px-3"} ${BUSY_CLASS}`}
     >
       <Icon name={shown ? "bell" : "bell-off"} className="size-4" />
       <span className="sr-only sm:not-sr-only">{shown ? "通知" : "靜音"}</span>

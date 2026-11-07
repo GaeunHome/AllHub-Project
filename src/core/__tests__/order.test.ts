@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { movedIds, swapTarget } from "../place-order";
+import { movedIds, swapTarget } from "../order";
 
 describe("movedIds：畫面先換好的順序 伺服器也照這個算", () => {
   it("放到某一個前面", () => {

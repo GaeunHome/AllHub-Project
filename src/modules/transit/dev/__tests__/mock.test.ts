@@ -4,7 +4,7 @@ import { parseMetroFare, parseThsrFares, parseTraFares, traFareOf } from "../../
 import { fareSystemOf, metroNetwork, planRoute } from "../../lib/metro-route";
 import { METRO_SYSTEMS, type MetroSystem } from "../../lib/modes";
 import { cityGroups, lineGroups } from "../../lib/station-groups";
-import { metroDirections, parseDailyTimetable, parseMetroLines, parseMetroTimetable, parseStations } from "../../lib/timetable";
+import { departuresToward, metroDirections, parseDailyTimetable, parseMetroLines, parseMetroTimetable, parseStations } from "../../lib/timetable";
 import { parseTravelTimes, tripMinutes } from "../../lib/travel-time";
 import { handle } from "../mock.mjs";
 
@@ -53,7 +53,7 @@ describe("假 TDX 的捷運路網", () => {
     const [first] = legs;
 
     expect(legs.map((leg) => leg.line)).toEqual(lines);
-    expect(parseMetroTimetable(await timetable(first.system, first.from.id), "2026-11-05", first.towardId).length).toBeGreaterThan(0);
+    expect(departuresToward(parseMetroTimetable(await timetable(first.system, first.from.id), "2026-11-05"), first.servedIds).length).toBeGreaterThan(0);
   });
 
   it("第一段的方向也是新增常用路線查得到的方向", async () => {

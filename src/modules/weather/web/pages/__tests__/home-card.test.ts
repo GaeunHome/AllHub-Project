@@ -115,7 +115,7 @@ describe("首頁天氣卡片的警特報標籤", () => {
     const text = textOf(await html());
 
     expect(text).toContain("大雨特報 到 20:00");
-    expect(text).toContain("臺北市的天氣預報暫時讀不到");
+    expect(text).toContain("臺北市的天氣預報暫時無法讀取");
   });
 
   it("超長的標籤不撐破卡片（36 字實測超出卡片 300px）：這排標籤最寬等於卡片內容，放不下時在標籤內換行，結束時間看得到", async () => {

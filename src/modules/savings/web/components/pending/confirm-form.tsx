@@ -41,7 +41,7 @@ export function ConfirmForm({ draft, today, onDone, onCancel }: ConfirmFormProps
             <AmountField name="amount" label="實際扣款（含手續費）" defaultValue={buy.estimate?.cost} required />
           </div>
           {/* 兩個欄位都是估的 說明寫在下面一整行 */}
-          <p id={hintId} className="text-sm text-ink-soft">
+          <p id={hintId} className="text-sm text-ink">
             {estimateHint(buy)}
           </p>
         </div>
@@ -57,6 +57,6 @@ export function ConfirmForm({ draft, today, onDone, onCancel }: ConfirmFormProps
 }
 
 function estimateHint(buy: NonNullable<ConfirmDraft["regularBuy"]>): string {
-  if (buy.closeCents === null || buy.quoteDate === null) return "暫時讀不到股價，請照券商 App 填";
+  if (buy.closeCents === null || buy.quoteDate === null) return "股價暫時無法讀取，請照券商 App 填";
   return `依 ${formatSlashDate(buy.quoteDate)} 收盤 ${priceText(buy.closeCents)} 估算，以券商 App 為準`;
 }

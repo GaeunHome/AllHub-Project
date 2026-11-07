@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { insertTestUser, setupTestDb, type TestDb } from "@/dev/test-db";
+import { insertTestUser, pgliteOf, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { youtubeAiKeys, youtubeSettings } from "../../data/schema";
 import { VIDEO_ID } from "../../dev/fixtures";
@@ -165,11 +165,11 @@ describe("翻譯設定與 API Key 每人一份", () => {
     await expect(translation.startTranslation(boss, VIDEO_ID)).rejects.toBeInstanceOf(ApiKeySetupError);
   });
 
-  it("單人版留下的 id = 1 那一列（migration 已歸給站長）照常讀得到；新的列自動編號，不會撞到 1", async () => {
-    await getDb().insert(youtubeSettings).values({ id: 1, userId: boss, provider: "openai" });
+  it("單人版留下的 id = 1 那一列（migration 已歸給站長）照常讀得到；再存是更新那一列（照 user_id），不會多一列", async () => {
+    await pgliteOf(getDb()).query(`insert into youtube_settings (id, user_id, provider) values (1, $1, 'openai')`, [boss]);
 
     expect((await settings.getSettingsView(boss)).provider).toBe("openai");
-    const ids = (await testDb.select().from(youtubeSettings)).map((row) => row.id);
-    expect(ids.filter((id) => id === 1)).toHaveLength(1);
+    await settings.saveSettings(boss, { provider: "gemini", keys: {}, clear: [], models: {}, glossaryText: "" });
+    expect((await pgliteOf(getDb()).query(`select id, provider from youtube_settings where user_id = $1`, [boss])).rows).toEqual([{ id: 1, provider: "gemini" }]);
   });
 });

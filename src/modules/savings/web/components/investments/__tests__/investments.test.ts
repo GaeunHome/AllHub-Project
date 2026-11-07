@@ -124,10 +124,10 @@ describe("持股清單", () => {
     expect(textOf(holdings(), { spaced: true })).toContain("006208 富邦台50 市值 $106,500 損益 +$11,500 (+12.1%) 股數 1,000 股 均價 $95.00 收盤 $106.50");
   });
 
-  it("讀不到股價：寫「股價暫時讀不到」，市值先用成本，不寫損益", () => {
+  it("讀不到股價：寫「股價暫時無法讀取」，市值先用成本，不寫損益", () => {
     const text = textOf(holdings([{ ...HOLDING, priced: false, closeCents: null, quoteDate: null, value: 95000, profit: 0, profitPercent: 0 }]));
 
-    expect(text).toContain("股價暫時讀不到");
+    expect(text).toContain("股價暫時無法讀取");
     expect(text).toContain("市值 $95,000");
     expect(text).not.toContain("損益");
   });
@@ -224,7 +224,7 @@ describe("證券帳戶", () => {
     expect(text).toContain("臺銀證券");
     expect(text).toContain("長期投資");
     expect(text).toContain("$106,500");
-    expect(textOf(card({ ...BROKERAGE, priced: false, value: 95000 }))).toMatch(/股價暫時讀不到市值 \$95,000/);
+    expect(textOf(card({ ...BROKERAGE, priced: false, value: 95000 }))).toMatch(/股價暫時無法讀取市值 \$95,000/);
   });
 
   it("有持股時市值照股價算，不能更新市值；沒有持股時可以更新市值，也可以新增持股", () => {
@@ -278,10 +278,10 @@ describe("投資的摘要", () => {
     ]);
   });
 
-  it("讀不到股價_寫「股價暫時讀不到」，不寫損益與收盤日", () => {
+  it("讀不到股價_寫「股價暫時無法讀取」，不寫損益與收盤日", () => {
     const text = textOf(render(createElement(SummaryCard, { summary: { ...SUMMARY, priced: false } })));
 
-    expect(text).toContain("股價暫時讀不到");
+    expect(text).toContain("股價暫時無法讀取");
     expect(text).not.toContain("損益");
     expect(text).not.toContain("收盤");
   });
@@ -305,9 +305,9 @@ describe("除權息", () => {
     ]);
   });
 
-  it("預告表讀不到_說暫時讀不到、稍後再看", () => {
+  it("預告表讀不到_說暫時無法讀取", () => {
     const text = textOf(render(createElement(DividendsCard, { view: { status: "unavailable" } })));
 
-    expect(text).toContain("除權息預告暫時讀不到，稍後再看");
+    expect(text).toContain("除權息預告暫時無法讀取");
   });
 });

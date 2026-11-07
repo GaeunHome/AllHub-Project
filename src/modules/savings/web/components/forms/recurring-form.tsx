@@ -240,7 +240,7 @@ function ModeSelect({ mode, locked, onChange }: { mode: RecurringMode; locked: s
       {locked && (
         <>
           <input type="hidden" name="mode" value="confirm" />
-          <p id={`${id}-hint`} className="text-sm text-ink-soft">
+          <p id={`${id}-hint`} className="text-sm text-ink">
             {locked}
           </p>
         </>

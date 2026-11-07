@@ -88,18 +88,29 @@ function warningChip({ label, severe, end }: Warning, now: Date): WarningChip {
   return { label: end === null ? label : `${label} 到 ${warningEndText(end, now)}`, tone: severe ? "danger" : "warning" };
 }
 
+/** 結束時間已過的不算 首頁卡片與天氣頁共用 */
+export const warningChips = (warnings: readonly Warning[], now: Date): WarningChip[] => activeWarnings(warnings, now).map((warning) => warningChip(warning, now));
+
+export type AirView = NonNullable<WeatherView["air"]>;
+
+/** 照縣市裡最差的測站 這個縣市沒有測站時是 null */
+export function airView(stations: readonly Station[], county: County): AirView | null {
+  const air = countyAqi(stations, county);
+  return air && { level: air.level, aqi: air.aqi, site: air.site, time: publishedHour(air.publishedAt), warn: aqiWarns(air.aqi) };
+}
+
 export function weatherView(county: County, forecast: Forecast | null, stations: readonly Station[] | null | undefined, now: Date, warnings: readonly Warning[] | null = null): WeatherView {
   // 提醒跟卡片看同樣的兩段 早上的通知也是這兩段
   const shown = forecast ? upcomingPeriods(forecast, now).slice(0, 2) : [];
   const [current, next] = shown;
-  const air = stations === undefined ? undefined : stations === null ? null : countyAqi(stations, county);
+  const air = stations === undefined ? undefined : stations === null ? null : airView(stations, county);
   return {
     county,
     scene: current ? weatherScene(current.description, isNight(new Date(current.start))) : "/images/scenes/weather-cloudy-day.svg",
     now: current ? periodView(current, now) : null,
     next: next ? periodView(next, now) : null,
     reminder: reminderOf(shown, now),
-    warnings: activeWarnings(warnings ?? [], now).map((warning) => warningChip(warning, now)),
-    ...(air === undefined ? {} : { air: air && { level: air.level, aqi: air.aqi, site: air.site, time: publishedHour(air.publishedAt), warn: aqiWarns(air.aqi) } }),
+    warnings: warningChips(warnings ?? [], now),
+    ...(air === undefined ? {} : { air }),
   };
 }

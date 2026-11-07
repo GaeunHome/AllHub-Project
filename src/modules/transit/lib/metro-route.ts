@@ -3,12 +3,12 @@ import { plainName } from "./station-search";
 import type { MetroLine, Station } from "./timetable";
 
 // 捷運任兩站怎麼搭 轉乘最少 一樣多時站數最少 同名的站就是同一站 跨系統也一樣
-// 只看到每條線的終點 開到半路就折返的班次不算
+// 往哪裡寫那條線的終點 開到半路就折返的車有停到要下車的站也能搭 servedIds 是這些車開往的站
 
 export type MetroSystemData = { system: string; stations: Station[]; lines: MetroLine[] };
 export type NetworkLine = MetroLine & { system: string };
 export type MetroNetwork = { stations: Station[]; lines: NetworkLine[] };
-export type MetroLeg = { line: string; color: string; system: string; from: Station; to: Station; towardId: string; towardName: string; stops: number; stationIds: string[] };
+export type MetroLeg = { line: string; color: string; system: string; from: Station; to: Station; towardId: string; towardName: string; stops: number; stationIds: string[]; servedIds: string[] };
 
 /** 環狀線可能兩個系統都列 同一條線留後面的系統 TDX 的環狀線是新北捷運 */
 export function metroNetwork(systems: MetroSystemData[]): MetroNetwork {
@@ -83,6 +83,18 @@ function ridesOf(arrival: Step): Step[][] {
   return rides;
 }
 
+/** 經過起站再到迄站的每條線 迄站與之後的站都是搭得到的車開往的地方 蘆洲與迴龍兩個方向都算 */
+function servedIdsOf(lines: NetworkLine[], fromId: string, toId: string): string[] {
+  const served = new Set<string>();
+  for (const { stationIds } of lines) {
+    const start = stationIds.indexOf(fromId);
+    const end = stationIds.indexOf(toId);
+    if (start === -1 || end === -1 || start === end) continue;
+    for (const id of end > start ? stationIds.slice(end) : stationIds.slice(0, end + 1)) served.add(id);
+  }
+  return [...served];
+}
+
 /** 同名的站不用搭車 回空陣列 走不到或車站不在路網裡回 null */
 export function planRoute({ stations, lines: listed }: MetroNetwork, fromId: string, toId: string): MetroLeg[] | null {
   const lines = withThroughRuns(listed);
@@ -101,7 +113,8 @@ export function planRoute({ stations, lines: listed }: MetroNetwork, fromId: str
     const end = ride.at(-1)!.at;
     const toward = station(line.stationIds[end > start ? line.stationIds.length - 1 : 0]);
     const passed = line.stationIds.slice(Math.min(start, end), Math.max(start, end) + 1);
-    return { line: metroLineName(line.system, line.id), color: metroLine(line.system, line.id).color, system: line.system, from: station(line.stationIds[start]), to: station(line.stationIds[end]), towardId: toward.id, towardName: toward.name, stops: ride.length - 1, stationIds: end > start ? passed : passed.reverse() };
+    const [fromId, toId] = [line.stationIds[start], line.stationIds[end]];
+    return { line: metroLineName(line.system, line.id), color: metroLine(line.system, line.id).color, system: line.system, from: station(fromId), to: station(toId), towardId: toward.id, towardName: toward.name, stops: ride.length - 1, stationIds: end > start ? passed : passed.reverse(), servedIds: servedIdsOf(lines, fromId, toId) };
   });
 }
 

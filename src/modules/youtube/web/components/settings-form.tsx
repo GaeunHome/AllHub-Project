@@ -70,7 +70,7 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
             {p.note && (
               <details className="disclosure text-sm">
                 <summary>關於免費 API Key</summary>
-                <p className="leading-relaxed text-ink-soft">{p.note}</p>
+                <p className="leading-relaxed text-ink">{p.note}</p>
               </details>
             )}
             <label className="field">
@@ -111,7 +111,7 @@ export function SettingsForm({ settings }: { settings: SettingsView }) {
           </span>
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="text-lg font-semibold text-ink">專有名詞表</span>
-            <span className="text-sm text-ink-soft">
+            <span className="text-sm text-ink">
               每行一個「韓文=中文」，翻譯時會照這個譯法。最多 {GLOSSARY_LIMITS.entries} 筆、每個詞 {GLOSSARY_LIMITS.termLength} 字以內，合計 {groupDigits(GLOSSARY_LIMITS.totalLength)} 字以內。
             </span>
           </span>

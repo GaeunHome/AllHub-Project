@@ -94,7 +94,7 @@ export function SavedVideosPage({ info }: { info: ModuleInfo }) {
         <PageHeader icon={<Icon name="bookmark" />} title="已保留的影片" />
         <details className="disclosure text-sm">
           <summary>怎麼加進來、滿了會怎樣？</summary>
-          <ul className="flex list-disc flex-col gap-1 pl-5 leading-relaxed text-ink-soft">
+          <ul className="flex list-disc flex-col gap-1 pl-5 leading-relaxed text-ink">
             <li>在觀看頁按頻道名稱旁的「保留」；按過翻譯（開始翻譯、用我的 API Key 繼續翻譯、重試、重新翻譯、上傳字幕）的影片也會自動加進來，標成「翻譯過」。</li>
             <li>
               每個人最多 {SAVED_LIMIT} 部。滿了以後，新的影片會先擠掉最舊的「翻譯過」；{SAVED_LIMIT} 部都是手動保留的，要先移除一部才能再保留，翻譯時也不會再自動加入。

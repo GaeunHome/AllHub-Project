@@ -8,7 +8,7 @@ export function CardError(_props: object, { retry }: ErrorInfo) {
   return (
     <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--danger-line)] bg-[var(--danger-soft)] p-4">
       <Icon name="circle-alert" className="size-5 text-danger" />
-      <p className="min-w-0 flex-1 font-medium text-danger">這張卡片暫時讀不到資料</p>
+      <p className="min-w-0 flex-1 font-medium text-danger">這張卡片暫時無法讀取</p>
       <button type="button" onClick={() => retry()} className="btn-secondary">
         <Icon name="refresh-cw" className="size-4" />
         重試

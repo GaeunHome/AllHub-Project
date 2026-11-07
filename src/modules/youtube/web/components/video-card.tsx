@@ -81,9 +81,9 @@ export function VideoCard({ video, now, eager = false }: { video: FeedVideo; now
               {video.title}
             </VideoLink>
           </h3>
-          <p className="truncate text-sm text-muted">{channelName}</p>
+          <p className="truncate text-sm text-ink-soft">{channelName}</p>
           {video.publishedAt && (
-            <p className="text-sm text-muted">
+            <p className="text-sm text-ink-soft">
               <time dateTime={video.publishedAt.toISOString()}>{formatRelativeTime(video.publishedAt, now)}</time>
             </p>
           )}

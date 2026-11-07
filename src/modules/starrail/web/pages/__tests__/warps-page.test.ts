@@ -9,8 +9,6 @@ import { accountView } from "../../../dev/fixtures";
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 vi.mock("next/server", () => ({ after: (work: () => void) => work() }));
-// next/font 只能在 Next 的建置裡執行
-vi.mock("../../game-font", () => ({ gameFont: { variable: "" } }));
 vi.mock("../../../service/cached", () => ({ cachedAccounts: vi.fn(), cachedWarps: vi.fn(), cachedProfile: vi.fn() }));
 vi.mock("../../../service/warps", () => ({ reportWarps: vi.fn() }));
 

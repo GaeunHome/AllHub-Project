@@ -1,45 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { dayPartOf, fastestTrain, groupByDayPart } from "../train-groups";
+import { fastestTrain } from "../fastest-train";
 
 const DATE = "2026-11-05";
 const stamp = (clock: string, date = DATE) => Date.parse(`${date}T${clock}:00+08:00`);
 const train = (clock: string, ride: number | null = 90, date = DATE) => ({ at: stamp(clock, date), arrivesAt: ride === null ? null : stamp(clock, date) + ride * 60_000, trainNo: clock, kind: null, toward: null });
-const summary = (groups: ReturnType<typeof groupByDayPart>) => groups.map(({ part, trains }) => [part, trains.map((departure) => departure.trainNo)]);
-
-describe("dayPartOf：照台北時間的出發時段", () => {
-  it.each([
-    ["00:10", "早上"],
-    ["11:59", "早上"],
-    ["12:00", "下午"],
-    ["17:59", "下午"],
-    ["18:00", "晚上"],
-    ["23:30", "晚上"],
-  ])("%s 是 %s", (clock, part) => {
-    expect(dayPartOf(stamp(clock))).toBe(part);
-  });
-});
-
-describe("groupByDayPart：查詢結果照時段分組", () => {
-  it("使用者要的：早上 下午 晚上", () => {
-    expect(summary(groupByDayPart([train("08:00"), train("11:30"), train("12:00"), train("18:30")]))).toEqual([
-      ["早上", ["08:00", "11:30"]],
-      ["下午", ["12:00"]],
-      ["晚上", ["18:30"]],
-    ]);
-  });
-
-  it("沒有班次的時段不出現", () => {
-    expect(summary(groupByDayPart([train("18:00"), train("19:00")]))).toEqual([["晚上", ["18:00", "19:00"]]]);
-    expect(groupByDayPart([])).toEqual([]);
-  });
-
-  it("跨夜的車排在晚上後面 不能跑到最上面", () => {
-    expect(summary(groupByDayPart([train("23:30"), train("00:10", 90, "2026-11-06")]))).toEqual([
-      ["晚上", ["23:30"]],
-      ["早上", ["00:10"]],
-    ]);
-  });
-});
 
 describe("fastestTrain：最快的一班", () => {
   it("使用者要的：坐得最久的不算 只標最短的一班", () => {

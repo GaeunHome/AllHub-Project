@@ -17,13 +17,12 @@ import { LinkAccountForm } from "../components/link-account-form";
 import { RedeemPanel } from "../components/redeem-panel";
 import { StarrailBanner } from "../components/starrail-banner";
 import { WarpCard, WarpCardSkeleton } from "../components/warp-card";
-import { gameFont } from "../game-font";
 
 // web 層不能 import 模組根目錄 圖示 名稱 點綴色由 src/app 從 info.ts 傳進來
 // theme-starrail 讓這頁不論外觀都是遊戲的深藍星空 鋪滿導覽列以下 導覽列不變
 export function StarrailPage({ info, searchParams }: { info: ModuleInfo; searchParams: SearchParams }) {
   return (
-    <PageTheme accent={info.accent} className={`theme-starrail ${gameFont.variable} page-stack`}>
+    <PageTheme accent={info.accent} className="theme-starrail page-stack">
       <StarrailBanner info={info} />
       <Suspense fallback={<AccountSkeleton />}>
         <AccountArea searchParams={searchParams} />
@@ -44,7 +43,7 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
     return (
       <div className="stack">
         <LinkAccountForm defaultOpen />
-        <p className="sr-panel flex items-center gap-3 p-5 text-ink-soft sm:p-6">
+        <p className="sr-panel flex items-center gap-3 p-5 text-ink sm:p-6">
           <Icon name="sparkles" className="size-5 text-sr-gold" />
           還沒有連結任何帳號：貼上 cookie 就能看到開拓力、角色與戰績
         </p>
@@ -82,7 +81,7 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
       </Suspense>
       {/* 超寬螢幕時兌換碼跟簽到紀錄並排 同一列的卡片等高撐滿整格 */}
       <div className="grid gap-8 2xl:grid-cols-2 [&>section>.sr-panel]:flex-1">
-        <RedeemPanel key={`redeem-${account.id}`} accountId={account.id} label={`${serverLabel(account.region)} · ${account.nickname ?? "開拓者"}（UID ${account.uid}）`} />
+        <RedeemPanel key={`redeem-${account.id}`} accountId={account.id} server={serverLabel(account.region)} name={`${account.nickname ?? "開拓者"}（UID ${account.uid}）`} />
         <Suspense key={`checkins-${account.id}`} fallback={null}>
           <CheckinLogs accountId={account.id} />
         </Suspense>

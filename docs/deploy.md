@@ -114,7 +114,12 @@ npm run account create
 - 一般的部署不會讓登入失效。只有換 `SESSION_SECRET`、改密碼或重建資料庫才會。
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
-- **下一版要刪的欄位**：v0.2.7 已經從 schema 拿掉，程式不再讀寫，v0.2.7 確認上線之後的版本才刪（刪除要在 `migrations.integration.test.ts` 明列允許）：`savings_categories.color`（連同它的 check）、`savings_accounts.due_day`（連同它的 check）、`twitch_stream_events.type`、`youtube_settings` 的六個 API Key 與模型欄位、`youtube_translations.batches`、`next_batch`。`youtube_settings.user_id` 到時候也可以改成主鍵、拿掉 `id`。
+- **從 v0.2.7 升級到 v0.2.8**：一般的升級，推送前不用另外設定，排程與環境變數都沒變。
+  - db-migrate 套用 `0001_route_order_and_cleanup`（`0001_tidy_and_new_tables` 已經併進基準檔），一開始設 `lock_timeout = 5s`：`transit_routes.sort_order`（常用路線的順序，預設 0，舊程式寫的列排在最前面），並刪掉 v0.2.7 已經從 schema 拿掉、程式不再讀寫的欄位：`savings_categories.color`、`savings_accounts.due_day`（連同它們的 check）、`twitch_stream_events.type`、`youtube_settings` 的六個 API Key 與模型欄位（v0.2.7 已經搬到 `youtube_ai_keys`）、`youtube_translations.batches`、`next_batch`。線上的 v0.2.7 不讀寫這些欄位，部署空窗期不受影響。
+  - 翻譯設定 `youtube_settings` 改用 `user_id` 當主鍵（使用者要的，分兩版做）：同一個交易裡拿掉 `id` 的主鍵、加上 `user_id` 的主鍵，再拿掉多出來的 `youtube_settings_user_id_unique`。`id` 欄留著，還是從 2 開始自動編號的 identity，只是不再是主鍵：線上的 v0.2.7 select 與 insert 都會列出 `id`（insert 寫 default），存設定照 `user_id` 更新（`on conflict ("user_id")`，主鍵就涵蓋），部署空窗期照常讀寫；新程式比 migration 先上線時，舊的表上 `user_id` 本來就是唯一的，也寫得進去。
+  - 下一版要做的收斂：刪掉 `youtube_settings.id`（schema 已經沒有它，drizzle 不會產生，要在 migration 手寫 `ALTER TABLE "youtube_settings" DROP COLUMN "id";`，identity 的 sequence 跟著刪），列進 `migrations.integration.test.ts` 的 `ALLOWED_CONVERGENCE`；`src/dev/__tests__/test-db.integration.test.ts` 用它確認序號歸零（從 2 開始），要換成別的表。
+  - 部署比 db-migrate 先完成時：新程式讀常用路線會帶 `sort_order`，這個欄位還不存在，交通頁會顯示錯誤，db-migrate 跑完（通常幾十秒）重新整理就好；其他頁面不受影響。所以推送後先確認 db-migrate 成功。
+  - 要退回 v0.2.7 時可以用 Instant Rollback：刪掉的欄位 v0.2.7 也不讀，新的排序欄位舊程式不認得，常用路線會照加入的順序排；翻譯設定的 `id` 欄還在，v0.2.7 照常讀寫。下一版刪掉 `id` 之後就不能回到 v0.2.7。更舊的版本（v0.2.6 以前）會讀這些欄位，不能回去。
 - **從 v0.2.6 升級到 v0.2.7**：一般的升級，推送前不用另外設定，排程沒變。
   - db-migrate 套用一個 migration `0001_tidy_and_new_tables`，一開始設 `lock_timeout = 5s`：新表 `core_announcements`、`core_push_subscriptions`、`core_push_mutes`、`travel_expenses`、`travel_expense_shares`、`travel_settlements`、`youtube_ai_keys`，`reminders_items.repeat`、`savings_recurring.subscription` 都有預設值。原本的 AI API Key 與模型由 migration 複製到 `youtube_ai_keys`，舊欄位留著。程式拿掉的欄位改成可以是空的，舊程式與新表並存時兩邊都寫得進去。
   - 手機通知是選用的：要用時產生一組金鑰貼到 Vercel 再 Redeploy（見 [密鑰管理 › 手機通知的金鑰](secrets.md#手機通知的金鑰)），沒設定時通知頁不顯示，其他功能照常。

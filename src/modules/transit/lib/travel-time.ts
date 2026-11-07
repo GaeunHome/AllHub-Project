@@ -51,15 +51,36 @@ export function legSeconds(stationIds: string[], times: TravelTimes): number | n
   return total;
 }
 
+type TimedLeg = { system: string; stationIds: string[] };
+type TimesBySystem = Record<string, TravelTimes | null | undefined>;
+
+/** 一段要坐幾秒 那個系統的行車時間讀不到是 null */
+export function legSecondsOf({ system, stationIds }: TimedLeg, timesBySystem: TimesBySystem): number | null {
+  const times = timesBySystem[system];
+  return times ? legSeconds(stationIds, times) : null;
+}
+
 /** 有一段讀不到就不寫 少算一段比不寫更糟 */
-export function tripMinutes(legs: { system: string; stationIds: string[] }[], timesBySystem: Record<string, TravelTimes | null | undefined>): number | null {
+export function tripMinutes(legs: TimedLeg[], timesBySystem: TimesBySystem): number | null {
   if (legs.length === 0) return null;
   let seconds = 0;
-  for (const { system, stationIds } of legs) {
-    const times = timesBySystem[system];
-    const leg = times ? legSeconds(stationIds, times) : null;
-    if (leg === null) return null;
-    seconds += leg;
+  for (const leg of legs) {
+    const ride = legSecondsOf(leg, timesBySystem);
+    if (ride === null) return null;
+    seconds += ride;
   }
   return Math.round(seconds / 60) + (legs.length - 1) * TRANSFER_MINUTES;
+}
+
+export type LegTimes = { departs: number | null; arrives: number | null };
+
+/** 照第一段開車的時間推每一段大約幾點開 幾點到 有一段不知道要坐多久 之後都不寫 */
+export function legSchedule(departAt: number, seconds: readonly (number | null)[]): LegTimes[] {
+  let reached: number | null = departAt;
+  return seconds.map((ride, index) => {
+    const departs: number | null = index === 0 ? reached : reached === null ? null : reached + TRANSFER_MINUTES * 60_000;
+    const arrives = departs === null || ride === null ? null : departs + ride * 1000;
+    reached = arrives;
+    return { departs, arrives };
+  });
 }

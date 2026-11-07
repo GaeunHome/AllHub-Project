@@ -37,7 +37,7 @@ export function explainLedgerLogin<T>(result: HoyolabResult<T>, json: unknown, s
   if (result.ok || !result.cookieInvalid) return result;
   const original = text(asRecord(json)?.message);
   const message = LEDGER_KEYS.every((key) => sentKeys.has(key))
-    ? `開拓月曆讀不到（${original ? `${result.retcode}：${original}` : result.retcode}），請重新貼上最新的 cookie`
+    ? `開拓月曆無法讀取（${original ? `${result.retcode}：${original}` : result.retcode}），請重新貼上最新的 cookie`
     : "開拓月曆需要 cookie 裡的 cookie_token_v2 與 account_mid_v2：請用「新增帳號或更新 cookie」重新貼上包含這兩個欄位的 cookie";
   return { ...result, message, cookieInvalid: false };
 }

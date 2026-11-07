@@ -20,7 +20,7 @@ type BusResultsProps = { route: Read<BusDirection[]>; eta: Read<Record<string, B
 
 /** 上面是儲值卡的樣子 使用者要的 下面像公車 App 一樣列出每一站還有多久 想追蹤哪一站就加哪一站 */
 export function BusResults({ route, eta, schedule, query, canAdd }: BusResultsProps) {
-  if (!route.ok) return <p className="text-ink">路線資料暫時讀不到，稍後再試</p>;
+  if (!route.ok) return <p className="text-ink">路線資料暫時無法讀取</p>;
   if (route.data.length === 0) return <p className="text-ink">找不到這條路線，確認一下縣市與路線名稱</p>;
   const selected = route.data.find((direction) => direction.direction === query.direction) ?? route.data[0];
   const note = scheduleText(schedule);
@@ -46,7 +46,7 @@ export function BusResults({ route, eta, schedule, query, canAdd }: BusResultsPr
         </nav>
       </header>
       <div className="stack min-w-0">
-        {eta && !eta.ok && <p className="text-ink">到站時間暫時讀不到，稍後再試</p>}
+        {eta && !eta.ok && <p className="text-ink">到站時間暫時無法讀取</p>}
         <ol className="card p-0 py-2">
           {selected.stops.map((stop) => (
             <li key={stop.id} className="trn-bus-stop">

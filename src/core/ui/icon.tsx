@@ -76,6 +76,7 @@ export const UI_ICON_NAMES = [
   "message-circle",
   "maximize",
   "minimize",
+  "minus",
   "monitor",
   "moon",
   "paw-print",

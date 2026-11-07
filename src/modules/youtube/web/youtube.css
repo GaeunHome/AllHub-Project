@@ -48,9 +48,6 @@
 .yt-search-button:hover:not(:disabled) {
   background-color: var(--yt-search-button-hover);
 }
-.yt-search-button:disabled {
-  cursor: wait;
-}
 
 /* 像 YouTube 按讚與分享的膠囊按鈕 跟站內的按鈕一樣 44px 高 */
 .yt-pill {
@@ -62,10 +59,6 @@
 .yt-pill:hover:not(:disabled),
 .yt-pill[aria-expanded="true"] {
   background-color: var(--surface-sunken);
-}
-.yt-pill:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
 }
 /* 標題旁的續訂這類小動作 跟次要按鈕一樣高 */
 .yt-pill-sm {

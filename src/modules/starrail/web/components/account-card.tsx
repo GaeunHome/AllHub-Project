@@ -22,8 +22,7 @@ export function AccountTabs({ accounts, selectedId, hrefOf = accountHref }: { ac
       {accounts.map((account) => (
         <Link key={account.id} href={hrefOf(account.id)} scroll={false} aria-current={account.id === selectedId ? "page" : undefined} className="sr-account-tab">
           <span className="font-semibold">{serverLabel(account.region)}</span>
-          <span aria-hidden>·</span>
-          {account.nickname ?? account.uid}
+          <span>{account.nickname ?? account.uid}</span>
           {account.level !== null && <span className="sr-num text-base font-bold text-sr-gold">Lv.{account.level}</span>}
         </Link>
       ))}

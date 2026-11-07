@@ -25,7 +25,7 @@ export const BALANCE_HELD_INVESTMENT = "這個投資帳戶有持股：市值照�
 export const HOLDING_NOT_INVESTMENT = "持股要放在投資帳戶";
 export const HELD_INVESTMENT_TRANSFER = "這個投資帳戶有持股：轉進轉出請用買進或賣出";
 export const TRADE_ACCOUNT_NOT_DEPOSIT = "買進賣出的錢要從存款帳戶轉，請選存款帳戶";
-export const QUOTES_UNAVAILABLE = "暫時讀不到股價清單，請稍後再試";
+export const QUOTES_UNAVAILABLE = "股價清單暫時無法讀取，請稍後再試";
 export const NOT_ENOUGH_SHARES = (shares: number) => `目前只有 ${formatNumber(shares)} 股，不能賣更多`;
 export const DUPLICATE_HOLDING = (symbol: string) => `這個帳戶已經有 ${symbol} 了，要改股數請修改那一檔`;
 export const HOLDING_COST_TOO_LARGE = "持股的總成本不能超過 1 億元";

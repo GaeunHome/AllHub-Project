@@ -104,6 +104,42 @@ describe("讀每小時預報（F-D0047-089）", () => {
   });
 });
 
+describe("讀國外的預報（Open-Meteo）", () => {
+  const json = {
+    utc_offset_seconds: 32400,
+    hourly: { time: ["2026-11-07T12:00"], temperature_2m: [18.4], precipitation_probability: [10], weather_code: [1], relative_humidity_2m: [61] },
+    daily: {
+      time: ["2026-11-07"],
+      weather_code: [1],
+      temperature_2m_max: [19.6],
+      temperature_2m_min: [12.2],
+      precipitation_probability_max: [10],
+      apparent_temperature_max: [18.6],
+      apparent_temperature_min: [10.4],
+      wind_speed_10m_max: [4.2],
+      wind_direction_10m_dominant: [48],
+      uv_index_max: [3.55],
+      sunrise: ["2026-11-07T06:05"],
+      sunset: ["2026-11-07T16:38"],
+    },
+  };
+
+  it("一週、每小時與今天的細節在同一個請求裡，不多用額度；風速用每秒公尺，才對得上氣象署的風級表", async () => {
+    const { fetchWorldWeek } = await load();
+    const fetch = fakeFetch(() => Response.json(json));
+
+    const week = await fetchWorldWeek({ latitude: 35.6895, longitude: 139.6917, timezone: "Asia/Tokyo" }, fetch.impl);
+
+    expect(fetch.calls).toHaveLength(1);
+    const url = new URL(fetch.urls[0]);
+    expect(url.searchParams.get("wind_speed_unit")).toBe("ms");
+    expect(url.searchParams.get("daily")?.split(",")).toEqual(expect.arrayContaining(["apparent_temperature_max", "apparent_temperature_min", "wind_speed_10m_max", "wind_direction_10m_dominant", "uv_index_max", "sunrise", "sunset"]));
+    expect(url.searchParams.get("hourly")?.split(",")).toContain("relative_humidity_2m");
+    expect(week?.days[0].details).toEqual({ feelsHigh: 19, feelsLow: 10, humidity: 61, wind: { direction: "東北風", level: 3 }, uv: 4, sunrise: "06:05", sunset: "16:38" });
+    expect(week?.hours).toHaveLength(1);
+  });
+});
+
 describe("讀天氣警特報（W-C0033-001）", () => {
   const HEAVY_RAIN = { phenomena: "大雨", significance: "特報", start: "2026-11-02 08:00:00", end: "2026-11-02 20:00:00" };
 

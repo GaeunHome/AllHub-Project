@@ -55,7 +55,7 @@ describe("確認固定收支", () => {
 
     expect(valueOf(markup, "shares")).toBeUndefined();
     expect(valueOf(markup, "amount")).toBeUndefined();
-    expect(markup).toContain("暫時讀不到股價");
+    expect(markup).toContain("股價暫時無法讀取");
   });
 
   it("記到哪裡分開寫：帳戶與分類各一列", () => {

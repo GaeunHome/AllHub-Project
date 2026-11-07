@@ -15,7 +15,7 @@ const { RouteCard, TrackedCard } = await import("../route-cards");
 const NOW = Date.parse("2026-11-05T22:34:00+08:00");
 const stamp = (clock: string) => Date.parse(`2026-11-05T${clock}:00+08:00`);
 const departure = (overrides = {}) => ({ at: stamp("22:40"), arrivesAt: stamp("23:35"), trainNo: "150", kind: "自強(3000)", toward: "高雄", ...overrides });
-const route = (overrides = {}) => ({ id: 1, userId: TEST_SESSION.id, mode: "tra" as const, system: "", line: "150", originId: "1000", originName: "臺北", destinationId: "4400", destinationName: "高雄", tracked: false, createdAt: new Date(), ...overrides });
+const route = (overrides = {}) => ({ id: 1, userId: TEST_SESSION.id, mode: "tra" as const, system: "", line: "150", originId: "1000", originName: "臺北", destinationId: "4400", destinationName: "高雄", tracked: false, createdAt: new Date(), sortOrder: 0, ...overrides });
 const card = (routeFields = {}, departures: ReturnType<typeof departure>[] = [departure()], problem: string | null = null) => markup(createElement(RouteCard, { route: route(routeFields), departures, problem, status: null }));
 
 beforeEach(() => {
@@ -68,7 +68,7 @@ describe("常用路線的班次卡", () => {
   it("讀不到時說讀不到 車站照樣看得到", () => {
     const text = textOf(card({}, [], "TDX 回 500"));
 
-    expect(text).toContain("資料讀不到");
+    expect(text).toContain("暫時無法讀取");
     expect(text).toContain("臺北");
   });
 

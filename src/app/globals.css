@@ -549,10 +549,8 @@
       border-color 150ms ease,
       color 150ms ease;
   }
-  .btn-primary:disabled,
-  .btn-secondary:disabled,
-  .btn-danger:disabled,
-  .btn-ghost:disabled {
+  /* 停用的按鈕全站一個樣子 送出中標 aria-disabled 的也一樣 模組不另外寫 */
+  :is(button, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .icon-button, .switch):is(:disabled, [aria-disabled="true"]) {
     cursor: not-allowed;
     opacity: 0.55;
   }
@@ -560,7 +558,7 @@
     color: var(--on-brand);
     background-color: var(--brand);
   }
-  .btn-primary:hover:not(:disabled) {
+  .btn-primary:hover:not(:disabled, [aria-disabled="true"]) {
     background-color: var(--brand-hover);
   }
   .btn-secondary {
@@ -568,7 +566,7 @@
     color: var(--ink);
     background-color: var(--surface-solid);
   }
-  .btn-secondary:hover:not(:disabled) {
+  .btn-secondary:hover:not(:disabled, [aria-disabled="true"]) {
     background-color: var(--surface-muted);
   }
   .btn-danger {
@@ -576,13 +574,13 @@
     color: var(--danger);
     background-color: var(--danger-soft);
   }
-  .btn-danger:hover:not(:disabled) {
+  .btn-danger:hover:not(:disabled, [aria-disabled="true"]) {
     background-color: var(--danger-hover);
   }
   .btn-ghost {
     color: var(--ink-soft);
   }
-  .btn-ghost:hover:not(:disabled) {
+  .btn-ghost:hover:not(:disabled, [aria-disabled="true"]) {
     color: var(--ink);
     background-color: var(--surface-muted);
   }
@@ -815,7 +813,7 @@
   .notice {
     @apply flex items-start gap-2 rounded-xl px-4 py-2.5 text-sm leading-relaxed;
     border: 1px solid var(--line);
-    color: var(--ink-soft);
+    color: var(--ink);
     background-color: var(--surface-muted);
   }
   .notice > .icon {
@@ -1383,10 +1381,6 @@
   }
   .switch:checked::before {
     transform: translate(1.125rem, -50%);
-  }
-  .switch:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
   }
 
   /* 共用的 ⋮ 選單 core/ui/more-menu.tsx */

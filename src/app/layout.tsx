@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Rajdhani } from "next/font/google";
 import { NO_INDEX } from "@/core/robots";
 import { THEME_INIT_SCRIPT } from "@/core/ui/theme";
 import { ThemeSync } from "@/core/ui/theme-sync";
@@ -14,6 +14,10 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+// 星穹鐵道頁數字的字型 放在分頁裡會多一個樣式檔 首頁預先讀取那頁時瀏覽器會警告沒用到
+// 所以放在這裡而且不預載 用到才下載
+const gameFont = Rajdhani({ variable: "--font-rajdhani", subsets: ["latin"], weight: ["500", "600", "700"], display: "swap", preload: false });
 
 export const metadata: Metadata = {
   title: "AllHub Project",
@@ -35,7 +39,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // head 的腳本在 React 接手前就設好 data-theme 跟伺服器算繪的不同是預期的
-    <html lang="zh-Hant" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="zh-Hant" className={`${geistSans.variable} ${geistMono.variable} ${gameFont.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         {/* 同步執行 第一次繪製前就套用主題 深色模式才不會先閃一下淺色 */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />

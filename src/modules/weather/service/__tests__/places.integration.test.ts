@@ -4,7 +4,7 @@ import { stubCoreEnv } from "@/dev/test-env";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { weatherPlaces } from "../../data/schema";
 import { WORLD_CITIES } from "../../lib/cities";
-import { PLACE_LIMIT } from "../../lib/place-order";
+import { PLACE_LIMIT } from "../../lib/places";
 
 stubCoreEnv();
 const { addPlace, deletePlace, listPlaces, movePlace } = await import("../places");

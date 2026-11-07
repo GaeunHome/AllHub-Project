@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TRANSFER_MINUTES, legSeconds, parseTravelTimes, tripMinutes } from "../travel-time";
+import { TRANSFER_MINUTES, legSchedule, legSeconds, parseTravelTimes, tripMinutes } from "../travel-time";
 
 // 格式照 TDX 的真實回應 臺北捷運只列一個方向 第一段的停站時間是 0 停站時間是起站的
 
@@ -90,5 +90,24 @@ describe("parseTravelTimes：欄位不同時", () => {
   it("只記欄位名稱 不帶值", () => {
     expect(parseTravelTimes([{ TrainType: 1, TravelTimes: [{ FromStationID: "A", RunTime: 10 }] }]).missing).toEqual(["TravelTimes[].ToStationID"]);
     expect(parseTravelTimes([{ TrainType: 1 }]).missing).toEqual(["TravelTimes"]);
+  });
+});
+
+describe("legSchedule：照下一班推每一段大約幾點開 幾點到", () => {
+  const clock = (time: string) => Date.parse(`2026-11-05T${time}:00+08:00`);
+
+  it("第一段照開車時間加行駛時間 轉乘再加 5 分鐘", () => {
+    expect(legSchedule(clock("08:00"), [600, 900])).toEqual([
+      { departs: clock("08:00"), arrives: clock("08:10") },
+      { departs: clock("08:15"), arrives: clock("08:30") },
+    ]);
+  });
+
+  it("有一段不知道要坐多久 之後都不寫 寫錯的時間比不寫更糟", () => {
+    expect(legSchedule(clock("08:00"), [600, null, 300])).toEqual([
+      { departs: clock("08:00"), arrives: clock("08:10") },
+      { departs: clock("08:15"), arrives: null },
+      { departs: null, arrives: null },
+    ]);
   });
 });

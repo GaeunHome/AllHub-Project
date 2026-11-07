@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mocksOf } from "@/dev/test-helpers";
 
-vi.mock("../../service/cached", () => ({ cachedDepartures: vi.fn(), cachedLive: vi.fn() }));
+vi.mock("../../service/cached", () => ({ cachedDepartures: vi.fn(), cachedMetroDepartures: vi.fn(), cachedLive: vi.fn() }));
 
 const cached = mocksOf(await import("../../service/cached"), "cachedDepartures", "cachedLive");
 const { loadBoards } = await import("../route-boards");
@@ -11,8 +11,8 @@ const TODAY = "2026-11-05";
 const TOMORROW = "2026-11-06";
 const stamp = (date: string, clock: string) => Date.parse(`${date}T${clock}:00+08:00`);
 const train = (date: string, clock: string, trainNo: string) => ({ at: stamp(date, clock), arrivesAt: null, trainNo, kind: null, toward: null });
-const route = (line: string) => ({ id: 1, userId: "u", mode: "tra" as const, system: "", line, originId: "1000", originName: "台北", destinationId: "1080", destinationName: "桃園", tracked: false, createdAt: NOW });
-const schedule = (byDate: Record<string, ReturnType<typeof train>[]>) => cached.cachedDepartures.mockImplementation(async (_mode: string, _system: string, _from: string, _to: string, date: string) => ({ ok: true, data: byDate[date] ?? [] }));
+const route = (line: string) => ({ id: 1, userId: "u", mode: "tra" as const, system: "", line, originId: "1000", originName: "台北", destinationId: "1080", destinationName: "桃園", tracked: false, createdAt: NOW, sortOrder: 0 });
+const schedule = (byDate: Record<string, ReturnType<typeof train>[]>) => cached.cachedDepartures.mockImplementation(async (_mode: string, _from: string, _to: string, date: string) => ({ ok: true, data: byDate[date] ?? [] }));
 
 beforeEach(() => {
   cached.cachedDepartures.mockReset();
@@ -48,7 +48,7 @@ describe("存了車次的路線", () => {
 
 describe("存了車次的路線讀不到明天", () => {
   it("今天那班開走了、明天讀不到_回報讀不到，不能說成沒有這班車", async () => {
-    cached.cachedDepartures.mockImplementation(async (_mode: string, _system: string, _from: string, _to: string, date: string) => (date === TODAY ? { ok: true, data: [train(TODAY, "08:00", "123")] } : { ok: false, problem: "TDX 回 429" }));
+    cached.cachedDepartures.mockImplementation(async (_mode: string, _from: string, _to: string, date: string) => (date === TODAY ? { ok: true, data: [train(TODAY, "08:00", "123")] } : { ok: false, problem: "TDX 回 429" }));
 
     const [board] = await loadBoards([route("123")], NOW);
 

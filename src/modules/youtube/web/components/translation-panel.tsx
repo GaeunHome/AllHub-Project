@@ -176,7 +176,7 @@ export function TranslationPanel({ videoId, channel, controls, translation, posi
       <section aria-label="字幕翻譯" className="yt-box stack">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="font-semibold text-ink">字幕翻譯</h2>
-          <span className="text-sm text-muted">來源：{SOURCE_LABELS[translation.sourceKind]}</span>
+          <span className="text-sm text-ink-soft">來源：{SOURCE_LABELS[translation.sourceKind]}</span>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div aria-hidden className="progress-track min-w-40 flex-1">

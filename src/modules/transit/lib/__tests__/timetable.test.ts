@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { metroDirections, parseDailyTimetable, parseMetroLines, parseMetroTimetable, parseStations } from "../timetable";
+import { departuresToward, metroDirections, parseDailyTimetable, parseMetroLines, parseMetroTimetable, parseStations } from "../timetable";
 
 const at = (date: string, time: string) => Date.parse(`${date}T${time}:00+08:00`);
 const DATE = "2026-11-05"; // 星期四
@@ -22,9 +22,18 @@ describe("parseDailyTimetable：高鐵與台鐵的起訖站時刻表", () => {
   });
 
   it("台鐵寫出車種", () => {
-    const row = { ...thsrRow("123", "08:16", "09:50"), DailyTrainInfo: { TrainNo: "123", TrainTypeName: { Zh_tw: "自強(3000)" }, EndingStationName: { Zh_tw: "花蓮" } } };
+    const row = { ...thsrRow("123", "08:16", "09:50"), DailyTrainInfo: { TrainNo: "123", TrainTypeName: { Zh_tw: "自強" }, EndingStationName: { Zh_tw: "花蓮" } } };
 
-    expect(parseDailyTimetable([row], DATE)[0]).toMatchObject({ kind: "自強(3000)", toward: "花蓮" });
+    expect(parseDailyTimetable([row], DATE)[0]).toMatchObject({ kind: "自強", toward: "花蓮" });
+  });
+
+  it("使用者要的 車種寫得出是哪一種 括號裡只是設備說明的不寫", () => {
+    const kinds = ["自強(推拉式自強號且無自行車車廂)", "自強(3000)", "自強(EMU3000 型電車)", "自強(普悠瑪)", "自強(太魯閣)", "莒光（無身障座位）", "區間車", "區間快"].map((name, index) => ({
+      ...thsrRow(String(100 + index), `08:1${index}`, "09:50"),
+      DailyTrainInfo: { TrainNo: String(100 + index), TrainTypeName: { Zh_tw: name } },
+    }));
+
+    expect(parseDailyTimetable(kinds, DATE).map((train) => train.kind)).toEqual(["自強", "自強3000", "自強3000", "普悠瑪", "太魯閣", "莒光", "區間", "區間快"]);
   });
 
   it("台鐵帶著車種代碼與方向 票價要靠這兩個才對得起來", () => {
@@ -82,22 +91,34 @@ const WEEKEND = { Monday: false, Tuesday: false, Wednesday: false, Thursday: fal
 describe("parseMetroTimetable：捷運的站別時刻表", () => {
   const rows = [metroRow("R28", "淡水", ["08:00", "08:06"], WEEKDAY), metroRow("R28", "淡水", ["09:00"], WEEKEND), metroRow("R02", "象山", ["08:03"], WEEKDAY)];
 
-  it("只列選的方向與今天營運的那一份", () => {
-    expect(parseMetroTimetable(rows, DATE, "R28").map((train) => train.at)).toEqual([at(DATE, "08:00"), at(DATE, "08:06")]);
+  it("一站的每個方向都列 照開車時間排 帶著開往哪一站", () => {
+    expect(parseMetroTimetable(rows, DATE).map((train) => [train.towardId, train.at])).toEqual([
+      ["R28", at(DATE, "08:00")],
+      ["R02", at(DATE, "08:03")],
+      ["R28", at(DATE, "08:06")],
+    ]);
   });
 
   it("星期六用假日的那一份 2026-11-07 是星期六", () => {
-    expect(parseMetroTimetable(rows, "2026-11-07", "R28").map((train) => train.at)).toEqual([at("2026-11-07", "09:00")]);
+    expect(parseMetroTimetable(rows, "2026-11-07").map((train) => train.at)).toEqual([at("2026-11-07", "09:00")]);
   });
 
   it("過了午夜的末班車照發車順序算隔天", () => {
     const late = [metroRow("R28", "淡水", ["23:58", "00:04"], WEEKDAY)];
 
-    expect(parseMetroTimetable(late, DATE, "R28").map((train) => train.at)).toEqual([at(DATE, "23:58"), at("2026-11-06", "00:04")]);
+    expect(parseMetroTimetable(late, DATE).map((train) => train.at)).toEqual([at(DATE, "23:58"), at("2026-11-06", "00:04")]);
   });
 
   it("捷運沒有車次號碼 寫出開往哪裡", () => {
-    expect(parseMetroTimetable(rows, DATE, "R28")[0]).toMatchObject({ trainNo: null, toward: "淡水", arrivesAt: null });
+    expect(parseMetroTimetable(rows, DATE)[0]).toMatchObject({ trainNo: null, toward: "淡水", towardId: "R28", arrivesAt: null });
+  });
+});
+
+describe("departuresToward：只留這段路搭得到的車", () => {
+  it("中途折返的車有停到要下車的站也算 往北投的車也能到中山", () => {
+    const trains = parseMetroTimetable([metroRow("R28", "淡水", ["08:00"], WEEKDAY), metroRow("R22", "北投", ["08:04"], WEEKDAY), metroRow("R02", "象山", ["08:02"], WEEKDAY)], DATE);
+
+    expect(departuresToward(trains, ["R11", "R22", "R28"]).map((train) => train.toward)).toEqual(["淡水", "北投"]);
   });
 });
 

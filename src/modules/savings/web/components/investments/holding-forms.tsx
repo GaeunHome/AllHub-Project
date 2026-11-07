@@ -45,7 +45,7 @@ export function SharesField({ name = "shares", label = "股數", defaultValue, a
         className="input text-right font-semibold tabular-nums"
       />
       {hint && (
-        <p id={`${id}-hint`} className="text-sm text-ink-soft">
+        <p id={`${id}-hint`} className="text-sm text-ink">
           {hint}
         </p>
       )}

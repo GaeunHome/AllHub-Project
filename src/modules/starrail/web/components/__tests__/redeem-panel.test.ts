@@ -7,7 +7,7 @@ vi.mock("../../actions", () => ({ redeemCodeAction: vi.fn() }));
 
 const { RedeemPanel, redeemFormAction } = await import("../redeem-panel");
 
-const panel = () => createElement(RedeemPanel, { accountId: 7, label: "台港澳服 · 開拓者（UID 900123456）" });
+const panel = () => createElement(RedeemPanel, { accountId: 7, server: "台港澳服", name: "開拓者（UID 900123456）" });
 
 /** 跳出的提示照順序記下來 */
 function recorder() {
@@ -21,7 +21,8 @@ describe("兌換碼", () => {
 
     expect(markup).toMatch(/<input type="hidden" name="accountId" value="7"/);
     expect(markup).toContain('name="code"');
-    expect(textOf(markup)).toContain("台港澳服 · 開拓者（UID 900123456）");
+    // 使用者要的 伺服器與帳號各自一個標籤 不用圓點串成一行
+    expect(textOf(markup, { spaced: true })).toContain("兌換到 台港澳服 開拓者（UID 900123456）");
     expect(markup).not.toMatch(/role="(?:status|alert)"/);
   });
 

@@ -125,7 +125,7 @@ function CookieHelp() {
   return (
     <details className="disclosure text-sm">
       <summary>怎麼取得 cookie？</summary>
-      <ol className="steps leading-relaxed text-ink-soft">
+      <ol className="steps leading-relaxed text-ink">
         <li>
           用電腦瀏覽器打開{" "}
           <a href="https://www.hoyolab.com" target="_blank" rel="noreferrer" className="link">

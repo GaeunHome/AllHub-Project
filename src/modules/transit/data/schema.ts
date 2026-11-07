@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, pgTable, serial, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, integer, pgTable, serial, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { coreUsers } from "@/core/db/schema";
 import { MODES } from "../lib/modes";
 
@@ -26,6 +26,8 @@ export const transitRoutes = pgTable(
     destinationName: text("destination_name").notNull(),
     tracked: boolean("tracked").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // 使用者要的 側邊欄可以拖曳排順序 一樣時照加入的順序
+    sortOrder: integer("sort_order").notNull().default(0),
   },
   (t) => [
     check("transit_routes_mode", sql`${t.mode} in ('thsr', 'tra', 'metro', 'bus')`),

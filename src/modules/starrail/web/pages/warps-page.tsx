@@ -16,13 +16,12 @@ import { pickAccount } from "../account-tabs";
 import { AccountTabs } from "../components/account-card";
 import { StarrailBanner } from "../components/starrail-banner";
 import { FiveStarList, PityPanel } from "../components/warp-history";
-import { gameFont } from "../game-font";
 import { hasRecords, pickBanner, shownBanners } from "../warps-view";
 
 // web 層不能 import 模組根目錄 圖示 名稱 點綴色由 src/app 從 info.ts 傳進來
 export function WarpsPage({ info, searchParams }: { info: ModuleInfo; searchParams: SearchParams }) {
   return (
-    <PageTheme accent={info.accent} className={`theme-starrail ${gameFont.variable} page-stack`}>
+    <PageTheme accent={info.accent} className="theme-starrail page-stack">
       <StarrailBanner info={info} />
       <Suspense fallback={<WarpsSkeleton />}>
         <WarpsArea searchParams={searchParams} />
@@ -39,7 +38,7 @@ export async function WarpsArea({ searchParams }: { searchParams: SearchParams }
   const account = pickAccount(accounts, params.account);
   if (!account) {
     return (
-      <p className="sr-panel p-5 text-ink-soft sm:p-6">
+      <p className="sr-panel p-5 text-ink sm:p-6">
         還沒有連結帳號。
         <Link href="/starrail" className="link">
           到星穹鐵道頁連結

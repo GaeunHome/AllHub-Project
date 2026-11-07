@@ -26,7 +26,7 @@ export function DividendsCard({ view }: { view: DividendsView }) {
     <section aria-labelledby="savings-dividends" className="stack min-w-0">
       <SectionHeading id="savings-dividends" title="除權息" />
       {view.status === "unavailable" ? (
-        <EmptyState compact icon="calendar-clock" title="除權息預告暫時讀不到，稍後再看" />
+        <EmptyState compact icon="calendar-clock" title="除權息預告暫時無法讀取" />
       ) : (
         <ul className={CARD_GRID}>
           {view.rows.map((row) => (

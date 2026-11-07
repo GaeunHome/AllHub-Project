@@ -104,3 +104,64 @@
   @apply absolute inset-y-0 rounded-full;
   background: linear-gradient(90deg, #4a9dea, #f7b733 60%, #f2694a);
 }
+.wx-page {
+  @apply flex flex-col gap-6;
+}
+/* 照片與一週下面的區塊 寬螢幕跟上面一樣 3:2 兩欄 手機一欄疊下去 */
+/* 手機一欄也要寫 minmax(0, 1fr) 不然 24 小時那一排的寬度會把整欄撐開 頁面變成可以橫向捲動 */
+.wx-more {
+  @apply grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)];
+}
+.wx-wide {
+  @apply lg:col-span-2;
+}
+/* 接下來 24 小時 寬的時候格子撐滿整排 放不下才滑 */
+.wx-hours-fill > .wx-hour {
+  flex: 1 0 4rem;
+}
+/* 今天的細節 每格至少 8.5rem 手機兩欄 寬的時候一排放完 */
+.wx-tiles {
+  @apply grid gap-3;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+}
+.wx-tile {
+  @apply flex flex-col gap-1;
+}
+.wx-tile-label {
+  @apply text-sm font-medium text-ink-soft;
+}
+.wx-tile-value {
+  @apply text-2xl font-semibold text-ink tabular-nums;
+}
+/* 空氣品質與特報 放得下時並排 */
+.wx-air {
+  @apply grid gap-3;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+/* 我的城市 手機也放得下兩欄 寬螢幕卡片大一點 城市少時靠左排 不拉成長條 */
+.wx-cities {
+  @apply grid gap-3;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+}
+@media (width >= 64rem) {
+  .wx-cities {
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  }
+}
+.wx-city-card {
+  @apply flex h-full flex-col gap-2 rounded-2xl p-4;
+  border: 1px solid var(--line);
+  background-color: var(--surface);
+  box-shadow: var(--elevation-card);
+}
+a.wx-city-card:hover {
+  background-color: var(--surface-muted);
+}
+/* 正在看的城市用深色的粗框 不只靠顏色 報讀器靠 aria-current */
+.wx-city-card[aria-current="page"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+.wx-city-name {
+  @apply inline-flex min-w-0 items-center gap-1.5 font-semibold break-words text-ink;
+}

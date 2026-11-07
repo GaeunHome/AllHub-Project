@@ -16,6 +16,7 @@ import { plateInk } from "../../lib/lines";
 import { deleteRouteAction, setTrackedAction } from "../actions";
 import { cardHeading, destinationLabel, kindChipClass, lineColor, routeLabel } from "../transit-view";
 import { useLiveReading } from "../use-live-reading";
+import { useSorting } from "./sortable-routes";
 
 type RouteCardProps = { route: TransitRoute; departures: Departure[]; problem: string | null; status: string | null };
 
@@ -43,9 +44,23 @@ function useRefreshWhenFinished(finished: boolean) {
   }, [finished, router]);
 }
 
+const MOVES = [
+  [-1, "往前移", "arrow-up"],
+  [1, "往後移", "arrow-down"],
+] as const;
+
+/** 常用路線在排序的清單裡時多了往前與往後 手機沒有拖曳的把手靠這兩項 */
 function RouteMenu({ route }: { route: TransitRoute }) {
+  const sorting = useSorting();
   return (
     <MoreMenu label={`${routeLabel(route)}的選項`}>
+      {sorting &&
+        MOVES.map(([step, label, icon]) => (
+          <button key={step} type="button" data-closes-menu disabled={!sorting.canMove(route.id, step)} onClick={() => sorting.move(route.id, step)} className="menu-item">
+            <Icon name={icon} className="size-4" />
+            {label}
+          </button>
+        ))}
       <DeleteMenuItem action={deleteRouteAction} fields={{ id: route.id }} confirmMessage={`確定刪除常用路線「${routeLabel(route)}」？`} label="刪除路線" deletedMessage="已刪除路線" />
     </MoreMenu>
   );
@@ -143,7 +158,7 @@ export function TrackedCard({ route, departures, problem, status }: RouteCardPro
         <RouteMenu route={route} />
       </header>
       <div className="trn-face">
-        {problem ? <p className="trn-problem">資料暫時讀不到，稍後再試</p> : <BigCountdown next={next} now={now} empty={emptyText(route, live, status, departures.length > 0)} />}
+        {problem ? <p className="trn-problem">資料暫時無法讀取</p> : <BigCountdown next={next} now={now} empty={emptyText(route, live, status, departures.length > 0)} />}
         <TicketBarcode route={route} />
       </div>
       <RouteLine route={route} tick={tick} />
@@ -192,7 +207,7 @@ export function RouteCard({ route, departures, problem, status }: RouteCardProps
         <RouteMenu route={route} />
       </header>
       <div className="trn-face">
-        <p className="trn-mini-count tabular-nums">{problem ? "資料讀不到" : next && tick !== null ? countdownText(next.at - tick) : tick === null ? "" : emptyText(route, { kind: "none" }, status, departures.length > 0)}</p>
+        <p className="trn-mini-count tabular-nums">{problem ? "暫時無法讀取" : next && tick !== null ? countdownText(next.at - tick) : tick === null ? "" : emptyText(route, { kind: "none" }, status, departures.length > 0)}</p>
         <TicketBarcode route={route} />
       </div>
       <span aria-hidden className="trn-mini-line" />

@@ -15,7 +15,7 @@ export function SummaryCard({ summary }: { summary: InvestmentSummary }) {
       facts={
         <>
           <Fact label="成本">{formatTwd(summary.cost)}</Fact>
-          {summary.priced ? <Fact label="損益">{profitText(summary.profit, summary.profitPercent)}</Fact> : <Fact label="股價">暫時讀不到</Fact>}
+          {summary.priced ? <Fact label="損益">{profitText(summary.profit, summary.profitPercent)}</Fact> : <Fact label="股價">暫時無法讀取</Fact>}
           {summary.priced && summary.quoteDate && <Fact label="收盤日">{formatSlashDate(summary.quoteDate)}</Fact>}
         </>
       }

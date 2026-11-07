@@ -1,21 +1,21 @@
 import "server-only";
-import { and, asc, count, eq, max } from "drizzle-orm";
+import { and, count, eq, max } from "drizzle-orm";
 import { db } from "@/core/db";
+import { moveOwnRow, ownOrder } from "@/core/db/reorder";
 import { lockUserRow } from "@/core/db/users";
 import { UserError } from "@/core/form";
 import { weatherPlaces, type WeatherPlace } from "../data/schema";
 import { parsePlaceChoice } from "../lib/cities";
-import { PLACE_LIMIT, movedIds } from "../lib/place-order";
+import { PLACE_LIMIT } from "../lib/places";
 
 // userId 一律是登入者 表單送來的 id 只決定操作哪一筆 別人的當作不存在
-
 
 export class PlaceUserError extends UserError {
   name = "PlaceUserError";
 }
 
 export function listPlaces(userId: string): Promise<WeatherPlace[]> {
-  return db().select().from(weatherPlaces).where(eq(weatherPlaces.userId, userId)).orderBy(asc(weatherPlaces.sortOrder), asc(weatherPlaces.createdAt), asc(weatherPlaces.id));
+  return db().select().from(weatherPlaces).where(eq(weatherPlaces.userId, userId)).orderBy(...ownOrder(weatherPlaces));
 }
 
 export async function addPlace(userId: string, rawChoice: string): Promise<WeatherPlace> {
@@ -39,17 +39,8 @@ export async function addPlace(userId: string, rawChoice: string): Promise<Weath
 const NOT_FOUND = "找不到這個城市，請重新整理頁面";
 
 /** 傳放到哪一個前面 不傳位置編號 兩個分頁同時排也不會互相蓋掉 回傳有沒有改 */
-export async function movePlace(userId: string, id: number, beforeId: number | null): Promise<boolean> {
-  return db().transaction(async (tx) => {
-    await lockUserRow(tx, userId, "no key update");
-    const rows = await tx.select({ id: weatherPlaces.id }).from(weatherPlaces).where(eq(weatherPlaces.userId, userId)).orderBy(asc(weatherPlaces.sortOrder), asc(weatherPlaces.createdAt), asc(weatherPlaces.id));
-    const ids = rows.map((row) => row.id);
-    if (!ids.includes(id) || (beforeId !== null && !ids.includes(beforeId))) throw new PlaceUserError(NOT_FOUND);
-    const next = movedIds(ids, id, beforeId);
-    if (next.every((value, index) => value === ids[index])) return false;
-    for (const [sortOrder, placeId] of next.entries()) await tx.update(weatherPlaces).set({ sortOrder }).where(and(eq(weatherPlaces.id, placeId), eq(weatherPlaces.userId, userId)));
-    return true;
-  });
+export function movePlace(userId: string, id: number, beforeId: number | null): Promise<boolean> {
+  return moveOwnRow(db(), weatherPlaces, { userId, id, beforeId }, () => new PlaceUserError(NOT_FOUND));
 }
 
 export async function deletePlace(userId: string, id: number): Promise<WeatherPlace> {

@@ -62,7 +62,7 @@ function PhotoPicker({ onPicked }: { onPicked: (bitmap: ImageBitmap) => void }) 
     try {
       onPicked(await createImageBitmap(file));
     } catch {
-      setError("這張照片讀不到，請換一張");
+      setError("這張照片無法讀取，請換一張");
       setBusy(false);
     }
   };

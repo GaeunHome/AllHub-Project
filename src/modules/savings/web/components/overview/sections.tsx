@@ -48,7 +48,7 @@ function HeroFacts({ hero: { deposit, investment, cardOwed } }: { hero: HeroView
 
 /** 讀不到股價時市值是先用成本算的 不寫損益 */
 function ProfitFact({ investment }: { investment: NonNullable<HeroView["investment"]> }) {
-  if (!investment.priced) return <Fact label="股價">暫時讀不到</Fact>;
+  if (!investment.priced) return <Fact label="股價">暫時無法讀取</Fact>;
   const label = investment.quoteDate === null ? "損益" : `損益（${formatSlashDate(investment.quoteDate)} 收盤）`;
   return <Fact label={label}>{money(formatSignedTwd(investment.profit))}</Fact>;
 }

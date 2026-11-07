@@ -30,9 +30,9 @@ export async function UpNext({ params }: { params: Promise<{ videoId: string }> 
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="line-clamp-2 text-sm leading-snug font-semibold text-ink group-hover:underline xl:text-base">{video.title}</span>
-                <span className="truncate text-[0.8125rem] text-muted xl:text-sm">{channelNameOf(video)}</span>
+                <span className="truncate text-[0.8125rem] text-ink-soft xl:text-sm">{channelNameOf(video)}</span>
                 {video.publishedAt && (
-                  <time dateTime={video.publishedAt.toISOString()} className="text-[0.8125rem] text-muted xl:text-sm">
+                  <time dateTime={video.publishedAt.toISOString()} className="text-[0.8125rem] text-ink-soft xl:text-sm">
                     {formatRelativeTime(video.publishedAt, now)}
                   </time>
                 )}

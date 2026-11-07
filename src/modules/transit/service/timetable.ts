@@ -6,7 +6,7 @@ import type { LiveReading } from "../lib/countdown";
 import { parseMetroFare, parseThsrFares, parseTraFares, type CabinFare, type TraFare } from "../lib/fares";
 import { parseMetroEstimate, parseTraDelays } from "../lib/live";
 import { metroNetwork, type MetroNetwork } from "../lib/metro-route";
-import { hasMetroLive, type MetroSystem, type Mode } from "../lib/modes";
+import { hasMetroLive, type MetroSystem, type Mode, type TrainMode } from "../lib/modes";
 import { busRequest, dailyTimetablePath, metroFareRequest, stationFilter, stationOfLinePath, stationsPath, tdxGet, tdxGetNow, tdxProblem, thsrFarePath, traFarePath, travelTimePath } from "../lib/tdx";
 import { metroDirections, parseDailyTimetable, parseLineStations, parseMetroLines, parseMetroTimetable, parseStations, type Departure, type MetroLine, type Station } from "../lib/timetable";
 import { parseTravelTimes, type TravelTimes } from "../lib/travel-time";
@@ -23,6 +23,9 @@ async function read<T>(work: () => Promise<T>): Promise<Read<T>> {
     return { ok: false, problem: tdxProblem(error) };
   }
 }
+
+/** 讀到時換成別的資料 讀不到的原樣留著 */
+export const mapRead = <T, U>(result: Read<T>, map: (data: T) => U): Read<U> => (result.ok ? { ok: true, data: map(result.data) } : result);
 
 /** 好幾個讀取一起回報系統狀態 沒有讀的是 null */
 export function problemOf(...reads: (Read<unknown> | null)[]): string | null {
@@ -101,9 +104,10 @@ const metroTimetable = (system: string, stationId: string) => tdxGet(`/v2/Rail/M
 
 export const readDirections = (system: string, stationId: string): Promise<Read<Station[]>> => read(async () => metroDirections(await metroTimetable(system, stationId)));
 
-export function readDepartures(mode: Exclude<Mode, "bus">, system: string, originId: string, destinationId: string, date: string): Promise<Read<Departure[]>> {
-  return read(async () => (mode === "metro" ? parseMetroTimetable(await metroTimetable(system, originId), date, destinationId) : parseDailyTimetable(await tdxGet(dailyTimetablePath(mode, originId, destinationId, date)), date)));
-}
+export const readDepartures = (mode: TrainMode, originId: string, destinationId: string, date: string): Promise<Read<Departure[]>> => read(async () => parseDailyTimetable(await tdxGet(dailyTimetablePath(mode, originId, destinationId, date)), date));
+
+/** 一站每個方向的車 往哪裡由路線挑 同一站的查詢與常用路線共用一份 */
+export const readMetroDepartures = (system: string, stationId: string, date: string): Promise<Read<Departure[]>> => read(async () => parseMetroTimetable(await metroTimetable(system, stationId), date));
 
 export const readBusRoute = (city: string, line: string): Promise<Read<BusDirection[]>> => read(async () => parseBusRoute(await tdxGet(...busRequest("StopOfRoute", city, line))));
 

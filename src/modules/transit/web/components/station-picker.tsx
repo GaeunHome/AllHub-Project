@@ -1,15 +1,18 @@
 "use client";
 
-import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { Dialog, useDialog } from "@/core/ui/dialog";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Icon } from "@/core/ui/icon";
+import { metroMap } from "../../lib/metro-map";
 import type { StationGroup } from "../../lib/station-groups";
 import { plainName } from "../../lib/station-search";
 import type { Station } from "../../lib/timetable";
-import { pickerSections, soleStation } from "../station-sections";
+import { mapSections, pickerSections, soleStation } from "../station-sections";
+import { StationMap } from "./station-map";
 
-type PickerData = { stations: Station[]; groups: StationGroup[]; frequent: Station[] };
+/** map 是捷運 使用者選的整張路網圖 台鐵照舊是分組清單 */
+type PickerData = { stations: Station[]; groups: StationGroup[]; frequent: Station[]; map?: boolean };
 type PickerChoice = { value: string; except?: Station | null; onPick: (stationId: string) => void };
 type StationLine = { name: string; color: string };
 
@@ -51,13 +54,17 @@ function StationSection({ section, lines, value, onPick }: { section: StationGro
 }
 
 /** 只在視窗開著時掛上 所以每次打開都是空的搜尋框 全部在瀏覽器裡篩 不問伺服器 */
-export function StationPanel({ stations, groups, frequent, value, except = null, onPick }: PickerData & PickerChoice) {
+export function StationPanel({ stations, groups, frequent, map = false, value, except = null, onPick }: PickerData & PickerChoice) {
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const sections = pickerSections(stations, groups, frequent, query, except);
   const lines = stationLines(groups);
   const searching = plainName(query) !== "";
   const found = sections.reduce((total, section) => total + section.stations.length, 0);
+  const drawn = useMemo(() => (map ? metroMap(stations) : null), [map, stations]);
+  // 打字時照舊列出對得上的站 圖上一站都畫不出來時也退回清單
+  const shownMap = !searching && drawn !== null && drawn.stations.length > 0 ? drawn : null;
+  const around = shownMap && mapSections(groups, frequent, shownMap.missing, except);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
@@ -71,7 +78,7 @@ export function StationPanel({ stations, groups, frequent, value, except = null,
 
   return (
     <>
-      <div className="trn-picker-search">
+      <div className={shownMap ? "trn-picker-search trn-map-search" : "trn-picker-search"}>
         {/* 組字中的注音不算 不然每打一個音清單就空掉一次 */}
         <input
           type="text"
@@ -92,12 +99,24 @@ export function StationPanel({ stations, groups, frequent, value, except = null,
       <p role="status" className="sr-only">
         {searching ? (found > 0 ? `找到 ${found} 個車站` : "找不到車站") : ""}
       </p>
-      <div ref={listRef} className="stack">
-        {sections.length === 0 && (searching ? <EmptyState compact icon="search" title="找不到這個車站" hint="換個寫法試試" /> : <EmptyState compact icon="circle-alert" title="車站資料暫時讀不到，稍後再試" />)}
-        {sections.map((section) => (
-          <StationSection key={section.id} section={section} lines={lines} value={value} onPick={onPick} />
-        ))}
-      </div>
+      {shownMap && around ? (
+        <div className="trn-map-panel">
+          {around.frequent.map((section) => (
+            <StationSection key={section.id} section={section} lines={lines} value={value} onPick={onPick} />
+          ))}
+          <StationMap map={shownMap} value={value} except={except} onPick={onPick} />
+          {around.others.map((section) => (
+            <StationSection key={section.id} section={section} lines={lines} value={value} onPick={onPick} />
+          ))}
+        </div>
+      ) : (
+        <div ref={listRef} className="stack">
+          {sections.length === 0 && (searching ? <EmptyState compact icon="search" title="找不到這個車站" hint="換個寫法試試" /> : <EmptyState compact icon="circle-alert" title="車站資料暫時無法讀取" />)}
+          {sections.map((section) => (
+            <StationSection key={section.id} section={section} lines={lines} value={value} onPick={onPick} />
+          ))}
+        </div>
+      )}
     </>
   );
 }
@@ -123,7 +142,8 @@ export function StationPicker({ label, value, except, onChange, ...data }: Stati
         <span className="truncate">{shown}</span>
         <Icon name="chevron-down" className="size-4 shrink-0" />
       </button>
-      <Dialog {...dialog.dialogProps} title={`選擇${label}`} size="lg" className="trn-picker">
+      {/* 路線圖要大 手機上是整個螢幕 */}
+      <Dialog {...dialog.dialogProps} title={`選擇${label}`} size={data.map ? "full" : "lg"} className={data.map ? undefined : "trn-picker"}>
         <StationPanel {...data} value={value} except={except} onPick={pick} />
       </Dialog>
     </div>

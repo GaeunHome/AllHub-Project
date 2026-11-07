@@ -81,7 +81,7 @@ export function RecordRow({ record, accounts, categories, today }: RecordRowProp
         )}
         <div className="shrink-0 pr-3 sm:pr-4">
           <MoreMenu label={`「${title}」${amount} 的選項`}>
-            {!editable && <p className="px-3 py-1.5 text-sm text-ink-soft">{record.cardBillId === null ? NOT_EDITABLE.adjust : NOT_EDITABLE.bill}</p>}
+            {!editable && <p className="px-3 py-1.5 text-sm text-ink">{record.cardBillId === null ? NOT_EDITABLE.adjust : NOT_EDITABLE.bill}</p>}
             <DeleteMenuItem
               action={deleteTransactionAction}
               fields={{ id: record.id }}

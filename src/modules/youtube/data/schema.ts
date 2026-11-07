@@ -1,4 +1,4 @@
-import { boolean, index, integer, jsonb, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { coreUsers } from "@/core/db/schema";
 import type { GlossaryEntry } from "../lib/parse";
 import type { Cue } from "../lib/subtitles/format";
@@ -53,11 +53,9 @@ export const youtubeVideos = pgTable(
 
 /** 每人一列 API Key 與模型在 youtube_ai_keys */
 export const youtubeSettings = pgTable("youtube_settings", {
-  // 單人版固定寫 id 1 新的列從 2 開始才不會撞到
-  id: integer("id").primaryKey().generatedByDefaultAsIdentity({ startWith: 2 }),
+  // 資料庫裡還有舊的 id 欄 部署時線上的舊程式還會寫它 先留著不用
   userId: uuid("user_id")
-    .notNull()
-    .unique()
+    .primaryKey()
     .references(() => coreUsers.id, { onDelete: "cascade" }),
   provider: text("provider", { enum: AI_PROVIDER_IDS }).notNull().default(DEFAULT_PROVIDER),
   glossary: jsonb("glossary").$type<GlossaryEntry[]>().notNull().default([]),

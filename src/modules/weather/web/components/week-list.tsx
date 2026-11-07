@@ -1,9 +1,9 @@
 "use client";
 
 import { Dialog, useDialog } from "@/core/ui/dialog";
-import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { Icon } from "@/core/ui/icon";
 import type { HourColumn, WeekRow } from "../weekly-view";
+import { HourStrip } from "./hour-strip";
 import { WeatherImage } from "./weather-images";
 
 function DayCells({ row }: { row: WeekRow }) {
@@ -21,21 +21,6 @@ function DayCells({ row }: { row: WeekRow }) {
   );
 }
 
-function HourStrip({ hours }: { hours: HourColumn[] }) {
-  return (
-    <ol aria-label="每小時預報" tabIndex={0} {...DRAG_SCROLL} className="wx-hours no-scrollbar">
-      {hours.map((hour) => (
-        <li key={hour.time} className="wx-hour">
-          <span>{hour.clock}</span>
-          <WeatherImage art={hour.art} alt={hour.weather ?? ""} size={36} />
-          <span className="wx-hour-temp">{hour.temperature === null ? "--" : `${hour.temperature}°`}</span>
-          <span className="wx-rain">{hour.rain === null ? "" : `${hour.rain}%`}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 function ClickableDay({ row, hours }: { row: WeekRow; hours: HourColumn[] }) {
   const dialog = useDialog();
   return (
@@ -46,7 +31,7 @@ function ClickableDay({ row, hours }: { row: WeekRow; hours: HourColumn[] }) {
         <Icon name="chevron-right" className="size-4" />
       </button>
       <Dialog {...dialog.dialogProps} title={`${row.label}的每小時預報`} size="md">
-        <HourStrip hours={hours} />
+        <HourStrip hours={hours} label="每小時預報" />
       </Dialog>
     </>
   );

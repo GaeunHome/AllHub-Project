@@ -92,6 +92,13 @@ describe("planRoute：捷運任兩站怎麼搭", () => {
       expect(legs("古亭", "蘆洲")?.map((leg) => [leg.from.name, leg.to.name, leg.towardName])).toEqual([["古亭", "蘆洲", "蘆洲"]]);
     });
 
+    it("古亭到民權西路_往迴龍與往蘆洲的車都會停 兩個方向都能搭", () => {
+      const [leg] = legs("古亭", "民權西路") ?? [];
+
+      expect(leg.servedIds).toEqual(expect.arrayContaining(["O11", "O21", "O54"]));
+      expect(leg.servedIds).not.toContain("O05");
+    });
+
     it("支線沒有列出大橋頭也一樣接得上", () => {
       const without = metroNetwork([{ system: "TRTC", stations, lines: [lineOf("O", orange), { id: "O", stationIds: ludiao.map((station) => station.id) }] }]);
 

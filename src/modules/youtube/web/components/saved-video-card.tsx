@@ -32,7 +32,7 @@ export function SavedVideoCard({ video, now, eager }: { video: SavedVideo; now: 
               {title}
             </Link>
           </h3>
-          {video.channelTitle && <p className="truncate text-sm text-muted">{video.channelTitle}</p>}
+          {video.channelTitle && <p className="truncate text-sm text-ink-soft">{video.channelTitle}</p>}
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-soft">
             {/* 自動加入的在清單滿了時會先被擠掉 所以標出是怎麼加進來的 */}
             <span className="chip">

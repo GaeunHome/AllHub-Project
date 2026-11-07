@@ -46,10 +46,15 @@ export async function fetchCountyHours(county: County, fetchImpl?: typeof fetch)
 
 export type WorldWeek = { days: WeekDay[]; hours: HourPoint[]; utcOffsetSeconds: number };
 
+// 今天的細節跟一週預報同一個請求 不多用額度
+const OPEN_METEO_DAILY = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,apparent_temperature_max,apparent_temperature_min,wind_speed_10m_max,wind_direction_10m_dominant,uv_index_max,sunrise,sunset";
+const OPEN_METEO_HOURLY = "temperature_2m,precipitation_probability,weather_code,relative_humidity_2m";
+
 /** 國外的一週預報 Open-Meteo 不用金鑰 額度照 IP 算 伺服器與別的網站共用 要放快取 */
 export async function fetchWorldWeek({ latitude, longitude, timezone }: Pick<WorldPlace, "latitude" | "longitude" | "timezone">, fetchImpl?: typeof fetch): Promise<WorldWeek | null> {
   const url = new URL(OPEN_METEO_URL);
-  url.search = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude), daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max", hourly: "temperature_2m,precipitation_probability,weather_code", timezone, forecast_days: WEEK_DAYS }).toString();
+  // 風速用每秒公尺 才對得上氣象署的風級表
+  url.search = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude), daily: OPEN_METEO_DAILY, hourly: OPEN_METEO_HOURLY, wind_speed_unit: "ms", timezone, forecast_days: WEEK_DAYS }).toString();
   const json = await readJson(url, "國外的預報", fetchImpl);
   return json === null ? null : { days: parseOpenMeteoWeek(json), ...parseOpenMeteoHours(json) };
 }

@@ -2,6 +2,8 @@
 
 export const MODES = ["thsr", "tra", "metro", "bus"] as const;
 export type Mode = (typeof MODES)[number];
+/** 有起訖站時刻表的火車 */
+export type TrainMode = Exclude<Mode, "metro" | "bus">;
 
 export const MODE_LABELS: Record<Mode, string> = { thsr: "高鐵", tra: "台鐵", metro: "捷運", bus: "公車" };
 

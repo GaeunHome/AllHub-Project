@@ -5,7 +5,6 @@ import { hasTransitEnv } from "@/core/env";
 import type { ModuleInfo, SearchParams } from "@/core/module";
 import { DAY_MS, formatTaipeiHourMinute, taipeiDateKey } from "@/core/time";
 import { EmptyState } from "@/core/ui/empty-state";
-import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { Icon } from "@/core/ui/icon";
 import { InfoTip } from "@/core/ui/info-tip";
 import { PageBanner } from "@/core/ui/page-banner";
@@ -15,19 +14,22 @@ import { fareSystemOf, planRoute, type MetroLeg } from "../../lib/metro-route";
 import { METRO_SYSTEMS } from "../../lib/modes";
 import { ROUTE_LIMIT } from "../../lib/rules";
 import { cityGroups, lineGroups, type StationGroup } from "../../lib/station-groups";
-import type { Station } from "../../lib/timetable";
-import { tripMinutes } from "../../lib/travel-time";
+import { departuresToward, type Station } from "../../lib/timetable";
+import { legSecondsOf, tripMinutes } from "../../lib/travel-time";
 import { reportTdx } from "../../service/health";
-import { cachedBusEta, cachedBusRoute, cachedBusSchedule, cachedDepartures, cachedMetroFare, cachedMetroNetwork, cachedMetroTravelTimes, cachedRoutes, cachedStations, cachedThsrFares, cachedTraFares } from "../../service/cached";
-import { problemOf, type Read } from "../../service/timetable";
+import { cachedBusEta, cachedBusRoute, cachedBusSchedule, cachedDepartures, cachedMetroDepartures, cachedMetroFare, cachedMetroNetwork, cachedMetroTravelTimes, cachedRoutes, cachedStations, cachedThsrFares, cachedTraFares } from "../../service/cached";
+import { mapRead, problemOf, type Read } from "../../service/timetable";
 import { BusResults } from "../components/bus-results";
 import { MetroResults } from "../components/metro-results";
 import { RouteCard, TrackedCard } from "../components/route-cards";
 import { SearchForm } from "../components/search-form";
 import { SearchShell } from "../components/search-shell";
+import { SideSync, SideToggle } from "../components/side-toggle";
+import { SortableRoutes } from "../components/sortable-routes";
 import { TrainResults } from "../components/search-results";
 import { frequentStations } from "../frequent-stations";
 import { loadBoards } from "../route-boards";
+import { routeLabel } from "../transit-view";
 import { MAX_DAYS_AHEAD, canSearch, parseSearch, type SearchQuery } from "../search-query";
 import type { TransitRoute } from "../../data/schema";
 
@@ -71,12 +73,21 @@ export async function TransitBody({ searchParams }: { searchParams: SearchParams
         </SearchShell>
       </div>
       {/* 手機上一眼要看到倒數 所以排在查詢前面 還沒有路線時空狀態不能擋在前面 */}
-      <aside aria-label="我的路線" data-empty={routes.length === 0 ? "" : undefined} className="trn-side no-scrollbar">
-        {/* TDX 每分鐘只有 5 次 查詢先問 卡片要等下一分鐘時表單已經能用 */}
-        <Suspense fallback={<BoardsSkeleton />}>
-          <RouteBoards routes={routes} now={now} />
-        </Suspense>
+      <aside aria-labelledby="transit-side-title" data-empty={routes.length === 0 ? "" : undefined} className="trn-side no-scrollbar">
+        <div className="trn-side-head">
+          <h2 id="transit-side-title" className="trn-side-title">
+            我的路線
+          </h2>
+          <SideToggle controls="transit-side-body" />
+        </div>
+        <div id="transit-side-body" className="trn-side-body">
+          {/* TDX 每分鐘只有 5 次 查詢先問 卡片要等下一分鐘時表單已經能用 */}
+          <Suspense fallback={<BoardsSkeleton />}>
+            <RouteBoards routes={routes} now={now} />
+          </Suspense>
+        </div>
       </aside>
+      <SideSync />
     </div>
   );
 }
@@ -103,17 +114,17 @@ async function RouteBoards({ routes, now }: { routes: TransitRoute[]; now: Date 
         {routes.length === 0 ? (
           <EmptyState compact icon="bus" title="還沒有常用路線" hint="查到班次後按星星，就會存在這裡" />
         ) : (
-          <div {...DRAG_SCROLL} className="trn-grid no-scrollbar">
-            {others.map((board) => (
-              <RouteCard key={board.route.id} {...board} />
-            ))}
-            {routes.length < ROUTE_LIMIT && (
-              <a href="#transit-search" className="trn-add">
-                <Icon name="plus" className="size-4" />
-                新增常用路線
-              </a>
-            )}
-          </div>
+          <SortableRoutes
+            items={others.map((board) => ({ id: board.route.id, label: routeLabel(board.route), node: <RouteCard {...board} /> }))}
+            after={
+              routes.length < ROUTE_LIMIT && (
+                <a href="#transit-search" className="trn-add">
+                  <Icon name="plus" className="size-4" />
+                  新增常用路線
+                </a>
+              )
+            }
+          />
         )}
       </section>
     </>
@@ -136,7 +147,7 @@ const listOf = <T,>(read: Read<T[] | null> | null): T[] => (read?.ok ? (read.dat
 /** 高鐵與台鐵 車站清單一天讀一次 班次與票價要選好起訖才查 台鐵的縣市在車站清單裡 */
 async function railSearch(mode: "thsr" | "tra", query: SearchQuery, now: Date, canAdd: boolean, routes: TransitRoute[]): Promise<SearchParts> {
   const searching = canSearch(query);
-  const [stations, results] = await Promise.all([cachedStations(mode, ""), searching ? cachedDepartures(mode, "", query.from, query.to, query.date) : null]);
+  const [stations, results] = await Promise.all([cachedStations(mode, ""), searching ? cachedDepartures(mode, query.from, query.to, query.date) : null]);
   // 每分鐘只有 5 次 班次問完才問票價 不能讓多的資料佔掉次數
   const [cabins, traFares] = await Promise.all([searching && mode === "thsr" ? cachedThsrFares(query.from, query.to) : null, searching && mode === "tra" ? cachedTraFares(query.from, query.to) : null]);
   after(() => reportTdx(problemOf(stations, results, cabins, traFares)));
@@ -147,7 +158,7 @@ async function railSearch(mode: "thsr" | "tra", query: SearchQuery, now: Date, c
     collapsible: results?.ok === true,
     results: (
       <>
-        {!stations.ok && <p className="text-ink">車站資料暫時讀不到，稍後再試</p>}
+        {!stations.ok && <p className="text-ink">車站資料暫時無法讀取</p>}
         {results && <TrainResults results={results} cabins={listOf(cabins)} traFares={listOf(traFares)} query={query} stations={stationList} now={now} canAdd={canAdd} saved={routes.filter((route) => route.mode === mode && route.originId === query.from && route.destinationId === query.to).map((route) => route.line)} />}
       </>
     ),
@@ -167,17 +178,19 @@ async function metroSearch(query: SearchQuery, now: Date, canAdd: boolean, route
   const read = await cachedMetroNetwork();
   if (!read.ok) {
     after(() => reportTdx(read.problem));
-    return { ...NO_STATIONS, results: <p className="text-ink">車站資料暫時讀不到，稍後再試</p> };
+    return { ...NO_STATIONS, results: <p className="text-ink">車站資料暫時無法讀取</p> };
   }
   const { network, missing } = read.data;
   const legs = canSearch(query) ? planRoute(network, query.from, query.to) : undefined;
   const first = legs?.[0];
   const planned = legs ?? [];
-  const departures = first ? await cachedDepartures("metro", first.system, first.from.id, first.towardId, taipeiDateKey(now)) : null;
+  // 一站每個方向都在裡面 只留搭得到要下車的站的車
+  const departures = first ? mapRead(await cachedMetroDepartures(first.system, first.from.id, taipeiDateKey(now)), (all) => departuresToward(all, first.servedIds)) : null;
   // 每分鐘只有 5 次 班次問完才問票價與行車時間
   const [fare, times] = await Promise.all([fareOfLegs(planned), travelTimesOfLegs(planned)]);
   after(() => reportTdx(read.data.problem ?? problemOf(departures, fare, ...times.map((time) => time.read))));
-  const minutes = tripMinutes(planned, Object.fromEntries(times.map(({ system, read: time }) => [system, time.ok ? time.data : null])));
+  const timesBySystem = Object.fromEntries(times.map(({ system, read: time }) => [system, time.ok ? time.data : null]));
+  const minutes = tripMinutes(planned, timesBySystem);
   const saved = first !== undefined && routes.some((route) => route.mode === "metro" && route.originId === first.from.id && route.destinationId === first.towardId);
   return {
     stations: network.stations,
@@ -185,8 +198,8 @@ async function metroSearch(query: SearchQuery, now: Date, canAdd: boolean, route
     collapsible: legs !== undefined,
     results: (
       <>
-        {missing.length > 0 && <p className="text-ink">{missing.map((system) => METRO_SYSTEMS[system]).join("、")}暫時讀不到，稍後再試</p>}
-        {legs !== undefined && <MetroResults legs={legs} departures={departures} minutes={minutes} fare={fare?.ok ? fare.data : null} query={query} stations={network.stations} now={now} canAdd={canAdd} saved={saved} />}
+        {missing.length > 0 && <p className="text-ink">{missing.map((system) => METRO_SYSTEMS[system]).join("、")}暫時無法讀取</p>}
+        {legs !== undefined && <MetroResults legs={legs} departures={departures} legSeconds={planned.map((leg) => legSecondsOf(leg, timesBySystem))} minutes={minutes} fare={fare?.ok ? fare.data : null} query={query} stations={network.stations} now={now} canAdd={canAdd} saved={saved} />}
       </>
     ),
   };

@@ -28,10 +28,10 @@ export function redeemFormAction(action: (previous: FormState, formData: FormDat
   };
 }
 
-type RedeemPanelProps = { accountId: number; label: string };
+type RedeemPanelProps = { accountId: number; server: string; name: string };
 
 /** 跟官方兌換頁一樣只有輸入框 兌換到頁面上選的帳號 碼與結果都不存 */
-export function RedeemPanel({ accountId, label }: RedeemPanelProps) {
+export function RedeemPanel({ accountId, server, name }: RedeemPanelProps) {
   const toast = useToast();
   const [cooldown, setCooldown] = useState(0);
   const [, action, pending] = useActionState<FormState, FormData>(redeemFormAction(redeemCodeAction, toast, () => setCooldown(COOLDOWN_SECONDS)), {});
@@ -48,9 +48,10 @@ export function RedeemPanel({ accountId, label }: RedeemPanelProps) {
       <h3 className="sr-title">兌換碼</h3>
       <form action={action} className="sr-panel stack p-5 sm:p-6">
         <input type="hidden" name="accountId" value={accountId} />
-        <p className="flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+        <p className="flex flex-wrap items-center gap-2 text-sm text-ink">
           兌換到
-          <GoldChip>{label}</GoldChip>
+          <GoldChip>{server}</GoldChip>
+          <span className="chip">{name}</span>
         </p>
         {/* 輸入框與按鈕一直在同一行 手機上輸入框縮短 按鈕不換行 */}
         <div className="flex gap-2">

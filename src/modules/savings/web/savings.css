@@ -58,7 +58,7 @@
   grid-row: 1;
   width: 2.75rem;
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
 }
 .fin-chart-ticks > li {

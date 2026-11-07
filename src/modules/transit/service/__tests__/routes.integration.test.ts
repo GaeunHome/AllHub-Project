@@ -10,7 +10,7 @@ stubCoreEnv();
 vi.mock("../timetable", () => ({ readStations: vi.fn(), readDirections: vi.fn(), readBusRoute: vi.fn() }));
 
 const timetable = mocksOf(await import("../timetable"), "readStations", "readDirections", "readBusRoute");
-const { addRoute, deleteRoute, listRoutes, setTracked } = await import("../routes");
+const { addRoute, deleteRoute, listRoutes, moveRoute, setTracked } = await import("../routes");
 const { RouteNotFoundError } = await import("../errors");
 
 const getDb = setupTestDb();
@@ -121,5 +121,51 @@ describe("追蹤", () => {
 
     await expect(setTracked(me, routes[TRACKED_LIMIT].id, true)).rejects.toThrow(`最多追蹤 ${TRACKED_LIMIT} 條`);
     await expect(setTracked(me, routes[0].id, false)).resolves.toBeTruthy();
+  });
+});
+
+describe("排順序（使用者要的：側邊欄的常用路線可以上下拖曳）", () => {
+  const add = (line: string) => addRoute(me, { ...THSR, line });
+  const order = async (userId = me) => (await listRoutes(userId)).map((route) => route.line);
+
+  it("新增的排在最後", async () => {
+    await add("0101");
+    await add("0102");
+    await add("0103");
+
+    expect(await order()).toEqual(["0101", "0102", "0103"]);
+  });
+
+  it("傳放到哪一條前面 null 是放最後", async () => {
+    const [a, , c] = [await add("0101"), await add("0102"), await add("0103")];
+
+    expect(await moveRoute(me, c.id, a.id)).toBe(true);
+    expect(await order()).toEqual(["0103", "0101", "0102"]);
+    expect(await moveRoute(me, c.id, null)).toBe(true);
+    expect(await order()).toEqual(["0101", "0102", "0103"]);
+  });
+
+  it("放回原位_回 false 不用重讀", async () => {
+    const [a, b] = [await add("0101"), await add("0102")];
+
+    expect(await moveRoute(me, a.id, b.id)).toBe(false);
+  });
+
+  it("排之後再新增_還是排在最後", async () => {
+    const [a] = [await add("0101"), await add("0102")];
+    await moveRoute(me, a.id, null);
+    await add("0103");
+
+    expect(await order()).toEqual(["0102", "0101", "0103"]);
+  });
+
+  it("排別人的路線_當作不存在 順序沒變（IDOR）", async () => {
+    const mine = await add("0101");
+    const theirs = await addRoute(other, { ...THSR, line: "0201" });
+    await addRoute(other, { ...THSR, line: "0202" });
+
+    await expect(moveRoute(me, theirs.id, null)).rejects.toThrow(RouteNotFoundError);
+    await expect(moveRoute(other, mine.id, null)).rejects.toThrow(RouteNotFoundError);
+    expect(await order(other)).toEqual(["0201", "0202"]);
   });
 });

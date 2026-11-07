@@ -19,7 +19,7 @@ const MAX_PAGES = 30;
 const ACCOUNT_RETCODES: readonly (number | null)[] = [DATA_NOT_PUBLIC, DAILY_LIMIT, ...GEETEST];
 /** 快取裡的結果不是這次讀到的 超過這個時間就不回報 */
 const FRESH_READ_MS = 30_000;
-const NOT_FINISHED = { ok: false, retcode: null, message: "躍遷紀錄沒有讀完，稍後再試", cookieInvalid: false } as const;
+const NOT_FINISHED = { ok: false, retcode: null, message: "躍遷紀錄暫時無法讀取", cookieInvalid: false } as const;
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 

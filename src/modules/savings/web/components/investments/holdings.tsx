@@ -68,7 +68,7 @@ function HoldingCard({ holding, accounts, today, minDate }: HoldingCardProps) {
         {holding.priced && <Fact label="損益">{profitText(holding.profit, holding.profitPercent)}</Fact>}
         <Fact label="股數">{formatShares(holding.shares)}</Fact>
         <Fact label="均價">{averagePriceText(holding) ?? "—"}</Fact>
-        <Fact label="收盤">{close ?? "股價暫時讀不到"}</Fact>
+        <Fact label="收盤">{close ?? "股價暫時無法讀取"}</Fact>
       </FactList>
       <div className="flex items-center gap-2">
         <div className="button-row min-w-0 flex-1">
