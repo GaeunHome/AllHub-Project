@@ -4,8 +4,8 @@ import { shiftForHoliday } from "./holidays";
 import { INTERVAL_LABELS, RECURRING_MODE_LABELS, type EntryKind, type HolidayRule, type IntervalMonths, type RecurringMode, type TransactionKind } from "./kinds";
 import { addMonths, dateToMonth, monthIndex, type MonthKey } from "./month";
 
-// 期別用月份表示 第一期之後每 intervalMonths 個月一期
-// lastPostedMonth 是游標 自動記 確認或略過都會把它推到那一期
+// 第一期之後每 intervalMonths 個月一期
+// lastPostedMonth 是游標 自動記 確認或略過都推到那一期
 
 /** 月份欄位存的是 1 號 表單即時試算時送 YYYY-MM 兩種都收 */
 export type RecurringLike = {

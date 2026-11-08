@@ -16,8 +16,8 @@ export function updateTags(...tags: CacheTag[]): void {
 }
 
 /**
- * Route Handler 排程與 after 寫入後呼叫 這些地方不能用 updateTag
- * expire 0 讓下一個請求直接讀新資料 不先拿到舊的
+ * Route Handler 排程與 after 不能用 updateTag
+ * expire 0 讓下一個請求直接讀新資料
  */
 export function expireTags(...tags: CacheTag[]): void {
   for (const tag of tags) revalidateTag(tag, { expire: 0 });

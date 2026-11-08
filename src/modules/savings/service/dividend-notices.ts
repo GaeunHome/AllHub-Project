@@ -129,8 +129,8 @@ async function removePastNotices(today: DateKey): Promise<boolean> {
 }
 
 /**
- * 排程 savings:dividends 台北早上開盤前跑 持股公布除息日 補上配息金額 最後買進日各寄一次
- * 停用的使用者與停用的證券帳戶不算 預告表每次都讀最新的 不走快取
+ * 公布 補上金額 最後買進日各寄一次
+ * 停用的使用者與證券帳戶不算 預告表讀最新的 不走快取
  */
 export async function sendDividendNotices(now = new Date(), fetchImpl?: typeof fetch): Promise<string> {
   const today = taipeiToday(now);

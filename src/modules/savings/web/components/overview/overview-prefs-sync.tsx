@@ -7,7 +7,7 @@ import { applyOverviewPrefs, clearOverviewPrefs, overviewPrefsScript, readOvervi
 const noSubscribe = () => () => {};
 
 /**
- * 放在總覽最前面 收起與略過的偏好存在瀏覽器 靠 html 上的屬性讓第一次繪製就是對的樣子
+ * 偏好存在瀏覽器 靠 html 的屬性讓第一次繪製就對
  * pending 是伺服器算好的還沒做的步驟
  */
 export function OverviewPrefsSync({ pending }: { pending: SetupStep[] }) {

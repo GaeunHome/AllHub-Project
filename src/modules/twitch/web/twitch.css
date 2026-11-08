@@ -1,6 +1,5 @@
-/* 由 globals.css 引入到 @layer components 裡 這裡不再包一層 */
-/* 懸停時浮起的效果在 globals.css 減少動態的區塊裡 */
-/* 預覽圖與卡片照 Twitch 的追蹤中頁 懸停時往右上浮起露出紫色陰影 */
+/* 由 globals.css 引入到 @layer components 裡 不再包一層 */
+/* 懸停往右上浮起 減少動態的規則在 globals.css */
 .tw-preview {
   position: relative;
   display: block;

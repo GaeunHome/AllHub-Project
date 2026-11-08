@@ -50,8 +50,8 @@ export async function requireOwner(): Promise<SessionUser> {
 }
 
 /**
- * 模組的 Server Action 頁面與首頁卡片都要呼叫 導覽列藏起來擋不住直接打開網址
- * 權限每次從資料庫讀 不能用時導回首頁 不說明原因 沒有權限的模組就是看不到
+ * 導覽列藏起來擋不住直接打開網址
+ * 不能用時導回首頁 不說原因
  */
 export async function requireModule(moduleId: string): Promise<SessionUser> {
   const session = await requireSession();

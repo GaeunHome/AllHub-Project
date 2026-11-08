@@ -1,5 +1,5 @@
 // 瀏覽器與伺服器共用 不 import 任何東西
-// 使用者要的：檔案最大 5MB 瀏覽器先縮小才上傳 資料庫存的是小圖 每人一張
+// 使用者要的 最大 5MB 瀏覽器先縮小才上傳
 
 export const AVATAR_FILE_MAX_BYTES = 5 * 1024 * 1024;
 export const AVATAR_PIXELS = 256;

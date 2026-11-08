@@ -115,7 +115,7 @@ async function RouteBoards({ routes, now }: { routes: TransitRoute[]; now: Date 
           <EmptyState compact icon="bus" title="還沒有常用路線" hint="查到班次後按星星，就會存在這裡" />
         ) : (
           <SortableRoutes
-            items={others.map((board) => ({ id: board.route.id, label: routeLabel(board.route), node: <RouteCard {...board} /> }))}
+            items={others.map((board) => ({ id: board.route.id, label: routeLabel(board.route), node: <RouteCard key={board.route.id} {...board} /> }))}
             after={
               routes.length < ROUTE_LIMIT && (
                 <a href="#transit-search" className="trn-add">

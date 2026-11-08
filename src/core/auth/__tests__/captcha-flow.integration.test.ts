@@ -7,8 +7,8 @@ import { form } from "@/dev/test-helpers";
 import { coreUsers } from "../../db/schema";
 import { hashPassword } from "../credentials";
 
-// 從驗證碼路由發 cookie 表單送出 Server Action 到資料庫整條都是真的
-// 只把 next/headers 換成一個共用的假 cookie
+// 從驗證碼路由到資料庫整條都是真的
+// 只把 next/headers 換成共用的假 cookie
 
 const CODE = "K7MRX";
 const PASSWORD = "Plum blossom 2026";

@@ -3,9 +3,8 @@ import { DAY_MS } from "@/core/time";
 import type { County } from "./counties";
 import { beaufortLevel, windDirection, windOf, type DayDetails } from "./details";
 
-// 一週預報與今天的細節 台灣用氣象署 F-D0047-091 國外用 Open-Meteo 兩邊整理成同一種形狀
-// 每小時 台灣用氣象署 F-D0047-089 只有三天 國外跟一週預報同一個回應
-// 氣象署的格式照官方文件 還沒用真實授權碼驗證
+// 台灣用 F-D0047-091 每小時用 089 國外用 Open-Meteo
+// 整理成同一種形狀 氣象署的格式還沒用真實授權碼驗證
 
 export type WeekDay = { date: string; weather: string | null; high: number | null; low: number | null; rain: number | null; details: DayDetails };
 /** time 是當地時間的 YYYY-MM-DDTHH:mm */
@@ -181,6 +180,9 @@ export function parseCwaHours(json: unknown, county: County): HourPoint[] {
 }
 
 const localTime = (now: Date, utcOffsetSeconds: number) => new Date(now.getTime() + utcOffsetSeconds * 1000).toISOString();
+
+/** 當地現在的 HH:mm 跟日出日落比 */
+export const localClock = (now: Date, utcOffsetSeconds: number): string => localTime(now, utcOffsetSeconds).slice(11, 16);
 
 /** 半夜讀到的第一段還是昨晚 快取裡也可能留著昨天 第一列才會是真的今天 */
 export function fromToday(days: readonly WeekDay[], now: Date, utcOffsetSeconds: number): WeekDay[] {

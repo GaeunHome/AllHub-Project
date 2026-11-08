@@ -18,7 +18,7 @@ export function parseThemePref(stored: string): ThemePref | undefined {
 type ThemeRoot = { setAttribute(name: string, value: string): void; removeAttribute(name: string): void };
 
 /**
- * 跟隨系統時拿掉 data-theme 交給 CSS 的 prefers-color-scheme
+ * 跟隨系統時拿掉 data-theme 交給 CSS
  * 系統切換時才不必再跑 JavaScript
  */
 export function applyTheme(root: ThemeRoot, pref: ThemePref): void {

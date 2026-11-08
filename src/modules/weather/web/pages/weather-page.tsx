@@ -7,7 +7,7 @@ import { Scene } from "@/core/ui/scene";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { cityPhoto, photoCredit } from "../../lib/city-photos";
 import type { County } from "../../lib/counties";
-import { upcomingHours, type WeekDay } from "../../lib/weekly";
+import { localClock, upcomingHours, type WeekDay } from "../../lib/weekly";
 import { cachedPlaces, cachedSettings } from "../../service/cached";
 import { AirAndWarnings, AirAndWarningsSkeleton, airParts } from "../components/air-and-warnings";
 import { CityOverview, CityOverviewSkeleton } from "../components/city-overview";
@@ -47,7 +47,7 @@ export async function WeatherPageBody({ searchParams }: { searchParams: SearchPa
   const week = await weekOf(selected);
   const rows = week ? weekRows(week.days) : [];
   const today = week?.days[0];
-  const tiles = today ? detailTiles(today.details) : [];
+  const tiles = today && week ? detailTiles(today.details, localClock(new Date(), week.utcOffsetSeconds)) : [];
   // 空氣品質與特報只有台灣的縣市 跟今天的細節並排 少了一個時另一個撐滿整列
   const air = county !== null && airParts() !== null;
 

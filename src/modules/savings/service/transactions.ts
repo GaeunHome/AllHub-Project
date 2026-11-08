@@ -42,8 +42,8 @@ import { checkEntryReferences, flowsBy, heldInvestmentIds, ownAccounts, rejectHe
 export type TransactionFields = { kind: string; accountId: string; counterAccountId: string; categoryId: string; amount: string; date: string; note: string };
 
 /**
- * 明細用 帶上帳戶與分類的名稱 recurring 是固定收支記的或確認的
- * holdingSymbol 是買賣的那一檔 持股刪掉後是 null recurringName 是固定收支的名稱
+ * recurring 是固定收支記的或確認的
+ * holdingSymbol 在持股刪掉後是 null
  */
 export type TransactionView = SavingsTransaction & {
   accountName: string;
@@ -152,8 +152,8 @@ async function updateBillRow(userId: string, id: number, existing: { kind: Trans
 }
 
 /**
- * 已經不在或不是自己的回 false 買賣紀錄把持股還原 自動記的不退游標
- * 確認來的紀錄把游標退回去 帳單補的那一筆連帳單一起刪 待處理都會再出現
+ * 買賣紀錄把持股還原 確認來的退回游標 自動記的不退
+ * 帳單補的那一筆連帳單一起刪
  */
 export async function deleteTransaction(userId: string, id: number): Promise<boolean> {
   if (!isRowId(id)) return false;
@@ -240,8 +240,8 @@ export async function updateBalance(userId: string, fields: BalanceFields, now =
 }
 
 /**
- * 薪水記成收入再轉到各帳戶 同一個交易 轉出合計不能超過薪水 0 元的略過
- * 從待處理確認時收入帶上是哪一條固定收支的哪一期 一起把游標推到這一期
+ * 薪水記成收入再轉到各帳戶 同一個交易
+ * 從這個月要做的事確認時帶上期別 一起推游標
  */
 export async function allocateSalary(userId: string, fields: SalaryFields, now = new Date()): Promise<{ income: SavingsTransaction; transfers: SavingsTransaction[]; remainder: number }> {
   const today = taipeiToday(now);
@@ -249,8 +249,8 @@ export async function allocateSalary(userId: string, fields: SalaryFields, now =
   const names = await db().select({ id: savingsAccounts.id, name: savingsAccounts.name }).from(savingsAccounts).where(eq(savingsAccounts.userId, userId));
   const input = valid(parseSalaryFields(fields, today, new Map(names.map((row) => [row.id, row.name]))));
   return db().transaction(async (tx) => {
-    // 檢查與寫入在同一個交易 任何一筆不行就全部不寫 不會只記了薪水沒分出去
-    // 先鎖使用者再鎖帳戶 新紀錄的外鍵也要鎖使用者 反了會跟刪除帳號互相等
+    // 任何一筆不行就全部不寫 不會只記了薪水沒分出去
+    // 先鎖使用者再鎖帳戶 反了會跟刪除帳號互相等
     await lockUserRow(tx, userId, "key share");
     const accounts = await ownAccounts(
       tx,

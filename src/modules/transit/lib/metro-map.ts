@@ -2,8 +2,8 @@ import { metroLine, metroLineName } from "./lines";
 import { plainName } from "./station-search";
 import type { Station } from "./timetable";
 
-// 選站視窗的捷運路線圖 自己畫的示意圖 大致照官方路線圖的方位 x 往東 y 往南
-// 一格約是相鄰兩站的距離 橫的一段兩格才放得下站名 這裡只放轉彎與轉乘站 中間的站平均分
+// 自己畫的示意圖 大致照官方的方位 x 往東 y 往南
+// 只寫轉彎與轉乘站 中間平均分 橫的一段兩格才放得下站名
 
 export type MapPoint = { x: number; y: number };
 /** 站名放在點的哪一邊 n 是上面 e 是右邊 */
@@ -14,9 +14,10 @@ type Hub = { at: Point; side: LabelSide };
 type Stop = { id: string; side: LabelSide; at?: Point } | { bend: Point };
 type LineSpec = { key: string; line: string; system: string; stops: Stop[] };
 
-/** 站名的字級與離點的距離 單位是格 畫面照這兩個數字排 */
+/** 站名的字級與離點的距離 單位是格 畫面照這三個數字排 斜角的站名靠近一點 */
 export const LABEL_EM = 0.42;
 export const LABEL_GAP = 0.3;
+export const LABEL_SLANT_GAP = LABEL_GAP * 0.7;
 
 const at = (id: string, point: Point, side: LabelSide): Stop => ({ id, side, at: point });
 const hub = (id: string, { at: point, side }: Hub): Stop => ({ id, side, at: point });
@@ -46,6 +47,7 @@ const INDUSTRIAL_PARK: Hub = { at: [-10, -6], side: "n" };
 const NANGANG_EXHIBITION: Hub = { at: [23, -1], side: "e" };
 
 // 支線的起點跟主線同一個點
+const DINGPU: Point = [-15, 9];
 const BEITOU: Point = [0, -14];
 const QIZHANG: Point = [2, 12];
 const DAQIAOTOU: Point = [-3, -5];
@@ -56,7 +58,7 @@ const LINES: LineSpec[] = [
     line: "BL",
     system: "TRTC",
     stops: [
-      at("BL01", [-15, 9], "w"),
+      at("BL01", DINGPU, "w"),
       ...run("w", ...codes("BL", 2, 6)),
       hub("BL07", BANQIAO),
       at("BL08", [-8, 2], "e"),
@@ -100,6 +102,7 @@ const LINES: LineSpec[] = [
     line: "R",
     system: "TRTC",
     stops: [
+      at("R01", [16, 3], "e"),
       at("R02", [14, 3], "n"),
       ...run("n", "R03", "R04"),
       hub("R05", DAAN),
@@ -161,7 +164,8 @@ const LINES: LineSpec[] = [
       at("O12", DAQIAOTOU, "ne"),
       ...run("w", "O13", "O14"),
       hub("O15", SANCHONG),
-      ...run("s", "O16"),
+      // 三重的站名在左下 先嗇宮放線的上面才不會連成一串
+      ...run("n", "O16"),
       hub("O17", TOUQIANZHUANG),
       ...run("s", ...codes("O", 18, 20)),
       at("O21", [-18, -2], "s"),
@@ -188,6 +192,23 @@ const LINES: LineSpec[] = [
       hub("Y20", INDUSTRIAL_PARK),
     ],
   },
+  // 三鶯線從頂埔往南到三峽再往西 橫的一段站距一格半 站名上下交錯才放得下
+  {
+    key: "LB",
+    line: "LB",
+    system: "NTMC",
+    stops: [
+      at("LB01", DINGPU, "w"),
+      ...run("e", ...codes("LB", 2, 5)),
+      at("LB06", [-15, 14], "e"),
+      at("LB07", [-16.5, 14], "s"),
+      at("LB08", [-18, 14], "n"),
+      at("LB09", [-19.5, 14], "s"),
+      at("LB10", [-21, 14], "n"),
+      at("LB11", [-22.5, 14], "s"),
+      at("LB12", [-24, 14], "n"),
+    ],
+  },
   {
     key: "A",
     line: "A",
@@ -198,7 +219,9 @@ const LINES: LineSpec[] = [
       bend(-5, -1),
       hub("A2", SANCHONG),
       hub("A3", INDUSTRIAL_PARK),
-      ...run("n", ...codes("A", 4, 8, 1)),
+      // 新莊副都心放線的下面 兩站都是直排的長站名 並排會擠在一起
+      ...run("s", "A4"),
+      ...run("n", ...codes("A", 5, 8, 1)),
       at("A9", [-22, -6], "n"),
       ...run("e", ...codes("A", 10, 13, 1), "A14a", ...codes("A", 15, 21, 1)),
       at("A22", [-22, 7], "e"),
@@ -279,18 +302,16 @@ export type MetroMap = {
   missing: Station[];
 };
 
-/** 站名大概多寬 中文一格字 英數字窄一點 橫排的站名最多四個半字就換行 */
-function labelBox({ x, y, name, side }: MapStation) {
+/** 站名大概佔多大 跟畫面的排法一樣 中文一格字 英數字窄一點 橫排的站名最多四個半字就換行 */
+export function labelBox({ x, y, name, side }: Pick<MapStation, "x" | "y" | "name" | "side">) {
   const wide = [...name].reduce((total, char) => total + (/[\x20-\x7e]/.test(char) ? 0.6 : 1), 0) * LABEL_EM;
   const stacked = side === "n" || side === "s";
   const width = stacked ? Math.min(wide, 4.5 * LABEL_EM) : wide;
   const height = (stacked && wide > width ? 2 : 1) * LABEL_EM * 1.2;
-  const reach = LABEL_GAP + width;
-  const left = side.includes("w") ? x - reach : side.includes("e") ? x : x - width / 2;
-  const right = side.includes("e") ? x + reach : side.includes("w") ? x : x + width / 2;
-  const top = side.startsWith("n") ? y - LABEL_GAP - height : side.startsWith("s") ? y : y - height / 2;
-  const bottom = side.startsWith("s") ? y + LABEL_GAP + height : side.startsWith("n") ? y : y + height / 2;
-  return { left, right, top, bottom };
+  const gap = side.length === 2 ? LABEL_SLANT_GAP : LABEL_GAP;
+  const left = side.includes("w") ? x - gap - width : side.includes("e") ? x + gap : x - width / 2;
+  const top = side.startsWith("n") ? y - gap - height : side.startsWith("s") ? y + gap : y - height / 2;
+  return { left, right: left + width, top, bottom: top + height };
 }
 
 const MARGIN = 0.8;

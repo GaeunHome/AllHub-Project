@@ -38,9 +38,8 @@ export function formFlag(formData: FormData, name: string): boolean | null {
 export class UserError extends Error {}
 
 /**
- * module 是 log 的前綴 action 用在 log 操作紀錄與畫面上的摘要
  * titled 給標題已經寫了失敗的提示視窗
- * target 與 detail 寫進操作紀錄 不能放密碼 cookie API Key 或記帳的金額
+ * target 與 detail 寫進操作紀錄 不能放密碼 cookie 或金額
  */
 export type ActionScope = { module: string; action: string; titled?: boolean; target?: string | null; detail?: string | null };
 
@@ -48,8 +47,8 @@ export type ActionScope = { module: string; action: string; titled?: boolean; ta
 export type IsUserError = (error: unknown) => boolean;
 
 /**
- * 使用者輸入錯誤原樣顯示 UserError 一律算 isUserError 可以再加
- * 其他錯誤的 message 可能夾帶 SQL 與參數 畫面只給摘要 log 只記種類
+ * UserError 原樣顯示 isUserError 可以再加別的類別
+ * 其他錯誤可能夾帶 SQL 參數 畫面只給摘要
  */
 export function actionErrorMessage(scope: ActionScope, error: unknown): string;
 export function actionErrorMessage(scope: ActionScope, isUserError: IsUserError, error: unknown): string;

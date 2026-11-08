@@ -125,8 +125,8 @@ export async function updateNickname(userId: string, input: string): Promise<Upd
 }
 
 /**
- * 空字串是改回文字頭像 範例頭像只存 id 換一張就是蓋掉舊的 userId 一律來自 session
- * 改成別的頭像時上傳的照片一起刪 不留在資料庫佔空間 KEEP_AVATAR 是留著目前的照片
+ * 空字串改回文字頭像 KEEP_AVATAR 留著目前的照片
+ * 換成別的時上傳的照片一起刪 不佔資料庫空間
  */
 export async function updateAvatar(userId: string, input: string): Promise<UpdateAvatarResult> {
   if (input === KEEP_AVATAR) return { ok: true, avatar: input };

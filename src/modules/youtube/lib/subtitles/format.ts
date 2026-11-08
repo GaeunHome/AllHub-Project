@@ -55,8 +55,8 @@ export function parseSubtitles(text: string): Cue[] {
 }
 
 /**
- * 自動字幕是滾動格式 每句會在下一個 cue 再出現一次 不整理會重複送 AI
- * 只拿掉多行 cue 的第一行 連續相同的單行 cue 是真的重複 例如歌詞
+ * 自動字幕每句會在下一個 cue 再出現 不整理會重複送 AI
+ * 只拿掉多行 cue 的第一行 相同的單行 cue 是真的重複 例如歌詞
  */
 function collapseRolling(cues: Cue[]): Cue[] {
   const result: Cue[] = [];
@@ -114,8 +114,8 @@ export function toVtt(cues: Cue[]): string {
 }
 
 /**
- * 只收 UTF-8 與韓文 Windows 預設的 CP949
- * Node 的 euc-kr 缺擴充字 解不出時會變成 C1 控制字元而不報錯 所以出現 C1 也算失敗
+ * 只收 UTF-8 與韓文 Windows 的 CP949
+ * Node 的 euc-kr 缺擴充字會變成 C1 而不報錯 所以 C1 算失敗
  */
 export function decodeSubtitleBytes(bytes: Uint8Array): string | null {
   try {

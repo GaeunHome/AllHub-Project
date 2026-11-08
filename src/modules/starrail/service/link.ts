@@ -18,8 +18,8 @@ export type RoleChoice = { uid: string; nickname: string | null; server: string;
 export type RoleSelection = "ask" | "all" | string[];
 
 /**
- * accountId 是剛連結或更新 cookie 的自己那一列 頁面導向它
- * warning 是成功了但要提醒的事 roles 是還要先選伺服器
+ * accountId 是剛寫入的自己那一列 頁面導向它
+ * roles 是還要先選伺服器
  */
 type LinkOutcome = Outcome<{ message: string; warning?: string; accountId: number }> | { ok: false; error?: never; roles: RoleChoice[] };
 

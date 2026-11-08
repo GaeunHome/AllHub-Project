@@ -6,8 +6,8 @@ import { isYoutubeHttpsUrl, youtubeWatchUrl } from "../urls";
 import { fetchInnertubePlayer, fetchYoutubePage } from "../youtube-fetch";
 import type { Cue } from "./format";
 
-// 官方 API 只能抓自己頻道的字幕 先讀觀看頁的 ytInitialPlayerResponse 讀不到再問 InnerTube
-// 兩個都非官方 雲端主機可能一起被擋 那時改請使用者上傳字幕檔
+// 官方 API 只能讀自己頻道的字幕 所以讀觀看頁 再問 InnerTube
+// 兩個都非官方 雲端主機可能一起被擋 那時請使用者上傳
 
 export type CaptionFetchResult =
   | { ok: true; cues: Cue[]; kind: "manual" | "auto"; language: string }
@@ -25,7 +25,7 @@ const NO_PLAYER_MESSAGE = `YouTube 沒有回傳播放資訊（可能要求同意
 
 type FailureReason = Extract<CaptionFetchResult, { ok: false }>["reason"];
 
-// reason 保留字面型別 回傳值才能當成讀取失敗或抓字幕失敗用
+// reason 保留字面型別 回傳值才能當成讀取失敗或讀字幕失敗用
 const fail = <R extends FailureReason>(reason: R, message: string) => ({ ok: false as const, reason, message });
 
 export async function fetchKoreanCaptions(videoId: string, opts: { fetchImpl?: typeof fetch } = {}): Promise<CaptionFetchResult> {
@@ -52,7 +52,7 @@ async function downloadKorean(player: Player, fetchImpl: typeof fetch): Promise<
     }
 
     const download = new URL(track.baseUrl, "https://www.youtube.com");
-    // 網址來自頁面內容 只收 YouTube 自己的 免得被導去抓別的地方
+    // 網址來自頁面內容 只收 YouTube 自己的 免得被導去讀別的地方
     if (!isYoutubeHttpsUrl(download)) return fail("error", "字幕網址不是 YouTube 的網址");
     download.searchParams.set("fmt", "json3");
     const response = await fetchYoutubePage(download.toString(), { cache: "no-store", fetchImpl });

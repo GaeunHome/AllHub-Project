@@ -40,9 +40,8 @@ function removeSpies(client: PGlite) {
 }
 
 /**
- * 同一個檔案共用一個記憶體資料庫 載入 test-db-snapshot.ts 套好正式 migration 的快照
- * 每個測試開始前清空資料與序號 所以測試裡不能改表結構 要改的放到自己的檔案
- * 掛在 core/db 讀的 globalThis.hubDb 被測的服務不用改就會用它
+ * 同一個檔案共用一個資料庫 每個測試前清空資料與序號
+ * 所以測試裡不能改表結構 要改的放到自己的檔案
  */
 export function setupTestDb(onReady?: (db: TestDb) => void): () => TestDb {
   let client: PGlite | undefined;
@@ -79,8 +78,8 @@ export function setupTestDb(onReady?: (db: TestDb) => void): () => TestDb {
 }
 
 /**
- * 依使用者的表都有外鍵指向 core_users 測試要先建帳號
- * id 指定成 TEST_SESSION.id 時 Server Action 讀到的登入者才對得上
+ * 依使用者的表有外鍵 要先建帳號
+ * id 給 TEST_SESSION.id 時 Server Action 的登入者才對得上
  */
 export async function insertTestUser(db: TestDb, username: string, { id, role = "member" }: { id?: string; role?: UserRole } = {}): Promise<string> {
   const [user] = await db
@@ -92,7 +91,7 @@ export async function insertTestUser(db: TestDb, username: string, { id, role = 
 
 /**
  * 站長 alice 與成員 bob 測擁有權與 IDOR 用
- * id 跟 session-stub 的 TEST_SESSION 與 OTHER_SESSION 一樣 換登入者時直接對得上
+ * id 跟 TEST_SESSION 與 OTHER_SESSION 一樣
  */
 export async function insertTestUsers(db: TestDb): Promise<[alice: string, bob: string]> {
   const alice = await insertTestUser(db, TEST_SESSION.username, { id: TEST_SESSION.id, role: TEST_SESSION.role });

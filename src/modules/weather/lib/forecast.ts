@@ -2,8 +2,8 @@ import { asArray, asRecord, numberOf } from "@/core/json";
 import { formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDayOffset } from "@/core/time";
 import { normalizeCounty, type County } from "./counties";
 
-// 氣象署 F-C0032-001 今明 36 小時天氣預報 每個縣市三個 12 小時的時段
-// 回應是 records.location[].weatherElement[].time[] 每個要素各一串時段
+// F-C0032-001 每個縣市三個 12 小時的時段
+// 每個要素各一串 time[]
 
 /** start 與 end 是 ISO 字串 快取裡放字串才不怕序列化 rain 是降雨機率的百分比 */
 export type ForecastPeriod = { start: string; end: string; description: string; rain: number | null; minTemp: number | null; maxTemp: number | null; comfort: string | null };

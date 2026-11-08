@@ -40,7 +40,7 @@ type StartPanelProps = {
 export function StartPanel({ videoId, channel, controls, starter: { result, pending, start }, autoTranslate, onAutoTranslateChange, onConsent, apiKeyMissing, settingsHref }: StartPanelProps) {
   const failed = result && !result.ok ? result : null;
   const canUpload = failed?.canUpload || result === null;
-  // 抓不到韓文字幕時直接展開上傳 使用者自己按過就照他的選擇
+  // 讀不到韓文字幕時直接展開上傳 使用者自己按過就照他的選擇
   const [uploadChoice, setUploadChoice] = useState<boolean | null>(null);
   const uploadOpen = canUpload && (uploadChoice ?? result !== null);
   const uploadId = useId();
@@ -51,7 +51,7 @@ export function StartPanel({ videoId, channel, controls, starter: { result, pend
         <button
           disabled={pending}
           onClick={() => {
-            // 自己按開始時 抓字幕期間別人剛好先開始了 沿用他的翻譯也照樣接著翻
+            // 自己按開始時 讀字幕期間別人剛好先開始了 沿用他的翻譯也照樣接著翻
             onConsent();
             start();
           }}

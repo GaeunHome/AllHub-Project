@@ -1,5 +1,5 @@
-/* 由 globals.css 引入到 @layer components 裡 這裡不再包一層 */
-/* 理財的總覽 數字一出現就是最後的值 不加進場動畫 */
+/* 由 globals.css 引入到 @layer components 裡 不再包一層 */
+/* 數字一出現就是最後的值 不加進場動畫 */
 
 /* 預算與目標的細長條 顏色一律中性 狀態寫在旁邊的字 */
 .fin-meter {
@@ -270,8 +270,8 @@
   background-color: var(--surface-solid);
 }
 
-/* 開始設定的收起和略過存在瀏覽器 兩種樣子都畫好 */
-/* 由 html 上的屬性決定顯示哪一種 第一次繪製前就標好 見 overview-prefs.ts */
+/* 收起和略過存在瀏覽器 兩種樣子都畫好 */
+/* html 的屬性在第一次繪製前標好 決定顯示哪一種 */
 .fin-setup-closed,
 .fin-step-skipped {
   display: none;

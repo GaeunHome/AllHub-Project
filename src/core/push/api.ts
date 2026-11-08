@@ -7,8 +7,8 @@ import { isSameOrigin } from "../same-origin";
 import { isPushEndpoint, isPushKeys } from "./rules";
 import { removeSubscription, saveSubscription, setPushMute } from "./service";
 
-// 用 Route Handler 不用 Server Action 同通知 不跟觀看頁的翻譯排隊
-// 使用者 id 一律來自 session 表單只決定是哪一支手機
+// 不用 Server Action 才不跟觀看頁的翻譯排隊
+// 使用者 id 來自 session 表單只決定是哪一支手機
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 

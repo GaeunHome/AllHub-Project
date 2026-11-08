@@ -1,5 +1,5 @@
-/* 由 globals.css 引入到 @layer components 裡 這裡不再包一層 */
-/* 半透明的切角面板 右上與左下切掉一角 上緣一條淡金色細線 */
+/* 由 globals.css 引入到 @layer components 裡 不再包一層 */
+/* 半透明的切角面板 上緣一條淡金色細線 */
 .sr-panel {
   position: relative;
   border: 1px solid var(--line);
@@ -39,8 +39,8 @@
     clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
   }
 }
-/* 立繪舞台用深藍底加一圈稀有度色的光暈 不用整片亮色的稀有度底色 */
-/* 手機排在標題下面 寬螢幕佔面板大半 右欄最多 32rem 文字不會把立繪擠小 */
+/* 深藍底加稀有度色的光暈 不用整片亮色底 */
+/* 寬螢幕佔面板大半 右欄最多 32rem 文字不會把立繪擠小 */
 .sr-stage {
   --sr-stage-glow: rgb(148 163 184 / 0.3);
   @apply relative order-2 aspect-square max-h-[75dvh] w-full shrink-0 overflow-hidden;

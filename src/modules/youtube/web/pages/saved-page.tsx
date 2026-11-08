@@ -83,7 +83,7 @@ function SavedSkeleton() {
   );
 }
 
-// 圖示 名稱與點綴色由 src/app 從 info.ts 傳進來 web 層不能 import 根目錄
+// web 不能 import 模組根目錄 info 由 src/app 傳進來
 // 跟列表頁一樣照 YouTube 的淺色與深色
 export function SavedVideosPage({ info }: { info: ModuleInfo }) {
   return (

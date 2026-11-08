@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import { readStylesheet } from "@/dev/stylesheet";
 import { SideToggle } from "../side-toggle";
 
-// 這一版在瀏覽器發現的 側邊欄收起後收起鈕沒有箭頭
-// 收起時藏的是鈕裡所有的 span 圖示元件也是 span 箭頭跟著藏起來 轉向的規則又寫給 svg 選不到
+// 發生過收起後鈕沒有箭頭 藏的是所有 span 圖示也是 span
+// 轉向的規則又寫給 svg 選不到
 
 const css = readStylesheet(fileURLToPath(new URL("../../transit.css", import.meta.url))).replace(/\/\*[\s\S]*?\*\//g, "");
 const rules = [...css.matchAll(/([^{};]+)\{([^{}]*)\}/g)].flatMap((m) => m[1].split(",").map((selector) => ({ selector: selector.trim(), body: m[2] })));

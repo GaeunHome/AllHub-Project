@@ -4,11 +4,8 @@ import { coreUsers } from "@/core/db/schema";
 import { MODES } from "../lib/modes";
 
 /**
- * 常用路線 車站名稱是新增時向 TDX 抄下來的 畫面不用再查一次
- * 捷運沒有起訖站的時刻表 destination 是這一站開往的終點站
- * system 是捷運系統或公車的縣市 高鐵與台鐵是空字串 唯一索引才擋得住重複
- * 公車的 line 是路線 origin 是站牌 destination 的 id 是方向 name 是那個方向的終點
- * 高鐵與台鐵的 line 是車次 以前存的沒有車次是空字串
+ * system 高鐵與台鐵是空字串 唯一索引才擋得住重複
+ * 捷運的 destination 是終點站 公車的是方向 line 見 lib/modes.ts
  */
 export const transitRoutes = pgTable(
   "transit_routes",

@@ -1,13 +1,12 @@
-/* 由 globals.css 引入到 @layer components 裡 這裡不再包一層 */
-/* YouTube 觀看頁的播放器 web/components/youtube-player.tsx */
-/* 外框先佔好 16:9 的位置 播放器疊在裡面 進出全螢幕時頁面不會跳 */
+/* 由 globals.css 引入到 @layer components 裡 不再包一層 */
+/* 外框先佔好 16:9 播放器疊在裡面 進出全螢幕時不會跳 */
 .player-slot {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
 }
-/* 劇院模式撐滿內容寬度 高度封頂讓整個播放器留在畫面裡 */
-/* 伺服器讀不到瀏覽器的偏好 整頁載入時由同步腳本先標上 data-youtube-theater */
+/* 劇院模式撐滿寬度 高度封頂讓播放器留在畫面裡 */
+/* 伺服器讀不到偏好 整頁載入時由同步腳本先標好 */
 @media (min-width: 64rem) {
   .player-slot[data-size="theater"],
   html[data-youtube-theater] .player-slot {
@@ -53,7 +52,7 @@ html:has(.player-frame:fullscreen) {
   border-radius: 0;
   box-shadow: none;
 }
-/* 捲動鎖由 lockPageScroll 寫在 html 的屬性上 不比對播放器的屬性 */
+/* 捲動鎖寫在 html 的屬性上 不比對播放器 */
 /* Activity 藏起來的頁面才不會把下一頁也鎖住 */
 html[data-player-fullscreen] {
   overflow: hidden;
@@ -147,8 +146,8 @@ html[data-player-fullscreen] {
   color: rgb(255 255 255 / 0.75);
   background-color: rgb(255 255 255 / 0.15);
 }
-/* 按鈕放在右下角 YouTube 控制列的正上方 控制列最高約 4.5rem 全螢幕時位置一樣 */
-/* 上下排只佔右邊一欄 字幕兩側留的空位讓得開 略過廣告也只蓋到右邊一小段 */
+/* 在 YouTube 控制列正上方 控制列最高約 4.5rem */
+/* 上下排只佔右邊一欄 字幕讓得開 略過廣告只蓋到一小段 */
 .player-controls {
   position: absolute;
   right: 0.75rem;

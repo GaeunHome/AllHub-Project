@@ -68,10 +68,7 @@ export async function setStreamerNotify(userId: string, streamerId: number, enab
   return updated.length > 0;
 }
 
-/**
- * 只列自己追蹤中主播的開台紀錄 別人追蹤誰不能從這裡看出來
- * 以前留下的關台列要 14 天後才清掉 所以這裡濾掉 不佔筆數的名額
- */
+/** 只列自己追蹤中主播的開台紀錄 別人追蹤誰不能從這裡看出來 */
 export async function recentEvents(userId: string, limit = 20) {
   return db()
     .select({
@@ -162,8 +159,8 @@ async function deleteSubscriptionsOf(streamer: TwitchStreamer): Promise<boolean>
 }
 
 /**
- * existing 是 Twitch 上現有的訂閱 key 是 type:broadcasterId
- * 用主播對應而不是資料庫存的 id 遺失 id 時才不會重複建立而收到 409
+ * existing 的 key 是 type:broadcasterId
+ * 用主播對應不用存的 id 遺失時才不會重複建立收到 409
  */
 async function ensureSubscriptions(streamer: TwitchStreamer, existing: Map<string, EventSubSubscription>): Promise<TwitchStreamer> {
   const ids: Partial<Record<StreamEventType, string | null>> = {};
@@ -366,8 +363,8 @@ async function announceOnline(eventId: number, streamerId: number, event: Stream
 }
 
 /**
- * 開台紀錄只留最近 RETENTION_DAYS 天 以前留下的關台列也一起清掉
- * EventSub 只收 10 分鐘內的訊息 刪舊紀錄不影響 message id 去重
+ * EventSub 只收 10 分鐘內的訊息
+ * 刪舊紀錄不影響 message id 去重
  */
 export async function cleanupStreamEvents(now = new Date()): Promise<string> {
   return deleteExpired(twitchStreamEvents.receivedAt, "開台紀錄", now);

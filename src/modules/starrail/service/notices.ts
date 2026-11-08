@@ -15,8 +15,8 @@ export function notifyOwner(userId: string, notice: Notice): Promise<void> {
 }
 
 /**
- * 同一個帳號同一期只寄一次 先認領再寄 寄不出去就放掉 下一輪排程再試
- * 認領記在 core_rate_limits 一天後就刪 所以每種提醒的時段都短於一天
+ * 同一個帳號同一期只寄一次 寄不出去下一輪再試
+ * 認領一天後就刪 所以每種提醒的時段都短於一天
  */
 export function notifyOnce(account: StarrailAccount, period: string, now: Date, notice: Notice): Promise<boolean> {
   return sendOnce(

@@ -10,9 +10,8 @@ import { linkTarget } from "./notifications/links";
 import { pushToPhones } from "./push/send";
 
 /**
- * recipients 是收件人的使用者 id 由各模組依自己的規則決定
- * module 是發通知的模組 id 通知頁依它篩選 導覽列依它標未讀數
- * push 是手機上顯示的文字 會出現在鎖定畫面 有金額這類內容時才給 鈴鐺裡照舊是完整的 title
+ * recipients 由各模組依自己的規則決定
+ * push 是鎖定畫面上的文字 有金額這類內容時才給
  */
 export type NotifyInput = { recipients: readonly string[]; module: string; kind: string; title: string; body?: string; url?: string | null; push?: { title: string; body?: string } };
 
@@ -47,8 +46,8 @@ export async function notify({ recipients, module, kind, title, body = "", url, 
 }
 
 /**
- * 模組決定要不要再寄之前查 這個人在 since 之後有沒有收過同一種通知 只看他自己的
- * url 有給時只算連到同一個地方的 例如同一個遊戲帳號
+ * 查這個人 since 之後收過同一種通知沒有
+ * url 有給時只算連到同一處的 例如同一個遊戲帳號
  */
 export async function notifiedSince({ userId, module, kind, since, url }: { userId: string; module: string; kind: string; since: Date; url?: string }): Promise<boolean> {
   const href = url === undefined ? undefined : (linkTarget(url)?.href ?? null);

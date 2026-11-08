@@ -1,5 +1,5 @@
-// 角色詳情沒有公開文件 欄位依 genshin.py 整理 還沒用真實帳號驗證
-// 讀不到的給 null 並記下路徑 第一次接真實帳號時看 log 就知道哪裡不同
+// 沒有公開文件 欄位依 genshin.py 整理 還沒用真實帳號驗證
+// 讀不到的給 null 並記下路徑 接真實帳號時看 log 就知道
 
 import { asRecord, boolOf, createMissing, numberOf, text } from "@/core/json";
 import { ELEMENTS, elementIconUrl, elementOf, pathIconUrl, pathOf, propertyIconUrl } from "./game-icons";
@@ -8,8 +8,8 @@ import { DATA_NOT_PUBLIC } from "./retcodes";
 import { interpretWith, type HoyolabResult } from "./responses";
 
 /**
- * times 是 HoYoLAB 原樣的次數 畫面用 relicUpgrades 換成強化次數
- * icon 是內建圖示的站內路徑 對照表以外的屬性是 null
+ * times 是原樣的次數 畫面用 relicUpgrades 換成強化次數
+ * icon 對照表以外的屬性是 null
  */
 export type RelicStat = { name: string; value: string | null; times: number | null; icon: string | null };
 

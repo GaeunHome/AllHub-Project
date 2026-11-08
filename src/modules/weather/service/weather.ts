@@ -110,8 +110,8 @@ export async function fetchForecasts(counties: readonly County[], fetchImpl?: ty
 }
 
 /**
- * county 是 null 時全台一次讀 回傳回應裡每個縣市的特報 沒有特報的是空陣列
- * 讀不到或沒有授權碼回 null 少了欄位時只記欄位名稱 不記縣市 看不出誰住哪裡
+ * county 是 null 時全台一次讀 沒有特報的是空陣列
+ * 少了欄位只記名稱 不記縣市 看不出誰住哪裡
  */
 export async function fetchWarnings(county: County | null, fetchImpl?: typeof fetch, timeoutMs?: number): Promise<Map<County, Warning[]> | null> {
   const json = await readCwaJson(WARNING_URL, "天氣警特報", county, fetchImpl, timeoutMs);

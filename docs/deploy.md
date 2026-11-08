@@ -114,6 +114,10 @@ npm run account create
 - 一般的部署不會讓登入失效。只有換 `SESSION_SECRET`、改密碼或重建資料庫才會。
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
+- **從 v0.2.8 升級到 v0.2.9**：一般的升級，推送前不用另外設定，排程與環境變數都沒變。
+  - db-migrate 套用 `0001_announcement_pin`（`0001_route_order_and_cleanup` 已經併進基準檔，基準檔的時間戳記等於它），一開始設 `lock_timeout = 5s`：`core_announcements.pinned`（站長勾的置頂到跑馬燈，預設 false，以前的公告不置頂），並刪掉 `youtube_settings.id`（使用者要的翻譯設定改用 `user_id` 當主鍵，分兩版做的第二版；v0.2.8 已經不讀寫它，部署空窗期不受影響，identity 的 sequence 跟著刪）。
+  - 部署比 db-migrate 先完成時：新程式讀公告會帶 `pinned`，這個欄位還不存在，跑馬燈與首頁的公告欄先不出現（各自藏起來，不影響其他畫面），管理頁的公告區會顯示錯誤，db-migrate 跑完（通常幾十秒）重新整理就好。
+  - 要退回 v0.2.8 時可以用 Instant Rollback：v0.2.8 不讀 `pinned`，也不讀寫 `youtube_settings.id`。更舊的版本（v0.2.7 以前）會讀寫 `id` 或 v0.2.8 刪掉的欄位，不能回去。
 - **從 v0.2.7 升級到 v0.2.8**：一般的升級，推送前不用另外設定，排程與環境變數都沒變。
   - db-migrate 套用 `0001_route_order_and_cleanup`（`0001_tidy_and_new_tables` 已經併進基準檔），一開始設 `lock_timeout = 5s`：`transit_routes.sort_order`（常用路線的順序，預設 0，舊程式寫的列排在最前面），並刪掉 v0.2.7 已經從 schema 拿掉、程式不再讀寫的欄位：`savings_categories.color`、`savings_accounts.due_day`（連同它們的 check）、`twitch_stream_events.type`、`youtube_settings` 的六個 API Key 與模型欄位（v0.2.7 已經搬到 `youtube_ai_keys`）、`youtube_translations.batches`、`next_batch`。線上的 v0.2.7 不讀寫這些欄位，部署空窗期不受影響。
   - 翻譯設定 `youtube_settings` 改用 `user_id` 當主鍵（使用者要的，分兩版做）：同一個交易裡拿掉 `id` 的主鍵、加上 `user_id` 的主鍵，再拿掉多出來的 `youtube_settings_user_id_unique`。`id` 欄留著，還是從 2 開始自動編號的 identity，只是不再是主鍵：線上的 v0.2.7 select 與 insert 都會列出 `id`（insert 寫 default），存設定照 `user_id` 更新（`on conflict ("user_id")`，主鍵就涵蓋），部署空窗期照常讀寫；新程式比 migration 先上線時，舊的表上 `user_id` 本來就是唯一的，也寫得進去。

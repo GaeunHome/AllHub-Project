@@ -18,8 +18,8 @@ type ReminderFormProps = DateLimits & {
 };
 
 /**
- * 瀏覽器只先擋空白與範圍 標題與日期以伺服器的驗證為準 today 由伺服器照台北時間算好
- * 標題不設 maxLength 它算 UTF-16 單位 emoji 打不到規則的字數
+ * 瀏覽器只先擋空白與範圍 以伺服器的驗證為準
+ * 不設 maxLength 它算 UTF-16 emoji 打不滿字數
  */
 export function ReminderForm({ item, today, latest, onDone, onCancel }: ReminderFormProps) {
   const { state, pending, formProps } = useDialogForm(item ? updateReminderAction : createReminderAction, onDone);

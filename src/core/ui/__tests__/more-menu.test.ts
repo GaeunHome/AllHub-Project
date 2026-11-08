@@ -1,8 +1,8 @@
 import { createElement, isValidElement, useEffect, useId, useLayoutEffect, useRef, useState, type EffectCallback, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// effect 只在瀏覽器跑 直接呼叫元件 選單的 state 給開著 setter 換成替身
-// layout effect 自己跑 跑完再跑清除函式 就是 Activity 把頁面藏起來
+// effect 只在瀏覽器跑 直接呼叫元件 state 給開著
+// layout effect 跑完再跑清除 就是 Activity 藏起頁面
 vi.mock("react", { spy: true });
 
 const { MoreMenu } = await import("../more-menu");
@@ -147,5 +147,27 @@ describe("選單開著時按 Esc", () => {
     expect(escape.preventDefault).toHaveBeenCalledOnce();
     expect(menu.setOpen).toHaveBeenCalledExactlyOnceWith(false);
     expect(menu.button.focus).toHaveBeenCalledOnce();
+  });
+});
+
+describe("選單放進 top layer（常用路線的 ⋮ 被卡片切掉、被下面的卡片蓋住過）", () => {
+  it("打開時遮罩與選單都用 popover 顯示：卡片自己是一層（isolation）或用了容器查詢時 fixed 的選單會被關在卡片裡", () => {
+    const layoutEffects: EffectCallback[] = [];
+    vi.mocked(useState).mockReturnValueOnce([true, vi.fn()]);
+    vi.mocked(useRef).mockImplementation(((initial: unknown) => ({ current: initial })) as never);
+    vi.mocked(useId).mockReturnValue("menu");
+    vi.mocked(useLayoutEffect).mockImplementation((effect) => void layoutEffects.push(effect));
+    vi.mocked(useEffect).mockImplementation(() => {});
+
+    const tree = MoreMenu({ label: "路線的選項", children: null });
+    const shown: string[] = [];
+    const layer = (name: string) => ({ matches: () => false, showPopover: () => void shown.push(name), offsetWidth: 256, offsetHeight: 120, style: { setProperty: vi.fn() }, querySelector: () => null });
+    find(tree, (props) => props.type === "button" && props.role === undefined && props.ref !== undefined)!.props.ref!.current = { getBoundingClientRect: () => ({ left: 900, right: 936, top: 480, bottom: 516 }) };
+    find(tree, (props) => (props as { className?: string }).className === "more-menu-backdrop")!.props.ref!.current = layer("遮罩");
+    find(tree, (props) => props.role === "group")!.props.ref!.current = layer("選單");
+    for (const effect of layoutEffects) effect();
+
+    // 後顯示的在上面 選單要蓋過遮罩
+    expect(shown).toEqual(["遮罩", "選單"]);
   });
 });

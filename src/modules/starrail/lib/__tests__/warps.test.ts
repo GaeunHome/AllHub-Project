@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { WARP_BANNERS, interpretWarpLogin, interpretWarpPage, quoteBigCursors, summarizeBanner, type WarpRow } from "../warps";
 
-// 欄位與數字來自真實帳號的回應 角色活動是真珠 77 瓦爾特 76（歪）知更鳥•晴歌 78
+// 欄位與數字來自真實帳號 角色活動是真珠 77 瓦爾特 76 歪 知更鳥•晴歌 78
 const item = (name: string) => ({ item_id: 1310, name, icon: "https://example.com/icon.png", item_type: "角色", rarity: 5, big_icon: "https://example.com/big.png" });
 const star = (name: string, count: number, isUp = true, overrides: Record<string, unknown> = {}) => ({ item: item(name), is_up: isUp, got_item: true, gacha_count: count, uuid: `uuid-${name}`, id: 101, ...overrides });
 const pityRow = (count: number) => ({ is_up: false, got_item: false, gacha_count: count, uuid: "", id: 0 });

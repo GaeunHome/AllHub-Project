@@ -128,8 +128,8 @@ export function CreateInviteForm({ modules }: { modules: Pick<ModuleInfo, "id" |
           {pending ? "建立中…" : "建立邀請連結"}
         </button>
       </form>
-      {/* 內容跟視窗一起出現 放在 live region 裡來不及念
-          改由 aria-describedby 連同標題念出 視窗裡只留複製結果一個 live region */}
+      {/* 內容跟視窗一起出現 放 live region 來不及念
+          改用 aria-describedby 跟標題一起念 */}
       <Dialog
         id={dialogId}
         open={result.dialogOpen}

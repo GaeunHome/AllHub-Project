@@ -1,13 +1,13 @@
-// 假的 HoYoLAB API 與圖片 CDN 遊戲的小圖示是內建的靜態檔不經過這裡
-// 特殊的 cookie 與兌換碼見 docs/development.md 的假伺服器的特殊輸入
+// 遊戲的小圖示是內建的靜態檔 不經過這裡
+// 特殊的 cookie 與兌換碼見 docs/development.md
 const signedUids = new Set();
 /** 每個 UID 兌換過的碼與上次兌換的時間 模擬已兌換與 5 秒冷卻 */
 const redeemed = new Map();
 const lastRedeemAt = new Map();
 const SMALL_UID = "800000002";
 /**
- * 主要角色的 UID 跟著 ltuid_v2 變 不同的人連到不同的遊戲帳號
- * 同一個 ltuid_v2 拿到同一個 UID 用來測已被其他使用者連結
+ * UID 跟著 ltuid_v2 變 不同的人連到不同的遊戲帳號
+ * 同一個 ltuid_v2 同一個 UID 用來測已被別人連結
  */
 const mainUidOf = (cookie) => {
   const ltuid = /ltuid_v2=(\d+)/.exec(cookie)?.[1];
@@ -23,8 +23,8 @@ const notPublic = { retcode: 10102, message: "Data is not public for the user", 
 
 const IMG = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg/mock";
 
-// 角色欄位依 genshin.py 的 StarRailDetailCharacter 名字用繁中版的譯名
-// 每個角色的光錐與遺器都不同 佔位圖的字跟著變 截圖看得出有沒有對應正確
+// 欄位依 genshin.py 的 StarRailDetailCharacter 用繁中譯名
+// 每個角色的光錐與遺器不同 截圖看得出有沒有對應正確
 const CHARACTERS = [
   { id: 1102, name: "希兒", element: "quantum", base_type: 2, rarity: 5, level: 80, rank: 2, cone: [23001, "於夜色中", 5], sets: ["繁星璀璨的天才", "繁星競技場"] },
   { id: 1213, name: "丹恆・飲月", element: "imaginary", base_type: 1, rarity: 5, level: 80, rank: 0, cone: [23015, "比陽光更明亮的", 5], sets: ["荒漠的廢土客", "奔狼的都藍王朝"] },
@@ -81,7 +81,7 @@ const UPGRADES = [
 function detail({ id, name, element, base_type, rarity, level, rank, cone, sets }) {
   const relic = ({ pos, part, main }, i) => {
     const relicLevel = pos === 4 && level < 80 ? 12 : 15;
-    // 每 3 級強化一次 times 推定含初始那一次 所以是強化次數加 1
+    // 每 3 級強化一次 times 推定含初始那一次 所以加 1
     // 依據見 lib/characters.ts 的 relicUpgrades
     let left = Math.floor(relicLevel / 3);
     const times = UPGRADES[i].map((n) => {
@@ -181,8 +181,8 @@ function detail({ id, name, element, base_type, rarity, level, rank, cone, sets 
 }
 
 /**
- * 戰績首頁 依 genshin.py 的 StarRailUserStats 網站只用 cur_head_icon_url
- * 頭像每個 UID 不同 看得出有沒有對應到正確的帳號
+ * 依 genshin.py 的 StarRailUserStats 只用 cur_head_icon_url
+ * 頭像每個 UID 不同 看得出有沒有對應到帳號
  */
 function profile(uid) {
   const roster = uid === SMALL_UID ? SMALL_ROSTER : CHARACTERS;
@@ -195,8 +195,8 @@ function profile(uid) {
 }
 
 /**
- * 活動日曆 欄位依 genshin.py 的 HSREventCalendar 時間跟著現在算
- * 混沌回憶一天半後結束還沒拿滿 傍晚跑開拓力排程時會發終局提醒
+ * 活動日曆依 genshin.py 的 HSREventCalendar 時間跟著現在算
+ * 混沌回憶一天半後結束沒拿滿 傍晚的排程會發終局提醒
  */
 function actCalendar(uid) {
   const now = Date.now();
@@ -343,8 +343,8 @@ function endgame(kind, scheduleType) {
 }
 
 /**
- * 社群的兌換碼清單 照 seriaati 的 hoyo-codes 格式 自動兌換讀這裡
- * 兩個 GIFT 開頭的會成功 STARRAILGIFT 第二次是已兌換 OMEGA 在假伺服器是無效
+ * 社群的兌換碼清單 照 hoyo-codes 的格式
+ * GIFT 開頭的成功 STARRAILGIFT 第二次已兌換 OMEGA 無效
  */
 const PUBLIC_CODES = [
   { id: 905, code: "GIFTAUTO2026", status: "OK", game: "hkrpg", rewards: "60 stellar jade" },
@@ -355,8 +355,8 @@ const PUBLIC_CODES = [
 ];
 
 /**
- * GIFT 開頭或 STARRAILGIFT 成功 USED 已兌換 EXPIRED 過期 LEVEL 等級不足 RISK 要求驗證
- * 其他無效 同一個 UID 第二次是已兌換 5 秒內再兌換是太頻繁
+ * GIFT STARRAILGIFT 成功 USED 已兌換 EXPIRED 過期 LEVEL 等級不足
+ * RISK 要求驗證 其他無效 同 UID 第二次已兌換 5 秒內太頻繁
  */
 function redeem({ cdkey = "", uid = "" }, isExpired) {
   if (isExpired) return { retcode: -1071, message: "Please log in", data: null };

@@ -6,8 +6,8 @@ export type FakeFetchCall = { url: string; init: RequestInit; body: Record<strin
 type Respond = (call: FakeFetchCall, index: number) => Response | Promise<Response>;
 
 /**
- * 記錄每次呼叫的假 fetch impl 傳給 fetchImpl 或 vi.stubGlobal
- * respond 依呼叫內容與第幾次決定回應 丟錯就是模擬連線失敗
+ * impl 傳給 fetchImpl 或 vi.stubGlobal
+ * respond 丟錯就是模擬連線失敗
  */
 export function fakeFetch(respond: Respond) {
   const calls: FakeFetchCall[] = [];

@@ -93,8 +93,8 @@ describe("帳號的 cookie 失效標記只由即時便箋決定（排程的簽�
     expect(accounts.syncCookieInvalid).toHaveBeenCalledWith(TEST_SESSION.id, 3, false);
   });
 
-  // 各區塊各自設定或清掉的話 標記會在換頁之間來回跳 每跳一次帳號的快取就失效一次
-  // 每一塊各有讀得到與讀不到的回應 遊戲頭像讀不到時只拿到 null
+  // 各區塊各自設定的話 標記會在換頁之間來回跳
+  // 每一塊各有讀得到與讀不到的回應
   const panels = [
     [
       "角色",

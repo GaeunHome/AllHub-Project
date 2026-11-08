@@ -9,7 +9,7 @@ export { PASSWORD_CASE_RULE, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USERNAME_
 export type ScryptParams = { N: number; r: number; p: number };
 
 // N=2^15 p=3 是 OWASP 列出跟 N=2^17 p=1 等效的組合
-// 每次只佔 32 MiB serverless 同時多個登入也不會吃光記憶體
+// 每次只佔 32 MiB 同時多個登入也不會吃光記憶體
 export const DEFAULT_SCRYPT: ScryptParams = { N: 2 ** 15, r: 8, p: 3 };
 
 const ALGORITHM = "scrypt";

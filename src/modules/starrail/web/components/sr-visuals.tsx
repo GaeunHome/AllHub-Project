@@ -39,8 +39,8 @@ type ElementBadgeProps = {
   decorative?: boolean;
 };
 
-// 固定小圖示是 public 裡的靜態檔 跟官方標誌一樣用 next/image 直接載入
-// 圖本來就小 不經 Vercel 的圖片最佳化 也不走 ExternalImage
+// 固定小圖示是靜態檔 跟官方標誌一樣用 next/image 載入
+// 圖本來就小 不經圖片最佳化 也不走 ExternalImage
 
 /** 屬性圖示 認不得的屬性退回灰色圓圈加名稱的第一個字 色盲也分得出來 */
 export function ElementBadge({ element, src, className = "size-5 text-[0.625rem]", decorative = false }: ElementBadgeProps) {

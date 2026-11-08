@@ -95,8 +95,8 @@ export type ReencryptOptions<T> = {
 };
 
 /**
- * 換金鑰的排程 還不是目前金鑰加密的逐筆解開再加密寫回 單筆失敗不影響其他筆
- * 回傳寫回與失敗的筆數 已經是目前金鑰的不算 失敗的只在 log 記種類
+ * 換金鑰的排程用 單筆失敗不影響其他筆
+ * 已經是目前金鑰的不算 失敗的只在 log 記種類
  */
 export async function reencryptEach<T>(items: readonly T[], { ciphertext, write, log, keyring = keyringFromEnv() }: ReencryptOptions<T>): Promise<{ reencrypted: number; failed: number }> {
   let reencrypted = 0;

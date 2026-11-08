@@ -28,7 +28,7 @@ const join = (parts: Part[]) => parts.map((part) => part.value).join("");
 const tokenize = (text: string): Part[] => (text.match(/\d+|\D+/g) ?? []).map((value) => ({ type: /\d/.test(value) ? "integer" : "literal", value }));
 
 /**
- * 這個測試裡把 Intl.DateTimeFormat 與 Date#toLocale*String 換成指定 ICU 的輸出
+ * 把 Intl.DateTimeFormat 與 toLocale*String 換成指定 ICU 的輸出
  * 測試結束自動還原
  */
 export function simulateIcu(variant: IcuVariant): void {

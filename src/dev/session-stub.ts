@@ -1,8 +1,8 @@
 import { vi } from "vitest";
 import type { SessionUser } from "@/core/auth";
 
-// 用 vi.mock 把 @/core/auth 換成這個檔案 預設是已登入的站長 alice
-// mockReset 後也回到這裡 測沒登入或一般成員時各測試自己改
+// 預設是已登入的站長 alice mockReset 後也回到這裡
+// 測沒登入或一般成員時各測試自己改
 
 export const TEST_SESSION: SessionUser = { id: "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f", username: "alice", nickname: null, avatar: null, role: "owner" };
 

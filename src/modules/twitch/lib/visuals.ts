@@ -74,7 +74,7 @@ export function toGameArt(game: TwitchGame): GameArt {
   return { id: game.id, boxArtUrl: sizedImageUrl(text(game.box_art_url), BOX_ART.width, BOX_ART.height) };
 }
 
-/** 像是開台 2 小時 5 分 伺服器時鐘有誤差 開台時間比現在晚也當作剛開台 */
+/** 例如開台 2 小時 5 分 伺服器時鐘有誤差 開台時間比現在晚也當作剛開台 */
 export function formatLiveDuration(startedAt: string | null, now: Date): string | null {
   if (!startedAt) return null;
   const started = Date.parse(startedAt);

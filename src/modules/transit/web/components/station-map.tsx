@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent, type RefObject } from "react";
 import { DRAG_PX } from "@/core/ui/drag-scroll";
 import { Icon } from "@/core/ui/icon";
-import { LABEL_EM, LABEL_GAP, type MapPoint, type MapStation, type MetroMap } from "../../lib/metro-map";
+import { LABEL_EM, LABEL_GAP, LABEL_SLANT_GAP, type MapPoint, type MapStation, type MetroMap } from "../../lib/metro-map";
 import { isSameStation } from "../../lib/station-search";
 import type { Station } from "../../lib/timetable";
 
@@ -251,7 +251,7 @@ export function StationMap(props: MapProps) {
 
   const dragScroll = useMouseDragScroll();
 
-  const canvasStyle = { width: map.width * unit, height: map.height * unit, "--trn-map-u": `${unit}px`, "--trn-map-em": LABEL_EM, "--trn-map-gap": LABEL_GAP } as CSSProperties;
+  const canvasStyle = { width: map.width * unit, height: map.height * unit, "--trn-map-u": `${unit}px`, "--trn-map-em": LABEL_EM, "--trn-map-gap": LABEL_GAP, "--trn-map-slant": LABEL_SLANT_GAP } as CSSProperties;
   const atMost = view.zoom >= MAX_ZOOM;
   const atLeast = view.zoom <= fitAll;
 

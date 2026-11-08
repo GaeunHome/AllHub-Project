@@ -76,8 +76,8 @@ function WatchSkeleton() {
   );
 }
 
-// 圖示與點綴色由 src/app 從 info.ts 傳進來 web 層不能 import 根目錄
-// 照 YouTube 的觀看頁 寬螢幕右側是接下來播放 手機排在下面
+// web 不能 import 模組根目錄 info 由 src/app 傳進來
+// 照 YouTube 寬螢幕右側是接下來播放 手機排在下面
 export function WatchPage({ params, info }: { params: Promise<{ videoId: string }>; info: ModuleInfo }) {
   return (
     <PageTheme accent={info.accent} className="theme-youtube flex flex-col gap-4">

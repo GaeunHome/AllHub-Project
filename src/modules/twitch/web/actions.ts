@@ -16,8 +16,8 @@ export type { FormState } from "@/core/ui/form-message";
 const isTwitchError = (error: unknown) => error instanceof TwitchApiError;
 const run = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "twitch", action }, isTwitchError, work);
 
-// 寫入橫跨資料庫與 Twitch API 失敗時可能只完成一部分 所以在 finally 讓 tag 失效
-// 一律用登入者的 id 呼叫 service 表單送來的主播 id 只決定操作哪一位
+// 橫跨資料庫與 Twitch API 可能只完成一部分 所以在 finally 失效
+// 表單送來的主播 id 只決定操作哪一位
 
 export async function addStreamerAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const { id: userId } = await requireModule("twitch");

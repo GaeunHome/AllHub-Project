@@ -5,6 +5,7 @@ import { Icon } from "./icon";
 import { useOutsidePress } from "./outside-press";
 import { POPUP_TRIGGER } from "./popup-layer";
 import { placeNear, type Box, type Size } from "./popup-position";
+import { hideFromTop, showOnTop } from "./top-layer";
 
 export type InfoTipState = { hover: boolean; focus: boolean; pinned: boolean; dismissed: boolean };
 export type InfoTipEvent = "hover" | "unhover" | "focus" | "blur" | "toggle" | "escape" | "outside" | "reset";
@@ -54,8 +55,8 @@ export function placeInfoTip(anchor: Box, tip: Size, viewport: Size): { left: nu
 }
 
 /**
- * 標題旁的 i 圓圈 滑過或鍵盤移到時顯示 點一下固定顯示給觸控裝置用
- * 說明用 aria-describedby 接在按鈕上 報讀器移到按鈕就會念
+ * 滑過或鍵盤移到時顯示 點一下固定顯示給觸控裝置
+ * 說明用 aria-describedby 接在按鈕上 報讀器才會念
  */
 export function InfoTip({ label, children }: { label: string; children: ReactNode }) {
   const [state, dispatch] = useReducer(infoTipReducer, INFO_TIP_CLOSED);
@@ -65,12 +66,13 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
   const tipRef = useRef<HTMLSpanElement>(null);
   const tipId = useId();
 
-  // fixed 定位才不會被卡片或捲動區塊裁掉
+  // 放在 top layer 卡片與捲動區塊都裁不掉也蓋不住
   // 繪製前依按鈕位置算好 捲動或改變視窗大小時跟著移動
   useLayoutEffect(() => {
     const button = buttonRef.current;
     const tip = tipRef.current;
     if (!visible || !button || !tip) return;
+    showOnTop(tip);
     const place = () => {
       const { left, top } = placeInfoTip(button.getBoundingClientRect(), { width: tip.offsetWidth, height: tip.offsetHeight }, { width: document.documentElement.clientWidth, height: window.innerHeight });
       tip.style.setProperty("--tip-left", `${left}px`);
@@ -82,6 +84,7 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
     return () => {
       window.removeEventListener("scroll", place, { capture: true });
       window.removeEventListener("resize", place);
+      hideFromTop(tip);
     };
   }, [visible]);
 
@@ -117,8 +120,8 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
         aria-label={label}
         aria-describedby={tipId}
         aria-expanded={visible}
-        // tooltip 沒有 aria-haspopup 能宣告的值
-        // popup-layer.ts 靠這個屬性認出它開著 頁面的快捷鍵才會讓開
+        // tooltip 沒有對應的 aria-haspopup 值
+        // popup-layer.ts 靠它認出開著 快捷鍵才會讓開
         {...{ [POPUP_TRIGGER]: "" }}
         onClick={() => dispatch("toggle")}
         onFocus={onFocus}
@@ -127,7 +130,7 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
       >
         <Icon name="info" />
       </button>
-      <span ref={tipRef} id={tipId} role="tooltip" hidden={!visible} className="info-tip-bubble">
+      <span ref={tipRef} id={tipId} role="tooltip" hidden={!visible} popover="manual" className="info-tip-bubble">
         {children}
       </span>
     </span>

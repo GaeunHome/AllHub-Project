@@ -7,8 +7,8 @@ import { activeWarnings, warningEndText, type Warning } from "../lib/warnings";
 
 // 伺服器把預報整理成要顯示的文字 卡片只負責排版
 
-/** 照氣象署的天氣描述挑圖示 晚上的晴天與多雲換成月亮 */
-/** public/images/weather 的檔名 使用者要的：不用線條圖示 圖是靜態檔不佔資料庫 */
+/** 照天氣描述挑圖 晚上的晴天與多雲換成月亮 */
+/** 使用者要的 不用線條圖示 檔名對 public/images/weather */
 export type WeatherArt = "sun" | "sun-small-cloud" | "sun-cloud" | "sun-large-cloud" | "sun-rain" | "cloud" | "rain" | "storm" | "snow" | "fog" | "moon";
 
 export function weatherArt(description: string, night: boolean): WeatherArt {

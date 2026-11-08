@@ -24,8 +24,8 @@ import { readSubtitleFile } from "./upload";
 
 export type { FormState } from "@/core/ui/form-message";
 
-// 寫入可能橫跨資料庫與外部服務 失敗時可能只做完一部分 所以在 finally 讓 tag 失效
-// 一律用登入者呼叫 service 表單送來的 id 只決定操作哪一筆
+// 橫跨資料庫與外部服務 可能只做完一部分 所以在 finally 失效
+// 表單送來的 id 只決定操作哪一筆
 
 /** 清單上的翻譯狀態與那支影片的觀看頁 影片 id 不對時 service 不會寫入 */
 function translationTags(input: string): CacheTag[] {

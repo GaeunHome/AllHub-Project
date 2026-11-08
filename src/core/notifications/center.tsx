@@ -39,7 +39,7 @@ export function useNotificationCenter(): CenterValue {
 }
 
 async function loadFeed(signal: AbortSignal): Promise<PollResult> {
-  // 沒有 cookie 時 proxy 會轉址到登入頁 manual 讓它變成 opaqueredirect 不必真的抓登入頁
+  // 沒有 cookie 時 proxy 會轉址到登入頁 manual 讓它變成 opaqueredirect 不必真的讀登入頁
   const response = await fetch(API, { cache: "no-store", redirect: "manual", signal, headers: { Accept: "application/json" } });
   if (response.status === 401 || response.type === "opaqueredirect") return { status: "unauthorized" };
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -138,8 +138,8 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
         try {
           showSystemNotification(item, { NotificationImpl: Notification, onOpen: (n) => openRef.current(n), focus: () => window.focus() });
         } catch {
-          // Android 的 Chrome 只讓 Service Worker 顯示系統通知 new Notification 會丟錯
-          // 提示卡片與提示音照常
+          // Android 的 Chrome 只讓 Service Worker 顯示通知
+          // new Notification 會丟錯 卡片與提示音照常
         }
       }
     };
@@ -154,7 +154,7 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
       setLatestId(newest);
       if (fresh.length === 0) return;
       announce(fresh);
-      // 正在看的模組頁有新紀錄時順便重新抓 清單不用手動重新整理
+      // 正在看的模組頁有新紀錄時順便重新讀 清單不用手動重新整理
       // 只比對完全相同的路徑 觀看頁不受影響
       const path = window.location.pathname;
       if (fresh.some((item) => modulesRef.current.get(item.module)?.href === path)) routerRef.current.refresh();

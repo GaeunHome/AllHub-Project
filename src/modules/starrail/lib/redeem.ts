@@ -1,5 +1,5 @@
 // 依 genshin.py 的 redeem_code 整理 還沒用真實帳號驗證
-// 手動輸入的兌換碼與結果都不存 自動兌換只記下試過的社群公開兌換碼
+// 手動輸入的都不存 自動兌換只記試過的公開兌換碼
 
 import { asRecord, numberOf } from "@/core/json";
 import { cookieKeys } from "./cookie";
@@ -74,8 +74,8 @@ export function interpretRedeem(json: unknown): RedeemOutcome {
 }
 
 /**
- * 自動兌換依結果決定下一步 settled 是答案不會變 記下來不再送出
- * 還沒開放 冷卻 太頻繁 風控 cookie 失效 連不上 等級不足或認不得的代碼都明天再試 過期的碼清單自然不再列出
+ * settled 是答案不會變 記下來不再送出
+ * 其他都明天再試 過期的碼清單自然不再列出
  */
 type RedeemVerdict =
   | { kind: "success" | "already" | "expired" | "invalid"; settled: true }

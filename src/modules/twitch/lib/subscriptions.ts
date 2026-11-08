@@ -11,8 +11,8 @@ export function subscriptionsHealthy({ onlineSubscriptionId, offlineSubscription
 export const SUBSCRIPTION_FAILED = "訂閱失敗：";
 
 /**
- * 失敗原因會顯示在畫面上 只放中文摘要 原文可能夾帶 Twitch 的回應
- * 用名稱判斷 TwitchApiError 這裡才不用載入 server-only 的 api.ts
+ * 顯示在畫面上 只放中文摘要 原文可能夾帶 Twitch 的回應
+ * 用名稱判斷 才不用載入 server-only 的 api.ts
  */
 export function subscriptionFailure(error: unknown): string {
   return `${SUBSCRIPTION_FAILED}${connectionProblem(error, "Twitch") ?? twitchProblem(error)}`;

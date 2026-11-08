@@ -10,8 +10,8 @@ import { EndgameView, type EndgameRecord } from "./endgame-view";
 const SCHEDULES: EndgameSchedule[] = ["current", "previous"];
 
 /**
- * 三種模式的本期與上期一起查 各自快取 30 分鐘 切換時不用再等
- * 角色名字從同一份快取的角色資料對照 帳號的 cookie 失效標記只由即時便箋決定
+ * 三種模式的本期與上期一起查 切換時不用再等
+ * 角色名字從同一份快取對照 失效標記只由即時便箋決定
  */
 export async function EndgamePanel({ account }: { account: StarrailAccountView }) {
   const user = await requireModule("starrail");

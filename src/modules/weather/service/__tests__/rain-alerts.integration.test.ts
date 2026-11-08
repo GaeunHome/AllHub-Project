@@ -27,8 +27,8 @@ const location = (county: string, periods: Array<[readonly [string, string], str
   cwaLocation(county, periods.map(([[start, end], pop]) => ({ start, end, Wx: "陰短暫雨", PoP: pop, MinT: "21", CI: "舒適", MaxT: "26" })));
 const forecast = cwaResponse;
 
-// 早上看今天白天與今晚 臺北市白天 70 要帶傘 花蓮縣白天讀不到 晚上剛好 50 也要帶傘
-// 高雄市最高 40 只是帶把折傘 臺中市凌晨的 90 已經過了 明天白天的 80 也不算
+// 臺北白天 70 帶傘 花蓮白天讀不到 晚上剛好 50 也帶傘
+// 高雄最高 40 只是折傘 臺中凌晨 90 已過 明天 80 不算
 const RAINY_MORNING = forecast(
   location("臺北市", [[TODAY, "70"], [TONIGHT, "40"], [TOMORROW, "20"]]),
   location("花蓮縣", [[TODAY, ""], [TONIGHT, "50"], [TOMORROW, "10"]]),

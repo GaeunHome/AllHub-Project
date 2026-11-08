@@ -23,7 +23,10 @@ const NOT_FINISHED = { ok: false, retcode: null, message: "躍遷紀錄暫時無
 
 const realSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-/** serviceDown 是 HoYoLAB 那邊出問題 使用者自己的 cookie 或帳號有問題時是 false readAt 是真的向 HoYoLAB 讀的時間 */
+/**
+ * serviceDown 是 HoYoLAB 那邊出問題 使用者自己的不算
+ * readAt 是真的向 HoYoLAB 讀的時間
+ */
 export type WarpsFetch = ({ ok: true; summaries: BannerSummary[] } | (PageFailure & { serviceDown: boolean })) & { readAt: number };
 type WarpsResult = { ok: true; summaries: BannerSummary[] } | (PageFailure & { serviceDown: boolean });
 
@@ -81,8 +84,8 @@ export async function warpsFor(userId: string, accountId: number, sleep: Sleep =
 }
 
 /**
- * 快取函式裡不能寫資料庫 由頁面在回應送出後回報 使用者自己的問題不算服務有問題
- * 快取裡的舊結果不算這次讀到的 不然舊的成功會蓋掉別人剛記下的問題
+ * 快取函式裡不能寫 由頁面在回應送出後回報
+ * 快取裡舊的成功不算 不然會蓋掉別人剛記下的問題
  */
 export async function reportWarps(read: WarpsFetch, now = Date.now()): Promise<void> {
   if (now - read.readAt > FRESH_READ_MS) return;

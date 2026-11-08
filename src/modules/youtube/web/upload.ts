@@ -13,7 +13,7 @@ export async function readSubtitleFile(file: FormDataEntryValue | null): Promise
 }
 
 /**
- * 在瀏覽器先檢查並轉成 UTF-8 超過 Server Action 上限時 Next 直接回 413 整頁出錯
+ * 超過 Server Action 上限時 Next 直接回 413 整頁出錯
  * 而且完整的 CP949 只有瀏覽器解得開
  */
 export async function prepareUpload(formData: FormData): Promise<{ formData: FormData } | { error: string }> {

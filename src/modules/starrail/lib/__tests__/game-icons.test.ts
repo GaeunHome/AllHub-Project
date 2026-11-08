@@ -34,8 +34,8 @@ describe("遊戲圖示：內建在 public/icons/starrail/ 的靜態檔（站內�
 });
 
 /**
- * 期望每個 property_type 對到 property 資料夾裡的哪個檔
- * 檔名是 StarRailRes 的 Icon*.png 去掉 Icon 再轉成 kebab-case
+ * property_type 對到 property 資料夾的哪個檔
+ * 檔名是 Icon*.png 去掉 Icon 轉 kebab-case
  */
 const PROPERTY_FILES: Record<number, string> = {
   // 面板

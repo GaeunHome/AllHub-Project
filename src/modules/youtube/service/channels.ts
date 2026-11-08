@@ -105,8 +105,8 @@ export async function addChannel(userId: string, input: string): Promise<Youtube
   if (!followed) throw new YoutubeUserError(`已經在追蹤「${title}」了`);
 
   await backfillVideos(channelId, feed.entries, created);
-  // 已經有人追蹤的頻道沿用原本的訂閱 失敗了才趁新的追蹤者加入時再試一次
-  // 本機沒有公開 HTTPS 時 hub 會拒絕 頻道照樣保留 之後 renew 排程會再試
+  // 已有人追蹤的沿用原本的訂閱 失敗了才趁這次再試
+  // 本機沒有公開 HTTPS 時 hub 會拒絕 renew 排程會再試
   return created || isSubscriptionFailure(channel.subscriptionStatus) ? subscribe(channel) : channel;
 }
 
@@ -178,8 +178,8 @@ async function unsubscribe(channel: YoutubeChannel): Promise<boolean> {
 }
 
 /**
- * 回傳要原樣回給 hub 的 challenge null 代表拒絕 三種 mode 都要帶對 k
- * 訂閱只確認追蹤中的頻道 退訂只確認已刪除的 免得別人替我們退訂
+ * 回 null 代表拒絕 三種 mode 都要帶對 k
+ * 退訂只確認已刪除的 免得別人替我們退訂
  */
 export async function handleVerification(request: Verification): Promise<string | null> {
   const channelId = channelIdFromTopic(request.topic);

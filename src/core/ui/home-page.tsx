@@ -20,8 +20,8 @@ const MODULE_LINKS = "grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end
 const fillsRow = (index: number, count: number) => count % 2 === 1 && index === count - 1;
 
 /**
- * id 是模組 id core 依它過濾 被關掉的模組整張卡片不算繪
- * shown 給平常不出現的卡片 回 false 時跟被關掉一樣 不算格子 不留外框
+ * id 是模組 id 被關掉的模組整張卡片不算繪
+ * shown 回 false 時跟被關掉一樣 不算格子
  */
 export type HomeSlot = { id: string; card: ReactNode; shown?: () => Promise<boolean> };
 

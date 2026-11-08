@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   title: "AllHub Project",
   description: "個人整合系統",
   robots: NO_INDEX,
-  // 要放在沒登入也讀得到的 public/icons iPhone 加到主畫面時才抓得到
+  // 要放在沒登入也讀得到的 public/icons iPhone 加到主畫面時才讀得到
   icons: { apple: "/icons/app/apple-touch.png" },
   appleWebApp: { capable: true, title: "AllHub", statusBarStyle: "default" },
 };

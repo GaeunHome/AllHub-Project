@@ -3,8 +3,8 @@ import type { AiProvider } from "./providers";
 export type AiModelOption = { id: string; label: string };
 
 /**
- * 翻譯設定的下拉選單 模型換代時只改這裡 每家第一個是預設 其他照便宜到貴
- * 要能用 translate.ts 的請求格式 OpenAI 要支援 chat/completions 與 JSON mode
+ * 模型換代時只改這裡 每家第一個是預設 其他照便宜到貴
+ * OpenAI 的要支援 chat/completions 與 JSON mode
  */
 export const AI_MODELS: Record<AiProvider, readonly AiModelOption[]> = {
   anthropic: [

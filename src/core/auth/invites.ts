@@ -85,8 +85,8 @@ export async function findUsableInvite(token: string, now = new Date()): Promise
 }
 
 /**
- * 條件式 update 同時用同一個邀請時資料庫一次只讓一個加一 後到的會重新檢查條件
- * 註冊時要跟建立帳號在同一個交易裡 所以也收交易的 tx
+ * 條件式 update 同時使用時一次只讓一個加一
+ * 註冊時要跟建立帳號同一個交易 所以收 tx
  */
 export async function consumeInvite(token: string, now = new Date(), executor: Executor = db()): Promise<number | null> {
   if (!isInviteToken(token)) return null;

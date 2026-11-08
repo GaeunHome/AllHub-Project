@@ -40,8 +40,8 @@ const feedXml = (channelId) =>
     .join("");
 
 /**
- * Chrome 的 LCP 不算每像素不到 0.05 bit 的圖 幾百 bytes 的佔位圖會被略過
- * 所以縮圖自己畫 再補到跟真的 mqdefault.jpg 差不多大
+ * LCP 不算每像素不到 0.05 bit 的圖 小佔位圖會被略過
+ * 所以縮圖補到跟真的 mqdefault.jpg 差不多大
  */
 const THUMBNAIL_BYTES = 12_000;
 /** 畫法跟 ctx.image 一樣 補大小的 SVG 註解由影片 id 雜湊 同一支每次都一樣 */

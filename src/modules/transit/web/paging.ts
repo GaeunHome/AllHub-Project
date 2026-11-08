@@ -1,7 +1,7 @@
 // 查詢結果的分頁 使用者要的 班次多時一頁一頁看
 
 export const PAGE_SIZE = 10;
-/** 頁碼最多幾格 超過的用 … 收起來 */
+/** 頁碼最多幾格 超過的收成省略號 */
 const SLOTS = 7;
 
 export const pageCount = (total: number) => Math.max(1, Math.ceil(total / PAGE_SIZE));

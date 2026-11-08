@@ -1,4 +1,4 @@
-// 貼著按鈕的彈出層 ⋮ 選單與 i 說明框共用 用 fixed 定位才不會被卡片或捲動區塊裁掉
+// 貼著按鈕的彈出層 ⋮ 選單與 i 說明框共用 放在 top layer 位置照畫面算
 
 export type Box = { left: number; right: number; top: number; bottom: number };
 export type Size = { width: number; height: number };

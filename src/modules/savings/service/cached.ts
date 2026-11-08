@@ -18,8 +18,8 @@ import { fetchQuotes } from "./quotes";
 import { listRecurring } from "./recurring";
 import { accountMonthFlows, categoryMonthTotals, listMonthTransactions, recurringRecords, type TransactionView } from "./transactions";
 
-// 只給頁面用 同一次請求裡重複呼叫會自動合併 不必再包 React cache
-// userId 是頁面從 session 拿到的登入者 會成為快取 key 每人各一份
+// 同一次請求裡重複呼叫會自動合併 不必再包 React cache
+// userId 來自 session 是快取 key 每人一份
 
 export async function cachedAccounts(userId: string): Promise<SavingsAccount[]> {
   "use cache: remote";

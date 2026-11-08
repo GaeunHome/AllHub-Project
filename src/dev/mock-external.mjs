@@ -1,4 +1,4 @@
-// 新模組只要放 src/modules/<id>/dev/mock.mjs 就會自動載入 這裡不必改
+// 放 src/modules/<id>/dev/mock.mjs 就會自動載入
 // 它匯出 handle 處理了就回 true
 import { existsSync, readdirSync } from "node:fs";
 import { createServer } from "node:http";

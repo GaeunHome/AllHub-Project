@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { interpretActCalendar, isOngoing, ongoingCalendar, parseActCalendar, progressFull } from "../calendar";
 
-// 欄位名稱依 genshin.py 的 genshin/models/starrail/chronicle/events.py 的 HSREventCalendar
-// 時間是 Unix 秒數的字串 hoyoverse-api 與 hoyodeck 的型別也是字串
+// 欄位依 genshin.py 的 HSREventCalendar
+// 時間是 Unix 秒數的字串 hoyoverse-api 與 hoyodeck 也是
 const NOW = new Date("2026-10-15T04:00:00Z");
 const ts = (iso: string) => String(Date.parse(iso) / 1000);
 const time = (start: string, end: string) => ({ start_ts: ts(start), end_ts: ts(end), start_time: "", end_time: "", now: ts(NOW.toISOString()) });

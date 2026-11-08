@@ -1,3 +1,5 @@
+import { levelPosition } from "./scale";
+
 // 天氣頁的今天的細節 台灣與國外整理成同一種形狀 級數與等級照氣象署的表
 
 /** level 是蒲福風級 */
@@ -21,6 +23,12 @@ export function windDirection(degrees: number): string {
   return DIRECTIONS[Math.round((((degrees % 360) + 360) % 360) / 45) % DIRECTIONS.length];
 }
 
+/** 箭頭指著風吹過去的方向 跟風從哪裡來差半圈 認不得的寫法是 null */
+export function windToward(direction: string): number | null {
+  const index = DIRECTIONS.indexOf(direction);
+  return index === -1 ? null : (index * 45 + 180) % 360;
+}
+
 /** 方向與級數都讀不到時整格不畫 */
 export const windOf = (direction: string | null, level: number | null): Wind | null => (direction === null && level === null ? null : { direction, level });
 
@@ -35,4 +43,18 @@ const UV_LEVELS = [
 
 export function uvLevel(index: number): (typeof UV_LEVELS)[number]["label"] {
   return (UV_LEVELS.find((level) => index <= level.max) ?? UV_LEVELS[UV_LEVELS.length - 1]).label;
+}
+
+/** 危險級沒有上限 色條畫到 15 */
+const UV_TOP = 15;
+
+export const uvPosition = (index: number): number => levelPosition(index, UV_LEVELS.map((level) => level.max), UV_TOP);
+
+const minutesOf = (clock: string) => Number(clock.slice(0, 2)) * 60 + Number(clock.slice(3, 5));
+
+/** 都是當地時間的 HH:mm 日出前在最左邊 日落後在最右邊 */
+export function daylightPosition(sunrise: string, sunset: string, clock: string): number {
+  const span = minutesOf(sunset) - minutesOf(sunrise);
+  if (span <= 0) return 0;
+  return Math.min(Math.max(((minutesOf(clock) - minutesOf(sunrise)) / span) * 100, 0), 100);
 }

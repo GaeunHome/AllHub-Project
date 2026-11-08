@@ -24,8 +24,8 @@ const run = (action: string, work: () => Promise<FormState | string | void>) => 
 // 簽到 門檻 兌換的提示視窗標題已經寫了失敗 預期外的錯誤只寫原因不明
 const runTitled = (action: string, work: () => Promise<FormState | string | void>) => runAction({ module: "starrail", action, titled: true }, work);
 
-// 連結與簽到逐個角色寫入 失敗時可能只完成一部分 所以在 finally 讓 tag 失效
-// 一律用登入者的 id 呼叫 service 表單送來的帳號 id 只決定操作哪一個
+// 逐個角色寫入 可能只完成一部分 所以在 finally 讓 tag 失效
+// 表單送來的帳號 id 只決定操作哪一個
 
 export async function linkAccountAction(_prev: LinkState, formData: FormData): Promise<LinkState> {
   const { id: userId } = await requireModule("starrail");

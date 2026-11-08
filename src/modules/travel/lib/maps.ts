@@ -1,4 +1,4 @@
-// 使用者不想花錢 不接 Google 的付費 API 只解析貼上的連結與組出開地圖的網址
+// 使用者的決定 不接付費 API 只解析貼上的連結
 // 真實的連結格式還沒驗證 解析不出來時退回手動輸入
 
 export type MapsPlace = { url: string; name: string | null; lat: number | null; lng: number | null };
@@ -16,7 +16,7 @@ function parseUrl(input: string): URL | null {
   }
 }
 
-/** 短網址要向 Google 問一次才知道是哪裡 只收這兩個網域 不會被導去抓別的地方 */
+/** 短網址要向 Google 問一次才知道是哪裡 只收這兩個網域 不會被導去讀別的地方 */
 export function isShortMapsUrl(input: string): boolean {
   const url = parseUrl(input);
   if (!url || !SHORT_HOSTS.has(url.hostname)) return false;

@@ -165,11 +165,11 @@ describe("翻譯設定與 API Key 每人一份", () => {
     await expect(translation.startTranslation(boss, VIDEO_ID)).rejects.toBeInstanceOf(ApiKeySetupError);
   });
 
-  it("單人版留下的 id = 1 那一列（migration 已歸給站長）照常讀得到；再存是更新那一列（照 user_id），不會多一列", async () => {
-    await pgliteOf(getDb()).query(`insert into youtube_settings (id, user_id, provider) values (1, $1, 'openai')`, [boss]);
+  it("以前留下的那一列（單人版的資料 migration 已歸給站長）照常讀得到；再存是更新那一列（照 user_id），不會多一列", async () => {
+    await pgliteOf(getDb()).query(`insert into youtube_settings (user_id, provider) values ($1, 'openai')`, [boss]);
 
     expect((await settings.getSettingsView(boss)).provider).toBe("openai");
     await settings.saveSettings(boss, { provider: "gemini", keys: {}, clear: [], models: {}, glossaryText: "" });
-    expect((await pgliteOf(getDb()).query(`select id, provider from youtube_settings where user_id = $1`, [boss])).rows).toEqual([{ id: 1, provider: "gemini" }]);
+    expect((await pgliteOf(getDb()).query(`select provider from youtube_settings where user_id = $1`, [boss])).rows).toEqual([{ provider: "gemini" }]);
   });
 });

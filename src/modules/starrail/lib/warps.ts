@@ -1,5 +1,5 @@
-// 躍遷紀錄讀 HoYoLAB 官方的活動頁 依 genshin.py 的 hsr_warp_records 整理 已用真實帳號確認
-// 官方只給五星與目前已墊幾抽 沒有時間 也沒有三星四星
+// 依 genshin.py 的 hsr_warp_records 整理 已用真實帳號確認
+// 官方只給五星與已墊幾抽 沒有時間與三星四星
 
 import { asRecord, boolOf, createMissing, numberOf, text } from "@/core/json";
 import { interpretResponse, interpretWith, type HoyolabResult } from "./responses";

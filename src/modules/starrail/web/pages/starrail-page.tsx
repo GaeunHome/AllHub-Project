@@ -18,8 +18,8 @@ import { RedeemPanel } from "../components/redeem-panel";
 import { StarrailBanner } from "../components/starrail-banner";
 import { WarpCard, WarpCardSkeleton } from "../components/warp-card";
 
-// web 層不能 import 模組根目錄 圖示 名稱 點綴色由 src/app 從 info.ts 傳進來
-// theme-starrail 讓這頁不論外觀都是遊戲的深藍星空 鋪滿導覽列以下 導覽列不變
+// web 不能 import 模組根目錄 info 由 src/app 傳進來
+// theme-starrail 不論外觀都是深藍星空 導覽列不變
 export function StarrailPage({ info, searchParams }: { info: ModuleInfo; searchParams: SearchParams }) {
   return (
     <PageTheme accent={info.accent} className="theme-starrail page-stack">

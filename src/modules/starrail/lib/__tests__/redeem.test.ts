@@ -44,7 +44,8 @@ describe("redeemCookieProblem：兌換要用 cookie_token_v2 與帳號 id", () =
   });
 });
 
-// 代碼的意思照 genshin.py 的 genshin/errors.py 與 constants.py 的 GEETEST_RETCODES 2026-10-15 讀取
+// 代碼照 genshin.py 的 errors.py 與 GEETEST_RETCODES
+// 2026-10-15 讀取
 describe("interpretRedeem：兌換結果的代碼對應中文訊息", () => {
   const result = (retcode: number, message = "english detail") => interpretRedeem({ retcode, message, data: null });
 

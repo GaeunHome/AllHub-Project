@@ -9,7 +9,7 @@ import { NOT_FOUND } from "../lib/validation";
 import { EARLIER_PERIOD_FIRST, PERIOD_DONE, PERIOD_NOT_DUE, PERIOD_NOT_PENDING, SavingsUserError } from "./errors";
 
 // 固定收支的游標 自動記 確認 略過與發薪分配共用
-// 紀錄 holdings 與 transactions 都會用到 放在這裡才不會互相 import
+// 放在這裡 holdings 與 transactions 才不會互相 import
 
 /** 條件式 update 只有游標還沒到這一期才成功 同時送兩次也只算一次 */
 export async function claimMonth(executor: Executor, ruleId: number, month: MonthKey): Promise<boolean> {

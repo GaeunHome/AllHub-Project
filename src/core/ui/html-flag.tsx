@@ -1,7 +1,7 @@
 import { useLayoutEffect, useSyncExternalStore, type ReactElement } from "react";
 
-// 存在瀏覽器的偏好標在 html 的屬性上 樣式依它排版 伺服器讀不到偏好
-// 整頁載入時靠同步腳本 站內換頁時靠 layout effect 第一次繪製就是對的樣子
+// 伺服器讀不到存在瀏覽器的偏好 所以標在 html 的屬性上
+// 整頁載入靠同步腳本 站內換頁靠 layout effect
 
 export type HtmlRoot = { setAttribute(name: string, value: string): void; removeAttribute(name: string): void };
 

@@ -63,7 +63,7 @@
   border: 1px dashed var(--line-strong);
   color: var(--ink-soft);
 }
-/* 使用者覺得擠 時間一欄 內容一欄 一眼看完 */
+/* 使用者回報過太擠 時間一欄 內容一欄 一眼看完 */
 .trv-card {
   @apply flex items-start gap-1.5 rounded-xl px-1 py-1.5;
   border: 1px solid var(--line);

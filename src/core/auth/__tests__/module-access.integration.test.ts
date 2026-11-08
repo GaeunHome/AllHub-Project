@@ -4,7 +4,7 @@ import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { coreModuleDenials, coreUsers } from "../../db/schema";
 
-// requireModule 一路經過真的 requireSession 查到 PGlite
+// requireModule 經過真的 requireSession 查到 PGlite
 // 只把 next/headers 換成假的 cookie
 
 const SECRET = "s".repeat(32);

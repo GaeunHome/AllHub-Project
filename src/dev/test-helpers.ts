@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, onTestFinished, vi, type Mock } from "vitest";
 import * as nextCache from "./next-cache-stub";
 
-// 直接從 next-cache-stub 拿 spy 跟 alias 是同一份
-// 從 next/cache import 的話會被快取規則當成違規
+// 從 next-cache-stub 拿 跟 alias 是同一份
+// 從 next/cache import 會被快取規則當成違規
 
 /**
  * 清空 next/cache 的呼叫紀錄 每個測試前會自動執行
@@ -74,8 +74,8 @@ export function captureErrorLog() {
 }
 
 /**
- * log 的全部內容 Error 連 message 與 stack 一起展開
- * JSON.stringify 會漏掉它們 就驗不出有沒有把原文印出去
+ * Error 連 message 與 stack 一起展開
+ * JSON.stringify 會漏掉 就驗不出有沒有印出原文
  */
 export function loggedText(log: { mock: { calls: unknown[][] } }): string {
   return log.mock.calls

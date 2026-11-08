@@ -80,8 +80,8 @@ const ACCOUNT_ID_SOURCES = [
 ] as const;
 
 /**
- * 開拓月曆與兌換要 account_id_v2 account_mid_v2 沒貼就用 ltuid_v2 ltmid_v2 的值補上
- * 推定兩組是同一個 id HoYoVista 也這樣補 還沒用真實帳號驗證
+ * 開拓月曆與兌換要 account_ 開頭的鍵 沒貼就用 lt 開頭的補
+ * 推定是同一組 id HoYoVista 也這樣補 還沒用真實帳號驗證
  */
 export function withAccountIds(cookie: string): string {
   const values = cookieValues(cookie);

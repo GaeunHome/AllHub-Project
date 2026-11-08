@@ -12,7 +12,7 @@ export type AiConfig = { provider: AiProvider; apiKey: string; model: string };
 export const AI_TIMEOUT_MS = 120_000;
 
 /**
- * refused 是模型拒絕翻譯 它跟 bad_output 都是字幕內容的問題 換誰的 Key 都一樣
+ * refused 與 bad_output 是字幕內容的問題 換誰的 Key 都一樣
  * 其他是觀看者自己的金鑰 額度或連線問題
  */
 export class AiError extends Error {

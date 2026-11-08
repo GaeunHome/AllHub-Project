@@ -1,5 +1,6 @@
 import { asRecord, text } from "@/core/json";
 import { normalizeCounty, type County } from "./counties";
+import { levelPosition } from "./scale";
 
 // 環境部 aqx_p_432 空氣品質指標 每個測站一筆 每小時更新
 
@@ -16,6 +17,11 @@ export const AQI_LEVELS = [
 export function aqiLevel(aqi: number): (typeof AQI_LEVELS)[number]["label"] {
   return (AQI_LEVELS.find((level) => aqi <= level.max) ?? AQI_LEVELS[AQI_LEVELS.length - 1]).label;
 }
+
+/** 危害沒有上限 色條畫到 500 */
+const AQI_TOP = 500;
+
+export const aqiPosition = (aqi: number): number => levelPosition(aqi, AQI_LEVELS.map((level) => level.max), AQI_TOP);
 
 const [, MODERATE] = AQI_LEVELS;
 

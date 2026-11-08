@@ -1,8 +1,8 @@
 import type { Mode } from "./modes";
 import type { Departure } from "./timetable";
 
-// 使用者要的：看板每 5 秒更新一次 跟捷運站一樣
-// 秒數是用時刻表與最新的即時資料算的 真的每 5 秒問 TDX 免費額度一天撐不到 10 分鐘
+// 使用者要的 每 5 秒更新一次 跟捷運站一樣
+// 秒數在瀏覽器算 真的每 5 秒問 TDX 額度撐不到 10 分鐘
 
 export const TICK_MS = 5000;
 /** 開車前多久才開始問即時資料 台鐵的看板也只有前後 30 分鐘 */

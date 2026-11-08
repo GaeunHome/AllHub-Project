@@ -13,8 +13,8 @@ import { GLOSSARY_LIMITS } from "../../lib/parse";
 import { modelOptions } from "../../lib/subtitles/models";
 import type { SettingsView } from "../../service/ai-settings";
 
-// legend 預設壓在 fieldset 的邊框上 也不吃父層的 gap
-// 浮動後變成一般的子元素 樣子才跟其他卡片的 CardHeader 一樣
+// legend 預設壓在邊框上 也不吃父層的 gap
+// 浮動後才跟其他卡片的 CardHeader 一樣
 const LEGEND_CLASS = "float-left flex w-full flex-wrap items-center gap-3 text-lg font-semibold text-ink";
 
 /** 只顯示前 8 碼 輸入框照樣隱藏打的字 空字串是存了但解不開 */

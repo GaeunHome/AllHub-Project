@@ -108,8 +108,8 @@ async function lockCategory(tx: Executor, id: number): Promise<void> {
 }
 
 /**
- * 待處理按確認 寫一筆紀錄並把游標推到這一期 定期定額走買進
- * 鎖的順序 使用者 帳戶 分類 持股 再鎖這一條 跟刪除時的連帶刪改一樣 不會 deadlock
+ * 確認時寫一筆紀錄並推游標 定期定額走買進
+ * 鎖的順序跟刪除的連帶刪改一樣 不會 deadlock
  */
 export async function confirmOccurrence(userId: string, fields: ConfirmFields, now = new Date()): Promise<{ rule: SavingsRecurring; transaction: SavingsTransaction }> {
   const today = taipeiToday(now);
@@ -204,8 +204,8 @@ async function lockParents(tx: Executor, parents: RuleParents): Promise<{ id: nu
 }
 
 /**
- * 一條一個交易 失敗只影響這一條 游標跟紀錄一起退回 明天再補
- * 要確認的不記 只有停用時把到期的期別略過往前推 恢復後才不會一次跳出一堆待處理
+ * 一條一個交易 失敗時游標跟紀錄一起退回 明天再補
+ * 要確認的不記 停用時略過往前推 恢復後才不會跳出一堆
  */
 async function postRule(ruleId: number, today: DateKey): Promise<PostResult> {
   return db().transaction(async (tx): Promise<PostResult> => {

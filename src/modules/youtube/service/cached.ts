@@ -10,8 +10,8 @@ import { getTranslation, type TranslationView } from "./translation";
 import { followedVideo, recentVideos, type FollowedVideo } from "./video-list";
 import { channelAvatar, videoInfo } from "./visuals";
 
-// 只給頁面用 寫入 排程與翻譯鎖要讀最新資料 直接用其他 service
-// userId 是登入者 會成為快取 key 所以每人各一份 共用的翻譯只用影片 id
+// 寫入 排程與翻譯鎖要讀最新資料 直接用其他 service
+// userId 是快取 key 每人一份 共用的翻譯只用影片 id
 
 export async function cachedChannels(userId: string): Promise<FollowedChannel[]> {
   "use cache: remote";

@@ -12,8 +12,8 @@ import { addChannelAction, openVideoAction } from "../actions";
 const INVALID = "請貼 YouTube 頻道網址、@帳號或影片網址";
 
 /**
- * 像 YouTube 的搜尋列 貼影片網址開觀看頁 貼頻道網址或 @帳號就追蹤
- * 兩個 Server Action 仍各自驗證 追蹤好了用提示視窗 錯誤留在輸入框下方
+ * 影片網址開觀看頁 頻道網址或 @帳號就追蹤
+ * 兩個 Server Action 仍各自驗證 錯誤留在輸入框下方
  */
 export function YoutubeSearchBar() {
   const toast = useToast();

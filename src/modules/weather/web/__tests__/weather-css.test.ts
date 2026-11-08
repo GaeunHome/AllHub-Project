@@ -2,8 +2,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { readStylesheet } from "@/dev/stylesheet";
 
-// 這一版在瀏覽器發現的 手機上天氣頁可以左右滑
-// 格線的欄最小寬度是 auto 時 橫向滑的那一排 像 24 小時與城市膠囊 整排的寬度會把欄撐開
+// 發生過手機上天氣頁可以左右滑
+// 欄的最小寬度是 auto 時 橫向滑的一排會把欄撐開
 
 const css = readStylesheet(fileURLToPath(new URL("../weather.css", import.meta.url))).replace(/\/\*[\s\S]*?\*\//g, "");
 

@@ -9,8 +9,8 @@ type ActionWork = () => Promise<FormState | string | void>;
 const actorOrNull = (): Promise<AuditActor | null> => auditActor().catch(() => null);
 
 /**
- * 錯誤變成表單訊息 不會跳錯誤畫面 成功失敗都寫進操作紀錄
- * requireSession 與 redirect 會丟出 Next 的內部錯誤 要放在外面呼叫
+ * 錯誤變成表單訊息 成功失敗都寫進操作紀錄
+ * requireSession 與 redirect 丟的是 Next 的內部錯誤 要放外面
  */
 export async function runAction(scope: ActionScope, work: ActionWork): Promise<FormState>;
 export async function runAction(scope: ActionScope, isUserError: IsUserError, work: ActionWork): Promise<FormState>;

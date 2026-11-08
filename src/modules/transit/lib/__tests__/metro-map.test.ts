@@ -1,21 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { metroMap, type MetroMap, type MapPoint } from "../metro-map";
+import { labelBox, metroMap, type MetroMap, type MapPoint } from "../metro-map";
 import { plainName } from "../station-search";
 import type { Station } from "../timetable";
 
-// 真實的臺北捷運 環狀線與機場捷運 代碼與站名照 TDX 的寫法 機場線的 A1 寫臺
+// 代碼與站名照 TDX 的寫法 機場線的 A1 寫臺
+// 廣慈/奉天宮 2026-08-30 通車 三鶯線 2026-06-30 通車
 
 const numbered = (prefix: string, start: number, names: string[], width = 2): Station[] => names.map((name, index) => ({ id: `${prefix}${String(start + index).padStart(width, "0")}`, name }));
 
 const BLUE = numbered("BL", 1, ["頂埔", "永寧", "土城", "海山", "亞東醫院", "府中", "板橋", "新埔", "江子翠", "龍山寺", "西門", "台北車站", "善導寺", "忠孝新生", "忠孝復興", "忠孝敦化", "國父紀念館", "市政府", "永春", "後山埤", "昆陽", "南港", "南港展覽館"]);
 const BROWN = numbered("BR", 1, ["動物園", "木柵", "萬芳社區", "萬芳醫院", "辛亥", "麟光", "六張犁", "科技大樓", "大安", "忠孝復興", "南京復興", "中山國中", "松山機場", "大直", "劍南路", "西湖", "港墘", "文德", "內湖", "大湖公園", "葫洲", "東湖", "南港軟體園區", "南港展覽館"]);
-const RED = numbered("R", 2, ["象山", "台北101/世貿", "信義安和", "大安", "大安森林公園", "東門", "中正紀念堂", "台大醫院", "台北車站", "中山", "雙連", "民權西路", "圓山", "劍潭", "士林", "芝山", "明德", "石牌", "唭哩岸", "奇岩", "北投", "復興崗", "忠義", "關渡", "竹圍", "紅樹林", "淡水"]);
-const XINBEITOU = [RED[20], { id: "R22A", name: "新北投" }];
+const RED = [{ id: "R01", name: "廣慈/奉天宮" }, ...numbered("R", 2, ["象山", "台北101/世貿", "信義安和", "大安", "大安森林公園", "東門", "中正紀念堂", "台大醫院", "台北車站", "中山", "雙連", "民權西路", "圓山", "劍潭", "士林", "芝山", "明德", "石牌", "唭哩岸", "奇岩", "北投", "復興崗", "忠義", "關渡", "竹圍", "紅樹林", "淡水"])];
+const XINBEITOU = [RED[21], { id: "R22A", name: "新北投" }];
 const GREEN = numbered("G", 1, ["新店", "新店區公所", "七張", "大坪林", "景美", "萬隆", "公館", "台電大樓", "古亭", "中正紀念堂", "小南門", "西門", "北門", "中山", "松江南京", "南京復興", "台北小巨蛋", "南京三民", "松山"]);
 const XIAOBITAN = [GREEN[2], { id: "G03A", name: "小碧潭" }];
 const ORANGE = numbered("O", 1, ["南勢角", "景安", "永安市場", "頂溪", "古亭", "東門", "忠孝新生", "松江南京", "行天宮", "中山國小", "民權西路", "大橋頭", "台北橋", "菜寮", "三重", "先嗇宮", "頭前庄", "新莊", "輔大", "丹鳳", "迴龍"]);
 const LUZHOU = [ORANGE[11], ...numbered("O", 50, ["三重國小", "三和國中", "徐匯中學", "三民高中", "蘆洲"])];
 const YELLOW = numbered("Y", 7, ["大坪林", "十四張", "秀朗橋", "景平", "景安", "中和", "橋和", "中原", "板新", "板橋", "新埔民生", "頭前庄", "幸福", "新北產業園區"]);
+const SANYING = numbered("LB", 1, ["頂埔", "媽祖田", "長壽山", "橫溪", "龍埔", "三峽", "臺北大學", "鶯歌車站", "陶瓷老街", "國華", "永吉公園", "鶯桃福德"]);
 const AIRPORT = [
   ...numbered("A", 1, ["臺北車站", "三重", "新北產業園區", "新莊副都心", "泰山", "泰山貴和", "體育大學", "長庚醫院", "林口", "山鼻", "坑口", "機場第一航廈", "機場第二航廈"], 1),
   { id: "A14a", name: "機場旅館" },
@@ -23,7 +25,7 @@ const AIRPORT = [
 ];
 
 /** TDX 的每一條線 支線是自己一條 */
-const LINES = [BLUE, BROWN, RED, XINBEITOU, GREEN, XIAOBITAN, ORANGE, LUZHOU, YELLOW, AIRPORT];
+const LINES = [BLUE, BROWN, RED, XINBEITOU, GREEN, XIAOBITAN, ORANGE, LUZHOU, YELLOW, SANYING, AIRPORT];
 const unique = (stations: Station[]) => [...new Map(stations.map((station) => [station.id, station])).values()];
 const STATIONS = unique(LINES.flat());
 const TRTC_ONLY = unique([BLUE, BROWN, RED, XINBEITOU, GREEN, XIAOBITAN, ORANGE, LUZHOU].flat());
@@ -131,6 +133,31 @@ describe("捷運的路線圖", () => {
     expect(drawn.stations.flatMap((station) => station.ids).filter((id) => /^[AY]/.test(id))).toEqual([]);
     expect(drawn.lines.filter((line) => line.ids.some((id) => /^[AY]/.test(id)))).toEqual([]);
     expect(nodeOf(drawn, "BL12")?.lines).not.toContain("機場線");
+  });
+
+  type Box = { left: number; right: number; top: number; bottom: number };
+  const labels = map.stations.map((station) => ({ name: station.name, ...labelBox(station) }));
+  /** 兩個框之間空多少 負的是疊在一起 */
+  const gapOf = (a: Box, b: Box) => Math.max(a.left - b.right, b.left - a.right, a.top - b.bottom, b.top - a.bottom);
+
+  it("站名不會疊到別的站名 也不會蓋住別的站", () => {
+    // 點在畫面上的半徑大約是 0.2 格 轉乘站大一點
+    const DOT = 0.2;
+    const onLabels = labels.flatMap((a, index) => labels.slice(index + 1).flatMap((b) => (gapOf(a, b) < 0 ? [`${a.name}／${b.name}`] : [])));
+    const onDots = labels.flatMap((label) => map.stations.flatMap((station) => (station.name !== label.name && gapOf(label, { left: station.x - DOT, right: station.x + DOT, top: station.y - DOT, bottom: station.y + DOT }) < 0 ? [`${label.name}／${station.name}`] : [])));
+
+    expect(onLabels).toEqual([]);
+    expect(onDots).toEqual([]);
+  });
+
+  it("使用者回報過：新北產業園區與三重的站名跟別的站名擠在一起 現在至少隔半格", () => {
+    const nearest = (name: string) => {
+      const own = labels.find((label) => label.name === name)!;
+      return Math.min(...labels.filter((label) => label !== own).map((label) => gapOf(own, label)));
+    };
+
+    expect(nearest("新北產業園區")).toBeGreaterThanOrEqual(0.5);
+    expect(nearest("三重")).toBeGreaterThanOrEqual(0.5);
   });
 
   it("圖的範圍包得住每一站", () => {

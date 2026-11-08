@@ -4,8 +4,8 @@ import { coreUsers } from "@/core/db/schema";
 import type { ItemKind } from "../lib/rules";
 
 /**
- * 一趟旅程 成員都能改 所以不是依使用者的表 權限看 travel_members
- * 結束 7 天後由排程刪掉 join_generation 加一 舊的群組連結就失效
+ * 成員都能改 所以沒有 user_id 權限看 travel_members
+ * join_generation 加一 舊的群組連結就失效
  */
 export const travelTrips = pgTable(
   "travel_trips",
@@ -98,8 +98,8 @@ export const travelChecks = pgTable(
 ).enableRLS();
 
 /**
- * 一筆分帳 金額是外幣的分 rate_micros 是一元外幣換幾台幣乘上一百萬 台幣是 1000000
- * 換算後的台幣不存 由這兩個算出來 成員離開後紀錄留著 帳才對得起來
+ * 金額是外幣的分 rate_micros 是匯率乘一百萬 台幣是 1000000
+ * 台幣不存 由這兩個算 改匯率時才對得起來
  */
 export const travelExpenses = pgTable(
   "travel_expenses",

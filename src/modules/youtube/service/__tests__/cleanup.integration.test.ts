@@ -43,8 +43,8 @@ beforeEach(async () => {
 });
 
 /**
- * 正式環境的 postgres-js 不轉 Date 參數 跟欄位比較時 drizzle 才會轉
- * 測試用的 PGlite 會自己轉而查不出來 所以直接看送出的參數
+ * 正式環境的 postgres-js 不轉 Date 參數
+ * PGlite 自己會轉而查不出來 所以看送出的參數
  */
 const dateParams = (query: MockInstance) => query.mock.calls.flatMap(([, params]) => (Array.isArray(params) ? params : [])).filter((param) => param instanceof Date);
 
@@ -327,8 +327,8 @@ describe("cleanupVideos：每人只看最新 20 支，不在任何人最新 20 �
 
     describe("RSS 認不出來、還在某人最新 20 支裡的影片（RSS 只有最新十幾支）：逐支請求 /shorts/ 確認，是 Shorts 就刪", () => {
       /**
-       * 每支影片 YouTube 的回答 true 是 Shorts false 是一般影片
-       * null 是無法判斷 Error 是請求失敗 沒列的是一般影片
+       * true 是 Shorts false 是一般影片 null 是無法判斷
+       * Error 是請求失敗 沒列的是一般影片
        */
       const answers = (byId: Record<string, boolean | null | Error>) =>
         api.checkIsShort.mockImplementation(async (videoId: string) => {

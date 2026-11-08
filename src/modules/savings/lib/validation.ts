@@ -258,8 +258,8 @@ const OPENING_LABELS: Record<"create" | "update", Record<AccountKind, string>> =
 };
 
 /**
- * 不適用這個類型的欄位當成 null 例如切換類型前填的 信用卡的截止日改成填帳單時填 不收
- * 信用卡填的是未繳 存成負的起始餘額 負的未繳是溢繳
+ * 不適用這個類型的欄位當成 null 例如切換類型前填的
+ * 信用卡填未繳 存成負的起始餘額 負的未繳是溢繳
  */
 export function parseAccountFields(
   fields: Fields<"name" | "label" | "cardStyle" | "openingBalance" | "openingCost" | "monthlyPlan" | "targetAmount" | "payFromAccountId" | "statementDay" | "autopay">,
@@ -372,8 +372,8 @@ export function parseEntryFields(fields: Fields<"kind" | "accountId" | "counterA
 }
 
 /**
- * startMonth 存那個月的 1 號 每月一次時不用 是 null
- * 定期定額的 counterAccountId 先是 null 由 service 照那一檔所在的投資帳戶填
+ * startMonth 存那個月的 1 號 每月一次是 null
+ * 定期定額的轉入帳戶由 service 照那一檔填
  */
 export type RecurringInput = EntryCore & {
   dayOfMonth: number;
@@ -418,8 +418,8 @@ export function parsePeriod(raw: string): MonthKey | null {
 }
 
 /**
- * kind 是 regular 或帶了 holdingId 的 transfer 是定期定額 一定要選哪一檔
- * 空白的間隔 假日規則與記帳方式是每月 照原日 到期請我確認
+ * regular 或帶 holdingId 的 transfer 是定期定額 一定要選一檔
+ * 空白的間隔 假日規則與記帳方式是每月 照原日 到期確認
  */
 export function parseRecurringFields(fields: Fields<RecurringFieldName>): Parsed<RecurringInput> {
   const regular = fields.kind === "regular" || (fields.kind === "transfer" && fields.holdingId.trim() !== "");
@@ -490,8 +490,8 @@ export type SalaryInput = {
 const SALARY_LINES_INVALID = "分配的帳戶不正確，請重新整理頁面再試一次";
 
 /**
- * 金額 0 或留空就略過 分出去的不能超過薪水 剩下的留在入帳帳戶
- * accountNames 是自己全部的帳戶 用來限制行數與在錯誤裡寫出帳戶名稱
+ * 金額 0 或留空就略過 剩下的留在入帳帳戶
+ * accountNames 用來限制行數與在錯誤裡寫出帳戶名稱
  */
 export function parseSalaryFields(
   fields: Fields<"accountId" | "categoryId" | "amount" | "date" | "note"> & { transfers: Fields<"accountId" | "amount">[]; ruleId?: string; period?: string },

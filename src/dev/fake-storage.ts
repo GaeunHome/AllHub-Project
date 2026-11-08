@@ -1,5 +1,5 @@
 // localStorage 的替身 用 vi.stubGlobal 換上
-// vitest.config 開了 unstubGlobals 每個測試前自動換回來
+// unstubGlobals 開著 每個測試前自動換回來
 
 /** 記在 Map 裡 data 可以直接看存了什麼 或改值模擬別的分頁存的 */
 export function fakeStorage(initial: Record<string, string> = {}) {

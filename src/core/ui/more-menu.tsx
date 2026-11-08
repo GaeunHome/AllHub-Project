@@ -6,6 +6,7 @@ import { Icon } from "./icon";
 import { useOutsidePress } from "./outside-press";
 import { POPUP_TRIGGER } from "./popup-layer";
 import { placeNear } from "./popup-position";
+import { showOnTop } from "./top-layer";
 
 type MoreMenuProps = {
   /** 給報讀器與提示的按鈕名稱 例如影片標題的選項 */
@@ -25,13 +26,14 @@ const CLOSES_MENU = '[aria-haspopup="dialog"], [data-closes-menu]';
 
 /**
  * 卡片與頻道上的 ⋮ 選單 寬螢幕貼著按鈕 手機從底部升起
- * 用 fixed 定位 放在會橫向捲動的列裡也不會被裁掉
+ * 放在 top layer 會橫向捲動的列與卡片都裁不掉也蓋不住
  */
 export function MoreMenu({ label, trigger, triggerClassName = "icon-button", children }: MoreMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const byKeyboard = useRef(false);
   const panelId = useId();
 
@@ -43,6 +45,9 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
     const button = buttonRef.current;
     const panel = panelRef.current;
     if (!open || !button || !panel) return;
+    // 先顯示遮罩 選單後顯示才排在它上面
+    showOnTop(backdropRef.current);
+    showOnTop(panel);
     const rect = button.getBoundingClientRect();
     const { offsetWidth: width, offsetHeight: height } = panel;
     const { left, top } = placeNear(rect, { width, height }, { width: window.innerWidth, height: window.innerHeight }, { left: rect.right - width, gap: GAP, edge: EDGE });
@@ -115,7 +120,7 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
         // 面板是 group 沒有對應的 aria-haspopup 值
-        // popup-layer.ts 靠這個屬性認出選單開著 頁面的快捷鍵才會讓開
+        // popup-layer.ts 靠它認出開著 快捷鍵才會讓開
         {...{ [POPUP_TRIGGER]: "" }}
         onClick={toggle}
         className={triggerClassName}
@@ -124,8 +129,8 @@ export function MoreMenu({ label, trigger, triggerClassName = "icon-button", chi
       </button>
       {open && (
         <>
-          <div aria-hidden className="more-menu-backdrop" onClick={() => setOpen(false)} />
-          <div ref={panelRef} id={panelId} role="group" aria-label={label} className="more-menu" onClick={onPanelClick}>
+          <div ref={backdropRef} aria-hidden popover="manual" className="more-menu-backdrop" onClick={() => setOpen(false)} />
+          <div ref={panelRef} id={panelId} role="group" aria-label={label} popover="manual" className="more-menu" onClick={onPanelClick}>
             {children}
           </div>
         </>

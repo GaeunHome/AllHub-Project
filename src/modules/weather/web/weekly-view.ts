@@ -1,6 +1,6 @@
 import { formatTaipeiLongDate } from "@/core/time";
 import { cityPhoto } from "../lib/city-photos";
-import { uvLevel, type DayDetails } from "../lib/details";
+import { daylightPosition, uvLevel, uvPosition, windToward, type DayDetails } from "../lib/details";
 import type { HourPoint, WeekDay } from "../lib/weekly";
 import { temperatureText, weatherArt, weatherScene, type WeatherArt, type WeatherScene } from "./weather-view";
 
@@ -41,20 +41,35 @@ export function hourColumns(hours: readonly HourPoint[]): Record<string, HourCol
   return columns;
 }
 
-/** sub 是值下面的一行 例如風的級數 紫外線的等級 */
-export type DetailTile = { label: string; value: string; sub: string | null };
+/** 每一格標題旁的 3D 小圖 檔案在 public/images/weather */
+export type DetailArt = "thermometer" | "droplet" | "wind" | "sunglasses" | "sunrise" | "sunset";
 
-/** 讀不到的那一格不畫 全部讀不到時是空的 整區不出現 */
-export function detailTiles({ feelsHigh, feelsLow, humidity, wind, uv, sunrise, sunset }: DayDetails): DetailTile[] {
+/** 使用者選的小量表 at 是 0 到 100 的位置 degrees 是風吹過去的方向 */
+export type DetailMeter = { kind: "fill"; at: number } | { kind: "uv"; at: number } | { kind: "daylight"; at: number } | { kind: "toward"; degrees: number };
+
+/** sub 是值下面的一行 例如風的級數 紫外線的等級 */
+export type DetailTile = { label: string; value: string; sub: string | null; art: DetailArt; meter: DetailMeter | null };
+
+const tile = (label: string, value: string, art: DetailArt, sub: string | null = null, meter: DetailMeter | null = null): DetailTile => ({ label, value, sub, art, meter });
+
+/** 日出日落都有時併成一格 量表是太陽走到哪 */
+function sunTile(sunrise: string | null, sunset: string | null, clock: string): DetailTile | null {
+  if (sunrise !== null && sunset !== null) return tile("日出", sunrise, "sunrise", `日落 ${sunset}`, { kind: "daylight", at: daylightPosition(sunrise, sunset, clock) });
+  if (sunrise !== null) return tile("日出", sunrise, "sunrise");
+  return sunset === null ? null : tile("日落", sunset, "sunset");
+}
+
+/** 讀不到的那一格不畫 全部讀不到時是空的 整區不出現 clock 是當地現在的 HH:mm */
+export function detailTiles({ feelsHigh, feelsLow, humidity, wind, uv, sunrise, sunset }: DayDetails, clock: string): DetailTile[] {
   const feels = temperatureText({ minTemp: feelsLow, maxTemp: feelsHigh });
   const level = wind && wind.level !== null ? `${wind.level} 級` : null;
+  const toward = wind?.direction ? windToward(wind.direction) : null;
   const tiles: (DetailTile | null)[] = [
-    feels === null ? null : { label: "體感溫度", value: feels, sub: null },
-    humidity === null ? null : { label: "濕度", value: `${humidity}%`, sub: null },
-    wind && { label: "風", value: wind.direction ?? level ?? "", sub: wind.direction === null ? null : level },
-    uv === null ? null : { label: "紫外線", value: String(uv), sub: uvLevel(uv) },
-    sunrise === null ? null : { label: "日出", value: sunrise, sub: null },
-    sunset === null ? null : { label: "日落", value: sunset, sub: null },
+    feels === null ? null : tile("體感溫度", feels, "thermometer"),
+    humidity === null ? null : tile("濕度", `${humidity}%`, "droplet", null, { kind: "fill", at: Math.min(Math.max(humidity, 0), 100) }),
+    wind && tile("風", wind.direction ?? level ?? "", "wind", wind.direction === null ? null : level, toward === null ? null : { kind: "toward", degrees: toward }),
+    uv === null ? null : tile("紫外線", String(uv), "sunglasses", uvLevel(uv), { kind: "uv", at: uvPosition(uv) }),
+    sunTile(sunrise, sunset, clock),
   ];
   return tiles.filter((tile) => tile !== null);
 }

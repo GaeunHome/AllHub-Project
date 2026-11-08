@@ -3,8 +3,8 @@ import type { DateKey } from "./dates";
 import { SYMBOL_PATTERN } from "./kinds";
 import { formatNumber } from "./money";
 
-// 證交所 STOCK_DAY_ALL 與櫃買中心 tpex_mainboard_quotes 的收盤價
-// 欄位全是字串 日期是民國年 沒成交時證交所是空字串 櫃買是 ----
+// STOCK_DAY_ALL 與 tpex_mainboard_quotes 的欄位全是字串
+// 日期是民國年 沒成交時證交所是空字串 櫃買是 ----
 
 /** closeCents 是收盤價的分 例如 123.45 存 12345 沒成交是 null */
 export type Quote = { symbol: string; name: string; closeCents: number | null; date: DateKey | null; market: "twse" | "tpex" };

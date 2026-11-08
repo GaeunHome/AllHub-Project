@@ -20,8 +20,8 @@ const STEPS: Record<SetupStep, { title: string; hint: string; href: string; acti
 };
 
 /**
- * 還有沒做的步驟時才出現 required 是還沒有帳戶 這張就是整個總覽 不能收起或略過
- * 收起與略過的樣子由 html 上的屬性決定 見 overview-prefs.ts
+ * required 是還沒有帳戶 這張就是整個總覽 不能收起
+ * 收起與略過的樣子由 html 的屬性決定
  */
 export function SetupChecklist({ view }: { view: SetupView }) {
   const headingId = useId();

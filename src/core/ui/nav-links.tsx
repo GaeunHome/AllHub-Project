@@ -41,8 +41,8 @@ function revealCurrent(list: HTMLUListElement | null) {
 }
 
 /**
- * 橫捲的膠囊列 換頁或寬度改變時把目前那一個捲進畫面
- * list 的父層是會捲的外框 用 layout effect 在繪製前就捲好 不會先閃一下
+ * 換頁或寬度改變時把目前那一個捲進畫面
+ * layout effect 在繪製前捲好 不會先閃一下
  */
 export function useRevealCurrent(listRef: RefObject<HTMLUListElement | null>, current: unknown) {
   useLayoutEffect(() => {

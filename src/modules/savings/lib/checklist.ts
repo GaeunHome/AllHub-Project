@@ -52,8 +52,8 @@ export type ChecklistStatement = { accountId: number; statementDate: DateKey; du
 export type ChecklistContext = Omit<PendingContext, "accounts"> & { accounts: (PendingContext["accounts"][number] & { statementDay: number | null })[] };
 
 /**
- * bills 是每張卡最近一期 accountsState 算好的
- * records 要涵蓋上個月 1 號以後記的 提早確認的那一筆可能在上個月
+ * bills 是 accountsState 算好的每張卡最近一期
+ * records 要從上個月 1 號起 提早確認的可能在上個月
  */
 export type ChecklistInput = {
   rules: PendingRuleRow[];

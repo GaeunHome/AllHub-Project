@@ -43,8 +43,8 @@ export async function recentVideos(userId: string) {
 export type FollowedVideo = { title: string; channelId: string; channelTitle: string | null; thumbnail: string | null };
 
 /**
- * 自己追蹤頻道的某支影片 不限清單上的最新幾支 觀看頁 保留與重新檢查字幕共用
- * 別人追蹤的頻道的影片當作沒有 回 null 別人追蹤哪些頻道不能從這裡看出來
+ * 不限清單上的最新幾支 觀看頁與保留共用
+ * 別人追蹤的頻道的影片回 null 不能看出別人追蹤什麼
  */
 export async function followedVideo(userId: string, videoId: string): Promise<FollowedVideo | null> {
   const [row] = await db()
@@ -57,8 +57,8 @@ export async function followedVideo(userId: string, videoId: string): Promise<Fo
 }
 
 /**
- * 所有人清單的聯集 清理時只留這些 也只逐支確認這些是不是 Shorts
- * exceptVideoIds 不算名次 先留著的 Shorts 才不會把一般影片擠出清單而刪掉
+ * 清理時只留所有人清單的聯集
+ * exceptVideoIds 不算名次 先留著的 Shorts 才不會擠掉一般影片
  */
 export function allListedVideoIds(exceptVideoIds: readonly string[] = []) {
   const ranked = db()

@@ -6,8 +6,8 @@ import { twitchTags } from "./cache-tags";
 import { listFollowedStreamers, recentEvents } from "./streamers";
 import { gameArt, liveStreams, streamerProfiles } from "./visuals";
 
-// 只給頁面用 寫入流程與排程要讀最新資料 直接用 streamers.ts
-// userId 是頁面從 session 拿到的登入者 也是快取 key 每個人只讀到自己追蹤的主播
+// 寫入流程與排程要讀最新資料 直接用 streamers.ts
+// userId 來自 session 是快取 key 只讀到自己追蹤的
 
 export async function cachedStreamers(userId: string): Promise<FollowedStreamer[]> {
   "use cache: remote";
@@ -40,7 +40,7 @@ export async function cachedStreamerProfiles(broadcasterIds: string[]): Promise<
 export async function cachedLiveStreams(broadcasterIds: string[]): Promise<LiveStream[] | null> {
   "use cache: remote";
   cacheLife("live");
-  // EventSub 寫入開關台時主播表的 tag 會失效 直播狀態跟著重抓 不用等 2 分鐘
+  // EventSub 寫入開關台時主播表的 tag 會失效 直播狀態跟著重讀 不用等 2 分鐘
   cacheTag(twitchTags.external, twitchTags.streamers);
   return liveStreams(broadcasterIds);
 }

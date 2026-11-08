@@ -3,8 +3,8 @@ import { shiftForHoliday } from "./holidays";
 import { addMonths, dateToMonth } from "./month";
 import { scheduledDate } from "./recurring";
 
-// 帳單的金額與截止日照銀行的 不是每筆刷卡都有記 填帳單時跟紀錄的差額自動補一筆
-// 有結帳日的卡結帳後就要填 沒有結帳日的自己在帳戶詳情填
+// 不是每筆刷卡都有記 填帳單時跟紀錄的差額自動補一筆
+// 沒有結帳日的卡 自己在帳戶頁填
 
 /** 每個帳戶每天的流量 金額都是正數 只有調整帶正負號 轉入算在 counter_account_id */
 export type CardDailyFlow = { accountId: number; date: DateKey; income: number; expense: number; transferIn: number; transferOut: number; adjust: number };
@@ -21,8 +21,8 @@ export type CardStatement = { id: number; accountId: number; statementDate: Date
 export type CardBillStatus = "none" | "needs-bill" | DueStatus;
 
 /**
- * 金額都不會是負的 還沒填帳單時 statementAmount 與 dueDate 是 null 待處理用 estimate
- * dueDate 是遇假日順延後的 estimate 是照紀錄算的結帳日未繳
+ * 還沒填帳單時 statementAmount 與 dueDate 是 null
+ * dueDate 是順延後的 estimate 是照紀錄估的未繳
  */
 export type CardBill = {
   accountId: number;
@@ -39,8 +39,8 @@ export type CardBill = {
 };
 
 /**
- * 填帳單視窗的預設 statementDate 是這次要填的那一期 沒有結帳日的卡是今天
- * dueDate 是帳單上印的日子 遇假日順延的那天由視窗自己算
+ * statementDate 是這次要填的那一期 沒有結帳日的卡是今天
+ * dueDate 是帳單上印的日子 順延的那天由視窗自己算
  */
 export type BillDefaults = { statementDate: DateKey; estimate: number; dueDate: DateKey };
 
@@ -86,9 +86,8 @@ const newest = <T extends CardStatement>(statements: readonly T[]): T | undefine
   statements.reduce<T | undefined>((latest, candidate) => (latest === undefined || candidate.statementDate > latest.statementDate || (candidate.statementDate === latest.statementDate && candidate.id > latest.id) ? candidate : latest), undefined);
 
 /**
- * 填帳單時截止日的預設 是帳單上會印的日子 不順延
- * 照上一張帳單截止日的日子 還沒有帳單是結帳後 15 天
- * 同一期再填一次時是上次填的 statements 只要這張卡的
+ * 帳單上會印的日子 不順延 同一期再填時是上次填的
+ * 照上一張的截止日 還沒有帳單是結帳後 15 天
  */
 export function defaultDueDate(statementDate: DateKey, statements: readonly CardStatement[]): DateKey {
   const same = statements.find((statement) => statement.statementDate === statementDate);
@@ -112,8 +111,8 @@ export function billCutoff(card: Pick<CardLike, "statementDay">, statementDate: 
 }
 
 /**
- * 正的是少記的刷卡 負的是多記了 balanceAtCutoff 是紀錄算到結帳日的餘額
- * 帳單 0 時紀錄上的溢繳不算差額 銀行的帳單不會是負的
+ * 正的是少記的刷卡 負的是多記了
+ * 帳單 0 時溢繳不算差額 銀行的帳單不會是負的
  */
 export function billDifference(bill: number, balanceAtCutoff: number): number {
   const recordedOwed = 0 - balanceAtCutoff;
@@ -143,8 +142,8 @@ export function billPayments(
 }
 
 /**
- * balance 是目前的帳上餘額 信用卡是負的未繳 flows 要涵蓋上次結帳日之後
- * statements 是填過的帳單 別張卡的會略過 帶了 paid 就用它 流量只有近 70 天 沒有結帳日的卡最新一張可能更早
+ * flows 要涵蓋上次結帳日之後
+ * 帶了 paid 就用它 沒有結帳日的卡最新一張可能早於 70 天的流量
  */
 export function cardBill(card: CardLike, balance: number, flows: CardDailyFlow[], today: DateKey, statements: readonly (CardStatement & { paid?: number })[] = []): CardBill {
   const owedNow = Math.max(0, 0 - balance);

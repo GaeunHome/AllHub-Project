@@ -8,8 +8,8 @@ export const BIG_FIGURE = "flex min-w-0 flex-wrap content-center items-center ju
 export const BIG_FIGURE_FACTS = "min-w-56 flex-1 sm:max-w-sm";
 
 /**
- * 寬螢幕兩欄 左邊這個月要做的事 右邊本月收支與每月收支
- * 超寬螢幕右欄拆開 三張並排 每一欄各自是 page-stack 不從外框挑第幾個子元素
+ * 寬螢幕兩欄 超寬螢幕右欄拆開三張並排
+ * 每一欄各自是 page-stack 不從外框挑第幾個子元素
  */
 export const OVERVIEW_COLUMNS = "grid gap-8 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start 2xl:grid-cols-3";
 

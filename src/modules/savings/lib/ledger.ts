@@ -141,8 +141,8 @@ export function accountBalances(accounts: AccountLike[], flows: AccountMonthFlow
 const owedOf = (balance: AccountBalance | undefined) => balance?.owed ?? Math.max(0, -(balance?.balance ?? 0));
 
 /**
- * 停用的帳戶不算 有持股的投資帳戶用 investmentValues 的市值與成本 不看帳上的餘額與調整
- * 沒有持股的照舊 帳上的餘額就是更新市值時填的數字
+ * 停用的不算 有持股的投資帳戶用市值 不看帳上的餘額
+ * 沒有持股的 帳上的餘額就是更新市值時填的數字
  */
 export function assetSummary(accounts: AccountLike[], balances: Map<number, AccountBalance>, investmentValues?: ReadonlyMap<number, InvestmentFigures>): AssetSummary {
   let deposit = 0;

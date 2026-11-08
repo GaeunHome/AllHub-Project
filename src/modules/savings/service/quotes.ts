@@ -3,8 +3,8 @@ import { logError } from "@/core/errors";
 import { readExternalJson } from "@/core/external-url";
 import { parseTpexQuotes, parseTwseQuotes, type Quote } from "../lib/quotes";
 
-// 證交所與櫃買中心的 OpenAPI 一天更新一次前一個交易日的收盤價
-// 不呼叫證交所網站的端點 使用條款不准程式下載 所以也沒有歷史股價
+// OpenAPI 一天更新一次 是前一個交易日的收盤價
+// 證交所網站的使用條款不准程式下載 所以沒有歷史股價
 
 type Source = { label: string; url: string; parse: (json: unknown) => Quote[] };
 

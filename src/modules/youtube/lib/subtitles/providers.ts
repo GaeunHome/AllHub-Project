@@ -1,4 +1,4 @@
-// 這個檔不 import 任何東西 資料表 schema 也用它產生 enum
+// 不 import 任何東西 schema 用它產生 enum
 // drizzle-kit 載入 schema 時才不會牽連到其他檔案
 
 /** 翻譯可用的 AI 供應商 資料表 enum 翻譯與設定頁都用這份清單 */

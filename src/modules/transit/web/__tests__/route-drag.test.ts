@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { startRouteDrag } from "../route-drag";
 
-// 這一版在瀏覽器發現的 拖曳中卡片換位置時 React 搬動元素 把手上的指標捕捉被放掉
-// 放開只聽把手的話永遠收不到 順序沒有存 所以拖曳中聽整個視窗
+// 在瀏覽器發現過 卡片換位置時 React 搬動元素 指標捕捉被放掉
+// 只聽把手時放開收不到 順序存不了 所以聽整個視窗
 
 // 其他卡片的中線 1 在 100 2 在 300
 const MIDDLES: Record<number, number> = { 1: 100, 2: 300, 3: 500 };

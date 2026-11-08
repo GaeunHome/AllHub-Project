@@ -3,8 +3,8 @@ import { fakeFetch, type FakeFetchCall } from "@/dev/fake-fetch";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
 import { fetchQuotes, findQuote } from "../quotes";
 
-// 回應的形狀照證交所與櫃買中心 OpenAPI 的真實回應 只留用得到的欄位
-// 真的清單上市約 1,381 筆 上櫃約 1,012 筆 不到 100 筆會當成那個來源出錯 所以補上別的股票
+// 形狀照 OpenAPI 的真實回應 只留用得到的欄位
+// 真的清單有上千筆 不到 100 筆算出錯 所以補上別的股票
 const TWSE_NAMED = [
   { Date: "1151014", Code: "0050", Name: "元大台灣50", ClosingPrice: "113.00" },
   { Date: "1151014", Code: "006208", Name: "富邦台50", ClosingPrice: "258.70" },

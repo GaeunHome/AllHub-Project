@@ -1,5 +1,5 @@
-// 活動日曆依 genshin.py 的 HSREventCalendar 整理 還沒用真實帳號驗證
-// 讀不到的欄位給 null 並記下路徑 時間是 Unix 秒數的字串 0 代表沒有排定
+// 依 genshin.py 的 HSREventCalendar 整理 還沒用真實帳號驗證
+// 時間是 Unix 秒數的字串 0 代表沒有排定
 
 import { asRecord, createMissing, numberOf, text } from "@/core/json";
 import { image } from "./image";

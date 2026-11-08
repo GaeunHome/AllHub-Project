@@ -1,5 +1,5 @@
-// 假的 Twitch API 與圖片 CDN login 是 nobody 時查無此人
-// 假 id 是奇數的在直播 像 alice 是 1035 偶數離線 其中 4 的倍數有離線橫幅
+// login 是 nobody 時查無此人
+// id 奇數在直播 例如 alice 是 1035 偶數離線 4 的倍數有橫幅
 let subscriptionSeq = 0;
 /** 記下查過的 id 對應的帳號 頭像上的字才對得上 假伺服器重開後查不到就用 id */
 const loginOf = new Map();

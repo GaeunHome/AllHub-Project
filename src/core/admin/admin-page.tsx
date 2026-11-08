@@ -129,14 +129,14 @@ export async function LockedNotices() {
 
 export async function AnnouncementSection() {
   await requireOwner();
-  // 有沒有結束要用這次請求的時間算 預先抓取時不能先算好
+  // 有沒有結束要用這次請求的時間算 預先讀取時不能先算好
   await connection();
   return <AnnouncementList rows={await cachedAnnouncements()} now={new Date()} />;
 }
 
 export async function InviteSection({ modules }: { modules: ModuleInfo[] }) {
   await requireOwner();
-  // 有效或過期要用這次請求的時間算 預先抓取時不能先算好
+  // 有效或過期要用這次請求的時間算 預先讀取時不能先算好
   await connection();
   const invites = await cachedInvites();
   return (
@@ -149,7 +149,7 @@ export async function InviteSection({ modules }: { modules: ModuleInfo[] }) {
 
 export async function UserSection() {
   const owner = await requireOwner();
-  // 鎖定是否到期要用這次請求的時間算 預先抓取時不能先算好
+  // 鎖定是否到期要用這次請求的時間算 預先讀取時不能先算好
   await connection();
   const [users, locked] = await Promise.all([cachedUsers(), listLockedUsers(new Date())]);
   return <UserList users={users} currentUserId={owner.id} lockedUntil={new Map(locked.map((user) => [user.id, user.lockedUntil]))} />;

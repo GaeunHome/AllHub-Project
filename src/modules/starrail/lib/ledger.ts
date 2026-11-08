@@ -30,8 +30,8 @@ export function interpretLedger(json: unknown, requestedMonth: string): HoyolabR
 const LEDGER_KEYS = ["cookie_token_v2", "account_mid_v2"];
 
 /**
- * 開拓月曆回 -100 或 10001 不代表整個 cookie 失效 便箋與簽到照樣能用
- * 只看送出的鍵名 訊息不帶 cookie 的值 json 是同一次的回應 取 HoYoLAB 寫的原因
+ * 回 -100 或 10001 不代表整個 cookie 失效 便箋與簽到照樣能用
+ * 只看送出的鍵名 訊息不帶 cookie 的值
  */
 export function explainLedgerLogin<T>(result: HoyolabResult<T>, json: unknown, sentKeys: ReadonlySet<string>): HoyolabResult<T> {
   if (result.ok || !result.cookieInvalid) return result;

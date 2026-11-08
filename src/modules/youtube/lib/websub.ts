@@ -53,8 +53,8 @@ export type FeedEntry = {
   published: Date | null;
   url: string;
   /**
-   * 連結是 /shorts/ 的是 Shorts RSS 的連結可信 清理時 false 就當一般影片
-   * 推送的 false 只代表從連結看不出來 由 service 再請求確認
+   * RSS 的連結可信 清理時 false 就當一般影片
+   * 推送的 false 只代表看不出來 由 service 再確認
    */
   isShort: boolean;
 };
@@ -132,8 +132,8 @@ export const SUBSCRIPTION_FAILED = "訂閱失敗：";
 export const isSubscriptionFailure = (status: string | null): boolean => status?.startsWith(SUBSCRIPTION_FAILED) ?? false;
 
 /**
- * 訂閱失敗的原因會顯示在畫面上 只放中文摘要 原文可能是英文或夾帶 hub 的回應
- * 用名稱判斷 HubError 才不必載入 server-only 的 api.ts
+ * 顯示在畫面上 只放中文摘要 原文可能夾帶 hub 的回應
+ * 用名稱判斷 才不必載入 server-only 的 api.ts
  */
 export function subscriptionFailure(error: unknown): string {
   return `${SUBSCRIPTION_FAILED}${connectionProblem(error, "WebSub hub") ?? hubProblem(error)}`;

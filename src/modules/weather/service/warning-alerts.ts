@@ -8,8 +8,8 @@ import { activeWarnings, warningEndText } from "../lib/warnings";
 import { recipientsByCounty } from "./recipients";
 import { ALL_COUNTIES_TIMEOUT_MS, fetchWarnings, weatherKeys } from "./weather";
 
-// 排程 weather:warnings 大約每小時跑一次 特報隨時會發 寄給開著通知的人
-// 停用的帳號凍結不寄 認領記在 core_rate_limits 一天後刪
+// 特報隨時會發 所以大約每小時跑一次
+// 停用的帳號凍結不寄
 
 // service 不能 import 模組根目錄的 info 模組 id 寫在這裡
 const MODULE_ID = "weather";

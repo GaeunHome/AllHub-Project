@@ -18,8 +18,8 @@ function browserAudioContext(): AudioContext | null {
 }
 
 /**
- * 瀏覽器規定互動過才能出聲 第一次點擊或按鍵時 unlock 建立 AudioContext
- * 之後 play 才響得出來 還沒解鎖就回 false
+ * 瀏覽器規定互動過才能出聲
+ * 第一次點擊或按鍵時 unlock 還沒解鎖時 play 回 false
  */
 export function createChimePlayer(createContext: AudioContextFactory = browserAudioContext): ChimePlayer {
   let context: AudioContext | null = null;

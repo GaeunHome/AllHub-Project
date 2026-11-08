@@ -4,8 +4,8 @@ import { shiftForHoliday } from "./holidays";
 import { formatTwd } from "./money";
 import { normalizeSymbol, rocDateToKey } from "./quotes";
 
-// 證交所 TWT48U_ALL 與櫃買中心 tpex_exright_prepost 的除權除息預告表 沒有發放日
-// 欄位全是字串 日期是民國年 現金股利還沒公布時證交所是空字串 櫃買是尚未公告
+// TWT48U_ALL 與 tpex_exright_prepost 的預告表 沒有發放日
+// 日期是民國年 沒公布的股利證交所是空字串 櫃買寫尚未公告
 
 /** cash 只有現金股利 stock 只有除權 也可能是現金增資 both 兩個都有 */
 export type DividendKind = "cash" | "stock" | "both";

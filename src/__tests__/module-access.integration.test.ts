@@ -17,7 +17,7 @@ import { twitchFollows, twitchStreamers } from "@/modules/twitch/data/schema";
 import { weatherSettings } from "@/modules/weather/data/schema";
 import { youtubeAiKeys, youtubeChannels, youtubeFollows } from "@/modules/youtube/data/schema";
 
-// 關掉模組等於那個模組凍結 跟停用帳號同一個概念 資料全部保留 恢復後照常
+// 關掉模組等於凍結 同停用帳號 資料保留 恢復後照常
 // core 不能 import 模組 所以跨模組的檢查放在 src 底下
 
 stubAllEnv();

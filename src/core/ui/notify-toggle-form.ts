@@ -1,6 +1,6 @@
 import { formFlag, formId } from "../form";
 
-// client 的 NotifyToggle 送出 模組的 Server Action 解析 欄位名稱只定義在這裡
+// 瀏覽器的 NotifyToggle 送出 模組的 Server Action 解析
 // 不加 use client 伺服器端才能呼叫解析函式
 
 const FIELDS = { id: "id", enabled: "enabled" } as const;

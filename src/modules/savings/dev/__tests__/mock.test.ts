@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { mergeDividendEvents, parseTpexDividends, parseTwseDividends } from "../../lib/dividends";
 import { handle, tpexDividends, tpexQuotes, twseDividends, twseQuotes } from "../mock.mjs";
 
-// 假伺服器要回真實格式的資料 E2E 的持股與定期定額估算才看得到東西
-// 格式照證交所 STOCK_DAY_ALL 與櫃買 tpex_mainboard_quotes 欄位全是字串
+// 回真實格式 E2E 的持股與定期定額估算才看得到東西
+// 照 STOCK_DAY_ALL 與 tpex_mainboard_quotes 欄位全是字串
 describe("證交所與櫃買中心的假回應", () => {
   const thursday = new Date("2026-10-15T04:00:00Z");
   const twse = twseQuotes(thursday);

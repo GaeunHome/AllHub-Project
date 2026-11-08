@@ -88,10 +88,8 @@ export async function deleteItem(userId: string, tripId: number, itemId: number)
 }
 
 /**
- * 放到某一項前面 不傳位置編號 兩個人同時拖曳時也不會互相蓋掉
- * beforeId 不在那一排時放最後 例如那一項剛被別人移走
- * 順序不是內容 不動 version 別人正在改這一項時才不會被說成衝突
- * 回傳有沒有真的變動 放回原位不用通知別人
+ * 傳放到哪一項前面 兩個人同時拖也不會互相蓋掉
+ * 順序不是內容 不動 version 才不會被說成衝突
  */
 export async function moveItem(userId: string, tripId: number, itemId: number, toDay: string | null, beforeId: number | null): Promise<boolean> {
   return inMemberTrip(userId, tripId, async (tx, trip) => {

@@ -1,5 +1,5 @@
-// 假的證交所與櫃買中心 OpenAPI 收盤價的欄位與價格照 2026-10-14 的真實回應
-// 日期換成今天之前最近的平日 像真的 API 一樣是前一個交易日
+// 收盤價的欄位與價格照 2026-10-14 的真實回應
+// 日期換成今天之前最近的平日 跟真的一樣是前一個交易日
 
 /** 今天台北時間之前最近的週一到週五 例如 1151014 */
 function previousTradingDay(now = new Date()) {
@@ -11,7 +11,8 @@ function previousTradingDay(now = new Date()) {
   return `${day.getUTCFullYear() - 1911}${pad(day.getUTCMonth() + 1)}${pad(day.getUTCDate())}`;
 }
 
-// Code Name TradeVolume TradeValue Open High Low Close Change Transaction
+// Code Name TradeVolume TradeValue Open
+// High Low Close Change Transaction
 const TWSE_ROWS = [
   ["0050", "元大台灣50", "64109641", "7264314036", "113.00", "113.75", "112.75", "113.00", "0.6000", "78354"],
   ["0056", "元大高股息", "31914087", "1893392462", "58.70", "59.70", "58.70", "59.60", "1.0500", "23962"],
@@ -30,7 +31,8 @@ const TWSE_ROWS = [
   ["00682U", "期元大美元指數", "140", "2955", "", "", "", "", "0.0000", "1"],
 ];
 
-// Code Name Close Change Open High Low TradingShares TransactionAmount TransactionNumber Bid Ask Capitals LimitUp LimitDown
+// Code Name Close Change Open High Low TradingShares TransactionAmount
+// TransactionNumber Bid Ask Capitals LimitUp LimitDown
 const TPEX_ROWS = [
   ["00679B", "元大美債20年", "25.05", "+0.07", "24.96", "25.06", "24.96", "20117000", "503340780", "1968", "25.05", "25.06", "6235692000", "9999.95", "0.01"],
   ["00687B", "國泰20年美債", "26.04", "+0.10", "25.98", "26.06", "25.94", "10521000", "273681070", "1255", "26.04", "26.05", "4317880380", "9999.95", "0.01"],
@@ -97,8 +99,8 @@ export function tpexQuotes(now) {
   );
 }
 
-// 除權除息預告表 TWT48U_ALL 與 tpex_exright_prepost 欄位照 2026-10-29 的真實回應
-// 日期照今天往後算 跟真的一樣也列最近已經過去的 遇到週末挪到週一
+// TWT48U_ALL 與 tpex_exright_prepost 照 2026-10-29 的真實回應
+// 日期照今天往後算 也列最近已經過去的
 
 /** 台北今天加 days 天 落在週末時挪到下週一 回民國年 例如 1151118 */
 function exDateAfter(days, now = new Date()) {
@@ -109,8 +111,8 @@ function exDateAfter(days, now = new Date()) {
   return `${day.getUTCFullYear() - 1911}${pad(day.getUTCMonth() + 1)}${pad(day.getUTCDate())}`;
 }
 
-// 幾天後 代號 名稱 種類 現金股利 配股 現金增資的認購率 現金股利還沒公布時證交所是空字串
-// 00919 明天除息 平日看今天就是最後買進日 2882 只有權 是現金增資 0050 已經過去
+// 幾天後 代號 名稱 種類 現金股利 配股 增資認購率 沒公布是空字串
+// 00919 明天除息 今天最後買進 2882 是現金增資 0050 已過
 const TWSE_DIVIDENDS = [
   [20, "006208", "富邦台50", "息", "1.720000", "", ""],
   [6, "0056", "元大高股息", "息", "", "", ""],

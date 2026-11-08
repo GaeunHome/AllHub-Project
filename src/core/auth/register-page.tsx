@@ -48,7 +48,7 @@ export async function RegisterGate({ searchParams }: { searchParams: SearchParam
   const code = typeof params.code === "string" ? params.code : "";
   if (!code) return <AuthNotice icon="info">需要站長的邀請連結才能註冊。拿到連結後直接打開就好；網站不開放自行註冊。</AuthNotice>;
 
-  // 預先抓取與算繪時停在這裡 只有真正打開連結的請求才查邀請與記次數
+  // 預先讀取與算繪時停在這裡 只有真正打開連結的請求才查邀請與記次數
   await connection();
   const check = await checkInvite(code, clientKey(clientIp(request.get("x-forwarded-for"))), new Date());
   switch (check.kind) {

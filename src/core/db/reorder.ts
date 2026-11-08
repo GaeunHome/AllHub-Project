@@ -12,8 +12,8 @@ export type OrderedTable = PgTable & Record<"id" | "userId" | "sortOrder" | "cre
 export const ownOrder = (table: OrderedTable) => [asc(table.sortOrder), asc(table.createdAt), asc(table.id)];
 
 /**
- * 把自己的一列放到 beforeId 前面 null 是放最後 回傳有沒有改 放回原位不用讓快取失效
- * 傳 db() 自己開交易 傳 tx 就在呼叫的人的交易裡 不是自己的 id 丟 notFound 給的錯誤
+ * beforeId 是 null 時放最後 沒改回 false 不用讓快取失效
+ * 傳 tx 就在呼叫的人的交易裡 別人的 id 丟 notFound 的錯誤
  */
 export function moveOwnRow(executor: Executor, table: OrderedTable, move: { userId: string; id: number; beforeId: number | null }, notFound: () => Error): Promise<boolean> {
   const { userId, id, beforeId } = move;

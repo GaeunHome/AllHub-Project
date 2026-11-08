@@ -54,10 +54,7 @@ export async function checkin(account: StarrailAccount, changes?: AccountChanges
   return result === "failed" ? { ok: false, error: message } : { ok: true, message, already: result === "already" };
 }
 
-/**
- * 頁面上的立即簽到只帶帳號 id
- * accountChanged 讓 Server Action 只在 cookie 失效標記改了時讓帳號的快取失效
- */
+/** accountChanged 讓 Server Action 只在標記改了時讓快取失效 */
 export async function checkinAccount(userId: string, id: number): Promise<CheckinResult & { accountChanged: boolean }> {
   const [account] = await db().select().from(starrailAccounts).where(ownAccount(userId, id));
   if (!account) return { ok: false, error: "找不到這個帳號", accountChanged: false };

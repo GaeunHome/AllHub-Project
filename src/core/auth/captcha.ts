@@ -7,8 +7,8 @@ import { claimOnce } from "./attempts";
 import { generateCaptchaCode, renderCaptchaSvg } from "./captcha-image";
 import type { CaptchaPurpose } from "./messages";
 
-// cookie 只放 nonce 到期時間與兩個 HMAC 不放驗證碼本身
-// 不含答案的 HMAC 證明是伺服器發的 用過的 nonce 記在資料庫
+// cookie 不放驗證碼 只放 nonce 到期時間與兩個 HMAC
+// 不含答案的 HMAC 證明是伺服器發的
 
 export const CAPTCHA_TTL_MS = 5 * 60 * 1000;
 const NONCE_SCOPE = "captcha";

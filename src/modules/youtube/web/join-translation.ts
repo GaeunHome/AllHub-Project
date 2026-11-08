@@ -5,8 +5,8 @@ import type { ContinueActionError, ContinueResult } from "./actions";
 export type JoinResult = ContinueResult | ContinueActionError;
 
 /**
- * 按下用我的 API Key 繼續翻譯後 續翻都帶 join 第一次成功才放下 別人正在翻也算
- * 伺服器在那次把影片加進保留清單 出錯時留著 之後成功時才加
+ * 按下後續翻都帶 join 第一次成功才放下 別人正在翻也算
+ * 伺服器在那次加進保留清單 出錯時留著
  */
 export type JoinFlag = {
   /** 按下用我的 API Key 繼續翻譯 */

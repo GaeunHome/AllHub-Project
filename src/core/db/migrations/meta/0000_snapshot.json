@@ -1,5 +1,5 @@
 {
-  "id": "dc07f9a1-749d-48d3-939c-d6b050ea91b0",
+  "id": "1ae3f339-e4e1-4458-9a1f-25348835881f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2880,6 +2880,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         }
       },
       "indexes": {
@@ -4596,27 +4603,10 @@
       "name": "youtube_settings",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "byDefault",
-            "name": "youtube_settings_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "2",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
         "user_id": {
           "name": "user_id",
           "type": "uuid",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
         "provider": {
@@ -4658,15 +4648,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "youtube_settings_user_id_unique": {
-          "name": "youtube_settings_user_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": true

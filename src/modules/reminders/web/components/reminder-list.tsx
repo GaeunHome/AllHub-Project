@@ -61,8 +61,8 @@ function CountdownTile({ days }: { days: number }) {
 }
 
 /**
- * 右邊的內距交給 ⋮ 圖示才跟卡片內容的右緣對齊 視窗放在選單外面才不會跟著收起
- * 改了日期可能搬到收起來的清單 這一列連 ⋮ 一起換掉 焦點交給首頁卡片
+ * 內距交給 ⋮ 才跟卡片右緣對齊 視窗放選單外面才不會跟著收起
+ * 改了日期可能搬到收起的清單 焦點交給首頁卡片
  */
 function ReminderRow({ row, today, latest }: DateLimits & { row: ReminderRowView }) {
   const edit = useDialog();

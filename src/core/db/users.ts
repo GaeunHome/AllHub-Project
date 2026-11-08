@@ -17,16 +17,16 @@ export function canUseModuleSql(moduleId: string): SQL {
 }
 
 /**
- * 停用的帳號與被關掉這個模組的人都凍結 排程只處理擁有者還能用的列
- * 用法 innerJoin(coreUsers, activeOwnerOf(weatherSettings.userId, "weather"))
+ * 停用與被關掉模組的人凍結 排程只處理擁有者還能用的列
+ * 例如 innerJoin(coreUsers, activeOwnerOf(t.userId, "weather"))
  */
 export function activeOwnerOf(userId: PgColumn, moduleId: string): SQL {
   return and(eq(coreUsers.id, userId), isNull(coreUsers.disabledAt), canUseModuleSql(moduleId))!;
 }
 
 /**
- * 寫好幾張表的交易一開始先鎖使用者那一列 刪除帳號的連帶刪除會等它做完 不會 deadlock
- * key share 只擋刪除 no key update 連同一個人的其他交易也排隊 先數再新增時用
+ * 交易先鎖使用者那一列 刪除帳號會等它做完 不會 deadlock
+ * key share 只擋刪除 no key update 連同一人的交易也排隊
  */
 export async function lockUserRow(executor: Executor, userId: string, mode: "key share" | "no key update"): Promise<void> {
   await executor.select({ id: coreUsers.id }).from(coreUsers).where(eq(coreUsers.id, userId)).for(mode);

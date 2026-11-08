@@ -12,7 +12,7 @@ type WatchMeta = { title: string | null; channel: { name: string; url: string | 
 
 /**
  * 自己追蹤頻道的影片從資料庫找 其他用 oEmbed 補上頻道與標題
- * 標題與頻道列各自串流 cache 讓兩邊共用同一次查詢
+ * 標題與頻道列各自串流 React cache 讓兩邊共用同一次查詢
  */
 const watchMeta = cache(async (userId: string, videoId: string): Promise<WatchMeta> => {
   const tracked = await cachedFollowedVideo(userId, videoId);

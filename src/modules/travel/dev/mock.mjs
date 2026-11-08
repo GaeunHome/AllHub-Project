@@ -1,5 +1,5 @@
-// 假的 Google Maps 短網址 跟真的一樣轉到完整的地點網址
-// maps.app.goo.gl 的網址只有路徑被改寫 所以用路徑開頭分辨
+// 短網址跟真的一樣轉到完整的地點網址
+// 改寫後只剩路徑 所以用路徑開頭分辨
 export function handle({ url, redirect, text }) {
   const match = /^\/mapshort(\w*)$/.exec(url.pathname);
   if (!match) return false;

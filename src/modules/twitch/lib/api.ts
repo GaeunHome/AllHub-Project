@@ -51,8 +51,8 @@ export class TwitchApiError extends Error {
 }
 
 /**
- * 換 token 被拒時看得出是哪個值填錯的回應 key 是狀態碼加 Twitch 的 message
- * Client ID 不存在回 400 Client ID 對但 Secret 錯回 403
+ * key 是狀態碼加 Twitch 的 message
+ * Client ID 不存在回 400 Secret 錯回 403
  */
 const TOKEN_REJECTIONS: Record<string, string> = {
   "400 invalid client": "Twitch 的 Client ID 不對：請到 Twitch 開發者後台複製應用程式的用戶端 ID，貼到 Vercel 的 TWITCH_CLIENT_ID（前後不要有空白），改完重新部署",

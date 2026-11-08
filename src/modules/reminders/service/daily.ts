@@ -11,8 +11,8 @@ import { remindersItems } from "../data/schema";
 import { countdownText, daysUntil, formatDate } from "../lib/countdown";
 import { nextOccurrence } from "../lib/rules";
 
-// 排程 reminders:daily 台北 7 點多與 12 點多各跑一次 先寄今天要寄的 再刪日期過了的
-// 中午那一次補寄早上寄不出去的 停用或被關掉模組的人凍結 不寄也不刪 恢復後的下一次排程才處理
+// 先寄再刪 中午那一次補寄早上寄不出去的
+// 凍結的人不寄也不刪 恢復後的下一次才處理
 
 // service 不能 import 模組根目錄的 info 模組 id 寫在這裡
 const MODULE_ID = "reminders";
@@ -21,9 +21,8 @@ const CLAIM_SCOPE = "reminders:due";
 type DueItem = { id: number; userId: string; title: string; date: string };
 
 /**
- * 擁有者還能用 今天是當天或提前那天的項目 提前的日子過了就只剩當天
- * 重複的下一次要算才知道 每人最多 50 個 全部讀出來在這裡挑
- * 通知新的在上面 首頁未讀只顯示最新幾則 所以日子近的排後面 最後寫入
+ * 重複的下一次要算才知道 每人最多 50 個 全部讀出來挑
+ * 日子近的最後寫入 通知新的在上面
  */
 async function dueItems(today: string, now: Date): Promise<DueItem[]> {
   const rows = await db()

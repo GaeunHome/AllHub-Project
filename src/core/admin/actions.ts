@@ -44,6 +44,7 @@ const announcementFields = (formData: FormData) => ({
   body: formText(formData, "body"),
   startsAt: formText(formData, "startsAt"),
   endsAt: formText(formData, "endsAt"),
+  pinned: formText(formData, "pinned"),
 });
 
 export async function createAnnouncementAction(_prev: FormState, formData: FormData): Promise<FormState> {

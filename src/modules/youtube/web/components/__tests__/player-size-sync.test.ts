@@ -24,8 +24,8 @@ afterEach(() => {
 });
 
 /**
- * 在瀏覽器裡算繪一次 不是 hydration
- * useSyncExternalStore 用瀏覽器端的值 layout effect 收起來回傳
+ * 在瀏覽器算繪一次 不是 hydration
+ * useSyncExternalStore 用瀏覽器的值 layout effect 收起來回傳
  */
 function renderOnClient() {
   const effects: EffectCallback[] = [];

@@ -135,8 +135,8 @@ function warpHeaders(cookie: string): Record<string, string> {
 }
 
 /**
- * 登入躍遷紀錄的活動頁 成功時回傳讀紀錄要帶的 cookie 只給這一次讀取用 不存
- * 靠 cookie_token_v2 與 account_ 開頭的鍵 沒貼的鍵用 lt 開頭的值補上
+ * 回傳讀紀錄要帶的 cookie 只給這一次讀取用 不存
+ * 靠 cookie_token_v2 沒貼的 account_ 鍵用 lt 開頭的補
  */
 export async function warpLogin(cookie: string, uid: string, region: string): Promise<HoyolabResult<string>> {
   const sent = withAccountIds(cookie);
@@ -159,8 +159,8 @@ export async function fetchEndgame(cookie: string, uid: string, region: string, 
 }
 
 /**
- * 兌換碼照 genshin.py 用 POST JSON Origin 是官方兌換頁 code 已整理成大寫英數字
- * 沒貼 account_ 開頭的鍵時跟開拓月曆一樣用 lt 開頭的值補上
+ * 照 genshin.py 用 POST JSON Origin 是官方兌換頁
+ * 沒貼 account_ 開頭的鍵時用 lt 開頭的補
  */
 export async function redeemCode(cookie: string, uid: string, region: string, code: string): Promise<RedeemOutcome> {
   const body = { cdkey: code, device_uuid: randomUUID(), game_biz: "hkrpg_global", lang: "zh-tw", platform: "4", region, t: Math.floor(Date.now() / 1000), uid };

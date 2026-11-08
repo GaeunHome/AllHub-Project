@@ -52,7 +52,7 @@ export async function fetchChannelAvatar(ref: string): Promise<string | null> {
 }
 
 /**
- * 非官方做法 Shorts 頁回 200 一般影片會轉址到 /watch 被擋或到同意頁回 null
+ * 非官方 Shorts 回 200 一般影片轉址到 /watch 其他回 null
  * 連線錯誤與逾時照常丟出 timeoutMs 給排程調短
  */
 export async function checkIsShort(videoId: string, { timeoutMs }: { timeoutMs?: number } = {}): Promise<boolean | null> {
@@ -66,8 +66,8 @@ export async function checkIsShort(videoId: string, { timeoutMs }: { timeoutMs?:
 }
 
 /**
- * 官方公開的頻道 RSS 確認頻道存在並取得名稱 查不到回 null
- * entries 給追蹤時補影片與每天清理找 Shorts timeoutMs 給排程調短
+ * 官方的頻道 RSS 確認頻道存在並取得名稱
+ * entries 給補影片與清理找 Shorts 用 timeoutMs 給排程調短
  */
 export async function fetchChannelFeed(channelId: string, { timeoutMs }: { timeoutMs?: number } = {}): Promise<{ title: string | null; entries: FeedEntry[] } | null> {
   const response = await fetchYoutubePage(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, { timeoutMs });
@@ -110,8 +110,8 @@ export async function hubRequest(mode: "subscribe" | "unsubscribe", channelId: s
 }
 
 /**
- * oEmbed 官方又免金鑰 任何影片都讀得到標題與頻道 影片不存在或私人影片回 null
- * 連線錯誤與讀不懂的回應照常丟出 跟頭像一樣由 service 記下種類
+ * oEmbed 官方又免金鑰 不存在或私人影片回 null
+ * 連線錯誤與讀不懂的回應照常丟出 由 service 記種類
  */
 export async function fetchVideoInfo(videoId: string): Promise<VideoInfo | null> {
   const response = await get(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(youtubeWatchUrl(videoId))}`);

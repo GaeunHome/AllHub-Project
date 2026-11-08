@@ -4,8 +4,8 @@ import { notificationsTag } from "./cache-tags";
 import { listNotifications, loadFeed, notificationCounts } from "./service";
 import type { NotificationFeed, NotificationItem } from "./types";
 
-// 鈴鐺每 10 秒輪詢 寫入通知的地方都會讓 tag 失效 輪詢多半不用查資料庫
-// userId 是呼叫端從 session 拿到的登入者 會成為快取 key 每人各一份
+// 鈴鐺每 10 秒輪詢 寫入時才讓 tag 失效 多半不用查資料庫
+// userId 來自 session 是快取 key 每人一份
 
 export async function cachedFeed(userId: string): Promise<NotificationFeed> {
   "use cache: remote";

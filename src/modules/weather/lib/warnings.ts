@@ -3,8 +3,8 @@ import { formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDayOffset } from "@
 import { normalizeCounty, type County } from "./counties";
 import { parseCwaTime } from "./forecast";
 
-// 氣象署 W-C0033-001 各別縣市目前的天氣警特報
-// 回應是 records.location[].hazardConditions.hazards[] 真實的回應還沒看過 路徑來自公開專案的程式
+// W-C0033-001 的路徑來自公開專案的程式
+// 真實的回應還沒看過
 
 /** label 例如大雨特報 severe 是警報 end 是 ISO 字串 快取裡放字串才不怕序列化 */
 export type Warning = { label: string; severe: boolean; end: string | null };
@@ -44,8 +44,8 @@ function hazardsOf(location: Record<string, unknown> | null, missing: Missing): 
 }
 
 /**
- * 每個縣市的特報 沒有 hazardConditions 或 hazards 是空的表示目前沒有特報
- * 只有 records.location 不是陣列才算讀不到 missing 只記欄位路徑 不記回應原文
+ * 沒有 hazardConditions 或 hazards 是空的表示沒有特報
+ * records.location 不是陣列才算讀不到
  */
 export function parseWarnings(json: unknown): { warnings: Map<County, Warning[]> | null; missing: string[] } {
   const locations = asRecord(asRecord(json)?.records)?.location;

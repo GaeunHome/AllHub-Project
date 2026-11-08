@@ -11,8 +11,8 @@ import { redeemCookieProblem } from "../lib/redeem";
 import { starrailAccounts, type StarrailAccount } from "../data/schema";
 import { starrailTags } from "./cache-tags";
 
-// 帳號本身的讀寫 連結 頁面讀取 兌換 簽到 開拓力與排程各自一個檔 共用這裡的工具
-// userId 都是登入者 帳號 id 只在自己的帳號裡找 別人的一律當作不存在
+// 連結 兌換 簽到這些各自一個檔 共用這裡的工具
+// 帳號 id 只在自己的帳號裡找 別人的當作不存在
 
 /** 給 Server Action 的結果 失敗時的 error 直接顯示在畫面上 */
 export type Outcome<T = object> = ({ ok: true } & T) | { ok: false; error: string };
@@ -23,8 +23,8 @@ export const ACCOUNT_NOT_FOUND = "找不到這個帳號，請重新整理頁面"
 export const ownAccount = (userId: string, accountId: number) => and(eq(starrailAccounts.id, accountId), eq(starrailAccounts.userId, userId));
 
 /**
- * 排程與立即簽到記下有沒有真的改到帳號那一列
- * HoYoLAB 的快取都標著帳號的 tag 有改才讓它失效 頁面才不會每小時重查十幾個端點
+ * HoYoLAB 的快取都標著帳號的 tag 有改到才讓它失效
+ * 頁面才不會每小時重查十幾個端點
  */
 export type AccountChanges = { changed: boolean };
 
@@ -95,8 +95,8 @@ export async function pageAccount(
 }
 
 /**
- * 頁面顯示用的欄位 不含 cookie 連密文也不回傳 才能放進快取
- * canAutoRedeem 是 cookie 有沒有兌換要用的鍵 只是是或否
+ * 不含 cookie 連密文也不回傳 才能放進快取
+ * canAutoRedeem 是 cookie 有沒有兌換要用的鍵
  */
 export type StarrailAccountView = Pick<StarrailAccount, "id" | "uid" | "nickname" | "region" | "level" | "staminaAlertThreshold" | "cookieInvalid" | "autoRedeem" | "gameReminders"> & {
   canAutoRedeem: boolean;

@@ -7,8 +7,7 @@ import type { StarrailCharacter } from "../../lib/characters";
 import { Portrait } from "./sr-visuals";
 
 /**
- * 立繪接近方形 人物置中 左右與腳邊都是空的 塞進畫面會顯得很小
- * 預設放大到比面板還高 臉靠上 裁掉的只有空白與腳邊 要看整張圖按一下
+ * 立繪接近方形 四周空白多 預設放大到比面板高 臉靠上
  * 讀不到時改放頭像 再不行是屬性色底加名字
  */
 export function CharacterStage({ character: c }: { character: StarrailCharacter }) {

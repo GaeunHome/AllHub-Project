@@ -53,8 +53,8 @@ export const accountView = (overrides: Partial<AccountView> = {}): AccountView =
 });
 
 /**
- * lib/hoyolab 的替身 每個對外的函式都是 vi.fn 沒設定回應的只會拿到 undefined 不會連到真的 HoYoLAB
- * 用法 vi.mock("../lib/hoyolab", async () => (await import("../dev/fixtures")).hoyolab)
+ * lib/hoyolab 的替身 沒設定回應的拿到 undefined 不會連到真的
+ * vi.mock 那個檔時回傳這裡的 hoyolab
  */
 export const hoyolab = {
   warpLogin: vi.fn(),

@@ -4,7 +4,7 @@ import { parseVideoId } from "../../lib/parse";
 import { getTranslation } from "../../service/translation";
 
 /**
- * proxy 只驗簽章 這裡再比對資料庫的 session 版本 擋下改密碼前的舊 cookie
+ * proxy 只驗簽章 這裡再比對資料庫 擋下改密碼前的舊 cookie
  * Route Handler 不轉址 直接回 401
  */
 export async function GET(request: Request, { params }: RouteContext<"/api/youtube/subtitles/[videoId]">) {

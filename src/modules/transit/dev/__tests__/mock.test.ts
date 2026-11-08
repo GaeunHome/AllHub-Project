@@ -31,16 +31,16 @@ describe("假 TDX 的車站分組", () => {
     const groups = lineGroups(await network());
 
     expect(groups.map((group) => group.name)).not.toContain("其他");
-    expect(groups.map((group) => group.name)).toEqual(["板南線", "文湖線", "松山新店線", "中和新蘆線", "淡水信義線", "環狀線", "機場線"]);
+    expect(groups.map((group) => group.name)).toEqual(["板南線", "文湖線", "松山新店線", "中和新蘆線", "淡水信義線", "環狀線", "三鶯線", "機場線"]);
   });
 });
 
 describe("假 TDX 的捷運路網", () => {
-  it("環狀線只在新北捷運 機場線只在機場捷運 跟真的一樣分開", async () => {
+  it("環狀線與三鶯線只在新北捷運 機場線只在機場捷運 跟真的一樣分開", async () => {
     const ids = async (system: string) => (await stationsOf(system)).map((station) => station.id);
 
-    expect((await ids("TRTC")).some((id) => /^[YA]\d/.test(id))).toBe(false);
-    expect((await ids("NTMC")).every((id) => id.startsWith("Y"))).toBe(true);
+    expect((await ids("TRTC")).some((id) => /^(Y|A|LB)\d/.test(id))).toBe(false);
+    expect((await ids("NTMC")).every((id) => /^(Y|LB)\d/.test(id))).toBe(true);
     expect((await ids("TYMC")).every((id) => id.startsWith("A"))).toBe(true);
   });
 
@@ -128,7 +128,8 @@ describe("假 TDX 的票價 格式跟真的一樣 解析得出來才看得到畫
 
     expect(blue[0]).toMatchObject({ FromStationID: "BL23", ToStationID: "BL22", StopTime: 0 });
     expect(blue.some((step) => step.FromStationID === "BL22" && step.ToStationID === "BL23")).toBe(false);
-    expect(airport.find((row) => row.TrainType === 1)!.TravelTimes).toHaveLength(13 * 12);
+    // 機場線 22 站 任兩站各一列
+    expect(airport.find((row) => row.TrainType === 1)!.TravelTimes).toHaveLength(22 * 21);
     expect(airport.find((row) => row.TrainType === 2)!.TravelTimes.length).toBeGreaterThan(0);
   });
 

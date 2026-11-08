@@ -88,22 +88,55 @@ function Summary({ problems, services, crons }: ReturnType<typeof statusSummary>
   );
 }
 
+/** 名稱前面是燈號 異常的原因或排程的摘要接在結果下面 */
+function NameCell({ dot, label, code }: { dot: Light["dot"]; label: string; code?: string }) {
+  return (
+    <th scope="row" className="status-name">
+      <span className="flex items-center gap-2.5">
+        <StatusLight dot={dot} />
+        <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+          <span className="font-medium text-ink">{label}</span>
+          {code && <span className="font-mono text-sm text-ink-soft">{code}</span>}
+        </span>
+      </span>
+    </th>
+  );
+}
+
+function ResultCell({ label, detail }: { label: string; detail: string | null }) {
+  return (
+    <td className="status-result">
+      <span className="block font-medium text-ink">{label}</span>
+      {detail && <span className="block break-words text-ink">{detail}</span>}
+    </td>
+  );
+}
+
+// 使用者選的 兩區都是白底清單 一列一個 欄位對齊 時間靠右
 function ServiceSection({ views }: { views: ServiceView[] }) {
   return (
     <section aria-labelledby="status-services" className="stack">
       <SectionTitle id="status-services">外部服務</SectionTitle>
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {views.map(({ id, label, state, at, error }) => (
-          <li key={id} className="panel flex flex-col gap-1">
-            <p className="flex items-center gap-2 font-medium text-ink">
-              <StatusLight dot={SERVICE_LIGHTS[state].dot} />
-              {label}
-            </p>
-            <p className="text-ink">{error ?? SERVICE_LIGHTS[state].label}</p>
-            {at && <p className="text-sm text-ink-soft tabular-nums">{formatTaipeiDateTime(at)}</p>}
-          </li>
-        ))}
-      </ul>
+      <div className="card p-0">
+        <table className="status-table" data-columns="3">
+          <thead>
+            <tr>
+              <th scope="col">名稱</th>
+              <th scope="col">結果</th>
+              <th scope="col">時間</th>
+            </tr>
+          </thead>
+          <tbody>
+            {views.map(({ id, label, state, at, error }) => (
+              <tr key={id}>
+                <NameCell dot={SERVICE_LIGHTS[state].dot} label={label} />
+                <ResultCell label={SERVICE_LIGHTS[state].label} detail={error} />
+                <td className="status-when">{at && formatTaipeiDateTime(at)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }
@@ -113,31 +146,22 @@ function CronSection({ views }: { views: CronView[] }) {
     <section aria-labelledby="status-cron" className="stack">
       <SectionTitle id="status-cron">排程</SectionTitle>
       <div className="card p-0">
-        <table className="status-table">
+        <table className="status-table" data-columns="4">
           <thead>
             <tr>
               <th scope="col">名稱</th>
-              <th scope="col">上次執行</th>
-              <th scope="col">花多久</th>
               <th scope="col">結果</th>
+              <th scope="col">花多久</th>
+              <th scope="col">上次執行</th>
             </tr>
           </thead>
           <tbody>
             {views.map(({ task, label, state, at, durationMs, summary }) => (
               <tr key={task}>
-                <th scope="row">
-                  <span className="block font-medium text-ink">{label}</span>
-                  <code className="text-sm text-ink-soft">{task}</code>
-                </th>
-                <td className="tabular-nums">{at ? formatTaipeiDateTime(at) : "—"}</td>
-                <td className="tabular-nums">{durationMs === null ? "—" : `${(durationMs / 1000).toFixed(1)} 秒`}</td>
-                <td>
-                  <span className="flex items-center gap-2 font-medium text-ink">
-                    <StatusLight dot={CRON_LIGHTS[state].dot} />
-                    {CRON_LIGHTS[state].label}
-                  </span>
-                  {summary && <span className="block break-words text-ink">{summary}</span>}
-                </td>
+                <NameCell dot={CRON_LIGHTS[state].dot} label={label} code={task} />
+                <ResultCell label={CRON_LIGHTS[state].label} detail={summary} />
+                <td className="status-took">{durationMs !== null && `${(durationMs / 1000).toFixed(1)} 秒`}</td>
+                <td className="status-when">{at && formatTaipeiDateTime(at)}</td>
               </tr>
             ))}
           </tbody>

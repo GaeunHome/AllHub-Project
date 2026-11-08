@@ -33,8 +33,8 @@ const rowsOf = async ({ table, column }: UserForeignKey, userId: string) =>
   (await first<{ n: number }>(sql`select count(*)::int as n from ${sql.identifier(table)} where ${sql.identifier(column)} = ${userId}`)).n;
 
 /**
- * 一個人在每張有外鍵的表都留下資料 含理財的表彼此參照的列
- * 寫成 SQL 不靠 drizzle 的 schema 程式不再讀寫但還沒刪掉的舊表也照樣放
+ * 每張有外鍵的表都留一筆 含理財彼此參照的列
+ * 寫成 SQL 不靠 schema 還沒刪掉的舊表也照樣放
  */
 async function seedEverything(userId: string, n: number) {
   const streamer = await first(sql`insert into twitch_streamers (broadcaster_id, login, display_name) values (${`b${n}`}, ${`streamer${n}`}, '主播') returning id`);

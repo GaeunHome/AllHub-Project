@@ -24,8 +24,8 @@ export const readOverviewPrefs = (): OverviewPrefs => ({
 });
 
 /**
- * pending 是還沒做的步驟 hidden 是打開這一頁時就都略過了 整張不出現
- * 這一頁還開著時略過最後一步不藏 焦點才不會掉到不見的按鈕上
+ * hidden 是打開時就都略過了 整張不出現
+ * 開著時略過最後一步不藏 焦點才不會掉到不見的按鈕
  */
 export function applyOverviewPrefs(root: Root, prefs: OverviewPrefs, hidden: boolean): void {
   const set = (name: string, value: string | null) => (value === null ? root.removeAttribute(name) : root.setAttribute(name, value));

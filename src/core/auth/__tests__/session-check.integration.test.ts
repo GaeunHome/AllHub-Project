@@ -6,8 +6,8 @@ import { stubCoreEnv } from "@/dev/test-env";
 import { coreUsers } from "../../db/schema";
 import { hashPassword } from "../credentials";
 
-// requireSession 一路經過真的 session.ts 與 users.ts 查到 PGlite
-// 只把 next/headers 換成假的 cookie 來模擬兩台裝置
+// requireSession 經過真的 session.ts 查到 PGlite
+// 只把 next/headers 換成假的 cookie 模擬兩台裝置
 
 const SECRET = "s".repeat(32);
 const PASSWORD = "Correct horse battery";

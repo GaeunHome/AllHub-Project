@@ -1,5 +1,5 @@
-// 按鈕或那一列不見時 焦點移到不會消失的外框 不能掉到 body
-// 外框展開 FOCUS_FRAME 會跟著不見的元素用 keepFocusInFrame 當 ref
+// 按鈕或那一列不見時 焦點移到外框 不能掉到 body
+// 外框展開 FOCUS_FRAME 會不見的元素把 keepFocusInFrame 當 ref
 
 const FRAME = "[data-focus-frame]";
 

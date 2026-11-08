@@ -66,8 +66,8 @@ export function useHeaderMenu(id: HeaderMenuId) {
 }
 
 /**
- * 只給包住按鈕與面板的外框用 點外面或按 Esc 收起 Esc 後焦點回到按鈕
- * rootRef 要接在外框上 沒接上的話按哪裡都算外面 面板一按就收起
+ * 只給包住按鈕與面板的外框用 點外面或 Esc 收起
+ * rootRef 沒接上時按哪裡都算外面 面板一按就收起
  */
 export function useHeaderMenuRoot(id: HeaderMenuId) {
   const { expanded, toggle, close } = useHeaderMenu(id);

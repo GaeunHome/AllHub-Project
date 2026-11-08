@@ -29,8 +29,8 @@ export function entryKindOf(type: RecurringType): EntryKind {
 }
 
 /**
- * suggest 是新增的規則 換成定期定額時順便帶入建議的假日規則
- * 修改舊規則時不動使用者原本的設定 allocate 是薪水 照每月固定頁的那一區 表單上不能改
+ * suggest 是新增的 換成定期定額時帶入建議的假日規則
+ * 修改時不動原本的設定 allocate 照那一區決定 表單不能改
  */
 export type RecurringFormState = {
   type: RecurringType;

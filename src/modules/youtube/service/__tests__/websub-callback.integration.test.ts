@@ -10,8 +10,8 @@ import { hubRequest } from "../../lib/api";
 import { parseVerification, topicFor } from "../../lib/websub";
 import { handleVerification } from "../channels";
 
-// 從送給 hub 的訂閱請求一路走到 hub 回呼確認 只把 fetch 換成假 hub
-// hubRequest parseVerification handleVerification 與資料庫都是真的
+// 從訂閱請求一路走到 hub 回呼確認 只把 fetch 換成假 hub
+// 其他函式與資料庫都是真的
 
 stubYoutubeEnv();
 

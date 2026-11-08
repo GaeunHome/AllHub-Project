@@ -16,8 +16,8 @@ export function externalUrl(url: string): string {
 }
 
 /**
- * 瀏覽器直接載入的外部圖片 開發時一樣改寫到假伺服器 E2E 才不會連到真的 CDN
- * 不是 http 或 https 的網址回 null 畫面改用文字頭像或圖示
+ * 開發時改寫到假伺服器 E2E 才不會連到真的 CDN
+ * 不是 http(s) 的回 null 畫面改用文字頭像或圖示
  */
 export function externalAssetUrl(url: string | null | undefined): string | null {
   const value = url?.trim();
@@ -66,8 +66,8 @@ export type ReadJsonOptions<T> = ExternalFetchOptions & {
 };
 
 /**
- * 讀外部服務的 JSON 狀態碼不對 逾時 連不上 不是 JSON 或解析失敗都回 null
- * log 只記錯誤種類與狀態碼 不記網址與回應內容 網址可能帶授權碼
+ * 狀態碼不對 逾時 不是 JSON 或解析失敗都回 null
+ * log 不記網址與回應 網址可能帶授權碼
  */
 export async function readExternalJson<T = unknown>(url: string, { module, what, init, parse, ...options }: ReadJsonOptions<T>): Promise<T | null> {
   try {

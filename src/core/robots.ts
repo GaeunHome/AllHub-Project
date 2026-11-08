@@ -1,6 +1,6 @@
 import type { Metadata, MetadataRoute } from "next";
 
-// 個人網站不需要被搜尋到 robots.txt 請爬蟲都別抓 每一頁也帶 noindex
+// 個人網站不需要被搜尋到 每一頁也帶 noindex
 // src/app 的 robots.ts 與根版面只轉接這裡
 
 export function robots(): MetadataRoute.Robots {

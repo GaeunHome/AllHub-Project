@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 const { config } = await import("../proxy");
 
 const APP = fileURLToPath(new URL("../app", import.meta.url));
-// v0.2.7 以前的分頁圖示是 create-next-app 留下的 Next 預設圖示 黑底的 N
+// 發生過分頁圖示是 create-next-app 留下的 Next 預設圖示 黑底的 N
 const NEXT_DEFAULT_FAVICON = "c28fdd2a4f31e2dc64f653962286da5c82a4cdfc518b242d32812c624e9a19a4";
 
 const needsLogin = (pathname: string) => new RegExp(`^${config.matcher[0]}$`).test(pathname);

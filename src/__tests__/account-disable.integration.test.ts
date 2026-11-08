@@ -11,7 +11,7 @@ import { twitchFollows, twitchStreamers } from "@/modules/twitch/data/schema";
 import { weatherSettings } from "@/modules/weather/data/schema";
 import { youtubeChannels, youtubeFollows, youtubeSavedVideos } from "@/modules/youtube/data/schema";
 
-// 停用就是凍結 notify 不寫給他 追蹤與訂閱照樣保留 固定收支不記 除權息 下雨 警特報與生活提醒也不寄
+// 停用就是凍結 不寄通知也不替他記帳 追蹤與訂閱照樣保留
 // core 不能 import 模組 所以跨模組的檢查放在 src 底下
 
 stubAllEnv();

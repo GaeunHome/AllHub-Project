@@ -8,8 +8,8 @@ type CopyState = "idle" | "copied" | "failed";
 const STATUS_TEXT: Record<CopyState, string> = { idle: "", copied: "已複製", failed: "請手動選取複製" };
 
 /**
- * 剪貼簿只能在 https 或 localhost 用 被拒絕時請使用者自己選取複製
- * 回傳按鈕與旁邊的結果 外層用 button-row 排成一列
+ * 剪貼簿只能在 https 或 localhost 用 被拒絕時請使用者自己選取
+ * 外層用 button-row 排成一列
  */
 export function CopyButton({ text, label = "複製", className = "btn-secondary btn-sm" }: { text: string; label?: string; className?: string }) {
   const [state, setState] = useState<CopyState>("idle");

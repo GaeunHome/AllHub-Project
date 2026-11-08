@@ -6,8 +6,8 @@ import { coreRateLimits } from "../db/schema";
 import { coreEnv } from "../env";
 import { DAY_MS, HOUR_MS } from "../time";
 
-// 嘗試次數與用過的驗證碼 nonce 都存在 core_rate_limits
-// Vercel 是 serverless 記憶體裡的計數各個執行個體各算各的
+// 存在 core_rate_limits 因為 Vercel 是 serverless
+// 記憶體裡的計數各個執行個體各算各的
 
 export type AttemptRule = { scope: string; max: number; windowMs: number };
 export type AttemptGate = { allowed: true } | { allowed: false; retryAfterMs: number };
@@ -50,8 +50,8 @@ async function deleteStale(now: Date): Promise<void> {
 }
 
 /**
- * 同一件事只認領一次 例如驗證碼的 nonce 重複的 insert 直接略過 同時送出也只有一個回 true
- * 紀錄一天後清掉 只擋得住一天內的重複 週期超過一天的事不能靠它
+ * 同一件事只認領一次 同時送出也只有一個回 true
+ * 紀錄一天後清掉 週期超過一天的事不能靠它
  */
 export async function claimOnce(scope: string, key: string, now = new Date()): Promise<boolean> {
   const inserted = await db()

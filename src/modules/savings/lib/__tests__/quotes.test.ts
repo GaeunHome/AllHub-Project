@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { QuoteFormatError, formatPrice, normalizeSymbol, parseTpexQuotes, parseTwseQuotes, priceToCents, quoteSymbols, rocDateToKey } from "../quotes";
 
-// 2026-10-15 抓一次的真實回應 原樣抄幾筆 欄位全是字串
+// 2026-10-15 讀到的真實回應 原樣抄幾筆 欄位全是字串
 // 證交所 https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL
 const TWSE = [
   { Date: "1151014", Code: "0050", Name: "元大台灣50", TradeVolume: "64109641", TradeValue: "7264314036", OpeningPrice: "113.00", HighestPrice: "113.75", LowestPrice: "112.75", ClosingPrice: "113.00", Change: "0.6000", Transaction: "78354" },

@@ -16,8 +16,8 @@ import { videoFilters } from "../video-filter";
 /** 寬螢幕一排最多 4 支 這一排的縮圖常常是 LCP 不延遲載入 */
 const FIRST_ROW = 4;
 
-// 圖示 名稱與點綴色由 src/app 從 info.ts 傳進來 web 層不能 import 根目錄
-// 配色照 YouTube 網站的淺色與深色 跟著全站的外觀切換
+// web 不能 import 模組根目錄 info 由 src/app 傳進來
+// 配色照 YouTube 網站的淺色與深色
 export function YoutubePage({ info }: { info: ModuleInfo }) {
   return (
     <PageTheme accent={info.accent} className="theme-youtube page-stack">

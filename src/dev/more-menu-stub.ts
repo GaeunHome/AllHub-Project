@@ -1,8 +1,8 @@
 import { createElement, type ReactNode } from "react";
 import { textOf } from "./test-helpers";
 
-// 用 vi.mock 把 @/core/ui/more-menu 換成這個檔案
-// 真的選單關著時不算繪項目 換掉才看得到每一個 按鈕本身不畫
+// 真的選單關著時不算繪項目 換掉才看得到
+// 按鈕本身不畫
 
 export function MoreMenu({ label, children }: { label: string; children?: ReactNode }) {
   return createElement("more-menu", { "data-menu": label }, children);

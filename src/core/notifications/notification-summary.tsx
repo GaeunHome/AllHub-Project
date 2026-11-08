@@ -3,8 +3,8 @@ import { Icon } from "../ui/icon";
 import type { NotificationItem } from "./types";
 
 /**
- * 通知只需要模組的名稱 圖示 點綴色與會不會發通知 導覽列另外帶 href
- * 由 src/app 從模組清單傳進來 core 不 import 模組
+ * 通知只用到模組的這些欄位 導覽列另外帶 href
+ * 由 src/app 傳進來 core 不 import 模組
  */
 export type NotificationModule = Pick<ModuleInfo, "id" | "name" | "icon" | "accent" | "notifies"> & Partial<Pick<ModuleInfo, "href">>;
 

@@ -22,9 +22,8 @@ type HomeCardProps = {
 };
 
 /**
- * 標題列不必等資料先出現 內容各自串流 慢或出錯都只影響這一張
- * 用 @container 讓內容依卡片本身的寬度排欄 超寬螢幕上有的卡片只佔半列
- * 卡片一直都在 裡面的按鈕跟著空狀態或那一列不見時焦點落在這裡
+ * 標題列先出現 內容各自串流 慢或出錯只影響這一張
+ * 卡片一直都在 裡面的元素不見時焦點落在這裡
  */
 export function HomeCard({ info, title, skeleton, className = "", art, variant = "card", children }: HomeCardProps) {
   const headingId = `home-${info.id}`;

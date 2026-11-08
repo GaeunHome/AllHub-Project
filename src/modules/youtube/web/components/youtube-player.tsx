@@ -318,8 +318,8 @@ function useFullscreen(frameRef: RefObject<HTMLDivElement | null>): Fullscreen {
   // 頁內全螢幕時 html 不捲動 清除函式在收起 卸載或頁面被藏起來時立刻解除
   useLayoutEffect(() => (pseudo ? lockPageScroll(document.documentElement) : undefined), [pseudo]);
 
-  // 卸載或被 Activity 藏起來時一定離開全螢幕 例如按上一頁或 iPhone 從左緣滑回
-  // 藏起來的頁面收不到 fullscreenchange 回來時畫面與按鈕會對不上
+  // 卸載或被 Activity 藏起來時一定離開全螢幕
+  // 藏起來收不到 fullscreenchange 回來時按鈕會對不上
   useLayoutEffect(() => {
     const frame = frameRef.current;
     return () => {

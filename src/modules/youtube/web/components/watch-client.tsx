@@ -77,7 +77,7 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
       translating: nowTranslating,
     }));
 
-  /** 只在觀看頁播放時翻譯 同一頁只自動試一次 抓不到字幕時不會每按一次播放就重抓 */
+  /** 只在觀看頁播放時翻譯 同一頁只自動試一次 讀不到字幕時不會每按一次播放就重讀 */
   const autoStart = (enabled: boolean) => {
     const attempted = autoAttemptedRef.current || starter.result !== null;
     if (!shouldAutoStart({ enabled, hasTranslation: translation !== null, apiKeyMissing: apiKeyMissing !== null, attempted, pending: starter.pending })) return;

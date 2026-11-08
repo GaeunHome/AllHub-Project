@@ -9,6 +9,7 @@ import { Dialog, DialogButton, useDialog, useDialogForm } from "../ui/dialog";
 import { EmptyState } from "../ui/empty-state";
 import { FormButtons } from "../ui/form-buttons";
 import { FormFeedback } from "../ui/form-message";
+import { InfoTip } from "../ui/info-tip";
 import { Icon } from "../ui/icon";
 import { MoreMenu } from "../ui/more-menu";
 import { SegmentedControl } from "../ui/segmented-control";
@@ -46,6 +47,13 @@ function AnnouncementForm({ row, onDone, onCancel }: FormProps) {
           <input type="datetime-local" name="endsAt" defaultValue={row?.endsAt ? dateTimeInputValue(row.endsAt) : ""} className="input" />
         </label>
       </div>
+      <div className="flex items-center gap-1">
+        <label className="choice-card flex-1">
+          <input type="checkbox" name="pinned" value="true" defaultChecked={row?.pinned} className="size-4 shrink-0" />
+          置頂到跑馬燈
+        </label>
+        <InfoTip label="跑馬燈的說明">全站導覽列上面的一條 停止服務與維護開始前 3 天會自動放上去</InfoTip>
+      </div>
       {!pending && <FormFeedback state={{ error: state.error }} />}
       <FormButtons pending={pending} onCancel={onCancel} label={row ? "儲存" : "發布"} pendingLabel={row ? "儲存中…" : "發布中…"} />
     </form>
@@ -59,6 +67,7 @@ function AnnouncementRow({ row, now }: { row: CoreAnnouncement; now: Date }) {
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <p className="flex flex-wrap items-center gap-2">
           <AnnouncementChip kind={row.kind} />
+          {row.pinned && <span className="chip">置頂</span>}
           {!isAnnouncementShown(row, now) && <span className="chip">已結束</span>}
           <span className="font-medium break-words">{row.title}</span>
         </p>

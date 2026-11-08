@@ -2,8 +2,8 @@ import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readStylesheet } from "@/dev/stylesheet";
 
-// effect 只在瀏覽器跑 直接呼叫元件 state 給初始值 setter 換成替身
-// effect 收起來自己跑 跑完再跑清除函式就是卸載或 Activity 把頁面藏起來
+// effect 只在瀏覽器跑 直接呼叫元件 state 給初始值
+// effect 跑完再跑清除就是卸載或 Activity 藏起頁面
 vi.mock("react", { spy: true });
 
 const { YoutubePlayer } = await import("../youtube-player");
@@ -208,8 +208,8 @@ describe("播放器的快捷鍵：彈出層開著時讓開", () => {
   const openMenu = { tagName: "BUTTON", hasAttribute: (name: string) => name === "data-popup-trigger", getAttribute: (name: string) => (name === "aria-expanded" ? "true" : null), getClientRects: () => ({ length: 1 }) };
 
   /**
-   * 像瀏覽器派送一次按鍵 先跑 window 的捕獲階段再跑 document 的 keydown
-   * between 模擬選單自己的 Esc 監聽先把選單收掉
+   * 照瀏覽器先跑 window 的捕獲階段再跑 document 的 keydown
+   * between 模擬選單自己的 Esc 監聽先收掉選單
    */
   function press(key: string, between: () => void = () => {}) {
     const event = { key, ctrlKey: false, metaKey: false, altKey: false, repeat: false, isComposing: false, defaultPrevented: false, target: { tagName: "BODY" }, preventDefault: vi.fn() };

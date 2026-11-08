@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
-/* 深色模式 html 有 data-theme 時以它為準 沒有時跟隨系統 */
-/* Tailwind 的 dark 變體與下面的 @variant dark 都走這個規則 */
+/* html 有 data-theme 時以它為準 沒有時跟隨系統 */
+/* dark: 與 @variant dark 都走這個規則 */
 @custom-variant dark {
   &:where([data-theme="dark"], [data-theme="dark"] *) {
     @slot;
@@ -13,8 +13,8 @@
   }
 }
 
-/* 配色全部走 CSS 變數 深色模式與主題頁只換變數 元件裡不用到處寫 dark 變體 */
-/* 全站簡潔中性 主色只有深藍 只用在主要按鈕 連結與焦點框 品牌色只給圖示與小標籤 */
+/* 深色模式與主題頁只換變數 元件裡不用到處寫 dark 變體 */
+/* 主色只有深藍 品牌色只給圖示與小標籤 */
 :root {
   color-scheme: light;
 
@@ -580,9 +580,10 @@
   .btn-ghost {
     color: var(--ink-soft);
   }
+  /* 滑過的底色跟著字色 白字的地方是淡淡的白 不會白底白字 */
   .btn-ghost:hover:not(:disabled, [aria-disabled="true"]) {
     color: var(--ink);
-    background-color: var(--surface-muted);
+    background-color: color-mix(in srgb, currentColor 7%, transparent);
   }
   /* 清單列與工具列裡的次要按鈕 寬螢幕 36px 觸控裝置在檔案最後放大到 44px */
   .btn-sm {
@@ -731,7 +732,8 @@
     background-color: var(--danger-dot);
   }
 
-  /* 手機放不下四欄 每一列改成上下排 不用橫向捲動 */
+  /* 系統狀態的兩張表 使用者選的白底清單 */
+  /* 手機上每一列改成兩行 不用橫向捲動 */
   .status-table {
     @apply w-full border-collapse text-left;
   }
@@ -739,35 +741,68 @@
     @apply sr-only;
   }
   .status-table tr {
-    @apply grid gap-1 border-t border-line px-5 py-3 sm:px-6;
+    @apply grid items-baseline gap-x-4 gap-y-1 px-5 py-3 sm:px-6;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name when" "result took";
   }
-  .status-table tbody tr:first-child {
-    @apply border-t-0;
+  .status-table tbody tr + tr {
+    border-top: 1px solid var(--line);
   }
   .status-table th,
   .status-table td {
     @apply p-0 font-normal text-ink;
+  }
+  .status-name {
+    grid-area: name;
+  }
+  .status-result {
+    grid-area: result;
+  }
+  /* 手機上結果在名稱下面 跟名稱的字對齊 燈號 0.75rem 加間距 */
+  @media (width < 64rem) {
+    .status-table .status-result {
+      padding-left: 1.375rem;
+    }
+  }
+  .status-took {
+    grid-area: took;
+  }
+  .status-when {
+    grid-area: when;
+  }
+  .status-took,
+  .status-when {
+    @apply text-right whitespace-nowrap tabular-nums;
   }
   @media (width >= 64rem) {
     .status-table thead {
       @apply not-sr-only;
     }
     .status-table thead th {
-      @apply px-3 py-3 text-sm font-semibold first:pl-6 last:pr-6;
+      @apply px-3 py-2.5 text-sm font-semibold first:pl-6 last:pr-6;
+    }
+    .status-table thead th:nth-child(n + 3) {
+      @apply text-right;
     }
     .status-table tr {
-      @apply table-row border-none p-0;
+      @apply table-row p-0;
     }
-    .status-table tbody tr {
-      @apply border-t border-line;
+    .status-table thead tr {
+      border-bottom: 1px solid var(--line);
     }
     .status-table tbody th,
     .status-table tbody td {
       @apply px-3 py-3 align-top first:pl-6 last:pr-6;
     }
-    .status-table tbody td:nth-child(2),
-    .status-table tbody td:nth-child(3) {
-      @apply whitespace-nowrap;
+    /* 兩張表的名稱欄一樣寬 結果從同一條線開始 */
+    .status-name {
+      width: 34%;
+    }
+    .status-took {
+      width: 7rem;
+    }
+    .status-when {
+      width: 11rem;
     }
   }
 
@@ -868,8 +903,9 @@
     color: var(--brand-ink);
     transition: background-color 150ms ease;
   }
+  /* 跟著字色 首頁卡片圖片標題列上的白字連結滑過也看得到 */
   .card-header-link:hover {
-    background-color: var(--surface-muted);
+    background-color: color-mix(in srgb, currentColor 7%, transparent);
   }
 
   /* 首頁的模組入口 背景是模組自己的圖 字一律是白的 */
@@ -979,6 +1015,87 @@
   }
   .card-art .card-header-link {
     color: #fff;
+  }
+
+  /* 全站導覽列上面的跑馬燈 core/announcements/ticker-bar.tsx 使用者要的 細長一條 */
+  /* 停止服務淡紅 維護淡黃 置頂的一般公告淡藍 看第一則 */
+  .ticker {
+    @apply text-[0.8125rem] text-ink;
+    border-bottom: 1px solid var(--brand-line);
+    background-color: var(--brand-soft);
+  }
+  .ticker[data-kind="outage"] {
+    border-color: var(--danger-line);
+    background-color: var(--danger-soft);
+  }
+  .ticker[data-kind="maintenance"] {
+    border-color: var(--warning-line);
+    background-color: var(--warning-soft);
+  }
+  :root[data-ticker-hidden] .ticker {
+    display: none;
+  }
+  .ticker-frame {
+    @apply flex min-h-8 items-center gap-2.5;
+  }
+  .ticker-icon {
+    @apply size-4 shrink-0;
+    color: var(--brand-ink);
+  }
+  .ticker[data-kind="outage"] .ticker-icon {
+    color: var(--danger);
+  }
+  .ticker[data-kind="maintenance"] .ticker-icon {
+    color: var(--warning);
+  }
+  .ticker-view {
+    @apply min-w-0 flex-1 overflow-hidden;
+  }
+  /* 兩份一樣的清單接在一起 走到一半剛好接回開頭 */
+  .ticker-roll {
+    @apply flex w-max;
+  }
+  .ticker-view[data-rolling] .ticker-roll {
+    animation: ticker-roll var(--ticker-seconds, 20s) linear infinite;
+  }
+  .ticker:hover .ticker-roll,
+  .ticker:focus-within .ticker-roll {
+    animation-play-state: paused;
+  }
+  .ticker-list {
+    @apply flex shrink-0 items-center gap-10;
+  }
+  .ticker-view[data-rolling] .ticker-list {
+    @apply pr-10;
+  }
+  .ticker-item {
+    @apply inline-flex items-center gap-2 py-1.5 whitespace-nowrap hover:underline;
+  }
+  /* 條很細 按鈕 28px 用透明的偽元素把點擊範圍撐到 44px */
+  .ticker-close {
+    @apply relative inline-grid size-7 shrink-0 cursor-pointer place-items-center rounded-full;
+    color: var(--ink);
+  }
+  .ticker-close::before {
+    content: "";
+    position: absolute;
+    inset: -0.5rem;
+  }
+  .ticker-close:hover {
+    background-color: color-mix(in srgb, currentColor 8%, transparent);
+  }
+  /* 減少動態時不捲 放不下的用滑的看 */
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-view {
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .ticker-view[data-rolling] .ticker-roll {
+      animation: none;
+    }
+    .ticker-list[aria-hidden] {
+      display: none;
+    }
   }
 
   /* 重要的事 不是卡片 一條上下有細線的布告列 */
@@ -1209,8 +1326,8 @@
     box-shadow: 0 0 0 3px var(--brand-soft);
   }
 
-  /* header 有 backdrop-filter 會框住 fixed 的子元素 所以用 absolute */
-  /* 手機上撐滿整列左右留 16px 大螢幕對齊鈴鐺 */
+  /* header 的 backdrop-filter 會框住 fixed 的子元素 */
+  /* 手機撐滿整列留 16px 大螢幕對齊鈴鐺 */
   .notification-panel {
     @apply absolute inset-x-4 top-full mt-2 flex max-h-[min(34rem,calc(100dvh-5rem))] flex-col overflow-hidden rounded-2xl sm:inset-x-auto sm:right-0 sm:w-96;
     z-index: 50;
@@ -1310,8 +1427,8 @@
     background-color: var(--surface-muted);
   }
 
-  /* 全站的提示視窗 core/ui/toast.tsx 外層是 popover 放在 top layer 蓋得過彈出視窗 */
-  /* 在導覽列下方置中 不擋頁首的按鈕 也不跟右下角的通知卡片疊在一起 手機左右留 16px */
+  /* 外層是 popover 放在 top layer 蓋得過彈出視窗 */
+  /* 在導覽列下方置中 不跟右下角的通知卡片疊 */
   .toast-layer {
     @apply flex flex-col gap-2;
     position: fixed;
@@ -1383,10 +1500,10 @@
     transform: translate(1.125rem, -50%);
   }
 
-  /* 共用的 ⋮ 選單 core/ui/more-menu.tsx */
-  /* 手機從底部升起 寬螢幕貼著按鈕 位置由元件算好放在 --menu-top 與 --menu-left */
+  /* 選單是 popover 預設的置中與邊框要蓋掉 */
+  /* 位置由元件算好 z-index 給不支援 popover 的瀏覽器 */
   .more-menu {
-    @apply fixed inset-x-0 bottom-0 flex max-h-[80dvh] flex-col gap-0.5 overflow-y-auto rounded-t-2xl p-2 pb-[max(0.75rem,env(safe-area-inset-bottom))];
+    @apply fixed inset-x-0 top-auto bottom-0 m-0 flex h-auto max-h-[80dvh] w-auto flex-col gap-0.5 overflow-y-auto rounded-t-2xl p-2 pb-[max(0.75rem,env(safe-area-inset-bottom))];
     z-index: 70;
     border: 1px solid var(--line);
     color: var(--ink);
@@ -1397,6 +1514,11 @@
     position: fixed;
     inset: 0;
     z-index: 69;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
     background-color: rgb(0 0 0 / 0.45);
   }
   @media (min-width: 40rem) {
@@ -1514,9 +1636,10 @@
       background-color 150ms ease,
       opacity 150ms ease;
   }
+  /* 滑過的底色跟著字色 台鐵與公車卡片這類白字的地方才不會白底白字 */
   .icon-button:hover,
   .icon-button[aria-expanded="true"] {
-    background-color: var(--surface-muted);
+    background-color: color-mix(in srgb, currentColor 7%, transparent);
   }
 
   /* 選單項目裡的開關圖示 跟著外層按鈕的 aria-checked 切換 */
@@ -1568,10 +1691,11 @@
   .info-tip-button:focus-visible {
     outline-offset: -2px;
   }
-  /* fixed 定位 位置由元件算好放在 --tip-top 與 --tip-left */
-  /* 放在標題裡 字級與粗細要自己寫回一般內文 */
+  /* popover 預設的置中要蓋掉 位置由元件算好 */
+  /* 放在標題裡 字級與粗細要寫回一般內文 */
   .info-tip-bubble {
-    @apply fixed w-max rounded-xl px-3.5 py-2.5 text-left text-sm leading-relaxed font-normal whitespace-normal;
+    @apply fixed m-0 h-auto w-max overflow-visible rounded-xl px-3.5 py-2.5 text-left text-sm leading-relaxed font-normal whitespace-normal;
+    inset: auto;
     top: var(--tip-top, 0);
     left: var(--tip-left, 0);
     z-index: 30;
@@ -1647,6 +1771,15 @@
   }
 }
 
+/* 跑馬燈 兩份清單接在一起 走一半就回到開頭 */
+@keyframes ticker-roll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
 @keyframes skeleton-shimmer {
   100% {
     transform: translateX(100%);

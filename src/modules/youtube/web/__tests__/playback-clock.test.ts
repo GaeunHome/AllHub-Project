@@ -147,8 +147,8 @@ function seeded(seed: number) {
 type Event = { at: number; kind: "seek"; to: number } | { at: number; kind: "rate"; rate: number };
 
 /**
- * 模擬真的 IFrame API getCurrentTime() 只在收到 iframe 回報時更新
- * 間隔 250ms 起跳加上抖動與傳遞延遲 頁面每一幀 60fps 讀一次
+ * 真的 getCurrentTime() 只在 iframe 回報時更新
+ * 回報間隔 250ms 起跳加抖動與延遲 頁面每幀讀一次
  */
 function simulate({ durationMs, events = [], reportEveryMs = 250, jitterMs = 80, delayMs = 20 }: { durationMs: number; events?: Event[]; reportEveryMs?: number; jitterMs?: number; delayMs?: number }) {
   const random = seeded(7);

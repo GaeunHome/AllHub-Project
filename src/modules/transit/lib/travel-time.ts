@@ -1,7 +1,7 @@
 import { asArray, asRecord, createMissing, numberOf, text } from "@/core/json";
 
-// 欄位對過 TDX 的 swagger 與公開的真實回應 還沒用這個專案的金鑰驗證
-// 臺北捷運與環狀線只列一個方向的相鄰兩站 機場捷運是任兩站的累計時間
+// 欄位照 swagger 與公開的真實回應 還沒用這個專案的金鑰驗證
+// 臺北捷運與環狀線只列單向的相鄰兩站 機場捷運是累計
 
 /** 行駛秒數的 key 是起站>迄站 停站秒數的 key 是車站 */
 export type TravelTimes = { runs: Record<string, number>; stops: Record<string, number> };

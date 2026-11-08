@@ -194,7 +194,8 @@ describe("總資產", () => {
     const markup = await render(sections.HeroSection());
     const text = textOf(markup);
 
-    // 8,300 + (86,000 + 43,000 - 5,000) + 1,000 × 106.50 + 100 × 195.00 停用的與信用卡不算
+    // 8,300 + (86,000 + 43,000 - 5,000)
+    // + 1,000 × 106.50 + 100 × 195.00 停用的與信用卡不算
     expect(text).toContain("總資產$258,300");
     // 損益 126,000 - 113,000 國泰卡 12,480 + 7,000
     expect(factsOf(markup)).toEqual([

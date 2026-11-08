@@ -14,8 +14,8 @@ import { pageAccount } from "./accounts";
 export type PageFailure = { ok: false; message: string };
 
 /**
- * fetchedAt 是向 HoYoLAB 查詢的時間 快取最多 5 分鐘 回滿時間要從這裡算
- * 帳號的 cookie 失效標記只看即時便箋 所以只有它回報 cookieInvalid
+ * fetchedAt 是查詢的時間 快取最多 5 分鐘 回滿時間從這裡算
+ * 失效標記只看即時便箋 所以只有它回報 cookieInvalid
  */
 export type DailyNoteFetch =
   | { ok: true; note: DailyNote; expeditions: Expedition[]; fetchedAt: Date; cookieInvalid: false }

@@ -4,7 +4,7 @@ import { createAnnouncement, deleteAnnouncement, listAnnouncements, updateAnnoun
 
 setupTestDb();
 
-const input = (title: string) => ({ kind: "general" as const, title, body: "", startsAt: null, endsAt: null });
+const input = (title: string) => ({ kind: "general" as const, title, body: "", startsAt: null, endsAt: null, pinned: false });
 
 describe("公告", () => {
   it("新的在上面", async () => {

@@ -32,7 +32,7 @@ export function NotificationList({ items, moduleIds, module, modules, retentionD
   const isRead = (item: NotificationItem) => item.read || locallyRead.has(item.id);
   const unreadHere = items.filter((item) => !isRead(item));
 
-  // 輪詢看到更新的通知時重新抓這一頁 列表不用手動重新整理
+  // 輪詢看到更新的通知時重新讀這一頁 列表不用手動重新整理
   const seenId = useRef(latestId);
   useEffect(() => {
     if (latestId !== null && seenId.current !== null && latestId > seenId.current) router.refresh();

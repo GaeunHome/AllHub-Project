@@ -3,8 +3,8 @@ import { readExternalJson } from "@/core/external-url";
 import { asRecord, numberOf, text } from "@/core/json";
 import { normalizeRedeemCode } from "./redeem";
 
-// 社群整理的兌換碼 seriaati 的 hoyo-codes 每小時更新 先用真的帳號試過 只列有效的
-// 它的帳號在亞服 只限其他伺服器的碼也可能列出 兌換時會被拒絕
+// hoyo-codes 每小時更新 作者用真的帳號試過 只列有效的
+// 作者在亞服 只限其他伺服器的碼也可能列出
 const CODES_URL = "https://hoyo-codes.seria.moe/codes?game=hkrpg";
 /** 獎勵是英文的一句話 放進通知前截短 */
 const REWARD_LIMIT = 120;

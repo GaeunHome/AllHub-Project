@@ -16,8 +16,8 @@ type RowDefaults = {
 };
 
 /**
- * 寫進測試資料庫的資料 擁有者是 owner() 例如 beforeEach 建的 alice
- * defaults 是這個檔案的預設 例如帳戶都從很久以前開始記帳
+ * 擁有者是 owner() 例如 beforeEach 建的 alice
+ * defaults 例如帳戶都從很久以前開始記帳
  */
 export function savingsRows(getDb: () => TestDb, owner: () => string, defaults: RowDefaults = {}) {
   const first = <T>(rows: T[]) => rows[0];
@@ -40,7 +40,7 @@ export function savingsRows(getDb: () => TestDb, owner: () => string, defaults: 
 }
 
 /**
- * 正式環境經 drizzle 的 postgres-js 收到 Date 參數會丟錯
- * 測試的 PGlite 自己會轉而查不出來 所以直接看送出的參數
+ * 正式環境的 postgres-js 收到 Date 參數會丟錯
+ * PGlite 自己會轉而查不出來 所以看送出的參數
  */
 export const dateParams = (query: MockInstance) => query.mock.calls.flatMap(([, params]) => (Array.isArray(params) ? params : [])).filter((param) => param instanceof Date);

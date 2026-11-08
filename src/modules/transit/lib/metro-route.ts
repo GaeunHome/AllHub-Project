@@ -2,8 +2,8 @@ import { metroLine, metroLineName } from "./lines";
 import { plainName } from "./station-search";
 import type { MetroLine, Station } from "./timetable";
 
-// 捷運任兩站怎麼搭 轉乘最少 一樣多時站數最少 同名的站就是同一站 跨系統也一樣
-// 往哪裡寫那條線的終點 開到半路就折返的車有停到要下車的站也能搭 servedIds 是這些車開往的站
+// 轉乘最少 一樣多時站數最少 同名的站跨系統也算同一站
+// 半路折返的車有停到要下車的站也能搭 servedIds 是它們的終點
 
 export type MetroSystemData = { system: string; stations: Station[]; lines: MetroLine[] };
 export type NetworkLine = MetroLine & { system: string };

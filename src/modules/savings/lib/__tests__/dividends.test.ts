@@ -14,7 +14,7 @@ import {
   type HeldDividend,
 } from "../dividends";
 
-// 2026-10-29 抓一次的真實回應 原樣抄幾筆 欄位全是字串
+// 2026-10-29 讀到的真實回應 原樣抄幾筆 欄位全是字串
 // 證交所 https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL
 const TWSE = [
   { Date: "1151022", Code: "0056", Name: "元大高股息", Exdividend: "息", StockDividendRatio: "", SubscriptionRatio: "", SubscriptionPricePerShare: "", CashDividend: "1.720000", SharesOffered: "", SharesEmpOwner: "", SharesholderOwner: "", StockHoldingRatio: "" },

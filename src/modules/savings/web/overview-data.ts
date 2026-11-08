@@ -12,8 +12,8 @@ import { categoryOptions, depositOptions, salaryAccountOptions } from "./form-op
 import { pendingEntries, type PendingEntry } from "./pending-view";
 
 /**
- * 總資產 帳戶 待處理與首頁卡片都要的資料 都讀快取 同一次請求裡重複呼叫會合併
- * 沒有持股時不查股價 沒有信用卡時不查每天的流量與帳單 帳戶頁不看市值 quotes 給 false 也不查
+ * 各頁與首頁卡片共用 數字才一致 都讀快取
+ * 沒有持股不查股價 沒有信用卡不查流量 quotes 給 false 也不查
  */
 export async function loadAccounts(userId: string, now: Date, { quotes: withQuotes = true }: { quotes?: boolean } = {}): Promise<{ input: AccountsInput; state: AccountsState }> {
   const today = taipeiToday(now);
@@ -37,8 +37,8 @@ export async function loadPending(userId: string, now: Date) {
 }
 
 /**
- * entries 是要處理的那幾列的視窗內容 key 跟 items 的一樣 incomeRules 是收入的固定收支
- * configured 是有啟用中的固定收支或信用卡 沒有時畫面改成去設定的提示
+ * entries 是可以按的那幾列的視窗內容 key 跟 items 一樣
+ * configured 是 false 時畫面改成去設定的提示
  */
 export type ChecklistView = {
   items: ChecklistItem[];

@@ -1,6 +1,5 @@
-/* 由 globals.css 在 @layer 外面引入 跟全站的 :root 變數同一層 */
-/* YouTube 頁照 YouTube 網站的淺色與深色 跟著外觀切換 紅色只留給標誌與進度條 */
-/* 灰色的面跟 YouTube 一樣用半透明黑白疊出來 放在什麼底上都對得上 */
+/* 照 YouTube 網站的淺色與深色 紅色只留給標誌與進度條 */
+/* 灰色的面用半透明黑白疊 放在什麼底上都對得上 */
 .theme-youtube {
   --surface: #ffffff;
   --surface-solid: #ffffff;

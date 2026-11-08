@@ -139,8 +139,8 @@ export const AUDIT_OUTCOMES = ["success", "failure"] as const;
 export type AuditOutcome = (typeof AUDIT_OUTCOMES)[number];
 
 /**
- * 操作紀錄 站長在 /admin/logs 看 保留 7 天 內容不放密碼 cookie API Key 這類東西
- * actor_id 不設外鍵 帳號刪掉後紀錄還要留到保留期 所以名字也存一份
+ * 操作紀錄 不放密碼 cookie API Key 這類東西
+ * actor_id 不設外鍵 帳號刪掉後紀錄要留到期 所以名字也存一份
  */
 export const coreAuditLogs = pgTable(
   "core_audit_logs",
@@ -187,7 +187,7 @@ export const coreServiceStatus = pgTable("core_service_status", {
 export const ANNOUNCEMENT_KINDS = ["outage", "maintenance", "general"] as const;
 export type AnnouncementKind = (typeof ANNOUNCEMENT_KINDS)[number];
 
-/** 站長在管理頁發的公告 首頁最下面列出 ends_at 過了就不顯示 列留著由站長自己刪 */
+/** 站長在管理頁發的公告 首頁最下面列出 重要的也放在跑馬燈 ends_at 過了就不顯示 */
 export const coreAnnouncements = pgTable(
   "core_announcements",
   {
@@ -197,6 +197,8 @@ export const coreAnnouncements = pgTable(
     body: text("body").notNull().default(""),
     startsAt: timestamp("starts_at", { withTimezone: true }),
     endsAt: timestamp("ends_at", { withTimezone: true }),
+    /** 站長勾的 一般公告也放到全站最上面的跑馬燈 */
+    pinned: boolean("pinned").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

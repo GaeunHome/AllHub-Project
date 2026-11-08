@@ -170,6 +170,24 @@ describe("InfoTip 的接線（滑過、焦點、點外面、Esc、Activity）", 
     expect(listeners).toEqual([]);
   });
 
+  it("顯示時放進 top layer（popover），收起時拿出來：外層的卡片自己是一層或用了容器查詢時 fixed 的說明框會被切掉或蓋住", () => {
+    vi.stubGlobal("window", { innerHeight: 800, addEventListener: () => {}, removeEventListener: () => {} });
+    vi.stubGlobal("document", { documentElement: { clientWidth: 1200 } });
+    const { root, layoutEffects } = mount(PINNED);
+    let open = false;
+    const tip = { matches: () => open, showPopover: vi.fn(() => void (open = true)), hidePopover: vi.fn(() => void (open = false)), offsetWidth: 200, offsetHeight: 60, style: { setProperty: vi.fn() } };
+    const [button, bubble] = root.children as unknown as ReactElement<{ ref: { current: unknown } }>[];
+    button.props.ref.current = { getBoundingClientRect: () => ({ left: 500, right: 536, top: 300, bottom: 336 }) };
+    bubble.props.ref.current = tip;
+
+    const cleanups = layoutEffects.map((effect) => effect());
+    expect(tip.showPopover).toHaveBeenCalledOnce();
+    expect(tip.hidePopover).not.toHaveBeenCalled();
+
+    for (const cleanup of cleanups) cleanup?.();
+    expect(tip.hidePopover).toHaveBeenCalledOnce();
+  });
+
   it("滑過只認滑鼠與觸控筆：手指點下去的 pointerenter／pointerleave 不算（觸控裝置靠點一下切換）", () => {
     const { root, dispatch } = mount(INFO_TIP_CLOSED);
 

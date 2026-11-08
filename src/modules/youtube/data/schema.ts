@@ -62,7 +62,10 @@ export const youtubeSettings = pgTable("youtube_settings", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }).enableRLS();
 
-/** 每人每家 AI 一列 API Key 用 core/crypto 加密 畫面要顯示的前幾碼讀設定時才解開來取 只選了模型時 api_key 是 null */
+/**
+ * 每人每家 AI 一列 前幾碼讀設定時才解開來取
+ * 只選了模型時 api_key 是 null
+ */
 export const youtubeAiKeys = pgTable(
   "youtube_ai_keys",
   {
@@ -100,8 +103,8 @@ export const youtubeTranslations = pgTable(
     /** 也是翻譯鎖的心跳 running 而且最近更新過代表有人正在翻 */
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     /**
-     * 翻譯鎖的 fencing token 上傳 重新翻譯 重試或被接手時換掉 舊請求就寫不回去
-     * 不比 updated_at 是因為 JS Date 只到毫秒 Postgres 存到微秒
+     * fencing token 被接手時換掉 舊請求就寫不回去
+     * 不比 updated_at 因為 JS Date 只到毫秒 Postgres 到微秒
      */
     lockId: uuid("lock_id"),
     /**
@@ -119,8 +122,8 @@ export const youtubeTranslations = pgTable(
 ).enableRLS();
 
 /**
- * 每人保留的影片 pinned 是手動保留 false 是翻譯時自動加入 滿了先擠掉
- * video_id 不連影片表 影片被清掉也找得回來 標題與頻道名是保留時的快照
+ * pinned 是手動保留 false 是翻譯時自動加入 滿了先擠掉
+ * video_id 不連影片表 影片被清掉也找得回來
  */
 export const youtubeSavedVideos = pgTable(
   "youtube_saved_videos",

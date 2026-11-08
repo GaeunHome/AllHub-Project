@@ -16,8 +16,8 @@ import { listAccounts } from "./accounts";
 import { cardDailyFlows, listCardBills } from "./cards";
 import { accountMonthFlows } from "./transactions";
 
-// 排程 savings:recurring 寄的到期通知 只寄給擁有者 停用的使用者凍結不寄
-// 用 last_notified_on 與 card_notified_on 條件式 update 認領 同一天只寄一次
+// 停用的使用者凍結不寄
+// last_notified_on 與 card_notified_on 條件式認領 同一天只寄一次
 
 // service 不能 import 模組根目錄的 info 模組 id 寫在這裡
 const MODULE_ID = "savings";

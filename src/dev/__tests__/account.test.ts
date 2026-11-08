@@ -339,8 +339,8 @@ describe("其他指令與錯誤處理", () => {
     expect(text).not.toContain(url);
   });
 
-  // drizzle 把資料庫錯誤包成 DrizzleQueryError name 是 Error 也沒有 code
-  // 原始錯誤放在 cause 裡
+  // drizzle 包成 DrizzleQueryError 沒有 code
+  // 原始錯誤在 cause 裡
   it.each([
     ["主機拒絕連線", { code: "ECONNREFUSED", message: "connect ECONNREFUSED 127.0.0.1:5432" }, "主機拒絕連線"],
     ["找不到主機", { code: "ENOTFOUND", message: "getaddrinfo ENOTFOUND db.s3cr3t.example" }, "找不到這個主機"],

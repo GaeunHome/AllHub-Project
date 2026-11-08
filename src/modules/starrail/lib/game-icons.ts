@@ -1,5 +1,5 @@
-// HoYoLAB 沒附屬性與命途的圖 改用 StarRailRes 的圖內建在 public/icons/starrail/
-// 檔名是原檔名的 kebab-case 著作權見 public/icons/LICENSE.md
+// HoYoLAB 沒附屬性與命途的圖 改用內建的 StarRailRes 圖
+// 著作權見 public/icons/LICENSE.md
 
 const ICONS = "/icons/starrail";
 
@@ -56,8 +56,8 @@ export function pathIconUrl(path: number | null): string | null {
   return entry ? `${ICONS}/path/${entry.file}.png` : null;
 }
 
-// property_type 的對照依 hoyo-buddy 的 YATTA_PROP_TYPE_TO_GPY_TYPE
-// 圖示檔名依 StarRailRes 的 properties.json 固定值與百分比共用圖示
+// 對照依 hoyo-buddy 的 YATTA_PROP_TYPE_TO_GPY_TYPE
+// 檔名依 StarRailRes 的 properties.json 百分比共用圖示
 const PROPERTY_TYPES: Record<string, number[]> = {
   "max-hp": [1, 26, 27, 32],
   attack: [2, 28, 29, 33],

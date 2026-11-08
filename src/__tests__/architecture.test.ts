@@ -58,8 +58,8 @@ function resolve(from: string, spec: string): string | null | undefined {
 }
 
 /**
- * 解析 import 與 export from 副作用 import 動態 import 和 vi.mock
- * import type 與全部帶 type 的具名匯入算只用型別
+ * 收 import export from 動態 import 與 vi.mock
+ * import type 或具名匯入全帶 type 算只用型別
  */
 function specsOf(file: string): Spec[] {
   const source = read(file);
@@ -189,8 +189,8 @@ describe("架構規則", () => {
     expect(found).toEqual([]);
   });
 
-  // src/app 只是路由殼 頁面 render core 的頁面元件 route handler 轉接 core 的實作
-  // 其他的 core 程式要經過這些入口 新增入口時加進清單
+  // src/app 只是路由殼 其他 core 程式要經過這些入口
+  // 新增入口時加進清單
   it("src/app 只用 core 的頁面元件、route handler、排程、robots、外觀與登入檢查（允許清單）", () => {
     const APP_CORE_ENTRIES = [
       "core/admin/admin-page.tsx",
@@ -226,7 +226,7 @@ describe("架構規則", () => {
     expect(found).toEqual([]);
   });
 
-  // dev/ 放假外部服務與測試共用的 fixture 只有測試用得到
+  // dev/ 只給測試用
   // fixture 不碰 service 與 web 測試才不會繞過要測的流程
   it("模組內分層只能往下依賴：web → service → data → lib；dev/ 只給測試用，它自己只用 lib、data 的型別與 src/dev", () => {
     const allowed: Record<Layer, Layer[]> = {
@@ -251,8 +251,8 @@ describe("架構規則", () => {
     expect(found).toEqual([]);
   });
 
-  // notify cooldown attempts claim 清理 都會寫資料庫 web 要經過 service
-  // 使用者 id 一律由 web 呼叫 requireSession 後傳給 service 規則寫在 CLAUDE.md 的多人
+  // 這些工具會寫資料庫 web 要經過 service
+  // 使用者 id 由 web 登入檢查後傳給 service
   it("模組的 web 不直接用會寫資料庫的 core 工具（notify、cooldown、auth/attempts、claim、retention-cleanup）；service、data、lib 不碰登入（@/core/auth、next/headers，import type 除外）", () => {
     const WRITERS = ["core/notify.ts", "core/cooldown.ts", "core/auth/attempts.ts", "core/claim.ts", "core/retention-cleanup.ts"];
     const LOWER = ["service", "data", "lib"];
@@ -300,8 +300,8 @@ describe("架構規則", () => {
     expect(issues).toEqual([]);
   });
 
-  // 模組 id 是通知的 module 提醒偏好與 localStorage 的 key 認領與冷卻的 scope
-  // 寫錯一個字 提醒方式的開關就對不到那個模組的通知 log 也分不出是誰
+  // 模組 id 寫錯一個字 提醒開關就對不到那個模組的通知
+  // log 也分不出是誰
   it("模組 id 一致：info.id、通知與 log 的 module、權限檢查（requireModule、canUseModule、activeOwnerOf）、認領與冷卻的 scope 前綴、allhub: 開頭的 localStorage key 都等於資料夾名稱", async () => {
     const SCOPE_FIRST = ["claimOnce", "releaseOnce", "takeCooldown", "reportService", "trackService"];
     const SCOPE_OPTION = ["sendOnce", "sendOnceEach", "recordAttempt", "checkAttempts"];
@@ -364,9 +364,8 @@ describe("架構規則", () => {
     // 要解析每個模組檔 機器忙時預設的 5 秒不夠
   }, 30_000);
 
-  // 規則寫在 CLAUDE.md 的安全 Server Action 可以被直接 POST
-  // 只有 requireSession 會比對資料庫 擋下改過密碼的舊 cookie 與停用的帳號
-  // 模組的 action 還要擋下被關掉模組的人 所以一律 requireModule
+  // Server Action 可被直接 POST 只有 requireSession 比對資料庫
+  // 模組的還要擋被關掉模組的人 所以用 requireModule
   it("Server Action（use server 檔的每個 export）第一個敘述：模組的是 await requireModule(\"<模組 id>\")，core 的是 await requireSession() 或 requireOwner()；不用登入的只有 login、registerAction、logout", () => {
     const NO_LOGIN = new Set(["core/auth/actions.ts login", "core/auth/actions.ts registerAction", "core/auth/actions.ts logout"]);
     const ASSIGNED = String.raw`^(?:(?:const|let)\s+[^=]+=\s*)?await\s+`;
@@ -471,7 +470,7 @@ describe("架構規則", () => {
     });
   });
 
-  // 規則寫在 CLAUDE.md 的 form.ts 加了 use server 每個 export 都會變成可以直接 POST 的 action
+  // 加了 use server 每個 export 都會變成可以直接 POST 的 action
   it("core/form.ts 沒有 use server（它只是欄位解析與 runAction，不是 Server Action）", () => {
     expect(directivesOf(syntaxOf("core/form.ts").statements)).not.toContain("use server");
   });
@@ -597,8 +596,8 @@ describe("架構規則", () => {
     expect(problems).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md 的程式碼慣例 焦點鎖定 Esc 點背景 關閉後還焦點
-  // Activity 藏起來時一定關掉 這些都只寫在共用的元件裡
+  // 焦點 Esc 點背景與 Activity 藏起來時關掉
+  // 這些都只寫在共用的元件裡
   it("原生的 <dialog> 與 showModal() 只出現在 core/ui/dialog.tsx，其他地方用它的 Dialog／DialogButton", () => {
     const offenders = files
       .filter((file) => !isTest(file) && file !== "core/ui/dialog.tsx")
@@ -611,8 +610,8 @@ describe("架構規則", () => {
     expect(offenders).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md 的畫面風格 Activity 藏起來的頁面還留在文件裡
-  // :root:has() 會比對到它 PageTheme 在藏起來時標記 選擇器才排除得掉
+  // Activity 藏起來的頁面還在文件裡 :root:has() 會比對到它
+  // PageTheme 藏起來時會標記 選擇器才排除得掉
   it("會換整頁樣式的主題 class（樣式裡的 :root:has(.theme-…)）只放在 core/ui/page-theme.tsx 的 PageTheme 上", () => {
     const css = readStylesheet();
     const pageThemes = [...new Set([...css.matchAll(/(?::root|html|body):has\(\.(theme-[\w-]+)/g)].map((m) => m[1]))];
@@ -631,8 +630,8 @@ describe("架構規則", () => {
     expect(offenders).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md 的樣式檔 模組的樣式放在模組的 web/
-  // Tailwind 編譯 globals.css 時把 @import 換成檔案內容 沒引入的檔不會生效
+  // Tailwind 編譯時把 @import 換成檔案內容
+  // 沒從 globals.css 引入的檔不會生效
   it("CSS 只有 src/app/globals.css 與模組 web/ 底下的檔：模組的檔都由 globals.css 引入一次、自己不再引入別的檔，TS 只有 src/app/layout.tsx 引入 globals.css", () => {
     const cssFiles = [...fileSet].filter((file) => file.endsWith(".css"));
     const moduleCss = cssFiles.filter(isModuleCss);
@@ -689,8 +688,8 @@ describe("架構規則", () => {
     expect([...overlaps, ...unused, ...problems]).toEqual([]);
   });
 
-  // globals.css 裡提到模組 class 的只剩這幾條 跟 core 的規則或兩個模組寫在同一個選擇器清單或區塊裡
-  // 拆開會改到編譯出來的 CSS 新的模組樣式一律放在模組的 web/
+  // 這幾條跟 core 或兩個模組寫在同一條規則裡
+  // 拆開會改到編譯出來的 CSS 新的一律放模組的 web/
   const SHARED_IN_GLOBALS = [
     ".theme-twitch",
     ".theme-starrail",
@@ -708,11 +707,11 @@ describe("架構規則", () => {
     expect([...new Set(found)].sort()).toEqual([...SHARED_IN_GLOBALS].sort());
   });
 
-  // 規則在 CLAUDE.md 的間距與對齊 Server Action 表單開頭有隱藏 input
-  // 串流中的 Suspense 也會多一個 template 第幾個子元素會算錯
+  // 表單開頭有隱藏 input 串流中的 Suspense 也會多一個 template
+  // 第幾個子元素會算錯
   it("不從外框用子元素的位置排欄（[&>:nth-child()]、[&>:last-child]、*:first: 這類）；[&>:first-child] 只能挑永遠排第一個的 PageHeader", () => {
     const POSITIONAL = /nth-child\(|nth-last-child\(|last-child|only-child|nth-of-type\(|nth-last-of-type\(|first-of-type|last-of-type|only-of-type/;
-    // Tailwind 的 *: 是子元素 **: 是子孫 加上 first: nth-2: 這類變體
+    // *: 是子元素 **: 是子孫 加上 first: 這類變體
     // 跟 [&>:first-child] 一樣是從外框挑第幾個
     const CHILD_VARIANT = /(?<![\w-])\*{1,2}:(?:[\w-]+:)*?(?:first|last|only|odd|even|(?:first|last|only)-of-type|nth-[^\s:"'`]+):/g;
     const problems = files
@@ -737,8 +736,8 @@ describe("架構規則", () => {
     expect(problems).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md 的程式碼慣例 externalFetch 開發時改送假伺服器又有逾時
-  // 直接呼叫全域 fetch 會在 E2E 打到真的服務
+  // externalFetch 開發時改送假伺服器又有逾時
+  // 直接呼叫 fetch 會在 E2E 打到真的服務
   it("正式程式不直接呼叫全域 fetch()：對外請求經 core/external-url 的 externalFetch；例外只有它本身與 client 元件呼叫自家的 /api/", () => {
     const problems = files
       .filter((file) => !isTest(file) && placeOf(file).zone !== "dev" && file !== "core/external-url.ts")
@@ -760,7 +759,6 @@ describe("架構規則", () => {
     expect(problems).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md 的程式碼慣例 結果一律用 core/ui/toast 的提示視窗
   // 原生的會擋住整個頁面 樣子也跟網站不一樣
   it("正式程式不用原生的 alert()：成功與失敗的提示一律用 core/ui/toast 的提示視窗", () => {
     const offenders = files

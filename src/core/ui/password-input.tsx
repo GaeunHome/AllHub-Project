@@ -9,8 +9,8 @@ export function passwordToggle(visible: boolean) {
 }
 
 /**
- * 右邊的眼睛按鈕切換明碼 預設隱藏 autocomplete 這類屬性照呼叫端給的
- * 裡面有按鈕 外面用 label 的 htmlFor 對應 不要用 label 包住
+ * 眼睛按鈕切換明碼 預設隱藏
+ * 裡面有按鈕 外面用 label 的 htmlFor 對應 不要包住
  */
 export function PasswordInput({ className = "input", ...props }: Omit<ComponentProps<"input">, "type">) {
   const [visible, setVisible] = useState(false);

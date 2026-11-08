@@ -2,8 +2,8 @@
 // 用語意屬性判斷 模組不必知道 core 的 class 名稱
 
 /**
- * 觸發按鈕標上這個屬性並配 aria-expanded
- * 面板不是 aria-haspopup 能宣告的角色時也認得出它開著 例如 ⋮ 選單的 group
+ * 面板不是 aria-haspopup 能宣告的角色時用 例如 ⋮ 選單
+ * 觸發按鈕標上它並配 aria-expanded
  */
 export const POPUP_TRIGGER = "data-popup-trigger";
 

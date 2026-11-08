@@ -10,8 +10,8 @@ import { rainOutlook } from "../lib/rain";
 import { recipientsByCounty } from "./recipients";
 import { fetchForecasts, weatherKeys } from "./weather";
 
-// 排程 weather:rain 台北早上 6 點多跑 會下雨就提醒開著通知的人帶傘
-// 停用的帳號凍結不寄 每人每天只寄一次 認領記在 core_rate_limits 一天後刪
+// 台北早上 6 點多跑 會下雨就提醒帶傘
+// 停用的帳號凍結不寄 每人每天只寄一次
 
 // service 不能 import 模組根目錄的 info 模組 id 寫在這裡
 const MODULE_ID = "weather";

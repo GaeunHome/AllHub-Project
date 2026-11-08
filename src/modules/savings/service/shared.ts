@@ -154,8 +154,8 @@ type FlowSide = typeof t.accountId | typeof t.counterAccountId;
 export type FlowRow = { accountId: number; period: string; income: number; expense: number; transferIn: number; transferOut: number; adjust: number };
 
 /**
- * period 是分段的欄位 例如月份或日期 轉出算在 account_id 轉入算在 counter_account_id 兩邊各查一次再合起來
- * filter 給兩邊加一樣的條件 例如只算一個帳戶 照段再照帳戶排
+ * 轉出算 account_id 轉入算 counter_account_id 兩邊各查再合起來
+ * period 例如月份或日期 filter 給兩邊加一樣的條件
  */
 export async function flowsBy(executor: Executor, period: SQL<string> | typeof t.date, filter: (side: FlowSide) => SQL | undefined): Promise<FlowRow[]> {
   const [outgoing, incoming] = await Promise.all([

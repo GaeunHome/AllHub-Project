@@ -174,8 +174,8 @@ export const savingsDividendNotices = pgTable(
 ).enableRLS();
 
 /**
- * 固定收支 每 interval_months 個月一期 沒有那一天的月份是月底 再照假日規則調整
- * 自動記的由排程記帳 要確認的列在待處理
+ * 每 interval_months 個月一期 沒有那天是月底 再照假日規則調整
+ * 自動記的由排程記帳 要確認的列在這個月要做的事
  */
 export const savingsRecurring = pgTable(
   "savings_recurring",

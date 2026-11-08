@@ -1,8 +1,8 @@
 import { asArray, asRecord, createMissing, numberOf, text } from "@/core/json";
 import type { FareKey } from "./timetable";
 
-// 欄位對過 TDX 的 swagger 與公開的真實回應 還沒用這個專案的金鑰驗證
-// 認不得 對不上或價錢互相矛盾的一律不顯示 不能顯示錯的價錢
+// 欄位照 swagger 與公開的真實回應 還沒用這個專案的金鑰驗證
+// 認不得或對不上的一律不顯示 不能顯示錯的價錢
 
 export type Cabin = "標準" | "商務" | "自由";
 export type CabinFare = { cabin: Cabin; price: number };

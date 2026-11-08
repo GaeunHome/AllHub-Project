@@ -168,7 +168,8 @@ describe("待處理", () => {
   });
 
   it("定期定額：用收盤價先估好股數與扣款（手續費 1 元含在約定金額裡）", () => {
-    // (5,000 - 1) × 100 / 10,650 = 46.9 取 46 股 價金 46 × 106.50 = 4,899 加手續費 1 元
+    // (5,000 - 1) × 100 / 10,650 = 46.9 取 46 股
+    // 價金 46 × 106.50 = 4,899 加手續費 1 元
     expect(entryOf("recurring:2:").confirm).toMatchObject({ where: [{ label: "帳戶", value: "台銀 → 臺銀證券" }], regularBuy: { symbol: "006208", closeCents: 10650, quoteDate: "2026-10-14", estimate: { shares: 46, cost: 4900 } } });
   });
 

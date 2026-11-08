@@ -1,6 +1,6 @@
 {
-  "id": "e9579308-a4ee-4c13-9768-4ecfba083db8",
-  "prevId": "dc07f9a1-749d-48d3-939c-d6b050ea91b0",
+  "id": "f53510cf-4775-45cb-a00b-d554e942010c",
+  "prevId": "1ae3f339-e4e1-4458-9a1f-25348835881f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -44,6 +44,13 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "pinned": {
+          "name": "pinned",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

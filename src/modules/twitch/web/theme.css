@@ -1,6 +1,5 @@
-/* 由 globals.css 在 @layer 外面引入 跟全站的 :root 變數同一層 */
-/* Twitch 頁不論外觀都是 Twitch 的深色風格 共用的 card chip 按鈕 input 跟著換色 */
-/* 調色盤只放在 PageTheme 外框上 導覽列與選單在外框外面 維持全站的樣子 */
+/* 不論外觀都是 Twitch 的深色 共用的 card chip 按鈕跟著換色 */
+/* 調色盤只放 PageTheme 外框上 導覽列維持全站的樣子 */
 .theme-twitch {
   color-scheme: dark;
   --surface: #18181b;

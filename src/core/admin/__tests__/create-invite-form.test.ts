@@ -211,7 +211,7 @@ describe("建立失敗時保留上一條連結（keepLastLink）", () => {
 
 describe("離開這一頁就看不到連結（Activity 把頁面藏起來時）", () => {
   /**
-   * 跑完 layout effect 再跑清除函式 Activity 把頁面藏起來時就是這樣
+   * 先跑 layout effect 再跑清除 同 Activity 藏起頁面
    * 回傳 dispatch 看送給 useActionState 什麼
    */
   function hide(state: object) {

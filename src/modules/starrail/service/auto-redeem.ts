@@ -34,8 +34,8 @@ type Group = { userId: string; ltuid: string; queues: Queue[]; redeemed: Redeeme
 const nameOf = (account: StarrailAccount) => `${account.nickname ?? account.uid}（${serverLabel(account.region)}）`;
 
 /**
- * 每天一次 替打開自動兌換的帳號送出還沒試過的兌換碼
- * 冷卻是每個 HoYoLAB 帳號各算 不同的人輪流送 一個人的等待時間裡先送別人的
+ * 冷卻是每個 HoYoLAB 帳號各算
+ * 不同帳號輪流送 一個人的等待時間裡先送別人的
  */
 export async function autoRedeemAll(clock: RedeemClock = realClock): Promise<string> {
   const accounts = (await listAccounts()).filter((account) => account.autoRedeem && !account.cookieInvalid);
@@ -88,8 +88,8 @@ async function buildQueues(accounts: StarrailAccount[], codes: PublicCode[], cha
 }
 
 /**
- * 輪到冷卻最早結束的帳號 超過時間就停 剩下的明天再試
- * 要求驗證時整批停下 cookie 失效 太頻繁 連不上或冷卻還沒過的那個 HoYoLAB 帳號今天先跳過
+ * 輪到冷卻最早結束的帳號 超過時間剩下的明天再試
+ * 要求驗證時整批停下 cookie 被拒 太頻繁或連不上只停那個帳號
  */
 async function redeemQueues(queues: Queue[], clock: RedeemClock) {
   const deadline = clock.now() + REDEEM_BUDGET_MS;
@@ -172,8 +172,8 @@ async function notifyRedeemed(group: Group): Promise<void> {
 }
 
 /**
- * cookie 被 HoYoLAB 拒絕時請擁有者重新貼上 一個遊戲帳號一週一則
- * 認領一天後就刪 一週內寄過沒有看通知紀錄 認領只擋同一天重送的排程
+ * 一個遊戲帳號一週一則 寄過沒有看通知紀錄
+ * 認領一天後就刪 只擋同一天重送的排程
  */
 async function noticeCookieRejected(account: StarrailAccount, now: Date): Promise<void> {
   const url = accountHref(account.id);

@@ -18,8 +18,8 @@ function staminaByNextRun(stamina: number, max: number | null): number {
 }
 
 /**
- * Vercel 只保證排程在那個小時內跑 兩次之間最長將近兩小時 這段時間內會達到門檻就先通知
- * 同一輪只通知一次 降到兩小時內到不了門檻才重設 下次快到時再通知
+ * 兩次排程最長隔將近兩小時 這段時間內會到門檻就先通知
+ * 同一輪只通知一次 降到兩小時內到不了才重設
  */
 export function staminaAlertAction(
   note: DailyNote,

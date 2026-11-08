@@ -14,8 +14,8 @@ const CORE_TASKS: Record<string, CronTask> = { ...notificationsCron, ...auditCro
 export const coreCronLabels: Record<string, string> = { "notifications:cleanup": "清理舊通知", "audit:cleanup": "清理操作紀錄" };
 
 /**
- * core 不能依賴模組 所以模組的排程由 src/app 的 route 傳進來
- * 密鑰叫 CRON_SECRET 是因為 Vercel Cron 會自動帶上同名環境變數
+ * core 不能依賴模組 模組的排程由 src/app 傳進來
+ * 叫 CRON_SECRET 是因為 Vercel Cron 會自動帶上它
  */
 export async function runCron(request: Request, task: string, moduleTasks: Record<string, CronTask>): Promise<Response> {
   const auth = request.headers.get("authorization") ?? "";

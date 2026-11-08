@@ -68,7 +68,7 @@ describe("detailTiles：今天的細節 讀不到的那一格不畫", () => {
   const TAIPEI = { feelsHigh: 27, feelsLow: 19, humidity: 78, wind: { direction: "東北風", level: 3 }, uv: 6, sunrise: null, sunset: null };
 
   it("台灣的縣市：體感溫度、濕度、風（方向與級數）、紫外線（指數與等級），一週預報沒有日出日落", () => {
-    expect(detailTiles(TAIPEI)).toEqual([
+    expect(detailTiles(TAIPEI, "12:00")).toMatchObject([
       { label: "體感溫度", value: "19–27°", sub: null },
       { label: "濕度", value: "78%", sub: null },
       { label: "風", value: "東北風", sub: "3 級" },
@@ -76,28 +76,40 @@ describe("detailTiles：今天的細節 讀不到的那一格不畫", () => {
     ]);
   });
 
-  it("國外的城市多了日出與日落", () => {
-    expect(detailTiles({ ...TAIPEI, sunrise: "06:05", sunset: "16:38" }).slice(-2)).toEqual([
-      { label: "日出", value: "06:05", sub: null },
-      { label: "日落", value: "16:38", sub: null },
-    ]);
+  it("使用者選的小量表：濕度是水位、風是吹過去的方向、紫外線在高量級那一格，體感溫度沒有量表", () => {
+    const [feels, humidity, wind, uv] = detailTiles(TAIPEI, "12:00");
+
+    expect(feels.meter).toBeNull();
+    expect(humidity.meter).toEqual({ kind: "fill", at: 78 });
+    expect(wind.meter).toEqual({ kind: "toward", degrees: 225 });
+    expect(uv.meter).toMatchObject({ kind: "uv" });
+    expect(uv.meter?.kind === "uv" && uv.meter.at >= 40 && uv.meter.at < 60).toBe(true);
+  });
+
+  it("國外的城市多了日出日落：一格寫日出與日落，量表是太陽從日出走到日落的位置（當地時間）", () => {
+    expect(detailTiles({ ...TAIPEI, sunrise: "06:00", sunset: "18:00" }, "12:00").at(-1)).toMatchObject({ label: "日出", value: "06:00", sub: "日落 18:00", meter: { kind: "daylight", at: 50 } });
+  });
+
+  it("只讀到日出或日落時各寫各的 沒有量表", () => {
+    expect(detailTiles({ ...NO_DETAILS, sunrise: "06:05" }, "12:00")).toMatchObject([{ label: "日出", value: "06:05", sub: null, meter: null }]);
+    expect(detailTiles({ ...NO_DETAILS, sunset: "16:38" }, "12:00")).toMatchObject([{ label: "日落", value: "16:38", sub: null, meter: null }]);
   });
 
   it("讀不到濕度與紫外線時只剩體感與風", () => {
-    expect(detailTiles({ ...TAIPEI, humidity: null, uv: null }).map(({ label }) => label)).toEqual(["體感溫度", "風"]);
+    expect(detailTiles({ ...TAIPEI, humidity: null, uv: null }, "12:00").map(({ label }) => label)).toEqual(["體感溫度", "風"]);
   });
 
   it("體感只讀到一個數字時寫一個 風只讀到級數時寫級數", () => {
-    const tiles = detailTiles({ ...NO_DETAILS, feelsHigh: 30, wind: { direction: null, level: 2 } });
+    const tiles = detailTiles({ ...NO_DETAILS, feelsHigh: 30, wind: { direction: null, level: 2 } }, "12:00");
 
     expect(tiles.map(({ value }) => value)).toEqual(["30°", "2 級"]);
   });
 
   it("晴朗的晚上紫外線是 0 也照寫 那是讀得到的數字", () => {
-    expect(detailTiles({ ...NO_DETAILS, uv: 0 })).toEqual([{ label: "紫外線", value: "0", sub: "低量級" }]);
+    expect(detailTiles({ ...NO_DETAILS, uv: 0 }, "12:00")).toMatchObject([{ label: "紫外線", value: "0", sub: "低量級" }]);
   });
 
   it("全部讀不到時沒有格子 整區不出現", () => {
-    expect(detailTiles(NO_DETAILS)).toEqual([]);
+    expect(detailTiles(NO_DETAILS, "12:00")).toEqual([]);
   });
 });

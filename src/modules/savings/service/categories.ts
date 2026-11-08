@@ -7,7 +7,10 @@ import { NOT_FOUND, isRowId, parseCategoryFields, parseCategoryKind } from "../l
 import { DUPLICATE_NAME, SavingsUserError } from "./errors";
 import { allOf, moveWithin, nextSortOrder, valid, withUniqueName } from "./shared";
 
-/** kind 只在新增時有效 monthlyBudget 只有支出能設 空字串是不設 icon 是 CATEGORY_ICONS 的名稱 空字串是沒選 */
+/**
+ * kind 只在新增時有效 monthlyBudget 只有支出能設
+ * 空字串是不設或沒選
+ */
 export type CategoryFields = { kind: string; name: string; monthlyBudget: string; icon: string };
 
 const own = (userId: string, id: number) => and(eq(savingsCategories.id, id), eq(savingsCategories.userId, userId));

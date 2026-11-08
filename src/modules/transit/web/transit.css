@@ -1,5 +1,5 @@
-/* 路線圖 線條顏色由 --trn-line 帶進來 高鐵 台鐵與捷運各線不同 其他照全站的變數 */
-/* 寬螢幕查詢在左 自己的路線在右 跟著捲動 手機上路線排最前面 倒數要一眼看到 */
+/* 線條顏色由 --trn-line 帶進來 其他照全站的變數 */
+/* 手機上路線排最前面 倒數要一眼看到 */
 .trn-layout {
   --trn-sign: #0b3a7e;
   --trn-sign-tint: rgb(11 58 126 / 0.06);
@@ -222,8 +222,8 @@
 .trn-mini-count {
   @apply text-2xl leading-tight font-extrabold tracking-tight text-ink;
 }
-/* 常用路線的實體票卡 內容一樣 只換外觀 字色寫在各自的 class 不換變數 ⋮ 選單與確認視窗才不會跟著變 */
-/* 高鐵 車票的紙 上緣一條橘色帶 下面一條撕線 碰到兩邊打半圓的洞 */
+/* 字色寫在各自的 class 不換變數 ⋮ 選單與視窗才不會跟著變 */
+/* 高鐵的車票 上緣橘色帶 撕線碰到兩邊打半圓的洞 */
 .trn-card[data-mode="thsr"],
 .trn-mini[data-mode="thsr"] {
   border-color: transparent;
@@ -921,8 +921,8 @@
   box-shadow: inset 0 0 0 1px var(--focus);
 }
 
-/* 捷運選站的路線圖 視窗是滿版 圖填滿搜尋框下面剩下的高度 */
-/* 一格的大小 站名字級與離點的距離 由元件寫在 --trn-map-u --trn-map-em --trn-map-gap */
+/* 選站視窗滿版 路線圖填滿搜尋框下面剩下的高度 */
+/* 格子 字級與間距由元件寫在 --trn-map-u 這些變數 */
 .trn-map-search {
   @apply w-full max-w-xl;
 }
@@ -1019,16 +1019,16 @@
   top: calc(50% + var(--trn-map-u) * var(--trn-map-gap));
 }
 .trn-map-station:is([data-side="ne"], [data-side="se"]) .trn-map-label {
-  left: calc(50% + var(--trn-map-u) * var(--trn-map-gap) * 0.7);
+  left: calc(50% + var(--trn-map-u) * var(--trn-map-slant));
 }
 .trn-map-station:is([data-side="nw"], [data-side="sw"]) .trn-map-label {
-  right: calc(50% + var(--trn-map-u) * var(--trn-map-gap) * 0.7);
+  right: calc(50% + var(--trn-map-u) * var(--trn-map-slant));
 }
 .trn-map-station:is([data-side="ne"], [data-side="nw"]) .trn-map-label {
-  bottom: calc(50% + var(--trn-map-u) * var(--trn-map-gap) * 0.7);
+  bottom: calc(50% + var(--trn-map-u) * var(--trn-map-slant));
 }
 .trn-map-station:is([data-side="se"], [data-side="sw"]) .trn-map-label {
-  top: calc(50% + var(--trn-map-u) * var(--trn-map-gap) * 0.7);
+  top: calc(50% + var(--trn-map-u) * var(--trn-map-slant));
 }
 /* 選好的站用主色 另一端的站實心點加虛線框 不能再選 */
 .trn-map-station[aria-current="true"] .trn-map-dot {

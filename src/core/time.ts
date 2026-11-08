@@ -1,5 +1,5 @@
-// 只取數字欄位 分隔符號自己組 語系的空白會隨 ICU 版本改變
-// 例如 ICU 78 的 zh-TW 用 U+2009 伺服器與瀏覽器算出來會對不上
+// 只取數字欄位 分隔符號自己組 語系的空白會隨 ICU 版本變
+// 伺服器與瀏覽器的 ICU 不同時才不會對不上
 const taipeiFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: "Asia/Taipei",
   hourCycle: "h23",
@@ -55,7 +55,7 @@ export function formatTaipeiLongDate(date: Date): string {
   return `${month} 月 ${day} 日 星期${weekdayOf(year, month, day)}`;
 }
 
-/** 位置不夠時的日期 例如 11/4（三） */
+/** 位置不夠時的日期 例如 11/4 加星期 */
 export function formatTaipeiShortDate(date: Date): string {
   const { year, month, day } = taipeiFields(date);
   return `${month}/${day}（${weekdayOf(year, month, day)}）`;
@@ -92,7 +92,7 @@ export function taipeiDayOffset(date: Date, now: Date): number {
 
 /**
  * 照 YouTube 卡片寫成 3 小時前 時鐘誤差算出未來時當成剛剛
- * largestUnit 是最大寫到哪個單位 通知寫到天 例如 10 天前 影片再往上寫週 月 年
+ * largestUnit 是最大的單位 通知只寫到幾天前
  */
 export function formatRelativeTime(date: Date, now: Date, { largestUnit = "year" }: { largestUnit?: "day" | "year" } = {}): string {
   const minutes = Math.floor((now.getTime() - date.getTime()) / MINUTE_MS);

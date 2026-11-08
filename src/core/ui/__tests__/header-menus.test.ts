@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { createElement, isValidElement, use, useCallback, useEffect, useId, useRef, type EffectCallback, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// effect 只在瀏覽器跑 所以直接呼叫元件 開關的 context 換成替身
+// effect 只在瀏覽器跑 直接呼叫元件 context 換成替身
 // effect 收起來自己跑 document 換成記下監聽的替身
 vi.mock("react", { spy: true });
 vi.mock("../../auth/actions", () => ({ logout: vi.fn() }));

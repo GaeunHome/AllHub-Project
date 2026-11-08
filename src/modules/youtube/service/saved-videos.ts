@@ -24,8 +24,8 @@ function assertVideoId(videoId: string): string {
 }
 
 /**
- * 跟觀看頁顯示的同一份 標題先用共用翻譯存的 再用自己追蹤頻道的影片
- * 頻道名稱只從自己追蹤的頻道拿 別人追蹤哪些頻道不能從這裡看出來
+ * 標題先用共用翻譯存的 再用自己追蹤頻道的影片
+ * 頻道名稱只從自己追蹤的拿 不能看出別人追蹤什麼
  */
 async function storedSnapshot(userId: string, videoId: string): Promise<VideoSnapshot> {
   const [[translation], followed] = await Promise.all([

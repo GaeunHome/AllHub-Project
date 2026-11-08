@@ -156,8 +156,8 @@ describe("快取規則", () => {
   });
 
   it("寫入流程與排程不讀快取（cached.ts）：要依最新資料判斷，只有頁面與輪詢 API 讀快取", () => {
-    // core 沒有 service 資料夾 直接用資料庫 用 attempts 記次數與認領 或是 Server Action 的檔就是寫入流程
-    // 註冊 登入鎖定 邀請次數都要讀最新的資料
+    // core 沒有 service 資料夾 用資料庫 attempts 或 use server 的檔算寫入流程
+    // 註冊 登入鎖定與邀請次數都要讀最新的資料
     const coreWriters = sources.filter(
       (file) =>
         file.startsWith("core/") &&

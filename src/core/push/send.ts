@@ -42,8 +42,8 @@ async function eachLimited<T>(items: readonly T[], work: (item: T) => Promise<vo
 }
 
 /**
- * 不能丟錯 sendOnce 看到錯誤會放掉認領 同一則站內通知下次會再寄一次
- * 收件人已經由 notify 濾過 停用與沒權限的人不會進來
+ * 不能丟錯 sendOnce 會放掉認領 站內通知會重寄
+ * 收件人已由 notify 濾掉停用與沒權限的人
  */
 export async function pushToPhones(targets: readonly PushTarget[], module: string, message: PushMessage): Promise<void> {
   try {

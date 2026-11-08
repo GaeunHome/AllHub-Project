@@ -14,8 +14,8 @@ export function claimKey(...parts: Array<string | number>): string {
 export type ReleaseLog = { module: string; what: string };
 
 /**
- * 自己認領的用這個 例如條件式 update 的 last_notified_on 寄不出去就 release 退回
- * 退回也失敗時只記 log 丟出 send 原本的錯誤 下一輪才認領得到
+ * 給自己用條件式 update 認領的 寄不出去就 release 退回
+ * 退回也失敗只記 log 丟出的一律是 send 的錯誤
  */
 export async function sendOrRelease<T>(send: () => Promise<T>, release: () => Promise<unknown>, log: ReleaseLog): Promise<T> {
   try {
@@ -34,8 +34,8 @@ export async function sendOrRelease<T>(send: () => Promise<T>, release: () => Pr
 export type OnceOptions = { scope: string; now: Date; log: ReleaseLog };
 
 /**
- * 用 claimOnce 認領 認領到才做 send 回傳有沒有做 寄不出去就放掉並丟出原本的錯誤
- * 認領的紀錄一天後清掉 只擋得住一天內的重複 週期要短於一天
+ * 認領到才 send 寄不出去就放掉並丟出原本的錯誤
+ * 認領紀錄一天後清掉 週期要短於一天
  */
 export async function sendOnce({ scope, key, now, log }: OnceOptions & { key: string }, send: () => Promise<void>): Promise<boolean> {
   if (!(await claimOnce(scope, key, now))) return false;
@@ -47,8 +47,8 @@ export async function sendOnce({ scope, key, now, log }: OnceOptions & { key: st
 export type OnceBatch<T> = { sent: T[]; already: T[]; failed: T[] } & ({ ok: true } | { ok: false; error: unknown });
 
 /**
- * 一批各自認領 認領到的一起寄一次 例如同一縣市的人 出錯時放掉這次認領到的 放不掉只記 log
- * 不丟出錯誤 錯誤放在結果裡 呼叫端才算得出寄了幾則 幾則寄不出去
+ * 各自認領 認領到的一起寄 出錯時放掉這次認領到的
+ * 錯誤放在結果裡不丟出 呼叫端才算得出寄了幾則
  */
 export async function sendOnceEach<T>({ scope, now, log }: OnceOptions, items: readonly T[], keyOf: (item: T) => string, send: (claimed: T[]) => Promise<void>): Promise<OnceBatch<T>> {
   const claimed: T[] = [];

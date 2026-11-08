@@ -34,8 +34,8 @@ export type PendingRecurring = PendingBase & {
 };
 
 /**
- * 還沒填帳單時 date 是結帳日 amount 是照紀錄的估計
- * 填了之後 date 是帳單遇假日順延後的截止日 amount 是本期還要繳的
+ * 還沒填帳單 date 是結帳日 amount 是照紀錄估的
+ * 填了之後 date 是順延後的截止日 amount 是還要繳的
  */
 export type PendingCard = PendingBase & {
   type: "card";

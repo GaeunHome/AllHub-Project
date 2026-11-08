@@ -1,8 +1,8 @@
 import { addDays, weekdayOfDate, type DateKey } from "./dates";
 import type { HolidayRule } from "./kinds";
 
-// 人事總處的辦公日曆表 data.gov.tw 資料集 14718 每年 6 到 7 月公布下一年後要補上
-// 抄是否放假為 2 的週一到週五 週末是否放假為 0 的放進補班 這兩年都沒有補班
+// 人事總處辦公日曆表 data.gov.tw 14718 每年 6 到 7 月公布後補上
+// 抄是否放假為 2 的平日 週末為 0 的是補班 這兩年沒有
 
 /** 表裡有的年份 其他年份只看週末 */
 export const HOLIDAY_YEARS = [2026, 2027] as const;

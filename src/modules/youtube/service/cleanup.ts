@@ -24,13 +24,13 @@ const SHORTS_REQUEST_TIMEOUT_MS = 5_000;
 const SHORTS_CHECK_LIMIT = 50;
 const recentCutoff = (now: Date) => new Date(now.getTime() - KEEP_RECENT_MS);
 /**
- * 沒有發布時間的用寫入時間 Date 要自己轉成字串
- * drizzle 只在跟欄位比較時才轉 正式環境的 postgres-js 收到 Date 會丟錯
+ * 沒有發布時間的用寫入時間
+ * postgres-js 收到 Date 會丟錯 所以自己轉成字串
  */
 const publishedBefore = (cutoff: Date) => sql`coalesce(${youtubeVideos.publishedAt}, ${youtubeVideos.createdAt}) < ${cutoff.toISOString()}::timestamptz`;
 /**
- * 已經通知過又發布不久的 Shorts 先留著 推送時沒認出是 Shorts 而通知了
- * hub 在 24 小時內重送時要找得到這一列 才不會再通知一次
+ * 通知過又發布不久的 Shorts 先留著
+ * hub 在 24 小時內重送時要找得到 才不會再通知一次
  */
 const removableShort = (now: Date) => or(isNull(youtubeVideos.notifiedAt), publishedBefore(recentCutoff(now)));
 
@@ -64,8 +64,8 @@ export async function cleanupVideos(now = new Date()): Promise<string> {
 }
 
 /**
- * 推送時沒認出或更早存進來的 Shorts 每個有人追蹤的頻道讀一次 RSS 來刪
- * RSS 只有最新十幾支 認不出又還在某人清單上的再逐支確認
+ * 每個有人追蹤的頻道讀一次 RSS 刪掉存進來的 Shorts
+ * RSS 只有最新十幾支 還在清單上的再逐支確認
  */
 async function removeStoredShorts(now: Date, kept: Set<string>): Promise<{ removed: number; skipped: number; unconfirmed: number }> {
   const deadline = Date.now() + SHORTS_SWEEP_BUDGET_MS;

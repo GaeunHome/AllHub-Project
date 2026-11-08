@@ -17,17 +17,16 @@ const nextIds = async () => {
     `insert into savings_accounts (user_id, kind, name) values ($1, 'deposit', '帳戶') returning id`,
     [me.id],
   );
-  const settings = await pgliteOf(getDb()).query<{ id: number }>(`insert into youtube_settings (user_id) values ($1) returning id`, [me.id]);
-  return { account: account.rows[0].id, settings: settings.rows[0].id };
+  const announcement = await pgliteOf(getDb()).query<{ id: number }>(`insert into core_announcements (kind, title) values ('general', '公告') returning id`);
+  return { account: account.rows[0].id, announcement: announcement.rows[0].id };
 };
 
 describe("setupTestDb：每個測試都像全新的資料庫", { shuffle: false }, () => {
   it("資料表都建好了，第一列的編號是資料表定義的起始值", async () => {
     await insertTestUsers(getDb());
 
-    expect(await tableNames()).toEqual(expect.arrayContaining(["core_users", "savings_accounts", "youtube_settings"]));
-    // youtube_settings 從 2 開始 單人版的那一列是 1
-    expect(await nextIds()).toEqual({ account: 1, settings: 2 });
+    expect(await tableNames()).toEqual(expect.arrayContaining(["core_users", "savings_accounts", "core_announcements"]));
+    expect(await nextIds()).toEqual({ account: 1, announcement: 1 });
   });
 
   it("上一個測試寫的資料都不見了（每張表都是空的）", async () => {
@@ -45,7 +44,7 @@ describe("setupTestDb：每個測試都像全新的資料庫", { shuffle: false 
   it("上一個測試用掉的編號重新開始，不會接著算", async () => {
     await insertTestUsers(getDb());
 
-    expect(await nextIds()).toEqual({ account: 1, settings: 2 });
+    expect(await nextIds()).toEqual({ account: 1, announcement: 1 });
   });
 
   it("裝在連線上的 spy 這個測試結束後要拆掉", () => {

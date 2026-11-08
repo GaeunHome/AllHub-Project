@@ -77,8 +77,8 @@ describe("parseSubtitles：WebVTT", () => {
 });
 
 describe("parseSubtitles：yt-dlp 下載的 YouTube 自動字幕（滾動格式）", () => {
-  // yt-dlp --write-auto-subs 的實際輸出 每句在下一個 cue 再當第一行出現
-  // 中間夾 10ms 過場 cue 新的一行帶逐字時間標籤 第一個 cue 首行是空白
+  // yt-dlp --write-auto-subs 的實際輸出 每句在下一個 cue 再出現
+  // 中間夾 10ms 過場 cue 新行帶逐字時間標籤
   const autoVtt = [
     "WEBVTT",
     "Kind: captions",

@@ -1,7 +1,5 @@
-/* 由 globals.css 在 @layer 外面引入 跟全站的 :root 變數同一層 */
-/* Activity 藏起來的頁面還在文件裡 排除 data-activity-hidden 星空才不會漏到別頁 */
-/* html 自己有底色 body 的星空才不會被當成畫布背景 照視窗高度一段段重複 */
-/* 星空的變數放這裡 body 與 sr-dialog 都讀得到 導覽列用的變數不動 */
+/* 排除 Activity 藏起來的頁面 星空才不會漏到別頁 */
+/* html 給底色 body 的星空才不會被當成畫布背景 */
 :root:has(.theme-starrail:not([data-activity-hidden])) {
   background-color: #090d26;
   /* 星空是整頁重複的細小星點 角落的光暈與底色漸層 */

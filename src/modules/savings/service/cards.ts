@@ -130,8 +130,8 @@ async function balanceThrough(tx: Executor, userId: string, card: CardRow, cutof
 }
 
 /**
- * 同一期再填一次會蓋過去 先刪掉上次補的那一筆再重算 才不會補兩次
- * upsert 也鎖住帳單 同時送兩次時第二次等第一次做完 截止日照填的存 遇假日順延是讀的時候算
+ * 同一期再填先刪上次補的那一筆再重算 才不會補兩次
+ * upsert 鎖住帳單 同時送兩次時第二次會等 順延是讀的時候算
  */
 async function writeBill(
   tx: Executor,

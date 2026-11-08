@@ -12,8 +12,8 @@ const VIEW_BOXES: Record<IllustrationName, string> = {
 };
 
 /**
- * 只是裝飾 意思寫在旁邊的字 寬度由 className 決定 沒給是 w-40
- * 圖放在靜態檔用 use 引用 顏色吃 savings.css 與全站的變數 深色模式跟著換
+ * 只是裝飾 意思寫在旁邊的字
+ * 用 use 引用靜態檔 顏色吃 CSS 變數 深色模式跟著換
  */
 export function Illustration({ name, className = "w-40" }: { name: IllustrationName; className?: string }) {
   const [, , width, height] = VIEW_BOXES[name].split(" ");

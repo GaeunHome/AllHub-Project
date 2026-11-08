@@ -5,8 +5,8 @@ import { db } from "./db";
 import { RETENTION_DAYS, retentionCutoff } from "./retention";
 
 /**
- * 通知類紀錄的清理排程用 刪掉 column 早於保留期的列 不分擁有者 回傳排程的摘要
- * 例如 deleteExpired(coreNotifications.createdAt, "網站通知") 記帳這類要永久保留的不能套
+ * 只給通知類紀錄 不分擁有者 回傳排程的摘要
+ * 記帳這類要永久保留的不能套
  */
 export async function deleteExpired(column: PgColumn, label: string, now = new Date(), days = RETENTION_DAYS): Promise<string> {
   const deleted = await db().delete(column.table).where(lt(column, retentionCutoff(now, days))).returning({ at: column });

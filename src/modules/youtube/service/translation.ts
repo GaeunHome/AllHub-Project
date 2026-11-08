@@ -63,8 +63,8 @@ async function titleFor(videoId: string): Promise<string | null> {
 const manageableBy = (actor: TranslationActor) => (actor.role === "owner" ? undefined : eq(youtubeTranslations.requestedBy, actor.id));
 
 /**
- * 換上新的來源字幕從頭開始 userId 成為發起人 專有名詞表用他當下的設定
- * 沒給 replaceAs 就沿用已有的翻譯 給了只有發起人或站長能蓋掉 回傳有沒有寫入
+ * 換上新的來源字幕從頭開始 userId 成為發起人
+ * 給了 replaceAs 只有發起人或站長能蓋掉
  */
 async function resetSource(userId: string, videoId: string, sourceKind: YoutubeTranslation["sourceKind"], cues: Cue[], replaceAs?: TranslationActor): Promise<boolean> {
   const fresh = {
@@ -93,7 +93,7 @@ const notManager = (action: string) => new TranslationUserError(`只有發起翻
 export type StartResult = { ok: true } | { ok: false; message: string; canUpload: true };
 
 /**
- * 觀看頁按播放或開始翻譯時呼叫 先確認有自己的金鑰再抓韓文字幕
+ * 觀看頁按播放或開始翻譯時呼叫 先確認有自己的金鑰再讀韓文字幕
  * 已經有紀錄就沿用 不論誰發起 不重複花錢
  */
 export async function startTranslation(userId: string, input: string): Promise<StartResult> {
@@ -104,7 +104,7 @@ export async function startTranslation(userId: string, input: string): Promise<S
   const captions = await fetchKoreanCaptions(videoId);
   if (!captions.ok) return { ok: false, message: captions.message, canUpload: true };
 
-  // 抓字幕的期間別人先開始了就沿用他的
+  // 讀字幕的期間別人先開始了就沿用他的
   await resetSource(userId, videoId, captions.kind, captions.cues);
   return { ok: true };
 }
@@ -212,8 +212,8 @@ export type ContinueOptions = {
 class LockLostError extends Error {}
 
 /**
- * 每批完成就寫回 中斷也不會白翻 running 加 lock_id 當鎖 每次寫回都要相符
- * 同一支影片同時只有一個請求在翻 用觀看者的 Key 與發起時的名詞表
+ * 每批寫回 中斷也不會白翻 寫回都要 lock_id 相符
+ * 用觀看者的 Key 與發起時的名詞表
  */
 export async function continueTranslation(
   userId: string,

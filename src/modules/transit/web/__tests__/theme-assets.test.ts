@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readStylesheet } from "@/dev/stylesheet";
 
-// 使用者要的：圖都放在靜態資料夾 自己畫的 不放官方標誌 也不向外面載入
+// 使用者要的 圖都是自己畫的靜態檔 不放官方標誌 也不向外載入
 
 const PUBLIC = join(process.cwd(), "public");
 const FOLDER = join(PUBLIC, "images/transit");

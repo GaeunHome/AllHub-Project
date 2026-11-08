@@ -1,5 +1,5 @@
 import type { AnnouncementKind } from "../db/schema";
-import { formatTaipeiHourMinute, formatTaipeiMonthDay, isRealDateKey, taipeiDateKey } from "../time";
+import { DAY_MS, formatTaipeiHourMinute, formatTaipeiMonthDay, isRealDateKey, taipeiDateKey } from "../time";
 
 // 公告的規則 瀏覽器的表單也用 不碰資料庫
 
@@ -7,8 +7,8 @@ export const ANNOUNCEMENT_KIND_LABELS: Record<AnnouncementKind, string> = { outa
 export const ANNOUNCEMENT_TITLE_MAX = 60;
 export const ANNOUNCEMENT_BODY_MAX = 2000;
 
-export type AnnouncementFields = Record<"kind" | "title" | "body" | "startsAt" | "endsAt", string>;
-export type AnnouncementInput = { kind: AnnouncementKind; title: string; body: string; startsAt: Date | null; endsAt: Date | null };
+export type AnnouncementFields = Record<"kind" | "title" | "body" | "startsAt" | "endsAt" | "pinned", string>;
+export type AnnouncementInput = { kind: AnnouncementKind; title: string; body: string; startsAt: Date | null; endsAt: Date | null; pinned: boolean };
 type Parsed = { ok: true; value: AnnouncementInput } | { ok: false; error: string };
 
 const fail = (error: string): Parsed => ({ ok: false, error });
@@ -31,11 +31,24 @@ export function parseAnnouncement(fields: AnnouncementFields): Parsed {
   const endsAt = fields.endsAt === "" ? null : parseTaipeiTime(fields.endsAt);
   if (endsAt === null && fields.endsAt !== "") return fail("結束時間不正確");
   if (startsAt && endsAt && endsAt <= startsAt) return fail("結束時間要晚於開始時間");
-  return { ok: true, value: { kind: fields.kind as AnnouncementKind, title, body, startsAt, endsAt } };
+  return { ok: true, value: { kind: fields.kind as AnnouncementKind, title, body, startsAt, endsAt, pinned: fields.pinned === "true" } };
 }
 
 /** 快取裡是全部的公告 過期與否要用這次請求的時間算 */
 export const isAnnouncementShown = ({ endsAt }: { endsAt: Date | null }, now: Date): boolean => endsAt === null || endsAt > now;
+
+/** 停止服務與維護開始前幾天就放到跑馬燈 */
+const TICKER_LEAD_MS = 3 * DAY_MS;
+
+/**
+ * 使用者要的 停止服務與維護開始前 3 天到結束 站長置頂的到結束
+ * 沒寫開始時間的當成已經開始
+ */
+export function inTicker(row: { kind: AnnouncementKind; pinned: boolean; startsAt: Date | null; endsAt: Date | null }, now: Date): boolean {
+  if (!isAnnouncementShown(row, now)) return false;
+  if (row.pinned) return true;
+  return row.kind !== "general" && (row.startsAt === null || row.startsAt.getTime() - now.getTime() <= TICKER_LEAD_MS);
+}
 
 const KIND_ORDER: Record<AnnouncementKind, number> = { outage: 0, maintenance: 1, general: 2 };
 

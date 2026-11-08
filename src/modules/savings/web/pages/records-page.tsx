@@ -22,8 +22,8 @@ import { SAVINGS_PATHS } from "../paths";
 import { accountFilterFrom, categoryFilterFrom, type RecordItem } from "../record-filter";
 
 /**
- * 只交給瀏覽器畫面用得到的欄位 不帶 userId 與 createdAt
- * 刪掉待處理確認來的最後一期 伺服器會把它放回待處理 條件跟伺服器一樣
+ * 只交給瀏覽器用得到的欄位
+ * 刪掉確認來的最後一期會退回 條件跟伺服器一樣
  */
 function toRecordItem(view: TransactionView, rules: ReadonlyMap<number, Pick<PendingRuleRow, "kind" | "mode" | "lastPostedMonth">>, icons: ReadonlyMap<number, string | null>): RecordItem {
   const { id, kind, accountId, accountName, counterAccountId, counterAccountName, categoryId, categoryName, amount, date, note, recurring, recurringName, shares, holdingSymbol, cardBillId } = view;

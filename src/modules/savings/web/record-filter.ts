@@ -3,8 +3,8 @@ import { parseRowId } from "../lib/validation";
 import type { TransactionView } from "../service/transactions";
 
 /**
- * 伺服器整理好的純資料 瀏覽器只在這上面篩選 不帶 userId 與 createdAt
- * backToPending 是刪掉後那一期會回到待處理 cardBillId 是填帳單時補的 categoryIcon 沒選是 null
+ * 瀏覽器只在這上面篩選 不帶 userId 與 createdAt
+ * backToPending 是刪掉後那一期會回到要做的事
  */
 export type RecordItem = Pick<
   TransactionView,

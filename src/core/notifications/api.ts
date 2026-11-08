@@ -10,8 +10,8 @@ import { cachedFeed } from "./cached";
 import { markAllNotificationsRead, markNotificationsRead } from "./service";
 import { withoutModules } from "./visible";
 
-// 用 Route Handler 不用 Server Action 因為每個分頁一次只送一個 Server Action
-// 觀看頁翻譯一批要幾十秒 輪詢不能排在它後面
+// 不用 Server Action 每個分頁一次只送一個
+// 輪詢不能排在觀看頁翻譯的後面
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const MAX_IDS = 100;

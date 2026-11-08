@@ -16,7 +16,7 @@ export type PollerOptions = {
 export type Poller = { refresh(): void; visibilityChanged(): void; stop(): void };
 
 /**
- * 不依賴 React 的輪詢 每次抓完才排下一次 請求不會重疊
+ * 不依賴 React 的輪詢 每次讀完才排下一次 請求不會重疊
  * React 元件只負責接上 visibilitychange 這類事件
  */
 export function startPoller({ load, onFeed, onUnauthorized, isHidden }: PollerOptions): Poller {
@@ -33,7 +33,7 @@ export function startPoller({ load, onFeed, onUnauthorized, isHidden }: PollerOp
 
   async function tick() {
     if (stopped) return;
-    // 正在抓時又要求更新 等這次結束再補抓一次 結果才會是最新的
+    // 正在讀時又要求更新 等這次結束再補讀一次 結果才會是最新的
     if (inFlight) {
       queued = true;
       return;

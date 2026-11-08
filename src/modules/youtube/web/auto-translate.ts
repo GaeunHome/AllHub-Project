@@ -13,7 +13,7 @@ type AutoStartState = { enabled: boolean; hasTranslation: boolean; apiKeyMissing
 
 /**
  * 只在觀看頁按下播放時自動開始 而且只試一次
- * 抓不到字幕時改等上傳或手動重試 不要每按一次播放就重抓
+ * 讀不到字幕時改等上傳或手動重試 不要每按一次播放就重讀
  */
 export function shouldAutoStart({ enabled, hasTranslation, apiKeyMissing, attempted, pending }: AutoStartState): boolean {
   return enabled && !hasTranslation && !apiKeyMissing && !attempted && !pending;
