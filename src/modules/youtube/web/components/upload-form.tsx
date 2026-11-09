@@ -2,11 +2,11 @@
 
 import { unstable_rethrow } from "next/navigation";
 import { useActionState } from "react";
-import { FormFeedback } from "@/core/ui/form-message";
+import { FormFeedback, type FormState } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { useToast } from "@/core/ui/toast";
 import { withToast } from "@/core/ui/toast-queue";
-import { uploadSubtitlesAction, type FormState } from "../actions";
+import { uploadSubtitlesAction } from "../actions";
 import { prepareUpload } from "../upload";
 
 export function UploadToggle({ open, controls, onToggle }: { open: boolean; controls: string; onToggle: () => void }) {

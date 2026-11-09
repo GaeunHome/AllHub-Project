@@ -5,13 +5,13 @@ import { useActionState, useId } from "react";
 import { FormMessage } from "../ui/form-message";
 import { Icon } from "../ui/icon";
 import { PasswordInput } from "../ui/password-input";
-import { registerAction, type RegisterState } from "./actions";
+import { registerAction, type AuthFormState } from "./actions";
 import { CaptchaField } from "./captcha-field";
 import { HONEYPOT_FIELD } from "./messages";
 import { PASSWORD_CASE_RULE, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "./password-rules";
 
 export function RegisterForm({ code, expiresAt, captchaSrc }: { code: string; expiresAt: string; captchaSrc: string }) {
-  const [state, action, pending] = useActionState<RegisterState, FormData>(registerAction, {});
+  const [state, action, pending] = useActionState<AuthFormState, FormData>(registerAction, {});
   const id = useId();
 
   return (

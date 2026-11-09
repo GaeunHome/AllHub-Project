@@ -1,5 +1,5 @@
 import "server-only";
-import { auditCron } from "./audit-cron";
+import { auditCron } from "./audit/cron";
 import { safeEqual } from "./crypto";
 import { coreEnv } from "./env";
 import { errorKind, logError } from "./errors";

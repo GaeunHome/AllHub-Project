@@ -1,5 +1,6 @@
 import "server-only";
 import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { valueOrThrow } from "@/core/parsed";
 import type { Executor } from "@/core/db";
 import { coreUsers } from "@/core/db/schema";
 import { travelExpenses, travelExpenseShares, travelMembers, travelSettlements } from "../data/schema";
@@ -16,12 +17,11 @@ export type TripSettlement = { id: number; fromUser: string; toUser: string; amo
 export type TripMoney = { expenses: TripExpense[]; settlements: TripSettlement[] };
 
 function parsed(input: ExpenseInput) {
-  const result = parseExpense(input);
-  if (!result.ok) throw new TravelUserError(result.error);
+  const values = valueOrThrow(parseExpense(input), TravelUserError);
   const shares = [...new Set(input.shares)];
   if (shares.length === 0) throw new TravelUserError("請選要分這筆帳的人");
   if (!input.paidBy) throw new TravelUserError("請選付錢的人");
-  return { values: result.value, paidBy: input.paidBy, shares };
+  return { values, paidBy: input.paidBy, shares };
 }
 
 /** 一個一個查 這段也會跑在交易裡 */

@@ -73,6 +73,13 @@ export function captureErrorLog() {
   return log;
 }
 
+/** 同 captureErrorLog 攔下 console.warn 例如回應少了欄位 */
+export function captureWarnLog() {
+  const log = vi.spyOn(console, "warn").mockImplementation(() => {});
+  onTestFinished(() => log.mockRestore());
+  return log;
+}
+
 /**
  * Error 連 message 與 stack 一起展開
  * JSON.stringify 會漏掉 就驗不出有沒有印出原文

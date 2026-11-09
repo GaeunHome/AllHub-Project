@@ -12,6 +12,6 @@ describe("findSessionUser", () => {
     const id = await insertTestUser(getDb(), "alice");
     await getDb().execute(sql`alter table core_users drop column nickname, drop column avatar`);
 
-    expect(await findSessionUser({ userId: id, version: 1 })).toEqual({ id, username: "alice", nickname: null, avatar: null, role: "member" });
+    expect(await findSessionUser({ userId: id, version: 1 })).toEqual({ id, username: "alice", nickname: null, avatar: null, role: "member", denied: [] });
   });
 });

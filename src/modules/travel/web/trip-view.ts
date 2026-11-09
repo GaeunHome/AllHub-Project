@@ -1,4 +1,4 @@
-import { DAY_MS, formatTaipeiLongDate, formatTaipeiMonthDay, formatTaipeiShortDate } from "@/core/time";
+import { daysBetweenKeys, formatTaipeiLongDate, formatTaipeiMonthDay, formatTaipeiShortDate } from "@/core/time";
 import { deleteDateOf, tripDays } from "../lib/rules";
 import type { TripSummary } from "../service/trips";
 
@@ -17,14 +17,12 @@ export function dayViews(trip: Pick<TripSummary, "startDate" | "endDate">): DayV
   return tripDays(trip.startDate, trip.endDate).map((date, index) => ({ date, label: `第 ${index + 1} 天`, detail: formatTaipeiLongDate(dateOf(date)), short: formatTaipeiShortDate(dateOf(date)) }));
 }
 
-const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
-
 /** 旅程現在的狀態 結束的寫幾號自動刪除 使用者才不會以為資料一直都在 */
 export function tripStatus(trip: Pick<TripSummary, "startDate" | "endDate">, today: string): string {
   if (today < trip.startDate) {
-    const days = daysBetween(today, trip.startDate);
+    const days = daysBetweenKeys(today, trip.startDate);
     return days === 1 ? "明天出發" : `還有 ${days} 天出發`;
   }
-  if (today <= trip.endDate) return `旅途中，第 ${daysBetween(trip.startDate, today) + 1} 天`;
+  if (today <= trip.endDate) return `旅途中，第 ${daysBetweenKeys(trip.startDate, today) + 1} 天`;
   return `已結束，${shortDate(deleteDateOf(trip.endDate))} 之後自動刪除`;
 }

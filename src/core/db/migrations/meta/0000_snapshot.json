@@ -1,5 +1,5 @@
 {
-  "id": "1ae3f339-e4e1-4458-9a1f-25348835881f",
+  "id": "f53510cf-4775-45cb-a00b-d554e942010c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -44,6 +44,13 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
+        },
+        "pinned": {
+          "name": "pinned",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "created_at": {
           "name": "created_at",
@@ -4273,7 +4280,7 @@
       "checkConstraints": {
         "weather_settings_county": {
           "name": "weather_settings_county",
-          "value": "\"weather_settings\".\"county\" in ('臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣')"
+          "value": "\"weather_settings\".\"county\" in ('\u81fa\u5317\u5e02', '\u65b0\u5317\u5e02', '\u57fa\u9686\u5e02', '\u6843\u5712\u5e02', '\u65b0\u7af9\u5e02', '\u65b0\u7af9\u7e23', '\u82d7\u6817\u7e23', '\u81fa\u4e2d\u5e02', '\u5f70\u5316\u7e23', '\u5357\u6295\u7e23', '\u96f2\u6797\u7e23', '\u5609\u7fa9\u5e02', '\u5609\u7fa9\u7e23', '\u81fa\u5357\u5e02', '\u9ad8\u96c4\u5e02', '\u5c4f\u6771\u7e23', '\u5b9c\u862d\u7e23', '\u82b1\u84ee\u7e23', '\u81fa\u6771\u7e23', '\u6f8e\u6e56\u7e23', '\u91d1\u9580\u7e23', '\u9023\u6c5f\u7e23')"
         }
       },
       "isRLSEnabled": true

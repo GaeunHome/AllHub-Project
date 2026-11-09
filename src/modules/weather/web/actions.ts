@@ -3,7 +3,7 @@
 import { requireModule } from "@/core/auth";
 import { updateTags } from "@/core/cache";
 import { runAction } from "@/core/action";
-import { INVALID_FORM_MESSAGE, formFlag, formId, formText } from "@/core/form";
+import { INVALID_FORM_MESSAGE, formFlag, formId, formText, toId } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
 import { weatherTags } from "../service/cache-tags";
 import { addPlace, deletePlace, movePlace } from "../service/places";
@@ -31,7 +31,7 @@ export async function addPlaceAction(_prev: FormState, formData: FormData): Prom
 /** 上移下移不是表單 參數可能被改過 只收正整數 */
 export async function movePlaceAction(id: number, beforeId: number | null): Promise<FormState> {
   const { id: userId } = await requireModule("weather");
-  if (!Number.isSafeInteger(id) || (beforeId !== null && !Number.isSafeInteger(beforeId))) return { error: INVALID_FORM_MESSAGE };
+  if (toId(id) === null || (beforeId !== null && toId(beforeId) === null)) return { error: INVALID_FORM_MESSAGE };
   return runAction({ module: "weather", action: "調整城市順序" }, async () => {
     if (await movePlace(userId, id, beforeId)) updateTags(weatherTags.places);
   });

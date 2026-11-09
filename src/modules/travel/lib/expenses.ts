@@ -1,4 +1,5 @@
-import { parseShortText, type Parsed } from "./rules";
+import { fail, ok, type Parsed } from "@/core/parsed";
+import { parseShortText } from "./rules";
 
 // 分帳 金額用外幣的分 匯率用百萬分之一 都是整數 才不會有浮點數的誤差
 
@@ -20,8 +21,6 @@ export type ExpenseLine = { paidBy: string; amountCents: number; rateMicros: num
 export type SettlementLine = { fromUser: string; toUser: string; amountTwd: number };
 export type Transfer = { from: string; to: string; amount: number };
 
-const fail = (error: string) => ({ ok: false as const, error });
-
 export const isCurrency = (value: string): value is Currency => Object.hasOwn(CURRENCIES, value);
 
 /** 十進位字串換成整數 超過小數位數或不是數字回 null 千分位的逗號可以有 */
@@ -33,7 +32,7 @@ function scaled(input: string, places: number): number | null {
 }
 
 /** 整數換回十進位字串 給修改的表單預填 尾巴的 0 拿掉 */
-export function decimalText(value: number, places: number): string {
+function decimalText(value: number, places: number): string {
   const digits = String(value).padStart(places + 1, "0");
   const fraction = digits.slice(-places).replace(/0+$/, "");
   return fraction ? `${digits.slice(0, -places)}.${fraction}` : digits.slice(0, -places);
@@ -57,7 +56,7 @@ export function parseExpense(input: { title: string; amount: string; currency: s
   const rateMicros = input.currency === HOME_CURRENCY ? HOME_RATE_MICROS : scaled(input.rate, 6);
   if (rateMicros === null || rateMicros <= 0 || rateMicros > MAX_RATE_MICROS) return fail("匯率要是大於 0 的數字，最多六位小數");
   if (twdOf(amountCents, rateMicros) > MAX_TWD) return fail("換算後的金額太大了");
-  return { ok: true, value: { title: title.value, amountCents, currency: input.currency, rateMicros } };
+  return ok({ title: title.value, amountCents, currency: input.currency, rateMicros });
 }
 
 /** 除不盡的零頭照 id 順序一人多一元 同一筆帳誰來算都一樣 */

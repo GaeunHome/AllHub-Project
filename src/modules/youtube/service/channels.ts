@@ -5,7 +5,6 @@ import { takeCooldown } from "@/core/cooldown";
 import { db } from "@/core/db";
 import { youtubeEnv } from "@/core/env";
 import { logError } from "@/core/errors";
-import { UserError } from "@/core/form";
 import { notify } from "@/core/notify";
 import { reportService } from "@/core/status";
 import { DAY_MS } from "@/core/time";
@@ -23,6 +22,7 @@ import {
   type Verification,
 } from "../lib/websub";
 import { youtubeTags } from "./cache-tags";
+import { YoutubeUserError } from "./errors";
 
 /** 推送的影片發布超過這麼久就不通知 hub 在舊影片改標題或說明時也會推送 */
 const NOTIFY_WINDOW_MS = DAY_MS;
@@ -31,8 +31,6 @@ const RENEW_BEFORE_MS = 2 * DAY_MS;
 const MANUAL_RENEW_COOLDOWN_MS = 60_000;
 // service 不能 import 根目錄的 info.ts 所以模組 id 寫在這裡
 const MODULE_ID = "youtube";
-
-export class YoutubeUserError extends UserError {}
 
 // 每個函式的 userId 都是登入者 只讀寫他自己的追蹤
 

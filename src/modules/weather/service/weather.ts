@@ -1,6 +1,7 @@
 import "server-only";
 import { weatherEnv } from "@/core/env";
 import { readExternalJson } from "@/core/external-url";
+import { logMissing } from "@/core/json";
 import { parseStations, type Station } from "../lib/aqi";
 import type { County } from "../lib/counties";
 import { parseForecast, type Forecast } from "../lib/forecast";
@@ -47,8 +48,9 @@ export async function fetchCountyHours(county: County, fetchImpl?: typeof fetch)
 export type WorldWeek = { days: WeekDay[]; hours: HourPoint[]; utcOffsetSeconds: number };
 
 // 今天的細節跟一週預報同一個請求 不多用額度
-const OPEN_METEO_DAILY = "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,apparent_temperature_max,apparent_temperature_min,wind_speed_10m_max,wind_direction_10m_dominant,uv_index_max,sunrise,sunset";
-const OPEN_METEO_HOURLY = "temperature_2m,precipitation_probability,weather_code,relative_humidity_2m";
+const OPEN_METEO_DAILY =
+  "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,apparent_temperature_max,apparent_temperature_min,wind_speed_10m_max,wind_direction_10m_dominant,wind_gusts_10m_max,uv_index_max,sunrise,sunset";
+const OPEN_METEO_HOURLY = "temperature_2m,precipitation_probability,weather_code,relative_humidity_2m,dew_point_2m,apparent_temperature,uv_index";
 
 /** 國外的一週預報 Open-Meteo 不用金鑰 額度照 IP 算 伺服器與別的網站共用 要放快取 */
 export async function fetchWorldWeek({ latitude, longitude, timezone }: Pick<WorldPlace, "latitude" | "longitude" | "timezone">, fetchImpl?: typeof fetch): Promise<WorldWeek | null> {
@@ -86,7 +88,7 @@ export async function fetchForecast(county: County, fetchImpl?: typeof fetch): P
   const json = await readCwaJson(FORECAST_URL, "天氣預報", county, fetchImpl);
   if (json === null) return null;
   const { forecast, missing } = parseForecast(json, county);
-  if (missing.length > 0) console.warn("[weather] 天氣預報少了欄位", missing.join(", "));
+  logMissing("weather", "天氣預報", missing);
   return forecast;
 }
 
@@ -105,7 +107,7 @@ export async function fetchForecasts(counties: readonly County[], fetchImpl?: ty
     if (parsed.forecast) forecasts.set(county, parsed.forecast);
   }
   // 只記欄位名稱 不記縣市 看不出誰住哪裡
-  if (missing.size > 0) console.warn("[weather] 天氣預報少了欄位", [...missing].join(", "));
+  logMissing("weather", "天氣預報", missing);
   return forecasts.size > 0 ? forecasts : null;
 }
 
@@ -117,7 +119,7 @@ export async function fetchWarnings(county: County | null, fetchImpl?: typeof fe
   const json = await readCwaJson(WARNING_URL, "天氣警特報", county, fetchImpl, timeoutMs);
   if (json === null) return null;
   const { warnings, missing } = parseWarnings(json);
-  if (missing.length > 0) console.warn("[weather] 天氣警特報少了欄位", missing.join(", "));
+  logMissing("weather", "天氣警特報", missing);
   return warnings;
 }
 
@@ -132,6 +134,6 @@ export async function fetchStations(fetchImpl?: typeof fetch): Promise<Station[]
   const json = await readJson(url, "空氣品質", fetchImpl);
   if (json === null) return null;
   const { stations, missing } = parseStations(json);
-  if (missing.length > 0) console.warn("[weather] 空氣品質少了欄位", missing.join(", "));
+  logMissing("weather", "空氣品質", missing);
   return stations.length > 0 ? stations : null;
 }

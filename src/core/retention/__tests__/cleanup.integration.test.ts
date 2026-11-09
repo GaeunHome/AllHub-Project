@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
-import { DAY_MS } from "../time";
-import { coreNotifications } from "../db/schema";
+import { DAY_MS } from "../../time";
+import { coreNotifications } from "../../db/schema";
 
-const { deleteExpired } = await import("../retention-cleanup");
+const { deleteExpired } = await import("../cleanup");
 
 const getDb = setupTestDb();
 const NOW = new Date("2026-10-21T12:00:00Z");

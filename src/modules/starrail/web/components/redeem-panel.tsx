@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import type { FormState } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { useToast, type ToastApi } from "@/core/ui/toast";
 import { normalizeRedeemCode } from "../../lib/redeem";
-import { redeemCodeAction, type FormState } from "../actions";
+import { redeemCodeAction } from "../actions";
 import { GoldChip } from "./sr-visuals";
 
 /** 兩次兌換之間 HoYoLAB 要等約 5 秒 按完先停用按鈕免得一直太頻繁 */

@@ -5,9 +5,8 @@ import { takeCooldown } from "@/core/cooldown";
 import { db } from "@/core/db";
 import { missingTwitchEnv } from "@/core/env";
 import { logError } from "@/core/errors";
-import { UserError } from "@/core/form";
 import { notify } from "@/core/notify";
-import { deleteExpired } from "@/core/retention-cleanup";
+import { deleteExpired } from "@/core/retention/cleanup";
 import { trackService } from "@/core/status";
 import {
   TwitchApiError,
@@ -24,6 +23,7 @@ import { subscriptionFailure, subscriptionsHealthy } from "../lib/subscriptions"
 import { normalizeLogin, twitchChannelUrl } from "../lib/urls";
 import { twitchFollows, twitchStreamEvents, twitchStreamers, type FollowedStreamer, type TwitchStreamer } from "../data/schema";
 import { twitchTags } from "./cache-tags";
+import { TwitchUserError } from "./errors";
 
 const EVENT_TYPES: StreamEventType[] = ["stream.online", "stream.offline"];
 // service 不能 import 模組根目錄的 info.ts 模組 id 寫在這裡
@@ -34,8 +34,6 @@ const MANUAL_SYNC_COOLDOWN_MS = 60_000;
 
 /** 不是這些狀態的訂閱不會再收到通知 同步時刪掉重建 */
 const HEALTHY_STATUSES = new Set(["enabled", "webhook_callback_verification_pending"]);
-
-export class TwitchUserError extends UserError {}
 
 /** 還沒設定 Twitch 應用程式時直接說去哪裡設定 不要只顯示加入主播失敗 */
 function requireTwitchSetup(): void {

@@ -1,11 +1,12 @@
 import "server-only";
 import { and, asc, count, desc, eq, exists, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { valueOrThrow } from "@/core/parsed";
 import { coreUsers } from "@/core/db/schema";
 import { db } from "@/core/db";
 import { lockUserRow } from "@/core/db/users";
-import { taipeiDateKey } from "@/core/time";
+import { addDaysToKey, taipeiDateKey } from "@/core/time";
 import { travelChecks, travelComments, travelItems, travelMembers, travelTrips } from "../data/schema";
-import { MEMBER_LIMIT, RETENTION_DAYS, TRIP_LIMIT, addDays, parseTrip } from "../lib/rules";
+import { MEMBER_LIMIT, RETENTION_DAYS, TRIP_LIMIT, parseTrip } from "../lib/rules";
 import { assertManager, displayName, inMemberTrip, isMemberOf, managerOf, personColumns } from "./access";
 import { TravelUserError, TripNotFoundError } from "./errors";
 import { formerPeople, readMoney, type TripMoney } from "./expenses";
@@ -24,11 +25,7 @@ export type TripDetail = TripSummary & TripMoney & { members: TripMember[]; peop
 
 const SUMMARY_COLUMNS = { id: travelTrips.id, title: travelTrips.title, destination: travelTrips.destination, startDate: travelTrips.startDate, endDate: travelTrips.endDate };
 
-function parsed(input: TripInput) {
-  const result = parseTrip(input);
-  if (!result.ok) throw new TravelUserError(result.error);
-  return result.value;
-}
+const parsed = (input: TripInput) => valueOrThrow(parseTrip(input), TravelUserError);
 
 export async function listTrips(userId: string): Promise<TripSummary[]> {
   const trips = await db().select(SUMMARY_COLUMNS).from(travelTrips).where(isMemberOf(userId)).orderBy(asc(travelTrips.startDate), asc(travelTrips.id));
@@ -196,7 +193,7 @@ export async function joinTrip(userId: string, tripId: number, token: string): P
 
 /** 使用者要的 回程 7 天後刪掉 沒有成員的也刪 帳號都刪掉的人留下的 */
 export async function cleanupTrips(now = new Date()): Promise<string> {
-  const cutoff = addDays(taipeiDateKey(now), -RETENTION_DAYS);
+  const cutoff = addDaysToKey(taipeiDateKey(now), -RETENTION_DAYS);
   const expired = await db().delete(travelTrips).where(lt(travelTrips.endDate, cutoff)).returning({ id: travelTrips.id });
   const orphaned = await db()
     .delete(travelTrips)

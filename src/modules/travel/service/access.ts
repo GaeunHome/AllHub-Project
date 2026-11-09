@@ -7,7 +7,6 @@ import { travelMembers, travelTrips } from "../data/schema";
 import { TravelUserError, TripNotFoundError } from "./errors";
 
 export type Trip = typeof travelTrips.$inferSelect;
-type Transaction = Parameters<Parameters<ReturnType<typeof db>["transaction"]>[0]>[0];
 
 /** 暱稱優先 service 不 import 登入 所以寫在 SQL 裡 */
 export const displayName = sql<string>`coalesce(${coreUsers.nickname}, ${coreUsers.username})`;
@@ -21,7 +20,7 @@ export const isMemberOf = (userId: string) => sql`exists (select 1 from ${travel
  * 同一趟旅程的寫入一個一個來 先鎖旅程再比對成員
  * 成員同時改順序或新增時位置才不會打架 不是成員的當作不存在
  */
-export async function inMemberTrip<T>(userId: string, tripId: number, work: (tx: Transaction, trip: Trip) => Promise<T>): Promise<T> {
+export async function inMemberTrip<T>(userId: string, tripId: number, work: (tx: Executor, trip: Trip) => Promise<T>): Promise<T> {
   return db().transaction(async (tx) => {
     const [trip] = await tx
       .select()

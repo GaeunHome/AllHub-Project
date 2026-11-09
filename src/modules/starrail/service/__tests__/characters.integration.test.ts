@@ -2,7 +2,7 @@ import { cacheLife } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
-import { captureErrorLog, loggedText, resetNextCache, tagged } from "@/dev/test-helpers";
+import { captureErrorLog, captureWarnLog, loggedText, resetNextCache, tagged } from "@/dev/test-helpers";
 import type { StarrailCharacter } from "../../lib/characters";
 import { starrailAccounts } from "../../data/schema";
 import { COOKIE, hoyolab, ok, ROLE } from "../../dev/fixtures";
@@ -101,7 +101,7 @@ describe("cachedCharacters：角色資料，每個帳號快取 30 分鐘", () =>
   });
 
   it("格式跟預期不同_照常回傳讀得到的部分_log 只記缺少的欄位名稱", async () => {
-    const log = captureErrorLog();
+    const log = captureWarnLog();
     hoyolab.fetchCharacters.mockResolvedValue({ ...ok({ characters: [{ ...SEELE, name: null }], missing: ["avatar_list[].name"] }), body: { name: "希兒的原文" } });
 
     const result = await cachedCharacters(me, (await account()).id);

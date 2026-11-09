@@ -127,28 +127,42 @@ export function warningResponse(counties = COUNTIES, now = new Date()) {
   };
 }
 
-// 每個縣市一到三個測站 臺北市最差的是萬華 新北市有一個維修中 AQI 是空的
+// 臺北市七個測站最差的是萬華 新北市有一個維修中 AQI 是空的 汐止的污染物也是空的
+// 欄位照環境部 aqx_p_432 AQI 超過 50 才有主要污染物
 const STATIONS = [
-  ["臺北市", "士林", "35"],
-  ["臺北市", "萬華", "62"],
-  ["臺北市", "松山", "48"],
-  ["新北市", "板橋", "71"],
-  ["新北市", "汐止", ""],
-  ["桃園市", "桃園", "88"],
-  ["臺中市", "西屯", "104"],
-  ["臺南市", "臺南", "121"],
-  ["高雄市", "前鎮", "156"],
-  ["花蓮縣", "花蓮", "18"],
+  ["臺北市", "士林", "35", "11", "24", "28", ""],
+  ["臺北市", "萬華", "62", "21", "38", "33", "細懸浮微粒"],
+  ["臺北市", "松山", "48", "14", "30", "31", ""],
+  ["臺北市", "中山", "55", "18", "35", "29", "細懸浮微粒"],
+  ["臺北市", "古亭", "44", "13", "27", "30", ""],
+  ["臺北市", "大同", "51", "17", "33", "26", "細懸浮微粒"],
+  ["臺北市", "陽明", "29", "6", "15", "38", ""],
+  ["新北市", "板橋", "71", "24", "45", "36", "細懸浮微粒"],
+  ["新北市", "汐止", "", "", "", "", ""],
+  ["桃園市", "桃園", "88", "29", "52", "41", "細懸浮微粒"],
+  ["臺中市", "西屯", "104", "38", "61", "52", "細懸浮微粒"],
+  ["臺南市", "臺南", "121", "45", "72", "58", "細懸浮微粒"],
+  ["高雄市", "前鎮", "156", "66", "95", "71", "細懸浮微粒"],
+  ["花蓮縣", "花蓮", "18", "4", "12", "35", ""],
 ];
 
 export function aqiResponse(now = new Date()) {
   const t = taipei(now.getTime());
   const publishtime = `${t.getUTCFullYear()}/${pad(t.getUTCMonth() + 1)}/${pad(t.getUTCDate())} ${pad(t.getUTCHours())}:00:00`;
-  return { fields: [], records: STATIONS.map(([county, sitename, aqi]) => ({ sitename, county, aqi, pollutant: "", status: "", publishtime })) };
+  return {
+    fields: [],
+    records: STATIONS.map(([county, sitename, aqi, pm25, pm10, o3, pollutant]) => ({ sitename, county, aqi, pollutant, status: "", "pm2.5": pm25, pm10, o3, publishtime })),
+  };
 }
 
 // 氣象署的寫法 跟網站換算 Open-Meteo 角度用的是同一套
 const WIND_DIRECTIONS = ["偏北風", "東北風", "偏東風", "東南風", "偏南風", "西南風", "偏西風", "西北風"];
+// 氣象署的舒適度 指數越高越熱
+const COMFORT = [
+  [15, "稍有寒意"],
+  [20, "舒適"],
+  [27, "悶熱"],
+];
 // 每秒 2 到 6 公尺照蒲福風級表是 2 到 4 級
 const BEAUFORT = { 2: "2", 3: "2", 4: "3", 5: "3", 6: "4" };
 const uvExposure = (index) => (index <= 2 ? "低量級" : index <= 5 ? "中量級" : index <= 7 ? "高量級" : index <= 10 ? "過量級" : "危險級");
@@ -179,6 +193,9 @@ function weekResponse(names) {
               element("最高體感溫度", "MaxApparentTemperature", each(offset, (seed) => String(26 + (seed % 5)))),
               element("最低體感溫度", "MinApparentTemperature", each(offset, (seed) => String(16 + (seed % 4)))),
               element("平均相對濕度", "RelativeHumidity", each(offset, (seed) => String(60 + (seed % 6) * 5))),
+              element("平均露點溫度", "DewPoint", each(offset, (seed) => String(14 + (seed % 5)))),
+              records("最大舒適度指數", each(offset, (seed, { daytime }) => ({ MaxComfortIndex: String(COMFORT[daytime ? 1 + (seed % 2) : 1][0]), MaxComfortIndexDescription: COMFORT[daytime ? 1 + (seed % 2) : 1][1] }))),
+              records("最小舒適度指數", each(offset, (seed, { daytime }) => ({ MinComfortIndex: String(COMFORT[daytime ? 1 : seed % 2][0]), MinComfortIndexDescription: COMFORT[daytime ? 1 : seed % 2][1] }))),
               records("風速", each(offset, (seed, { daytime }) => ({ WindSpeed: String(2 + ((seed + Number(daytime)) % 5)), BeaufortScale: BEAUFORT[2 + ((seed + Number(daytime)) % 5)] }))),
               element("風向", "WindDirection", each(offset, (seed, { daytime }) => WIND_DIRECTIONS[(seed + Number(daytime)) % WIND_DIRECTIONS.length])),
               records(
@@ -210,6 +227,8 @@ function hoursResponse(names) {
             LocationName,
             WeatherElement: [
               { ElementName: "溫度", Time: points.map((time, index) => ({ DataTime: cwaTime(time), ElementValue: [{ Temperature: String(20 + ((index + offset) % 7)) }] })) },
+              { ElementName: "體感溫度", Time: points.map((time, index) => ({ DataTime: cwaTime(time), ElementValue: [{ ApparentTemperature: String(21 + ((index + offset) % 8)) }] })) },
+              { ElementName: "相對濕度", Time: points.map((time, index) => ({ DataTime: cwaTime(time), ElementValue: [{ RelativeHumidity: String(55 + (((index + offset) * 7) % 36)) }] })) },
               { ElementName: "3小時降雨機率", Time: span("ProbabilityOfPrecipitation", (index) => String(((index + offset) % 8) * 10)) },
               { ElementName: "天氣現象", Time: span("Weather", (index) => WEATHER[(index + offset) % WEATHER.length]) },
             ],
@@ -238,6 +257,10 @@ function openMeteoResponse(url) {
       precipitation_probability: hours.map((_, index) => (index % 6) * 15),
       weather_code: hours.map((_, index) => [0, 2, 3, 61, 80, 1, 95][index % 7]),
       relative_humidity_2m: hours.map((_, index) => 55 + ((index * 7) % 35)),
+      dew_point_2m: hours.map((_, index) => 6.5 + ((index * 3) % 7)),
+      apparent_temperature: hours.map((_, index) => 10.2 + ((index + Math.round(base)) % 9)),
+      // 白天中午最強 晚上是 0
+      uv_index: hours.map((_, index) => Math.max(0, Math.round((5.5 - Math.abs((index % 24) - 12) * 0.9) * 10) / 10)),
     },
     daily: {
       time,
@@ -249,6 +272,7 @@ function openMeteoResponse(url) {
       apparent_temperature_min: min.map((value) => Math.round((value - 2.4) * 10) / 10),
       wind_speed_10m_max: time.map((_, index) => Math.round((1.8 + ((index + Math.round(base)) % 6) * 1.3) * speedUnit * 10) / 10),
       wind_direction_10m_dominant: time.map((_, index) => (index * 53 + Math.round(base) * 7) % 360),
+      wind_gusts_10m_max: time.map((_, index) => Math.round((4.6 + ((index + Math.round(base)) % 6) * 1.9) * speedUnit * 10) / 10),
       uv_index_max: time.map((_, index) => Math.round((1.4 + ((index + Math.round(base)) % 7) * 1.25) * 100) / 100),
       sunrise: time.map((date, index) => `${date}T06:${pad(5 + index)}`),
       sunset: time.map((date, index) => `${date}T17:${pad(12 - index)}`),

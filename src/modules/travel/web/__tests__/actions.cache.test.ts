@@ -62,6 +62,25 @@ describe("送來的值都不可信", () => {
     expect(items.moveItem.mock.calls[0][3]).toBeNull();
   });
 
+  it.each([1.5, -1, 0, 2147483648])("直接呼叫的動作收到怪的旅程 id（%s）：回找不到，不碰 service，不讓資料庫丟錯", async (tripId) => {
+    const notFound = { error: "找不到這趟旅程，請重新整理頁面" };
+
+    expect(await actions.deleteItemAction(tripId, {}, form({ id: "2" }))).toEqual(notFound);
+    expect(await actions.moveItemAction(tripId, 2, null, null)).toEqual(notFound);
+    expect(await actions.deleteExpenseAction(tripId, {}, form({ id: "2" }))).toEqual(notFound);
+    expect(items.deleteItem).not.toHaveBeenCalled();
+    expect(items.moveItem).not.toHaveBeenCalled();
+    expect(expenses.deleteExpense).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["拖曳的項目", 1.5, null],
+    ["要放在前面的項目", 2, -1],
+  ])("拖曳送來怪的 id（%s）：回找不到，不碰 service", async (_name, itemId, beforeId) => {
+    expect(await actions.moveItemAction(1, itemId, null, beforeId)).toEqual({ error: "找不到這趟旅程，請重新整理頁面" });
+    expect(items.moveItem).not.toHaveBeenCalled();
+  });
+
   it("旅程 id 格式不對：跟別人的旅程一樣回找不到，不碰 service", async () => {
     expect(await actions.addItemAction({}, form({ tripId: "abc" }))).toEqual({ error: "找不到這趟旅程，請重新整理頁面" });
     expect(items.addItem).not.toHaveBeenCalled();

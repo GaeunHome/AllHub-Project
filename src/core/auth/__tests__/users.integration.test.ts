@@ -118,13 +118,13 @@ describe("findSessionUser", () => {
   it("id 與 session 版本都相符_回傳使用者", async () => {
     const user = await createUser();
 
-    expect(await findSessionUser({ userId: user.id, version: 1 })).toEqual({ id: user.id, username: "alice", nickname: null, avatar: null, role: "member" });
+    expect(await findSessionUser({ userId: user.id, version: 1 })).toEqual({ id: user.id, username: "alice", nickname: null, avatar: null, role: "member", denied: [] });
   });
 
   it("帶回資料庫裡的角色（權限一律以資料庫為準，cookie 不帶角色）", async () => {
     const owner = await createOwner();
 
-    expect(await findSessionUser({ userId: owner.id, version: 1 })).toEqual({ id: owner.id, username: "owner", nickname: null, avatar: null, role: "owner" });
+    expect(await findSessionUser({ userId: owner.id, version: 1 })).toEqual({ id: owner.id, username: "owner", nickname: null, avatar: null, role: "owner", denied: [] });
   });
 
   it("帳號已停用_回 null（舊 cookie 立刻失效）", async () => {
@@ -470,7 +470,7 @@ describe("updateNickname", () => {
     expect(await userRow(user.id)).toMatchObject({ username: "alice", passwordHash: before.passwordHash, sessionVersion: before.sessionVersion });
     expect(await authenticate("alice", PASSWORD)).toMatchObject({ id: user.id });
     expect(await authenticate("小明", PASSWORD)).toBeNull();
-    expect(await findSessionUser({ userId: user.id, version: before.sessionVersion })).toEqual({ id: user.id, username: "alice", nickname: "小明", avatar: null, role: "member" });
+    expect(await findSessionUser({ userId: user.id, version: before.sessionVersion })).toEqual({ id: user.id, username: "alice", nickname: "小明", avatar: null, role: "member", denied: [] });
   });
 
   it("帳號已經不在_回失敗", async () => {

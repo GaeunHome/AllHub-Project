@@ -4,6 +4,7 @@ import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { db, type Executor } from "../db";
 import { coreInvites, coreUsers } from "../db/schema";
 import { UserError } from "../form";
+import { charLength } from "../text";
 import { DAY_MS } from "../time";
 import { INVITE_DAY_OPTIONS, INVITE_NOTE_MAX_LENGTH, INVITE_USE_OPTIONS } from "./invite-rules";
 
@@ -63,7 +64,7 @@ export async function createInvite(
   if (!(INVITE_DAY_OPTIONS as readonly number[]).includes(days)) throw new InviteInputError("期限只能選 1、7 或 30 天");
   if (!(INVITE_USE_OPTIONS as readonly number[]).includes(maxUses)) throw new InviteInputError("次數只能選 1、5 或 10 次");
   const trimmed = note?.trim() ?? "";
-  if ([...trimmed].length > INVITE_NOTE_MAX_LENGTH) throw new InviteInputError(`備註最多 ${INVITE_NOTE_MAX_LENGTH} 個字`);
+  if (charLength(trimmed) > INVITE_NOTE_MAX_LENGTH) throw new InviteInputError(`備註最多 ${INVITE_NOTE_MAX_LENGTH} 個字`);
 
   const token = generateInviteToken();
   const expiresAt = new Date(now.getTime() + days * DAY_MS);

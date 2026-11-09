@@ -19,7 +19,8 @@ const { HubError } = await import("../../lib/api");
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
 
 const service = await import("../channels");
-const { handleVerification, handleFeed, renewSubscriptions, renewSubscriptionsFor, videoTitle, listFollowedChannels, setChannelNotify, YoutubeUserError } = service;
+const { handleVerification, handleFeed, renewSubscriptions, renewSubscriptionsFor, videoTitle, listFollowedChannels, setChannelNotify } = service;
+const { YoutubeUserError } = await import("../errors");
 const { recentVideos } = await import("../video-list");
 
 const NOW = new Date("2026-10-07T12:00:00Z");

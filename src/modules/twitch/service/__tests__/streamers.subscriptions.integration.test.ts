@@ -12,7 +12,7 @@ stubTwitchEnv({ PUBLIC_BASE_URL: "https://prod.example.com" });
 
 const twitch = mocksOf(await import("../../lib/api"), "createSubscription", "deleteSubscription", "listSubscriptions", "getUsersByLogin");
 const { TwitchApiError } = await import("../../lib/api");
-const { TwitchUserError } = await import("../streamers");
+const { TwitchUserError } = await import("../errors");
 const { addStreamer, removeStreamer, syncSubscriptions, syncSubscriptionsFor } = await import("../streamers");
 
 const OWN_CALLBACK = "https://prod.example.com/api/twitch/eventsub";

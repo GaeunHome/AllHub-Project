@@ -7,7 +7,7 @@ import { Scene } from "@/core/ui/scene";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { cityPhoto, photoCredit } from "../../lib/city-photos";
 import type { County } from "../../lib/counties";
-import { localClock, upcomingHours, type WeekDay } from "../../lib/weekly";
+import { upcomingHours, type WeekDay } from "../../lib/weekly";
 import { cachedPlaces, cachedSettings } from "../../service/cached";
 import { AirAndWarnings, AirAndWarningsSkeleton, airParts } from "../components/air-and-warnings";
 import { CityOverview, CityOverviewSkeleton } from "../components/city-overview";
@@ -15,12 +15,12 @@ import { ManagePlacesButton } from "../components/manage-places";
 import { NextHours, NextHoursSkeleton } from "../components/next-hours";
 import { PlaceChips } from "../components/place-chips";
 import { AddPlaceButton } from "../components/place-form";
-import { TodayDetails } from "../components/today-details";
+import { TodayDetails, TodayDetailsWithHours, detailsOf } from "../components/today-details";
 import { Flag } from "../components/weather-images";
 import { WeekList } from "../components/week-list";
 import { PLACE_HOME, pickPlace, type PlaceTab } from "../place-tabs";
 import { hoursOf, weekOf, type PlaceWeek } from "../place-week";
-import { detailTiles, heroImage, hourColumns, todayText, weekRows, type WeekRow } from "../weekly-view";
+import { heroImage, hourColumns, todayText, weekRows, type WeekRow } from "../weekly-view";
 
 // web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
 export function WeatherPage({ info, searchParams }: { info: ModuleInfo; searchParams: SearchParams }) {
@@ -47,7 +47,8 @@ export async function WeatherPageBody({ searchParams }: { searchParams: SearchPa
   const week = await weekOf(selected);
   const rows = week ? weekRows(week.days) : [];
   const today = week?.days[0];
-  const tiles = today && week ? detailTiles(today.details, localClock(new Date(), week.utcOffsetSeconds)) : [];
+  // 國外的每小時已經在同一個回應裡 台灣的等氣象署的每小時讀到再補上
+  const tiles = today && week ? detailsOf(today.details, week, week.hours ?? []) : [];
   // 空氣品質與特報只有台灣的縣市 跟今天的細節並排 少了一個時另一個撐滿整列
   const air = county !== null && airParts() !== null;
 
@@ -63,15 +64,22 @@ export async function WeatherPageBody({ searchParams }: { searchParams: SearchPa
         )}
       </div>
       <div className="wx-more">
+        {/* 使用者選的 24 小時與今天的細節疊在左欄 右欄是空氣品質與特報 國外沒有右欄就撐滿 */}
         {week && (
-          <Suspense fallback={<NextHoursSkeleton />}>
-            <NextHours county={county} week={week} />
-          </Suspense>
+          <div className={air ? "wx-column" : "wx-column wx-wide"}>
+            <Suspense fallback={<NextHoursSkeleton />}>
+              <NextHours county={county} week={week} />
+            </Suspense>
+            {today && tiles.length > 0 && (
+              <Suspense fallback={<TodayDetails tiles={tiles} />}>
+                <TodayDetailsWithHours county={county} week={week} details={today.details} />
+              </Suspense>
+            )}
+          </div>
         )}
-        {tiles.length > 0 && <TodayDetails tiles={tiles} wide={!air} />}
         {county && air && (
-          <Suspense fallback={<AirAndWarningsSkeleton wide={tiles.length === 0} />}>
-            <AirAndWarnings county={county} wide={tiles.length === 0} />
+          <Suspense fallback={<AirAndWarningsSkeleton wide={!week} />}>
+            <AirAndWarnings county={county} wide={!week} />
           </Suspense>
         )}
         {/* 只有一個城市時跟上面的大圖重複 */}

@@ -3,7 +3,7 @@ import { Suspense, type ReactNode } from "react";
 import { requireModule } from "@/core/auth";
 import { hasTransitEnv } from "@/core/env";
 import type { ModuleInfo, SearchParams } from "@/core/module";
-import { DAY_MS, formatTaipeiHourMinute, taipeiDateKey } from "@/core/time";
+import { addDaysToKey, formatTaipeiHourMinute, taipeiDateKey } from "@/core/time";
 import { EmptyState } from "@/core/ui/empty-state";
 import { Icon } from "@/core/ui/icon";
 import { InfoTip } from "@/core/ui/info-tip";
@@ -68,7 +68,7 @@ export async function TransitBody({ searchParams }: { searchParams: SearchParams
     <div className="trn-layout">
       <div className="trn-main">
         <SearchShell collapsible={search.collapsible}>
-          <SearchForm query={query} stations={search.stations} groups={search.groups} frequent={frequentStations(routes, query.mode)} today={today} maxDate={taipeiDateKey(new Date(now.getTime() + MAX_DAYS_AHEAD * DAY_MS))} />
+          <SearchForm query={query} stations={search.stations} groups={search.groups} frequent={frequentStations(routes, query.mode)} today={today} maxDate={addDaysToKey(today, MAX_DAYS_AHEAD)} />
           {search.results}
         </SearchShell>
       </div>

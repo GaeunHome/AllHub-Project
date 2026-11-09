@@ -22,7 +22,6 @@ import { SAVED_FULL_MESSAGE, keepVideo, removeSavedVideo, type VideoSnapshot } f
 import { continueTranslation, restartTranslation, retryTranslation, startTranslation, uploadSubtitles, type Progress, type StartResult } from "../service/translation";
 import { readSubtitleFile } from "./upload";
 
-export type { FormState } from "@/core/ui/form-message";
 
 // 橫跨資料庫與外部服務 可能只做完一部分 所以在 finally 失效
 // 表單送來的 id 只決定操作哪一筆

@@ -3,7 +3,7 @@ import { and, count, desc, eq, gte, inArray, isNull, notInArray, sql } from "dri
 import { db } from "../db";
 import { coreNotifications, type CoreNotification } from "../db/schema";
 import { retentionCutoff } from "../retention";
-import { deleteExpired } from "../retention-cleanup";
+import { deleteExpired } from "../retention/cleanup";
 import type { NotificationFeed, NotificationItem, UnreadSummary } from "./types";
 
 /** 鈴鐺面板顯示的筆數 也是輪詢時順便帶回的筆數 */

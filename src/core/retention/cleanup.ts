@@ -1,8 +1,8 @@
 import "server-only";
 import { lt } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
-import { db } from "./db";
-import { RETENTION_DAYS, retentionCutoff } from "./retention";
+import { db } from "../db";
+import { RETENTION_DAYS, retentionCutoff } from ".";
 
 /**
  * 只給通知類紀錄 不分擁有者 回傳排程的摘要

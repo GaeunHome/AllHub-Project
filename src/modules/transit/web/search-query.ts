@@ -1,4 +1,4 @@
-import { DAY_MS, isRealDateKey } from "@/core/time";
+import { daysBetweenKeys, isRealDateKey } from "@/core/time";
 import { isBusCity, isBusLine } from "../lib/bus";
 import { isMode, type Mode } from "../lib/modes";
 import { isStationId } from "../lib/rules";
@@ -18,8 +18,7 @@ const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function dateFrom(value: string, today: string): string {
   if (!isRealDateKey(value) || value < today) return today;
-  const days = (Date.parse(value) - Date.parse(today)) / DAY_MS;
-  return days > MAX_DAYS_AHEAD ? today : value;
+  return daysBetweenKeys(today, value) > MAX_DAYS_AHEAD ? today : value;
 }
 
 export function parseSearch(params: Record<string, string | string[] | undefined>, today: string): SearchQuery {

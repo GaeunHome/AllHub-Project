@@ -10,9 +10,11 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+// 只用在管理頁 股票代號與幾個輸入框 每一頁預載會跟必要的樣式搶頻寬
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  preload: false,
 });
 
 // 星穹鐵道頁數字的字型 放在分頁裡會多一個樣式檔 首頁預先讀取那頁時瀏覽器會警告沒用到

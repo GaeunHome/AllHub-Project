@@ -3,10 +3,10 @@
 import { unstable_rethrow } from "next/navigation";
 import { useEffect, useId, useState, useTransition, type ReactNode } from "react";
 import { ConfirmSubmitButton } from "@/core/ui/confirm-submit-button";
-import { FormMessage } from "@/core/ui/form-message";
+import { FormMessage, type FormState } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
-import { continueTranslationAction, restartTranslationAction, retryTranslationAction, type FormState } from "../actions";
+import { continueTranslationAction, restartTranslationAction, retryTranslationAction } from "../actions";
 import type { SourceKind } from "../../data/schema";
 import type { Cue } from "../../lib/subtitles/format";
 import { subtitleDownloadPath } from "../../lib/urls";

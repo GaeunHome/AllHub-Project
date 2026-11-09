@@ -5,7 +5,7 @@ import { db } from "../db";
 import { coreModuleDenials } from "../db/schema";
 import type { SessionUser } from "./users";
 
-type Person = Pick<SessionUser, "id" | "role">;
+type Person = Pick<SessionUser, "id" | "role" | "denied">;
 
 const NOTHING_DENIED: ReadonlySet<string> = new Set();
 
@@ -18,9 +18,10 @@ const deniedIdsOf = cache(async (userId: string): Promise<ReadonlySet<string>> =
   return new Set(rows.map((row) => row.moduleId));
 });
 
-/** 這個人不能用的模組 站長一律全部能用 */
-export async function deniedModules({ id, role }: Person): Promise<ReadonlySet<string>> {
-  return role === "owner" ? NOTHING_DENIED : deniedIdsOf(id);
+/** 這個人不能用的模組 站長一律全部能用 session 已經帶著的就不再查 */
+export async function deniedModules({ id, role, denied }: Person): Promise<ReadonlySet<string>> {
+  if (role === "owner") return NOTHING_DENIED;
+  return denied ? new Set(denied) : deniedIdsOf(id);
 }
 
 export async function canUseModule(person: Person, moduleId: string): Promise<boolean> {

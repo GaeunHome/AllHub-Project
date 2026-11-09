@@ -88,6 +88,9 @@
   /* 每月收支的收入與支出用青與橘 色盲也分得開 */
   --fin-income: #06a2ae;
   --fin-expense: #e95c12;
+  /* 資產走勢的存款與投資用藍與金 色盲也分得開 */
+  --fin-deposit: #3a7bd5;
+  --fin-investment: #d99a1e;
 }
 
 :root {
@@ -162,6 +165,8 @@
     /* 同樣的色相換成深色底用的亮度 */
     --fin-income: #18a2b8;
     --fin-expense: #c14315;
+    --fin-deposit: #4c8ff0;
+    --fin-investment: #e3a83a;
   }
 }
 

@@ -1,5 +1,5 @@
 import "server-only";
-import { DAY_MS, taipeiDateKey } from "@/core/time";
+import { addDaysToKey, taipeiDateKey } from "@/core/time";
 import { upcoming } from "../lib/countdown";
 import { trainNoOf } from "../lib/modes";
 import { departuresToward, type Departure } from "../lib/timetable";
@@ -35,11 +35,12 @@ async function boardOf(route: TransitRoute, now: Date): Promise<RouteBoard> {
   const train = trainNoOf(route);
   const shown = (departures: Departure[]) => (train ? departures.filter((departure) => departure.trainNo === train) : departures);
   const read = (date: string) => (mode === "metro" ? metroToward(route, date) : cachedDepartures(mode, route.originId, route.destinationId, date));
-  const today = await read(taipeiDateKey(now));
+  const todayKey = taipeiDateKey(now);
+  const today = await read(todayKey);
   if (!today.ok) return { route, departures: [], problem: today.problem, status: null };
   const todays = shown(today.data);
   if (upcoming(todays, now.getTime()).length >= (train ? 1 : MIN_UPCOMING)) return { route, departures: todays, problem: null, status: null };
-  const tomorrow = await read(taipeiDateKey(new Date(now.getTime() + DAY_MS)));
+  const tomorrow = await read(addDaysToKey(todayKey, 1));
   // 只看一班車時讀不到明天就不知道還有沒有車 不能說成沒有這班車
   if (!tomorrow.ok && train) return { route, departures: todays, problem: tomorrow.problem, status: null };
   return { route, departures: tomorrow.ok ? [...todays, ...shown(tomorrow.data)] : todays, problem: null, status: null };

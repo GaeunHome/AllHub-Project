@@ -128,9 +128,23 @@ describe("環境部的空氣品質", () => {
       ],
     });
 
-    expect(countyAqi(stations, "臺北市")).toEqual({ county: "臺北市", site: "萬華", aqi: 78, publishedAt: "2026/10/16 15:00:00", level: "普通", sites: 2 });
+    expect(countyAqi(stations, "臺北市")).toMatchObject({ county: "臺北市", site: "萬華", aqi: 78, publishedAt: "2026/10/16 15:00:00", level: "普通", sites: 2 });
     expect(countyAqi(stations, "新北市")).toMatchObject({ aqi: 120, level: "對敏感族群不健康", sites: 1 });
     expect(countyAqi(stations, "連江縣")).toBeNull();
+  });
+
+  it("每個測站另外讀 PM2.5、PM10、臭氧與主要污染物（環境部的欄位名稱）；空的、橫線或不是數字的留空", () => {
+    const { stations } = parseStations({
+      records: [
+        { sitename: "萬華", county: "臺北市", aqi: "78", "pm2.5": "24", pm10: "41", o3: "35.2", pollutant: "細懸浮微粒", publishtime: "2026/10/16 15:00:00" },
+        { sitename: "士林", county: "臺北市", aqi: "35", "pm2.5": "", pm10: "-", o3: "ND", pollutant: "", publishtime: "2026/10/16 15:00:00" },
+      ],
+    });
+
+    expect(stations.map(({ site, pm25, pm10, o3, pollutant }) => ({ site, pm25, pm10, o3, pollutant }))).toEqual([
+      { site: "萬華", pm25: 24, pm10: 41, o3: 35.2, pollutant: "細懸浮微粒" },
+      { site: "士林", pm25: null, pm10: null, o3: null, pollutant: null },
+    ]);
   });
 
   it("欄位都對不上時記下欄位名稱，不是 records 的回應整個讀不到", () => {

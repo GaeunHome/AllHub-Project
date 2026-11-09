@@ -3,7 +3,7 @@ import { taipeiDateKey } from "@/core/time";
 import { mockRequest } from "@/dev/mock-request";
 import { parseCwaTime } from "../../lib/forecast";
 import { parseWarnings } from "../../lib/warnings";
-import { parseCwaWeek, parseOpenMeteoWeek } from "../../lib/weekly";
+import { parseCwaHours, parseCwaWeek, parseOpenMeteoHours, parseOpenMeteoWeek } from "../../lib/weekly";
 import { aqiResponse, forecastResponse, handle, periodStarts, warningResponse } from "../mock.mjs";
 
 // 假伺服器要回真實格式的資料 網站照真的解析才看得到東西
@@ -123,7 +123,7 @@ describe("氣象署 W-C0033-001 的假回應", () => {
 });
 
 describe("天氣頁的假回應有今天的細節", () => {
-  it("F-D0047-091 每一段有體感溫度、相對濕度、風速與風向，白天的時段有紫外線：網站照真的解析看得到", async () => {
+  it("F-D0047-091 每一段有體感溫度、相對濕度、露點、舒適度、風速與風向，白天的時段有紫外線：網站照真的解析看得到", async () => {
     const reply = await mockRequest(handle, `/api/v1/rest/datastore/F-D0047-091?Authorization=dev-cwa&LocationName=${encodeURIComponent("臺北市")}`);
     const days = parseCwaWeek(reply.data, "臺北市");
 
@@ -134,16 +134,32 @@ describe("天氣頁的假回應有今天的細節", () => {
       expect(details.humidity).not.toBeNull();
       expect(details.wind?.direction).toBeTruthy();
       expect(details.wind?.level).not.toBeNull();
+      expect(details.wind?.speed).not.toBeNull();
+      expect(details.dewPoint).not.toBeNull();
+      expect(details.comfort).toBeTruthy();
     }
     // 晚上看時今天只剩晚上那一段 之後每天都有白天
     expect(days.slice(1).every(({ details }) => details.uv !== null)).toBe(true);
   });
 
-  it("Open-Meteo 有體感、濕度、最大風速與主要風向、紫外線與日出日落", async () => {
+  it("Open-Meteo 有體感、濕度、露點、最大風速與陣風、主要風向、紫外線與日出日落，每小時有體感、濕度與紫外線；國外沒有舒適度", async () => {
     const reply = await mockRequest(handle, "/v1/forecast?latitude=35.6895&longitude=139.6917&timezone=Asia%2FTokyo&wind_speed_unit=ms");
     const days = parseOpenMeteoWeek(reply.data);
+    const { hours } = parseOpenMeteoHours(reply.data);
 
     expect(days).toHaveLength(7);
-    for (const { details } of days) expect(Object.entries(details).filter(([, value]) => value === null)).toEqual([]);
+    for (const { details } of days) {
+      expect(Object.entries(details).filter(([key, value]) => value === null && key !== "comfort")).toEqual([]);
+      expect(details.wind?.gust).not.toBeNull();
+    }
+    expect(hours.every(({ feels, humidity, uv }) => feels !== null && humidity !== null && uv !== null)).toBe(true);
+  });
+
+  it("F-D0047-089 每小時有體感溫度與相對濕度", async () => {
+    const reply = await mockRequest(handle, `/api/v1/rest/datastore/F-D0047-089?Authorization=dev-cwa&LocationName=${encodeURIComponent("臺北市")}`);
+    const hours = parseCwaHours(reply.data, "臺北市");
+
+    expect(hours.length).toBeGreaterThan(24);
+    expect(hours.every(({ feels, humidity }) => feels !== null && humidity !== null)).toBe(true);
   });
 });

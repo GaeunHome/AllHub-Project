@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, logQueries, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { coreModuleDenials, coreUsers } from "../../db/schema";
 
@@ -24,6 +24,7 @@ vi.mock("next/navigation", () => import("@/dev/navigation-stub"));
 
 const { canUseModule, deniedModules, requireModule, usableModules } = await import("..");
 const { SESSION_COOKIE, signSession } = await import("../session");
+const { findSessionUser } = await import("../users");
 
 const getDb = setupTestDb();
 const MODULES = [{ id: "twitch" }, { id: "savings" }, { id: "weather" }];
@@ -119,5 +120,32 @@ describe("deniedModules", () => {
 
     expect([...(await deniedModules({ id: member, role: "member" }))]).toEqual(["savings"]);
     expect([...(await deniedModules({ id: owner, role: "owner" }))]).toEqual([]);
+  });
+});
+
+describe("登入檢查跟模組權限同一次查詢（速度優化）", () => {
+  it("讀登入者那一列時順便帶出不能用的模組，之後判斷權限不用再查資料庫", async () => {
+    await deny(member, "twitch");
+    await deny(member, "weather");
+    const session = await findSessionUser({ userId: member, version: 1 });
+    const queries = logQueries(getDb());
+
+    expect([...(session?.denied ?? [])].sort()).toEqual(["twitch", "weather"]);
+    expect(await canUseModule(session!, "twitch")).toBe(false);
+    expect(await canUseModule(session!, "savings")).toBe(true);
+    expect(queries).toEqual([]);
+  });
+
+  it("沒有被關掉的模組時是空的；別人的設定不會混進來", async () => {
+    await deny(owner, "twitch");
+
+    expect((await findSessionUser({ userId: member, version: 1 }))?.denied).toEqual([]);
+  });
+
+  it("站長就算表裡有紀錄也全部能用", async () => {
+    await deny(owner, "twitch");
+    const session = await findSessionUser({ userId: owner, version: 1 });
+
+    expect(await canUseModule(session!, "twitch")).toBe(true);
   });
 });

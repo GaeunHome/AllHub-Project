@@ -4,6 +4,11 @@ export const POLL_VISIBLE_MS = 10_000;
 // 背景分頁的計時器本來就會被節流到約一分鐘一次 放慢也省資料庫查詢
 export const POLL_HIDDEN_MS = 60_000;
 
+/** 內容一樣時沿用原本的物件 導覽列 鈴鐺與首頁的未讀摘要才不會每 10 秒重畫一次 */
+export function keepSameFeed(current: NotificationFeed | null, next: NotificationFeed): NotificationFeed {
+  return current !== null && JSON.stringify(current) === JSON.stringify(next) ? current : next;
+}
+
 export type PollResult = { status: "ok"; feed: NotificationFeed } | { status: "unauthorized" };
 
 export type PollerOptions = {

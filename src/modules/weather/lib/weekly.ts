@@ -1,14 +1,14 @@
 import { asArray, asRecord, numberOf, text } from "@/core/json";
 import { DAY_MS } from "@/core/time";
 import type { County } from "./counties";
-import { beaufortLevel, windDirection, windOf, type DayDetails } from "./details";
+import { beaufortLevel, comfortText, windDirection, windOf, type DayDetails } from "./details";
 
 // 台灣用 F-D0047-091 每小時用 089 國外用 Open-Meteo
 // 整理成同一種形狀 氣象署的格式還沒用真實授權碼驗證
 
 export type WeekDay = { date: string; weather: string | null; high: number | null; low: number | null; rain: number | null; details: DayDetails };
-/** time 是當地時間的 YYYY-MM-DDTHH:mm */
-export type HourPoint = { time: string; temperature: number | null; rain: number | null; weather: string | null };
+/** time 是當地時間的 YYYY-MM-DDTHH:mm feels 是體感溫度 氣象署沒有每小時的紫外線 */
+export type HourPoint = { time: string; temperature: number | null; rain: number | null; weather: string | null; feels: number | null; humidity: number | null; uv: number | null };
 /** country 是兩個小寫字母的國家代碼 畫國旗用 */
 export type WorldPlace = { name: string; country: string; latitude: number; longitude: number; timezone: string };
 
@@ -40,39 +40,47 @@ const average = (values: (number | null)[]) => {
   return numbers.length > 0 ? Math.round(numbers.reduce((sum, value) => sum + value, 0) / numbers.length) : null;
 };
 
+/** 風速留一位小數 */
+const tenths = (value: unknown) => {
+  const number = numberOf(value);
+  return number === null ? null : Math.round(number * 10) / 10;
+};
+
 /** 例如 2026-11-07T06:05 只留幾點幾分 已經是當地時間 */
 const clockOf = (value: unknown) => text(value)?.match(/T(\d{2}:\d{2})/)?.[1] ?? null;
 
-/** Open-Meteo 的每日沒有濕度 用當天每小時的平均 */
-function dailyHumidity(json: unknown): Map<string, number | null> {
+/** Open-Meteo 的每日沒有濕度與露點 用當天每小時的平均 */
+function dailyAverage(json: unknown, name: string): Map<string, number | null> {
   const hourly = asRecord(asRecord(json)?.hourly);
-  const humidity = asArray(hourly?.relative_humidity_2m);
+  const values = asArray(hourly?.[name]);
   const byDate = new Map<string, (number | null)[]>();
   asArray(hourly?.time).forEach((value, index) => {
     const date = text(value)?.slice(0, 10);
     if (!date) return;
-    const values = byDate.get(date) ?? [];
-    values.push(numberOf(humidity[index]));
-    byDate.set(date, values);
+    const ofDate = byDate.get(date) ?? [];
+    ofDate.push(numberOf(values[index]));
+    byDate.set(date, ofDate);
   });
-  return new Map([...byDate].map(([date, values]) => [date, average(values)]));
+  return new Map([...byDate].map(([date, ofDate]) => [date, average(ofDate)]));
 }
 
 /** 風速要用 wind_speed_unit=ms 讀 級數照每秒公尺算 */
 export function parseOpenMeteoWeek(json: unknown): WeekDay[] {
   const daily = asRecord(asRecord(json)?.daily);
-  const humidity = dailyHumidity(json);
+  const [humidity, dewPoint] = [dailyAverage(json, "relative_humidity_2m"), dailyAverage(json, "dew_point_2m")];
   return asArray(daily?.time).flatMap((value, index) => {
     const date = text(value);
     if (!date) return [];
     const at = (name: string) => asArray(daily?.[name])[index];
     const code = numberOf(at("weather_code"));
-    const [degrees, speed] = [numberOf(at("wind_direction_10m_dominant")), numberOf(at("wind_speed_10m_max"))];
+    const [degrees, speed, gust] = [numberOf(at("wind_direction_10m_dominant")), tenths(at("wind_speed_10m_max")), numberOf(at("wind_gusts_10m_max"))];
     const details: DayDetails = {
       feelsHigh: rounded(at("apparent_temperature_max")),
       feelsLow: rounded(at("apparent_temperature_min")),
       humidity: humidity.get(date) ?? null,
-      wind: windOf(degrees === null ? null : windDirection(degrees), speed === null ? null : beaufortLevel(speed)),
+      dewPoint: dewPoint.get(date) ?? null,
+      comfort: null,
+      wind: windOf(degrees === null ? null : windDirection(degrees), speed === null ? null : beaufortLevel(speed), speed, gust === null ? null : beaufortLevel(gust)),
       uv: rounded(at("uv_index_max")),
       sunrise: clockOf(at("sunrise")),
       sunset: clockOf(at("sunset")),
@@ -86,8 +94,19 @@ export function parseOpenMeteoHours(json: unknown): { hours: HourPoint[]; utcOff
   const hours = asArray(hourly?.time).flatMap((value, index) => {
     const time = text(value);
     if (!time) return [];
-    const code = numberOf(asArray(hourly?.weather_code)[index]);
-    return [{ time, temperature: rounded(asArray(hourly?.temperature_2m)[index]), rain: rounded(asArray(hourly?.precipitation_probability)[index]), weather: code === null ? null : wmoText(code) }];
+    const at = (name: string) => asArray(hourly?.[name])[index];
+    const code = numberOf(at("weather_code"));
+    return [
+      {
+        time,
+        temperature: rounded(at("temperature_2m")),
+        rain: rounded(at("precipitation_probability")),
+        weather: code === null ? null : wmoText(code),
+        feels: rounded(at("apparent_temperature")),
+        humidity: rounded(at("relative_humidity_2m")),
+        uv: rounded(at("uv_index")),
+      },
+    ];
   });
   return { hours, utcOffsetSeconds: numberOf(asRecord(json)?.utc_offset_seconds) ?? 0 };
 }
@@ -118,8 +137,23 @@ function cwaLocation(json: unknown, county: County): Record<string, unknown> | n
 
 /** 風級讀不到時照風速換算 */
 function cwaWind(direction: Record<string, unknown> | undefined, speed: Record<string, unknown> | undefined) {
-  const metres = numberOf(speed?.WindSpeed);
-  return windOf(text(direction?.WindDirection), numberOf(speed?.BeaufortScale) ?? (metres === null ? null : beaufortLevel(metres)));
+  const metres = tenths(speed?.WindSpeed);
+  return windOf(text(direction?.WindDirection), numberOf(speed?.BeaufortScale) ?? (metres === null ? null : beaufortLevel(metres)), metres);
+}
+
+type Comfort = { index: number; description: string };
+
+/** 指數最低與最高的那段各自的說明 例如稍有寒意到舒適 */
+function cwaComfort(lows: CwaPeriod[], highs: CwaPeriod[]): string | null {
+  const read = (periods: CwaPeriod[], index: string, description: string) =>
+    periods.flatMap(({ values }): Comfort[] => {
+      const [number, words] = [numberOf(values[index]), text(values[description])];
+      return number === null || words === null ? [] : [{ index: number, description: words }];
+    });
+  const pick = (comforts: Comfort[], better: (a: number, b: number) => boolean) => comforts.reduce<Comfort | null>((kept, comfort) => (kept === null || better(comfort.index, kept.index) ? comfort : kept), null);
+  const low = pick(read(lows, "MinComfortIndex", "MinComfortIndexDescription"), (a, b) => a < b);
+  const high = pick(read(highs, "MaxComfortIndex", "MaxComfortIndexDescription"), (a, b) => a > b);
+  return comfortText(low?.description ?? null, high?.description ?? null);
 }
 
 export function parseCwaWeek(json: unknown, county: County): WeekDay[] {
@@ -139,6 +173,8 @@ export function parseCwaWeek(json: unknown, county: County): WeekDay[] {
       feelsHigh: extreme(numbers("最高體感溫度", "MaxApparentTemperature"), Math.max),
       feelsLow: extreme(numbers("最低體感溫度", "MinApparentTemperature"), Math.min),
       humidity: average(numbers("平均相對濕度", "RelativeHumidity")),
+      dewPoint: average(numbers("平均露點溫度", "DewPoint")),
+      comfort: cwaComfort(ofDay("最小舒適度指數"), ofDay("最大舒適度指數")),
       wind: cwaWind(daytime("風向"), daytime("風速")),
       // 只有白天的時段有紫外線
       uv: extreme(numbers("紫外線指數", "UVIndex"), Math.max),
@@ -166,16 +202,32 @@ function coveringValue(element: unknown, key: string, time: string): unknown {
   return asRecord(asArray(asRecord(period)?.ElementValue)[0])?.[key];
 }
 
+/** 體感與濕度跟溫度一樣是時間點 找同一個時間點的 */
+function pointValue(element: unknown, key: string, time: string): unknown {
+  const point = asArray(asRecord(element)?.Time).find((value) => text(asRecord(value)?.DataTime) === time);
+  return asRecord(asArray(asRecord(point)?.ElementValue)[0])?.[key];
+}
+
 export function parseCwaHours(json: unknown, county: County): HourPoint[] {
   const location = cwaLocation(json, county);
   if (!location) return [];
   const element = (name: string) => asArray(location.WeatherElement).find((value) => text(asRecord(value)?.ElementName) === name);
-  const [rain, weather] = [element("3小時降雨機率"), element("天氣現象")];
+  const [rain, weather, feels, humidity] = [element("3小時降雨機率"), element("天氣現象"), element("體感溫度"), element("相對濕度")];
   return asArray(asRecord(element("溫度"))?.Time).flatMap((point) => {
     const entry = asRecord(point);
     const time = text(entry?.DataTime);
     if (!time) return [];
-    return [{ time: time.slice(0, 16), temperature: rounded(asRecord(asArray(entry?.ElementValue)[0])?.Temperature), rain: rounded(coveringValue(rain, "ProbabilityOfPrecipitation", time)), weather: text(coveringValue(weather, "Weather", time)) }];
+    return [
+      {
+        time: time.slice(0, 16),
+        temperature: rounded(asRecord(asArray(entry?.ElementValue)[0])?.Temperature),
+        rain: rounded(coveringValue(rain, "ProbabilityOfPrecipitation", time)),
+        weather: text(coveringValue(weather, "Weather", time)),
+        feels: rounded(pointValue(feels, "ApparentTemperature", time)),
+        humidity: rounded(pointValue(humidity, "RelativeHumidity", time)),
+        uv: null,
+      },
+    ];
   });
 }
 
@@ -184,9 +236,12 @@ const localTime = (now: Date, utcOffsetSeconds: number) => new Date(now.getTime(
 /** 當地現在的 HH:mm 跟日出日落比 */
 export const localClock = (now: Date, utcOffsetSeconds: number): string => localTime(now, utcOffsetSeconds).slice(11, 16);
 
+/** 當地今天的 YYYY-MM-DD */
+export const localDay = (now: Date, utcOffsetSeconds: number): string => localTime(now, utcOffsetSeconds).slice(0, 10);
+
 /** 半夜讀到的第一段還是昨晚 快取裡也可能留著昨天 第一列才會是真的今天 */
 export function fromToday(days: readonly WeekDay[], now: Date, utcOffsetSeconds: number): WeekDay[] {
-  const today = localTime(now, utcOffsetSeconds).slice(0, 10);
+  const today = localDay(now, utcOffsetSeconds);
   return days.filter(({ date }) => date >= today);
 }
 

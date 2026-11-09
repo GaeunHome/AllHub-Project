@@ -8,6 +8,8 @@ export const savingsTags = {
   bills: "savings:bills",
   recurring: "savings:recurring",
   transactions: "savings:transactions",
+  // 資產走勢每月的投資市值 只有排程寫
+  snapshots: "savings:snapshots",
   // 股價不存資料庫 沒有寫入點 靠效期更新
   external: "savings:external",
 } as const satisfies Record<string, CacheTag<"savings">>;

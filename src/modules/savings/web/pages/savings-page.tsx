@@ -5,7 +5,7 @@ import { cachedAccounts, cachedCategories, cachedRecurring } from "../../service
 import { OVERVIEW_COLUMNS, OVERVIEW_LEFT, OVERVIEW_RIGHT } from "../components/dashboard/layout";
 import { ChecklistSkeleton, HeroSkeleton, MonthSkeleton, OverviewSkeleton, QuickActionsSkeleton, TrendSkeleton } from "../components/dashboard/skeletons";
 import { OverviewPrefsSync } from "../components/overview/overview-prefs-sync";
-import { ChecklistSection, HeroSection, MonthSection, QuickActionsSection, TrendSection, UrgentSection } from "../components/overview/sections";
+import { AssetTrendSection, ChecklistSection, HeroSection, MonthSection, QuickActionsSection, TrendSection, UrgentSection } from "../components/overview/sections";
 import { SetupChecklist } from "../components/overview/setup-checklist";
 import { SavingsPageFrame, StreamSection } from "../components/page-frame";
 import { setupView } from "../overview-view";
@@ -59,6 +59,10 @@ export async function SavingsOverview() {
         <div className={OVERVIEW_LEFT}>
           <StreamSection fallback={<ChecklistSkeleton />}>
             <ChecklistSection />
+          </StreamSection>
+          {/* 使用者選的放在左欄 這一欄比較寬 兩欄也差不多高 */}
+          <StreamSection fallback={<TrendSkeleton label="載入資產走勢…" />}>
+            <AssetTrendSection />
           </StreamSection>
         </div>
         <div className={OVERVIEW_RIGHT}>

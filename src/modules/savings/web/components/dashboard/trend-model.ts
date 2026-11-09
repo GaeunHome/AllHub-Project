@@ -1,7 +1,7 @@
 import { monthTotals, type CategoryMonthTotal } from "../../../lib/ledger";
 import { formatNumber } from "../../../lib/money";
 import { recentMonths, type MonthKey } from "../../../lib/month";
-import { niceScale, scalePercent, type NiceScale } from "../../chart-geometry";
+import { niceScale, scalePercent, type NiceScale } from "./chart-geometry";
 
 // 每月收入與支出兩根長條 共用一個從 0 開始的刻度
 
@@ -36,7 +36,7 @@ export function flowChart(points: FlowPoint[]): { scale: NiceScale; columns: Flo
 }
 
 /** 滑過優先 其次是鍵盤 都沒有是 null 讀數只放圖例 */
-export function readoutIndex(points: FlowPoint[], { hover, focus }: { hover: number | null; focus: number | null }): number | null {
+export function readoutIndex(points: readonly unknown[], { hover, focus }: { hover: number | null; focus: number | null }): number | null {
   // 月份變少時舊的滑過或焦點位置可能已經不在 當作沒有 不讓卡片出錯
   const inRange = (index: number | null): index is number => index !== null && index >= 0 && index < points.length;
   return [hover, focus].find(inRange) ?? null;

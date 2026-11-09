@@ -10,7 +10,6 @@ import { TwitchApiError } from "../lib/api";
 import { twitchTags } from "../service/cache-tags";
 import { addStreamer, removeStreamer, setStreamerNotify, syncSubscriptionsFor } from "../service/streamers";
 
-export type { FormState } from "@/core/ui/form-message";
 
 // Twitch 回的錯誤也直接給使用者看 例如憑證填錯 其他非預期的只給摘要
 const isTwitchError = (error: unknown) => error instanceof TwitchApiError;

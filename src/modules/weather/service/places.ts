@@ -1,8 +1,7 @@
 import "server-only";
-import { and, count, eq, max } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/core/db";
-import { moveOwnRow, ownOrder } from "@/core/db/reorder";
-import { lockUserRow } from "@/core/db/users";
+import { moveOwnRow, nextOwnSlot, ownOrder } from "@/core/db/reorder";
 import { UserError } from "@/core/form";
 import { weatherPlaces, type WeatherPlace } from "../data/schema";
 import { parsePlaceChoice } from "../lib/cities";
@@ -23,12 +22,11 @@ export async function addPlace(userId: string, rawChoice: string): Promise<Weath
   if (!choice.ok) throw new PlaceUserError(choice.error);
   return db().transaction(async (tx) => {
     // 鎖住這個使用者再數 同一個人同時新增時一個一個來
-    await lockUserRow(tx, userId, "no key update");
-    const [{ total, last }] = await tx.select({ total: count(), last: max(weatherPlaces.sortOrder) }).from(weatherPlaces).where(eq(weatherPlaces.userId, userId));
+    const { total, sortOrder } = await nextOwnSlot(tx, weatherPlaces, userId);
     if (total >= PLACE_LIMIT) throw new PlaceUserError(`城市已滿 ${PLACE_LIMIT} 個，請先刪除一個`);
     const [row] = await tx
       .insert(weatherPlaces)
-      .values({ userId, ...choice.value, sortOrder: (last ?? -1) + 1 })
+      .values({ userId, ...choice.value, sortOrder })
       .onConflictDoNothing()
       .returning();
     if (!row) throw new PlaceUserError("這個城市已經加過了");

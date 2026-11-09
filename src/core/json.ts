@@ -62,3 +62,12 @@ export function createMissing() {
     },
   };
 }
+
+/**
+ * 回應的格式和預期不同時記一行 只有欄位路徑 context 放帳號 id 這類識別
+ * 不帶值 回應原文可能有個人資料
+ */
+export function logMissing(scope: string, what: string, missing: Iterable<string>, ...context: Array<string | number>): void {
+  const paths = [...missing];
+  if (paths.length > 0) console.warn(`[${scope}] ${what}少了欄位`, ...context, paths.join(", "));
+}

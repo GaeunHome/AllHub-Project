@@ -8,11 +8,14 @@ import { NoticeItem, NoticeStrip } from "@/core/ui/notice-strip";
 import { CardHeader } from "@/core/ui/page-header";
 import { formatSlashDate } from "../../../lib/dates";
 import { formatSignedTwd, formatTwd } from "../../../lib/money";
-import { cachedAccounts, cachedCategories, cachedCategoryTotals, cachedRecurring } from "../../../service/cached";
+import { dateToMonth } from "../../../lib/month";
+import { assetTrend } from "../../../lib/trend";
+import { cachedAccounts, cachedAssetSnapshots, cachedCategories, cachedCategoryTotals, cachedRecurring } from "../../../service/cached";
 import { categoryOptions, salaryAccountOptions } from "../../form-options";
 import { loadAccounts, loadChecklist } from "../../overview-data";
 import { checklistRows, checklistSummary, heroView, monthView, quickActionsView, urgentRows, type HeroView } from "../../overview-view";
 import { SAVINGS_PATHS, recordsHref } from "../../paths";
+import { AssetTrendChart } from "../dashboard/asset-trend-chart";
 import { BannerFigure } from "../dashboard/banner-figure";
 import { ExpenseList } from "../dashboard/expense-list";
 import { TrendChart } from "../dashboard/trend-chart";
@@ -157,4 +160,17 @@ export async function TrendSection() {
   const [accounts, totals] = await Promise.all([cachedAccounts(user.id), cachedCategoryTotals(user.id)]);
   const current = taipeiMonthKey(new Date());
   return <TrendChart points={flowSeries(totals, accounts.map((account) => taipeiMonthKey(account.createdAt)), current)} current={current} />;
+}
+
+/**
+ * 使用者選的回推加每月記一筆 最近 12 個月 這個月用總覽上面的總資產
+ * 沒有啟用中的存款或投資帳戶時整張不出現
+ */
+export async function AssetTrendSection() {
+  const user = await requireModule("savings");
+  const [{ input, state }, snapshots] = await Promise.all([loadAccounts(user.id, new Date()), cachedAssetSnapshots(user.id)]);
+  const current = dateToMonth(input.today);
+  const live = { deposit: state.summary.deposit, investment: state.summary.investment.value };
+  const points = assetTrend({ accounts: input.accounts, flows: input.flows, snapshots, current, live });
+  return points.length === 0 ? null : <AssetTrendChart points={points} current={current} />;
 }

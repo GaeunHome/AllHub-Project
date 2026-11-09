@@ -3,12 +3,12 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { requireModule } from "@/core/auth";
 import type { ModuleInfo, SearchParams } from "@/core/module";
+import { BackLink } from "@/core/ui/back-link";
 import { FormMessage } from "@/core/ui/form-message";
-import { Icon } from "@/core/ui/icon";
 import { InfoTip } from "@/core/ui/info-tip";
 import { PageTheme } from "@/core/ui/page-theme";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
-import { accountHref, warpsHref } from "../../lib/urls";
+import { STARRAIL_HREF, accountHref, warpsHref } from "../../lib/urls";
 import type { BannerSummary } from "../../lib/warps";
 import { cachedAccounts, cachedWarps } from "../../service/cached";
 import { reportWarps } from "../../service/warps";
@@ -40,7 +40,7 @@ export async function WarpsArea({ searchParams }: { searchParams: SearchParams }
     return (
       <p className="sr-panel p-5 text-ink sm:p-6">
         還沒有連結帳號。
-        <Link href="/starrail" className="link">
+        <Link href={STARRAIL_HREF} className="link">
           到星穹鐵道頁連結
         </Link>
       </p>
@@ -53,10 +53,7 @@ export async function WarpsArea({ searchParams }: { searchParams: SearchParams }
     <div className="page-stack">
       <div className="stack">
         <AccountTabs accounts={accounts} selectedId={account.id} hrefOf={warpsHref} />
-        <Link href={accountHref(account.id)} className="flex w-fit items-center gap-1 text-sm text-ink-soft hover:text-ink">
-          <Icon name="chevron-left" className="size-4" />
-          星穹鐵道
-        </Link>
+        <BackLink href={accountHref(account.id)}>星穹鐵道</BackLink>
         <h2 className="sr-title flex items-center gap-1.5">
           躍遷紀錄
           <InfoTip label="躍遷紀錄的說明">來自 HoYoLAB 官方，只有五星與已墊幾抽，最多是 30 分鐘前的資料</InfoTip>

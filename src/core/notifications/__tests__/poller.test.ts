@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POLL_HIDDEN_MS, POLL_VISIBLE_MS, startPoller, type PollResult } from "../poller";
+import { POLL_HIDDEN_MS, POLL_VISIBLE_MS, keepSameFeed, startPoller, type PollResult } from "../poller";
 import type { NotificationFeed } from "../types";
 
 const feed = (total: number): NotificationFeed => ({ unread: { total, byModule: {} }, recent: [] });
@@ -27,6 +27,16 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("keepSameFeed：輪詢回來的內容沒變時不換物件", () => {
+  it("跟畫面上的一樣時回傳原本那一個，React 就不會重畫；有變時換成新的", () => {
+    const current = feed(2);
+
+    expect(keepSameFeed(current, feed(2))).toBe(current);
+    expect(keepSameFeed(current, feed(3))).toEqual(feed(3));
+    expect(keepSameFeed(null, feed(2))).toEqual(feed(2));
+  });
 });
 
 describe("startPoller", () => {

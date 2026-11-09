@@ -1,4 +1,5 @@
 import "server-only";
+import { logMissing } from "@/core/json";
 import { reportService } from "@/core/status";
 import { cookieKeys } from "../lib/cookie";
 import { fetchWarpPage, warpLogin } from "../lib/hoyolab";
@@ -44,7 +45,7 @@ async function bannerRows({ account, cookie }: Target, banner: WarpBanner, sleep
       console.error("[starrail] 讀取躍遷紀錄失敗", account.id, banner.id, `retcode ${result.retcode}`);
       return result;
     }
-    if (result.data.missing.length > 0) console.error("[starrail] 躍遷紀錄的格式和預期不同", account.id, `缺少或看不懂：${result.data.missing.join("、")}`);
+    logMissing("starrail", "躍遷紀錄", result.data.missing, account.id);
     if (result.data.incomplete) {
       console.error("[starrail] 躍遷紀錄讀不到下一頁", account.id, banner.id);
       return NOT_FINISHED;

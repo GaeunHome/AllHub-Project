@@ -114,6 +114,12 @@ npm run account create
 - 一般的部署不會讓登入失效。只有換 `SESSION_SECRET`、改密碼或重建資料庫才會。
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
+- **從 v0.2.9 升級到 v0.2.10**：一般的升級，推送前不用另外設定，環境變數沒變。
+  - db-migrate 套用 `0001_asset_trend`（`0001_announcement_pin` 已經併進基準檔，基準檔的時間戳記等於它），一開始設 `lock_timeout = 5s`：只新增資產走勢的 `savings_asset_snapshots`（開 RLS），不動既有的表。
+  - 排程多一條 `savings:trend`（每天台北 00:45，`vercel.json` 已經寫好，部署後 Vercel 自動加上，共 66 條）。第一次跑完之前，資產走勢的投資照成本算。
+  - 部署比 db-migrate 先完成時：總覽的資產走勢讀不到那張表，只有那張卡片顯示讀不到、可以重試，其他照常；db-migrate 跑完重新整理就好。
+  - 部署後確認瀏覽器快取有生效：`curl -sI https://allhub-project.vercel.app/icons/ui/bell.svg | grep -i cache-control` 要看到 `max-age=604800`；登入後在瀏覽器的開發者工具看 `/images/` 的圖，回應要有 `private, max-age=86400`。沒有的話是 Vercel 蓋掉了 proxy 加的標頭，回報再處理。
+  - 要退回 v0.2.9 時可以用 Instant Rollback：v0.2.9 不讀這張表，多出來的排程路徑會回 404，不影響其他排程。
 - **從 v0.2.8 升級到 v0.2.9**：一般的升級，推送前不用另外設定，排程與環境變數都沒變。
   - db-migrate 套用 `0001_announcement_pin`（`0001_route_order_and_cleanup` 已經併進基準檔，基準檔的時間戳記等於它），一開始設 `lock_timeout = 5s`：`core_announcements.pinned`（站長勾的置頂到跑馬燈，預設 false，以前的公告不置頂），並刪掉 `youtube_settings.id`（使用者要的翻譯設定改用 `user_id` 當主鍵，分兩版做的第二版；v0.2.8 已經不讀寫它，部署空窗期不受影響，identity 的 sequence 跟著刪）。
   - 部署比 db-migrate 先完成時：新程式讀公告會帶 `pinned`，這個欄位還不存在，跑馬燈與首頁的公告欄先不出現（各自藏起來，不影響其他畫面），管理頁的公告區會顯示錯誤，db-migrate 跑完（通常幾十秒）重新整理就好。

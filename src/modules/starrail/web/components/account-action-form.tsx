@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, type ReactNode } from "react";
+import type { FormState } from "@/core/ui/form-message";
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { useToast } from "@/core/ui/toast";
-import type { FormState } from "../actions";
 
 /** 帳號卡片上的立即簽到與設定門檻 結果用提示視窗 失敗時標題寫哪個動作失敗 內容寫原因 */
 export function AccountActionForm({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_DETAILS } from "../../dev/fixtures";
+import { NO_DETAILS, hourPoint } from "../../dev/fixtures";
 import { fromToday, nextDayHours, parseCwaHours, parseCwaWeek, parseOpenMeteoHours, parseOpenMeteoWeek, upcomingHours, wmoText } from "../weekly";
 
 describe("wmoText：Open-Meteo 的天氣代碼換成中文", () => {
@@ -75,6 +75,9 @@ describe("parseOpenMeteoHours：國外的每小時", () => {
       temperature_2m: [18.4, null],
       precipitation_probability: [30, 80],
       weather_code: [61, 999],
+      apparent_temperature: [17.6, null],
+      relative_humidity_2m: [70, 82],
+      uv_index: [2.6, 0],
     },
   };
 
@@ -82,8 +85,8 @@ describe("parseOpenMeteoHours：國外的每小時", () => {
     expect(parseOpenMeteoHours(json)).toEqual({
       utcOffsetSeconds: 32400,
       hours: [
-        { time: "2026-11-07T14:00", temperature: 18, rain: 30, weather: "雨" },
-        { time: "2026-11-07T15:00", temperature: null, rain: 80, weather: null },
+        { time: "2026-11-07T14:00", temperature: 18, rain: 30, weather: "雨", feels: 18, humidity: 70, uv: 3 },
+        { time: "2026-11-07T15:00", temperature: null, rain: 80, weather: null, feels: null, humidity: 82, uv: 0 },
       ],
     });
   });
@@ -105,6 +108,8 @@ describe("parseCwaHours：氣象署三天的預報", () => {
                 { ElementName: "溫度", Time: [{ DataTime: "2026-11-07T18:00:00+08:00", ElementValue: [{ Temperature: "23" }] }, { DataTime: "2026-11-07T20:00:00+08:00", ElementValue: [{ Temperature: "22" }] }, { DataTime: "2026-11-07T21:00:00+08:00", ElementValue: [{ Temperature: "21" }] }] },
                 { ElementName: "3小時降雨機率", Time: [{ StartTime: "2026-11-07T18:00:00+08:00", EndTime: "2026-11-07T21:00:00+08:00", ElementValue: [{ ProbabilityOfPrecipitation: "40" }] }] },
                 { ElementName: "天氣現象", Time: [{ StartTime: "2026-11-07T18:00:00+08:00", EndTime: "2026-11-07T21:00:00+08:00", ElementValue: [{ Weather: "短暫雨" }] }] },
+                { ElementName: "體感溫度", Time: [{ DataTime: "2026-11-07T18:00:00+08:00", ElementValue: [{ ApparentTemperature: "25" }] }, { DataTime: "2026-11-07T21:00:00+08:00", ElementValue: [{ ApparentTemperature: "22" }] }] },
+                { ElementName: "相對濕度", Time: [{ DataTime: "2026-11-07T18:00:00+08:00", ElementValue: [{ RelativeHumidity: "74" }] }, { DataTime: "2026-11-07T20:00:00+08:00", ElementValue: [{ RelativeHumidity: "80" }] }] },
               ],
             },
           ],
@@ -113,11 +118,11 @@ describe("parseCwaHours：氣象署三天的預報", () => {
     },
   });
 
-  it("每個溫度的時間點 找涵蓋它的那一段降雨機率與天氣 21:00 已經是下一段了", () => {
+  it("每個溫度的時間點 找涵蓋它的那一段降雨機率與天氣 21:00 已經是下一段了；體感與濕度照同一個時間點，沒有那一點的留空；氣象署沒有每小時的紫外線", () => {
     expect(parseCwaHours(hourly("臺北市"), "臺北市")).toEqual([
-      { time: "2026-11-07T18:00", temperature: 23, rain: 40, weather: "短暫雨" },
-      { time: "2026-11-07T20:00", temperature: 22, rain: 40, weather: "短暫雨" },
-      { time: "2026-11-07T21:00", temperature: 21, rain: null, weather: null },
+      { time: "2026-11-07T18:00", temperature: 23, rain: 40, weather: "短暫雨", feels: 25, humidity: 74, uv: null },
+      { time: "2026-11-07T20:00", temperature: 22, rain: 40, weather: "短暫雨", feels: null, humidity: 80, uv: null },
+      { time: "2026-11-07T21:00", temperature: 21, rain: null, weather: null, feels: 22, humidity: null, uv: null },
     ]);
   });
 
@@ -127,7 +132,7 @@ describe("parseCwaHours：氣象署三天的預報", () => {
 });
 
 describe("upcomingHours：今天過去的小時不用列", () => {
-  const point = (time: string) => ({ time, temperature: 20, rain: null, weather: null });
+  const point = (time: string) => hourPoint(time, { temperature: 20 });
   const now = new Date("2026-11-07T06:30:00Z");
 
   it("台北 14:30 時 14:00 這一格還在 13:00 不算", () => {
@@ -154,7 +159,7 @@ describe("fromToday：一週從當地的今天算", () => {
 
 describe("今天的細節：國外跟一週預報同一個 Open-Meteo 回應", () => {
   const json = {
-    hourly: { time: ["2026-11-07T00:00", "2026-11-07T12:00", "2026-11-08T00:00"], relative_humidity_2m: [80, 61, 90] },
+    hourly: { time: ["2026-11-07T00:00", "2026-11-07T12:00", "2026-11-08T00:00"], relative_humidity_2m: [80, 61, 90], dew_point_2m: [10.2, 12.8, 14] },
     daily: {
       time: ["2026-11-07", "2026-11-08"],
       weather_code: [1, 3],
@@ -165,18 +170,29 @@ describe("今天的細節：國外跟一週預報同一個 Open-Meteo 回應", (
       apparent_temperature_min: [10.4, null],
       wind_speed_10m_max: [4.2, null],
       wind_direction_10m_dominant: [48, null],
+      wind_gusts_10m_max: [9.1, null],
       uv_index_max: [3.55, null],
       sunrise: ["2026-11-07T06:05", null],
       sunset: ["2026-11-07T16:38", null],
     },
   };
 
-  it("體感是當天最高與最低 濕度是當天每小時的平均 風是最大風速的級數與主要風向 紫外線四捨五入 日出日落是當地時間", () => {
-    expect(parseOpenMeteoWeek(json)[0].details).toEqual({ feelsHigh: 19, feelsLow: 10, humidity: 71, wind: { direction: "東北風", level: 3 }, uv: 4, sunrise: "06:05", sunset: "16:38" });
+  it("體感是當天最高與最低 濕度與露點是當天每小時的平均 風是最大風速的級數、風速與主要風向 陣風是最大陣風的級數 紫外線四捨五入 日出日落是當地時間 沒有舒適度", () => {
+    expect(parseOpenMeteoWeek(json)[0].details).toEqual({
+      feelsHigh: 19,
+      feelsLow: 10,
+      humidity: 71,
+      dewPoint: 12,
+      comfort: null,
+      wind: { direction: "東北風", level: 3, speed: 4.2, gust: 5 },
+      uv: 4,
+      sunrise: "06:05",
+      sunset: "16:38",
+    });
   });
 
   it("讀不到的欄位留空 不亂猜", () => {
-    expect(parseOpenMeteoWeek(json)[1].details).toEqual({ ...NO_DETAILS, humidity: 90 });
+    expect(parseOpenMeteoWeek(json)[1].details).toEqual({ ...NO_DETAILS, humidity: 90, dewPoint: 14 });
   });
 });
 
@@ -194,27 +210,40 @@ describe("今天的細節：台灣用同一份 F-D0047-091", () => {
     values("風速", [[MORNING, { WindSpeed: "5", BeaufortScale: "3" }], [NIGHT, { WindSpeed: "2", BeaufortScale: "2" }]]),
     element("風向", "WindDirection", [[MORNING, "東北風"], [NIGHT, "偏北風"]]),
     values("紫外線指數", [[MORNING, { UVIndex: "6", UVExposureLevel: "高量級" }]]),
+    element("平均露點溫度", "DewPoint", [[MORNING, "16"], [NIGHT, "19"]]),
+    values("最大舒適度指數", [[MORNING, { MaxComfortIndex: "26", MaxComfortIndexDescription: "舒適" }], [NIGHT, { MaxComfortIndex: "24", MaxComfortIndexDescription: "舒適" }]]),
+    values("最小舒適度指數", [[MORNING, { MinComfortIndex: "20", MinComfortIndexDescription: "舒適" }], [NIGHT, { MinComfortIndex: "15", MinComfortIndexDescription: "稍有寒意" }]]),
   );
 
-  it("體感取兩段裡最高與最低 濕度是兩段的平均 風看白天那一段 紫外線只有白天 一週預報沒有日出日落", () => {
-    expect(parseCwaWeek(full, "臺北市")[0].details).toEqual({ feelsHigh: 27, feelsLow: 19, humidity: 78, wind: { direction: "東北風", level: 3 }, uv: 6, sunrise: null, sunset: null });
+  it("體感取兩段裡最高與最低 濕度與露點是兩段的平均 舒適度從指數最低的那段寫到最高的那段 風看白天那一段 紫外線只有白天 一週預報沒有日出日落與陣風", () => {
+    expect(parseCwaWeek(full, "臺北市")[0].details).toEqual({
+      feelsHigh: 27,
+      feelsLow: 19,
+      humidity: 78,
+      dewPoint: 18,
+      comfort: "稍有寒意到舒適",
+      wind: { direction: "東北風", level: 3, speed: 5, gust: null },
+      uv: 6,
+      sunrise: null,
+      sunset: null,
+    });
   });
 
   it("晚上看時今天只剩晚上那一段：風看那一段 晚上沒有紫外線", () => {
     const night = week(element("天氣現象", "Weather", [[NIGHT, "陰"]]), values("風速", [[NIGHT, { WindSpeed: "2", BeaufortScale: "2" }]]), element("風向", "WindDirection", [[NIGHT, "偏北風"]]));
 
-    expect(parseCwaWeek(night, "臺北市")[0].details).toEqual({ ...NO_DETAILS, wind: { direction: "偏北風", level: 2 } });
+    expect(parseCwaWeek(night, "臺北市")[0].details).toEqual({ ...NO_DETAILS, wind: { direction: "偏北風", level: 2, speed: 2, gust: null } });
   });
 
   it("級數讀不到時照風速換算 每秒 6 公尺是 4 級", () => {
     const json = week(weather, values("風速", [[MORNING, { WindSpeed: "6", BeaufortScale: "" }]]));
 
-    expect(parseCwaWeek(json, "臺北市")[0].details.wind).toEqual({ direction: null, level: 4 });
+    expect(parseCwaWeek(json, "臺北市")[0].details.wind).toEqual({ direction: null, level: 4, speed: 6, gust: null });
   });
 });
 
 describe("nextDayHours：接下來 24 小時", () => {
-  const hourly = (from: string, count: number) => Array.from({ length: count }, (_, index) => ({ time: new Date(Date.parse(`${from}:00Z`) + index * 3_600_000).toISOString().slice(0, 16), temperature: 20, rain: null, weather: null }));
+  const hourly = (from: string, count: number) => Array.from({ length: count }, (_, index) => hourPoint(new Date(Date.parse(`${from}:00Z`) + index * 3_600_000).toISOString().slice(0, 16), { temperature: 20 }));
 
   it("台北 14:30 時從 14:00 這一格到明天 13:00 剛好 24 格", () => {
     const hours = nextDayHours(hourly("2026-11-07T10:00", 40), new Date("2026-11-07T06:30:00Z"), 8 * 3600);

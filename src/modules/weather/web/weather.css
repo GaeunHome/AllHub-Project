@@ -115,6 +115,10 @@
 .wx-wide {
   @apply lg:col-span-2;
 }
+/* 左欄疊兩張卡片 最小寬度 0 橫向滑的一排才不會撐開 */
+.wx-column {
+  @apply flex min-w-0 flex-col gap-6;
+}
 /* 接下來 24 小時 寬的時候格子撐滿整排 放不下才滑 */
 .wx-hours-fill > .wx-hour {
   flex: 1 0 4rem;
@@ -190,10 +194,57 @@
 .wx-compass-arrow {
   @apply grid place-items-center;
 }
-/* 空氣品質與特報 放得下時並排 */
+/* 大數字下面的幾行 使用者選的每格多兩三個數字 */
+.wx-tile-line {
+  @apply text-ink;
+}
+/* 空氣品質與特報 放得下時並排 空氣品質寬一點 測站才排得下兩欄 */
 .wx-air {
-  @apply grid gap-3;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  @apply flex flex-wrap gap-3;
+}
+.wx-air-part {
+  flex: 2 1 16rem;
+}
+.wx-warning-part {
+  flex: 1 1 9rem;
+}
+/* 沒有特報時縮成一行 空氣品質撐滿 */
+.wx-air-line {
+  @apply flex basis-full items-center gap-2 font-semibold text-ink;
+}
+/* 左欄最下面的卡片撐到跟右欄一樣高 格子跟著拉長 量表在最下面 */
+.wx-fill {
+  @apply flex-1;
+}
+.wx-fill > .wx-tiles {
+  @apply flex-1;
+}
+/* PM2.5 PM10 臭氧 一排三格 */
+.wx-pollutants {
+  @apply grid grid-cols-3 gap-2 py-2;
+}
+.wx-stations-block {
+  @apply flex flex-col gap-2 border-t pt-3;
+  border-color: var(--line);
+}
+/* 各測站 寬的時候兩三欄 */
+.wx-stations {
+  @apply grid gap-x-4 gap-y-3;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+}
+.wx-station {
+  @apply flex flex-col gap-1.5;
+}
+.wx-warnings {
+  @apply flex flex-col gap-3;
+}
+/* 左邊一條線 警報紅色 特報黃色 不用小標籤 */
+.wx-warning {
+  @apply flex flex-col gap-0.5 pl-3;
+  border-left: 3px solid var(--warning-dot);
+}
+.wx-warning[data-severe] {
+  border-left-color: var(--danger);
 }
 /* 我的城市 手機也放得下兩欄 寬螢幕卡片大一點 城市少時靠左排 不拉成長條 */
 .wx-cities {

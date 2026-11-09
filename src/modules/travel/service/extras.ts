@@ -1,5 +1,6 @@
 import "server-only";
 import { and, count, eq } from "drizzle-orm";
+import { valueOrThrow } from "@/core/parsed";
 import { travelChecks, travelComments, travelItems } from "../data/schema";
 import { CHECK_LIMIT, CHECK_MAX, COMMENT_LIMIT, COMMENT_MAX, parseShortText } from "../lib/rules";
 import { inMemberTrip, managerOf } from "./access";
@@ -7,11 +8,7 @@ import { TravelUserError } from "./errors";
 
 // 留言與出發前清單 所有成員都能用
 
-function text(input: string, label: string, max: number): string {
-  const result = parseShortText(input, label, max);
-  if (!result.ok) throw new TravelUserError(result.error);
-  return result.value;
-}
+const text = (input: string, label: string, max: number): string => valueOrThrow(parseShortText(input, label, max), TravelUserError);
 
 export async function addComment(userId: string, tripId: number, itemId: number, input: string): Promise<void> {
   const body = text(input, "留言", COMMENT_MAX);

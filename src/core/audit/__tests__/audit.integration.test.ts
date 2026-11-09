@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 import { setupTestDb } from "@/dev/test-db";
-import { coreAuditLogs, coreUsers } from "../db/schema";
+import { coreAuditLogs, coreUsers } from "../../db/schema";
 
 vi.unmock("@/core/audit");
-vi.mock("../auth", () => import("@/dev/session-stub"));
+vi.mock("../../auth", () => import("@/dev/session-stub"));
 
-const { MERGED_ROWS_PER_HOUR, UNKNOWN_ACCOUNT, cleanupAudit, writeAudit, writeLoginFailure, writeMergedFailure } = await import("../audit");
+const { MERGED_ROWS_PER_HOUR, UNKNOWN_ACCOUNT, cleanupAudit, writeAudit, writeLoginFailure, writeMergedFailure } = await import("..");
 
 const getDb = setupTestDb();
 const NOW = new Date("2026-11-04T02:10:00Z");

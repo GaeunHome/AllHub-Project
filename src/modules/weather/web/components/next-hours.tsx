@@ -11,7 +11,7 @@ const TITLE = "接下來 24 小時";
 
 function Frame({ children }: { children: ReactNode }) {
   return (
-    <section aria-labelledby="wx-next-hours" className="card stack wx-wide">
+    <section aria-labelledby="wx-next-hours" className="card stack min-w-0">
       <CardHeader id="wx-next-hours">{TITLE}</CardHeader>
       {children}
     </section>

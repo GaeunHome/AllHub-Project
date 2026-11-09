@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, isNull, lte, or, sql, type SQL } from "drizzle-orm";
 import { avatarOf, uploadedAvatar } from "../avatars";
 import { db } from "../db";
-import { coreAvatarImages, coreUsers, type UserRole } from "../db/schema";
+import { coreAvatarImages, coreModuleDenials, coreUsers, type UserRole } from "../db/schema";
 import { userAvatar } from "../db/users";
 import { AVATAR_STORED_MAX_BYTES, KEEP_AVATAR, isJpeg } from "./avatar-rules";
 import { hashPassword, needsRehash, newPasswordProblem, normalizeUsername, usernameProblem, verifyPassword } from "./credentials";
@@ -10,7 +10,8 @@ import { nicknameProblem, normalizeNickname } from "./nickname";
 import type { SessionClaims } from "./session";
 
 export type { UserRole } from "../db/schema";
-export type SessionUser = { id: string; username: string; nickname: string | null; avatar: string | null; role: UserRole };
+/** denied 是不能用的模組 跟登入檢查同一次查詢讀到 沒帶時權限檢查自己查 */
+export type SessionUser = { id: string; username: string; nickname: string | null; avatar: string | null; role: UserRole; denied?: readonly string[] };
 
 /**
  * 每錯 failures 次鎖一次 依序用 minutes 的分鐘數 之後都用最後一個
@@ -80,7 +81,15 @@ function lockedUntilAfter(count: SQL, now: Date): SQL {
 export async function findSessionUser({ userId, version }: SessionClaims): Promise<SessionUser | null> {
   const [user] = await db()
     // 每個請求都會走到這裡 新程式比 migration 先上線時欄位還不存在 從整列取值才不會全站登入失敗
-    .select({ id: coreUsers.id, username: coreUsers.username, nickname: sql<string | null>`to_jsonb(${coreUsers}) ->> 'nickname'`, avatar: userAvatar, role: coreUsers.role })
+    .select({
+      id: coreUsers.id,
+      username: coreUsers.username,
+      nickname: sql<string | null>`to_jsonb(${coreUsers}) ->> 'nickname'`,
+      avatar: userAvatar,
+      role: coreUsers.role,
+      // 每個請求都要判斷模組權限 一起讀才不用再來回一次
+      denied: sql<string[]>`coalesce((select array_agg(${coreModuleDenials.moduleId}) from ${coreModuleDenials} where ${coreModuleDenials.userId} = ${coreUsers.id}), '{}')`,
+    })
     .from(coreUsers)
     .where(and(eq(coreUsers.id, userId), eq(coreUsers.sessionVersion, version), isNull(coreUsers.disabledAt)));
   return user ?? null;

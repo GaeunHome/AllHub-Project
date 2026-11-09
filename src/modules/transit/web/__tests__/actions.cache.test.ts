@@ -49,6 +49,16 @@ describe("排順序", () => {
     expect(await moveRouteAction(1.5, null)).toHaveProperty("error");
     expect(routes.moveRoute).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["0", 0, null],
+    ["負數", -1, null],
+    ["超過 serial 範圍", 2147483648, null],
+    ["放在前面的是負數", 1, -2],
+  ])("id 不是資料表的 serial（%s）：回格式不對，不讓資料庫丟錯", async (_name, id, beforeId) => {
+    expect(await moveRouteAction(id, beforeId)).toEqual({ error: "資料不正確，請重新整理頁面再試一次" });
+    expect(routes.moveRoute).not.toHaveBeenCalled();
+  });
 });
 
 describe("一律用登入者操作", () => {

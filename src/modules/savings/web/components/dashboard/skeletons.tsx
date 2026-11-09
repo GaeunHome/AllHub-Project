@@ -126,6 +126,7 @@ export function OverviewSkeleton() {
       <div className={OVERVIEW_COLUMNS}>
         <div className={OVERVIEW_LEFT}>
           <ChecklistSkeleton label={null} />
+          <TrendSkeleton label={null} />
         </div>
         <div className={OVERVIEW_RIGHT}>
           <MonthSkeleton label={null} />

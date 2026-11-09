@@ -1,10 +1,9 @@
 import "server-only";
 import { z } from "zod";
-import { currentSession, deniedModules, type SessionUser } from "../auth";
+import { jsonResponse, withJsonBody, withSession, type RouteGuard } from "../api-route";
+import { deniedModules, type SessionUser } from "../auth";
 import { expireTags } from "../cache";
-import { logError } from "../errors";
 import { MODULE_ID_PATTERN } from "../ids";
-import { isSameOrigin } from "../same-origin";
 import { notificationsTag } from "./cache-tags";
 import { cachedFeed } from "./cached";
 import { markAllNotificationsRead, markNotificationsRead } from "./service";
@@ -13,7 +12,7 @@ import { withoutModules } from "./visible";
 // 不用 Server Action 每個分頁一次只送一個
 // 輪詢不能排在觀看頁翻譯的後面
 
-const NO_STORE = { "Cache-Control": "private, no-store" };
+const GUARD: RouteGuard = { scope: "notifications", failure: "暫時無法讀取通知" };
 const MAX_IDS = 100;
 
 const markRequest = z.discriminatedUnion("action", [
@@ -21,41 +20,21 @@ const markRequest = z.discriminatedUnion("action", [
   z.object({ action: z.literal("read-all"), module: z.string().regex(MODULE_ID_PATTERN).optional() }),
 ]);
 
-const json = (body: unknown, status = 200) => Response.json(body, { status, headers: NO_STORE });
-
 /** 權限每次讀最新 快取的通知不分模組 回應前才濾掉 */
-const feedOf = async (user: SessionUser) => json(withoutModules(await cachedFeed(user.id), await deniedModules(user)));
+const feedOf = async (user: SessionUser) => jsonResponse(withoutModules(await cachedFeed(user.id), await deniedModules(user)));
 
 /** session 失效時回 401 例如在別的裝置改了密碼 前端就停止輪詢 */
 export async function GET(): Promise<Response> {
-  return withSession(feedOf);
+  return withSession(GUARD, feedOf);
 }
 
 export async function POST(request: Request): Promise<Response> {
-  // cookie 是 SameSite=Lax 再加上同源與 JSON 檢查 別的網站無法替使用者送出
-  if (!isSameOrigin(request)) return json({ error: "forbidden" }, 403);
-  if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return json({ error: "請用 JSON" }, 415);
-
-  return withSession(async (user) => {
-    const parsed = markRequest.safeParse(await request.json().catch(() => undefined));
-    if (!parsed.success) return json({ error: "內容格式不正確" }, 400);
+  return withJsonBody(request, markRequest, GUARD, async (user, body) => {
     // 只改登入者自己的通知 送來別人的 id 不會有效果
-    if (parsed.data.action === "read") await markNotificationsRead(user.id, parsed.data.ids);
-    else await markAllNotificationsRead(user.id, { module: parsed.data.module, hidden: await deniedModules(user) });
+    if (body.action === "read") await markNotificationsRead(user.id, body.ids);
+    else await markAllNotificationsRead(user.id, { module: body.module, hidden: await deniedModules(user) });
     // 同一請求裡失效過的 tag 會讓下面直接讀新資料 回傳的未讀數就是標完之後的
     expireTags(notificationsTag);
     return feedOf(user);
   });
-}
-
-async function withSession(handle: (user: SessionUser) => Promise<Response>): Promise<Response> {
-  try {
-    const user = await currentSession();
-    if (!user) return json({ error: "unauthorized" }, 401);
-    return await handle(user);
-  } catch (error) {
-    // 資料庫錯誤可能夾帶 SQL 或連線資訊 回應只給摘要 log 只記錯誤種類
-    logError("notifications", "API 失敗", error);
-    return json({ error: "暫時無法讀取通知" }, 500);
-  }
 }

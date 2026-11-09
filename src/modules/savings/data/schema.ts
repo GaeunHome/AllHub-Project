@@ -1,5 +1,5 @@
 import { sql, type SQLWrapper } from "drizzle-orm";
-import { type AnyPgColumn, boolean, check, date, index, integer, pgTable, serial, smallint, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { type AnyPgColumn, bigint, boolean, check, date, index, integer, pgTable, primaryKey, serial, smallint, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { coreUsers } from "@/core/db/schema";
 import {
   ACCOUNT_KINDS,
@@ -283,6 +283,22 @@ export const savingsTransactions = pgTable(
     check("savings_transactions_cost_change", sql`${t.costChange} is null or ${t.costChange} between -${MAX} and ${MAX}`),
     check("savings_transactions_recurring_period_first_day", firstOfMonth(t.recurringPeriod)),
   ],
+).enableRLS();
+
+/**
+ * 資產走勢 每人每月一列 排程每天更新前一天那個月的投資市值
+ * 存款照紀錄回推 不存 合計可能超過 integer 所以用 bigint
+ */
+export const savingsAssetSnapshots = pgTable(
+  "savings_asset_snapshots",
+  {
+    userId: owner(),
+    // 那個月的 1 號
+    month: date("month", { mode: "string" }).notNull(),
+    investment: bigint("investment", { mode: "number" }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.month] }), check("savings_asset_snapshots_month_first_day", firstOfMonth(t.month))],
 ).enableRLS();
 
 export type SavingsCategory = typeof savingsCategories.$inferSelect;

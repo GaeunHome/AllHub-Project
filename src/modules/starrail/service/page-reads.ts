@@ -1,4 +1,5 @@
 import "server-only";
+import { logMissing } from "@/core/json";
 import type { ActCalendar } from "../lib/calendar";
 import type { StarrailCharacter } from "../lib/characters";
 import type { Endgame, EndgameMode, EndgameSchedule } from "../lib/endgame";
@@ -52,7 +53,7 @@ async function readRecord<T extends { missing: string[] }>(
     console.error(`[starrail] 讀取${what}失敗`, accountId, `retcode ${result.retcode}`);
     return { ok: false, message: result.message };
   }
-  if (result.data.missing.length > 0) console.error(`[starrail] ${what}的格式和預期不同`, accountId, `缺少或看不懂：${result.data.missing.join("、")}`);
+  logMissing("starrail", what, result.data.missing, accountId);
   return { ok: true, data: result.data, fetchedAt };
 }
 

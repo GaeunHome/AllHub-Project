@@ -1,13 +1,25 @@
+import { InfoTip } from "@/core/ui/info-tip";
 import { CardHeader } from "@/core/ui/page-header";
-import type { DetailTile } from "../weekly-view";
+import type { County } from "../../lib/counties";
+import type { DayDetails } from "../../lib/details";
+import { localClock, localDay, nextDayHours, type HourPoint } from "../../lib/weekly";
+import { hoursOf, type PlaceWeek } from "../place-week";
+import { detailTiles, type DetailTile } from "../weekly-view";
 import { MeterBar } from "./detail-meter";
 import { TileImage } from "./weather-images";
 
-/** 跟一週預報同一個回應 不用另外等 wide 是旁邊沒有空氣品質時撐滿整列 */
-export function TodayDetails({ tiles, wide }: { tiles: DetailTile[]; wide: boolean }) {
+/** 最高最低與幾點看接下來 24 小時 跟上面那一排一樣 */
+export function detailsOf(details: DayDetails, week: PlaceWeek, hours: readonly HourPoint[], now = new Date()): DetailTile[] {
+  const offset = week.utcOffsetSeconds;
+  return detailTiles(details, { clock: localClock(now, offset), today: localDay(now, offset), hours: nextDayHours(hours, now, offset) });
+}
+
+export function TodayDetails({ tiles }: { tiles: DetailTile[] }) {
   return (
-    <section aria-labelledby="wx-details" className={wide ? "card stack wx-wide" : "card stack"}>
-      <CardHeader id="wx-details">今天的細節</CardHeader>
+    <section aria-labelledby="wx-details" className="card stack wx-fill">
+      <CardHeader id="wx-details" actions={<InfoTip label="今天的細節的說明">最高最低與幾點看接下來 24 小時</InfoTip>}>
+        今天的細節
+      </CardHeader>
       <dl className="wx-tiles">
         {tiles.map((tile) => (
           <div key={tile.label} className="panel wx-tile">
@@ -16,7 +28,11 @@ export function TodayDetails({ tiles, wide }: { tiles: DetailTile[]; wide: boole
               {tile.label}
             </dt>
             <dd className="wx-tile-value">{tile.value}</dd>
-            {tile.sub && <dd className="text-ink">{tile.sub}</dd>}
+            {tile.lines.map((line, index) => (
+              <dd key={line} className={index === 0 ? "wx-tile-line font-semibold" : "wx-tile-line"}>
+                {line}
+              </dd>
+            ))}
             {tile.meter && (
               <dd className="wx-tile-meter">
                 <MeterBar meter={tile.meter} />
@@ -27,4 +43,10 @@ export function TodayDetails({ tiles, wide }: { tiles: DetailTile[]; wide: boole
       </dl>
     </section>
   );
+}
+
+/** 台灣的每小時另外讀 讀到之前先畫一天的數字 跟接下來 24 小時共用同一份 */
+export async function TodayDetailsWithHours({ county, week, details }: { county: County | null; week: PlaceWeek; details: DayDetails }) {
+  const hours = await hoursOf(county, week);
+  return <TodayDetails tiles={detailsOf(details, week, hours)} />;
 }

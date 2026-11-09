@@ -13,7 +13,7 @@ import { openEmptyDb } from "@/dev/test-db";
 const MIGRATIONS = "src/core/db/migrations";
 const BASELINE = "0000_baseline";
 // 正式資料庫最後套用的 migration 的時間戳記
-const LAST_APPLIED_BEFORE_BASELINE = 1794062966192;
+const LAST_APPLIED_BEFORE_BASELINE = 1794116673330;
 const cleanups: Array<() => Promise<void> | void> = [];
 
 afterEach(async () => {
@@ -113,10 +113,7 @@ const statementsOf = (tag: string) =>
 
 // 部署時舊程式還在跑 刪表 刪欄位或改名會讓它出錯
 // 使用者同意直接收斂的照 migration 逐條列在這裡
-const ALLOWED_CONVERGENCE: Record<string, string[]> = {
-  // 使用者要的 翻譯設定改用 user_id 當主鍵 分兩版 v0.2.8 換主鍵 這一版刪掉舊的 id
-  "0001_announcement_pin": ['ALTER TABLE "youtube_settings" DROP COLUMN "id";'],
-};
+const ALLOWED_CONVERGENCE: Record<string, string[]> = {};
 
 describe("基準檔之後的 migration 都只擴充（明列的收斂例外除外）", () => {
   const pending = journal().entries.filter((entry) => entry.tag !== BASELINE);
@@ -139,39 +136,6 @@ describe("基準檔之後的 migration 都只擴充（明列的收斂例外除�
 });
 
 // 刪除帳號的外鍵在 account-deletion.integration.test.ts 檢查
-describe("公告的置頂與翻譯設定刪掉舊的 id", { timeout: 30_000 }, () => {
-  const columnsOf = async (table: string) => (await client.query<{ column_name: string }>(`select column_name from information_schema.columns where table_name = $1`, [table])).rows.map((row) => row.column_name);
-
-  it("原本的資料都留著：翻譯設定刪掉 id 欄 主鍵照舊是 user_id 以前的公告不置頂", async () => {
-    const [baseline, latest] = readMigrationFiles({ migrationsFolder: MIGRATIONS });
-    for (const statement of baseline.sql) await client.exec(statement);
-    await insertUser(USERS.boss, "boss", "owner");
-    await client.query(`insert into youtube_settings (id, user_id, provider, glossary) values (1, $1, 'openai', '[{"source":"민지","target":"珉池"}]')`, [USERS.boss]);
-    await client.query(`insert into core_announcements (kind, title) values ('outage', '資料庫升級')`);
-
-    await client.transaction(async (tx) => {
-      for (const statement of latest.sql) await tx.exec(statement);
-    });
-
-    expect(await columnsOf("youtube_settings")).not.toContain("id");
-    expect((await client.query(`select user_id, provider, glossary from youtube_settings`)).rows).toEqual([{ user_id: USERS.boss, provider: "openai", glossary: [{ source: "민지", target: "珉池" }] }]);
-    await expect(client.query(`insert into youtube_settings (user_id) values ($1)`, [USERS.boss])).rejects.toThrow(/youtube_settings_pkey/);
-    expect((await client.query(`select title, pinned from core_announcements`)).rows).toEqual([{ title: "資料庫升級", pinned: false }]);
-  });
-
-  it("部署空窗期舊程式照樣讀寫：發公告不帶置頂 翻譯設定照 user_id 存", async () => {
-    await migrate(db, { migrationsFolder: MIGRATIONS });
-    await insertUser(USERS.early, "early");
-
-    await client.query(`insert into "core_announcements" ("kind", "title", "body", "starts_at", "ends_at") values ('general', '新功能', '', null, null)`);
-    for (const provider of ["openai", "gemini"])
-      await client.query(`insert into "youtube_settings" ("user_id", "provider", "glossary", "updated_at") values ($1, $2, '[]', default) on conflict ("user_id") do update set "provider" = $2`, [USERS.early, provider]);
-
-    expect((await client.query(`select pinned from core_announcements`)).rows).toEqual([{ pinned: false }]);
-    expect((await client.query(`select provider from youtube_settings`)).rows).toEqual([{ provider: "gemini" }]);
-  });
-});
-
 describe("模組內資料之間的外鍵與唯一限制", { timeout: 30_000 }, () => {
   beforeEach(async () => {
     await migrate(db, { migrationsFolder: MIGRATIONS });

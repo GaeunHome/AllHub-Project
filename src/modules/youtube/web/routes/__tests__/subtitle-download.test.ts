@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, TEST_SESSION, canUseModule, currentSession, requireSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../../service/translation", { spy: true });
@@ -65,5 +65,26 @@ describe("字幕下載的擁有權規則：翻譯是共用的", () => {
     getTranslation.mockResolvedValue(undefined);
 
     expect((await download()).status).toBe(404);
+  });
+});
+
+describe("字幕下載出錯", () => {
+  it("讀資料庫出錯_500 只回摘要 不快取 log 只記錯誤種類不記原文", async () => {
+    const log = captureErrorLog();
+    getTranslation.mockRejectedValue(Object.assign(new Error("select ... params: secret-video"), { name: "PostgresError" }));
+
+    const response = await download();
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(JSON.stringify(await response.json())).not.toContain("secret-video");
+    expect(loggedText(log)).toContain("PostgresError");
+    expect(loggedText(log)).not.toContain("secret-video");
+  });
+
+  it("錯誤回應也不快取：沒登入的 401 不能被瀏覽器或 CDN 存下來", async () => {
+    currentSession.mockResolvedValue(null);
+
+    expect((await download()).headers.get("cache-control")).toContain("no-store");
   });
 });

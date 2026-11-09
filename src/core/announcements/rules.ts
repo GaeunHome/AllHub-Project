@@ -1,4 +1,6 @@
 import type { AnnouncementKind } from "../db/schema";
+import { fail, ok, type Parsed } from "../parsed";
+import { charLength } from "../text";
 import { DAY_MS, formatTaipeiHourMinute, formatTaipeiMonthDay, isRealDateKey, taipeiDateKey } from "../time";
 
 // 公告的規則 瀏覽器的表單也用 不碰資料庫
@@ -9,29 +11,25 @@ export const ANNOUNCEMENT_BODY_MAX = 2000;
 
 export type AnnouncementFields = Record<"kind" | "title" | "body" | "startsAt" | "endsAt" | "pinned", string>;
 export type AnnouncementInput = { kind: AnnouncementKind; title: string; body: string; startsAt: Date | null; endsAt: Date | null; pinned: boolean };
-type Parsed = { ok: true; value: AnnouncementInput } | { ok: false; error: string };
-
-const fail = (error: string): Parsed => ({ ok: false, error });
-
 /** 表單的日期時間沒有時區 一律當台北時間 */
 function parseTaipeiTime(raw: string): Date | null {
   const match = /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):[0-5]\d$/.exec(raw);
   return match && isRealDateKey(match[1]) ? new Date(`${raw}:00+08:00`) : null;
 }
 
-export function parseAnnouncement(fields: AnnouncementFields): Parsed {
+export function parseAnnouncement(fields: AnnouncementFields): Parsed<AnnouncementInput> {
   if (!Object.hasOwn(ANNOUNCEMENT_KIND_LABELS, fields.kind)) return fail("請選擇公告的種類");
   const title = fields.title.trim();
   if (title === "") return fail("請填標題");
-  if ([...title].length > ANNOUNCEMENT_TITLE_MAX) return fail(`標題最多 ${ANNOUNCEMENT_TITLE_MAX} 字`);
+  if (charLength(title) > ANNOUNCEMENT_TITLE_MAX) return fail(`標題最多 ${ANNOUNCEMENT_TITLE_MAX} 字`);
   const body = fields.body.trim();
-  if ([...body].length > ANNOUNCEMENT_BODY_MAX) return fail(`內文最多 ${ANNOUNCEMENT_BODY_MAX} 字`);
+  if (charLength(body) > ANNOUNCEMENT_BODY_MAX) return fail(`內文最多 ${ANNOUNCEMENT_BODY_MAX} 字`);
   const startsAt = fields.startsAt === "" ? null : parseTaipeiTime(fields.startsAt);
   if (startsAt === null && fields.startsAt !== "") return fail("開始時間不正確");
   const endsAt = fields.endsAt === "" ? null : parseTaipeiTime(fields.endsAt);
   if (endsAt === null && fields.endsAt !== "") return fail("結束時間不正確");
   if (startsAt && endsAt && endsAt <= startsAt) return fail("結束時間要晚於開始時間");
-  return { ok: true, value: { kind: fields.kind as AnnouncementKind, title, body, startsAt, endsAt, pinned: fields.pinned === "true" } };
+  return ok({ kind: fields.kind as AnnouncementKind, title, body, startsAt, endsAt, pinned: fields.pinned === "true" });
 }
 
 /** 快取裡是全部的公告 過期與否要用這次請求的時間算 */

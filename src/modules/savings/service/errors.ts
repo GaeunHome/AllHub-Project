@@ -3,7 +3,9 @@ import { formatNumber } from "../lib/money";
 import { PENDING_LOOKAHEAD_DAYS } from "../lib/recurring";
 
 /** 輸入或操作有誤 訊息可以直接給使用者看 */
-export class SavingsUserError extends UserError {}
+export class SavingsUserError extends UserError {
+  name = "SavingsUserError";
+}
 
 /** 資料庫的唯一索引擋下同名時用 */
 export const DUPLICATE_NAME = {

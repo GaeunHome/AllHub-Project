@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { stubCoreEnv } from "@/dev/test-env";
-import { insertTestUsers, setupTestDb } from "@/dev/test-db";
+import { insertTestUsers, logStatements, setupTestDb } from "@/dev/test-db";
 import { mocksOf } from "@/dev/test-helpers";
 import { transitRoutes } from "../../data/schema";
 import { ROUTE_LIMIT, TRACKED_LIMIT } from "../../lib/rules";
@@ -80,6 +80,18 @@ describe("新增常用路線", () => {
     await seed(me, ROUTE_LIMIT);
 
     await expect(addRoute(me, THSR)).rejects.toThrow(`已滿 ${ROUTE_LIMIT} 條`);
+  });
+
+  // PGlite 只有一條連線 交易本來就一個一個跑 所以看送出的 SQL
+  it("先鎖住自己那一列使用者再數 同一個人同時新增時一個一個來 才不會超過上限", async () => {
+    const statements = logStatements(getDb());
+
+    await addRoute(me, THSR);
+
+    const lock = statements.findIndex(({ sql, params }) => sql.includes('from "core_users"') && sql.includes("for no key update") && params.includes(me));
+    const counting = statements.findIndex(({ sql }) => sql.includes("count(") && sql.includes('from "transit_routes"'));
+    expect(lock).toBeGreaterThan(-1);
+    expect(counting).toBeGreaterThan(lock);
   });
 });
 

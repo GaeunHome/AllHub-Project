@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { auditCron } from "@/core/audit-cron";
+import { auditCron } from "@/core/audit/cron";
 import { coreCronLabels } from "@/core/cron";
 import { notificationsCron } from "@/core/notifications/cron";
 import { cronTasks } from "../cron";

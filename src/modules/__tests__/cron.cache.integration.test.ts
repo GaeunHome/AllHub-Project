@@ -34,6 +34,8 @@ const EXPECTED: Record<string, string[]> = {
   "savings:recurring": ["savings:accounts", "savings:bills", "savings:recurring", "savings:transactions"],
   // 只寫通知與寄過的記號 畫面不讀那張表 通知的 tag 由 notify 自己失效
   "savings:dividends": [],
+  // 資產走勢每月的投資市值 總覽的走勢圖讀這張表
+  "savings:trend": ["savings:snapshots"],
   // 只寫通知與認領紀錄 通知的 tag 由 notify 自己失效
   "weather:rain": [],
   "weather:warnings": [],

@@ -2,7 +2,7 @@ import { createElement, useActionState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { markup, textOf } from "@/dev/test-helpers";
 import { toasts } from "@/dev/toast-stub";
-import type { FormState } from "../../actions";
+import type { FormState } from "@/core/ui/form-message";
 
 // 結果要送出後才有 所以直接給 useActionState 送出後的狀態看畫面
 // 其他照 React 原本的實作

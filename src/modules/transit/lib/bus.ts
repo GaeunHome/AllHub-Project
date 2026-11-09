@@ -1,4 +1,5 @@
 import { asArray, asRecord, numberOf, text } from "@/core/json";
+import { clockMinutes, serviceWeekday } from "./clock";
 
 // 市區公車 欄位照 TDX 的 OpenAPI 文件 還沒用真實金鑰驗證
 
@@ -84,14 +85,7 @@ export function parseBusEta(json: unknown, direction: number): Record<string, Bu
 
 export const soonestEta = (json: unknown, stopId: string, direction: number): BusEta => parseBusEta(json, direction)[stopId] ?? { seconds: null, status: null };
 
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-const runsOn = (serviceDay: unknown, date: string) => asRecord(serviceDay)?.[WEEKDAYS[new Date(`${date}T12:00:00+08:00`).getUTCDay()]] === 1;
-
-function minutesOf(value: unknown): number | null {
-  const match = typeof value === "string" ? /^(\d{2}):(\d{2})/.exec(value) : null;
-  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
-}
+const runsOn = (serviceDay: unknown, date: string) => asRecord(serviceDay)?.[serviceWeekday(date)] === 1;
 
 /** 班次多的路線只有班距 班次少的才有班表 minutes 是現在幾點 */
 export function parseBusSchedule(json: unknown, direction: number, date: string, minutes: number): BusSchedule {
@@ -101,8 +95,8 @@ export function parseBusSchedule(json: unknown, direction: number, date: string,
   });
   const frequency = rows.flatMap((row) => asArray(row.Frequencys)).find((value) => {
     const row = asRecord(value);
-    const start = minutesOf(row?.StartTime);
-    const end = minutesOf(row?.EndTime);
+    const start = clockMinutes(row?.StartTime);
+    const end = clockMinutes(row?.EndTime);
     return start !== null && end !== null && start <= minutes && minutes < end && runsOn(row?.ServiceDay, date);
   });
   const min = numberOf(asRecord(frequency)?.MinHeadwayMins);
@@ -112,7 +106,7 @@ export function parseBusSchedule(json: unknown, direction: number, date: string,
     .flatMap((value) => {
       const row = asRecord(value);
       const time = text(asRecord(asArray(row?.StopTimes)[0])?.DepartureTime);
-      const at = minutesOf(time);
+      const at = clockMinutes(time);
       return time && at !== null && at >= minutes && runsOn(row?.ServiceDay, date) ? [time] : [];
     })
     .sort();

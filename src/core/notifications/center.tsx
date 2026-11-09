@@ -6,7 +6,7 @@ import { applyLocalRead, applyLocalReadAll, claimAlerts, freshNotifications, pla
 import { chime } from "./chime";
 import { linkTarget } from "./links";
 import type { NotificationModule } from "./notification-summary";
-import { startPoller, type PollResult } from "./poller";
+import { keepSameFeed, startPoller, type PollResult } from "./poller";
 import { readAlertPref } from "./prefs";
 import { shouldShowSystemNotification, showSystemNotification } from "./system-notification";
 import { NotificationToasts } from "./toasts";
@@ -147,7 +147,7 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
     const onFeed = (next: NotificationFeed) => {
       // 標已讀的請求還沒回來時不用舊資料蓋掉畫面 下一輪再同步
       if (pendingMarks.current > 0) return;
-      setFeed(next);
+      setFeed((current) => keepSameFeed(current, next));
       setLoaded(true);
       const { fresh, lastSeenId: newest } = freshNotifications(next.recent, lastSeenId.current);
       lastSeenId.current = newest;

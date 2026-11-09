@@ -1,4 +1,5 @@
 import "server-only";
+import { navigation } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
@@ -27,6 +28,9 @@ export async function deleteSession(): Promise<void> {
 
 /** 同一次請求很多元件都會檢查登入 用 React cache 只查一次資料庫 */
 export const currentSession = cache(async (): Promise<SessionUser | null> => {
+  // 站內連結的預先抓取不讀 cookie 直接用建置時的外框 點進去才查登入
+  // Route Handler 與 Server Action 呼叫時會直接往下走
+  await navigation();
   const claims = await verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value, coreEnv().SESSION_SECRET);
   // proxy 只驗簽章 被刪除 停用或改過密碼的使用者要在這裡擋下
   return claims ? findSessionUser(claims) : null;

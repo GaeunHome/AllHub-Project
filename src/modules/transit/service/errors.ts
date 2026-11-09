@@ -5,6 +5,7 @@ export class TransitUserError extends UserError {
 }
 
 export class RouteNotFoundError extends TransitUserError {
+  name = "RouteNotFoundError";
   constructor() {
     super("找不到這條路線，請重新整理頁面");
   }

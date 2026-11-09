@@ -1,5 +1,6 @@
 import "server-only";
 import { and, asc, count, eq, isNull, ne, sql } from "drizzle-orm";
+import { valueOrThrow } from "@/core/parsed";
 import { externalFetch } from "@/core/external-url";
 import { logError } from "@/core/errors";
 import { travelItems } from "../data/schema";
@@ -24,21 +25,19 @@ async function expandShortUrl(url: string): Promise<string> {
   }
 }
 
-export async function placeFromUrl(url: string): Promise<MapsPlace | null> {
+async function placeFromUrl(url: string): Promise<MapsPlace | null> {
   return parseMapsUrl(isShortMapsUrl(url) ? await expandShortUrl(url) : url);
 }
 
 /** 只貼連結就能新增 名稱從連結讀 讀不到才要使用者自己填 */
 async function valuesOf(input: ItemInput): Promise<ItemValues & Pick<MapsPlace, "lat" | "lng">> {
   const mapsUrl = input.mapsUrl.trim();
-  const shape = parseItem({ ...input, title: input.title.trim() || "待定" });
-  if (!shape.ok) throw new TravelUserError(shape.error);
+  valueOrThrow(parseItem({ ...input, title: input.title.trim() || "待定" }), TravelUserError);
   const place = mapsUrl ? await placeFromUrl(mapsUrl) : null;
   const title = input.title.trim() || place?.name;
   if (!title) throw new TravelUserError("連結看不出地點名稱，請自己填名稱");
-  const result = parseItem({ ...input, title });
-  if (!result.ok) throw new TravelUserError(result.error);
-  return { ...result.value, mapsUrl: place?.url ?? result.value.mapsUrl, lat: place?.lat ?? null, lng: place?.lng ?? null };
+  const values = valueOrThrow(parseItem({ ...input, title }), TravelUserError);
+  return { ...values, mapsUrl: place?.url ?? values.mapsUrl, lat: place?.lat ?? null, lng: place?.lng ?? null };
 }
 
 const inList = (tripId: number, day: string | null) => and(eq(travelItems.tripId, tripId), day === null ? isNull(travelItems.day) : eq(travelItems.day, day));

@@ -253,8 +253,8 @@ describe("架構規則", () => {
 
   // 這些工具會寫資料庫 web 要經過 service
   // 使用者 id 由 web 登入檢查後傳給 service
-  it("模組的 web 不直接用會寫資料庫的 core 工具（notify、cooldown、auth/attempts、claim、retention-cleanup）；service、data、lib 不碰登入（@/core/auth、next/headers，import type 除外）", () => {
-    const WRITERS = ["core/notify.ts", "core/cooldown.ts", "core/auth/attempts.ts", "core/claim.ts", "core/retention-cleanup.ts"];
+  it("模組的 web 不直接用會寫資料庫的 core 工具（notify、cooldown、auth/attempts、claim、retention/cleanup）；service、data、lib 不碰登入（@/core/auth、next/headers，import type 除外）", () => {
+    const WRITERS = ["core/notify.ts", "core/cooldown.ts", "core/auth/attempts.ts", "core/claim.ts", "core/retention/cleanup.ts"];
     const LOWER = ["service", "data", "lib"];
     const found = violations((i, from) => {
       if (from.zone !== "module" || isTest(i.from) || i.typeOnly) return null;
@@ -461,9 +461,15 @@ describe("架構規則", () => {
       expect(problems).toEqual([]);
     });
 
-    it("回應登入者的 Route Handler（用 currentSession 的）也檢查 canUseModule", () => {
-      const routes = moduleWeb.filter((file) => file.includes("/web/routes/") && callsIn(file).includes("currentSession"));
-      const problems = routes.filter((file) => !callsIn(file).includes("canUseModule")).map((file) => `${file}：沒有權限時要回 403`);
+    it("回應登入者的 Route Handler（用 currentSession 或 core/api-route 的 withSession、withJsonBody）也檢查模組權限", () => {
+      const sessionCalls = ["currentSession", "withSession", "withJsonBody"];
+      const routes = moduleWeb.filter((file) => file.includes("/web/routes/") && callsIn(file).some((name) => sessionCalls.includes(name)));
+      // 自己呼叫 canUseModule 或交給 api-route 時帶上自己的模組 id
+      const checksAccess = (file: string) => {
+        const place = placeOf(file);
+        return callsIn(file).includes("canUseModule") || (place.zone === "module" && read(file).includes(`module: "${place.id}"`));
+      };
+      const problems = routes.filter((file) => !checksAccess(file)).map((file) => `${file}：沒有權限時要回 403`);
 
       expect(routes.length).toBeGreaterThan(0);
       expect(problems).toEqual([]);

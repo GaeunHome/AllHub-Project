@@ -1,6 +1,7 @@
 import "server-only";
 import { logError } from "@/core/errors";
 import { HttpStatusError } from "@/core/external-url";
+import { logMissing } from "@/core/json";
 import { soonestEta, parseBusEta, parseBusRoute, parseBusSchedule, type BusDirection, type BusEta, type BusSchedule } from "../lib/bus";
 import type { LiveReading } from "../lib/countdown";
 import { parseMetroFare, parseThsrFares, parseTraFares, type CabinFare, type TraFare } from "../lib/fares";
@@ -37,7 +38,7 @@ export function problemOf(...reads: (Read<unknown> | null)[]): string | null {
 async function readExtra<T>(what: string, work: () => Promise<{ value: T | null; missing: string[] }>): Promise<Read<T | null>> {
   try {
     const { value, missing } = await work();
-    if (missing.length > 0) console.warn(`[transit] ${what}少了欄位`, missing.join(", "));
+    logMissing("transit", what, missing);
     return { ok: true, data: value };
   } catch (error) {
     logError("transit", `讀不到${what}`, error);

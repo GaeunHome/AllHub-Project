@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, count, eq, max } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { Executor } from ".";
 import { movedIds, sameOrder } from "../order";
@@ -28,4 +28,14 @@ export function moveOwnRow(executor: Executor, table: OrderedTable, move: { user
     for (const [sortOrder, rowId] of next.entries()) await tx.update(table).set({ sortOrder }).where(and(eq(table.id, rowId), eq(table.userId, userId)));
     return true;
   });
+}
+
+/**
+ * 新增前先鎖使用者再數自己有幾列 同時新增時一個一個來 才不會超過上限
+ * sortOrder 是排到最後的位置 要在交易裡呼叫
+ */
+export async function nextOwnSlot(tx: Executor, table: OrderedTable, userId: string): Promise<{ total: number; sortOrder: number }> {
+  await lockUserRow(tx, userId, "no key update");
+  const [{ total, last }] = await tx.select({ total: count(), last: max(table.sortOrder) }).from(table).where(eq(table.userId, userId));
+  return { total, sortOrder: last === null ? 0 : Number(last) + 1 };
 }

@@ -31,7 +31,8 @@ import { interpretWarpLogin, interpretWarpPage, quoteBigCursors, type WarpCursor
 // HoYoLAB 國際服的非官方介面 還沒用真實帳號驗證
 // 改版就可能失效 呼叫端都要能處理失敗
 
-const ROLES_URL = "https://api-account-os.hoyolab.com/account/binding/api/getUserGameRolesByCookie?game_biz=hkrpg_global";
+const GAME_BIZ = "hkrpg_global";
+const ROLES_URL = `https://api-account-os.hoyolab.com/account/binding/api/getUserGameRolesByCookie?game_biz=${GAME_BIZ}`;
 const RECORD_BASE = "https://bbs-api-os.hoyolab.com/game_record/hkrpg/api";
 const LEDGER_URL = "https://sg-public-api.hoyolab.com/event/srledger/month_info";
 const REDEEM_URL = "https://public-operation-hkrpg.hoyoverse.com/common/apicdkey/api/webExchangeCdkeyRisk";
@@ -39,7 +40,6 @@ const GIFT_PAGE = "https://hsr.hoyoverse.com";
 const CHECKIN_BASE = "https://sg-public-api.hoyolab.com/event/luna/os";
 const WARP_LOGIN_URL = "https://sg-act-public-api.hoyolab.com/common/badge/v1/login/account";
 const WARP_LIST_URL = "https://sg-act-public-api.hoyolab.com/event/rpg_gacha_record/five_star_list";
-const GAME_BIZ = "hkrpg_global";
 
 /** 自動兌換的排程要在 60 秒內跑完 兌換的請求最多等 10 秒 */
 const REDEEM_TIMEOUT_MS = 10_000;
@@ -163,7 +163,7 @@ export async function fetchEndgame(cookie: string, uid: string, region: string, 
  * 沒貼 account_ 開頭的鍵時用 lt 開頭的補
  */
 export async function redeemCode(cookie: string, uid: string, region: string, code: string): Promise<RedeemOutcome> {
-  const body = { cdkey: code, device_uuid: randomUUID(), game_biz: "hkrpg_global", lang: "zh-tw", platform: "4", region, t: Math.floor(Date.now() / 1000), uid };
+  const body = { cdkey: code, device_uuid: randomUUID(), game_biz: GAME_BIZ, lang: "zh-tw", platform: "4", region, t: Math.floor(Date.now() / 1000), uid };
   const json = await call(
     REDEEM_URL,
     {

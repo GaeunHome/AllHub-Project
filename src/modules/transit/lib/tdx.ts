@@ -1,6 +1,7 @@
 import { transitEnv } from "@/core/env";
 import { errorKind } from "@/core/errors";
 import { HttpStatusError, externalFetch } from "@/core/external-url";
+import { createTokenCache, type OAuthToken } from "@/core/token-cache";
 import type { Mode } from "./modes";
 
 // 交通部 TDX 免費會員一個月 3 點 軌道 API 1 點 1,500 次 每把金鑰每分鐘只有 5 次
@@ -17,34 +18,24 @@ export class TdxKeyError extends HttpStatusError {
   name = "TdxKeyError";
 }
 
-let token: { value: string; expiresAt: number } | undefined;
-// 頁面會同時查好幾條路線 還沒有 token 時共用同一個請求
-let pendingToken: Promise<string> | undefined;
 // 被擋時大家一起等 不用每個都再問一次
 let blockedUntil = 0;
 
-async function requestToken(): Promise<string> {
+async function requestToken(): Promise<OAuthToken> {
   const { TDX_CLIENT_ID, TDX_CLIENT_SECRET } = transitEnv();
   const body = new URLSearchParams({ grant_type: "client_credentials", client_id: TDX_CLIENT_ID ?? "", client_secret: TDX_CLIENT_SECRET ?? "" });
   const response = await externalFetch(TOKEN_URL, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
   if (response.status === 400 || response.status === 401) throw new TdxKeyError(response.status);
   if (!response.ok) throw new HttpStatusError(response.status);
-  const data = (await response.json()) as { access_token: string; expires_in: number };
-  token = { value: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
-  return token.value;
+  return (await response.json()) as OAuthToken;
 }
 
-function accessToken(): Promise<string> {
-  if (token && Date.now() < token.expiresAt - REFRESH_MARGIN_MS) return Promise.resolve(token.value);
-  pendingToken ??= requestToken().finally(() => {
-    pendingToken = undefined;
-  });
-  return pendingToken;
-}
+// 頁面會同時查好幾條路線 還沒有 token 時共用同一個請求
+const tokens = createTokenCache(requestToken, REFRESH_MARGIN_MS);
 
 /** 測試之間清掉記在記憶體的 token 與等待 */
 export function resetTdx(): void {
-  token = undefined;
+  tokens.reset();
   blockedUntil = 0;
 }
 
@@ -63,9 +54,9 @@ async function request(path: string, query: Record<string, string>, maxWaitMs: n
     const now = Date.now();
     if (blockedUntil > giveUpAt) throw new HttpStatusError(429);
     if (blockedUntil > now) await pause(blockedUntil - now);
-    const response = await externalFetch(url, { headers: { Authorization: `Bearer ${await accessToken()}`, Accept: "application/json" }, cache: "no-store" });
-    // token 可能提早失效 下一次重新拿
-    if (response.status === 401) token = undefined;
+    const response = await externalFetch(url, { headers: { Authorization: `Bearer ${await tokens.get()}`, Accept: "application/json" }, cache: "no-store" });
+    // token 可能提早失效 這次照樣算失敗 下一次重新拿
+    if (response.status === 401) tokens.invalidate();
     if (response.status === 429) {
       blockedUntil = Date.now() + retryDelayMs(response, Date.now());
       continue;

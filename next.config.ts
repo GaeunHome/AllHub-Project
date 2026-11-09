@@ -26,6 +26,11 @@ const nextConfig: NextConfig = {
     // 證交所與櫃買的收盤價一天更新一次 每小時看一次就能接到早上的更新
     quotes: { stale: 30, revalidate: 3600, expire: 21_600 },
   },
+  // public 的檔名沒有雜湊 換圖要換檔名或等效期過 重新整理時不用一個個問伺服器
+  // 要登入的 /images 與 /illustrations 由 proxy 驗過才加 不然導回登入頁的轉址也會被記住
+  async headers() {
+    return [{ source: "/icons/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }] }];
+  },
   turbopack: {
     rules: {
       "*.css": {

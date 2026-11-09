@@ -1,5 +1,6 @@
 import "server-only";
 import { and, asc, count, eq, gte, ne, or, sql } from "drizzle-orm";
+import { valueOrThrow } from "@/core/parsed";
 import { db } from "@/core/db";
 import { lockUserRow } from "@/core/db/users";
 import { taipeiDateKey } from "@/core/time";
@@ -17,11 +18,7 @@ const ownRow = (userId: string, id: number) => and(eq(remindersItems.id, id), eq
 /** 日期當天還沒過期 隔天才算 重複的不會過期 */
 const notExpired = (today: string) => or(gte(remindersItems.date, today), ne(remindersItems.repeat, "none"));
 
-function parsed(input: ReminderInput, today: string): ReminderValues {
-  const result = parseReminder(input, today);
-  if (!result.ok) throw new ReminderUserError(result.error);
-  return result.value;
-}
+const parsed = (input: ReminderInput, today: string): ReminderValues => valueOrThrow(parseReminder(input, today), ReminderUserError);
 
 /** 這個人全部的項目 照日期排 同一天先建立的在前 過期還沒刪的也在裡面 由呼叫端過濾 */
 export async function listItems(userId: string): Promise<ReminderItem[]> {

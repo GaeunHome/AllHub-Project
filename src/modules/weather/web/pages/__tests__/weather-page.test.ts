@@ -5,7 +5,7 @@ import { TEST_SESSION, requireSession } from "@/dev/session-stub";
 import { stubWeatherEnv } from "@/dev/test-env";
 import { markup, mocksOf, textOf } from "@/dev/test-helpers";
 import type { WeatherPlace } from "../../../data/schema";
-import { NO_DETAILS, weekDay } from "../../../dev/fixtures";
+import { NO_DETAILS, hourPoint, weekDay } from "../../../dev/fixtures";
 import { cityPhoto, photoCredit } from "../../../lib/city-photos";
 import type { PlaceTab } from "../../place-tabs";
 import { weekRows } from "../../weekly-view";
@@ -21,6 +21,7 @@ const keys = mocksOf(await import("../../../service/weather"), "weatherKeys");
 const { WeatherPageBody, WeekWithHours } = await import("../weather-page");
 const { NextHours } = await import("../../components/next-hours");
 const { AirAndWarnings } = await import("../../components/air-and-warnings");
+const { TodayDetailsWithHours } = await import("../../components/today-details");
 const { CityOverview } = await import("../../components/city-overview");
 
 const html = async (place?: string) => markup((await WeatherPageBody({ searchParams: Promise.resolve({ place }) })) as ReactElement);
@@ -114,7 +115,7 @@ describe("半夜打開：氣象署的第一段還是昨晚", () => {
 describe("一週預報點開看每小時", () => {
   const rows = weekRows(RAIN);
   const NEXT_DAYS = "2099-01-01";
-  const future = [{ time: `${NEXT_DAYS}T09:00`, temperature: 20, rain: 30, weather: "晴" }];
+  const future = [hourPoint(`${NEXT_DAYS}T09:00`, { temperature: 20, rain: 30, weather: "晴" })];
   const days = [...RAIN, { ...RAIN[0], date: NEXT_DAYS }];
   const buttons = (page: string) => page.match(/<button/g)?.length ?? 0;
 
@@ -142,7 +143,7 @@ describe("一週預報點開看每小時", () => {
 });
 
 describe("今天的細節：跟一週預報同一個回應 不多讀", () => {
-  const TAIPEI = { feelsHigh: 27, feelsLow: 19, humidity: 78, wind: { direction: "東北風", level: 3 }, uv: 6, sunrise: null, sunset: null };
+  const TAIPEI = { feelsHigh: 27, feelsLow: 19, humidity: 78, dewPoint: 18, comfort: "舒適", wind: { direction: "東北風", level: 3, speed: 5, gust: null }, uv: 6, sunrise: null, sunset: null };
 
   it("台灣的縣市照一週預報的今天畫出體感溫度、濕度、風與紫外線，沒有日出日落", async () => {
     cached.cachedCountyWeek.mockResolvedValue([{ ...RAIN[0], details: TAIPEI }]);
@@ -164,6 +165,20 @@ describe("今天的細節：跟一週預報同一個回應 不多讀", () => {
     expect(text).toContain("日落 16:38");
   });
 
+  it("台灣的每小時讀到後補上接下來 24 小時的最高最低在幾點：跟上面那一排共用同一份，不多讀", async () => {
+    vi.useFakeTimers({ now: AFTERNOON, toFake: ["Date"] });
+    const hour = (time: string, feels: number, humidity: number) => hourPoint(time, { feels, humidity });
+    cached.cachedCountyHours.mockResolvedValue([hour("2026-11-07T15:00", 29, 60), hour("2026-11-08T05:00", 18, 90)]);
+    const week = { days: [{ ...RAIN[0], details: TAIPEI }], hours: null, utcOffsetSeconds: 8 * 3600 };
+    const text = textOf(markup(await TodayDetailsWithHours({ county: "臺北市", week, details: TAIPEI })), { spaced: true });
+    vi.useRealTimers();
+
+    expect(cached.cachedCountyHours).toHaveBeenCalledWith("臺北市");
+    expect(text).toContain("最高 29° 15:00");
+    expect(text).toContain("最低 18° 明天 05:00");
+    expect(text).toContain("最高 90% 明天 05:00");
+  });
+
   it("細節都讀不到時整區不出現", async () => {
     expect(textOf(await html())).not.toContain("今天的細節");
   });
@@ -177,7 +192,7 @@ describe("接下來 24 小時：一直看得到的每小時", () => {
   beforeEach(() => vi.useFakeTimers({ now: AFTERNOON, toFake: ["Date"] }));
   afterEach(() => vi.useRealTimers());
 
-  const hourly = (from: string, count: number) => Array.from({ length: count }, (_, index) => ({ time: new Date(Date.parse(`${from}:00Z`) + index * 3_600_000).toISOString().slice(0, 16), temperature: 20, rain: 30, weather: "晴" }));
+  const hourly = (from: string, count: number) => Array.from({ length: count }, (_, index) => hourPoint(new Date(Date.parse(`${from}:00Z`) + index * 3_600_000).toISOString().slice(0, 16), { temperature: 20, rain: 30, weather: "晴" }));
   const items = (page: string) => page.match(/<li/g)?.length ?? 0;
 
   it("國外用一週預報同一個回應的每小時，從現在這一小時起列 24 格，不多問一次", async () => {
@@ -217,9 +232,9 @@ describe("空氣品質與特報：只有台灣的縣市", () => {
 
   it("空氣品質照縣市裡最差的測站，還在生效的特報加上結束時間，已經結束的不列", async () => {
     cached.cachedStations.mockResolvedValue([
-      { county: "臺北市", site: "士林", aqi: 35, publishedAt: "2026/11/07 14:00:00" },
-      { county: "臺北市", site: "萬華", aqi: 108, publishedAt: "2026/11/07 14:00:00" },
-      { county: "高雄市", site: "前鎮", aqi: 156, publishedAt: "2026/11/07 14:00:00" },
+      { county: "臺北市", site: "士林", aqi: 35, publishedAt: "2026/11/07 14:00:00", pm25: null, pm10: null, o3: null, pollutant: null },
+      { county: "臺北市", site: "萬華", aqi: 108, publishedAt: "2026/11/07 14:00:00", pm25: null, pm10: null, o3: null, pollutant: null },
+      { county: "高雄市", site: "前鎮", aqi: 156, publishedAt: "2026/11/07 14:00:00", pm25: null, pm10: null, o3: null, pollutant: null },
     ]);
     cached.cachedWarnings.mockResolvedValue([
       { label: "大雨特報", severe: false, end: "2026-11-07T12:00:00.000Z" },
@@ -234,6 +249,21 @@ describe("空氣品質與特報：只有台灣的縣市", () => {
     expect(text).not.toContain("前鎮");
     expect(text).toContain("大雨特報 到 20:00");
     expect(text).not.toContain("濃霧");
+  });
+
+  it("使用者選的污染物數字＋測站清單：PM2.5、PM10、臭氧、主要污染物與縣市裡每個測站，等級寫成一般的字，不用小標籤", async () => {
+    const station = (site: string, aqi: number, pm25: number | null = null, pollutant: string | null = null) => ({ county: "臺北市" as const, site, aqi, publishedAt: "2026/11/07 14:00:00", pm25, pm10: pm25 && pm25 * 2, o3: 33, pollutant });
+    cached.cachedStations.mockResolvedValue([station("士林", 35), station("萬華", 108, 41, "細懸浮微粒"), station("中山", 55)]);
+    cached.cachedWarnings.mockResolvedValue([{ label: "大雨特報", severe: false, end: "2026-11-07T12:00:00.000Z" }]);
+    const page = markup(await AirAndWarnings({ county: "臺北市" }));
+    const text = textOf(page, { spaced: true });
+
+    expect(text).toContain("PM2.5 41 μg/m³");
+    expect(text).toContain("PM10 82 μg/m³");
+    expect(text).toContain("臭氧 33 ppb");
+    expect(text).toContain("主要污染物 細懸浮微粒");
+    expect(text).toMatch(/各測站 萬華 108 .*中山 55 .*士林 35/);
+    expect(page).not.toMatch(/class="[^"]*\bchip\b/);
   });
 
   it("沒有特報時直接說沒有", async () => {

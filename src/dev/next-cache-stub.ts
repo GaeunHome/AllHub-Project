@@ -12,3 +12,5 @@ export const updateTag = vi.fn<(tag: string) => void>();
 export const revalidateTag = vi.fn<(tag: string, profile: unknown) => void>();
 
 export const refresh = vi.fn<() => void>();
+
+export const navigation = vi.fn<() => Promise<void>>(async () => {});

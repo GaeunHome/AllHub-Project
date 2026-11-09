@@ -3,7 +3,7 @@
 import { requireModule } from "@/core/auth";
 import { updateTags } from "@/core/cache";
 import { runAction } from "@/core/action";
-import { INVALID_FORM_MESSAGE, formFlag, formId, formText } from "@/core/form";
+import { INVALID_FORM_MESSAGE, formFlag, formId, formText, toId } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
 import { transitTags } from "../service/cache-tags";
 import { RouteNotFoundError } from "../service/errors";
@@ -46,9 +46,10 @@ export async function setTrackedAction(_prev: FormState, formData: FormData): Pr
 }
 
 /** 側邊欄拖曳或方向鍵排順序 畫面先換好 傳放到哪一條前面 */
-export async function moveRouteAction(id: number, beforeId: number | null): Promise<FormState> {
+export async function moveRouteAction(rawId: number, rawBeforeId: number | null): Promise<FormState> {
   const { id: userId } = await requireModule("transit");
-  if (!Number.isSafeInteger(id) || (beforeId !== null && !Number.isSafeInteger(beforeId))) return { error: INVALID_FORM_MESSAGE };
+  const [id, beforeId] = [toId(rawId), toId(rawBeforeId)];
+  if (id === null || (rawBeforeId !== null && beforeId === null)) return { error: INVALID_FORM_MESSAGE };
   return runAction({ module: "transit", action: "調整常用路線順序" }, async () => {
     if (await moveRoute(userId, id, beforeId)) updateTags(transitTags.routes);
   });

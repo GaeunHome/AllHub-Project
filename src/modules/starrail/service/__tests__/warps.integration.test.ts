@@ -3,7 +3,7 @@ import { encryptSecret } from "@/core/crypto";
 import { coreServiceStatus } from "@/core/db/schema";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
-import { captureErrorLog, loggedText } from "@/dev/test-helpers";
+import { captureErrorLog, captureWarnLog, loggedText } from "@/dev/test-helpers";
 import { starrailAccounts } from "../../data/schema";
 import { hoyolab, ok } from "../../dev/fixtures";
 import { WARP_BANNERS, type WarpPage } from "../../lib/warps";
@@ -158,13 +158,14 @@ describe("讀不到", () => {
 
   it("訊息與 log 都不含 cookie 的值；log 只記 retcode 與缺少的欄位名稱", async () => {
     const log = captureErrorLog();
+    const warn = captureWarnLog();
     hoyolab.fetchWarpPage.mockResolvedValueOnce(ok<WarpPage>({ rows: [], next: null, incomplete: false, missing: ["list[].gacha_count"] })).mockResolvedValue({ ok: false, retcode: -110, message: "太頻繁", cookieInvalid: false });
 
     const read = await warpsFor(me, accountId, noWait);
 
     expect(loggedText(log)).toContain("-110");
-    expect(loggedText(log)).toContain("list[].gacha_count");
-    expect(JSON.stringify(read) + loggedText(log)).not.toMatch(/secret_(ltoken|token|badge)/);
+    expect(loggedText(warn)).toContain("list[].gacha_count");
+    expect(JSON.stringify(read) + loggedText(log) + loggedText(warn)).not.toMatch(/secret_(ltoken|token|badge)/);
   });
 
   it("成功的結果也不含 cookie：登入拿到的 cookie 不進回傳值", async () => {

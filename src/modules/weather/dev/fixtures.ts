@@ -1,7 +1,7 @@
 import type { County } from "../lib/counties";
 import type { DayDetails } from "../lib/details";
 import type { Forecast, ForecastPeriod } from "../lib/forecast";
-import type { WeekDay } from "../lib/weekly";
+import type { HourPoint, WeekDay } from "../lib/weekly";
 
 // 天氣的測試共用的假資料 只有測試可以 import
 
@@ -53,7 +53,10 @@ export const cwaWarningLocation = (locationName: string, hazards: CwaHazard[]) =
 export const cwaWarningResponse = (...locations: unknown[]) => ({ success: "true", records: { location: locations } });
 
 /** 回應裡沒有任何細節的那一天 */
-export const NO_DETAILS: DayDetails = { feelsHigh: null, feelsLow: null, humidity: null, wind: null, uv: null, sunrise: null, sunset: null };
+export const NO_DETAILS: DayDetails = { feelsHigh: null, feelsLow: null, humidity: null, dewPoint: null, comfort: null, wind: null, uv: null, sunrise: null, sunset: null };
+
+/** 每小時的一格 沒給的欄位讀不到 */
+export const hourPoint = (time: string, overrides: Partial<HourPoint> = {}): HourPoint => ({ time, temperature: null, rain: null, weather: null, feels: null, humidity: null, uv: null, ...overrides });
 
 /** 一週預報的一天 沒給的欄位是晴天 25 到 18 度 */
 export const weekDay = (date: string, overrides: Partial<WeekDay> = {}): WeekDay => ({ date, weather: "晴", high: 25, low: 18, rain: 10, details: NO_DETAILS, ...overrides });

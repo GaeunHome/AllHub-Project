@@ -10,7 +10,7 @@ const SIZES = {
 } as const;
 
 /** 同一個帳號永遠同一組顏色 色相平均散開 */
-export function avatarHue(seed: string): number {
+function avatarHue(seed: string): number {
   let hash = 0;
   for (const char of seed) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % 360;
   return hash;

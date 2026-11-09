@@ -1,5 +1,6 @@
 import { DAY_MS } from "@/core/time";
 import { asArray, asRecord, numberOf, text } from "@/core/json";
+import { clockMinutes, serviceWeekday } from "./clock";
 
 // 欄位照 TDX 的 OpenAPI 文件 還沒用真實金鑰驗證 讀不到的那一班略過
 
@@ -12,14 +13,8 @@ export type Station = { id: string; name: string; city?: string };
 /** 一條線上的車站代碼 照路線上的順序 */
 export type MetroLine = { id: string; stationIds: string[] };
 
-const CLOCK = /^(\d{2}):(\d{2})/;
 /** 跨夜車次在這個時間之前才經過起站 就是隔天的事 */
 const OVERNIGHT_BEFORE_MINUTES = 180;
-
-function minutesOf(value: unknown): number | null {
-  const match = typeof value === "string" ? CLOCK.exec(value) : null;
-  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
-}
 
 /** 時刻表的時間都是台灣時間 */
 const stamp = (date: string, minutes: number) => Date.parse(`${date}T00:00:00+08:00`) + minutes * 60_000;
@@ -54,11 +49,11 @@ function fareKeyOf(info: Record<string, unknown>): { fareKey?: FareKey } {
 function dailyDeparture(value: unknown, date: string): Departure[] {
   const row = asRecord(value);
   const info = asRecord(row?.DailyTrainInfo);
-  const departs = minutesOf(asRecord(row?.OriginStopTime)?.DepartureTime);
+  const departs = clockMinutes(asRecord(row?.OriginStopTime)?.DepartureTime);
   if (!info || departs === null || numberOf(info.SuspendedFlag) === 1) return [];
   const overnight = departs < OVERNIGHT_BEFORE_MINUTES && (Boolean(text(info.OverNightStationID)) || info.Overnight === true);
   const at = stamp(date, departs) + (overnight ? DAY_MS : 0);
-  const arrives = minutesOf(asRecord(row?.DestinationStopTime)?.ArrivalTime);
+  const arrives = clockMinutes(asRecord(row?.DestinationStopTime)?.ArrivalTime);
   const arrivesAt = arrives === null ? null : stamp(date, arrives) + (overnight ? DAY_MS : 0);
   return [{ at, arrivesAt: arrivesAt !== null && arrivesAt < at ? arrivesAt + DAY_MS : arrivesAt, trainNo: text(info.TrainNo), kind: trainKind(info.TrainTypeName), toward: zhName(info.EndingStationName), ...fareKeyOf(info) }];
 }
@@ -66,11 +61,6 @@ function dailyDeparture(value: unknown, date: string): Departure[] {
 export function parseDailyTimetable(json: unknown, date: string): Departure[] {
   return asArray(json).flatMap((row) => dailyDeparture(row, date)).sort((a, b) => a.at - b.at);
 }
-
-const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-
-/** 星期照台灣的日期 不是伺服器的時區 */
-const weekdayOf = (date: string) => WEEKDAYS[new Date(`${date}T12:00:00+08:00`).getUTCDay()];
 
 /** 一個方向一天的班次 那天不開的方向是空的 */
 function metroDirection(value: unknown, date: string, weekday: string): Departure[] {
@@ -80,7 +70,7 @@ function metroDirection(value: unknown, date: string, weekday: string): Departur
   const toward = zhName(row?.DestinationStationName);
   const stops = asArray(row?.Timetables).flatMap((stop) => {
     const entry = asRecord(stop);
-    const minutes = minutesOf(entry?.DepartureTime);
+    const minutes = clockMinutes(entry?.DepartureTime);
     return minutes === null ? [] : [{ minutes, sequence: numberOf(entry?.Sequence) ?? 0 }];
   });
   let previous = -1;
@@ -97,7 +87,7 @@ function metroDirection(value: unknown, date: string, weekday: string): Departur
 
 /** 一站每個方向都列 往哪裡由規劃出來的路線挑 國定假日照星期算 TDX 的服務日只分星期幾 */
 export function parseMetroTimetable(json: unknown, date: string): Departure[] {
-  const weekday = weekdayOf(date);
+  const weekday = serviceWeekday(date);
   return asArray(json)
     .flatMap((value) => metroDirection(value, date, weekday))
     .sort((a, b) => a.at - b.at);

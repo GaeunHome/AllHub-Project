@@ -4,12 +4,12 @@ import { useActionState, useId } from "react";
 import { FormMessage } from "../ui/form-message";
 import { Icon } from "../ui/icon";
 import { PasswordInput } from "../ui/password-input";
-import { login, type LoginState } from "./actions";
+import { login, type AuthFormState } from "./actions";
 import { CaptchaField } from "./captcha-field";
 import { credentialsHint } from "./messages";
 
 export function LoginForm({ captchaSrc, next }: { captchaSrc: string; next?: string }) {
-  const [state, action, pending] = useActionState<LoginState, FormData>(login, {});
+  const [state, action, pending] = useActionState<AuthFormState, FormData>(login, {});
   const passwordId = useId();
 
   return (

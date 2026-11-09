@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { captureErrorLog, form, loggedText } from "@/dev/test-helpers";
 import { runAction } from "../action";
-import { UserError, actionErrorMessage, formFlag, formId, formText, formUuid } from "../form";
+import { UserError, actionErrorMessage, formFlag, formId, formText, formUuid, toId } from "../form";
 
 class DemoUserError extends Error {}
 class StreamerNotFound extends UserError {}
@@ -24,6 +24,12 @@ describe("表單欄位", () => {
     expect(formId(form({ id: "2147483647" }), "id")).toBe(2147483647);
     expect(formId(form({ id: "2147483648" }), "id")).toBeNull();
     expect(formId(form({ id: "9007199254740991" }), "id")).toBeNull();
+  });
+
+  it("toId_直接呼叫的 Server Action 收到的 id：只收 serial 範圍內的正整數，字串也不收", () => {
+    expect(toId(3)).toBe(3);
+    expect(toId(2147483647)).toBe(2147483647);
+    for (const bad of [0, -1, 1.5, 2147483648, Number.NaN, Number.POSITIVE_INFINITY, "3", null, undefined, true, [3], { id: 3 }]) expect(toId(bad)).toBeNull();
   });
 
   it("formFlag_只認 true／false", () => {

@@ -8,6 +8,7 @@ import type { DividendEvent } from "../lib/dividends";
 import type { AccountMonthFlow, CategoryMonthTotal } from "../lib/ledger";
 import type { MonthKey } from "../lib/month";
 import { quoteSymbols, type Quote } from "../lib/quotes";
+import type { AssetSnapshot } from "../lib/trend";
 import { listAccounts } from "./accounts";
 import { savingsTags } from "./cache-tags";
 import { cardDailyFlows, listCardBills, type CardBillRecord } from "./cards";
@@ -17,6 +18,7 @@ import { listHoldings } from "./holdings";
 import { fetchQuotes } from "./quotes";
 import { listRecurring } from "./recurring";
 import { accountMonthFlows, categoryMonthTotals, listMonthTransactions, recurringRecords, type TransactionView } from "./transactions";
+import { listAssetSnapshots } from "./trend";
 
 // 同一次請求裡重複呼叫會自動合併 不必再包 React cache
 // userId 來自 session 是快取 key 每人一份
@@ -47,6 +49,13 @@ export async function cachedAccountFlows(userId: string): Promise<AccountMonthFl
   cacheLife("db");
   cacheTag(savingsTags.transactions);
   return accountMonthFlows(userId);
+}
+
+export async function cachedAssetSnapshots(userId: string): Promise<AssetSnapshot[]> {
+  "use cache: remote";
+  cacheLife("db");
+  cacheTag(savingsTags.snapshots);
+  return listAssetSnapshots(userId);
 }
 
 export async function cachedCategoryTotals(userId: string): Promise<CategoryMonthTotal[]> {

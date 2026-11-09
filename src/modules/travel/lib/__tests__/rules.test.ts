@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, deleteDateOf, parseItem, parseShortText, parseTrip, tripDays } from "../rules";
+import { deleteDateOf, parseItem, parseShortText, parseTrip, tripDays } from "../rules";
 
 const TRIP = { title: "  京都  五日遊 ", destination: "京都", startDate: "2026-12-01", endDate: "2026-12-05" };
 const ITEM = { kind: "place", title: "清水寺", mapsUrl: "", note: "", stayMinutes: "90", travelMinutes: "20", fixedTime: "" };
@@ -27,7 +27,7 @@ describe("旅程", () => {
   it("當天來回是一天；跨月照日曆算", () => {
     expect(tripDays("2026-12-01", "2026-12-01")).toEqual(["2026-12-01"]);
     expect(tripDays("2026-12-31", "2027-01-02")).toEqual(["2026-12-31", "2027-01-01", "2027-01-02"]);
-    expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
+    expect(tripDays("2028-02-28", "2028-03-01")).toEqual(["2028-02-28", "2028-02-29", "2028-03-01"]);
   });
 
   it("回程 7 天後刪：使用者要的", () => {

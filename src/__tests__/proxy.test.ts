@@ -11,14 +11,31 @@ const { proxy, config } = await import("../proxy");
 /** matcher 整段比對 比對到的路徑經過 proxy 要登入 比對不到的是公開的 */
 const needsLogin = (pathname: string) => new RegExp(`^${config.matcher[0]}$`).test(pathname);
 
-const requestWith = (token?: string) =>
-  new NextRequest("https://hub.example.com/twitch", { headers: token ? { cookie: `${SESSION_COOKIE}=${token}` } : {} });
+const requestWith = (token?: string, path = "/twitch") =>
+  new NextRequest(`https://hub.example.com${path}`, { headers: token ? { cookie: `${SESSION_COOKIE}=${token}` } : {} });
 
 describe("proxy", () => {
   it("帶 sub 與 ver 的有效 session_放行（只驗簽章與期限，不查資料庫）", async () => {
     const response = await proxy(requestWith(await signSession({ userId: "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f", version: 1 }, SECRET)));
 
     expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("要登入的圖（場景圖、城市照片、插圖）登入後讓瀏覽器留一天，重新整理時不用一張張問；頁面不加", async () => {
+    const token = await signSession({ userId: "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f", version: 1 }, SECRET);
+
+    for (const path of ["/images/scenes/weather-clear-day.svg", "/illustrations/finance/empty.svg"]) {
+      const cache = (await proxy(requestWith(token, path))).headers.get("cache-control");
+      expect(cache, path).toMatch(/^private, max-age=86400/);
+    }
+    expect((await proxy(requestWith(token, "/savings"))).headers.get("cache-control")).toBeNull();
+  });
+
+  it("沒登入時導回登入頁的轉址不能被瀏覽器記住：重新登入後圖還要讀得到", async () => {
+    const response = await proxy(requestWith(undefined, "/images/scenes/weather-clear-day.svg"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("cache-control") ?? "").not.toMatch(/max-age=[1-9]/);
   });
 
   it("沒有 cookie_導向 /login", async () => {

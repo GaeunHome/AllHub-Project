@@ -47,7 +47,7 @@ export function formatTaipeiHourMinuteSecond(date: Date): string {
 const WEEKDAYS = "日一二三四五六";
 
 /** 星期用台北的日期算 不用伺服器的時區 */
-const weekdayOf = (year: number, month: number, day: number) => WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+const weekdayOf = (year: number, month: number, day: number) => WEEKDAYS[weekdayOfKey(dateKeyOf(year, month, day))];
 
 /** 首頁的日期 例如 11 月 4 日 星期三 */
 export function formatTaipeiLongDate(date: Date): string {
@@ -64,15 +64,18 @@ export function formatTaipeiShortDate(date: Date): string {
 /** 例如 2026-01-05 判斷是不是台北的同一天或算相差幾天用 */
 export function taipeiDateKey(date: Date): string {
   const { year, month, day } = taipeiFields(date);
-  return `${year}-${pad2(month)}-${pad2(day)}`;
+  return dateKeyOf(year, month, day);
 }
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+/** YYYY-MM-DD 當成 UTC 的午夜 只用來算日曆 不看時區 */
+const utcMsOf = (key: string) => Date.parse(`${key}T00:00:00Z`);
+
 /** YYYY-MM-DD 而且日曆上有這一天 2 月 30 日這種日期 Date 會自己進位或變成無效 換回字串對不上 */
 export function isRealDateKey(value: string): boolean {
   if (!DATE_KEY_PATTERN.test(value)) return false;
-  const parsed = new Date(`${value}T00:00:00Z`);
+  const parsed = new Date(utcMsOf(value));
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value);
 }
 
@@ -87,7 +90,28 @@ export const DAY_MS = 24 * HOUR_MS;
 
 /** date 是台北日曆上 now 之後的第幾天 今天 0 明天 1 昨天 -1 不看幾點 */
 export function taipeiDayOffset(date: Date, now: Date): number {
-  return Math.round((Date.parse(taipeiDateKey(date)) - Date.parse(taipeiDateKey(now))) / DAY_MS);
+  return daysBetweenKeys(taipeiDateKey(now), taipeiDateKey(date));
+}
+
+/** 日期字串往後幾天 負數往前 跨月跨年與閏年照日曆 */
+export function addDaysToKey(key: string, days: number): string {
+  return new Date(utcMsOf(key) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** to 是 from 之後的第幾天 同一天 0 to 比較早時是負的 */
+export function daysBetweenKeys(from: string, to: string): number {
+  return Math.round((utcMsOf(to) - utcMsOf(from)) / DAY_MS);
+}
+
+/** 0 是星期日 照日期字串本身 不是伺服器的時區 */
+export function weekdayOfKey(key: string): number {
+  return new Date(utcMsOf(key)).getUTCDay();
+}
+
+/** 月日補零 那個月沒有這一天時算月底 例如每月 31 號的提醒在 4 月是 30 號 */
+export function dateKeyOf(year: number, month: number, day: number): string {
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return `${year}-${pad2(month)}-${pad2(Math.min(day, lastDay))}`;
 }
 
 /**

@@ -1,6 +1,6 @@
 {
-  "id": "f53510cf-4775-45cb-a00b-d554e942010c",
-  "prevId": "1ae3f339-e4e1-4458-9a1f-25348835881f",
+  "id": "6b19cc61-54a8-41af-81a4-66261713efcd",
+  "prevId": "f53510cf-4775-45cb-a00b-d554e942010c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1305,6 +1305,71 @@
         "savings_accounts_card_style": {
           "name": "savings_accounts_card_style",
           "value": "\"savings_accounts\".\"card_style\" is null or (\"savings_accounts\".\"kind\" = 'credit' and \"savings_accounts\".\"card_style\" in ('blue', 'green', 'purple', 'orange', 'black', 'silver'))"
+        }
+      },
+      "isRLSEnabled": true
+    },
+    "public.savings_asset_snapshots": {
+      "name": "savings_asset_snapshots",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "month": {
+          "name": "month",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "investment": {
+          "name": "investment",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "savings_asset_snapshots_user_id_core_users_id_fk": {
+          "name": "savings_asset_snapshots_user_id_core_users_id_fk",
+          "tableFrom": "savings_asset_snapshots",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "savings_asset_snapshots_user_id_month_pk": {
+          "name": "savings_asset_snapshots_user_id_month_pk",
+          "columns": [
+            "user_id",
+            "month"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "savings_asset_snapshots_month_first_day": {
+          "name": "savings_asset_snapshots_month_first_day",
+          "value": "\"savings_asset_snapshots\".\"month\" is null or extract(day from \"savings_asset_snapshots\".\"month\") = 1"
         }
       },
       "isRLSEnabled": true

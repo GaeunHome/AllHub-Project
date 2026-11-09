@@ -11,7 +11,7 @@ import { requireOwner } from "../auth";
 import { authTags } from "../auth/cache-tags";
 import { createInvite, revokeInvite } from "../auth/invites";
 import { INVITE_DAY_OPTIONS, INVITE_USE_OPTIONS } from "../auth/invite-rules";
-import { updateTags } from "../cache";
+import { updateTags, type CacheTag } from "../cache";
 import { INVALID_FORM_MESSAGE, actionErrorMessage, formFlag, formId, formText, formUuid } from "../form";
 import { MODULE_ID_PATTERN } from "../ids";
 import type { FormState } from "../ui/form-message";
@@ -21,6 +21,19 @@ import { deleteUser, setModuleAccess, setUserDisabled, unlockUser, usernameOf } 
 export type InviteFormState = FormState & { link?: string };
 
 const USER_GONE = "找不到這個帳號，可能已經被刪除";
+
+/**
+ * 有寫入才讓快取失效 沒寫入表示那一筆已經不在了
+ * 沒有 tag 可以失效 refresh 重新算繪 畫面上的那一列才會拿掉
+ */
+function afterWrite(wrote: boolean, { tags, done, gone }: { tags: CacheTag[]; done?: string; gone: string }): FormState | string | void {
+  if (!wrote) {
+    refresh();
+    return { error: gone };
+  }
+  updateTags(...tags);
+  return done;
+}
 
 /** Server Action 可以被直接 POST 不能相信下拉選單 值要剛好是其中一個選項 */
 function optionOf(options: readonly number[], raw: string): number | null {
@@ -65,12 +78,7 @@ export async function updateAnnouncementAction(_prev: FormState, formData: FormD
   const parsed = parseAnnouncement(announcementFields(formData));
   if (!parsed.ok) return { error: parsed.error };
   return runAction({ module: "admin", action: "修改公告", target: parsed.value.title }, async () => {
-    if (await updateAnnouncement(id, parsed.value)) {
-      updateTags(announcementTags.announcements);
-      return "已儲存公告";
-    }
-    refresh();
-    return { error: ANNOUNCEMENT_GONE };
+    return afterWrite(await updateAnnouncement(id, parsed.value), { tags: [announcementTags.announcements], done: "已儲存公告", gone: ANNOUNCEMENT_GONE });
   });
 }
 
@@ -79,12 +87,7 @@ export async function deleteAnnouncementAction(_prev: FormState, formData: FormD
   const id = formId(formData, "id");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return runAction({ module: "admin", action: "刪除公告", target: `公告 #${id}` }, async () => {
-    if (await deleteAnnouncement(id)) {
-      updateTags(announcementTags.announcements);
-      return;
-    }
-    refresh();
-    return { error: ANNOUNCEMENT_GONE };
+    return afterWrite(await deleteAnnouncement(id), { tags: [announcementTags.announcements], gone: ANNOUNCEMENT_GONE });
   });
 }
 
@@ -118,13 +121,7 @@ export async function revokeInviteAction(_prev: FormState, formData: FormData): 
   const id = formId(formData, "inviteId");
   if (id === null) return { error: INVALID_FORM_MESSAGE };
   return runAction({ module: "admin", action: "撤銷邀請", target: `邀請 #${id}` }, async () => {
-    if (await revokeInvite(id)) {
-      updateTags(authTags.invites);
-      return;
-    }
-    // 沒有寫入就不會失效快取 但那一列要重新算繪畫面才會更新
-    refresh();
-    return { error: "這個邀請已經撤銷或不存在" };
+    return afterWrite(await revokeInvite(id), { tags: [authTags.invites], gone: "這個邀請已經撤銷或不存在" });
   });
 }
 
@@ -134,12 +131,7 @@ export async function setUserDisabledAction(_prev: FormState, formData: FormData
   const disabled = formFlag(formData, "disabled");
   if (userId === null || disabled === null) return { error: INVALID_FORM_MESSAGE };
   return runAction({ module: "admin", action: disabled ? "停用帳號" : "恢復帳號", target: await usernameOf(userId) }, async () => {
-    if (await setUserDisabled(owner.id, userId, disabled)) {
-      updateTags(authTags.users);
-      return;
-    }
-    refresh();
-    return { error: USER_GONE };
+    return afterWrite(await setUserDisabled(owner.id, userId, disabled), { tags: [authTags.users], gone: USER_GONE });
   });
 }
 
@@ -148,13 +140,8 @@ export async function deleteUserAction(_prev: FormState, formData: FormData): Pr
   const userId = formUuid(formData, "userId");
   if (userId === null) return { error: INVALID_FORM_MESSAGE };
   return runAction({ module: "admin", action: "刪除帳號", target: await usernameOf(userId) }, async () => {
-    if (await deleteUser(owner.id, userId)) {
-      // 他建立的邀請跟著外鍵刪掉 所以邀請也要失效
-      updateTags(authTags.users, authTags.invites);
-      return;
-    }
-    refresh();
-    return { error: USER_GONE };
+    // 他建立的邀請跟著外鍵刪掉 所以邀請也要失效
+    return afterWrite(await deleteUser(owner.id, userId), { tags: [authTags.users, authTags.invites], gone: USER_GONE });
   });
 }
 
@@ -163,12 +150,7 @@ export async function unlockUserAction(_prev: FormState, formData: FormData): Pr
   const userId = formUuid(formData, "userId");
   if (userId === null) return { error: INVALID_FORM_MESSAGE };
   return runAction({ module: "admin", action: "解除鎖定", target: await usernameOf(userId) }, async () => {
-    if (await unlockUser(userId)) {
-      updateTags(authTags.users);
-      return;
-    }
-    refresh();
-    return { error: USER_GONE };
+    return afterWrite(await unlockUser(userId), { tags: [authTags.users], gone: USER_GONE });
   });
 }
 

@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import { reencryptEach } from "@/core/crypto";
 import { db } from "@/core/db";
-import { deleteExpired } from "@/core/retention-cleanup";
+import { deleteExpired } from "@/core/retention/cleanup";
 import { starrailAccounts, starrailCheckinLogs } from "../data/schema";
 import { trackingAccountChanges } from "./accounts";
 

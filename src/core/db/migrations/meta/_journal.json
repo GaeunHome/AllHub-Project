@@ -5,15 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1794062966192,
+      "when": 1794116673330,
       "tag": "0000_baseline",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1794116673330,
-      "tag": "0001_announcement_pin",
+      "when": 1794188689902,
+      "tag": "0001_asset_trend",
       "breakpoints": true
     }
   ]

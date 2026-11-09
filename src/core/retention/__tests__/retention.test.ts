@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { retentionCutoff } from "../retention";
+import { retentionCutoff } from "..";
 
 describe("retentionCutoff", () => {
   it("截止時間是 14 天前的同一刻", () => {

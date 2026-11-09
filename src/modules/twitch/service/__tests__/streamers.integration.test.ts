@@ -13,7 +13,8 @@ vi.mock("@/core/notify", { spy: true });
 const { getStreams, getUsersByLogin, listSubscriptions, createSubscription } = mocksOf(await import("../../lib/api"), "getStreams", "getUsersByLogin", "listSubscriptions", "createSubscription");
 const { TwitchApiError } = await import("../../lib/api");
 const { notify } = mocksOf(await import("@/core/notify"), "notify");
-const { TwitchUserError, addStreamer, cleanupStreamEvents, handleNotification, listFollowedStreamers, recentEvents, setStreamerNotify, syncSubscriptionsFor } = await import("../streamers");
+const { TwitchUserError } = await import("../errors");
+const { addStreamer, cleanupStreamEvents, handleNotification, listFollowedStreamers, recentEvents, setStreamerNotify, syncSubscriptionsFor } = await import("../streamers");
 
 let testDb: TestDb;
 const getDb = setupTestDb((d) => (testDb = d));

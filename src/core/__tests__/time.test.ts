@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ICU_VARIANTS, simulateIcu } from "@/dev/icu-simulation";
 import {
+  addDaysToKey,
+  dateKeyOf,
+  daysBetweenKeys,
   formatRelativeTime,
   formatTaipeiDateTime,
   formatTaipeiLongDate,
@@ -11,6 +14,7 @@ import {
   taipeiDateKey,
   taipeiDayOffset,
   taipeiMonthKey,
+  weekdayOfKey,
 } from "../time";
 
 describe("formatTaipeiDateTime", () => {
@@ -138,6 +142,53 @@ describe("isRealDateKey：YYYY-MM-DD 而且日曆上真的有這一天", () => {
 
   it.each(["", "明天", "2026-1-05", "2026-01-5", "26-01-05", "2026/01/05", "20260105", "2026-01-05T00:00:00Z", " 2026-01-05", "2026-01-05\n"])("格式不對（%j）不算", (date) => {
     expect(isRealDateKey(date)).toBe(false);
+  });
+});
+
+describe("日期字串（YYYY-MM-DD）的運算：只看日曆，不看時區與幾點", () => {
+  it.each([
+    ["2026-11-09", 1, "2026-11-10", "隔天"],
+    ["2026-01-31", 1, "2026-02-01", "跨月"],
+    ["2026-12-31", 1, "2027-01-01", "跨年"],
+    ["2028-02-28", 1, "2028-02-29", "閏年有 2/29"],
+    ["2027-02-28", 1, "2027-03-01", "平年沒有 2/29"],
+    ["2028-03-01", -1, "2028-02-29", "往回跨到閏日"],
+    ["2026-11-09", -7, "2026-11-02", "往回 7 天"],
+    ["2026-11-09", 0, "2026-11-09", "0 天是同一天"],
+    ["2026-11-09", 60, "2027-01-08", "60 天後跨年：11 月剩 21 天、12 月 31 天、再 8 天"],
+  ])("addDaysToKey(%s, %i) → %s（%s）", (key, days, expected) => {
+    expect(addDaysToKey(key, days)).toBe(expected);
+  });
+
+  it.each([
+    ["2026-11-09", "2026-11-09", 0, "同一天"],
+    ["2026-11-09", "2026-11-10", 1, "明天"],
+    ["2026-11-10", "2026-11-09", -1, "昨天是負的"],
+    ["2026-01-31", "2026-03-01", 29, "跨過平年的 2 月：1 + 28"],
+    ["2028-01-31", "2028-03-01", 30, "跨過閏年的 2 月：1 + 29"],
+    ["2026-12-25", "2027-01-05", 11, "跨年：12 月剩 6 天、再 5 天"],
+  ])("daysBetweenKeys(%s, %s) → %i（%s）", (from, to, expected) => {
+    expect(daysBetweenKeys(from, to)).toBe(expected);
+  });
+
+  it.each([
+    ["2026-11-09", 1, "星期一"],
+    ["2026-11-08", 0, "星期日"],
+    ["2026-11-14", 6, "星期六"],
+    ["2028-02-29", 2, "閏日是星期二"],
+    ["2027-01-01", 5, "2027 年元旦是星期五"],
+  ])("weekdayOfKey(%s) → %i（%s，0 是星期日）", (key, expected) => {
+    expect(weekdayOfKey(key)).toBe(expected);
+  });
+
+  it.each([
+    [2026, 11, 9, "2026-11-09", "月日補零"],
+    [2026, 2, 31, "2026-02-28", "平年 2 月沒有 31 號：算月底"],
+    [2028, 2, 30, "2028-02-29", "閏年 2 月算到 29 號"],
+    [2026, 4, 31, "2026-04-30", "小月沒有 31 號"],
+    [2026, 12, 31, "2026-12-31", "大月照原日"],
+  ])("dateKeyOf(%i, %i, %i) → %s（%s）", (year, month, day, expected) => {
+    expect(dateKeyOf(year, month, day)).toBe(expected);
   });
 });
 

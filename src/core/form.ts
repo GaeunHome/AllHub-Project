@@ -13,10 +13,14 @@ export function formText(formData: FormData, name: string): string {
 // serial 的上限 更大的數字查資料庫會丟錯
 const MAX_SERIAL_ID = 2_147_483_647;
 
+/** 直接呼叫的 Server Action 收到的 id 參數可能被改過 不是範圍內的正整數就回 null 字串也不收 */
+export function toId(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= MAX_SERIAL_ID ? value : null;
+}
+
 /** 資料表的 serial id 不是範圍內的正整數就回 null */
 export function formId(formData: FormData, name: string): number | null {
-  const id = Number(formData.get(name));
-  return Number.isInteger(id) && id > 0 && id <= MAX_SERIAL_ID ? id : null;
+  return toId(Number(formData.get(name)));
 }
 
 /** 帳號的 UUID 格式不對就回 null 不讓奇怪的字串進到查詢裡 */
@@ -35,7 +39,9 @@ export function formFlag(formData: FormData, name: string): boolean | null {
  * 訊息直接給使用者看的錯誤 例如輸入不對 runAction 原樣顯示
  * 訊息不能夾帶 SQL 憑證或外部回應的原文
  */
-export class UserError extends Error {}
+export class UserError extends Error {
+  name = "UserError";
+}
 
 /**
  * titled 給標題已經寫了失敗的提示視窗

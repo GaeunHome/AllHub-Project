@@ -11,7 +11,6 @@ import { checkinAccount } from "../service/checkin";
 import { linkAccount, type RoleChoice, type RoleSelection } from "../service/link";
 import { redeemCodeFor } from "../service/redeem";
 
-export type { FormState } from "@/core/ui/form-message";
 /**
  * 好幾個伺服器都有角色時 第一步回傳清單讓使用者選
  * 連結好了帶著剛連結的帳號 id 讓畫面導向它 還有要提醒的事

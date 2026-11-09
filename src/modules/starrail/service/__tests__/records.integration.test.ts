@@ -2,7 +2,7 @@ import { cacheLife } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { insertTestUsers, setupTestDb, type TestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
-import { captureErrorLog, loggedText, resetNextCache, tagged } from "@/dev/test-helpers";
+import { captureErrorLog, captureWarnLog, loggedText, resetNextCache, tagged } from "@/dev/test-helpers";
 import type { ActCalendar } from "../../lib/calendar";
 import type { Endgame } from "../../lib/endgame";
 import type { Ledger } from "../../lib/ledger";
@@ -86,7 +86,7 @@ describe("cachedEndgame：終局戰績，參數是帳號 id、模式與本期／
   });
 
   it("格式跟預期不同_照常回傳_log 只記欄位名稱", async () => {
-    const log = captureErrorLog();
+    const log = captureWarnLog();
     hoyolab.fetchEndgame.mockResolvedValue({ ...ok({ endgame: { ...ENDGAME, name: null }, missing: ["groups[].name_mi18n"] }), body: { name: "原文期數" } });
 
     const result = await cachedEndgame(me, (await account()).id, "fiction", "current");

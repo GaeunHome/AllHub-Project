@@ -55,7 +55,7 @@ describe("requireSession（PGlite 整合）", () => {
     const user = await createUser();
     useCookie(await signSession({ userId: user.id, version: 1 }, SECRET));
 
-    expect(await requireSession()).toEqual({ id: user.id, username: "alice", nickname: null, avatar: null, role: "member" });
+    expect(await requireSession()).toEqual({ id: user.id, username: "alice", nickname: null, avatar: null, role: "member", denied: [] });
   });
 
   it("沒有 cookie_導向登入頁", async () => {
@@ -103,7 +103,7 @@ describe("requireOwner（PGlite 整合）", () => {
     const owner = await createUser({ role: "owner" });
     useCookie(await signSession({ userId: owner.id, version: 1 }, SECRET));
 
-    expect(await requireOwner()).toEqual({ id: owner.id, username: "alice", nickname: null, avatar: null, role: "owner" });
+    expect(await requireOwner()).toEqual({ id: owner.id, username: "alice", nickname: null, avatar: null, role: "owner", denied: [] });
   });
 
   it("一般成員_導向首頁", async () => {
@@ -137,7 +137,7 @@ describe("變更密碼（PGlite 整合）", () => {
 
     expect(await changePasswordAction({}, form)).toEqual({ message: "已變更密碼。這台裝置保持登入，其他裝置都已登出。" });
 
-    expect(await requireSession()).toEqual({ id: user.id, username: "alice", nickname: null, avatar: null, role: "member" });
+    expect(await requireSession()).toEqual({ id: user.id, username: "alice", nickname: null, avatar: null, role: "member", denied: [] });
     useCookie(otherDevice);
     expect(await currentSession()).toBeNull();
     await expect(requireSession()).rejects.toThrow("NEXT_REDIRECT:/login");

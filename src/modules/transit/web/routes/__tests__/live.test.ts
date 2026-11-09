@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, TEST_SESSION, canUseModule, currentSession } from "@/dev/session-stub";
-import { mocksOf } from "@/dev/test-helpers";
+import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ after: (work: () => unknown) => work() }));
@@ -70,5 +70,18 @@ describe("GET /api/transit/live", () => {
 
     expect(reportTdx).toHaveBeenLastCalledWith("TDX 回 429");
     expect(await response.json()).toEqual({ kind: "none" });
+  });
+
+  it("讀資料庫出錯_500 只回摘要 不快取 log 只記錯誤種類不記原文", async () => {
+    const log = captureErrorLog();
+    cached.cachedRoutes.mockRejectedValue(Object.assign(new Error("select ... params: secret-route"), { name: "PostgresError" }));
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(JSON.stringify(await response.json())).not.toContain("secret-route");
+    expect(loggedText(log)).toContain("PostgresError");
+    expect(loggedText(log)).not.toContain("secret-route");
   });
 });

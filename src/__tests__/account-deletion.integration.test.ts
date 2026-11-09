@@ -73,6 +73,7 @@ async function seedEverything(userId: string, n: number) {
     sql`insert into savings_transactions (user_id, kind, account_id, counter_account_id, amount, date, holding_id, shares, cost_change, recurring_id, recurring_period) values (${userId}, 'transfer', ${deposit.id}, ${broker.id}, 1000, '2026-10-05', ${etf.id}, 8, 1000, ${regularBuy.id}, '2026-10-01')`,
   );
   await first(sql`insert into savings_dividend_notices (user_id, symbol, ex_date) values (${userId}, '006208', '2026-11-18')`);
+  await first(sql`insert into savings_asset_snapshots (user_id, month, investment) values (${userId}, '2026-10-01', 125000)`);
   await first(sql`insert into weather_settings (user_id, county) values (${userId}, '臺北市')`);
   await first(sql`insert into weather_places (user_id, kind, name) values (${userId}, 'county', '臺南市')`);
   await first(sql`insert into transit_routes (user_id, mode, origin_id, origin_name, destination_id, destination_name) values (${userId}, 'thsr', '1000', '台北', '1070', '左營')`);

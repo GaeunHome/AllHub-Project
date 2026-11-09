@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aqiPosition } from "../aqi";
-import { beaufortLevel, daylightPosition, uvLevel, uvPosition, windDirection, windToward } from "../details";
+import { beaufortLevel, beaufortName, comfortText, daylightHours, daylightPosition, hourPeak, uvLevel, uvPosition, windDirection, windToward } from "../details";
 
 describe("beaufortLevel：照氣象署的蒲福風級表把風速換成級數", () => {
   it.each([
@@ -124,5 +124,70 @@ describe("daylightPosition：日出到日落之間太陽走到哪", () => {
   it("日出前在最左邊 日落後在最右邊", () => {
     expect(daylightPosition("06:00", "18:00", "05:00")).toBe(0);
     expect(daylightPosition("06:00", "18:00", "19:30")).toBe(100);
+  });
+});
+
+describe("beaufortName：氣象署蒲福風級表每一級的名稱", () => {
+  it.each([
+    [0, "無風"],
+    [1, "軟風"],
+    [2, "輕風"],
+    [3, "微風"],
+    [4, "和風"],
+    [5, "清風"],
+    [6, "強風"],
+    [7, "疾風"],
+    [8, "大風"],
+    [9, "烈風"],
+    [10, "狂風"],
+    [11, "暴風"],
+    [12, "颶風"],
+    [17, "颶風"],
+  ])("%i 級是%s", (level, name) => {
+    expect(beaufortName(level)).toBe(name);
+  });
+});
+
+describe("comfortText：氣象署一天兩段的舒適度", () => {
+  it("最不舒服與最舒服一樣時寫一個 不一樣時從冷寫到熱", () => {
+    expect(comfortText("舒適", "舒適")).toBe("舒適");
+    expect(comfortText("稍有寒意", "悶熱")).toBe("稍有寒意到悶熱");
+  });
+
+  it("只讀到一個時寫那一個 都讀不到是 null", () => {
+    expect(comfortText(null, "舒適")).toBe("舒適");
+    expect(comfortText("寒冷", null)).toBe("寒冷");
+    expect(comfortText(null, null)).toBeNull();
+  });
+});
+
+describe("hourPeak：接下來每小時裡最高或最低的那一格", () => {
+  const hours = [
+    { time: "2026-11-09T14:00", value: 24 },
+    { time: "2026-11-09T15:00", value: 26 },
+    { time: "2026-11-09T18:00", value: 26 },
+    { time: "2026-11-10T05:00", value: 16 },
+    { time: "2026-11-10T06:00", value: null },
+  ];
+
+  it("最高是 26 度 兩格一樣時取比較早的 15:00 最低是隔天 05:00 的 16 度", () => {
+    expect(hourPeak(hours, "max")).toEqual({ value: 26, time: "2026-11-09T15:00" });
+    expect(hourPeak(hours, "min")).toEqual({ value: 16, time: "2026-11-10T05:00" });
+  });
+
+  it("讀不到的格子略過 全部讀不到是 null", () => {
+    expect(hourPeak([{ time: "2026-11-09T14:00", value: null }], "max")).toBeNull();
+    expect(hourPeak([], "min")).toBeNull();
+  });
+});
+
+describe("daylightHours：日出到日落有多久", () => {
+  it("06:05 到 16:38 是 10 小時 33 分 剛好整點時不寫分", () => {
+    expect(daylightHours("06:05", "16:38")).toBe("10 小時 33 分");
+    expect(daylightHours("06:00", "18:00")).toBe("12 小時");
+  });
+
+  it("日落不比日出晚時是 null 不寫負的", () => {
+    expect(daylightHours("18:00", "06:00")).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { asRecord, text } from "@/core/json";
+import { asRecord, numberOf, text } from "@/core/json";
 import { normalizeCounty, type County } from "./counties";
 import { levelPosition } from "./scale";
 
@@ -30,8 +30,11 @@ export function aqiWarns(aqi: number): boolean {
   return aqi > MODERATE.max;
 }
 
-/** publishedAt 照回應的原文 例如 2026/10/16 15:00:00 */
-export type Station = { county: County; site: string; aqi: number; publishedAt: string | null };
+/**
+ * publishedAt 照回應的原文 例如 2026/10/16 15:00:00
+ * PM2.5 與 PM10 是每立方公尺微克 臭氧是 ppb pollutant 是環境部寫的主要污染物 良好時是空的
+ */
+export type Station = { county: County; site: string; aqi: number; publishedAt: string | null; pm25: number | null; pm10: number | null; o3: number | null; pollutant: string | null };
 
 /** 維修或停電的測站 AQI 是空的或不是數字 略過 */
 export function parseStations(json: unknown): { stations: Station[]; missing: string[] } {
@@ -44,14 +47,28 @@ export function parseStations(json: unknown): { stations: Station[]; missing: st
     const aqi = typeof row.aqi === "string" && /^\d+$/.test(row.aqi.trim()) ? Number(row.aqi) : typeof row.aqi === "number" ? row.aqi : null;
     const site = text(row.sitename, { allowBlank: true });
     if (county === null || aqi === null || site === null) return [];
-    return [{ county, site, aqi, publishedAt: text(row.publishtime, { allowBlank: true }) }];
+    return [
+      {
+        county,
+        site,
+        aqi,
+        publishedAt: text(row.publishtime, { allowBlank: true }),
+        pm25: numberOf(row["pm2.5"]),
+        pm10: numberOf(row.pm10),
+        o3: numberOf(row.o3),
+        pollutant: text(row.pollutant)?.trim() ?? null,
+      },
+    ];
   });
   return { stations, missing: records.length > 0 && stations.length === 0 ? ["records[].county", "records[].aqi", "records[].sitename"] : [] };
 }
 
+/** 這個縣市的測站 從差排到好 一樣時照回應的順序 */
+export const countyStations = (stations: readonly Station[], county: County): Station[] => stations.filter((station) => station.county === county).sort((a, b) => b.aqi - a.aqi);
+
 /** 一個縣市有好幾個測站 照最差的那一個 出門時才不會低估 */
 export function countyAqi(stations: readonly Station[], county: County): (Station & { level: string; sites: number }) | null {
-  const own = stations.filter((station) => station.county === county);
-  const worst = own.reduce<Station | null>((max, station) => (max === null || station.aqi > max.aqi ? station : max), null);
-  return worst && { ...worst, level: aqiLevel(worst.aqi), sites: own.length };
+  const own = countyStations(stations, county);
+  const [worst] = own;
+  return worst ? { ...worst, level: aqiLevel(worst.aqi), sites: own.length } : null;
 }

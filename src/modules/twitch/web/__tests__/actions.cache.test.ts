@@ -6,7 +6,7 @@ vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("../../service/streamers", { spy: true });
 
 const service = mocksOf(await import("../../service/streamers"), "addStreamer", "removeStreamer", "syncSubscriptionsFor", "setStreamerNotify");
-const { TwitchUserError } = await import("../../service/streamers");
+const { TwitchUserError } = await import("../../service/errors");
 const { addStreamerAction, removeStreamerAction, setStreamerNotifyAction, syncAction } = await import("../actions");
 
 beforeEach(() => {

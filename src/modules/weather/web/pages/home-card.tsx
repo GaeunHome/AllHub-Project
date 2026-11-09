@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 import { requireModule } from "@/core/auth";
 import type { ModuleInfo } from "@/core/module";
@@ -7,12 +8,14 @@ import { InfoTip } from "@/core/ui/info-tip";
 import { Scene } from "@/core/ui/scene";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import type { RainLevel } from "../../lib/rain";
-import { cachedForecast, cachedSettings, cachedStations, cachedWarnings } from "../../service/cached";
+import { nextDayHours } from "../../lib/weekly";
+import { cachedCountyHours, cachedForecast, cachedSettings, cachedStations, cachedWarnings } from "../../service/cached";
 import type { WeatherSettings } from "../../service/settings";
 import { weatherKeys } from "../../service/weather";
 import { CountyPicker } from "../components/county-picker";
-import { WarningChips } from "../components/warning-chips";
-import { weatherView, type PeriodView, type Reminder, type WeatherView } from "../weather-view";
+import { TileImage, WeatherImage } from "../components/weather-images";
+import { weatherView, type PeriodView, type Reminder, type WeatherArt, type WeatherView } from "../weather-view";
+import { hourColumn, type HourColumn } from "../weekly-view";
 
 // web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
 export function WeatherHomeCard({ info }: { info: ModuleInfo }) {
@@ -34,10 +37,20 @@ export async function WeatherSnapshot() {
     return <WeatherPrompt title="還沒設定氣象署的授權碼" hint="站長在 Vercel 的環境變數加上 CWA_API_KEY 就會顯示" />;
   }
   const now = new Date();
-  const [forecast, stations, warnings] = await Promise.all([cachedForecast(settings.county), keys.airQuality ? cachedStations() : undefined, cachedWarnings(settings.county)]);
-  return <WeatherBody view={weatherView(settings.county, forecast, stations, now, warnings)} settings={settings} />;
+  // 每小時跟天氣頁的接下來 24 小時共用同一份快取
+  const [forecast, stations, warnings, hours] = await Promise.all([
+    cachedForecast(settings.county),
+    keys.airQuality ? cachedStations() : undefined,
+    cachedWarnings(settings.county),
+    cachedCountyHours(settings.county),
+  ]);
+  const soon = nextDayHours(hours ?? [], now, TAIPEI_OFFSET_SECONDS).slice(0, HOURS_SHOWN).map(hourColumn);
+  return <WeatherBody view={weatherView(settings.county, forecast, stations, now, warnings)} hours={soon} settings={settings} />;
 }
 
+const TAIPEI_OFFSET_SECONDS = 8 * 3600;
+// 右邊空著的地方放接下來幾小時 使用者要填滿卡片
+const HOURS_SHOWN = 6;
 const SCENE_FRAME = "flex h-full min-h-88 flex-col";
 
 /** 還沒有天氣可以看 一樣用晴天的圖 版面才不會空一塊 */
@@ -46,23 +59,23 @@ function WeatherPrompt({ title, hint, action }: { title: string; hint: string; a
     <Scene src="/images/scenes/weather-clear-day.svg" eager className={`${SCENE_FRAME} items-start justify-end gap-3 p-5 sm:p-6`}>
       <div className="flex flex-col gap-1">
         <p className="text-xl font-bold text-white">{title}</p>
-        <p className="text-white/90">{hint}</p>
+        <p className="text-white">{hint}</p>
       </div>
       {action}
     </Scene>
   );
 }
 
-/** 上面是今天的樣子 下面一條是數字 所有縣市都排在同樣的位置 一眼就找得到 */
-function WeatherBody({ view, settings }: { view: WeatherView; settings: WeatherSettings }) {
+/** 上面是今天的樣子 右邊是接下來幾小時 下面一條是數字 所有縣市都排在同樣的位置 */
+function WeatherBody({ view, hours, settings }: { view: WeatherView; hours: HourColumn[]; settings: WeatherSettings }) {
   return (
     <Scene src={view.scene} eager className={SCENE_FRAME}>
-      <div className="flex flex-1 flex-col gap-4 p-5 sm:p-6">
+      <div className="flex flex-1 flex-col gap-3 p-5 sm:p-6">
         <div className="flex items-center gap-1.5">
-          <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 font-semibold">
+          <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 font-semibold text-white">
             <Icon name="map-pin" className="size-4 shrink-0" />
             <span>{view.county}</span>
-            {view.now && <span className="font-normal text-white/90">{view.now.label}</span>}
+            {view.now && <span className="font-normal">{view.now.label}</span>}
           </p>
           {/* 政府資料開放授權條款要標示出處 */}
           <InfoTip label="天氣資料的來源">
@@ -70,76 +83,123 @@ function WeatherBody({ view, settings }: { view: WeatherView; settings: WeatherS
           </InfoTip>
           <CountyPicker settings={settings} />
         </div>
-        {view.warnings.length > 0 && <WarningChips chips={view.warnings} />}
-        {view.now ? <CurrentPeriod period={view.now} /> : <p className="mt-auto text-lg font-semibold text-white">{view.county}的天氣預報暫時無法讀取</p>}
-        {view.reminder && <RainReminder reminder={view.reminder} />}
+        {view.warnings.map((warning) => (
+          <p key={warning.label} className="flex items-center gap-2 font-semibold text-white">
+            <TileImage art="warning" />
+            <span>
+              {warning.label}
+              {warning.until && <span className="font-normal"> {warning.until}</span>}
+            </span>
+          </p>
+        ))}
+        <div className="mt-auto flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+          <div className="flex min-w-0 flex-col gap-3">
+            {view.now ? <CurrentPeriod period={view.now} /> : <p className="text-lg font-semibold text-white">{view.county}的天氣預報暫時無法讀取</p>}
+            {view.reminder && <RainReminder reminder={view.reminder} />}
+          </div>
+          {hours.length > 0 && <NextHours hours={hours} />}
+        </div>
       </div>
       <WeatherStats view={view} />
     </Scene>
   );
 }
 
-/** 溫度是整張卡片最大的字 其他都比它小 */
+/** 溫度是整張卡片最大的字 旁邊是這一段的天氣圖 */
 function CurrentPeriod({ period }: { period: PeriodView }) {
   return (
-    <div className="mt-auto flex flex-col gap-1">
-      {period.temperature && <p className="text-5xl font-bold tracking-tight text-white tabular-nums @md:text-6xl">{period.temperature}</p>}
-      <p className="flex flex-wrap items-baseline gap-x-2.5 text-lg font-semibold text-white">
-        <span>{period.description}</span>
-        {period.comfort && <span className="text-base font-normal text-white/90">{period.comfort}</span>}
-      </p>
+    <div className="flex items-center gap-3">
+      <WeatherImage art={period.art} alt="" size={72} />
+      <div className="flex min-w-0 flex-col gap-1">
+        {period.temperature && <p className="text-5xl font-bold tracking-tight text-white tabular-nums @md:text-6xl">{period.temperature}</p>}
+        <p className="flex flex-wrap items-baseline gap-x-2.5 text-lg font-semibold text-white">
+          <span>{period.description}</span>
+          {period.comfort && <span className="text-base font-normal">{period.comfort}</span>}
+        </p>
+      </div>
     </div>
   );
 }
 
 const REMINDER_ICONS = { umbrella: "umbrella", maybe: "umbrella", dry: "umbrella-off" } as const satisfies Record<RainLevel, UiIconName>;
 
-/** 要帶傘時是實心的黃色 看一眼就知道 其他是半透明的 */
+/** 使用者不要小標籤 跟特報一樣是圖加白字 */
 function RainReminder({ reminder }: { reminder: Reminder }) {
-  const warn = reminder.level === "umbrella";
   return (
-    <p className={`flex w-fit max-w-full flex-wrap items-center gap-x-2 rounded-xl px-3 py-1.5 ${warn ? "bg-amber-300 text-amber-950" : "scene-button font-normal"}`}>
-      <Icon name={REMINDER_ICONS[reminder.level]} className="size-5 shrink-0" />
-      <span className="font-bold">{reminder.title}</span>
-      <span className="text-sm tabular-nums">{reminder.detail}</span>
+    <p className="flex max-w-full flex-wrap items-center gap-x-2 text-white">
+      <Icon name={REMINDER_ICONS[reminder.level]} className="size-6 shrink-0" />
+      <span className="text-lg font-bold">{reminder.title}</span>
+      <span className="tabular-nums">{reminder.detail}</span>
     </p>
   );
 }
 
-function Stat({ label, sub, children }: { label: string; sub?: string | null; children: ReactNode }) {
+/** 寬的時候放在溫度右邊 底下墊一層深色 亮的天空上白字才讀得到 */
+function NextHours({ hours }: { hours: HourColumn[] }) {
   return (
-    <div className="flex min-w-0 flex-col gap-0.5 px-3 py-3 first:pl-5 last:pr-5 sm:px-4 sm:first:pl-6 sm:last:pr-6">
-      <dt className="text-sm text-white/90">{label}</dt>
+    <ol aria-label="接下來幾小時" className="hidden rounded-2xl bg-black/35 p-2 backdrop-blur-sm @2xl:flex">
+      {hours.map((hour) => (
+        <li key={hour.time} className="flex w-14 flex-col items-center gap-1 py-1 text-white tabular-nums">
+          <span className="text-sm">{hour.clock}</span>
+          <WeatherImage art={hour.art} alt={hour.weather ?? ""} size={32} />
+          <span className="font-semibold">{hour.temperature === null ? "—" : `${hour.temperature}°`}</span>
+          {hour.rain !== null && <span className="text-sm">{hour.rain}%</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Stat({ label, art, sub, children }: { label: string; art: StatArt | null; sub?: string | null; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5 border-t border-l border-white/25 px-4 py-3 sm:px-5">
+      <dt className="flex items-center gap-1.5 text-sm text-white">
+        {art && <StatImage art={art} />}
+        {label}
+      </dt>
       <dd className="flex flex-col gap-0.5 font-semibold text-white tabular-nums">
         {children}
-        {sub && <span className="text-sm font-normal break-words text-white/90">{sub}</span>}
+        {sub && <span className="text-sm font-normal break-words">{sub}</span>}
       </dd>
     </div>
   );
 }
 
-/** 空氣品質不好時用標籤 平常只寫等級 */
-function airLevel(air: NonNullable<WeatherView["air"]>) {
-  return air.warn ? <span className="w-fit rounded-md bg-amber-300 px-1.5 text-amber-950">{air.level}</span> : air.level;
+type StatArt = WeatherArt | "droplet" | "leaf" | "mask";
+
+function StatImage({ art }: { art: StatArt }) {
+  return <Image src={`/images/weather/${art}.png`} alt="" width={22} height={22} unoptimized className="shrink-0" />;
 }
 
-/** 欄數照有幾項 沒設環境部的授權碼時只有兩欄 */
-function WeatherStats({ view: { now, next, air } }: { view: WeatherView }) {
+/** 一段的溫度 下面是天氣與降雨機率 */
+function PeriodStat({ period }: { period: PeriodView }) {
+  return (
+    <Stat label={period.label} art={period.art} sub={[period.description, period.rain === null ? null : `降雨 ${period.rain}%`].filter(Boolean).join(" ")}>
+      {period.temperature ?? "—"}
+    </Stat>
+  );
+}
+
+/** 手機兩欄兩列 寬的時候一排 格子的左邊與上面畫線 外框裁掉最外面那一圈 */
+function WeatherStats({ view: { now, next, later, air } }: { view: WeatherView }) {
   if (!now && !next && air === undefined) return null;
   return (
-    <dl className="grid auto-cols-fr grid-flow-col divide-x divide-white/25 border-t border-white/25 bg-black/40">
-      {now && <Stat label="降雨機率">{now.rain === null ? "—" : `${now.rain}%`}</Stat>}
-      {next && (
-        <Stat label={next.label} sub={[next.description, next.rain === null ? null : `降雨 ${next.rain}%`].filter(Boolean).join(" ")}>
-          {next.temperature ?? "—"}
-        </Stat>
-      )}
-      {air !== undefined && (
-        <Stat label="空氣品質" sub={air && [`AQI ${air.aqi}`, air.site, air.time].filter(Boolean).join(" ")}>
-          {air ? airLevel(air) : "暫時無法讀取"}
-        </Stat>
-      )}
-    </dl>
+    <div className="overflow-hidden border-t border-white/25 bg-black/40">
+      <dl className="-mt-px -ml-px grid grid-cols-2 @2xl:auto-cols-fr @2xl:grid-flow-col @2xl:grid-cols-none">
+        {now && (
+          <Stat label="降雨機率" art="droplet">
+            {now.rain === null ? "—" : `${now.rain}%`}
+          </Stat>
+        )}
+        {next && <PeriodStat period={next} />}
+        {later && <PeriodStat period={later} />}
+        {air !== undefined && (
+          <Stat label="空氣品質" art={air?.warn ? "mask" : "leaf"} sub={air && [`AQI ${air.aqi}`, air.site, air.time].filter(Boolean).join(" ")}>
+            {air ? air.level : "暫時無法讀取"}
+          </Stat>
+        )}
+      </dl>
+    </div>
   );
 }
 

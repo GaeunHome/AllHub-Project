@@ -1,6 +1,7 @@
 import "server-only";
 import { twitchEnv } from "@/core/env";
 import { externalFetch } from "@/core/external-url";
+import { createTokenCache, type OAuthToken } from "@/core/token-cache";
 import type { EventSubSubscription } from "./eventsub";
 
 const HELIX = "https://api.twitch.tv/helix";
@@ -59,19 +60,7 @@ const TOKEN_REJECTIONS: Record<string, string> = {
   "403 invalid client secret": "Twitch 的 Client Secret 不對：請在 Twitch 開發者後台按「新密碼」，貼到 Vercel 的 TWITCH_CLIENT_SECRET，改完重新部署",
 };
 
-let token: { value: string; expiresAt: number } | undefined;
-// 頁面會同時查頭像與直播狀態 還沒有 token 時共用同一個請求
-let pendingToken: Promise<string> | undefined;
-
-async function appToken(): Promise<string> {
-  if (token && Date.now() < token.expiresAt - REFRESH_MARGIN_MS) return token.value;
-  pendingToken ??= requestToken().finally(() => {
-    pendingToken = undefined;
-  });
-  return pendingToken;
-}
-
-async function requestToken(): Promise<string> {
+async function requestToken(): Promise<OAuthToken> {
   const env = twitchEnv();
   const response = await externalFetch("https://id.twitch.tv/oauth2/token", {
     method: "POST",
@@ -82,11 +71,11 @@ async function requestToken(): Promise<string> {
     }),
   });
   if (!response.ok) throw await toError(response, "取得 App Access Token", TOKEN_REJECTIONS);
-
-  const data = (await response.json()) as { access_token: string; expires_in: number };
-  token = { value: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
-  return token.value;
+  return (await response.json()) as OAuthToken;
 }
+
+// 頁面會同時查頭像與直播狀態 還沒有 token 時共用同一個請求
+const tokens = createTokenCache(requestToken, REFRESH_MARGIN_MS);
 
 async function helix<T>(method: string, path: string, body?: object, { timeoutMs }: { timeoutMs?: number } = {}): Promise<T> {
   const send = async () =>
@@ -96,7 +85,7 @@ async function helix<T>(method: string, path: string, body?: object, { timeoutMs
         method,
         headers: {
           "Client-Id": twitchEnv().TWITCH_CLIENT_ID,
-          Authorization: `Bearer ${await appToken()}`,
+          Authorization: `Bearer ${await tokens.get()}`,
           ...(body ? { "Content-Type": "application/json" } : {}),
         },
         body: body ? JSON.stringify(body) : undefined,
@@ -106,8 +95,8 @@ async function helix<T>(method: string, path: string, body?: object, { timeoutMs
 
   let response = await send();
   if (response.status === 401) {
-    // token 可能被 Twitch 提前作廢 丟掉快取重拿一次
-    token = undefined;
+    // token 可能被 Twitch 提前作廢 丟掉快取馬上重拿再送一次
+    tokens.invalidate();
     response = await send();
   }
   if (!response.ok) throw await toError(response, `${method} ${path.split("?")[0]}`);

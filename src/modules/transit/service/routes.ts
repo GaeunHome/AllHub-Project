@@ -1,7 +1,8 @@
 import "server-only";
-import { and, count, eq, max } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
+import { valueOrThrow } from "@/core/parsed";
 import { db } from "@/core/db";
-import { moveOwnRow, ownOrder } from "@/core/db/reorder";
+import { moveOwnRow, nextOwnSlot, ownOrder } from "@/core/db/reorder";
 import { lockUserRow } from "@/core/db/users";
 import { transitRoutes, type TransitRoute } from "../data/schema";
 import { ROUTE_LIMIT, TRACKED_LIMIT, parseRoute } from "../lib/rules";
@@ -45,18 +46,14 @@ async function stationNames(mode: Exclude<TransitRoute["mode"], "bus">, system: 
 }
 
 export async function addRoute(userId: string, fields: RouteFields): Promise<TransitRoute> {
-  const parsed = parseRoute(fields);
-  if (!parsed.ok) throw new TransitUserError(parsed.error);
-  const { mode, system, line, originId, destinationId } = parsed.value;
+  const { mode, system, line, originId, destinationId } = valueOrThrow(parseRoute(fields), TransitUserError);
   const names = mode === "bus" ? await busNames(system, line, originId, destinationId) : await stationNames(mode, system, originId, destinationId);
   return db().transaction(async (tx) => {
-    // 鎖住這個使用者再數 同一個人同時新增時一個一個來
-    await lockUserRow(tx, userId, "no key update");
-    const [{ total, last }] = await tx.select({ total: count(), last: max(transitRoutes.sortOrder) }).from(transitRoutes).where(eq(transitRoutes.userId, userId));
+    const { total, sortOrder } = await nextOwnSlot(tx, transitRoutes, userId);
     if (total >= ROUTE_LIMIT) throw new TransitUserError(`常用路線已滿 ${ROUTE_LIMIT} 條，請先刪除一條`);
     const [row] = await tx
       .insert(transitRoutes)
-      .values({ userId, mode, system, line, originId, destinationId, ...names, sortOrder: (last ?? -1) + 1 })
+      .values({ userId, mode, system, line, originId, destinationId, ...names, sortOrder })
       .onConflictDoNothing()
       .returning();
     if (!row) throw new TransitUserError("這條路線已經在常用路線裡了");

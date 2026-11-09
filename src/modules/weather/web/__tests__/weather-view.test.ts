@@ -1,8 +1,9 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { forecastWith } from "../../dev/fixtures";
+import type { Station } from "../../lib/aqi";
 import type { Warning } from "../../lib/warnings";
-import { weatherScene, weatherView } from "../weather-view";
+import { airView, warningRows, weatherScene, weatherView } from "../weather-view";
 
 /** 台北時間 10/19 早上 7 點 現在這一段是今天白天 下一段是今晚 */
 const MORNING = new Date("2026-10-18T23:00:00.000Z");
@@ -36,14 +37,15 @@ describe("帶傘提醒", () => {
   });
 });
 
-describe("天氣警特報的標籤", () => {
+describe("首頁卡片的天氣警特報：使用者不要小標籤 每一則寫成一行字", () => {
   // MORNING 是台北 10/19 早上 7 點
-  const chips = (warnings: Warning[] | null, now = MORNING) => weatherView("臺北市", forecastWith([70, 40]), undefined, now, warnings).warnings;
+  const rows = (warnings: Warning[] | null, now = MORNING) => weatherView("臺北市", forecastWith([70, 40]), undefined, now, warnings).warnings;
+  const chips = (warnings: Warning[] | null, now = MORNING) => rows(warnings, now).map(({ label, until }) => ({ label: until ? `${label} ${until}` : label }));
 
-  it("警報用最強的顏色，特報用警示色，順序照讀到的", () => {
-    expect(chips([{ label: "海上陸上颱風警報", severe: true, end: null }, { label: "大雨特報", severe: false, end: null }])).toEqual([
-      { label: "海上陸上颱風警報", tone: "danger" },
-      { label: "大雨特報", tone: "warning" },
+  it("警報與特報分得出來，順序照讀到的", () => {
+    expect(rows([{ label: "海上陸上颱風警報", severe: true, end: null }, { label: "大雨特報", severe: false, end: null }])).toEqual([
+      { label: "海上陸上颱風警報", severe: true, until: null },
+      { label: "大雨特報", severe: false, until: null },
     ]);
   });
 
@@ -102,5 +104,70 @@ describe("卡片的背景圖", () => {
 
   it("讀不到預報時也有圖，卡片不會是一片空白", () => {
     expect(weatherView("臺北市", null, undefined, MORNING).scene).toBe("/images/scenes/weather-cloudy-day.svg");
+  });
+});
+
+describe("天氣頁的空氣品質：使用者選的污染物數字＋測站清單", () => {
+  const station = (site: string, aqi: number, extra: Partial<Station> = {}): Station => ({ county: "臺北市", site, aqi, publishedAt: "2026/11/09 09:00:00", pm25: null, pm10: null, o3: null, pollutant: null, ...extra });
+  const STATIONS = [station("士林", 35), station("萬華", 62, { pm25: 18, pm10: 35, o3: 41.4, pollutant: "細懸浮微粒" }), station("松山", 48), station("板橋", 71, { county: "新北市" })];
+
+  it("大數字與污染物照縣市最差的測站，臭氧四捨五入；別的縣市的測站不算", () => {
+    expect(airView(STATIONS, "臺北市")).toMatchObject({ aqi: 62, level: "普通", site: "萬華", time: "09:00", pm25: 18, pm10: 35, o3: 41, pollutant: "細懸浮微粒" });
+  });
+
+  it("這個縣市的每個測站從差排到好，各自寫等級", () => {
+    expect(airView(STATIONS, "臺北市")?.stations.map(({ site, aqi, level }) => [site, aqi, level])).toEqual([
+      ["萬華", 62, "普通"],
+      ["松山", 48, "良好"],
+      ["士林", 35, "良好"],
+    ]);
+  });
+
+  it("這個縣市沒有測站時是 null", () => {
+    expect(airView(STATIONS, "連江縣")).toBeNull();
+  });
+});
+
+describe("天氣頁的特報：使用者不要小標籤 一則一列", () => {
+  it("每一則寫標籤、是不是警報與結束時間（今天只寫時間），讀不到結束時間就不寫", () => {
+    expect(
+      warningRows(
+        [
+          { label: "海上陸上颱風警報", severe: true, end: null },
+          { label: "大雨特報", severe: false, end: "2026-10-19T12:00:00.000Z" },
+          { label: "濃霧特報", severe: false, end: "2026-10-21T00:00:00.000Z" },
+        ],
+        MORNING,
+      ),
+    ).toEqual([
+      { label: "海上陸上颱風警報", severe: true, until: null },
+      { label: "大雨特報", severe: false, until: "到 20:00" },
+      { label: "濃霧特報", severe: false, until: "到 10/21 08:00" },
+    ]);
+  });
+
+  it("結束時間已過的不列", () => {
+    const ended = { label: "大雨特報", severe: false, end: new Date(MORNING.getTime() - 60_000).toISOString() };
+
+    expect(warningRows([ended], MORNING)).toEqual([]);
+  });
+});
+
+describe("首頁卡片的三段預報：使用者要填滿卡片 下面一排多寫再下一段", () => {
+  it("現在、下一段與再下一段各自寫時段與天氣圖；早上看是今天白天、今晚、明天白天", () => {
+    const view = weatherView("臺北市", forecastWith([70, 40, 10]), undefined, MORNING);
+
+    expect([view.now?.label, view.next?.label, view.later?.label]).toEqual(["今天白天", "今晚", "明天白天"]);
+    // 晚上開始的時段換成月亮那一類的圖 白天的多雲有太陽
+    expect(view.now?.art).toMatch(/^sun/);
+    expect(view.next?.art).not.toMatch(/^sun/);
+  });
+
+  it("帶傘提醒照舊只看現在與下一段，再下一段下雨不算", () => {
+    expect(weatherView("臺北市", forecastWith([10, 10, 90]), undefined, MORNING).reminder?.level).toBe("dry");
+  });
+
+  it("預報只有兩段時沒有再下一段", () => {
+    expect(weatherView("臺北市", forecastWith([70, 40]), undefined, MORNING).later).toBeNull();
   });
 });

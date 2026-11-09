@@ -20,8 +20,8 @@ import { KEEP_AVATAR } from "./avatar-rules";
 import { removeOtherSubscriptions } from "../push/service";
 import { authenticate, changePassword, deleteOwnAccount, saveUploadedAvatar, updateAvatar, updateNickname } from "./users";
 
-export type LoginState = { error?: string; username?: string };
-export type RegisterState = { error?: string; username?: string };
+/** 登入與註冊共用 失敗時帶回帳號 欄位才不用重打 */
+export type AuthFormState = { error?: string; username?: string };
 
 const LOCK_OPTIONS = { maxFailures: 5, windowMs: 15 * 60_000, lockMs: 15 * 60_000 };
 // 同一個 IP 15 分鐘內錯 5 次就鎖 15 分鐘
@@ -33,7 +33,7 @@ const FAILURE_DELAY_MS = 1000;
 const guest = (ip: string): AuditActor => ({ id: null, name: ANONYMOUS_ACTOR, ip });
 const REGISTER_FAILURES = { invite: "邀請連結無效", taken: "帳號已被使用", invalid: "資料不符合規定" } as const;
 
-export async function login(_prev: LoginState, formData: FormData): Promise<LoginState> {
+export async function login(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const ip = clientIp((await headers()).get("x-forwarded-for"));
   // 每次送出都換一張驗證碼 被擋下的也一樣
   const captchaToken = await takeCaptchaToken("login");
@@ -81,7 +81,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 }
 
 /** 只能用有效的邀請註冊 次數依 IP 雜湊存在資料庫 serverless 的記憶體不共用 */
-export async function registerAction(_prev: RegisterState, formData: FormData): Promise<RegisterState> {
+export async function registerAction(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const username = formText(formData, "username");
   // 每次送出都換一張驗證碼 被擋下的也一樣
   const captchaToken = await takeCaptchaToken("register");
