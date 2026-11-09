@@ -16,7 +16,7 @@ paths:
 
 發版、改資料表或升級套件前，就算沒有讀到上面這些檔，也要先讀這份。
 
-- 套件（使用者要的：全部升到最新、`npm audit` 連開發工具也是 0）：TypeScript 照官方的共存做法，`typescript` 指向 `@typescript/typescript6`（6.0 的 API，給 Next 的建置、typescript-eslint 與 `architecture.test.ts` 解析程式碼，指令是 `tsc6`），`@typescript/native` 是 7.0（`tsc`，型別檢查用），7.x 有 API 後再合成一個；`package.json` 的 `overrides` 把 drizzle-kit 帶的舊 esbuild 與 lint 工具帶的 minimatch 10 換成修過漏洞的版本，上游更新後拿掉；ESLint 10 的外掛（react、import、jsx-a11y）還沒宣告支援，安裝時 npm 會警告 peer，lint 實測正常；`@types/node` 跟網站與 GitHub Actions 的 Node 一樣留在 24。
+- 套件（使用者要的：全部升到最新、`npm audit` 連開發工具也是 0）：TypeScript 照官方的共存做法，`typescript` 指向 `@typescript/typescript6`（6.0 的 API，給 Next 的建置、typescript-eslint 與 `architecture.test.ts` 解析程式碼，指令是 `tsc6`），`@typescript/native` 是 7.0（`tsc`，型別檢查用），7.x 有 API 後再合成一個；`package.json` 的 `overrides` 把 drizzle-kit 帶的舊 esbuild 與 lint 工具帶的 minimatch 10 換成修過漏洞的版本，上游更新後拿掉；ESLint 10 的外掛（react、import、jsx-a11y）還沒宣告支援，安裝時 npm 會警告 peer，lint 實測正常；`@types/node` 跟網站與 GitHub Actions 的 Node 一樣留在 24。資料庫驅動 postgres 4 接 Supabase 的 transaction pooler 要 `max_pipeline: 1`（見 `core/db/index.ts`），Supabase 的 Supavisor 升到 2.10 以後才能拿掉；升級驅動或改連線設定時，本機的 PGlite 測不出連線池的問題，上線後要在正式站連續操作幾分鐘確認。
 - 推上 main 時 Vercel 部署與 `db-migrate.yml` 平行執行，舊程式會在新的資料表上跑一小段時間，migration 一律先擴充、之後再收斂：
   - 新欄位可為 null 或有預設值，新表直接加；不刪也不改舊欄位（舊程式明列欄位的 select、insert、upsert 仍要能用；例外是 `youtube_settings.id` 加上 BY DEFAULT 的 identity，舊程式明確給 id 照樣寫得進去；v0.2.8 把 `youtube_settings` 的主鍵從 `id` 換成 `user_id`（使用者要的，分兩版：`id` 欄留著，舊程式的 select、insert 照常，`on conflict ("user_id")` 由主鍵涵蓋））。
   - 既有資料的回填寫在同一個 migration 的 SQL 裡（例如 v0.1.1 把單人版的資料歸給最早建立的站長）。
