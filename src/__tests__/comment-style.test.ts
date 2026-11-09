@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-// 使用者要的 註解不要太長 說明方式要統一 規則寫在 CLAUDE.md 的程式碼慣例
+// 使用者要的 註解不要太長 說明方式要統一 規則寫在 .claude/rules/code-style.md
 // 字串 樣板字串 正規式與 JSX 的字先遮掉 網址裡的 // 才不會被當成註解
 const SRC = join(import.meta.dirname, "..");
 const SOURCE = /\.(ts|tsx|mjs|css)$/;
@@ -117,11 +117,11 @@ describe("註解短而統一", () => {
     expect(punctuated(groups).map((group) => group.line)).toEqual([8]);
   });
 
-  it("註解最多兩行（CLAUDE.md〈程式碼慣例〉），更長的說明寫進 CLAUDE.md 或 docs", () => {
+  it("註解最多兩行（.claude/rules/code-style.md），更長的說明寫進規則檔或 docs", () => {
     expect(tooLong(everyGroup).map((group) => group.where)).toEqual([]);
   });
 
-  it("註解不用全形標點（CLAUDE.md〈程式碼慣例〉），片語之間用空格隔開", () => {
+  it("註解不用全形標點（.claude/rules/code-style.md），片語之間用空格隔開", () => {
     expect(punctuated(everyGroup).map((group) => group.where)).toEqual([]);
   });
 });

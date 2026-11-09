@@ -91,18 +91,18 @@ describe("cachedGameArt：遊戲封面", () => {
 });
 
 describe("cachedSchedule：主播的開台時間表（使用者選的清單＋詳情）", () => {
-  it("一位主播一份，標 twitch:external，效期 30 分鐘（records）", async () => {
+  it("一位主播一份，標 twitch:external，15 分鐘後背景重讀、很久沒看時先給最多 6 小時前的（schedule）", async () => {
     expect(await cachedSchedule("1")).toEqual({ configured: true, schedule: { segments: [{ start: "2026-11-13T12:00:00.000Z", end: "2026-11-13T15:00:00.000Z", title: "聊天", category: null }], vacation: null } });
     expect(api.getSchedule).toHaveBeenCalledWith("1");
     expect(tagged()).toEqual(["twitch:external"]);
-    expect(cacheLife).toHaveBeenCalledWith("records");
+    expect(cacheLife).toHaveBeenCalledWith("schedule");
   });
 
   it("主播沒有設定時間表（Twitch 回 404，getSchedule 回 null）：空的，不算讀不到", async () => {
     api.getSchedule.mockResolvedValue(null);
 
     expect(await cachedSchedule("1")).toEqual({ configured: true, schedule: { segments: [], vacation: null } });
-    expect(cacheLife).toHaveBeenCalledWith("records");
+    expect(cacheLife).toHaveBeenCalledWith("schedule");
   });
 
   it("Helix 出錯或格式不同：schedule 是 null，短效期，log 不記回應原文", async () => {

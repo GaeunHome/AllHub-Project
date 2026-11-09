@@ -130,13 +130,13 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
 
 ## 測試
 
-- **寫什麼測試**：只留答案來自程式以外的（需求、手算、發生過的 bug、架構規則、資料庫與安全）；照著程式抄答案的（常數、文案、class、內部函式的呼叫）不寫。規則見 CLAUDE.md〈程式碼慣例〉。
+- **寫什麼測試**：只留答案來自程式以外的（需求、手算、發生過的 bug、架構規則、資料庫與安全）；照著程式抄答案的（常數、文案、class、內部函式的呼叫）不寫。規則見 `.claude/rules/code-style.md`。
 - **`npm test`**：跑 Vitest 單元與整合測試。`vitest.config.mts` 用 `threads`（比預設的 `forks` 快將近一半），固定最多 4 個 worker：平行太多在機器忙時會逾時。
   - 整合測試用記憶體裡的 PGlite（`src/dev/test-db.ts`），不需要資料庫。整輪只建一次快照（`src/dev/test-db-snapshot.ts`，存在 `node_modules/.cache/allhub-test-db/`），同一個檔案共用一個資料庫，每個測試開始前清空資料與序號，約 5 毫秒。
   - 測試裡不能改表結構，下一個測試會受影響；要改的放到自己的檔案。
   - 測試不會對外部服務發請求：`src/dev/vitest-setup.ts` 把全域 `fetch` 換成只能連 localhost／127.0.0.1 的版本，其他目的地直接丟錯，錯誤訊息會說明怎麼換成替身（`fakeFetch` 傳給 `fetchImpl`、`vi.stubGlobal("fetch", …)`、`vi.mock(path, { spy: true })` 要設定回應）。
   - `docs/secrets.md` 產生亂數密鑰的那行指令，測試會實際執行，並用 `core/env.ts` 檢查每個值；改那行時測試也要通過。
-  - 共用的測試輔助都在 `src/dev/`，用法見 CLAUDE.md〈架構規則〉：環境變數（跨模組的測試用 `stubAllEnv()`）、測試帳號（`insertTestUsers()` 建站長 alice 與成員 bob）、登入狀態、`next/navigation` 與 ⋮ 選單的替身、假 fetch 與假 localStorage、算繪成 HTML 與取出看得到的字（`markup()`、`textOf()`）、直接呼叫假外部服務的 `mockRequest()`、`next/cache` 的 spy。模組自己的測試 fixture 放在模組的 `dev/`，只有測試能 import。
+  - 共用的測試輔助都在 `src/dev/`，用法見 `.claude/rules/testing.md`：環境變數（跨模組的測試用 `stubAllEnv()`）、測試帳號（`insertTestUsers()` 建站長 alice 與成員 bob）、登入狀態、`next/navigation` 與 ⋮ 選單的替身、假 fetch 與假 localStorage、算繪成 HTML 與取出看得到的字（`markup()`、`textOf()`）、直接呼叫假外部服務的 `mockRequest()`、`next/cache` 的 spy。模組自己的測試 fixture 放在模組的 `dev/`，只有測試能 import。
   - `vi.stubGlobal` 換掉的全域（`fetch`、`localStorage`、`window`…）每個測試前自動還原（`vitest.config.mts` 的 `unstubGlobals`），測試不用自己還原；環境變數不自動還原。每個測試開始時 `DEV_EXTERNAL_ORIGIN` 是空的，本機 shell 設了假伺服器也不影響測試。
 - **規則檢查**：`src/__tests__/architecture.test.ts` 與 `src/__tests__/cache-rules.test.ts` 檢查架構與快取規則（見 [架構](architecture.md)），包括 `process.env` 只出現在允許的地方、Server Action 先確認登入、模組 id 一致。`src/modules/__tests__/cron.test.ts` 檢查排程跟 `vercel.json` 一一對應，`src/__tests__/account-deletion.integration.test.ts` 從資料庫的外鍵檢查刪除帳號時每張表都刪乾淨。
 - **套件與漏洞**：全部用最新版，`npm audit`（含開發工具）要是 0。TypeScript 照官方的共存做法裝兩個：`typescript` 指向 `@typescript/typescript6`（6.0 的 API，Next 的建置、typescript-eslint 與架構測試要用），`@typescript/native` 是 7.0 的 `tsc`；等 7.x 有 API、typescript-eslint 支援後再只留一個。`package.json` 的 `overrides` 把 drizzle-kit 帶的舊 esbuild 與 lint 工具帶的 minimatch 10 換成修過漏洞的版本，上游更新後拿掉，拿掉前先跑 `npm audit`。ESLint 10 的 react、import、jsx-a11y 外掛還沒宣告支援，安裝時的 peer 警告可以忽略。
@@ -144,7 +144,7 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
 - **在瀏覽器裡測試**：一律用 `next dev` 加上 `npm run mock:external` 與 `DEV_EXTERNAL_ORIGIN`。
   - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、沒有持股的理財、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像、即時便箋、股價、天氣與警特報，只有還沒追蹤、沒連結帳號、沒有持股、沒選縣市的使用者才不會對外；新增持股、有持股的投資頁（股價與除權息預告）、`starrail:stamina`、`starrail:redeem`、`weather:rain`、`weather:warnings`、`savings:dividends` 也都會對外。
   - 可見的分頁大約每 10 秒向 `/api/notifications` 輪詢一次（背景分頁每 60 秒），模擬開台或新影片後最多等 10 秒，提示卡片就會出現。
-- **自動化測試觀看頁**：要先注入假的 `window.YT.Player`，否則瀏覽器會向 youtube.com 載入播放器。細節見 CLAUDE.md〈測試與 E2E〉。
+- **自動化測試觀看頁**：要先注入假的 `window.YT.Player`，否則瀏覽器會向 youtube.com 載入播放器。細節見 `.claude/rules/testing.md`。
 - **自動化點按**：用 Chrome DevTools Protocol 的 `Input.dispatchMouseEvent`（手機用 `Input.dispatchTouchEvent`）模擬真的滑鼠與手指，不要用 `element.click()`：它不經過命中測試、也不發 pointerdown，測不出「按下就把選單收起來」這類問題。
 - **自動化的分頁**：用 CDP 的 `Target.createTarget` 開新分頁、再 `Page.bringToFront`，不要用 Chrome 啟動時的 about:blank 分頁：它算是藏起來的分頁，`requestAnimationFrame` 不跑、彈出視窗關閉的事件也收不到。
 - **自動化的 Chrome**：啟動時加 `--disable-features=MacAppCodeSignClone`，結束時用 CDP 的 `Browser.close` 正常關閉。Chrome 每次啟動會在暫存資料夾複製一份自己（`code_sign_clone`），每一份都會在 macOS 的「隱私權與安全性 → 區域網路」多一個刪不掉的 Google Chrome，直接結束程序時也不會清掉，跑多了會佔掉好幾 GB。

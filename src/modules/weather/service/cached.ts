@@ -33,7 +33,7 @@ export async function cachedCountyWeek(county: County): Promise<WeekDay[] | null
   "use cache: remote";
   cacheTag(weatherTags.external);
   const week = await fetchCountyWeek(county);
-  if (week && week.length > 0) cacheLife("records");
+  if (week && week.length > 0) cacheLife("forecast");
   else cacheLife("external");
   return week;
 }
@@ -42,7 +42,7 @@ export async function cachedCountyHours(county: County): Promise<HourPoint[] | n
   "use cache: remote";
   cacheTag(weatherTags.external);
   const hours = await fetchCountyHours(county);
-  if (hours && hours.length > 0) cacheLife("records");
+  if (hours && hours.length > 0) cacheLife("forecast");
   else cacheLife("external");
   return hours;
 }
@@ -52,28 +52,28 @@ export async function cachedWorldWeek(latitude: number, longitude: number, timez
   "use cache: remote";
   cacheTag(weatherTags.external);
   const week = await fetchWorldWeek({ latitude, longitude, timezone });
-  if (week && week.days.length > 0) cacheLife("records");
+  if (week && week.days.length > 0) cacheLife("forecast");
   else cacheLife("external");
   return week;
 }
 
-/** 氣象署一天更新好幾次 半小時重讀一次 */
+/** 氣象署一天更新好幾次 15 分鐘後背景重讀 */
 export async function cachedForecast(county: County): Promise<Forecast | null> {
   "use cache: remote";
   cacheTag(weatherTags.external);
   const forecast = await fetchForecast(county);
-  if (forecast) cacheLife("records");
+  if (forecast) cacheLife("forecast");
   else cacheLife("external");
   return forecast;
 }
 
-/** 特報隨時會發 讀到讀不到都幾分鐘後再讀 沒有特報是空陣列 讀不到是 null */
-/** 特報全台一份 跟排程同一個請求 每個縣市各問一次的話次數多很多 */
+/** 特報全台一份 跟排程同一個請求 每個縣市各問一次的話次數多很多 沒有特報是空陣列 讀不到是 null */
 async function cachedTaiwanWarnings(): Promise<Partial<Record<County, Warning[]>> | null> {
   "use cache: remote";
-  cacheLife("external");
   cacheTag(weatherTags.external);
   const warnings = await fetchWarnings();
+  if (warnings) cacheLife("warnings");
+  else cacheLife("external");
   return warnings && Object.fromEntries(warnings);
 }
 
@@ -88,7 +88,7 @@ export async function cachedStations(): Promise<Station[] | null> {
   "use cache: remote";
   cacheTag(weatherTags.external);
   const stations = await fetchStations();
-  if (stations) cacheLife("records");
+  if (stations) cacheLife("air");
   else cacheLife("external");
   return stations;
 }

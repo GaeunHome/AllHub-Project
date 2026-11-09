@@ -6,6 +6,7 @@ import type { WeekDay } from "../../lib/weekly";
 import { placeHref, type PlaceTab } from "../place-tabs";
 import { weekOf } from "../place-week";
 import { weatherArt } from "../weather-view";
+import { PendingPlace } from "./pending-place";
 import { Flag, WeatherImage } from "./weather-images";
 
 // 使用者要的 清單裡每個城市一張小卡片 點了跟城市膠囊一樣切換
@@ -62,6 +63,7 @@ export async function CityOverview({ tabs, selectedKey }: { tabs: PlaceTab[]; se
             <Link href={placeHref(tab.key)} aria-current={tab.key === selectedKey ? "page" : undefined} className="wx-city-card">
               <CityName tab={tab} />
               <Today today={weeks[index]?.days[0]} />
+              <PendingPlace />
             </Link>
           </li>
         ))}

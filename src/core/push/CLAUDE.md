@@ -1,6 +1,6 @@
 # 手機通知（core/push）的注意事項
 
-全站的規則（架構、慣例、安全、多人、快取、測試、資料保留、部署）在根目錄的 `CLAUDE.md`，這裡只寫這個部分自己的；文中的〈多人〉〈快取〉這類章節都在根目錄那份。
+全站的規則在根目錄的 `CLAUDE.md` 與 `.claude/rules/`（讀寫相關的檔案時自動載入），這裡只寫這個部分自己的。
 
 - 手機通知（使用者要的，`core/push/`，加到主畫面＋推播）：做成 PWA，不用 Capacitor，`src/app/manifest.ts`、`public/sw.js`、`public/icons/app/`（`flower-2` 放在主色上；瀏覽器分頁的圖示是同一朵花的 `src/app/favicon.ico`，32、16、48px，不用 `icon.*` 這類檔：網址要登入，登入頁看不到，`src/__tests__/favicon.test.ts` 檢查）。沒設 `VAPID_PUBLIC_KEY`、`VAPID_PRIVATE_KEY` 時通知頁不顯示手機通知，其他功能照常。
   - 發送：`notify()` 寫完站內通知後呼叫 `push/send.ts` 的 `pushToPhones()`，模組不用各自改，停用與沒權限的人在寫入時就濾掉了。用 `web-push` 的 `generateRequestDetails()` 組請求再經 `externalFetch()`（假服務才接得到），同時 4 個、每個最多等 5 秒，內容用 VAPID 與手機的金鑰加密，推送服務看不到。推送服務回 404、410 就刪掉那支手機。**不能丟錯**：`sendOnce()` 看到錯誤會放掉認領，站內通知會重寄一次；log 不記網址，網址等於這支手機的憑證。

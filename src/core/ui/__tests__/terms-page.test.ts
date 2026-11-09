@@ -79,6 +79,11 @@ describe("使用聲明（公開頁）", () => {
     expect(expire("live")).toBe(2 * 60);
     expect(expire("avatar")).toBe(24 * 60 * 60);
     expect(expire("quotes")).toBe(6 * 60 * 60);
+    expect(expire("forecast")).toBe(6 * 60 * 60);
+    expect(expire("air")).toBe(60 * 60);
+    expect(expire("warnings")).toBe(60 * 60);
+    expect(expire("hoyolab")).toBe(6 * 60 * 60);
+    expect(expire("schedule")).toBe(6 * 60 * 60);
   });
 
   it("第三方服務：照實作分平台列出會存進資料庫的平台資料，不再說「查到的資料都不存」", () => {
@@ -126,9 +131,10 @@ describe("使用聲明（公開頁）", () => {
     expect(text).toMatch(/降雨機率 50% 以上時提醒你帶傘[^。]*「設定」關掉/);
   });
 
-  it("天氣警特報照實際揭露：大約每小時全台查一次，特報只放快取、最多 5 分鐘，開關算設定的內容，可以在天氣卡片的設定關掉", () => {
+  it("天氣警特報照實際揭露：大約每小時全台查一次，特報只放快取、最多一小時（使用者同意隔一陣子沒開時先給舊的），開關算設定的內容，可以在天氣卡片的設定關掉", () => {
     expect(text).toMatch(/大約每小時查一次全台的天氣警特報[^。]*「設定」關掉/);
-    expect(markup).toContain("<li>天氣警特報：5 分鐘</li>");
+    expect(markup).toContain("<li>空氣品質、天氣警特報：1 小時</li>");
+    expect(markup).toContain("<li>天氣預報、一週與每小時預報：6 小時</li>");
     expect(text).toMatch(/你設定的內容：[^。]*警特報通知的開關/);
   });
 

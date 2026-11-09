@@ -71,7 +71,7 @@ export async function cachedCharacters(userId: string, accountId: number): Promi
   cacheTag(starrailTags.accounts);
   const result = await charactersFor(userId, accountId);
   // 資料不公開這類失敗時效期短一點 到 HoYoLAB 打開設定後幾分鐘內就看得到
-  if (result.ok) cacheLife("records");
+  if (result.ok) cacheLife("hoyolab");
   else cacheLife("external");
   return result;
 }
@@ -81,7 +81,7 @@ export async function cachedLedger(userId: string, accountId: number, month: str
   "use cache: remote";
   cacheTag(starrailTags.accounts);
   const result = await ledgerFor(userId, accountId, month);
-  if (result.ok) cacheLife("records");
+  if (result.ok) cacheLife("hoyolab");
   else cacheLife("external");
   return result;
 }
@@ -91,7 +91,7 @@ export async function cachedEndgame(userId: string, accountId: number, mode: End
   "use cache: remote";
   cacheTag(starrailTags.accounts);
   const result = await endgameFor(userId, accountId, mode, schedule);
-  if (result.ok) cacheLife("records");
+  if (result.ok) cacheLife("hoyolab");
   else cacheLife("external");
   return result;
 }
@@ -101,7 +101,7 @@ export async function cachedActCalendar(userId: string, accountId: number): Prom
   "use cache: remote";
   cacheTag(starrailTags.accounts);
   const result = await actCalendarFor(userId, accountId);
-  if (result.ok) cacheLife("records");
+  if (result.ok) cacheLife("hoyolab");
   else cacheLife("external");
   return result;
 }
@@ -111,7 +111,7 @@ export async function cachedWarps(userId: string, accountId: number): Promise<Wa
   "use cache: remote";
   cacheTag(starrailTags.accounts);
   const result = await warpsFor(userId, accountId);
-  if (result.ok) cacheLife("records");
+  if (result.ok) cacheLife("hoyolab");
   else cacheLife("external");
   return result;
 }

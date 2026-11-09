@@ -2,7 +2,7 @@ import "server-only";
 import { revalidateTag, updateTag } from "next/cache";
 import type { CronTask } from "./module";
 
-// 規則見 CLAUDE.md 的快取 讀取標上讀到的表 寫入點讓改到的 tag 失效
+// 規則見 .claude/rules/cache.md 讀取標上讀到的表 寫入點讓改到的 tag 失效
 
 /**
  * 例如 core:users 前面是模組 id 或 core

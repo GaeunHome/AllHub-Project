@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createChimePlayer } from "../chime";
+import { createChimePlayer, unlockOnGesture } from "../chime";
 
 class FakeParam {
   value = 0;
@@ -84,13 +84,29 @@ describe("createChimePlayer（Web Audio 合成提示音，不用音檔）", () =
     expect(factory).toHaveBeenCalledOnce();
   });
 
-  it("被瀏覽器暫停（suspended）時試著 resume_這次先不播", () => {
+  it("使用者回報過主控台的 AudioContext 警告：瀏覽器還不算使用者操作時（只按了打開開發者工具的快捷鍵、手指剛碰到螢幕）不建立，等算數的操作才建立", () => {
+    const factory = vi.fn(() => new FakeContext() as unknown as AudioContext);
+    let active = false;
+    const player = createChimePlayer(factory, () => active);
+
+    expect(player.unlock()).toBe(false);
+    expect(factory).not.toHaveBeenCalled();
+
+    active = true;
+    expect(player.unlock()).toBe(true);
+    expect(factory).toHaveBeenCalledOnce();
+  });
+
+  it("聲音被瀏覽器暫停（suspended）時通知進來_不在背景 resume（瀏覽器會警告），這次先不播，下一次操作時才 resume", () => {
     const context = new FakeContext();
     const player = playerWith(context);
     player.unlock();
     context.state = "suspended";
 
     expect(player.play()).toBe(false);
+    expect(context.resume).not.toHaveBeenCalled();
+
+    player.unlock();
     expect(context.resume).toHaveBeenCalled();
   });
 
@@ -120,6 +136,29 @@ describe("createChimePlayer（Web Audio 合成提示音，不用音檔）", () =
 
     expect(context.resume).toHaveBeenCalled();
     expect(context.oscillators.length).toBeGreaterThan(0);
+  });
+
+  it("監聽點擊與按鍵直到聲音真的解鎖：不算數的操作之後照樣聽，解鎖後就不再聽", () => {
+    const target = new EventTarget();
+    const unlock = vi.fn().mockReturnValueOnce(false).mockReturnValue(true);
+    unlockOnGesture({ unlock }, target);
+
+    target.dispatchEvent(new Event("keydown"));
+    target.dispatchEvent(new Event("pointerup"));
+    target.dispatchEvent(new Event("pointerdown"));
+
+    expect(unlock).toHaveBeenCalledTimes(2);
+  });
+
+  it("離開時拿掉監聽", () => {
+    const target = new EventTarget();
+    const unlock = vi.fn(() => false);
+    const stop = unlockOnGesture({ unlock }, target);
+
+    stop();
+    target.dispatchEvent(new Event("keydown"));
+
+    expect(unlock).not.toHaveBeenCalled();
   });
 
   it("瀏覽器不支援 Web Audio_不丟錯、play 回 false", () => {

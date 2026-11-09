@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useOptimistic, useState, useTransition, type FormEvent } from "react";
 import { Icon } from "@/core/ui/icon";
 import { BUS_CITIES, isBusCity } from "../../lib/bus";
 import type { Mode } from "../../lib/modes";
@@ -50,6 +50,9 @@ export function SearchForm({ query, stations, groups, frequent, today, maxDate }
   const [date, setDate] = useState(query.date);
   const [time, setTime] = useState(query.time);
   const [line, setLine] = useState(query.line);
+  // 使用者回報過切換很卡 按下去分頁先換 表單變淡等伺服器的車站清單
+  const [switching, startSwitch] = useTransition();
+  const [shownMode, showMode] = useOptimistic(query.mode);
   const metro = query.mode === "metro";
   const bus = query.mode === "bus";
   const tra = query.mode === "tra";
@@ -61,7 +64,10 @@ export function SearchForm({ query, stations, groups, frequent, today, maxDate }
     setTo("");
     setLine("");
     setTime("");
-    go({ mode, system: mode === "bus" ? "Taipei" : "", line: "", from: "", to: "", time: "" });
+    startSwitch(() => {
+      showMode(mode);
+      go({ mode, system: mode === "bus" ? "Taipei" : "", line: "", from: "", to: "", time: "" });
+    });
   };
   // 使用者要的 只對調兩站 按查詢才問 TDX
   const swap = () => {
@@ -85,8 +91,8 @@ export function SearchForm({ query, stations, groups, frequent, today, maxDate }
   };
 
   return (
-    <form id="transit-search" onSubmit={submit} className="card trn-search p-0 overflow-hidden">
-      <ModeTabs value={query.mode} onChange={switchMode} />
+    <form id="transit-search" onSubmit={submit} aria-busy={switching || undefined} className="card trn-search p-0 overflow-hidden">
+      <ModeTabs value={shownMode} onChange={switchMode} />
       {!collapsed && (
         <div className="trn-search-fields">
           {bus ? (

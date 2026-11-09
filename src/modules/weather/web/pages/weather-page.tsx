@@ -48,6 +48,8 @@ export async function WeatherPageBody({ searchParams }: { searchParams: SearchPa
   const tiles = today && week ? detailsOf(today.details, week, week.hours ?? []) : [];
   // 空氣品質與特報只有台灣的縣市 跟今天的細節並排 少了一個時另一個撐滿整列
   const air = county !== null && airParts() !== null;
+  // 換頁會等畫面上已經有的區塊讀完 key 跟著城市換 點了別的城市先顯示載入中 不用等每小時與空氣品質
+  const city = selected.key;
 
   return (
     <div className="wx-page">
@@ -55,7 +57,7 @@ export async function WeatherPageBody({ searchParams }: { searchParams: SearchPa
         <WeatherHero tabs={tabs} selected={selected} today={today} />
         {week && rows.length > 0 && (
           // 一週先出現 每小時讀到了才能點開 氣象署慢或讀不到都不影響一週預報
-          <Suspense fallback={<WeekList rows={rows} hours={{}} />}>
+          <Suspense key={`hours-${city}`} fallback={<WeekList rows={rows} hours={{}} />}>
             <WeekWithHours rows={rows} county={county} week={week} />
           </Suspense>
         )}
@@ -64,18 +66,18 @@ export async function WeatherPageBody({ searchParams }: { searchParams: SearchPa
         {/* 使用者選的 24 小時與今天的細節疊在左欄 右欄是空氣品質與特報 國外沒有右欄就撐滿 */}
         {week && (
           <div className={air ? "wx-column" : "wx-column wx-wide"}>
-            <Suspense fallback={<NextHoursSkeleton />}>
+            <Suspense key={`next-${city}`} fallback={<NextHoursSkeleton />}>
               <NextHours county={county} week={week} />
             </Suspense>
             {today && tiles.length > 0 && (
-              <Suspense fallback={<TodayDetails tiles={tiles} />}>
+              <Suspense key={`details-${city}`} fallback={<TodayDetails tiles={tiles} />}>
                 <TodayDetailsWithHours county={county} week={week} details={today.details} />
               </Suspense>
             )}
           </div>
         )}
         {county && air && (
-          <Suspense fallback={<AirAndWarningsSkeleton wide={!week} />}>
+          <Suspense key={`air-${city}`} fallback={<AirAndWarningsSkeleton wide={!week} />}>
             <AirAndWarnings county={county} wide={!week} />
           </Suspense>
         )}

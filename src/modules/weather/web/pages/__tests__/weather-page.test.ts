@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { Suspense, isValidElement, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { taipeiDateKey } from "@/core/time";
 import { TEST_SESSION, requireSession } from "@/dev/session-stub";
@@ -337,5 +337,34 @@ describe("我的城市：清單裡每個城市一張小卡片", () => {
 
     expect(tokyo).toContain("東京");
     expect(tokyo).toContain("暫時無法讀取");
+  });
+});
+
+describe("切換城市", () => {
+  // React 換頁時會等畫面上已經出現的區塊讀完 key 跟著城市換 才會先顯示載入中
+  type Boundary = { key: string | null; section: unknown };
+  function boundaries(node: unknown): Boundary[] {
+    if (Array.isArray(node)) return node.flatMap(boundaries);
+    if (!isValidElement<{ children?: unknown }>(node)) return [];
+    const inner = boundaries(node.props.children);
+    if (node.type !== Suspense) return inner;
+    const child = node.props.children;
+    return [{ key: node.key, section: isValidElement(child) ? child.type : null }, ...inner];
+  }
+  const sectionsOf = async (place?: string) => boundaries(await WeatherPageBody({ searchParams: Promise.resolve({ place }) }));
+  const keyOf = (found: Boundary[], section: unknown) => {
+    const boundary = found.find((entry) => entry.section === section);
+    expect(boundary, String(section)).toBeDefined();
+    return boundary?.key;
+  };
+
+  it("每小時、接下來 24 小時、今天的細節、空氣品質與特報跟著城市換成新的區塊：點了別的城市不用等它們讀完，先顯示載入中；我的城市那區不跟著換", async () => {
+    cached.cachedPlaces.mockResolvedValue([{ ...place(8, "高雄市"), kind: "county", country: null, latitude: null, longitude: null, timezone: null }]);
+    cached.cachedCountyWeek.mockResolvedValue([{ ...RAIN[0], details: { ...NO_DETAILS, humidity: 78 } }]);
+    const taipei = await sectionsOf();
+    const kaohsiung = await sectionsOf("8");
+
+    for (const section of [WeekWithHours, NextHours, TodayDetailsWithHours, AirAndWarnings]) expect(keyOf(kaohsiung, section), section.name).not.toBe(keyOf(taipei, section));
+    expect(keyOf(kaohsiung, CityOverview)).toBe(keyOf(taipei, CityOverview));
   });
 });

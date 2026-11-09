@@ -5,7 +5,7 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { readStylesheet, stylesheetImports } from "../dev/stylesheet";
 
-// 規則的說明在 CLAUDE.md 的架構規則 改規則時兩邊要一起改
+// 規則的說明在 .claude/rules/architecture.md 改規則時兩邊要一起改
 const SRC = fileURLToPath(new URL("..", import.meta.url));
 const LAYERS = ["web", "service", "data", "lib", "dev"] as const;
 // CLAUDE.md 是這個模組的注意事項 改到這個模組時才載入
@@ -425,7 +425,7 @@ describe("架構規則", () => {
     expect(problems).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md 的權限 沒有權限的模組等於凍結 只靠導覽列藏起來擋不住直接打開網址
+  // 規則寫在 .claude/rules/security.md 的模組權限 沒有權限的模組等於凍結 只靠導覽列藏起來擋不住直接打開網址
   describe("模組的權限檢查", () => {
     const moduleWeb = files.filter((file) => {
       const place = placeOf(file);
@@ -522,7 +522,7 @@ describe("架構規則", () => {
     expect(problems).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md 架構規則的 env.ts
+  // 規則寫在 .claude/rules/architecture.md 的 env.ts
   // 環境變數都經過 core/env.ts 驗證 例外只有這裡列的幾種
   it("process.env 只出現在例外的地方：core/env.ts、NODE_ENV、proxy.ts 的 SESSION_SECRET、drizzle.config.ts 的 DATABASE_URL、src/dev 的命令列工具、假外部服務的 MOCK_ 設定、測試檔；node:process 的 env 也算", () => {
     const rootConfigs = fs
@@ -560,7 +560,7 @@ describe("架構規則", () => {
     expect(uses.filter((use) => !allowed(use.file, use.name)).map((use) => use.at)).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md 的程式碼慣例 ICU 版本不同時語系輸出的空白字元會變
+  // 規則寫在 .claude/rules/code-style.md ICU 版本不同時語系輸出的空白字元會變
   // CI 曾因此失敗 所以只取數字欄位自己組
   it("日期時間與數字的顯示不靠語系資料：不直接用 Intl.DateTimeFormat、Intl.RelativeTimeFormat、Intl.NumberFormat 或 toLocale*String（日期用 core/time.ts，千分位用 core/number.ts）", () => {
     const allowed = new Set(["core/time.ts", "dev/icu-simulation.ts"]);
@@ -574,7 +574,7 @@ describe("架構規則", () => {
     expect(offenders).toEqual([]);
   });
 
-  // 規則寫在 CLAUDE.md 的外部圖片 網站與 Vercel 都不經手圖片
+  // 規則寫在 .claude/rules/ui.md 的外部圖片 網站與 Vercel 都不經手圖片
   // 遊戲的固定小圖示與官方標誌也一樣直接畫
   it("next/image 一律加 unoptimized：不經 Vercel 的圖片最佳化", () => {
     const withImages = new Set<string>();

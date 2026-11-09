@@ -118,17 +118,6 @@ CREATE TABLE "savings_accounts" (
 --> statement-breakpoint
 ALTER TABLE "savings_accounts" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
-CREATE TABLE "savings_asset_snapshots" (
-	"user_id" uuid NOT NULL,
-	"month" date NOT NULL,
-	"investment" bigint NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "savings_asset_snapshots_user_id_month_pk" PRIMARY KEY("user_id","month"),
-	CONSTRAINT "savings_asset_snapshots_month_first_day" CHECK ("savings_asset_snapshots"."month" is null or extract(day from "savings_asset_snapshots"."month") = 1)
-);
---> statement-breakpoint
-ALTER TABLE "savings_asset_snapshots" ENABLE ROW LEVEL SECURITY;
---> statement-breakpoint
 CREATE TABLE "savings_card_bills" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -435,8 +424,6 @@ ALTER TABLE "reminders_items" ADD CONSTRAINT "reminders_items_user_id_core_users
 ALTER TABLE "savings_accounts" ADD CONSTRAINT "savings_accounts_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint
 ALTER TABLE "savings_accounts" ADD CONSTRAINT "savings_accounts_pay_from_account_id_savings_accounts_id_fk" FOREIGN KEY ("pay_from_account_id") REFERENCES "public"."savings_accounts"("id") ON DELETE set null ON UPDATE no action;
---> statement-breakpoint
-ALTER TABLE "savings_asset_snapshots" ADD CONSTRAINT "savings_asset_snapshots_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint
 ALTER TABLE "savings_card_bills" ADD CONSTRAINT "savings_card_bills_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint

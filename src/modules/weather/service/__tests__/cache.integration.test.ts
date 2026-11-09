@@ -11,7 +11,7 @@ const FORECAST = cwaResponse(cwaLocation("臺北市", [{ start: "2026-10-16T18:0
 
 // env.ts 會記住第一次讀到的值 要在載入前設好
 stubWeatherEnv();
-const { cachedForecast, cachedSettings, cachedWarnings } = await import("../cached");
+const { cachedForecast, cachedSettings, cachedStations, cachedWarnings } = await import("../cached");
 const { saveSettings } = await import("../settings");
 
 const getDb = setupTestDb();
@@ -26,13 +26,13 @@ describe("天氣的快取", () => {
     expect([...new Set(tagged())]).toEqual(["weather:settings"]);
   });
 
-  it("天氣警特報隨時會變：全台讀一次各縣市共用，讀到或讀不到都幾分鐘（external）後再讀，標 weather:external；只回選的縣市，沒有特報是空陣列、讀不到是 null", async () => {
+  it("天氣警特報隨時會變：全台讀一次各縣市共用；讀到時一分鐘後背景重讀、很久沒人看時先給最多一小時前的（warnings），讀不到時幾分鐘（external）後再讀；標 weather:external；只回選的縣市，沒有特報是空陣列、讀不到是 null", async () => {
     const heavyRain = { phenomena: "大雨", significance: "特報", end: "2026-11-02 20:00:00" };
     const fetch = vi.fn<(url: string) => Promise<Response>>(async () => Response.json(cwaWarningResponse(cwaWarningLocation("臺北市", [heavyRain]), cwaWarningLocation("高雄市", []))));
     vi.stubGlobal("fetch", fetch);
 
     expect(await cachedWarnings("臺北市")).toEqual([{ label: "大雨特報", severe: false, end: "2026-11-02T12:00:00.000Z" }]);
-    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("warnings");
     expect(await cachedWarnings("高雄市")).toEqual([]);
     // 回應裡沒有這個縣市 一樣當成沒有特報
     expect(await cachedWarnings("花蓮縣")).toEqual([]);
@@ -47,14 +47,26 @@ describe("天氣的快取", () => {
     expect([...new Set(tagged())]).toEqual(["weather:external"]);
   });
 
-  it("預報讀到時半小時（records），讀不到時幾分鐘（external）後再試；都標 weather:external", async () => {
+  it("預報讀到時 15 分鐘後背景重讀、很久沒人看時先給最多 6 小時前的（forecast），不用等氣象署；讀不到時幾分鐘（external）後再試；都標 weather:external", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json(FORECAST)));
     expect(await cachedForecast("臺北市")).not.toBeNull();
-    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("records");
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("forecast");
 
     vi.stubGlobal("fetch", vi.fn(async () => new Response("down", { status: 503 })));
     captureErrorLog();
     expect(await cachedForecast("臺北市")).toBeNull();
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
+    expect([...new Set(tagged())]).toEqual(["weather:external"]);
+  });
+
+  it("空氣品質每小時更新：讀到時 15 分鐘後背景重讀、很久沒人看時先給最多一小時前的（air），讀不到時幾分鐘（external）後再試；標 weather:external", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ records: [{ county: "臺北市", sitename: "中山", aqi: "42", publishtime: "2026/11/09 15:00:00" }] })));
+    expect(await cachedStations()).toMatchObject([{ county: "臺北市", site: "中山", aqi: 42 }]);
+    expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("air");
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("down", { status: 503 })));
+    captureErrorLog();
+    expect(await cachedStations()).toBeNull();
     expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
     expect([...new Set(tagged())]).toEqual(["weather:external"]);
   });

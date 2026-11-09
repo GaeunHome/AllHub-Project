@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { applyLocalRead, applyLocalReadAll, claimAlerts, freshNotifications, planAlerts } from "./alerts";
-import { chime } from "./chime";
+import { chime, unlockOnGesture } from "./chime";
 import { linkTarget } from "./links";
 import type { NotificationModule } from "./notification-summary";
 import { keepSameFeed, startPoller, type PollResult } from "./poller";
@@ -15,8 +15,6 @@ import { EMPTY_FEED, type NotificationFeed, type NotificationItem } from "./type
 const API = "/api/notifications";
 const MAX_TOASTS = 3;
 const MAX_SYSTEM_NOTIFICATIONS = 3;
-const UNLOCK_EVENTS = ["pointerdown", "pointerup", "keydown"] as const;
-
 type CenterValue = {
   feed: NotificationFeed;
   /** 第一次輪詢回來前 feed 是空的 首頁靠它分辨還在載入與沒有未讀 */
@@ -180,14 +178,8 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
     };
   }, []);
 
-  // 瀏覽器規定互動過才能播聲音 第一次點擊或按鍵時就把音效準備好
-  useEffect(() => {
-    const unlock = () => chime.unlock();
-    for (const type of UNLOCK_EVENTS) window.addEventListener(type, unlock, { capture: true, once: true, passive: true });
-    return () => {
-      for (const type of UNLOCK_EVENTS) window.removeEventListener(type, unlock, { capture: true });
-    };
-  }, []);
+  // 瀏覽器規定互動過才能播聲音 使用者操作時就把音效準備好
+  useEffect(() => unlockOnGesture(chime), []);
 
   const dismissToast = useCallback((id: number) => setToasts((current) => current.filter((toast) => toast.id !== id)), []);
 

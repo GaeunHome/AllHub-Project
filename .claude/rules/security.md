@@ -1,0 +1,45 @@
+---
+paths:
+  - "src/proxy.ts"
+  - "src/app/**"
+  - "src/core/auth/**"
+  - "src/core/api-route.ts"
+  - "src/core/action.ts"
+  - "src/core/form.ts"
+  - "src/core/same-origin.ts"
+  - "src/core/audit/**"
+  - "src/core/admin/**"
+  - "src/core/crypto.ts"
+  - "src/core/push/**"
+  - "src/core/robots.ts"
+  - "src/**/web/actions*.ts"
+  - "src/**/web/routes/**"
+  - "next.config.ts"
+---
+
+# 安全
+
+- `proxy.ts` 只驗 JWT 簽章與期限（不查資料庫，維持 edge 可用）。**Server Action 與讀資料的元件都要呼叫 `requireSession()`**：Server Action 可被直接 POST，改密碼後舊 cookie 的簽章仍有效、被停用的帳號 cookie 也還有效，只有它會比對資料庫的 `session_version` 與 `disabled_at`。停用帳號時 `session_version` 也加一，恢復後停用前的 cookie 不能再用。`(main)/layout.tsx` 的 `SessionGuard` 讓沒讀資料的頁面也會擋；Route Handler 用 `core/api-route.ts` 的 `withSession()`／`withJsonBody()`（底下是 `currentSession()`），沒登入回 401。
+  - `currentSession()` 讀 cookie 之前先 `await navigation()`（`next/cache`，速度優化）：開了 `partialPrefetching`，外框裡有讀 cookie 時每個站內連結的預先抓取都要伺服器重算一次、查兩次資料庫；放在 `navigation()` 下面後預先抓取直接用建置時的外框，點進去才查登入。Route Handler 與 Server Action 呼叫時會直接往下走。vitest 的 `next-cache-stub.ts` 有它的替身。
+- 瀏覽器快取（速度優化）：`/icons/*` 不用登入，`next.config.ts` 的 `headers()` 給一週；要登入的 `/images/*`、`/illustrations/*` 由 `proxy.ts` 在驗過登入、放行時才加 `private` 一天（`next.config.ts` 的 headers 也會套到導回登入頁的轉址，瀏覽器記住後重新登入圖會壞掉）。檔名沒有雜湊，換圖時換檔名，不然要等效期過。
+- 角色：`core_users.role` 是 `owner`／`member`，權限一律讀資料庫（cookie 不帶角色）。管理頁的讀取與 Server Action 都呼叫 `requireOwner()`（不是站長就導回首頁），導覽列的「管理」只是不顯示。
+- 模組權限（使用者要的，`core/auth/module-access.ts`）：`core_module_denials` 只記某個人不能用的模組（主鍵是使用者加模組 id），預設全部能用，新模組自動開放；站長一律全部能用、不查這張表，表格裡站長那一列勾選而且不能改。站長在 `/admin` 的表格勾選即存（`setModuleAccessAction`，只檢查模組 id 的格式：core 不能 import 模組清單）；建立邀請連結時先勾要開放的功能（使用者要的，預設都不勾、至少一個，`core_invites.denied_modules` 記沒勾的，舊邀請是空的＝全部能用），註冊時跟建立帳號同一個交易寫進 `core_module_denials`，之後要多開再到表格勾；一般使用者看不到任何權限的文字或入口，沒權限的模組就是不出現。
+  - `requireModule(id)`：先 `requireSession()` 再查，不能用時導回首頁、不說原因；Route Handler 用 `canUseModule()` 或 `core/api-route.ts` 的 `withSession()` 的 `module`（`architecture.test.ts` 檢查要帶自己的模組 id），不能用回 403。成員不能用的模組跟登入檢查同一次查詢讀到（`findSessionUser()` 的子查詢，`SessionUser.denied`，速度優化：每個請求與每次輪詢少一次資料庫來回），沒帶的才另外查；不跨請求快取，關掉後下一次請求就生效。
+  - 導覽列、首頁模組入口與卡片、通知頁的篩選、提醒方式只列能用的（`usableModules()`）；能用哪些要讀資料庫，所以導覽列與首頁先出現骨架，被關掉的模組不會閃一下。被關掉的模組的舊通知在鈴鐺、未讀數與通知頁也濾掉（`notifications/visible.ts`，資料保留，恢復後照常；「全部標為已讀」也不動藏起來的，`markAllNotificationsRead()` 帶 `hidden`）。
+  - 沒權限＝那個模組凍結（同停用帳號）：資料全部保留、追蹤照樣算數；`notify()` 跳過對那個模組沒權限的收件人，用使用者憑證或替他做事的排程（星穹鐵道、理財的自動記帳與除權息、天氣、提醒與倒數）都用 `activeOwnerOf(…, 模組 id)` 略過他；重新加密排程例外。跨模組的檢查在 `src/__tests__/module-access.integration.test.ts`（直接 POST 每個 Server Action、凍結、恢復）。
+- 操作紀錄（使用者要的，`core_audit_logs`，`core/audit/index.ts`）：所有人的登入、登出、註冊與 Server Action（`runAction()` 自動記，不用的動作要自己呼叫 `audit()`），記帳號名稱、IP 原文、功能、操作、對象、結果與批次編號（同一次操作寫出的幾列共用，例如註冊的「註冊帳號」與「使用邀請連結」）；站長在 `/admin/logs` 看（`core/admin/audit-page.tsx`，每次直接讀、不走快取，篩選條件在網址上），保留 7 天（`AUDIT_RETENTION_DAYS`，排程 `audit:cleanup`）。
+  - 不記密碼、cookie、API Key、邀請碼與記帳的金額：`ActionScope` 的 `target`、`detail` 不能放這些。不存在的帳號不存原文（`UNKNOWN_ACCOUNT`），有人會把密碼打進帳號欄。續翻每批太多不記，只記「開始翻譯」。
+  - 登入與註冊失敗誰都能觸發：同一小時同一件事同一個 IP 併成一列算次數（`merge_key` 唯一、`attempts` 加一），一小時最多 200 列（`MERGED_ROWS_PER_HOUR`），超過的全部併進同一列，7 天最多約 3 萬列。
+  - `actor_id` 刻意不設外鍵：帳號刪掉後紀錄要留到保留期，所以帳號名稱也存一份（`/terms` 有寫）。寫入在 `after()` 裡，登入的回應時間才不會洩漏帳號存不存在，寫不進去只記 log，不影響使用者的操作。
+- 公開頁面只有 `/login`、`/register`、`/terms` 與驗證碼圖片 `/api/auth/captcha`，加到主畫面用的 `/manifest.webmanifest`、`/sw.js`、`public/icons/` 與分頁圖示 `/favicon.ico` 也不用登入（`proxy.ts` 的 matcher 排除，整段比對）；不用登入的 Server Action 只有 `login`、`registerAction`（各自有次數限制與圖形驗證碼）與 `logout`（只刪自己的 cookie），其他都要登入。
+- 換人登入：登出、刪除帳號、被導回登入頁都是站內換頁，前一個人的頁面還藏在 Activity 裡（打到一半的密碼、API Key、cookie）。登入與註冊共用的 `AuthCard` 放了 `discard-hidden-pages.tsx`：發現藏起來的 AppShell（`<main data-app-shell>`）就整頁重新載入，換人登入時看不到上一個人的東西。
+- 圖形驗證碼（`core/auth/captcha.ts`、`captcha-image.ts`）：5 個不易混淆的字，用內建的筆畫字型畫成扭曲的 `<path>`，SVG 裡不能有 `<text>` 或字元本身。`/api/auth/captcha?for=login|register` 回 SVG（`no-store`）並設 HttpOnly、SameSite=Strict（production 加 Secure）的 cookie，只放 nonce、5 分鐘的到期時間與兩個 HMAC（金鑰從 `SESSION_SECRET` 用 `allhub:captcha` 衍生，跟 IP 雜湊分開）：一個含答案，一個不含答案、只涵蓋用途、nonce 與到期時間；不放驗證碼。Server Action 先用 `takeCaptchaToken()` 讀出並清掉 cookie（每次送出都換一張），再 `verifyCaptcha()`：先驗不含答案的 HMAC（偽造、改過期限或用途的 cookie 在這裡就擋下，不寫資料庫），通過了才用 `claimOnce()` 把 nonce 的 sha256 記在 `core_rate_limits`（每個只能用一次，答錯也用掉，超過 1 天的順便清掉），最後不分大小寫與空白比對答案。登入在檢查密碼前驗證，答錯不算帳號的鎖定次數、只算 IP 的；註冊在蜜罐之後驗證。錯誤一律「驗證碼錯誤，請重新輸入」。
+- 只能用邀請註冊：`core_invites` 只存邀請碼（32 bytes 亂數）的 sha256，完整連結只在 `createInviteAction` 的回應裡出現一次（建立下一條時不把上一次的結果送回伺服器）。用掉一次是條件式 update（沒撤銷、沒過期、已用次數小於上限才加一），跟建立帳號在同一個交易裡，資料庫另有 `used_count <= max_uses` 的檢查。註冊表單有蜜罐欄位（`messages.ts` 的 `HONEYPOT_FIELD`）、要勾選同意 `/terms`；邀請有效時才告訴對方帳號已被使用。
+- 次數限制：註冊（每個 IP 每小時 10 次）與無效邀請碼（10 次）的計數存在資料庫（`core/auth/attempts.ts`、`core_rate_limits`，serverless 的記憶體不共用），IP 用 `SESSION_SECRET` 做 HMAC 後才存，不存原文。登入依帳號鎖定（`core_users.failed_logins`、`locked_until`：連錯 5 次鎖 15 分鐘，之後 30、60 分鐘），先在資料庫占用一次再驗證密碼；錯誤一律「帳號或密碼錯誤」，鎖定中也一樣。依 IP 的登入限制仍在記憶體（盡力而為）。
+- 外部呼叫的端點不走登入、各自驗證：`/api/twitch/eventsub`（HMAC-SHA256）、`/api/youtube/websub`（GET 要帶 callback 上跟頻道綁定的 `k`，訂閱只確認追蹤中頻道；POST 驗 HMAC-SHA1，不符回 204 但忽略）、`/api/cron/<排程>`（`CRON_SECRET`）。新增這類端點要同步改 `proxy.ts` 的 matcher（整段比對，後面接 `(?:/|$)`）。webhook 只在真的寫入時才讓快取失效。
+- `/api/notifications` 的 POST 檢查同源（`Origin` 對 `Host`）與 JSON。
+- 錯誤訊息可能夾帶憑證或 SQL 參數：對外回應（cron 結果、Server Action 回傳）只放摘要，log 用 `core/errors.ts` 的 `logError()` 只記錯誤種類（`error.name`，DecryptionError 記原因代碼），不記 message。寫進資料庫、會顯示在畫面上的狀態也一樣：Twitch 與 YouTube 的訂閱失敗用各自 lib 的 `subscriptionFailure()` 寫中文摘要（依錯誤種類與狀態碼，逾時是「連線逾時，稍後會自動重試」），不寫原文。
+- 防機器人：`/robots.txt`（實作在 `core/robots.ts`，`src/app/robots.ts` 只轉接）對所有爬蟲 `Disallow: /`，根版面的 metadata 帶 `NO_INDEX`（noindex、nofollow）；`robots.txt` 在 `proxy.ts` matcher 的排除清單裡，沒登入的爬蟲才讀得到。登入與註冊次數的 Vercel Firewall 規則（同一條規則用 OR 涵蓋 POST `/login`、POST `/register` 與 `/api/auth/captcha`）與 Attack Mode 寫在 `docs/deploy.md`。
+- 手機通知的 `endpoint` 是瀏覽器送來的網址，只收推送服務的網域（`core/push/rules.ts` 的 `isPushEndpoint()`），不然等於讓人指定伺服器去 POST 哪裡；`/api/push` 檢查同源與 JSON。
+- 第三方憑證（HoYoLAB cookie、AI API Key）用 `core/crypto` 的 `encryptSecret` 加密後才存；畫面與 log 不出現原文（AI Key 只顯示前 8 碼：讀設定時解密後取，回傳值只有這 8 碼，資料庫不另外存）。新增加密欄位要加進該模組的 `reencrypt` 排程（逐筆換金鑰用 `core/crypto` 的 `reencryptEach()`）。
+- 原始碼與部署設定不放任何密碼或密鑰；正式環境的密鑰只存在 Vercel 環境變數與 GitHub Secrets，本機不保存。

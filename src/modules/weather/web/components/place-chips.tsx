@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { placeHref, type PlaceTab } from "../place-tabs";
+import { PendingPlace } from "./pending-place";
 import { Flag } from "./weather-images";
 
 type Chip = Pick<PlaceTab, "key" | "name" | "country">;
@@ -13,6 +14,7 @@ export function PlaceChips({ tabs, selectedKey }: { tabs: Chip[]; selectedKey: s
         <Link key={tab.key} href={placeHref(tab.key)} scroll={false} aria-current={tab.key === selectedKey ? "page" : undefined} className="wx-chip">
           <Flag country={tab.country} size={18} />
           {tab.name}
+          <PendingPlace />
         </Link>
       ))}
     </nav>

@@ -1,6 +1,6 @@
 # 理財（savings）的注意事項
 
-全站的規則（架構、慣例、安全、多人、快取、測試、資料保留、部署）在根目錄的 `CLAUDE.md`，這裡只寫這個部分自己的；文中的〈多人〉〈快取〉這類章節都在根目錄那份。
+全站的規則在根目錄的 `CLAUDE.md` 與 `.claude/rules/`（讀寫相關的檔案時自動載入），這裡只寫這個部分自己的。
 
 - 模組 id、網址與資料表前綴沿用 `savings`，名稱是「理財」。六個分頁照東西分（使用者的決定）：總覽 `/savings`、紀錄 `/savings/records`、帳戶 `/savings/accounts`、投資 `/savings/investments`、每月固定 `/savings/recurring`、設定 `/savings/settings`，共用 `web/components/page-frame.tsx`（外框、頁首的 `actions` 與 `StreamSection`；整頁是 `FOCUS_FRAME`）與 `savings-nav.tsx`（手機放不下時橫向捲動，目前的分頁捲進畫面）。
   - 網址集中在 `web/paths.ts`（`SAVINGS_PATHS`）：`addAccountPath(kind)`（帳戶頁 `?add=deposit|credit`、投資頁 `?add=investment`）打開就跳出新增的視窗，`addRecurringPath(preset)`（每月固定頁 `?add=salary|regular-buy|subscription|other`），`editRecurringPath(id)`（每月固定頁 `?edit=<id>`，只認自己的）打開那一條的修改視窗；打開後用 `router.replace` 拿掉參數（`settings/open-from-link.ts`）。設定頁的舊網址 `?add=account`、`?recurring=<id>` 轉到新頁面。紀錄頁收 `?month=`、`?account=`、`?category=`（只認自己的帳戶與分類），網址一律用 `recordsHref()` 組（只帶月份的是 `monthHref()`）。
@@ -20,7 +20,7 @@
   - 不加動畫、數字跳動與圓餅圖，數字一出現就是最後的值；不要一排一樣大的數字方塊。圖只有每月收支的長條（`--fin-income`／`--fin-expense`），進度是中性的細長條 `.fin-meter`（`dashboard/meter.tsx`）。六個分頁共用同一張橫幅（`PageBanner`，`page-frame.tsx`），總覽放總資產、投資放總市值（`hero` prop，大數字與旁邊的合計共用 `dashboard/banner-figure.tsx` 的 `BannerFigure`）。
   - 版面照帳戶頁（使用者說「除了帳戶那邊那個頁面我覺得還不錯」）：一個東西一張卡，大數字、常用動作在卡片上，同一區用 `SectionHeading`（`section-heading.tsx`，標題右邊放合計 `Sum`）＋`CARD_GRID`，最後一格是虛線的新增（`ADD_TILE`，都在 `dashboard/layout.ts`）。帳戶、持股、每月固定、分類都是這樣，新的清單也照做，不要把列塞進一張大白框。
   - 顏色只表示狀態：金額一律 `text-ink`、收入加「+」；損益只寫正負號，不上紅綠（台股紅漲綠跌會跟全站的紅色＝錯誤打架）。一列最多一個標籤，只給逾期、待填帳單、不夠扣、已停用；到期寫「還有 5 天」「逾期 2 天」「今天」（`lib/dates.ts` 的 `dueText()`），日期另外寫。
-  - 不用「·」把好幾件事串成一行（全站的規則見〈程式碼慣例〉）：理財的上下兩行用 `visuals.tsx` 的 `Lines`。通知文字是一行字，不在此限。
+  - 不用「·」把好幾件事串成一行（全站的規則見 `.claude/rules/ui.md`）：理財的上下兩行用 `visuals.tsx` 的 `Lines`。通知文字是一行字，不在此限。
   - 金額、股數、損益、期別這類顯示用的文字在 `web/format.ts`，client 元件只 import 它，不 import 伺服器端的 view model。
   - view model 一個檔一件事：`accounts-state.ts`（餘額、帳單與總資產，各頁共用的起點）、`account-details.ts`（每個帳戶的數字與視窗的預填）、`form-options.ts`（交給表單的選項）、`expense-rows.ts`（本月支出）、`pending-view.ts`（要處理的事）、`accounts-view.ts`、`investments-view.ts`、`recurring-view.ts`、`overview-view.ts`（各頁的形狀）。
   - 插圖（`web/components/illustration.tsx` 的 `Illustration`，檔案在 `public/illustrations/finance/`，unDraw，授權寫在 `public/illustrations/LICENSE.md`）只用在開始設定與空狀態；顏色用 CSS 變數跟著淺色深色換。
@@ -56,7 +56,7 @@
   - 有結帳日的卡：結帳日（嚴格早於今天）之後這一期還沒填就是 `needsBill`（status `needs-bill`），列進這個月要做的事的「填帳單」：還沒有截止日、不算逾期，照結帳日排，寫結帳日與「待填帳單」，金額是照紀錄估的 `estimate`（0 也列）；填了之後還沒繳清（`remainingDue > 0`）才列「已繳」，寫帳單的截止日。
   - 沒有結帳日的卡不會自動要填：在帳戶頁那張卡按「填帳單」（填的那天當結帳日），之後最新一張還沒繳清就列。繳了多少用 `listCardBills()` 算好的 `paid`（最新一張可能早於近 70 天的流量）。已繳＝結帳後轉進這張卡的合計。
   - 「已繳」（`payCard`）：從存款帳戶轉到卡（備註「繳卡費」）；帶 `billAmount`（與 `dueDate`）時同一個交易先填這一期的帳單。扣款帳戶只能是存款帳戶，「繳完剩多少／不夠扣」用本期還要繳的算（`lib/ledger.ts` 的 `creditCardStatuses()`）。
-  - 每張卡只留最新 5 張帳單（見〈資料保留〉）。信用卡不能更新餘額（刷卡記一筆、繳款用已繳）。
+  - 每張卡只留最新 5 張帳單（見 `.claude/rules/data-retention.md`）。信用卡不能更新餘額（刷卡記一筆、繳款用已繳）。
 - 持股（`lib/holdings.ts`、`lib/quotes.ts`、`service/holdings.ts`、`service/quotes.ts`）：
   - 只存代號（大寫英數 4–6 碼）、建立時從股價清單抄的名稱、目前股數與總成本（含手續費）。市值＝股數 × 收盤價（四捨五入，股數乘以分用 bigint 算），沒有報價時用成本、`priced: false`（畫面寫「股價暫時無法讀取」）；均價＝總成本 ÷ 股數。
   - 收盤價：證交所 `STOCK_DAY_ALL` 與櫃買中心 `tpex_mainboard_quotes` 的 OpenAPI，經 `externalFetch()` 同時讀、各等 8 秒，不到 100 筆當成讀不到；價格用字串換成整數的分。不呼叫證交所網站的端點（使用條款禁止程式下載），所以沒有歷史股價。`cachedQuotes()` 用排序去重的代號當 key、只回這些代號的報價。
@@ -75,7 +75,7 @@
 - 快取：一張表一個 tag（`savings:accounts`、`categories`、`recurring`、`transactions`、`holdings`、`bills`、`asset-days`），加上收盤價與除權息預告的 `savings:external`；紀錄一改，餘額、統計與明細都重算。刪除會連帶改到別張表時一起失效（刪除帳戶：紀錄、固定收支、持股、帳單；刪除紀錄：持股、固定收支、帳單；刪除持股：固定收支、紀錄），對照表在 `web/__tests__/actions.cache.test.ts`。
 - 資產走勢（使用者要的，總覽左欄這個月要做的事下面（使用者選的：左欄比較寬，兩欄也差不多高），`components/dashboard/asset-trend-chart.tsx`、`lib/trend.ts`、`service/trend.ts`）：使用者選的「疊起來的長條」，v0.2.11 改成「近 30 天每天記一筆」（v0.2.10 是最近 12 個月每月一根）。最近 30 天（`TREND_DAYS`，從最早的啟用中存款或投資帳戶那天起）每天一根，下面存款（`--fin-deposit` 藍）上面投資（`--fin-investment` 金），頂端就是總資產，底下的日期從今天往回每 7 天寫一個（30 根時一欄很窄），滑過或鍵盤移到哪一天寫出金額，點了到紀錄頁看那天的那個月（紀錄頁照月份篩），下面有表格檢視。
   - 存款一律照紀錄回推那天結束時的餘額：現在的帳上餘額（每月的流量加總）扣回那天之後的每天流量（`service/transactions.ts` 的 `accountDayFlows()`，只讀圖的第一天 `trendStart()` 起），帳戶建立前的日子不算，事後補記也算得進去；投資有排程記下市值的日子用 `savings_asset_days`，沒有的日子用帳上的數字（有持股的是買進成本，讀數與表格寫「照成本」，證交所不准程式下載歷史股價）；今天用總覽上面的總資產（`assetSummary()`）。信用卡與停用的帳戶不算，跟總資產一樣。
-  - `savings_asset_days` 每人每天一列（主鍵 `user_id`、`day`），只存投資市值（`bigint`）。排程 `savings:trend`（台北 00:45，在 `savings:recurring` 之後）記下前一天的市值（同一天重跑覆蓋那一列），先清掉圖上看不到的舊日子（見〈資料保留〉）；跟頁面同一套算法（`investmentTotals()`＋`assetSummary()`），有一檔讀不到收盤價時那個人今天略過（不把成本當市值），擁有者停用或沒有理財權限的略過（那幾天畫面照成本算）；收盤價讀不到時回報系統狀態的 `savings:quotes`。摘要只有人數與清掉的筆數。
+  - `savings_asset_days` 每人每天一列（主鍵 `user_id`、`day`），只存投資市值（`bigint`）。排程 `savings:trend`（台北 00:45，在 `savings:recurring` 之後）記下前一天的市值（同一天重跑覆蓋那一列），先清掉圖上看不到的舊日子（見 `.claude/rules/data-retention.md`）；跟頁面同一套算法（`investmentTotals()`＋`assetSummary()`），有一檔讀不到收盤價時那個人今天略過（不把成本當市值），擁有者停用或沒有理財權限的略過（那幾天畫面照成本算）；收盤價讀不到時回報系統狀態的 `savings:quotes`。摘要只有人數與清掉的筆數。
   - 每月收支與資產走勢共用 `components/dashboard/bar-chart.tsx` 的 `BarChart`（刻度、底下的日期、滑過的讀數、每一根的連結與表格只寫一份，長條由各自畫）；一根是一個月還是一天由 `axis` 決定（每月收支用 `monthAxis()`，資產走勢在自己的檔案寫一天一根的）。
-- 記帳資料永久保留（帳單與資產走勢除外，見〈資料保留〉），不加清理排程；刪除帳號時一起刪。
+- 記帳資料永久保留（帳單與資產走勢除外，見 `.claude/rules/data-retention.md`），不加清理排程；刪除帳號時一起刪。
 - 測試共用的假資料：`dev/fixtures.ts`（帳戶、固定收支、每月與每天的流量、這個月要做的事的一件、`userError()`，不載入資料庫）與 `dev/db-fixtures.ts`（`savingsRows()` 寫進 PGlite、`dateParams()`）。

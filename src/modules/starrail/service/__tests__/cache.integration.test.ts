@@ -114,7 +114,7 @@ describe("cachedWarps：躍遷紀錄不存資料庫，打開頁面時讀，參�
     hoyolab.fetchWarpPage.mockResolvedValue(pageOf([{ pulls: 23, star: null }]));
   });
 
-  it("讀得到_records 效期（30 分鐘）_只標 starrail:accounts_回傳值沒有 cookie", async () => {
+  it("讀得到_hoyolab 效期（15 分鐘後背景重讀、很久沒看時先給最多 6 小時前的）_只標 starrail:accounts_回傳值沒有 cookie", async () => {
     const { id } = await account();
 
     const result = await cachedWarps(me, id);
@@ -122,7 +122,7 @@ describe("cachedWarps：躍遷紀錄不存資料庫，打開頁面時讀，參�
     expect(result.ok && result.summaries.map((row) => row.pity)).toEqual([23, 23, 23, 23, 23, 23]);
     expect(JSON.stringify(result)).not.toContain("v2_secret");
     expect(tagged()).toEqual(["starrail:accounts"]);
-    expect(cacheLife).toHaveBeenCalledExactlyOnceWith("records");
+    expect(cacheLife).toHaveBeenCalledExactlyOnceWith("hoyolab");
   });
 
   it("讀不到_external 效期，幾分鐘後再試", async () => {

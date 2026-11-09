@@ -54,12 +54,12 @@ export async function cachedGameArt(gameIds: string[]): Promise<GameArt[] | null
   return art;
 }
 
-/** 一位主播一份 大家共用 時間表不常改 讀到的留 30 分鐘 */
+/** 一位主播一份 大家共用 時間表不常改 15 分鐘後背景重讀 先給的最多 6 小時前 */
 export async function cachedSchedule(broadcasterId: string): Promise<ScheduleRead> {
   "use cache: remote";
   cacheTag(twitchTags.external);
   const read = await streamSchedule(broadcasterId);
-  if (read.schedule) cacheLife("records");
+  if (read.schedule) cacheLife("schedule");
   else cacheLife("external");
   return read;
 }

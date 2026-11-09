@@ -53,14 +53,14 @@ beforeEach(async () => {
 });
 
 describe("cachedLedger：開拓月曆，參數是帳號 id 與月份", () => {
-  it("在快取函式裡才解密 cookie_回傳整理好的月曆_沒有 cookie_標 starrail:accounts、30 分鐘效期", async () => {
+  it("在快取函式裡才解密 cookie_回傳整理好的月曆_沒有 cookie_標 starrail:accounts、hoyolab 效期（最多 6 小時前）", async () => {
     const result = await cachedLedger(me, (await account()).id, "202610");
 
     expect(hoyolab.fetchLedger).toHaveBeenCalledWith(COOKIE, "900000001", "prod_official_cht", "202610");
     expect(result).toMatchObject({ ok: true, ledger: LEDGER });
     expect(JSON.stringify(result)).not.toContain("v2_secret_token");
     expect(tagged()).toEqual(["starrail:accounts"]);
-    expect(cacheLife).toHaveBeenCalledWith("records");
+    expect(cacheLife).toHaveBeenCalledWith("hoyolab");
   });
 
   it("失敗_中文訊息、短效期；log 只記 retcode", async () => {
@@ -75,14 +75,14 @@ describe("cachedLedger：開拓月曆，參數是帳號 id 與月份", () => {
 });
 
 describe("cachedEndgame：終局戰績，參數是帳號 id、模式與本期／上期", () => {
-  it("回傳整理好的戰績_沒有 cookie_標 starrail:accounts、30 分鐘效期", async () => {
+  it("回傳整理好的戰績_沒有 cookie_標 starrail:accounts、hoyolab 效期（最多 6 小時前）", async () => {
     const result = await cachedEndgame(me, (await account()).id, "chaos", "previous");
 
     expect(hoyolab.fetchEndgame).toHaveBeenCalledWith(COOKIE, "900000001", "prod_official_cht", "chaos", "previous");
     expect(result).toMatchObject({ ok: true, endgame: ENDGAME });
     expect(JSON.stringify(result)).not.toContain("v2_secret_token");
     expect(tagged()).toEqual(["starrail:accounts"]);
-    expect(cacheLife).toHaveBeenCalledWith("records");
+    expect(cacheLife).toHaveBeenCalledWith("hoyolab");
   });
 
   it("格式跟預期不同_照常回傳_log 只記欄位名稱", async () => {
@@ -144,14 +144,14 @@ describe("cachedProfile：遊戲頭像，參數是帳號 id", () => {
 });
 
 describe("cachedActCalendar：活動日曆，參數是帳號 id", () => {
-  it("在快取函式裡才解密 cookie_回傳整理好的日曆（沒有 cookie）_標 starrail:accounts、30 分鐘效期", async () => {
+  it("在快取函式裡才解密 cookie_回傳整理好的日曆（沒有 cookie）_標 starrail:accounts、hoyolab 效期（最多 6 小時前）", async () => {
     const result = await cachedActCalendar(me, (await account()).id);
 
     expect(hoyolab.fetchActCalendar).toHaveBeenCalledWith(COOKIE, "900000001", "prod_official_cht");
     expect(result).toMatchObject({ ok: true, calendar: CALENDAR });
     expect(JSON.stringify(result)).not.toContain("v2_secret_token");
     expect(tagged()).toEqual(["starrail:accounts"]);
-    expect(cacheLife).toHaveBeenCalledWith("records");
+    expect(cacheLife).toHaveBeenCalledWith("hoyolab");
     expect(cacheLife).not.toHaveBeenCalledWith("external");
   });
 
@@ -161,7 +161,7 @@ describe("cachedActCalendar：活動日曆，參數是帳號 id", () => {
 
     expect(await cachedActCalendar(me, (await account()).id)).toMatchObject({ ok: false, message: "cookie 已失效" });
     expect(cacheLife).toHaveBeenCalledWith("external");
-    expect(cacheLife).not.toHaveBeenCalledWith("records");
+    expect(cacheLife).not.toHaveBeenCalledWith("hoyolab");
     expect(loggedText(log)).toContain("-100");
     expect(loggedText(log)).not.toContain("raw-body");
     expect((await account()).cookieInvalid).toBe(false);

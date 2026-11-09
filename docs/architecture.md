@@ -1,6 +1,6 @@
 # 架構
 
-這頁說明程式碼結構、架構規則、資料表、排程、資料保留、快取與安全，以及怎麼新增與移除模組。寫程式時要遵守的完整規則與慣例在 [CLAUDE.md](../CLAUDE.md)。
+這頁說明程式碼結構、架構規則、資料表、排程、資料保留、快取與安全，以及怎麼新增與移除模組。寫程式時要遵守的規則：每次都要知道的在 [CLAUDE.md](../CLAUDE.md)，詳細規則照主題放在 `.claude/rules/`（讀寫相關的檔案時才載入），各模組的注意事項在模組資料夾的 `CLAUDE.md`。
 
 ## 程式碼結構
 
@@ -47,7 +47,7 @@ src/
 - **首頁卡片**：每個模組的首頁卡片放在自己的 `web/pages/home-card.tsx`，由 `src/app/(main)/page.tsx` 組合後交給 core 的 `HomePage` 排版（core 不 import 模組）；每張卡片都要組合到首頁。要放進最上面「今天要注意」的事放在 `web/pages/home-notices.tsx`（回傳 `NoticeItem`，沒有事就是空的），一樣由那個頁面組合，傳給 `notices`。只有首頁卡片、沒有自己頁面的模組（例如天氣）在 `info.ts` 設 `homeOnly: true`，導覽列與首頁的模組入口就不列出它，卡片標題列也不放連結。
 - **資料表的位置**：只能定義在 `core/db/schema.ts`（表名以 `core_` 開頭）或模組的 `data/schema.ts`（表名以 `<id>_` 開頭）；每張表都加 `.enableRLS()`（見〈安全〉的資料庫的 RLS）。
 - **樣式的位置**：CSS 只有 `src/app/globals.css` 與模組 `web/` 底下的檔，模組的檔都由 `globals.css` 引入；模組的檔只寫自己前綴的 class（`MODULE_CSS_PREFIXES`）與自己的 `.theme-<id>`，`globals.css` 裡的模組 class 只剩跟 core 或兩個模組共用的幾條（`SHARED_IN_GLOBALS`）。
-- **環境變數**：都定義在 `core/env.ts`，順序同 `.env.example`（由 `env.test.ts` 檢查）；其他地方不直接讀 `process.env`（少數例外列在 CLAUDE.md，也由 `architecture.test.ts` 檢查）。
+- **環境變數**：都定義在 `core/env.ts`，順序同 `.env.example`（由 `env.test.ts` 檢查）；其他地方不直接讀 `process.env`（少數例外列在 `.claude/rules/architecture.md`，也由 `architecture.test.ts` 檢查）。
 - **其他**：日期時間的顯示一律經 `core/time.ts`（不直接用 `Intl.DateTimeFormat`、`Intl.RelativeTimeFormat`、`toLocale*String`）；`next/image` 一律 `unoptimized`；原生 `<dialog>` 只在 `core/ui/dialog.tsx`；對外請求一律經 `externalFetch()`；測試檔一律是 `.test.ts`（vitest 只跑這種）。
 - **快取寫法**：由 `src/__tests__/cache-rules.test.ts` 檢查（見下方〈快取〉）。
 
@@ -192,10 +192,14 @@ src/
   | 資料 | 效期 | profile |
   |---|---|---|
   | Twitch 直播狀態、觀看人數、預覽圖 | 最多 2 分鐘 | `live` |
-  | Twitch 主播的開台時間表 | 最多 30 分鐘 | `records` |
+  | Twitch 主播的開台時間表 | 15 分鐘重讀，最多 6 小時 | `schedule` |
   | TDX 的即時到站與誤點 | 最多 1 分鐘 | `board` |
-  | HoYoLAB 即時便箋；氣象署的天氣警特報 | 最多 5 分鐘 | `external` |
-  | HoYoLAB 角色、開拓月曆、活動日曆、終局戰績；氣象署的天氣預報與一週預報、Open-Meteo 的一週預報、環境部的空氣品質；TDX 的公車班距 | 最多 30 分鐘 | `records` |
+  | HoYoLAB 即時便箋 | 最多 5 分鐘 | `external` |
+  | 氣象署的天氣警特報 | 一分鐘重讀，最多一小時 | `warnings` |
+  | 環境部的空氣品質 | 15 分鐘重讀，最多一小時 | `air` |
+  | HoYoLAB 角色、開拓月曆、活動日曆、終局戰績、躍遷紀錄 | 15 分鐘重讀，最多 6 小時 | `hoyolab` |
+  | TDX 的公車班距 | 最多 30 分鐘 | `records` |
+  | 氣象署的天氣預報、一週與每小時預報；Open-Meteo 的一週預報 | 15 分鐘重讀，最多 6 小時 | `forecast` |
   | TDX 的時刻表 | 半天重讀，最多一天 | `timetable` |
   | 證交所與櫃買中心的收盤價（一天更新一次）、除權除息預告 | 每小時重讀，最多 6 小時 | `quotes` |
   | Twitch 頭像、離線橫幅、遊戲封面；YouTube 頻道頭像、影片資訊；HoYoLAB 遊戲頭像；TDX 的公車站牌、票價與捷運的行車時間 | 最多一天 | `avatar` |
@@ -209,7 +213,7 @@ src/
   - 大約一小時後的下一次讀取才會更新；沒人瀏覽的話，最多一天。
   - **重新部署會立即生效。**
 - **費用**：Vercel Hobby 不收費，用量可以在 Vercel 後台的 Observability 查看。
-- **寫法規則**：`use cache: remote`、cache tag，以及由誰負責讓快取失效，見 CLAUDE.md〈快取〉。
+- **寫法規則**：`use cache: remote`、cache tag，以及由誰負責讓快取失效，見 `.claude/rules/cache.md`。
 
 ## 安全
 
@@ -267,7 +271,7 @@ src/
    - `maxDuration` 這類設定要直接寫在 `src/app` 的檔案裡。
    - 外部服務呼叫的端點（webhook）不走登入：加進 `src/proxy.ts` 的 matcher 排除清單（整段比對，後面接 `(?:/|$)`），`src/__tests__/proxy.test.ts` 加一條，端點自己驗簽章。
 3. **登記模組**：在 `src/modules/index.ts` 登記 `info`。不會發通知的模組在 `info.ts` 設 `notifies: false`，它就不會出現在「提醒方式」（`src/__tests__/architecture.test.ts` 會檢查這個設定跟有沒有呼叫 `notify()` 一致）。
-4. **圖示與顏色**：`info.ts` 的 `icon` 是 `public/` 底下的單色 SVG（用 CSS mask 上色），畫面上用的通用圖示放 `public/icons/ui/`、名稱加進 `core/ui/icon.tsx` 的 `UI_ICON_NAMES`。品牌色從 `ModuleAccent`（`core/module.ts`）挑；要新的顏色時兩邊一起加，`globals.css` 的 `--accent-*` 淺色與深色各一組。模組專用的樣式放在模組的 `web/*.css`（主題頁的 `theme.css`、`page-background.css`，元件的 `<名稱>.css`），在 `src/app/globals.css` 照位置用 `@import` 引入，class 的前綴登記在 `src/__tests__/architecture.test.ts` 的 `MODULE_CSS_PREFIXES`；整頁主題的 class 只放在 `PageTheme` 上（見 CLAUDE.md〈程式碼慣例〉的畫面風格與樣式檔）。
+4. **圖示與顏色**：`info.ts` 的 `icon` 是 `public/` 底下的單色 SVG（用 CSS mask 上色），畫面上用的通用圖示放 `public/icons/ui/`、名稱加進 `core/ui/icon.tsx` 的 `UI_ICON_NAMES`。品牌色從 `ModuleAccent`（`core/module.ts`）挑；要新的顏色時兩邊一起加，`globals.css` 的 `--accent-*` 淺色與深色各一組。模組專用的樣式放在模組的 `web/*.css`（主題頁的 `theme.css`、`page-background.css`，元件的 `<名稱>.css`），在 `src/app/globals.css` 照位置用 `@import` 引入，class 的前綴登記在 `src/__tests__/architecture.test.ts` 的 `MODULE_CSS_PREFIXES`；整頁主題的 class 只放在 `PageTheme` 上（見 `.claude/rules/ui.md` 的畫面風格與樣式檔）。
 5. **排程**（有的話）：
    - 在 `src/modules/cron.ts` 登記，用 `expiringTask()` 包起來。
    - 加進 `vercel.json`（`src/modules/__tests__/cron.test.ts` 檢查兩邊一一對應）。Hobby 每條一天最多跑一次，要更頻繁就用同一個路徑多登記幾條（像 `starrail:stamina` 每個 UTC 小時一條）；不要用 GitHub Actions 的定時排程，它常常略過。
@@ -276,14 +280,14 @@ src/
 6. **環境變數**（有的話）：加在 `src/core/env.ts`，並依同樣順序加進 `.env.example`；`src/dev/test-env.ts` 加這組的測試值與 `stub…Env()`，並放進跨模組測試用的 `stubAllEnv()`（`env.test.ts` 檢查）；取得方式寫進 [密鑰](secrets.md)。
 7. **首頁卡片**（選填）：在 `web/pages/home-card.tsx` 用 `core/ui/home-card.tsx` 的 `HomeCard` 包住卡片內容（標題列先出現，內容有自己的 Suspense 骨架與錯誤邊界），內容先 `requireSession()` 再讀自己的 `service/cached.ts`；再到 `src/app/(main)/page.tsx` 把它放進 `top`（最上面，寬螢幕 3:2）、`wide`（一張一列，彼此不並排）、`half`（平常一張一列，2xl 以上跟 `compact` 那組各佔半列）或 `compact`（兩張並排）。卡片外框是 `@container`，內容的欄數用容器查詢（`@md:`、`@4xl:`）依卡片寬度決定。`HomeCard` 的 `variant="plain"` 拿掉卡片外框（影片這類本來就有圖的內容），`variant="bare"` 連標題列都由內容自己畫（天氣），`art` 是標題列的背景圖。
 8. **讀寫資料與通知**：
-   - 每個人自己的資料表加 `user_id`（NOT NULL，外鍵指向 `core_users`、`on delete cascade`），service 的讀寫一律比對登入者的 id，並寫擁有權（IDOR）測試（規則見 CLAUDE.md〈多人〉）。
+   - 每個人自己的資料表加 `user_id`（NOT NULL，外鍵指向 `core_users`、`on delete cascade`），service 的讀寫一律比對登入者的 id，並寫擁有權（IDOR）測試（規則見 `.claude/rules/multi-user.md`）。
    - 在 `src/__tests__/account-deletion.integration.test.ts` 的 `seedEverything` 補一筆這張表的資料（寫 SQL）：測試從資料庫的外鍵列出每張指向 `core_users` 的表，沒放資料、不是 cascade 或可以是空的都會失敗。
-   - 排程會用使用者的憑證或寄通知時，略過停用的人（CLAUDE.md〈多人〉的停用＝凍結），在 `src/__tests__/account-disable.integration.test.ts` 或模組自己的整合測試加一條。
-   - 頁面讀資料用 `service/cached.ts` 的快取函式，使用者 id 當參數；寫入時讓對應的 tag 失效（規則見 CLAUDE.md〈快取〉）。
+   - 排程會用使用者的憑證或寄通知時，略過停用的人（`.claude/rules/multi-user.md` 的停用＝凍結），在 `src/__tests__/account-disable.integration.test.ts` 或模組自己的整合測試加一條。
+   - 頁面讀資料用 `service/cached.ts` 的快取函式，使用者 id 當參數；寫入時讓對應的 tag 失效（規則見 `.claude/rules/cache.md`）。
    - 發通知用 `core/notify.ts` 的 `notify()`，指定收件人的使用者 id。
 9. **假外部服務**（有的話）：放在 `dev/mock.mjs`，`npm run mock:external` 會自動載入；它的測試用 `src/dev/mock-request.ts` 的 `mockRequest()` 直接呼叫 `handle`。測試共用的 fixture 也放 `dev/`（只有測試能 import）。
 10. **Migration**：執行 `npm run db:generate` 產生 migration，跟程式一起 commit；一個版本只有一個，資料夾只留基準檔與這一版的；要跟還在跑的舊程式相容（先擴充再收斂，見 [部署 › 之後的部署](deploy.md#之後的部署)）。
-11. **文件**：在 [模組設定與使用](modules.md) 加上這個模組的說明；使用聲明（`core/ui/terms-page.tsx`：存了哪些資料、留多久、會連到哪些外部服務）跟著改；模組資料夾裡建這個模組的 `CLAUDE.md` 寫注意事項（每個模組都要有，`architecture.test.ts` 檢查；全站共用的規則照舊寫在根目錄的 CLAUDE.md）。
+11. **文件**：在 [模組設定與使用](modules.md) 加上這個模組的說明；使用聲明（`core/ui/terms-page.tsx`：存了哪些資料、留多久、會連到哪些外部服務）跟著改；模組資料夾裡建這個模組的 `CLAUDE.md` 寫注意事項（每個模組都要有，`architecture.test.ts` 檢查；全站共用的規則寫在 `.claude/rules/`）。
 
 ## 移除模組
 

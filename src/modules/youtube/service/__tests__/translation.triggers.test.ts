@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// 規則見 CLAUDE.md 的 YouTube 只在打開觀看頁播放或按開始翻譯時翻譯
+// 規則見 src/modules/youtube/CLAUDE.md 只在打開觀看頁播放或按開始翻譯時翻譯
 // 新影片推送 排程與背景一律不自動翻譯
 const MODULE_DIR = fileURLToPath(new URL("../..", import.meta.url));
 /** 定義翻譯流程的服務與觀看頁呼叫的 Server Action */

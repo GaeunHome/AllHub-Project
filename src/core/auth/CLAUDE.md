@@ -1,6 +1,6 @@
 # 帳號（core/auth）的注意事項
 
-全站的規則（架構、慣例、安全、多人、快取、測試、資料保留、部署）在根目錄的 `CLAUDE.md`，這裡只寫這個部分自己的；文中的〈多人〉〈快取〉這類章節都在根目錄那份。
+全站的規則在根目錄的 `CLAUDE.md` 與 `.claude/rules/`（讀寫相關的檔案時自動載入），這裡只寫這個部分自己的。
 
 - 帳號存在 `core_users`。第一個帳號用 `npm run account create` 建立，就是站長（CLI 在 insert 裡判斷資料庫是不是空的）；其他人只能用站長在 `/admin` 建立的邀請連結到 `/register` 註冊，一律是成員。CLI 先讀環境變數 `DATABASE_URL`；沒有的話在終端機提示輸入（不顯示、不留在 shell 歷史）；不是 TTY 就報錯、不連線。不讀 `.env.local`。連線字串缺 port 或資料庫名稱（貼上時中間斷行）直接報錯，不往下問帳號。
 - 密碼欄位一律用 `core/ui/password-input.tsx` 的 `PasswordInput`（眼睛按鈕切換明碼，預設隱藏；`type="button"`、`aria-pressed`）；外面用 `label htmlFor` 對應，不要用 label 包住（裡面有按鈕）。登入與註冊表單另有 `CaptchaField`（圖片、換一張、輸入框），圖片網址用 `messages.ts` 的 `captchaImageUrl()` 在伺服器算繪時帶時間參數。
@@ -10,6 +10,6 @@
   - 上傳（使用者要的：檔案最大 5MB，`avatar-rules.ts` 的 `AVATAR_FILE_MAX_BYTES`）：選好照片後在同一個視窗調整（使用者要的，`avatar-cropper.tsx`：拖曳或方向鍵移動、滑桿放大到 4 倍，圓框裡看到的就是存下來的；計算在 `avatar-rules.ts` 的 `panCrop()`、`zoomCrop()`），`avatar-image.ts` 的 `shrinkAvatar()` 再壓成 256×256 的 JPEG 才送出，所以原始檔的大小只在瀏覽器檢查；伺服器（`uploadAvatarAction` → `users.ts` 的 `saveUploadedAvatar()`）只收開頭是 JPEG 標記、200 KB 以內的（`isJpeg()`、`AVATAR_STORED_MAX_BYTES`），超過就是沒經過畫面直接送來的。存在 `core_avatar_images`（bytea，每人一列），換照片時 id 跟著換，改用範例時 `updateAvatar()` 把照片刪掉。
   - 照片由 `GET /api/avatars/<id>`（`avatar-route.ts`）回應：要登入，`nosniff` 加 `default-src 'none'`，內容是使用者上傳的，瀏覽器不能猜類型也不能當網頁執行；同一個網址的內容不變，可以 `immutable` 長期快取。Server Action 預設上限 1MB，縮小之後才送，不用改設定。
 - 暱稱（使用者要的，`core/auth/nickname.ts`）：帳號名稱不能改，每個人在帳號頁改自己的暱稱（視窗，不用密碼，使用者 id 來自 session）：NFC 正規化、連續空白縮成一個，最多 20 字（用 code point 算、輸入框不設 `maxLength`），清空回到 null。顯示一律 `displayNameOf()`（`nickname ?? username`：人像選單、首頁問候語、帳號頁），登入一律用帳號名稱；管理頁同時顯示兩個，站長不能幫別人改。`findSessionUser()` 每個請求都讀暱稱，用 `to_jsonb(core_users) ->> 'nickname'` 取值：新程式比 migration 先上線時欄位還不存在，直接選欄位會讓全站登入失敗。
-- 刪除自己的帳號：帳號頁輸入密碼並確認；最後一個未停用的站長不能刪除自己（交易裡依 id 鎖住所有站長再判斷）。邀請、通知與各模組依使用者的資料跟著外鍵刪除，共用的翻譯只把發起人改成 null（見〈多人〉）。跨模組的檢查在 `src/__tests__/account-deletion.integration.test.ts`：從資料庫的約束列出每個指向 `core_users` 的外鍵，確認都是 cascade、不能是空的（只有翻譯的發起人是 set null、可以是空的）、每張表都有測試資料、刪除後他的列都是 0；新增依使用者的表要在它的 `seedEverything` 補一筆（寫 SQL，不用 drizzle 的 schema）。
+- 刪除自己的帳號：帳號頁輸入密碼並確認；最後一個未停用的站長不能刪除自己（交易裡依 id 鎖住所有站長再判斷）。邀請、通知與各模組依使用者的資料跟著外鍵刪除，共用的翻譯只把發起人改成 null（見 `.claude/rules/multi-user.md`）。跨模組的檢查在 `src/__tests__/account-deletion.integration.test.ts`：從資料庫的約束列出每個指向 `core_users` 的外鍵，確認都是 cascade、不能是空的（只有翻譯的發起人是 set null、可以是空的）、每張表都有測試資料、刪除後他的列都是 0；新增依使用者的表要在它的 `seedEverything` 補一筆（寫 SQL，不用 drizzle 的 schema）。
 - CLI 的錯誤訊息依錯誤代碼判斷：drizzle 會把資料庫錯誤包成 `DrizzleQueryError`（name 是 Error、沒有 code），代碼要往 `cause` 找。連不上資料庫（ECONNREFUSED、ENOTFOUND、28P01、CONNECT_TIMEOUT…）用中文說明原因，並提示檢查連線字串的主機、port 和密碼；不回顯連線字串或密碼。
 - scrypt 雜湊（`scrypt$N$r$p$salt$hash`，網站與 CLI 共用 `credentials.ts`）；帳號不存在或鎖定中也跑一次假的 scrypt，錯誤一律「帳號或密碼錯誤」，只有密碼正確時才說明帳號已停用。改密碼遞增 `session_version` 並重發這台裝置的 cookie。依 IP 的登入失敗次數在記憶體內（多實例下只是盡力而為），依帳號的在 `core_users`。

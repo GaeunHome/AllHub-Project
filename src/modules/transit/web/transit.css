@@ -398,6 +398,11 @@
 .trn-search-fields {
   @apply flex flex-wrap items-end gap-3 p-4 sm:p-5;
 }
+/* 切換交通工具時分頁先換 舊的欄位變淡 等新的車站清單 */
+.trn-search[aria-busy="true"] .trn-search-fields {
+  opacity: 0.55;
+  pointer-events: none;
+}
 .trn-search-fields > .field {
   flex: 1 1 8rem;
 }

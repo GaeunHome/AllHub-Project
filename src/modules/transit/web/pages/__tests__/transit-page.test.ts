@@ -1,5 +1,5 @@
-import type { ReactElement } from "react";
-import { renderToReadableStream, renderToStaticMarkup } from "react-dom/server";
+import { createElement, type ReactElement } from "react";
+import { renderToReadableStream } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DAY_MS, taipeiDateKey } from "@/core/time";
 import { TEST_SESSION, requireModule } from "@/dev/session-stub";
@@ -16,9 +16,13 @@ vi.mock("next/server", () => ({ after: (work: () => void) => work() }));
 vi.mock("../../../service/health", () => ({ reportTdx: vi.fn() }));
 vi.mock("../../actions", () => ({ addRouteAction: vi.fn(), deleteRouteAction: vi.fn(), setTrackedAction: vi.fn() }));
 vi.mock("../../components/search-form", { spy: true });
+// 測試環境的 React cache 不會共用 同一個測試的 layout 與 page 用同一個訊號
+vi.mock("../../search-gate", { spy: true });
 
 const cached = mocksOf(await import("../../../service/cached"), "cachedRoutes", "cachedStations", "cachedMetroNetwork", "cachedDepartures", "cachedMetroDepartures", "cachedLive", "cachedBusRoute", "cachedBusEta", "cachedBusSchedule", "cachedThsrFares", "cachedTraFares", "cachedMetroFare", "cachedMetroTravelTimes");
-const { TransitBody } = await import("../transit-page");
+const { TransitSearch } = await import("../transit-page");
+const { TransitFrame } = await import("../transit-layout");
+const { createGate, searchGate } = await import("../../search-gate");
 const { reportTdx } = await import("../../../service/health");
 const { SearchForm } = await import("../../components/search-form");
 
@@ -41,14 +45,19 @@ const METRO_NETWORK = {
   ],
 };
 const networkRead = (data = {}) => ({ ok: true, data: { network: METRO_NETWORK, missing: [], problem: null, ...data } });
-const html = async (params: Record<string, string> = {}) => {
-  const stream = await renderToReadableStream((await TransitBody({ searchParams: Promise.resolve(params) })) as ReactElement);
+const streamed = async (element: ReactElement) => {
+  const stream = await renderToReadableStream(element);
   await stream.allReady;
   return new Response(stream).text();
 };
+const searchOnly = (params: Record<string, string> = {}) => createElement(TransitSearch, { searchParams: Promise.resolve(params) });
+// 整頁載入時 layout 的我的路線與 page 的查詢一起算
+const html = (params: Record<string, string> = {}) => streamed(createElement(TransitFrame, null, searchOnly(params)));
 const render = async (params: Record<string, string> = {}) => textOf(await html(params));
 
 beforeEach(() => {
+  const gate = createGate();
+  vi.mocked(searchGate).mockImplementation(() => gate);
   requireModule.mockReset().mockResolvedValue(TEST_SESSION);
   cached.cachedRoutes.mockReset().mockResolvedValue([]);
   cached.cachedStations.mockReset().mockResolvedValue({ ok: true, data: STATIONS });
@@ -849,10 +858,16 @@ describe("每分鐘只有 5 次：查詢先問 常用路線排後面", () => {
     cached.cachedRoutes.mockResolvedValue([route()]);
     cached.cachedDepartures.mockReturnValue(new Promise(() => {}));
 
-    const page = textOf(renderToStaticMarkup((await TransitBody({ searchParams: Promise.resolve({ mode: "thsr" }) })) as ReactElement));
+    expect(textOf(await streamed(searchOnly({ mode: "thsr" })))).toContain("查詢");
+  });
 
-    expect(page).toContain("查詢");
-    expect(page).toContain("載入常用路線…");
+  it("使用者回報過切換交通工具很卡：只換網址參數時 Next 不重算 layout，查詢那一半不讀常用路線的時刻表與即時資料", async () => {
+    cached.cachedRoutes.mockResolvedValue([route(), route({ id: 2, mode: "bus", system: "Taipei", line: "307", originId: "TPE1", destinationId: "0" })]);
+
+    expect(textOf(await streamed(searchOnly({ mode: "tra" })))).toContain("查詢");
+    expect(cached.cachedStations).toHaveBeenCalled();
+    expect(cached.cachedDepartures).not.toHaveBeenCalled();
+    expect(cached.cachedLive).not.toHaveBeenCalled();
   });
 
   it("車站問完才問常用路線 不能讓常用路線先把次數用完", async () => {

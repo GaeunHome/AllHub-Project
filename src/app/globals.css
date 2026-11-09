@@ -438,7 +438,7 @@
     box-shadow: var(--elevation-card);
   }
 
-  /* 版面的間距 規則見 CLAUDE.md 的間距與對齊 距離交給父層的 gap 子元素不加 margin */
+  /* 版面的間距 規則見 .claude/rules/ui.md 的間距與對齊 距離交給父層的 gap 子元素不加 margin */
   /* 頁面上的卡片與區段之間 */
   .page-stack {
     @apply flex flex-col gap-8;

@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// 規則的說明在 CLAUDE.md 的快取 改規則時兩邊要一起改
+// 規則的說明在 .claude/rules/cache.md 改規則時兩邊要一起改
 const SRC = fileURLToPath(new URL("..", import.meta.url));
 
 function walk(dir: string): string[] {
@@ -170,7 +170,7 @@ describe("快取規則", () => {
       /^modules\/[^/]+\/web\/actions[^/]*\.ts$/.test(file) ||
       /^modules\/[^/]+\/web\/routes\//.test(file) ||
       coreWriters.includes(file);
-    // CLAUDE.md 寫明的例外 保留影片的標題快照用觀看頁讀過的 oEmbed 只是顯示用
+    // .claude/rules/cache.md 寫明的例外 保留影片的標題快照用觀看頁讀過的 oEmbed 只是顯示用
     const ALLOWED_READS: Record<string, string[]> = {
       "modules/youtube/web/actions.ts": ["cachedVideoInfo"],
       // 倒數卡片的輪詢 不是寫入流程 同一站要共用快取才省 TDX 的額度

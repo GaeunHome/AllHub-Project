@@ -2,13 +2,8 @@ import { after } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import { requireModule } from "@/core/auth";
 import { hasTransitEnv } from "@/core/env";
-import type { ModuleInfo, SearchParams } from "@/core/module";
+import type { SearchParams } from "@/core/module";
 import { addDaysToKey, formatTaipeiHourMinute, taipeiDateKey } from "@/core/time";
-import { EmptyState } from "@/core/ui/empty-state";
-import { Icon } from "@/core/ui/icon";
-import { InfoTip } from "@/core/ui/info-tip";
-import { PageBanner } from "@/core/ui/page-banner";
-import { SectionTitle } from "@/core/ui/page-header";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { fareSystemOf, planRoute, type MetroLeg } from "../../lib/metro-route";
 import { METRO_SYSTEMS } from "../../lib/modes";
@@ -21,114 +16,43 @@ import { cachedBusEta, cachedBusRoute, cachedBusSchedule, cachedDepartures, cach
 import { mapRead, problemOf, type Read } from "../../service/timetable";
 import { BusResults } from "../components/bus-results";
 import { MetroResults } from "../components/metro-results";
-import { RouteCard, TrackedCard } from "../components/route-cards";
 import { SearchForm } from "../components/search-form";
 import { SearchShell } from "../components/search-shell";
-import { SideSync, SideToggle } from "../components/side-toggle";
-import { SortableRoutes } from "../components/sortable-routes";
 import { TrainResults } from "../components/search-results";
 import { frequentStations } from "../frequent-stations";
-import { loadBoards } from "../route-boards";
-import { routeLabel } from "../transit-view";
+import { searchGate } from "../search-gate";
 import { MAX_DAYS_AHEAD, canSearch, parseSearch, type SearchQuery } from "../search-query";
 import type { TransitRoute } from "../../data/schema";
 
-const BANNER = "/images/scenes/banner-transit.svg";
-// web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
-export function TransitPage({ info, searchParams }: { info: ModuleInfo; searchParams: SearchParams }) {
+/** 只算左邊的查詢 我的路線在 transit-layout 只換網址參數時不重算 */
+export function TransitPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <div data-accent={info.accent} className="page-stack">
-      <PageBanner
-        image={BANNER}
-        icon={<Icon src={info.icon} />}
-        title={
-          <span className="inline-flex items-center gap-1">
-            交通
-            <InfoTip label="交通的說明">資料來自交通部 TDX，票價是成人全票，捷運總時間是估的</InfoTip>
-          </span>
-        }
-      />
-      <Suspense fallback={<TransitSkeleton />}>
-        <TransitBody searchParams={searchParams} />
-      </Suspense>
-    </div>
+    <Suspense fallback={<SearchSkeleton />}>
+      <TransitSearch searchParams={searchParams} />
+    </Suspense>
   );
 }
 
-export async function TransitBody({ searchParams }: { searchParams: SearchParams }) {
-  const user = await requireModule("transit");
-  if (!hasTransitEnv()) return <EmptyState icon="bus" title="還沒設定交通資料的金鑰" hint="站長在 Vercel 的環境變數加上 TDX_CLIENT_ID 與 TDX_CLIENT_SECRET 就會顯示" />;
-  const now = new Date();
-  const today = taipeiDateKey(now);
-  const query = parseSearch(await searchParams, today);
-  const routes = await cachedRoutes(user.id);
-  const search = await searchParts(query, now, routes.length < ROUTE_LIMIT, routes);
-
-  return (
-    <div className="trn-layout">
-      <div className="trn-main">
-        <SearchShell collapsible={search.collapsible}>
-          <SearchForm query={query} stations={search.stations} groups={search.groups} frequent={frequentStations(routes, query.mode)} today={today} maxDate={addDaysToKey(today, MAX_DAYS_AHEAD)} />
-          {search.results}
-        </SearchShell>
-      </div>
-      {/* 手機上一眼要看到倒數 所以排在查詢前面 還沒有路線時空狀態不能擋在前面 */}
-      <aside aria-labelledby="transit-side-title" data-empty={routes.length === 0 ? "" : undefined} className="trn-side no-scrollbar">
-        <div className="trn-side-head">
-          <h2 id="transit-side-title" className="trn-side-title">
-            我的路線
-          </h2>
-          <SideToggle controls="transit-side-body" />
-        </div>
-        <div id="transit-side-body" className="trn-side-body">
-          {/* TDX 每分鐘只有 5 次 查詢先問 卡片要等下一分鐘時表單已經能用 */}
-          <Suspense fallback={<BoardsSkeleton />}>
-            <RouteBoards routes={routes} now={now} />
-          </Suspense>
-        </div>
-      </aside>
-      <SideSync />
-    </div>
-  );
-}
-
-async function RouteBoards({ routes, now }: { routes: TransitRoute[]; now: Date }) {
-  const boards = await loadBoards(routes, now);
-  const tracked = boards.filter((board) => board.route.tracked);
-  const others = boards.filter((board) => !board.route.tracked);
-
-  return (
-    <>
-      {tracked.length > 0 && (
-        <section aria-labelledby="transit-tracked" className="stack">
-          <SectionTitle id="transit-tracked">追蹤中</SectionTitle>
-          <div className="trn-tracked">
-            {tracked.map((board) => (
-              <TrackedCard key={board.route.id} {...board} />
-            ))}
-          </div>
-        </section>
-      )}
-      <section aria-labelledby="transit-routes" className="stack">
-        <SectionTitle id="transit-routes">常用路線</SectionTitle>
-        {routes.length === 0 ? (
-          <EmptyState compact icon="bus" title="還沒有常用路線" hint="查到班次後按星星，就會存在這裡" />
-        ) : (
-          <SortableRoutes
-            items={others.map((board) => ({ id: board.route.id, label: routeLabel(board.route), node: <RouteCard key={board.route.id} {...board} /> }))}
-            after={
-              routes.length < ROUTE_LIMIT && (
-                <a href="#transit-search" className="trn-add">
-                  <Icon name="plus" className="size-4" />
-                  新增常用路線
-                </a>
-              )
-            }
-          />
-        )}
-      </section>
-    </>
-  );
+export async function TransitSearch({ searchParams }: { searchParams: SearchParams }) {
+  try {
+    const user = await requireModule("transit");
+    // 沒有金鑰時 layout 已經寫了要設定
+    if (!hasTransitEnv()) return null;
+    const now = new Date();
+    const today = taipeiDateKey(now);
+    const query = parseSearch(await searchParams, today);
+    const routes = await cachedRoutes(user.id);
+    const search = await searchParts(query, now, routes.length < ROUTE_LIMIT, routes);
+    return (
+      <SearchShell collapsible={search.collapsible}>
+        <SearchForm query={query} stations={search.stations} groups={search.groups} frequent={frequentStations(routes, query.mode)} today={today} maxDate={addDaysToKey(today, MAX_DAYS_AHEAD)} />
+        {search.results}
+      </SearchShell>
+    );
+  } finally {
+    // 查詢問完 TDX 才輪到常用路線
+    searchGate().open();
+  }
 }
 
 /** collapsible 是結果上有修改鈕 表單才能收起來 */
@@ -217,18 +141,9 @@ async function busSearch(query: SearchQuery, now: Date, canAdd: boolean): Promis
   return { ...NO_STATIONS, collapsible: true, results: <BusResults route={route} eta={eta} schedule={schedule.ok ? schedule.data : null} query={query} canAdd={canAdd} /> };
 }
 
-function BoardsSkeleton() {
+function SearchSkeleton() {
   return (
-    <LoadingState label="載入常用路線…">
-      <Skeleton className="h-40 rounded-2xl" />
-    </LoadingState>
-  );
-}
-
-function TransitSkeleton() {
-  return (
-    <LoadingState label="載入交通…" className="page-stack">
-      <Skeleton className="h-36 rounded-2xl" />
+    <LoadingState label="載入查詢…">
       <Skeleton className="h-64 rounded-2xl" />
     </LoadingState>
   );

@@ -62,11 +62,11 @@ describe("cachedCharacters：角色資料，每個帳號快取 30 分鐘", () =>
     expect(JSON.stringify(result)).not.toContain("v2_secret_token");
   });
 
-  it("讀了帳號的 cookie 與 UID：標 starrail:accounts（重新連結時重查）_成功時用 records 效期（30 分鐘）", async () => {
+  it("讀了帳號的 cookie 與 UID：標 starrail:accounts（重新連結時重查）_成功時用 hoyolab 效期（15 分鐘後背景重讀、很久沒看時先給最多 6 小時前的）", async () => {
     await cachedCharacters(me, (await account()).id);
 
     expect(tagged()).toEqual(["starrail:accounts"]);
-    expect(cacheLife).toHaveBeenCalledWith("records");
+    expect(cacheLife).toHaveBeenCalledWith("hoyolab");
     expect(cacheLife).toHaveBeenCalledTimes(1);
   });
 

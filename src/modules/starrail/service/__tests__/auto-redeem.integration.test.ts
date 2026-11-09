@@ -105,7 +105,7 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
     expect(events).toEqual(["送出 900000001 GIFTNEW1", "通知 開拓者", "送出 900000002 GIFTNEW1", "送出 900000002 GIFTNEW2", "通知 鮑勃"]);
   });
 
-  it("同一個 HoYoLAB 帳號兩次兌換之間至少隔 5 秒（CLAUDE.md〈HoYoLAB〉：兩次兌換之間約 5 秒的冷卻，從上一次的回應起算）", async () => {
+  it("同一個 HoYoLAB 帳號兩次兌換之間至少隔 5 秒（src/modules/starrail/CLAUDE.md：兩次兌換之間約 5 秒的冷卻，從上一次的回應起算）", async () => {
     await linkFor(me, [role(), role({ uid: "800000002", nickname: "小號", region: "prod_official_asia" })], "41");
 
     await autoRedeemAll(clock);

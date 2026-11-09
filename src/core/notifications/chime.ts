@@ -10,22 +10,30 @@ const SILENT = 0.0001;
 
 type AudioContextFactory = () => AudioContext | null;
 
-export type ChimePlayer = { unlock(): void; play(): boolean; preview(): Promise<boolean> };
+/** unlock 回傳聲音準備好了沒 好了就不用再聽點擊與按鍵 */
+export type ChimePlayer = { unlock(): boolean; play(): boolean; preview(): Promise<boolean> };
+
+// Chrome 只把部分點擊與按鍵算成使用者操作 只按快捷鍵或手指剛碰到螢幕不算
+const UNLOCK_EVENTS = ["pointerdown", "pointerup", "touchend", "keydown"] as const;
 
 function browserAudioContext(): AudioContext | null {
   const Context = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   return Context ? new Context() : null;
 }
 
+/** 舊瀏覽器沒有這個 API 照舊當成操作過 */
+const browserUserActive = () => navigator.userActivation?.isActive ?? true;
+
 /**
- * 瀏覽器規定互動過才能出聲
- * 第一次點擊或按鍵時 unlock 還沒解鎖時 play 回 false
+ * 瀏覽器規定互動過才能出聲 不算數的時候建立或 resume 會在主控台警告
+ * 所以只在使用者操作的當下 unlock 還沒解鎖時 play 回 false
  */
-export function createChimePlayer(createContext: AudioContextFactory = browserAudioContext): ChimePlayer {
+export function createChimePlayer(createContext: AudioContextFactory = browserAudioContext, userActive: () => boolean = browserUserActive): ChimePlayer {
   let context: AudioContext | null = null;
   let created = false;
 
   function unlock() {
+    if (!userActive()) return false;
     if (!created) {
       created = true;
       try {
@@ -35,14 +43,12 @@ export function createChimePlayer(createContext: AudioContextFactory = browserAu
       }
     }
     if (context?.state === "suspended") void context.resume().catch(() => {});
+    return true;
   }
 
+  // 通知是背景輪詢來的 不是使用者操作 被暫停時等下一次點擊再 resume
   function play() {
-    if (!context) return false;
-    if (context.state !== "running") {
-      void context.resume().catch(() => {});
-      return false;
-    }
+    if (!context || context.state !== "running") return false;
     const now = context.currentTime;
     for (const note of NOTES) {
       tone(context, note.frequency, now + note.start, note.duration, note.gain);
@@ -73,6 +79,18 @@ function tone(context: AudioContext, frequency: number, start: number, duration:
   oscillator.connect(gain).connect(context.destination);
   oscillator.start(start);
   oscillator.stop(start + duration + 0.02);
+}
+
+/** 聽點擊與按鍵直到聲音解鎖 回傳拿掉監聽的函式 */
+export function unlockOnGesture(player: Pick<ChimePlayer, "unlock">, target: EventTarget = window): () => void {
+  const stop = () => {
+    for (const type of UNLOCK_EVENTS) target.removeEventListener(type, onGesture, { capture: true });
+  };
+  function onGesture() {
+    if (player.unlock()) stop();
+  }
+  for (const type of UNLOCK_EVENTS) target.addEventListener(type, onGesture, { capture: true, passive: true });
+  return stop;
 }
 
 /** 整個網站共用一個 AudioContext 只建一次 */

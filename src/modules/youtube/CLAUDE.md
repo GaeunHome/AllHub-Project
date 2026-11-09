@@ -1,6 +1,6 @@
 # YouTube（youtube）的注意事項
 
-全站的規則（架構、慣例、安全、多人、快取、測試、資料保留、部署）在根目錄的 `CLAUDE.md`，這裡只寫這個部分自己的；文中的〈多人〉〈快取〉這類章節都在根目錄那份。
+全站的規則在根目錄的 `CLAUDE.md` 與 `.claude/rules/`（讀寫相關的檔案時自動載入），這裡只寫這個部分自己的。
 
 - 畫面照 YouTube 網站：列表頁上方只有一個輸入框（`lib/parse.ts` 的 `classifyYoutubeInput()`：影片網址開觀看頁、頻道網址或 @帳號就追蹤；伺服器端的 `openVideoAction`、`addChannelAction` 仍各自驗證），篩選膠囊（`web/video-filter.ts`）在瀏覽器切換、不再問伺服器；卡片的動作收進 ⋮ 選單，頻道列在「訂閱內容」（手機是頭像列），通知開關與刪除收進每個頻道的選單。影片點了都進觀看頁，篩選只有全部與翻譯完成。觀看頁：播放器下方是標題與頻道列，翻譯按鈕是頻道列右邊的膠囊，右側（手機在下方）是「接下來播放」。播放器大小優先：寬螢幕上播放器的寬度依視窗高度封頂、最少佔一半（`watch-page.tsx` 的 xl 欄寬：`100dvh` 扣掉 17rem，預留到一行標題與一列頻道列；視窗矮於 54rem 時播放器窄、膠囊會換到第二列，改扣 20.25rem），1920×950、1440×760 一行標題時頻道列與膠囊都在畫面內，1280×680 播放器比「接下來播放」寬（`watch-page.test.ts` 依實際量到的高度驗算），多出來的寬度給「接下來播放」，它的縮圖用比例寬度（`xl:w-2/5`）。
 - 播放器（`web/components/youtube-player.tsx`）：外框 `.player-slot` 先佔好位置，`.player-frame` 疊在裡面，進出全螢幕時頁面不會跳。
@@ -36,11 +36,11 @@
   - 讀 RSS 與逐支確認都是同時 4 個、每個最多等 5 秒，兩者合計 60 秒，超過就略過剩下的（明天再試，摘要寫出略過幾個頻道、還有幾支沒確認）；RSS 讀不到的頻道明天再讀（log 只記種類），它還在清單上的影片當天就改成逐支確認（算在 50 支裡）；已經通知過、發布不到 48 小時的先留著（推送時沒確認到而通知了，hub 重送時要找得到才不會重複通知），沒通知過的（追蹤時補進來的）立即刪；先留著的不算進最新 20 支的名次（逐支確認的清單與最後的刪除都排除）；這一步出錯或超過時間都不擋後面的刪除。
   - 資料表沒有記號可以記住確認過的一般影片，RSS 裡沒有的每天都會再問一次，所以每次有上限；清單上 RSS 裡沒有的超過 50 支時，每天問的都是最新的 50 支，更舊的要等掉出最新 20 支才會清掉。
 - 翻譯是可續跑批次：`continueTranslation` 每批寫回。帶播放位置時由 `pickNextBatch` 從播放位置挑句子：15 秒內就會播到的用 10 句小批次，其餘每批 30 句，前方約 2 分半翻好後從頭補，每翻完一批就回傳；沒帶位置時從頭依序在 40 秒預算內做幾批。進度以已翻句數計算。
-- 翻譯鎖：`status=running` + `lock_id`（fencing token），每次寫回都要 `lock_id` 相符，寫不進去就停；上傳、重試、重新翻譯會換掉它。心跳（`updated_at`）在每次呼叫 AI 前更新，超過 AI 逾時＋30 秒沒更新才可接手。翻譯共用的規則見〈多人〉。
+- 翻譯鎖：`status=running` + `lock_id`（fencing token），每次寫回都要 `lock_id` 相符，寫不進去就停；上傳、重試、重新翻譯會換掉它。心跳（`updated_at`）在每次呼叫 AI 前更新，超過 AI 逾時＋30 秒沒更新才可接手。翻譯共用的規則見 `.claude/rules/multi-user.md`。
 - **只在使用者打開觀看頁播放（「自動即時翻譯」開關，localStorage，預設關，使用者要的：影片都進觀看頁，開著的話按播放就花 API 費用）或按「開始翻譯」時翻譯**；新影片推送、排程、背景一律不翻譯（`translation.triggers.test.ts` 檢查只有 `web/actions.ts` 會呼叫）。
 - 上傳字幕檔先在瀏覽器解碼（UTF-8 或 CP949）再以 UTF-8 送出：Node 的 `TextDecoder("euc-kr")` 不含 CP949 擴充字，伺服器端只當備援。上限 900 KB（Server Action 預設 1MB）、5,000 句。
 - 保留的影片（`youtube_saved_videos`，`service/saved-videos.ts`，每人最多 15 部 `SAVED_LIMIT`）：觀看頁頻道列的「保留／已保留」是手動保留（`pinned`，再按一次移除，不另外確認）；按過翻譯的自動加入（`pinned = false`）：開始翻譯、上傳字幕、重試、重新翻譯在 Server Action 成功後加入。
-  - 「用我的 API Key 繼續翻譯」沒有自己的 Server Action：按下後續翻迴圈送出的 `continueTranslationAction` 帶 `join = true`（`web/join-translation.ts` 的 `createJoinFlag()`：第一次成功後才放下，回 `actionError` 或丟例外時留著，按「繼續翻譯」再帶），續翻沒丟錯（別人正在翻的 busy 也算）時當場加入（只有按下後第一次成功的那次呼叫，那一批本來就要等 AI），寫入了就在回應帶 `saved: true`；續翻照樣不重繪頁面，tag 在 `after()` 跟翻譯的一起失效（〈快取〉的例外照舊），觀看頁靠 `saved` 把頻道列的「保留」當場改成「已保留」（`createJoinFlag(onSaved)` → `WatchClient` 的 `AutoSavedContext` → `WatchSaveButton`；使用者自己移除成功後放掉，不再蓋過伺服器算繪的狀態）。
+  - 「用我的 API Key 繼續翻譯」沒有自己的 Server Action：按下後續翻迴圈送出的 `continueTranslationAction` 帶 `join = true`（`web/join-translation.ts` 的 `createJoinFlag()`：第一次成功後才放下，回 `actionError` 或丟例外時留著，按「繼續翻譯」再帶），續翻沒丟錯（別人正在翻的 busy 也算）時當場加入（只有按下後第一次成功的那次呼叫，那一批本來就要等 AI），寫入了就在回應帶 `saved: true`；續翻照樣不重繪頁面，tag 在 `after()` 跟翻譯的一起失效（`.claude/rules/cache.md` 的例外照舊），觀看頁靠 `saved` 把頻道列的「保留」當場改成「已保留」（`createJoinFlag(onSaved)` → `WatchClient` 的 `AutoSavedContext` → `WatchSaveButton`；使用者自己移除成功後放掉，不再蓋過伺服器算繪的狀態）。
   - 清單滿了而且都是手動保留的、或寫入失敗，回應不帶 `saved`，按鈕維持「保留」；續翻失敗（沒有 Key、自己的 Key 無效或額度用完、還沒開始翻譯）不加入。
   - `join` 只認 `true`、只寫登入者自己的清單（自動項目），`continueTranslation` 拿到的參數不變，直接 POST 也繞不過翻譯本身的規則。
   - 已經在清單裡：手動保留改成 pinned 並更新時間，自動加入只更新時間。滿了先擠掉最舊（`updated_at`）的自動項目；15 部都是手動的，手動保留回「保留的影片已滿 15 部，請先移除一部」，自動加入略過不報錯、翻譯照常。上限在同一個交易裡先鎖住這個使用者（`core/db/users.ts` 的 `lockUserRow(tx, userId, "no key update")`，鎖 `core_users` 那一列；只鎖清單的列擋不住同時新增的列）再數，`saved-videos.integration.test.ts` 看送出的 SQL 確認（PGlite 的交易本來就一個一個跑）。
