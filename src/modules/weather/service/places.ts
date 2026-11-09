@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/core/db";
 import { moveOwnRow, nextOwnSlot, ownOrder } from "@/core/db/reorder";
 import { UserError } from "@/core/form";
-import { weatherPlaces, type WeatherPlace } from "../data/schema";
+import { weatherPlaces, weatherSettings, type WeatherPlace } from "../data/schema";
 import { parsePlaceChoice } from "../lib/cities";
 import { PLACE_LIMIT } from "../lib/places";
 
@@ -24,6 +24,8 @@ export async function addPlace(userId: string, rawChoice: string): Promise<Weath
     // 鎖住這個使用者再數 同一個人同時新增時一個一個來
     const { total, sortOrder } = await nextOwnSlot(tx, weatherPlaces, userId);
     if (total >= PLACE_LIMIT) throw new PlaceUserError(`城市已滿 ${PLACE_LIMIT} 個，請先刪除一個`);
+    const [settings] = await tx.select({ county: weatherSettings.county }).from(weatherSettings).where(eq(weatherSettings.userId, userId));
+    if (choice.value.kind === "county" && settings?.county === choice.value.name) throw new PlaceUserError("這是首頁的縣市，已經排在第一個了");
     const [row] = await tx
       .insert(weatherPlaces)
       .values({ userId, ...choice.value, sortOrder })

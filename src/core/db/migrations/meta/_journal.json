@@ -5,15 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1794188689902,
+      "when": 1794195180738,
       "tag": "0000_baseline",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1794195180738,
-      "tag": "0001_asset_days_expense_split",
+      "when": 1794205348678,
+      "tag": "0001_drop_asset_snapshots",
       "breakpoints": true
     }
   ]

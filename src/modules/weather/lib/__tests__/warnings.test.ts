@@ -50,6 +50,15 @@ describe("氣象署的天氣警特報（W-C0033-001）", () => {
     expect(warnings?.get("高雄市")).toEqual([]);
   });
 
+  it("真實的回應（公開專案存下的 2026-11-09 全台資料，節錄兩個縣市；geocode 是小數）：桃園市的陸上強風特報到 11/10 23:00", () => {
+    const real = JSON.parse(`{"success":"true","result":{"resource_id":"W-C0033-001","fields":[{"id":"locationName","type":"String"},{"id":"geocode","type":"Double"},{"id":"language","type":"String"},{"id":"phenomena","type":"String"},{"id":"significance","type":"String"},{"id":"startTime","type":"Timestamp"},{"id":"endTime","type":"Timestamp"}]},"records":{"location":[{"locationName":"高雄市","geocode":64.0,"hazardConditions":{"hazards":[]}},{"locationName":"桃園市","geocode":68.0,"hazardConditions":{"hazards":[{"info":{"language":"zh-TW","phenomena":"陸上強風","significance":"特報"},"validTime":{"startTime":"2026-11-09 10:30:00","endTime":"2026-11-10 23:00:00"}}]}}]}}`);
+    const { warnings, missing } = parseWarnings(real);
+
+    expect(missing).toEqual([]);
+    expect(warnings?.get("桃園市")).toEqual([{ label: "陸上強風特報", severe: false, end: "2026-11-10T15:00:00.000Z" }]);
+    expect(warnings?.get("高雄市")).toEqual([]);
+  });
+
   it("現象已經以等級結尾時不重複：有專案的資料把現象寫成「陸上強風特報」", () => {
     expect(warningsOf({ phenomena: "陸上強風特報", significance: "特報", end: END })?.map((warning) => warning.label)).toEqual(["陸上強風特報"]);
   });

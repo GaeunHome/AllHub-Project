@@ -1,0 +1,54 @@
+# 星穹鐵道（starrail，HoYoLAB）的注意事項
+
+全站的規則（架構、慣例、安全、多人、快取、測試、資料保留、部署）在根目錄的 `CLAUDE.md`，這裡只寫這個部分自己的；文中的〈多人〉〈快取〉這類章節都在根目錄那份。
+
+- 非官方介面，參考 genshin.py。DS salt、act_id、header 可能隨 HoYoLAB 改版失效；**尚未用真實帳號驗證**，第一次連結真實帳號時要確認：回應格式（log 裡缺少的欄位）、遺器副詞條的 `times` 是不是含初始那一次、詞條的 `property_type` 編號跟圖示對照表對不對得上（後兩項見下面的圖示與強化次數）。cookie 只留需要的鍵，加密存放；即時便箋快取 5 分鐘（`cacheLife("external")`）。帳號的 cookie 失效標記（`cookie_invalid`）只由即時便箋（頁面在 `after()` 用 `web/cookie-flag.ts` 的 `syncCookieFlagAfter()` 寫回）與簽到、開拓力（排程與立即簽到）決定；角色、終局戰績、開拓月曆、活動日曆、遊戲頭像、兌換碼與自動兌換只在自己那一塊（或通知）顯示錯誤，不設也不清（以前角色會清、終局戰績會設，標記在換頁之間來回跳，每跳一次 `starrail:accounts` 就失效一次）；所以頁面讀取的結果（`service/page-reads.ts`）只有即時便箋帶 `cookieInvalid`。
+- 角色詳情（`avatar/info`）、戰績首頁（`index`，只取遊戲頭像 `cur_head_icon_url`，即 genshin.py 的 `in_game_avatar`）、開拓月曆（`srledger/month_info`，只取那個月的星瓊與車票、今天已獲得與星瓊來源）、活動日曆（`get_act_calender`，HoYoLAB 的拼字；照 genshin.py 的 `HSREventCalendar`：終局挑戰、活動與躍遷，快取 `records`）、終局戰績（`challenge`、`challenge_story`、`challenge_boss`）與兌換碼（`webExchangeCdkeyRisk`）也都**尚未用真實帳號驗證**：解析都在 lib，讀不到的欄位給 null 並記下欄位路徑，service 的 log 只記 retcode 與缺少的欄位名稱，不記回應原文；回的不是 JSON（被擋或維護時的網頁）時畫面說格式不同，log 只記路徑與 HTTP 狀態碼；資料不公開（10102）提示到「HoYoLAB → 戰績 → 設定」打開。錯誤代碼共用的放 `lib/retcodes.ts`，戰績類的 GET 都經 `lib/hoyolab.ts` 的 `recordGet()`（帶 DS）。
+- 遊戲頭像：`service/cached.ts` 的 `cachedProfile(userId, accountId)` 只回網址（成功 `cacheLife("avatar")` 一天、讀不到 `external`，標 `starrail:accounts`），不動 cookie 失效標記。畫在星穹鐵道頁的帳號名牌（`Avatar` 的 md）與首頁卡片的帳號名稱前（sm），不放導覽列：`web/components/account-avatar.tsx` 包一層 Suspense，還在讀、讀不到時是列車圖示；首頁卡片的骨架只放列車圖示，頭像等便箋那一列才讀。
+- cookie 的鍵：連結只要 `ltoken_v2`、`ltuid_v2`；表單請使用者貼六個（再加 `ltmid_v2`、`cookie_token_v2`、`account_id_v2`、`account_mid_v2`），少了的在連結結果的 warning 列出少了哪些、哪些功能可能不能用（`lib/cookie.ts` 的 `missingKeysWarning()`：`ltmid_v2` 即時便箋、`cookie_token_v2` 開拓月曆、兌換碼與躍遷紀錄、`account_mid_v2` 開拓月曆、`account_id_v2` 兌換碼）。
+  - 開拓月曆只有 lt 開頭的鍵時回 -100（genshin.py issue #151，補上 `cookie_token_v2` 與 `account_mid_v2` 就好）。
+  - 呼叫開拓月曆與兌換時，沒貼 `account_id_v2`／`account_mid_v2` 就用 `ltuid_v2`／`ltmid_v2` 的值補上（`withAccountIds()`；推定是同一組 id，HoYoVista 也這樣補，**尚未用真實帳號驗證**）；`cookie_token_v2` 補不出來，少了它要登出 HoYoLAB 再登入。
+  - 開拓月曆已用真實帳號確認讀得到（2026-11-04）；貼了六個鍵還回 -100 時是 `cookie_token_v2` 的值無效：可能過期、被新的登入換掉，或沒複製完整（值裡有 `-`，雙擊選取會截斷），這次登出再登入、重新複製後就好了，分不出是哪一個。
+  - 開拓月曆回 -100／10001 時不說整個 cookie 失效（`lib/ledger.ts` 的 `explainLedgerLogin()`，只看鍵名、不帶值）：補完還少 `cookie_token_v2` 或 `account_mid_v2` 就請使用者重新貼上含這兩個欄位的 cookie，都在就寫「開拓月曆無法讀取（代碼：訊息），請重新貼上最新的 cookie」。
+  - 假服務的開拓月曆照正式環境，Cookie 少了這兩個就回 -100（`请先登录`）。
+- 帳號每人一份（`starrail_accounts.user_id`）；UID 全站唯一，別人已經連結的 UID 拒絕。排程（簽到、開拓力與提醒、自動兌換）處理擁有者沒停用的帳號，同一個 HoYoLAB 帳號只簽到一次，每個擁有者只收到自己帳號的結果。
+- service 依用途分檔：
+  - `accounts.ts`（帳號的讀寫與共用的 `pageAccount()`、`cookieOf()`、`setCookieInvalid()`、`trackingAccountChanges()`、`Outcome` 型別）
+  - `link.ts`（連結）
+  - `page-reads.ts`（頁面向 HoYoLAB 讀的資料，`cached.ts` 包上快取）
+  - `warps.ts`（躍遷紀錄，頁面才讀，`cached.ts` 包上快取）
+  - `redeem.ts`（手動兌換）
+  - `checkin.ts`（簽到）
+  - `stamina.ts`（開拓力與提醒）
+  - `reminders.ts`
+  - `auto-redeem.ts`
+  - `maintenance.ts`（清理與重新加密）
+  - 通知一律經 `service/notices.ts` 寄給帳號的擁有者（模組 id 只寫在這裡）。
+  - 站內的路徑（`STARRAIL_HREF`、`accountHref()`）與簽到頁在 `lib/urls.ts`，web 與 service 共用。
+- 開拓力提醒（`starrail:stamina`，大約每小時一次，兩次之間最長將近兩小時）：兩小時內會達到門檻就通知（每 6 分鐘回 1 點，兩小時 20 點；自然回復只到上限，門檻設得比上限高才等於關閉提醒），同一輪只通知一次，降到兩小時內到不了門檻才重設（`lib/stamina.ts` 的 `staminaAlertAction()`）。先用條件式 update 認領 `last_stamina_alert_at` 再寄，同一小時重送的排程只有一個認領得到，寄不出去用 core 的 `sendOrRelease()` 退回。
+- 提醒（`lib/reminders.ts`、`service/reminders.ts`，`starrail:stamina` 讀完便箋後發；帳號設定的「每日、每週與終局提醒」＝`game_reminders`，預設開）：時間一律照遊戲伺服器當地（美服 UTC−5、歐服 UTC+1、亞服與台港澳服 UTC+8，認不得的當成 UTC+8；每天 04:00 重置、週一 04:00 換週）。
+  - 每日實訓：21:00 以後還沒做完。每週內容：週日 18:00 以後，模擬宇宙積分沒拿滿或歷戰餘響還有次數。
+  - 終局挑戰：18:00 以後才查活動日曆，還剩 24～48 小時結束、還沒拿滿的（混沌回憶、虛構敘事、末日幻影、異相仲裁）各一則。
+  - 同一個帳號同一期只寄一次：`service/notices.ts` 的 `notifyOnce()` 用 core 的 `sendOnce()`（scope `starrail:<種類>`，key 是 `claimKey(帳號 id, 期別)`）先認領再寄，寄不出去放掉，下一輪再試；提醒出錯不影響開拓力的結果。
+- 自動兌換（`starrail:redeem`，每天 UTC 04:00＝台北 12:00；`service/auto-redeem.ts`）：
+  - 只處理帳號設定打開「自動兌換新的兌換碼」（`auto_redeem`，預設關）、cookie 沒標失效的帳號；打開前檢查 cookie 有兌換要用的鍵（補完 `account_` 開頭的之後只差 `cookie_token_v2`）。
+  - 清單來自社群的 hoyo-codes（`hoyo-codes.seria.moe/codes?game=hkrpg`，作者用亞服帳號試過、只列有效的；`lib/codes.ts`）：讀清單最多等 5 秒，新加入的先，最多 50 個；讀不到明天再試。
+  - 每個 HoYoLAB 帳號兩次兌換之間等 6 秒（冷卻約 5 秒），不同帳號輪流送；兌換合計 30 秒（一個 HoYoLAB 帳號一天大約試 5、6 個）、每個請求最多 10 秒，加上清單 5 秒也在 60 秒內，剩下的明天再試。
+  - 結果（`lib/redeem.ts` 的 `redeemVerdict()`）：成功、已兌換、過期、無效記進 `starrail_redeem_codes` 不再送；還沒開放（-2014）、等級不足、認不得的代碼明天再試；要求驗證（`RISK`：1034、5003、10035、10041、-502）整批停下；太頻繁（-110、1028、10101）、冷卻、cookie 被拒、連不上時，那個 HoYoLAB 帳號今天先停。log 只記帳號 id 與 retcode，不記兌換碼。
+  - 通知：每個擁有者的每個 HoYoLAB 帳號一則（試完就寄，停下時把還沒寄的寄出），寫出兌換到的碼與社群寫的獎勵；cookie 被拒時請擁有者重新貼上，同一個遊戲帳號一週最多一則（`notifiedSince()` 看 6.5 天內寄過沒有，再用 `notifyOnce()` 擋同一天重送的排程）。
+- 連結帳號時先選伺服器：同一個 cookie 有好幾個角色時，Server Action 第一步回傳清單（`linkAccount(userId, cookie, "ask")`），cookie 只留在瀏覽器的表單狀態裡，第二步跟勾選的 UID 一起再送一次，伺服器不存也不記 log；只信任 HoYoLAB 查到的角色，表單送來的 UID 只用來挑選。頁面一次只看一個帳號，選擇放在網址參數 `?account=<id>`。連結好了導向剛連結的帳號（`linkAccount` 回傳的 `accountId`，只會是自己剛寫入的那一列），結果用提示視窗（cookie 少了建議的鍵時另外一則 warning），導向時捲回最上面。
+- 元素、命途與面板／遺器詞條的圖示是內建的靜態檔 `public/icons/starrail/element|path|property/*.png`（從社群整理的 StarRailRes 下載的遊戲素材，著作權屬 HoYoverse，只用在非商業用途，見 `public/icons/LICENSE.md`；hsr-optimizer、Yunzai 的 StarRail-plugin 也是把圖示放進自己的 repo）：檔名是原檔名的 kebab-case（雷是 `thunder`、記憶是 `remembrance`、歡愉是 `elation`；詞條去掉開頭的 `Icon`），元素與命途縮成 128×128。
+  - 站內路徑在 `lib/game-icons.ts` 組好（屬性與命途的中文名稱與檔名各一張表 `ELEMENTS`、命途表，名稱與圖示都經 `elementOf()`／`pathOf()` 查）：元素、命途放進角色與終局隊伍的 `elementIcon`／`pathIcon`；詞條的 `property_type` 依 hoyo-buddy 整理的 genshin.py 對照表（`constants.py` 的 `YATTA_PROP_TYPE_TO_GPY_TYPE`）對到遊戲的屬性、再依 StarRailRes 的 `properties.json` 對到檔名（`propertyIconUrl()`，固定值、百分比、基礎值共用一個圖示），對照表以外的不顯示圖示（不用 `property_info[type].icon`）。
+  - `web/*-assets.ts` 只改寫外部圖片，這些站內路徑原樣保留；`game-icons.test.ts` 檢查對照到的檔都在、資料夾裡沒有多的檔。
+  - 畫面用 `sr-visuals.tsx` 的 `ElementBadge`（認不得的屬性退回灰色圓加名稱的第一個字，旁邊有屬性名稱時加 `decorative`）與 `GameIcon`（沒有圖示就整個不畫、不留空白）。
+  - 終局戰績的模式名稱跟活動日曆的終局挑戰共用 `lib/calendar.ts` 的 `challengeLabel()`。
+  - 數字的字型 Rajdhani 宣告在根 layout（`src/app/layout.tsx`，`preload: false`，用到才下載；Geist Mono 也是，只用在管理頁、股票代號與幾個輸入框）：放在星穹鐵道的頁面裡會多一個分頁的樣式檔，首頁預先讀取那頁時瀏覽器會警告預載了沒用到的字型與樣式（使用者回報過）。
+  - 星穹鐵道頁的顏色寫成 `globals.css` 裡 `.theme-starrail` 的變數（`--sr-gold-ink`、`--sr-avatar-bg`、`--sr-avatar-ring` 這類），元件寫 `text-[var(--sr-…)]`，不寫色碼；金色的伺服器與稀有度標籤用 `sr-visuals.tsx` 的 `GoldChip`；屬性的退回色例外，留在 `sr-visuals.tsx` 的表裡。
+  - 遺器副詞條的強化次數用 `lib/characters.ts` 的 `relicUpgrades()`（times − 1）：推定 `times` 跟遊戲資料的詞條次數（Enka 的 `cnt`、Mihomo 的 `count`；hsr-optimizer 用 count − 1 算強化次數）一樣含初始那一次，依據是使用者回報實際畫面每條副詞條都至少 +1、+15 遺器的總次數也對得上，尚未用真實帳號的回應確認（mock 也從 1 起算）。
+  - 只在強化過時於數值左邊寫「+N」（照資料寫、不設上限，title 與報讀器是「強化 N 次」），主屬性不顯示。
+- 躍遷紀錄（使用者要的，`/starrail/warps`、`lib/warps.ts`、`service/warps.ts`，已用真實帳號確認，2026-11-05）：讀 HoYoLAB 官方的活動頁（`sg-act-public-api.hoyolab.com`，照 genshin.py 的 `hsr_warp_records.py` 與 `badge.py`）：先 POST `common/badge/v1/login/account`（body 是 `game_biz`、`lang`、`region`、`uid`，帶 `x-rpc-lang`、`x-rpc-language`，不帶 `x-rpc-device_id` 與 DS），回應的 Set-Cookie 有 `e_hkrpg_token`，接在原本的 cookie 後面讀 `event/rpg_gacha_record/five_star_list`（`gacha_type` 見 `WARP_BANNERS`，`has_more` 時帶 `version_id`、`max_id` 讀下一頁，每個卡池最多 30 頁；還有下一頁卻問不到或超過上限算讀不完，不顯示少掉紀錄的數字；游標可能是 19 位數字，`quoteBigCursors()` 在 JSON 解開前寫成字串）。登入靠 `cookie_token_v2`，別的地方登入就會換掉它，所以讀不到時請使用者重新貼 cookie，不動帳號的 cookie 失效標記（同開拓月曆）。
+  - 走不通的路，不要再試：`genAuthKeyByCookieToken` 換到的金鑰只有 344 字（遊戲內的約 1024 字），`getGachaLog` 對它一律回 `-100：authkey error`。用真實帳號在台灣的網路測過兩個伺服器與帶不帶 cookie、`sign_type`、`auth_appid`、`region`、`plat_type` 的各種組合，所以跟海外與參數都無關；genshin.py 的 `fetch_authkey` 測試只跑原神。
+  - 只有五星與目前已墊幾抽：沒有時間、沒有三星四星，`got_item` 是 false 的那一列是已墊幾抽，`gacha_count` 是官方算好的抽數。常駐與新手的 `is_up` 一律是 false，所以「歪」只標在限定卡池（`limited`）。
+  - 打開時才讀、不存資料庫（使用者的決定）：`cachedWarps()` 只標 `starrail:accounts`，成功 `records`（30 分鐘）、失敗 `external`，一次讀一個卡池、隔 200ms。快取函式裡不能寫資料庫，頁面在 `after()` 用 `reportWarps()` 回報系統狀態，只回報 30 秒內真的讀到的（`readAt`），快取裡舊的成功不能蓋掉別人剛記下的問題；使用者自己的 cookie、資料沒公開、次數到上限與要求驗證都不算服務有問題。
+  - 畫面（使用者選的）：星穹鐵道頁一張摘要卡（`warp-card.tsx`），專屬頁是保底進度加五星歷史（`warp-history.tsx`）：每個五星一列，頭像（`item.icon`，沒有時用 `big_icon`，經 `externalAssetUrl()`）、名稱、歪、抽數條（抽數除以保底）與抽數，手機上抽數條換到第二行；帳號與卡池都在網址上。保底：角色 90、光錐 80、新手 50，聯動照同類型。
+- 兌換碼要 cookie 的 `cookie_token_v2` 加 `account_id_v2`（或 `account_mid_v2`；沒貼時用 `ltuid_v2` 補上，見上面 cookie 的鍵），缺的話請使用者重新連結；兌換碼是 4–20 個英數字（真的有 5 個字的，例如 OMEGA）；手動輸入的兌換碼與結果都不存，log 只記 retcode；還沒開放（-2014）說晚一點再試，要求驗證請使用者到官方兌換頁；兌換失敗（含 cookie 失效）只回自己的錯誤，不動帳號的失效標記，Server Action 也不讓快取失效；畫面上按完停用按鈕約 5 秒（HoYoLAB 兩次兌換之間的冷卻）。結果用提示視窗：標題是「兌換成功：<碼>」或「兌換失敗：<碼>」（碼照伺服器同一套規則整理，碼本身不合格時只寫「兌換失敗」），內容只寫原因（`lib/redeem.ts` 的訊息不再寫「兌換失敗」）；帳號卡片的「立即簽到」「設定門檻」也用提示視窗，失敗的標題是「<動作>失敗」。卡片上不再留結果框的位置；按鈕的最小寬度放得下最長的「請等 5 秒」。

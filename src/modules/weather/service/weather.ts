@@ -112,11 +112,11 @@ export async function fetchForecasts(counties: readonly County[], fetchImpl?: ty
 }
 
 /**
- * county 是 null 時全台一次讀 沒有特報的是空陣列
+ * 一律全台一次讀 頁面與排程同一個請求 沒有特報的是空陣列
  * 少了欄位只記名稱 不記縣市 看不出誰住哪裡
  */
-export async function fetchWarnings(county: County | null, fetchImpl?: typeof fetch, timeoutMs?: number): Promise<Map<County, Warning[]> | null> {
-  const json = await readCwaJson(WARNING_URL, "天氣警特報", county, fetchImpl, timeoutMs);
+export async function fetchWarnings(fetchImpl?: typeof fetch, timeoutMs?: number): Promise<Map<County, Warning[]> | null> {
+  const json = await readCwaJson(WARNING_URL, "天氣警特報", null, fetchImpl, timeoutMs);
   if (json === null) return null;
   const { warnings, missing } = parseWarnings(json);
   logMissing("weather", "天氣警特報", missing);

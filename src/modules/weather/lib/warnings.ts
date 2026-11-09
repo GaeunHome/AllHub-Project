@@ -3,8 +3,8 @@ import { formatTaipeiHourMinute, formatTaipeiMonthDay, taipeiDayOffset } from "@
 import { normalizeCounty, type County } from "./counties";
 import { parseCwaTime } from "./forecast";
 
-// W-C0033-001 的路徑來自公開專案的程式
-// 真實的回應還沒看過
+// W-C0033-001 的路徑對過公開專案存下的真實回應
+// 還沒用這個專案的授權碼讀過
 
 /** label 例如大雨特報 severe 是警報 end 是 ISO 字串 快取裡放字串才不怕序列化 */
 export type Warning = { label: string; severe: boolean; end: string | null };
@@ -37,7 +37,7 @@ function countyWarnings(hazards: unknown[], missing: Missing): Warning[] {
   return [...byLabel.values()].sort((a, b) => Number(b.severe) - Number(a.severe));
 }
 
-/** 沒有 hazards 是目前沒有特報 有這個欄位卻不是陣列要留線索 真實的回應還沒看過 */
+/** 沒有 hazards 是目前沒有特報 有這個欄位卻不是陣列要留線索 */
 function hazardsOf(location: Record<string, unknown> | null, missing: Missing): unknown[] {
   const conditions = asRecord(location?.hazardConditions);
   return conditions && "hazards" in conditions ? missing.list(conditions, "hazards", "records.location[].hazardConditions.hazards") : [];

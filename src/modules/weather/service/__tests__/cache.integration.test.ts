@@ -26,15 +26,18 @@ describe("天氣的快取", () => {
     expect([...new Set(tagged())]).toEqual(["weather:settings"]);
   });
 
-  it("天氣警特報隨時會變：讀到或讀不到都幾分鐘（external）後再讀，標 weather:external；只回選的縣市，沒有特報是空陣列、讀不到是 null", async () => {
+  it("天氣警特報隨時會變：全台讀一次各縣市共用，讀到或讀不到都幾分鐘（external）後再讀，標 weather:external；只回選的縣市，沒有特報是空陣列、讀不到是 null", async () => {
     const heavyRain = { phenomena: "大雨", significance: "特報", end: "2026-11-02 20:00:00" };
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json(cwaWarningResponse(cwaWarningLocation("臺北市", [heavyRain]), cwaWarningLocation("高雄市", [])))));
+    const fetch = vi.fn<(url: string) => Promise<Response>>(async () => Response.json(cwaWarningResponse(cwaWarningLocation("臺北市", [heavyRain]), cwaWarningLocation("高雄市", []))));
+    vi.stubGlobal("fetch", fetch);
 
     expect(await cachedWarnings("臺北市")).toEqual([{ label: "大雨特報", severe: false, end: "2026-11-02T12:00:00.000Z" }]);
     expect(vi.mocked(cacheLife)).toHaveBeenLastCalledWith("external");
     expect(await cachedWarnings("高雄市")).toEqual([]);
-    // 帶了 locationName 的回應裡沒有這個縣市 一樣當成沒有特報
+    // 回應裡沒有這個縣市 一樣當成沒有特報
     expect(await cachedWarnings("花蓮縣")).toEqual([]);
+    // 快取存全台一份 不分縣市 請求不帶 locationName
+    expect(fetch.mock.calls.map(([url]) => new URL(url).searchParams.has("locationName"))).toEqual([false, false, false]);
 
     vi.stubGlobal("fetch", vi.fn(async () => new Response("down", { status: 503 })));
     captureErrorLog();

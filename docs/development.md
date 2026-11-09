@@ -120,7 +120,7 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
 | `npm run build` / `npm start` | 正式建置與啟動 |
 | `npm test` / `npm run test:watch` | 單元與整合測試（不需要資料庫） |
 | `npm run lint` | ESLint |
-| `npm run typecheck` | 型別檢查（要先 build；增量資訊寫在 `.next/cache/tsconfig.tsbuildinfo`） |
+| `npm run typecheck` | 型別檢查，用 TypeScript 7 的 `tsc`（要先 build；增量資訊寫在 `.next/cache/tsconfig.tsbuildinfo`）；`npx tsc6` 是 6.0 |
 | `npm run db:generate` | 改了資料表後產生 migration（一個版本一個，同一版再改就刪掉重新產生；見 [部署 › 之後的部署](deploy.md#之後的部署)） |
 | `npm run db:migrate` | 套用 migration（讀 `.env.local` 的 `DATABASE_URL`） |
 | `npm run db:studio` | 瀏覽資料庫 |
@@ -139,6 +139,7 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
   - 共用的測試輔助都在 `src/dev/`，用法見 CLAUDE.md〈架構規則〉：環境變數（跨模組的測試用 `stubAllEnv()`）、測試帳號（`insertTestUsers()` 建站長 alice 與成員 bob）、登入狀態、`next/navigation` 與 ⋮ 選單的替身、假 fetch 與假 localStorage、算繪成 HTML 與取出看得到的字（`markup()`、`textOf()`）、直接呼叫假外部服務的 `mockRequest()`、`next/cache` 的 spy。模組自己的測試 fixture 放在模組的 `dev/`，只有測試能 import。
   - `vi.stubGlobal` 換掉的全域（`fetch`、`localStorage`、`window`…）每個測試前自動還原（`vitest.config.mts` 的 `unstubGlobals`），測試不用自己還原；環境變數不自動還原。每個測試開始時 `DEV_EXTERNAL_ORIGIN` 是空的，本機 shell 設了假伺服器也不影響測試。
 - **規則檢查**：`src/__tests__/architecture.test.ts` 與 `src/__tests__/cache-rules.test.ts` 檢查架構與快取規則（見 [架構](architecture.md)），包括 `process.env` 只出現在允許的地方、Server Action 先確認登入、模組 id 一致。`src/modules/__tests__/cron.test.ts` 檢查排程跟 `vercel.json` 一一對應，`src/__tests__/account-deletion.integration.test.ts` 從資料庫的外鍵檢查刪除帳號時每張表都刪乾淨。
+- **套件與漏洞**：全部用最新版，`npm audit`（含開發工具）要是 0。TypeScript 照官方的共存做法裝兩個：`typescript` 指向 `@typescript/typescript6`（6.0 的 API，Next 的建置、typescript-eslint 與架構測試要用），`@typescript/native` 是 7.0 的 `tsc`；等 7.x 有 API、typescript-eslint 支援後再只留一個。`package.json` 的 `overrides` 把 drizzle-kit 帶的舊 esbuild 與 lint 工具帶的 minimatch 10 換成修過漏洞的版本，上游更新後拿掉，拿掉前先跑 `npm audit`。ESLint 10 的 react、import、jsx-a11y 外掛還沒宣告支援，安裝時的 peer 警告可以忽略。
 - **CI 的順序**：`ci.yml` 的測試分成三份（`vitest run --shard=1/3` 這樣），跟 lint → build → typecheck 全部同時跑，各自最多 15 分鐘（公開 repo 的 Actions 不計分鐘，上限只是避免卡住的工作掛很久）。`typecheck` 要用 build 產生的 `.next/types`，所以本機也要先 build。
 - **在瀏覽器裡測試**：一律用 `next dev` 加上 `npm run mock:external` 與 `DEV_EXTERNAL_ORIGIN`。
   - `next start` 會忽略 `DEV_EXTERNAL_ORIGIN`，只能用來測不會對外連線的流程：登入、沒有持股的理財、通知頁、帳號頁。首頁的卡片會讀直播狀態、頻道頭像、即時便箋、股價、天氣與警特報，只有還沒追蹤、沒連結帳號、沒有持股、沒選縣市的使用者才不會對外；新增持股、有持股的投資頁（股價與除權息預告）、`starrail:stamina`、`starrail:redeem`、`weather:rain`、`weather:warnings`、`savings:dividends` 也都會對外。

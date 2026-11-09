@@ -1,0 +1,81 @@
+# 理財（savings）的注意事項
+
+全站的規則（架構、慣例、安全、多人、快取、測試、資料保留、部署）在根目錄的 `CLAUDE.md`，這裡只寫這個部分自己的；文中的〈多人〉〈快取〉這類章節都在根目錄那份。
+
+- 模組 id、網址與資料表前綴沿用 `savings`，名稱是「理財」。六個分頁照東西分（使用者的決定）：總覽 `/savings`、紀錄 `/savings/records`、帳戶 `/savings/accounts`、投資 `/savings/investments`、每月固定 `/savings/recurring`、設定 `/savings/settings`，共用 `web/components/page-frame.tsx`（外框、頁首的 `actions` 與 `StreamSection`；整頁是 `FOCUS_FRAME`）與 `savings-nav.tsx`（手機放不下時橫向捲動，目前的分頁捲進畫面）。
+  - 網址集中在 `web/paths.ts`（`SAVINGS_PATHS`）：`addAccountPath(kind)`（帳戶頁 `?add=deposit|credit`、投資頁 `?add=investment`）打開就跳出新增的視窗，`addRecurringPath(preset)`（每月固定頁 `?add=salary|regular-buy|subscription|other`），`editRecurringPath(id)`（每月固定頁 `?edit=<id>`，只認自己的）打開那一條的修改視窗；打開後用 `router.replace` 拿掉參數（`settings/open-from-link.ts`）。設定頁的舊網址 `?add=account`、`?recurring=<id>` 轉到新頁面。紀錄頁收 `?month=`、`?account=`、`?category=`（只認自己的帳戶與分類），網址一律用 `recordsHref()` 組（只帶月份的是 `monthHref()`）。
+- 資料表：帳戶 `savings_accounts`（deposit／investment／credit，只存自己取的名稱與金額，不存帳號、卡號；用途是帳戶上的文字 `label`；信用卡另有結帳日 `statement_day`、扣款帳戶、自動扣繳 `autopay`、卡面顏色 `card_style`）、分類 `savings_categories`（收入／支出，支出可設每月預算，圖示 `icon`）、紀錄 `savings_transactions`（income／expense／transfer／adjust）、固定收支 `savings_recurring`、持股 `savings_holdings`、信用卡帳單 `savings_card_bills`、除權息通知的寄送紀錄 `savings_dividend_notices`、資產走勢每天的投資市值 `savings_asset_days`。
+  - 用途 `label` 跟名稱一樣正規化、最多 20 字，選填。分類的 `icon` 只收 `lib/kinds.ts` 的 `CATEGORY_ICONS`（Lucide 圖示名稱 → 中文），沒有或不認得的照類型用預設圖示（`categoryIconOf()`）；資料庫不檢查，清單可以增減。卡面顏色只收 `CARD_STYLES`（資料庫有 check），沒選的照信用卡建立的順序輪流、跳過別張選走的顏色（`accounts-view.ts` 的 `cardStyles()`）。
+- 金額是新台幣整數（1 元～1 億）。紀錄的 amount 一律是正數、方向看 kind；只有 adjust（更新餘額、帳單差額）帶正負號。轉帳是一列：`account_id` 轉出、`counter_account_id` 轉入。
+- 餘額＝起始餘額＋收入－支出－轉出＋轉入＋調整。信用卡的餘額是負的（未繳＝max(0, －餘額)，正的是溢繳）。正負號只寫在 `lib/ledger.ts` 的 `shownFigure`、`balanceFromFigure`、`balanceAdjustment`，表單的試算與伺服器共用。
+- 日期是台北時間的 YYYY-MM-DD：不能記未來，也不能早於帳戶的開始日（`accountStartDate()`，建立那天），起始餘額就是開始記帳那天的餘額。
+- 總資產＝啟用中的存款餘額＋投資的市值（`assetSummary`，只用 `active`）；有持股的投資帳戶用持股的市值（`lib/holdings.ts` 的 `investmentTotals()`），不看帳上的餘額。總覽只看現在，月份切換在紀錄頁。
+  - 各頁的帳戶數字、這個月要做的事與首頁卡片都從 `web/overview-data.ts` 的 `loadAccounts()`／`loadPending()`／`loadChecklist()`（`accounts-state.ts` 的 `accountsState()`）算，數字才一致：存款、投資（市值、成本、損益）、信用卡未繳與總資產由 `assetSummary()` 算一次，放在 `accountsState()` 的 `summary`，各頁不另外加總。沒有持股時不查股價，沒有信用卡時不查每天的流量與帳單；帳戶頁用不到市值，`loadAccounts(…, { quotes: false })` 不查股價。
+- 刪除帳戶時，跟它有關的紀錄（含轉帳的另一邊）、固定收支、持股與帳單一起刪（外鍵 cascade），其他帳戶的餘額會跟著變；刪除分類時改成未分類（set null）。停用的帳戶不能記帳、不算進總覽，紀錄留著。
+- 名稱先去掉看不見的格式字元（emoji 的零寬接合字留著）、NFC 正規化、連續空白縮成一個，再檢查長度（20 字）與重複。固定收支的名稱選填：空的照 `recurringTitle()` 的規則取標題；產生的紀錄備註是規則的 note，沒有就用名稱。
+- 「開始使用」（`setupDefaults`）：沒有分類時建薪水、餐飲、交通、訂閱、提領現金（都帶圖示）；重按不會重複。
+- 畫面（使用者的決定）：
+  - 使用者說過「找不到功能、不知道從哪裡開始設定、不知道平常要做什麼」：常用動作直接放在那個東西的列或卡片上（記一筆、更新餘額、填帳單、已繳、買進、賣出、確認、略過），⋮ 只放不常用的（修改、上移下移、停用、刪除，信用卡多一個「重填本期帳單」）。不要再收進點一列才打開的詳情視窗。
+  - 清單用 `card p-0`＋`card-row`（`row-controls.tsx` 的 `ListRow`、`ListGroup`；⋮ 裡打開視窗的項目是 `DialogMenuItem`、略過這一期是 `SkipButton`）；分類、帳戶類型的圖示用 `web/components/visuals.tsx` 的 `IconTile`（灰底圓形、中性色），股票代號用 `Ticker`。`CardHeader`、分頁與區段標題不帶圖示（`PageHeader` 的模組圖示保留）。
+  - 不加動畫、數字跳動與圓餅圖，數字一出現就是最後的值；不要一排一樣大的數字方塊。圖只有每月收支的長條（`--fin-income`／`--fin-expense`），進度是中性的細長條 `.fin-meter`（`dashboard/meter.tsx`）。六個分頁共用同一張橫幅（`PageBanner`，`page-frame.tsx`），總覽放總資產、投資放總市值（`hero` prop，大數字與旁邊的合計共用 `dashboard/banner-figure.tsx` 的 `BannerFigure`）。
+  - 版面照帳戶頁（使用者說「除了帳戶那邊那個頁面我覺得還不錯」）：一個東西一張卡，大數字、常用動作在卡片上，同一區用 `SectionHeading`（`section-heading.tsx`，標題右邊放合計 `Sum`）＋`CARD_GRID`，最後一格是虛線的新增（`ADD_TILE`，都在 `dashboard/layout.ts`）。帳戶、持股、每月固定、分類都是這樣，新的清單也照做，不要把列塞進一張大白框。
+  - 顏色只表示狀態：金額一律 `text-ink`、收入加「+」；損益只寫正負號，不上紅綠（台股紅漲綠跌會跟全站的紅色＝錯誤打架）。一列最多一個標籤，只給逾期、待填帳單、不夠扣、已停用；到期寫「還有 5 天」「逾期 2 天」「今天」（`lib/dates.ts` 的 `dueText()`），日期另外寫。
+  - 不用「·」把好幾件事串成一行（全站的規則見〈程式碼慣例〉）：理財的上下兩行用 `visuals.tsx` 的 `Lines`。通知文字是一行字，不在此限。
+  - 金額、股數、損益、期別這類顯示用的文字在 `web/format.ts`，client 元件只 import 它，不 import 伺服器端的 view model。
+  - view model 一個檔一件事：`accounts-state.ts`（餘額、帳單與總資產，各頁共用的起點）、`account-details.ts`（每個帳戶的數字與視窗的預填）、`form-options.ts`（交給表單的選項）、`expense-rows.ts`（本月支出）、`pending-view.ts`（要處理的事）、`accounts-view.ts`、`investments-view.ts`、`recurring-view.ts`、`overview-view.ts`（各頁的形狀）。
+  - 插圖（`web/components/illustration.tsx` 的 `Illustration`，檔案在 `public/illustrations/finance/`，unDraw，授權寫在 `public/illustrations/LICENSE.md`）只用在開始設定與空狀態；顏色用 CSS 變數跟著淺色深色換。
+- 總覽（`pages/savings-page.tsx`、`components/overview/*`、`web/overview-view.ts`）由上到下：
+  - 開始設定清單（`lib/setup.ts` 的五步：銀行帳戶、信用卡、證券帳戶、薪水、其他固定支出，完成照資料判斷）：還沒完成時才出現，可以略過一步或整個收起（`createLocalPref`，key `allhub:savings:*`，html 的 `data-fin-*` 屬性在第一次繪製前標好，不會先閃一下）；還沒有分類時上面先有「開始使用」。還沒有帳戶時總覽只有這張清單。
+  - 橫幅裡的總資產：大數字，旁邊（放不下時在下面）是 `FactList`：存款、投資、損益（收盤日）、信用卡未繳。還沒有帳戶時不畫。
+  - 「要先處理」：逾期與待填帳單（`overview-view.ts` 的 `urgentRows()`，首頁的「今天要注意」共用），沒有就整條不出現。
+  - 「我要…」：像銀行 App 的捷徑（`.fin-action`，實心圓圖示），手機上一排三個、圖示在字上面，夠寬時（容器 42rem 以上）排成一排六張小卡、圖示在左，不然六顆散得太開；平常怎麼用寫在標題旁的 i 圓圈。記支出、記收入、轉帳、信用卡、買賣股票、更新餘額六顆按鈕共用一個視窗，信用卡、股票、餘額先選對象，再照那個對象的狀態顯示表單（那張卡還沒填帳單就是填帳單、填了就是已繳）；⋮ 裡是「薪水入帳並分配」（不在固定收支裡的獎金）。表單沿用帳戶頁與投資頁的元件（`EntryForm`、`BillForm`、`PayCardForm`、`UpdateBalanceForm`、`BuySellForm`、`SalaryForm`）。
+  - 這個月要做的事（取代待處理，見下一點；放在卡片裡，一條時間軸串起來，`.fin-timeline`，下一件的標記圈起來）、本月收支（收入、支出、存下或多花各一列，支出分類照金額排、帶分類圖示，有預算的才畫已用 / 預算與細長條，點一列到紀錄頁篩好那個分類）、每月收支（最近 12 個月的長條，點一個月到紀錄頁）；左欄這個月要做的事下面是資產走勢（見下面）。
+- 這個月要做的事（`lib/checklist.ts` 的 `monthChecklist()`，`loadChecklist()` 組好 `ChecklistView`）：這個月（台北時間）所有例行的事照日期排，做完的留著打勾。
+  - 固定收支：日期在這個月的每一期（遇假日提前從下個月跨過來的也算）。游標之前有紀錄是完成（自動記的是已自動記帳），沒紀錄是已略過；還沒處理的，自動記的寫「自動記帳」，要確認的過了是逾期。上個月以前沒處理的（只有要確認的）排在最上面標「上個月」；下個月 7 天內的也列。紀錄照 `recurring_period` 對期別（排程自動記的也寫它），沒有期別的舊紀錄照日期對。停用的規則、用到停用帳戶的不列。
+  - 信用卡：待填帳單照結帳日、填了之後照截止日（遇假日順延後）放進月份；上個月結帳、這個月截止的那一期算這個月，繳清了留著打勾；前一期在這個月截止而且繳清的也留著打勾，沒繳清的併進這一期不另外列。這個月還沒到的結帳日（今天結帳的也算還沒到）與下個月 7 天內的結帳日列出來但不能按。
+  - 按鈕只給待處理（`lib/pending.ts` 的 `pendingItems()`）裡也有的那一列（`actionable`，key 一樣，都用 `recurringKey()`／`cardKey()` 組，視窗內容在 `entries`）：要先處理更早的那一期、7 天後才到或還沒結帳的不能按。按鈕是填帳單、已繳、確認、入帳並分配，固定收支的 ⋮ 有略過這一期與修改（連到每月固定頁）。確認的日期預設那一期的日期，還沒到就是今天（不能記未來）。沒有任何固定收支與信用卡時（`configured` 是 false）寫一行字與「設定薪水與每月固定」。
+- 帳戶（`pages/accounts-page.tsx`、`components/accounts/accounts-board.tsx`）：存款每個帳戶一張卡（帳戶類型圖示、名稱、用途、餘額大字、有目標時細長條），卡上「記一筆」「更新餘額」，點卡片到紀錄頁篩好這個帳戶；信用卡畫成卡面（`card-face.tsx`，CSS 漸層，不放銀行標誌），下面一行目前的狀態與現在該按的「填帳單」或「已繳」，還有「記一筆刷卡」與最近幾期的帳單；所有類型停用的帳戶收在最下面的「已停用（N）」。新增與修改帳戶的表單在這頁（`AddAccountButton`、`AccountForm`），證券帳戶的新增在投資頁（同一個表單，`kind` 固定）。
+- 投資（`pages/investments-page.tsx`、`components/investments/*`）：總市值、成本、損益、收盤日在橫幅裡；持股快要除權息時先列除權息（見下面的除權息）；每個證券帳戶一區，標題右邊是市值、查看紀錄與 ⋮，每檔一張卡（市值大字、損益、股數、均價、收盤，「買進」「賣出」在卡片上，⋮ 只有修改股數與成本、刪除），最後一格是新增持股；沒有持股的證券帳戶是一張說明＋更新市值；接著是虛線的新增證券帳戶、定期定額一區。停用的證券帳戶在帳戶頁管理，這裡只寫有幾個。
+- 每月固定（`pages/recurring-page.tsx`、`components/recurring/*`）：薪水（排程、預計金額、入帳帳戶、下一次；「入帳後怎麼分配」寫出各帳戶的每月規劃與目標，「修改分配」一個視窗一次改，`updateAllocationAction`：一個交易、只收自己的存款與投資帳戶，有別人的、信用卡或不存在的整批拒絕）、定期定額（`RegularBuyList`，跟投資頁共用）、其他固定收支（照下一期排，「確認」「略過」在卡片上）。三區由上到下，每一條一張卡（`recurring-card.tsx` 的 `RecurringCard`：點名稱修改，金額大字，右邊是下一期；薪水有分配時佔兩格，夠寬時分配排在右邊），外框（標題、虛線新增格、清單或空狀態）共用 `recurring-section.tsx` 的 `RecurringSection`。
+- 設定（`pages/settings-page.tsx`）只剩分類與預算：支出、收入各一區，標題旁寫每月預算的合計，每個分類一張小卡，可以選圖示（`CATEGORY_ICONS` 的格子，分類名稱剛好是圖示的中文名稱時自動選它）、設每月預算（只有支出）；一行連到帳戶、投資、每月固定。
+- 訂閱（使用者要的，每月固定頁多一區，`recurring/subscription-list.tsx`）：`savings_recurring.subscription` 是 true 的支出，標題寫平均每月的合計（`subscriptionMonthlyTotal()`：金額除以間隔月數，年繳也算得進去，暫停的不算）。新增時預設到期自動記帳，舊的固定支出到修改視窗勾「這是訂閱」就搬過來。續訂前 3 天通知一次（`service/notices.ts` 的 `RENEWAL_NOTICE_DAYS`，kind 是 `subscription_renewal`，連到每月固定頁），提早確認過的那一期不寄。
+- 固定收支（`lib/recurring.ts`）：
+  - 期別用月份表示：第一期是 `start_month`（null 是舊資料，當成建立的那個月），之後每 `interval_months`（1、2、3、6、12）個月一期。某一期的日期＝那個月的 `day_of_month`（沒有那天就月底），再照 `holiday_rule`（none 照原日、before 提前到前一個工作日、after 延後到下一個工作日）調整；提前可能跨到上個月，期別不變。建立之前的日期不算。
+  - `last_posted_month` 是游標：自動記、確認或略過都推到那一期，用條件式 update 認領（`service/periods.ts` 的 `claimMonth()`），同時送兩次也只算一次。改日期或間隔時游標不動，已處理的期別不重來。
+  - `mode`：auto 是到了自動記（舊資料都是），confirm 是到期列進這個月要做的事、按了才記（新增時預設）。定期定額（`holding_id`）與薪水（`allocate`）只能 confirm，資料庫的 check 與 `parseRecurringFields()` 都擋。
+  - 確認（`confirmOccurrence`）與略過（`skipOccurrence`）只收最舊的那一期（`requireOldestPending()`，不然回「請先處理更早的那一期」）。確認的金額、日期可以改，日期規則同記帳，紀錄帶 `recurring_id` 與 `recurring_period`。鎖的順序是使用者、帳戶、分類、持股，再鎖規則（跟刪除的連帶刪改同一個順序，不會 deadlock）。
+  - 刪除確認來的紀錄：規則是 confirm 而且游標剛好在這一期時，同一個交易裡退回前一期（`previousOccurrenceMonth()`，第一期退回 null），那一期會再出現在這個月要做的事；自動記的不退（不然排程隔天又記一次）。薪水那一期的收入刪掉時，分出去的轉帳（也帶這一期）一起刪；只刪其中一筆轉帳不動游標。退不退回看 `lib/recurring.ts` 的 `revertsPeriod()`（只認跟規則同一種的那一筆），伺服器與紀錄頁刪除前的確認訊息（「這一期會回到…」）共用它。
+  - 排程 `savings:recurring`（每天 00:30 台北）：自動記的補到今天該記的期別（最多 12 期），一條規則一個交易，先鎖使用者、帳戶與分類再鎖規則。停用的規則或帳戶、早於帳戶開始日的期別略過但游標往前推（恢復後不補記；confirm 的也一樣，恢復後才不會一次跳出一堆要確認的）；停用的使用者整個凍結（恢復後補記）；一般轉帳碰到有持股的投資帳戶也略過往前推。接著寄到期通知、清掉舊帳單；摘要不含金額與名稱。
+- 假日（`lib/holidays.ts`）：內建人事總處辦公日曆表（data.gov.tw 資料集 14718）2026、2027 年的平日放假日（這兩年沒有補班），表外的年份只看週末。每年 6～7 月公布下一年後要補上：`holidays.test.ts` 在 7 月以後要求明年的資料也在，沒補就失敗。
+- 薪水：`kind = income`、`allocate = true` 的固定收支，在每月固定頁的薪水一區新增（`preset` 是 salary，建議遇假日提前：勞動部說發薪日只能提前）。這個月要做的事的「入帳並分配」打開發薪分配，預填那一期的金額、入帳帳戶、分類與日期；`allocateSalary` 帶 `ruleId`、`period`，收入與分出去的轉帳都標上這一期，同一個交易認領游標。
+- 發薪分配（`allocateSalary`）在一個交易裡：記一筆收入，再從入帳帳戶轉到各帳戶；入帳與目的帳戶都不能是信用卡、目的帳戶不重複，轉出合計不能超過薪水。建議金額用 `suggestAllocation()`：照每月規劃，有目標的最多分到目標；有持股的投資帳戶不列。
+- 信用卡（`lib/cards.ts`、`service/cards.ts`）：
+  - 截止日每期照帳單填（使用者的決定，設定頁沒有截止日）：填帳單與 `payCard` 帶 `billAmount` 時必填，不能早於結帳日、不能晚於結帳後 60 天（`checkBillDueDate()`、`MAX_DUE_DAYS`），照填的存；逾期、還有幾天、通知與畫面上的日期一律用 `payableDueDate()`（遇假日順延到下一個工作日，已經順延過的不變）。
+  - 視窗的截止日由伺服器先填（`billDefaults()` 的 `defaultDueDate()`，可以改）：帶帳單上印的日子（不順延，跟銀行帳單一樣），遇假日時欄位下面寫「遇假日順延到 M/D」（表單自己用 `payableDueDate()` 算）。同一期再填是上次填的；有上一張帳單就是結帳日之後第一個跟它截止日同一天的日子（沒有那天就月底），還沒有帳單是結帳後 15 天。
+  - 「填帳單，差額自動補」（`enterCardBill`）：照銀行的帳單寫一張 `savings_card_bills`（每張卡每個結帳日一張，截止日存填的），再跟紀錄算到結帳日的未繳比（`billDifference()`）。帳單比較多就在結帳日記一筆信用卡支出「未記錄的刷卡（帳單差額）」（分類可選），比較少記一筆調整「帳單差額」，這一筆帶 `card_bill_id`。同一期再填會蓋過去（先刪上次補的再重算）。從紀錄頁刪掉補的那一筆＝撤銷帳單（帳單一起刪）；補的支出只能改分類與備註，補的調整不能改。
+  - 有結帳日的卡：結帳日（嚴格早於今天）之後這一期還沒填就是 `needsBill`（status `needs-bill`），列進這個月要做的事的「填帳單」：還沒有截止日、不算逾期，照結帳日排，寫結帳日與「待填帳單」，金額是照紀錄估的 `estimate`（0 也列）；填了之後還沒繳清（`remainingDue > 0`）才列「已繳」，寫帳單的截止日。
+  - 沒有結帳日的卡不會自動要填：在帳戶頁那張卡按「填帳單」（填的那天當結帳日），之後最新一張還沒繳清就列。繳了多少用 `listCardBills()` 算好的 `paid`（最新一張可能早於近 70 天的流量）。已繳＝結帳後轉進這張卡的合計。
+  - 「已繳」（`payCard`）：從存款帳戶轉到卡（備註「繳卡費」）；帶 `billAmount`（與 `dueDate`）時同一個交易先填這一期的帳單。扣款帳戶只能是存款帳戶，「繳完剩多少／不夠扣」用本期還要繳的算（`lib/ledger.ts` 的 `creditCardStatuses()`）。
+  - 每張卡只留最新 5 張帳單（見〈資料保留〉）。信用卡不能更新餘額（刷卡記一筆、繳款用已繳）。
+- 持股（`lib/holdings.ts`、`lib/quotes.ts`、`service/holdings.ts`、`service/quotes.ts`）：
+  - 只存代號（大寫英數 4–6 碼）、建立時從股價清單抄的名稱、目前股數與總成本（含手續費）。市值＝股數 × 收盤價（四捨五入，股數乘以分用 bigint 算），沒有報價時用成本、`priced: false`（畫面寫「股價暫時無法讀取」）；均價＝總成本 ÷ 股數。
+  - 收盤價：證交所 `STOCK_DAY_ALL` 與櫃買中心 `tpex_mainboard_quotes` 的 OpenAPI，經 `externalFetch()` 同時讀、各等 8 秒，不到 100 筆當成讀不到；價格用字串換成整數的分。不呼叫證交所網站的端點（使用條款禁止程式下載），所以沒有歷史股價。`cachedQuotes()` 用排序去重的代號當 key、只回這些代號的報價。
+  - 新增持股時不走快取（`findQuote()`）：找不到代號回「找不到這個代號：只支援台股上市櫃股票與 ETF」，清單讀不到回「股價清單暫時無法讀取，請稍後再試」（只讀到一個清單時不說找不到）。同一個帳戶同一個代號只能一筆。
+  - 買進（`buyHolding`）：一個交易裡鎖使用者、帳戶、持股，寫一筆從存款帳戶到投資帳戶的轉帳（`holding_id`、`shares` 正、`cost_change`＝金額），持股加上股數與成本。賣出不能超過持股，移除的成本照平均成本（賣完就是全部，`removedCost()`），轉帳反向、`shares` 負。刪除買賣紀錄時把持股還原（夾在 0）；修改只能改日期與備註。
+  - 修改持股（對帳、配股）直接改股數與成本，不產生紀錄；刪除持股時定期定額一起刪，買賣紀錄留著（`holding_id` 改成 null）。
+  - 有持股的投資帳戶：一般轉帳（沒有 `holding_id` 的）轉進轉出一律擋下（「這個投資帳戶有持股：轉進轉出請用買進或賣出」：記一筆、修改紀錄、固定收支、發薪分配與確認都是），表單用 `accountsWithHoldings()` 拿掉這些帳戶；也不能更新市值。沒有持股的投資帳戶照舊，帳上的餘額就是更新市值時填的數字。
+  - 定期定額＝固定收支：`kind = transfer`、從扣款的存款帳戶、`holding_id`，轉入帳戶由 service 照那一檔設（不信任表單）。確認時先用收盤價估（`estimateRegularBuy()`：手續費 1 元含在金額裡，股數無條件捨去，估不出來欄位留空），送出後走買進。
+- 除權息（`lib/dividends.ts`；`service/dividends.ts` 只讀預告表，跟收盤價的 `service/quotes.ts` 一樣，頁面的快取也用它；排程寄的通知在 `service/dividend-notices.ts`）：
+  - 來源是證交所 `TWT48U_ALL` 與櫃買中心 `tpex_exright_prepost` 的除權除息預告表（OpenAPI，只列最近過去與之後兩三週，沒有發放日，筆數本來就少、不設最少筆數）：同時讀、各自逾時（頁面 8 秒、排程 15 秒），一個讀不到另一個照常（`complete` 是 false），回應不是陣列、或有資料卻一列都讀不出來（欄位改了名字）當成讀不到，不當成最近沒有除權息。兩邊解析成同一種事件（代號、除息日、`cash`／`stock`／`both`、每股現金股利的十進位字串；還沒公布是 null，證交所寫空字串、櫃買寫「尚未公告」），同一檔同一天的合併。
+  - 估計金額＝同一檔跨帳戶合計的股數 × 每股現金股利，用整數算、不到 1 元捨去（`estimateDividend()`），不扣匯費與二代健保補充保費；只有除權的不估（「權」也可能是現金增資）。最後買進日＝除息日前一天照 `holidays.ts` 往前找工作日（`lastBuyDate()`），證交所另外休市的日子（例如農曆年前的封關）可能不準。持股只算擁有者沒停用、啟用中的證券帳戶裡股數大於 0 的（頁面與排程都用 `lib/dividends.ts` 的 `heldShares()`，只有一份）。
+  - 通知（排程 `savings:dividends`，台北 08:00 那個小時、開盤前，連到 `/savings/investments`）：同一個人同一檔同一個除息日最多三則（`dueDividendNotices()`）：第一次看到寄公布（`dividend_announced`，有金額就一起寫）、還沒寄過金額而金額有了寄 `dividend_amount`、最後買進日當天寄 `dividend_last_buy`；同一天碰上兩種併成一則，標題照最後買進日、公布、金額的順序取最重要的，知道的金額一起寫（`dividendNotice()`；最後買進日的標題以「今天是最後買進日：」開頭，鈴鐺面板只顯示一行）；一次寄好幾檔時除息日最近的最後寄（通知新的在上面，最急的排最上面）。
+  - 認領：`savings_dividend_notices` 一個人一檔一個除息日一列，有這一列就是公布寄過了，`amount_notified`、`reminded` 記金額與最後買進日。沒有列時 insert … on conflict do nothing、有列時條件式 update（舊的記號相同才改），同時跑的排程只有一個認領得到；寄不出去用 core 的 `sendOrRelease()` 放掉（刪掉新的那一列或把記號改回）。每次先刪掉除息日過了的列；預告表每次讀最新的、不走快取，沒有持股時不讀。摘要只有數字，log 只記錯誤種類與 id。
+  - 投資頁的卡片（`components/investments/dividends-card.tsx`，資料整理在 `web/dividends-view.ts`）：摘要下面（超寬螢幕在右邊一欄、摘要與定期定額之間）列出持股之後要除權息的：代號、名稱、上下兩行「11/18 除息」與「還有 20 天」（今天、明天直接寫，最後買進日那天寫「今天最後買進」，`format.ts` 的 `dividendDateLines()`），右邊是估計金額與每股配息，還沒公布寫「金額還沒公布」；沒有要除權息的持股時整張不顯示，讀不到時是 `EmptyState`「除權息預告暫時無法讀取」。`cachedDividends()` 跟收盤價同時讀、同一套快取規則（排序去重的代號當 key、`quotes` 效期、讀不到或只讀到一個來源用 `external`）。骨架照沒有這張卡片的樣子（只在快到除息日時出現）。
+- 通知（`service/notices.ts`，`savings:recurring` 寄給擁有者，連到 `/savings`）：confirm 的固定收支某一期的日期是今天（「今天到期：<名稱> $金額」，薪水是「今天發薪：記得確認實際金額」）；信用卡結帳隔天還沒填帳單（「<卡名> 已結帳：照帳單填金額與截止日」），填了之後帳單的截止日（順延後）前 3 天還沒繳清（自動扣繳的寫「自動扣繳：本期 $X，記得確認」）。用 `last_notified_on`／`card_notified_on` 條件式 update 認領，同一天只寄一次，寄不出去退回；log 只記錯誤種類與 id。
+- 快取：一張表一個 tag（`savings:accounts`、`categories`、`recurring`、`transactions`、`holdings`、`bills`、`asset-days`），加上收盤價與除權息預告的 `savings:external`；紀錄一改，餘額、統計與明細都重算。刪除會連帶改到別張表時一起失效（刪除帳戶：紀錄、固定收支、持股、帳單；刪除紀錄：持股、固定收支、帳單；刪除持股：固定收支、紀錄），對照表在 `web/__tests__/actions.cache.test.ts`。
+- 資產走勢（使用者要的，總覽左欄這個月要做的事下面（使用者選的：左欄比較寬，兩欄也差不多高），`components/dashboard/asset-trend-chart.tsx`、`lib/trend.ts`、`service/trend.ts`）：使用者選的「疊起來的長條」，v0.2.11 改成「近 30 天每天記一筆」（v0.2.10 是最近 12 個月每月一根）。最近 30 天（`TREND_DAYS`，從最早的啟用中存款或投資帳戶那天起）每天一根，下面存款（`--fin-deposit` 藍）上面投資（`--fin-investment` 金），頂端就是總資產，底下的日期從今天往回每 7 天寫一個（30 根時一欄很窄），滑過或鍵盤移到哪一天寫出金額，點了到紀錄頁看那天的那個月（紀錄頁照月份篩），下面有表格檢視。
+  - 存款一律照紀錄回推那天結束時的餘額：現在的帳上餘額（每月的流量加總）扣回那天之後的每天流量（`service/transactions.ts` 的 `accountDayFlows()`，只讀圖的第一天 `trendStart()` 起），帳戶建立前的日子不算，事後補記也算得進去；投資有排程記下市值的日子用 `savings_asset_days`，沒有的日子用帳上的數字（有持股的是買進成本，讀數與表格寫「照成本」，證交所不准程式下載歷史股價）；今天用總覽上面的總資產（`assetSummary()`）。信用卡與停用的帳戶不算，跟總資產一樣。
+  - `savings_asset_days` 每人每天一列（主鍵 `user_id`、`day`），只存投資市值（`bigint`）。排程 `savings:trend`（台北 00:45，在 `savings:recurring` 之後）記下前一天的市值（同一天重跑覆蓋那一列），先清掉圖上看不到的舊日子（見〈資料保留〉）；跟頁面同一套算法（`investmentTotals()`＋`assetSummary()`），有一檔讀不到收盤價時那個人今天略過（不把成本當市值），擁有者停用或沒有理財權限的略過（那幾天畫面照成本算）；收盤價讀不到時回報系統狀態的 `savings:quotes`。摘要只有人數與清掉的筆數。
+  - 每月收支與資產走勢共用 `components/dashboard/bar-chart.tsx` 的 `BarChart`（刻度、底下的日期、滑過的讀數、每一根的連結與表格只寫一份，長條由各自畫）；一根是一個月還是一天由 `axis` 決定（每月收支用 `monthAxis()`，資產走勢在自己的檔案寫一天一根的）。
+- 記帳資料永久保留（帳單與資產走勢除外，見〈資料保留〉），不加清理排程；刪除帳號時一起刪。
+- 測試共用的假資料：`dev/fixtures.ts`（帳戶、固定收支、每月與每天的流量、這個月要做的事的一件、`userError()`，不載入資料庫）與 `dev/db-fixtures.ts`（`savingsRows()` 寫進 PGlite、`dateParams()`）。

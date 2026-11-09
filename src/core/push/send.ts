@@ -1,6 +1,6 @@
 import "server-only";
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import webpush from "web-push";
+import { generateRequestDetails } from "web-push";
 import { db } from "../db";
 import { corePushMutes, corePushSubscriptions } from "../db/schema";
 import { pushKeys, type PushKeys } from "../env";
@@ -23,7 +23,7 @@ type Device = { endpoint: string; userId: string; p256dh: string; auth: string }
 async function sendTo(device: Device, target: PushTarget, message: PushMessage, keys: PushKeys): Promise<string | null> {
   try {
     const payload = JSON.stringify({ id: target.id, title: message.title, body: message.body.slice(0, BODY_MAX), url: message.url });
-    const { endpoint, headers, body } = webpush.generateRequestDetails({ endpoint: device.endpoint, keys: { p256dh: device.p256dh, auth: device.auth } }, payload, { vapidDetails: keys, TTL: TTL_SECONDS });
+    const { endpoint, headers, body } = generateRequestDetails({ endpoint: device.endpoint, keys: { p256dh: device.p256dh, auth: device.auth } }, payload, { vapidDetails: keys, TTL: TTL_SECONDS });
     const response = await externalFetch(endpoint, { method: "POST", headers: headers as Record<string, string>, body: body && new Uint8Array(body) }, { timeoutMs: TIMEOUT_MS });
     if (response.status === 404 || response.status === 410) return device.endpoint;
     if (!response.ok) logError("push", "推送服務拒絕", new HttpStatusError(response.status));

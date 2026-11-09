@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { stubCoreEnv } from "@/dev/test-env";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
-import { weatherPlaces } from "../../data/schema";
+import { weatherPlaces, weatherSettings } from "../../data/schema";
 import { WORLD_CITIES } from "../../lib/cities";
 import { PLACE_LIMIT } from "../../lib/places";
 
@@ -42,6 +42,16 @@ describe("天氣頁的城市", () => {
     await addPlace(me, "京都");
 
     await expect(addPlace(me, "京都")).rejects.toThrow("已經加過了");
+  });
+
+  it("首頁選的縣市已經排在第一個：再加一次不收，別人的首頁縣市不影響自己", async () => {
+    await getDb().insert(weatherSettings).values([
+      { userId: me, county: "桃園市" },
+      { userId: other, county: "基隆市" },
+    ]);
+
+    await expect(addPlace(me, "桃園市")).rejects.toThrow("首頁的縣市");
+    expect((await addPlace(me, "基隆市")).name).toBe("基隆市");
   });
 
   it(`每人最多 ${PLACE_LIMIT} 個`, async () => {

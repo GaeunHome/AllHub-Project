@@ -114,6 +114,11 @@ npm run account create
 - 一般的部署不會讓登入失效。只有換 `SESSION_SECRET`、改密碼或重建資料庫才會。
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
+- **從 v0.2.11 升級到 v0.2.12**：一般的升級，推送前不用另外設定，排程與環境變數都沒變。
+  - db-migrate 套用 `0001_drop_asset_snapshots`（`0001_asset_days_expense_split` 已經併進基準檔，基準檔的時間戳記等於它），一開始設 `lock_timeout = 5s`：刪掉 v0.2.11 起不再讀寫的 `savings_asset_snapshots`（資產走勢改成每天一列，分兩版做的第二版；部署空窗期還在線上的 v0.2.11 不讀寫它，不受影響）。
+  - 套件都升到最新版，其中資料庫驅動 postgres 是重寫過的 4.x，網站與 db-migrate（drizzle-kit）都用它。本機用 PGlite 測過登入、讀寫、交易、排程與 migration，正式環境的 Supabase transaction pooler（Supavisor）測不到：部署後打開首頁、理財與天氣頁，記一筆帳，再看系統狀態頁的排程有沒有出錯。
+  - db-migrate 失敗時舊表留著，不影響網站；看 Actions 的 log 再處理。
+  - 要退回 v0.2.11 時可以用 Instant Rollback：它不讀寫刪掉的表，驅動也是舊版的。
 - **從 v0.2.10 升級到 v0.2.11**：一般的升級，推送前不用另外設定，排程與環境變數都沒變。
   - db-migrate 套用 `0001_asset_days_expense_split`（`0001_asset_trend` 已經併進基準檔，基準檔的時間戳記等於它），一開始設 `lock_timeout = 5s`：新增資產走勢的 `savings_asset_days`（每人每天一列）與分帳的 `travel_expense_payers`（都開 RLS），`travel_expenses` 加上可以是 null 的 `spent_on`、`category` 與預設 `even` 的 `split`，`travel_expense_shares` 加上可以是 null 的 `weight`，只擴充、不刪不改。v0.2.10 的 `savings_asset_snapshots` 留著、不再讀寫（部署空窗期還在線上的 v0.2.10 會讀它），下一版刪掉。
   - 部署空窗期還在線上的 v0.2.10 記的帳沒有日期與類別，新版照舊帳顯示（沒有日期、類別算其他），可以再修改補上。

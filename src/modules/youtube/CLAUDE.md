@@ -1,0 +1,48 @@
+# YouTube（youtube）的注意事項
+
+全站的規則（架構、慣例、安全、多人、快取、測試、資料保留、部署）在根目錄的 `CLAUDE.md`，這裡只寫這個部分自己的；文中的〈多人〉〈快取〉這類章節都在根目錄那份。
+
+- 畫面照 YouTube 網站：列表頁上方只有一個輸入框（`lib/parse.ts` 的 `classifyYoutubeInput()`：影片網址開觀看頁、頻道網址或 @帳號就追蹤；伺服器端的 `openVideoAction`、`addChannelAction` 仍各自驗證），篩選膠囊（`web/video-filter.ts`）在瀏覽器切換、不再問伺服器；卡片的動作收進 ⋮ 選單，頻道列在「訂閱內容」（手機是頭像列），通知開關與刪除收進每個頻道的選單。影片點了都進觀看頁，篩選只有全部與翻譯完成。觀看頁：播放器下方是標題與頻道列，翻譯按鈕是頻道列右邊的膠囊，右側（手機在下方）是「接下來播放」。播放器大小優先：寬螢幕上播放器的寬度依視窗高度封頂、最少佔一半（`watch-page.tsx` 的 xl 欄寬：`100dvh` 扣掉 17rem，預留到一行標題與一列頻道列；視窗矮於 54rem 時播放器窄、膠囊會換到第二列，改扣 20.25rem），1920×950、1440×760 一行標題時頻道列與膠囊都在畫面內，1280×680 播放器比「接下來播放」寬（`watch-page.test.ts` 依實際量到的高度驗算），多出來的寬度給「接下來播放」，它的縮圖用比例寬度（`xl:w-2/5`）。
+- 播放器（`web/components/youtube-player.tsx`）：外框 `.player-slot` 先佔好位置，`.player-frame` 疊在裡面，進出全螢幕時頁面不會跳。
+  - 大小：一般與劇院模式（`web/player-size.ts`，`createLocalPref` 的 `allhub:youtube:player-size`，跨分頁同步），播放器右下角的按鈕或鍵盤 `t` 切換，只在 lg 以上出現。劇院模式在 lg 以上撐滿版面的兩欄、高度封頂在 `100dvh` 扣 11rem（整個播放器留在畫面裡），影片置中、兩側留黑；`WatchClient` 的外層改成 `lg:contents`，標題、翻譯面板與「接下來播放」照格線自動排到下一列。整頁載入（重新整理、直接打開網址）時第一次繪製就是劇院模式：伺服器讀不到存在瀏覽器的偏好，觀看頁格子最前面的 `web/components/player-size-sync.tsx`（`PlayerSizeSync`）只在伺服器算繪與 hydration 時放同步腳本（`PLAYER_SIZE_INIT_SCRIPT`，`core/ui/html-flag.tsx`），在 html 標上 `data-youtube-theater`，`web/player.css` 依它把播放器與骨架（骨架的播放器也是 `.player-slot`、外層排法跟 `WatchClient` 一樣）先排成劇院模式；React 接手後由它的 layout effect 跟著偏好（含其他分頁）更新，Activity 藏起來或卸載時拿掉（同 `lockPageScroll()` 的做法，屬性不留到別頁）。站內換頁時不放腳本（瀏覽器端產生的 script 不會執行，React 還會警告），改由 layout effect 在骨架繪製前標好。
+  - 全螢幕：播放器右下角的按鈕或鍵盤 `f`（`web/player-shortcuts.ts`：焦點在輸入框、組字中或按著 Ctrl／⌘／Alt 時不算；⋮ 選單、鈴鐺面板、人像選單或彈出視窗開著時也不算，Esc 只關掉彈出層、不離開頁內全螢幕（`core/ui/popup-layer.ts` 的 `listenPageKeys()`，在捕獲階段先記下按下的當下有沒有彈出層：選單自己的 Esc 監聽可能先把它收掉）；觀看頁「上傳字幕」這類只是展開區塊的按鈕不算；焦點在 YouTube 的 iframe 裡時按鍵到不了頁面，由 YouTube 處理）。
+    - 支援 Fullscreen API 時讓外框連字幕一起全螢幕，不支援（iPhone Safari 的 `document.fullscreenEnabled` 是 false）或被拒絕時改用頁內全螢幕（`data-fullscreen="pseudo"`：fixed 蓋滿 `100dvh`、讓開 safe area、`html` 不捲動，按鈕寫出「離開全螢幕」，也可以按 Esc）。
+    - 狀態以 `fullscreenchange` 為準，切分頁、旋轉螢幕後重新對一次（`web/player-fullscreen.ts`）。
+    - 頁內全螢幕的捲動鎖由 layout effect 寫在 `html[data-player-fullscreen]`（`lockPageScroll()`），不用 `:has` 比對播放器的 `data-fullscreen`：Activity 藏起來的頁面還在文件裡，`:has` 會連它一起算，按上一頁後下一頁就捲不動。
+    - 原生全螢幕時 `html:has(.player-frame:fullscreen)` 拿掉捲軸的保留位置（只在真的全螢幕時成立），Windows 這類占寬度的捲軸才不會讓外框右邊留一條黑邊。
+    - 卸載或 Activity 把頁面藏起來（上一頁、iPhone 從左緣滑回去）時一定離開兩種全螢幕（`leaveFullscreen()`），播放器的 effect 也把字幕、播放中與載入失敗的狀態放回初始值：再顯示時播放器是重新建立的，從頭開始。
+    - `playerVars.fs` 一律是 0：YouTube 自己的全螢幕會讓疊上去的字幕消失；官方文件只說 fs=0 會藏起按鈕，社群回報它也會停用雙擊全螢幕（plyr #2875），E2E 不連真的 YouTube，沒有實測。
+  - 按鈕放在右下角、YouTube 控制列的正上方（使用者要的，`right: 0.75rem`、`bottom: 4.5rem`，上下排；控制列的高度是估的，要用真的 YouTube 確認沒壓到），全螢幕與手機同一個位置；廣告時會蓋到「略過廣告」右邊一小段。滑鼠移到播放器上、暫停或用鍵盤移到按鈕上才出現，觸控裝置一直顯示。字幕兩側本來就讓開 4rem，全螢幕時「離開全螢幕」比較寬，字幕另外限寬。
+  - 字幕同步（`web/playback-clock.ts`）：真的 IFrame API 的 `getCurrentTime()` 大約每 250ms 才更新，播放中改用 `requestAnimationFrame` 每一幀推算：記下回報的錨點，用 `performance.now()` 與播放速度（`getPlaybackRate()`、`onPlaybackRateChange`）內插；回報超前就採用，落後超過 250ms 當成往回跳轉，小幅落後不往回跳、用一半的速度拉回（字幕不會在兩句之間來回閃），太久沒有新的回報就停。暫停、緩衝、結束時停在回報值、每 100ms 輪詢（拖曳進度也很快換句），分頁看不到時整個停掉；只有換句時才 setState（用 `flushSync`，新的一句跟偵測到的那一幀一起畫出來）。`lib/cue-lookup.ts` 的 `findCueIndex` 用前綴最晚結束時間往前找仍涵蓋的那句（不限幾句），播放器傳 `bridgeGapMs: 250`，很短的空檔繼續顯示上一句，換句時字幕框不會閃一下。
+  - 字幕疊在 `.subtitle-area`（影片畫面實際的範圍，置中的 16:9），字級依畫面寬度（cqi）縮放，全螢幕時跟著放大；平常讓開 YouTube 的控制列，播放中、滑鼠不在播放器上時往下移（觸控裝置一律讓開）。長句最多到畫面寬度的七成多、`text-wrap: balance`，韓文那一行 `word-break: keep-all`（`subtitleDisplay()` 的 `primaryLang` 標 `lang`）。
+- 追蹤每人一份（`youtube_follows`，`channel_id` 跟影片表一樣是 YouTube 的頻道 id），頻道與 WebSub 訂閱共用。影片清單是自己追蹤頻道的最新 20 支。追蹤時從 RSS feed 補進最近的影片、不發通知；已經有人追蹤的頻道只補發布超過 24 小時的（24 小時內的交給 WebSub 推送，照常通知所有追蹤者），也沿用原本的訂閱：訂閱失敗的（`lib/websub.ts` 的 `isSubscriptionFailure()`，狀態開頭是 `SUBSCRIPTION_FAILED`）趁新的追蹤者加入時再送一次（跟 Twitch 一樣，不必等每天的 `youtube:renew`），等 hub 確認中的不重送。翻譯設定每人一列（主鍵是 `youtube_settings.user_id`，舊的 `id` 欄 v0.2.9 刪掉了），API Key 與模型每人每家一列（`youtube_ai_keys`，v0.2.7 從設定表的六個欄位搬過來，新增一家 AI 不用改表；`service/ai-settings.ts`）：設定頁只顯示 Key 的前 8 碼，讀設定時解密後取（舊資料不用重新貼上；解不開時寫「已設定（無法解密，請重新填入）」），輸入框照舊 `type="password"`、沒有顯示按鈕。
+- 影片縮圖用影片 id 組（`lib/urls.ts` 的 `youtubeThumbnailUrl()`，不呼叫 API）；追蹤中頻道的頭像讀頻道頁的 og:image（非官方，`lib/channel-page.ts`），快取一天，讀不到時用追蹤時存下的頭像，再不行就是文字頭像。觀看頁的標題與頻道列、保留影片的快照都用 `service/video-list.ts` 的 `followedVideo()`（只查得到自己追蹤頻道的影片；頁面讀快取的 `cachedFollowedVideo()`，標題與頻道列共用同一份），其他影片用 oEmbed（`service/visuals.ts` 的 `videoInfo()`：連線錯誤記 log 後當作讀不到，畫面照常、開始翻譯時標題存 null）。站內與 YouTube 的網址在 `lib/urls.ts`。
+- `lib/subtitles/`：字幕格式（毫秒）、批次、抓韓文字幕（非官方：先讀觀看頁的 ytInitialPlayerResponse，任何失敗再問 InnerTube 的 `youtubei/v1/player`（ANDROID 用戶端，`lib/youtube-fetch.ts`），兩個都讀不到才算讀不到；觀看頁給的字幕網址帶 `exp=xpo…` 時下載回空內容（要 PO token），韓文字幕改用 InnerTube 的網址；`WEB_EMBEDDED_PLAYER` 試過不能用；讀不到時 log 記一行原因代碼 `[youtube] 讀不到字幕清單`）、三家 AI 翻譯（`translateBatch`，錯誤分 `AiError.kind`，訊息已去除金鑰）。翻譯的模型清單只在 `models.ts`（`AI_MODELS`，每家第一個是預設），設定頁是下拉選單、一進去就選好，不能留空；以前存的自訂模型不在清單時多一個「目前設定：<模型 id>」，伺服器只收清單裡的或這個人原本存的。字幕一律依開始時間排序（json3 與上傳的字幕檔都是；穩定排序，同時開始的保持原本的順序），而且在寫進 `youtube_translations.source_cues` 之前：句子的位置就是譯文（`translated`）的編號，播放器的 `findCueIndex` 也用二分搜尋；已經存好的翻譯不重排（字幕不會重抓，位置不變）。
+- service 依用途分檔：
+  - `channels.ts`（追蹤、WebSub 訂閱與推送、續訂）
+  - `video-list.ts`（清單的範圍只定義在 `listedVideoIds()`，清單內容 `recentVideos()`、自己追蹤頻道的某支影片 `followedVideo()`）
+  - `cleanup.ts`（`youtube:cleanup`）
+  - `ai-settings.ts`（翻譯設定與 API Key、續翻用的 `currentAi()`、重新加密）
+  - `translation.ts`（翻譯紀錄、續翻與翻譯鎖）
+  - `saved-videos.ts`
+  - `visuals.ts`（頻道頭像與 oEmbed）
+  - `errors.ts`（`TranslationUserError`、`ApiKeySetupError`，都是 core 的 `UserError`）
+  - 觀看頁的 `web/components/watch-client.tsx` 管版面與播放器，翻譯面板、開始面板與上傳表單在 `translation-panel.tsx`、`start-panel.tsx`、`upload-form.tsx`，兩個面板共用的頻道列與沒有 API Key 的提示（`ApiKeyNotice`）在 `watch-panel-parts.tsx`。
+  - 字幕語言（中文、韓文、雙語）只有 `lib/subtitles/format.ts` 的 `SubtitleMode`，畫面與下載共用；實體解碼與整理每一行用 `lib/text.ts` 的 `decodeEntities()`、`tidyLines()`（字幕檔、RSS、頻道頁共用）。
+- 不判斷影片有沒有中文字幕（使用者的決定，v0.2.1 拿掉）：要讀 YouTube 的字幕清單，兩個來源都是非官方，從家用網路讀得到、正式環境（Vercel）大多讀不到，舊的 `api/timedtext?type=list` 回空內容、瀏覽器直接問被 403 擋下、官方 `captions.list` 要 OAuth 而且看來只限自己的影片，免費做不穩，所以新影片通知只寫標題、連到觀看頁，不要再加回來。`youtube_videos` 的 `zh_captions`、`zh_captions_checked_at` 在 v0.2.2 刪掉了。
+- 不收 Shorts（不改資料表）：`lib/websub.ts` 的 `FeedEntry.isShort` 看 entry 的連結是不是 `/shorts/<id>`，追蹤時補影片與 `handleFeed` 都略過；連結看不出來的新影片，延後的 `announce` 先用 `lib/api.ts` 的 `checkIsShort()` 確認（請求 `/shorts/<id>`、`redirect: "manual"`：200 是、轉址到 `/watch` 不是，其他狀態回 null，連線錯誤與逾時照常丟出），是 Shorts 就刪掉那一列（log 記一行影片 id）、不通知，null 或出錯當一般影片（log 只記錯誤種類）。
+  - 已確認是 Shorts 而刪掉的影片被 hub 重送時，會暫時重新寫入、再被確認刪掉。
+  - 已經存進來的由 `youtube:cleanup` 先對照每個有人追蹤的頻道的 RSS 刪掉；RSS 只有最新十幾支，RSS 裡沒有、還在某人最新 20 支裡的（上線前存進來的、推送時確認不了的）再用 `checkIsShort()` 逐支確認（新的先、每次最多 50 支 `SHORTS_CHECK_LIMIT`，刪掉後往前補進清單的也一起確認；確認不了或出錯當一般影片留著，log 只記種類），最後才算最新 20 支。
+  - 讀 RSS 與逐支確認都是同時 4 個、每個最多等 5 秒，兩者合計 60 秒，超過就略過剩下的（明天再試，摘要寫出略過幾個頻道、還有幾支沒確認）；RSS 讀不到的頻道明天再讀（log 只記種類），它還在清單上的影片當天就改成逐支確認（算在 50 支裡）；已經通知過、發布不到 48 小時的先留著（推送時沒確認到而通知了，hub 重送時要找得到才不會重複通知），沒通知過的（追蹤時補進來的）立即刪；先留著的不算進最新 20 支的名次（逐支確認的清單與最後的刪除都排除）；這一步出錯或超過時間都不擋後面的刪除。
+  - 資料表沒有記號可以記住確認過的一般影片，RSS 裡沒有的每天都會再問一次，所以每次有上限；清單上 RSS 裡沒有的超過 50 支時，每天問的都是最新的 50 支，更舊的要等掉出最新 20 支才會清掉。
+- 翻譯是可續跑批次：`continueTranslation` 每批寫回。帶播放位置時由 `pickNextBatch` 從播放位置挑句子：15 秒內就會播到的用 10 句小批次，其餘每批 30 句，前方約 2 分半翻好後從頭補，每翻完一批就回傳；沒帶位置時從頭依序在 40 秒預算內做幾批。進度以已翻句數計算。
+- 翻譯鎖：`status=running` + `lock_id`（fencing token），每次寫回都要 `lock_id` 相符，寫不進去就停；上傳、重試、重新翻譯會換掉它。心跳（`updated_at`）在每次呼叫 AI 前更新，超過 AI 逾時＋30 秒沒更新才可接手。翻譯共用的規則見〈多人〉。
+- **只在使用者打開觀看頁播放（「自動即時翻譯」開關，localStorage，預設關，使用者要的：影片都進觀看頁，開著的話按播放就花 API 費用）或按「開始翻譯」時翻譯**；新影片推送、排程、背景一律不翻譯（`translation.triggers.test.ts` 檢查只有 `web/actions.ts` 會呼叫）。
+- 上傳字幕檔先在瀏覽器解碼（UTF-8 或 CP949）再以 UTF-8 送出：Node 的 `TextDecoder("euc-kr")` 不含 CP949 擴充字，伺服器端只當備援。上限 900 KB（Server Action 預設 1MB）、5,000 句。
+- 保留的影片（`youtube_saved_videos`，`service/saved-videos.ts`，每人最多 15 部 `SAVED_LIMIT`）：觀看頁頻道列的「保留／已保留」是手動保留（`pinned`，再按一次移除，不另外確認）；按過翻譯的自動加入（`pinned = false`）：開始翻譯、上傳字幕、重試、重新翻譯在 Server Action 成功後加入。
+  - 「用我的 API Key 繼續翻譯」沒有自己的 Server Action：按下後續翻迴圈送出的 `continueTranslationAction` 帶 `join = true`（`web/join-translation.ts` 的 `createJoinFlag()`：第一次成功後才放下，回 `actionError` 或丟例外時留著，按「繼續翻譯」再帶），續翻沒丟錯（別人正在翻的 busy 也算）時當場加入（只有按下後第一次成功的那次呼叫，那一批本來就要等 AI），寫入了就在回應帶 `saved: true`；續翻照樣不重繪頁面，tag 在 `after()` 跟翻譯的一起失效（〈快取〉的例外照舊），觀看頁靠 `saved` 把頻道列的「保留」當場改成「已保留」（`createJoinFlag(onSaved)` → `WatchClient` 的 `AutoSavedContext` → `WatchSaveButton`；使用者自己移除成功後放掉，不再蓋過伺服器算繪的狀態）。
+  - 清單滿了而且都是手動保留的、或寫入失敗，回應不帶 `saved`，按鈕維持「保留」；續翻失敗（沒有 Key、自己的 Key 無效或額度用完、還沒開始翻譯）不加入。
+  - `join` 只認 `true`、只寫登入者自己的清單（自動項目），`continueTranslation` 拿到的參數不變，直接 POST 也繞不過翻譯本身的規則。
+  - 已經在清單裡：手動保留改成 pinned 並更新時間，自動加入只更新時間。滿了先擠掉最舊（`updated_at`）的自動項目；15 部都是手動的，手動保留回「保留的影片已滿 15 部，請先移除一部」，自動加入略過不報錯、翻譯照常。上限在同一個交易裡先鎖住這個使用者（`core/db/users.ts` 的 `lockUserRow(tx, userId, "no key update")`，鎖 `core_users` 那一列；只鎖清單的列擋不住同時新增的列）再數，`saved-videos.integration.test.ts` 看送出的 SQL 確認（PGlite 的交易本來就一個一個跑）。
+  - 標題與頻道名稱是保留時的快照，跟觀看頁顯示的同一份：標題先用共用翻譯存的、再用自己追蹤頻道的影片，頻道名稱只從自己追蹤的頻道拿（別人追蹤哪些頻道不能從這裡看出來），缺的沿用觀看頁讀過的 oEmbed 快取，讀不到存 null。影片 id 只收 11 碼。
+  - 清單頁 `/youtube/saved`：對 null 的標題或頻道再試一次快取的 oEmbed，還是沒有就顯示影片 id；搜尋在瀏覽器裡篩選標題與頻道名稱（`web/saved-filter.ts`），翻譯狀態的標籤用 `video-filter.ts` 的 `savedBadge()`；移除收在 ⋮ 選單（先確認，翻譯不刪）。列表頁的入口是「訂閱內容」上面的「已保留（N）」。

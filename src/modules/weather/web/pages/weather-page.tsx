@@ -18,7 +18,7 @@ import { AddPlaceButton } from "../components/place-form";
 import { TodayDetails, TodayDetailsWithHours, detailsOf } from "../components/today-details";
 import { Flag } from "../components/weather-images";
 import { WeekList } from "../components/week-list";
-import { PLACE_HOME, pickPlace, type PlaceTab } from "../place-tabs";
+import { pickPlace, placeTabs, type PlaceTab } from "../place-tabs";
 import { hoursOf, weekOf, type PlaceWeek } from "../place-week";
 import { heroImage, hourColumns, todayText, weekRows, type WeekRow } from "../weekly-view";
 
@@ -37,10 +37,7 @@ export function WeatherPage({ info, searchParams }: { info: ModuleInfo; searchPa
 export async function WeatherPageBody({ searchParams }: { searchParams: SearchParams }) {
   const user = await requireModule("weather");
   const [settings, places, params] = await Promise.all([cachedSettings(user.id), cachedPlaces(user.id), searchParams]);
-  const tabs: PlaceTab[] = [
-    ...(settings ? [{ key: PLACE_HOME, id: null, kind: "county" as const, name: settings.county, country: null, latitude: null, longitude: null, timezone: null }] : []),
-    ...places.map(({ id, kind, name, country, latitude, longitude, timezone }) => ({ key: String(id), id, kind, name, country, latitude, longitude, timezone })),
-  ];
+  const tabs = placeTabs(settings, places);
   if (tabs.length === 0) return <EmptyState icon="cloud-sun" title="還沒有城市" hint="在首頁的天氣卡片選所在縣市，或新增想看的城市，台灣與國外都可以" action={<AddPlaceButton />} />;
   const selected = pickPlace(tabs, params.place);
   const county = selected.kind === "county" ? (selected.name as County) : null;

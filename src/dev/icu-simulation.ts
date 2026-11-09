@@ -34,14 +34,15 @@ const tokenize = (text: string): Part[] => (text.match(/\d+|\D+/g) ?? []).map((v
 export function simulateIcu(variant: IcuVariant): void {
   const proto = Intl.DateTimeFormat.prototype;
   const formatToParts = proto.formatToParts;
-  const rewritten = (dtf: Intl.DateTimeFormat, date?: Date | number) => variant.rewrite(formatToParts.call(dtf, date)) as Intl.DateTimeFormatPart[];
+  type Formattable = Parameters<Intl.DateTimeFormat["formatToParts"]>[0];
+  const rewritten = (dtf: Intl.DateTimeFormat, date?: Formattable) => variant.rewrite(formatToParts.call(dtf, date)) as Intl.DateTimeFormatPart[];
   const spies = [
     vi.spyOn(proto, "formatToParts").mockImplementation(function (this: Intl.DateTimeFormat, date) {
       return rewritten(this, date);
     }),
     // format 是回傳綁定函式的 getter 輸出要跟 formatToParts 一致才像換了一版 ICU
     vi.spyOn(proto as { format: unknown }, "format", "get").mockImplementation(function (this: Intl.DateTimeFormat) {
-      return (date?: Date | number) => join(rewritten(this, date));
+      return (date?: Formattable) => join(rewritten(this, date));
     }),
     ...(["toLocaleString", "toLocaleDateString", "toLocaleTimeString"] as const).map((method) => {
       const original = Date.prototype[method] as (this: Date, ...args: unknown[]) => string;

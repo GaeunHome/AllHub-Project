@@ -99,7 +99,6 @@ src/
 | `savings_card_bills` | 依使用者 | 信用卡帳單：結帳日、截止日（照帳單填的）與金額 | 每張卡留最新 5 張 |
 | `savings_dividend_notices` | 依使用者 | 除權息通知寄到哪一步：持股的代號、除息日，配息金額與最後買進日寄過了沒（有這一列就是公布的那則寄過了） | 除息日過了就刪 |
 | `savings_asset_days` | 依使用者 | 資產走勢每天的投資市值（每人每天一列，排程每天記下前一天的；存款照紀錄回推，不存） | 30 天 |
-| `savings_asset_snapshots` | 依使用者 | v0.2.10 的資產走勢（每人每月一列），v0.2.11 起不讀寫，下一版刪掉 | 下一版刪掉 |
 | `weather_settings` | 依使用者 | 天氣卡片選的縣市、早上的下雨通知與天氣警特報通知的開關（每人一列，開關預設開） | 永久 |
 | `weather_places` | 依使用者 | 天氣頁的城市：台灣的縣市，或國外城市的名稱、國家、座標與時區（每人最多 10 個） | 永久 |
 | `transit_routes` | 依使用者 | 交通的常用路線：交通工具、起訖站（公車是路線、站牌與方向）、有沒有追蹤（每人最多 12 條） | 永久 |
@@ -284,7 +283,7 @@ src/
    - 發通知用 `core/notify.ts` 的 `notify()`，指定收件人的使用者 id。
 9. **假外部服務**（有的話）：放在 `dev/mock.mjs`，`npm run mock:external` 會自動載入；它的測試用 `src/dev/mock-request.ts` 的 `mockRequest()` 直接呼叫 `handle`。測試共用的 fixture 也放 `dev/`（只有測試能 import）。
 10. **Migration**：執行 `npm run db:generate` 產生 migration，跟程式一起 commit；一個版本只有一個，資料夾只留基準檔與這一版的；要跟還在跑的舊程式相容（先擴充再收斂，見 [部署 › 之後的部署](deploy.md#之後的部署)）。
-11. **文件**：在 [模組設定與使用](modules.md) 加上這個模組的說明；使用聲明（`core/ui/terms-page.tsx`：存了哪些資料、留多久、會連到哪些外部服務）跟著改；CLAUDE.md 加這個模組的注意事項。
+11. **文件**：在 [模組設定與使用](modules.md) 加上這個模組的說明；使用聲明（`core/ui/terms-page.tsx`：存了哪些資料、留多久、會連到哪些外部服務）跟著改；模組資料夾裡建這個模組的 `CLAUDE.md` 寫注意事項（每個模組都要有，`architecture.test.ts` 檢查；全站共用的規則照舊寫在根目錄的 CLAUDE.md）。
 
 ## 移除模組
 
@@ -295,7 +294,7 @@ src/
    - 刪掉 `src/modules/<id>/`，拿掉 `src/modules/__tests__/cron.cache.integration.test.ts` 的 `EXPECTED` 與 `src/__tests__/account-disable.integration.test.ts` 裡它的那一段。
    - 環境變數：`src/core/env.ts`、`.env.example`、`src/dev/test-env.ts`（含 `stubAllEnv()`），Vercel 上的值也刪掉。
    - 資料表：表的定義已經跟著 `data/schema.ts` 刪了，`npm run db:generate` 產生的 migration 手動去掉 DROP，這一版只是程式不再讀寫。`src/__tests__/account-deletion.integration.test.ts` 的 `seedEverything` 留著這張表的那幾筆（表與外鍵都還在）。
-   - 只有它用的圖示、樣式（`web/*.css`、`globals.css` 引入它們的那幾行、`MODULE_CSS_PREFIXES` 與 `SHARED_IN_GLOBALS` 裡它的那幾條）與 `ModuleAccent`、使用聲明、[模組設定與使用](modules.md)、[密鑰](secrets.md)、這頁的排程表與資料表、CLAUDE.md 的那一節、CHANGELOG。
+   - 只有它用的圖示、樣式（`web/*.css`、`globals.css` 引入它們的那幾行、`MODULE_CSS_PREFIXES` 與 `SHARED_IN_GLOBALS` 裡它的那幾條）與 `ModuleAccent`、使用聲明、[模組設定與使用](modules.md)、[密鑰](secrets.md)、這頁的排程表與資料表、模組資料夾的 `CLAUDE.md`（跟著資料夾刪）、CHANGELOG。
 2. **下一版（舊程式不再上線之後）：刪資料表**
    - migration 手寫 `DROP TABLE`，在 `migrations.integration.test.ts` 明列允許；`seedEverything` 拿掉這張表的那幾筆（不然測試會說沒有這張表）。
    - 留著也沒關係的：瀏覽器裡 `allhub:<id>:` 的偏好、`core_notifications` 裡這個模組的通知（14 天後清掉）、`core_rate_limits` 的認領與冷卻（一天後清掉）。

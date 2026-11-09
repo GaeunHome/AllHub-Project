@@ -155,6 +155,8 @@ describe("首頁天氣卡片填滿：使用者要多一些圖、不要小標籤�
     cached.cachedForecast.mockResolvedValue(forecastWith([70, 40, 10]));
     const text = textOf(await html(), { spaced: true });
 
+    // 使用者選的左字右大圖 降雨機率那格寫出是哪一段
+    expect(text).toContain("降雨機率 70% 今天白天");
     expect(text).toContain("今晚 21–27° 陰短暫雨 降雨 40%");
     expect(text).toContain("明天白天 21–27° 陰短暫雨 降雨 10%");
   });

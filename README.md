@@ -118,6 +118,7 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 | [模組設定與使用](docs/modules.md) | 每個模組與網站通知怎麼設定與使用 |
 | [架構](docs/architecture.md) | 程式碼結構與新增、移除模組，排程、資料保留、快取、安全 |
 | [本機開發](docs/development.md) | 本機環境的細節、假伺服器的特殊輸入、模擬 webhook、指令與測試 |
+| `CLAUDE.md` | 寫程式的規則與慣例（給 AI 助手與開發者）；各模組自己的注意事項在 `src/modules/<id>/CLAUDE.md` |
 | [更新紀錄](CHANGELOG.md) | 每一版的新增、改善與修正，以及要套用的資料庫 migration |
 
 ## 第三方聲明

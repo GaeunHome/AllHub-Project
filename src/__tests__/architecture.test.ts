@@ -8,7 +8,8 @@ import { readStylesheet, stylesheetImports } from "../dev/stylesheet";
 // 規則的說明在 CLAUDE.md 的架構規則 改規則時兩邊要一起改
 const SRC = fileURLToPath(new URL("..", import.meta.url));
 const LAYERS = ["web", "service", "data", "lib", "dev"] as const;
-const MODULE_ROOT_FILES = ["info.ts", "cron.ts"];
+// CLAUDE.md 是這個模組的注意事項 改到這個模組時才載入
+const MODULE_ROOT_FILES = ["info.ts", "cron.ts", "CLAUDE.md"];
 // macOS 的 Finder 會在資料夾裡留下這個檔 不算程式
 const IGNORED_ENTRIES = [".DS_Store"];
 
@@ -271,7 +272,7 @@ describe("架構規則", () => {
     expect([...found, ...headers]).toEqual([]);
   });
 
-  it("每個模組結構一致：根目錄只有 info／cron 與分層資料夾，且都已登記", () => {
+  it("每個模組結構一致：根目錄只有 info／cron、自己的注意事項 CLAUDE.md 與分層資料夾，且都已登記", () => {
     const modulesDir = path.join(SRC, "modules");
     const registry = fs.readFileSync(path.join(modulesDir, "index.ts"), "utf8");
     const cronRegistry = fs.readFileSync(path.join(modulesDir, "cron.ts"), "utf8");
@@ -281,6 +282,7 @@ describe("架構規則", () => {
         .filter((e) => (e.isDirectory() ? !(LAYERS as readonly string[]).includes(e.name) : !MODULE_ROOT_FILES.includes(e.name)))
         .map((e) => `${id}/${e.name}：不屬於任何一層（允許 ${[...MODULE_ROOT_FILES, ...LAYERS.map((l) => l + "/")].join("、")}）`);
       if (!entries.some((e) => e.name === "info.ts")) issues.push(`${id}：缺少 info.ts`);
+      if (!entries.some((e) => e.name === "CLAUDE.md")) issues.push(`${id}：缺少這個模組的注意事項 CLAUDE.md`);
       else if (!registry.includes(`./${id}/info"`)) issues.push(`${id}：還沒登記到 modules/index.ts`);
       if (entries.some((e) => e.name === "cron.ts") && !cronRegistry.includes(`./${id}/cron"`)) issues.push(`${id}：cron.ts 還沒登記到 modules/cron.ts`);
       return issues;

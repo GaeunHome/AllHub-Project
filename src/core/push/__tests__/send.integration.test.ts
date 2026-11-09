@@ -1,11 +1,14 @@
-import webpush from "web-push";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { generateRequestDetails, generateVAPIDKeys } from "web-push";
 import { fakeFetch } from "@/dev/fake-fetch";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
 import { coreNotifications, corePushMutes, corePushSubscriptions, coreUsers } from "../../db/schema";
 
-const VAPID = webpush.generateVAPIDKeys();
+// web-push 是 ES module 要換掉單一函式得整個模組換成 spy
+vi.mock("web-push", { spy: true });
+
+const VAPID = generateVAPIDKeys();
 const P256DH = "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM";
 const AUTH = "tBHItJI5svbpez7KI4CCXg";
 
@@ -41,14 +44,13 @@ describe("寫完站內通知後推到手機", () => {
   it("給了 push 時手機上用它 鎖定畫面看不到鈴鐺裡的金額 tag 用的通知 id 跟頁面的系統通知一樣", async () => {
     await getDb().insert(corePushSubscriptions).values(device(me, 1));
     vi.stubGlobal("fetch", fakeFetch(() => new Response(null, { status: 201 })).impl);
-    const details = vi.spyOn(webpush, "generateRequestDetails");
+    const details = vi.mocked(generateRequestDetails);
 
     await notify({ ...message([me]), url: "/savings", push: { title: "理財有一件事要處理" } });
 
     const [notice] = await getDb().select().from(coreNotifications);
     expect(notice.title).toBe("今天到期：Netflix $390");
     expect(JSON.parse(String(details.mock.calls[0][1]))).toEqual({ id: notice.id, title: "理財有一件事要處理", body: "", url: "/savings" });
-    details.mockRestore();
   });
 
   it("這支手機關掉這個模組：不送 別的模組照送", async () => {

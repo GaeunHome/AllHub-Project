@@ -783,7 +783,9 @@ ALTER TABLE "core_push_subscriptions" ENABLE ROW LEVEL SECURITY;
 CREATE TABLE "travel_expense_shares" (
 	"expense_id" integer NOT NULL,
 	"user_id" uuid NOT NULL,
-	CONSTRAINT "travel_expense_shares_expense_id_user_id_pk" PRIMARY KEY("expense_id","user_id")
+	"weight" integer,
+	CONSTRAINT "travel_expense_shares_expense_id_user_id_pk" PRIMARY KEY("expense_id","user_id"),
+	CONSTRAINT "travel_expense_shares_weight" CHECK ("travel_expense_shares"."weight" is null or "travel_expense_shares"."weight" > 0)
 );
 --> statement-breakpoint
 ALTER TABLE "travel_expense_shares" ENABLE ROW LEVEL SECURITY;
@@ -798,9 +800,14 @@ CREATE TABLE "travel_expenses" (
 	"rate_micros" integer NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"spent_on" date,
+	"category" text,
+	"split" text DEFAULT 'even' NOT NULL,
 	CONSTRAINT "travel_expenses_amount" CHECK ("travel_expenses"."amount_cents" > 0),
 	CONSTRAINT "travel_expenses_rate" CHECK ("travel_expenses"."rate_micros" > 0),
-	CONSTRAINT "travel_expenses_currency" CHECK ("travel_expenses"."currency" ~ '^[A-Z]{3}$')
+	CONSTRAINT "travel_expenses_currency" CHECK ("travel_expenses"."currency" ~ '^[A-Z]{3}$'),
+	CONSTRAINT "travel_expenses_category" CHECK ("travel_expenses"."category" is null or "travel_expenses"."category" in ('food', 'transport', 'lodging', 'tickets', 'shopping', 'fun', 'souvenirs', 'other')),
+	CONSTRAINT "travel_expenses_split" CHECK ("travel_expenses"."split" in ('even', 'amount', 'ratio'))
 );
 --> statement-breakpoint
 ALTER TABLE "travel_expenses" ENABLE ROW LEVEL SECURITY;
@@ -829,6 +836,26 @@ CREATE TABLE "youtube_ai_keys" (
 --> statement-breakpoint
 ALTER TABLE "youtube_ai_keys" ENABLE ROW LEVEL SECURITY;
 --> statement-breakpoint
+CREATE TABLE "savings_asset_days" (
+	"user_id" uuid NOT NULL,
+	"day" date NOT NULL,
+	"investment" bigint NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "savings_asset_days_user_id_day_pk" PRIMARY KEY("user_id","day")
+);
+--> statement-breakpoint
+ALTER TABLE "savings_asset_days" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
+CREATE TABLE "travel_expense_payers" (
+	"expense_id" integer NOT NULL,
+	"user_id" uuid NOT NULL,
+	"amount_cents" integer NOT NULL,
+	CONSTRAINT "travel_expense_payers_expense_id_user_id_pk" PRIMARY KEY("expense_id","user_id"),
+	CONSTRAINT "travel_expense_payers_amount" CHECK ("travel_expense_payers"."amount_cents" > 0)
+);
+--> statement-breakpoint
+ALTER TABLE "travel_expense_payers" ENABLE ROW LEVEL SECURITY;
+--> statement-breakpoint
 ALTER TABLE "core_push_mutes" ADD CONSTRAINT "core_push_mutes_endpoint_core_push_subscriptions_endpoint_fk" FOREIGN KEY ("endpoint") REFERENCES "public"."core_push_subscriptions"("endpoint") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint
 ALTER TABLE "core_push_subscriptions" ADD CONSTRAINT "core_push_subscriptions_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
@@ -849,6 +876,12 @@ ALTER TABLE "travel_settlements" ADD CONSTRAINT "travel_settlements_to_user_core
 --> statement-breakpoint
 ALTER TABLE "youtube_ai_keys" ADD CONSTRAINT "youtube_ai_keys_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
 --> statement-breakpoint
+ALTER TABLE "savings_asset_days" ADD CONSTRAINT "savings_asset_days_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_expense_payers" ADD CONSTRAINT "travel_expense_payers_expense_id_travel_expenses_id_fk" FOREIGN KEY ("expense_id") REFERENCES "public"."travel_expenses"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
+ALTER TABLE "travel_expense_payers" ADD CONSTRAINT "travel_expense_payers_user_id_core_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."core_users"("id") ON DELETE cascade ON UPDATE no action;
+--> statement-breakpoint
 CREATE INDEX "core_push_subscriptions_user_id_idx" ON "core_push_subscriptions" USING btree ("user_id");
 --> statement-breakpoint
 CREATE INDEX "travel_expense_shares_user_id_idx" ON "travel_expense_shares" USING btree ("user_id");
@@ -862,6 +895,8 @@ CREATE INDEX "travel_settlements_trip_id_idx" ON "travel_settlements" USING btre
 CREATE INDEX "travel_settlements_from_user_idx" ON "travel_settlements" USING btree ("from_user");
 --> statement-breakpoint
 CREATE INDEX "travel_settlements_to_user_idx" ON "travel_settlements" USING btree ("to_user");
+--> statement-breakpoint
+CREATE INDEX "travel_expense_payers_user_id_idx" ON "travel_expense_payers" USING btree ("user_id");
 --> statement-breakpoint
 CREATE INDEX "starrail_checkin_logs_account_created_at_idx" ON "starrail_checkin_logs" USING btree ("account_id","created_at");
 --> statement-breakpoint

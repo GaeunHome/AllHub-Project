@@ -150,16 +150,22 @@ function NextHours({ hours }: { hours: HourColumn[] }) {
   );
 }
 
-function Stat({ label, art, sub, children }: { label: string; art: StatArt | null; sub?: string | null; children: ReactNode }) {
+/** 使用者選的左字右大圖 大數字與說明在左 右邊一張大圖補滿格子 */
+/** lines 一項一行 格子窄時才不會從中間斷開 */
+function Stat({ label, art, lines = [], children }: { label: string; art: StatArt | null; lines?: (string | null)[]; children: ReactNode }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5 border-t border-l border-white/25 px-4 py-3 sm:px-5">
-      <dt className="flex items-center gap-1.5 text-sm text-white">
-        {art && <StatImage art={art} />}
-        {label}
-      </dt>
-      <dd className="flex flex-col gap-0.5 font-semibold text-white tabular-nums">
-        {children}
-        {sub && <span className="text-sm font-normal break-words">{sub}</span>}
+      <dt className="text-sm text-white">{label}</dt>
+      <dd className="flex items-center gap-3 text-white tabular-nums">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="text-2xl font-semibold">{children}</span>
+          {lines.filter(Boolean).map((line) => (
+            <span key={line} className="text-sm break-words">
+              {line}
+            </span>
+          ))}
+        </span>
+        {art && <Image src={`/images/weather/${art}.png`} alt="" width={44} height={44} unoptimized className="shrink-0" />}
       </dd>
     </div>
   );
@@ -167,14 +173,10 @@ function Stat({ label, art, sub, children }: { label: string; art: StatArt | nul
 
 type StatArt = WeatherArt | "droplet" | "leaf" | "mask";
 
-function StatImage({ art }: { art: StatArt }) {
-  return <Image src={`/images/weather/${art}.png`} alt="" width={22} height={22} unoptimized className="shrink-0" />;
-}
-
 /** 一段的溫度 下面是天氣與降雨機率 */
 function PeriodStat({ period }: { period: PeriodView }) {
   return (
-    <Stat label={period.label} art={period.art} sub={[period.description, period.rain === null ? null : `降雨 ${period.rain}%`].filter(Boolean).join(" ")}>
+    <Stat label={period.label} art={period.art} lines={[period.description, period.rain === null ? null : `降雨 ${period.rain}%`]}>
       {period.temperature ?? "—"}
     </Stat>
   );
@@ -187,14 +189,14 @@ function WeatherStats({ view: { now, next, later, air } }: { view: WeatherView }
     <div className="overflow-hidden border-t border-white/25 bg-black/40">
       <dl className="-mt-px -ml-px grid grid-cols-2 @2xl:auto-cols-fr @2xl:grid-flow-col @2xl:grid-cols-none">
         {now && (
-          <Stat label="降雨機率" art="droplet">
+          <Stat label="降雨機率" art="droplet" lines={[now.label]}>
             {now.rain === null ? "—" : `${now.rain}%`}
           </Stat>
         )}
         {next && <PeriodStat period={next} />}
         {later && <PeriodStat period={later} />}
         {air !== undefined && (
-          <Stat label="空氣品質" art={air?.warn ? "mask" : "leaf"} sub={air && [`AQI ${air.aqi}`, air.site, air.time].filter(Boolean).join(" ")}>
+          <Stat label="空氣品質" art={air?.warn ? "mask" : "leaf"} lines={air ? [`AQI ${air.aqi}`, [air.site, air.time].filter(Boolean).join(" ")] : []}>
             {air ? air.level : "暫時無法讀取"}
           </Stat>
         )}

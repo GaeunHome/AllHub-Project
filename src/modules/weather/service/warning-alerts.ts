@@ -35,7 +35,7 @@ export async function sendWarningAlerts(now = new Date()): Promise<string> {
   if (!weatherKeys().forecast) return "沒有設定氣象署的授權碼，略過";
   const groups = await recipientsByCounty("warningAlert");
   if (groups.size === 0) return "沒有開著天氣警特報通知的人";
-  const warnings = await fetchWarnings(null, undefined, ALL_COUNTIES_TIMEOUT_MS);
+  const warnings = await fetchWarnings(undefined, ALL_COUNTIES_TIMEOUT_MS);
   await reportService("weather:warnings", warnings === null ? "讀不到天氣警特報" : null);
   if (warnings === null) return "讀不到天氣警特報，這一輪略過";
 

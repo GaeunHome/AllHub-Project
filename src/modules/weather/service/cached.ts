@@ -12,7 +12,7 @@ import { getSettings, type WeatherSettings } from "./settings";
 import { fetchCountyHours, fetchCountyWeek, fetchForecast, fetchStations, fetchWarnings, fetchWorldWeek, type WorldWeek } from "./weather";
 
 // 只給頁面用 userId 是頁面從 session 拿到的登入者
-// 預報 特報與空氣品質不分使用者 照縣市共用 讀不到時短效期 幾分鐘後再試
+// 預報照縣市共用 特報與空氣品質全台一份 都不分使用者 讀不到時短效期 幾分鐘後再試
 
 /** 縣市與兩種通知的開關 還沒選過縣市是 null */
 export async function cachedSettings(userId: string): Promise<WeatherSettings | null> {
@@ -68,12 +68,19 @@ export async function cachedForecast(county: County): Promise<Forecast | null> {
 }
 
 /** 特報隨時會發 讀到讀不到都幾分鐘後再讀 沒有特報是空陣列 讀不到是 null */
-export async function cachedWarnings(county: County): Promise<Warning[] | null> {
+/** 特報全台一份 跟排程同一個請求 每個縣市各問一次的話次數多很多 */
+async function cachedTaiwanWarnings(): Promise<Partial<Record<County, Warning[]>> | null> {
   "use cache: remote";
   cacheLife("external");
   cacheTag(weatherTags.external);
-  const warnings = await fetchWarnings(county);
-  return warnings && (warnings.get(county) ?? []);
+  const warnings = await fetchWarnings();
+  return warnings && Object.fromEntries(warnings);
+}
+
+/** 回應裡沒有的縣市當成沒有特報 */
+export async function cachedWarnings(county: County): Promise<Warning[] | null> {
+  const warnings = await cachedTaiwanWarnings();
+  return warnings && (warnings[county] ?? []);
 }
 
 /** 空氣品質每小時更新 全台一份 */

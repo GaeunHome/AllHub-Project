@@ -13,7 +13,7 @@ import { openEmptyDb } from "@/dev/test-db";
 const MIGRATIONS = "src/core/db/migrations";
 const BASELINE = "0000_baseline";
 // 正式資料庫最後套用的 migration 的時間戳記
-const LAST_APPLIED_BEFORE_BASELINE = 1794188689902;
+const LAST_APPLIED_BEFORE_BASELINE = 1794195180738;
 const cleanups: Array<() => Promise<void> | void> = [];
 
 afterEach(async () => {
@@ -60,6 +60,26 @@ describe("基準檔（之前的 migration 合併成一個）", { timeout: 30_000
 
     const { rows } = await client.query<{ created_at: string }>(`select created_at from drizzle.__drizzle_migrations order by id`);
     expect(rows.map((row) => Number(row.created_at))).toEqual([LAST_APPLIED_BEFORE_BASELINE, ...journal().entries.slice(1).map((entry) => entry.when)]);
+  });
+
+  it("每月的舊資產表 savings_asset_snapshots 刪掉了：v0.2.11 改成每天一筆後不再讀寫，正式資料庫留著的舊資料一起刪，新建的資料庫也沒有", async () => {
+    const [baseline] = readMigrationFiles({ migrationsFolder: MIGRATIONS });
+    for (const statement of baseline.sql) await client.exec(statement);
+    await client.exec(`create schema drizzle; create table drizzle.__drizzle_migrations (id serial primary key, hash text not null, created_at bigint)`);
+    await client.query(`insert into drizzle.__drizzle_migrations (hash, created_at) values ('last', $1)`, [LAST_APPLIED_BEFORE_BASELINE]);
+    await insertUser(USERS.early, "early");
+    await client.query(`insert into savings_asset_snapshots (user_id, month, investment) values ($1, '2026-10-01', 125000)`, [USERS.early]);
+    await client.query(`insert into savings_asset_days (user_id, day, investment) values ($1, '2026-11-08', 125000)`, [USERS.early]);
+
+    await migrate(db, { migrationsFolder: MIGRATIONS });
+
+    expect(await one(`select to_regclass('public.savings_asset_snapshots') as old_table`)).toEqual({ old_table: null });
+    expect(await one(`select count(*)::int as days from savings_asset_days`)).toEqual({ days: 1 });
+
+    const fresh = await openEmptyDb();
+    cleanups.push(() => fresh.close());
+    await migrate(drizzle(fresh), { migrationsFolder: MIGRATIONS });
+    expect((await fresh.query(`select to_regclass('public.savings_asset_snapshots') as old_table`)).rows[0]).toEqual({ old_table: null });
   });
 });
 
@@ -113,7 +133,10 @@ const statementsOf = (tag: string) =>
 
 // 部署時舊程式還在跑 刪表 刪欄位或改名會讓它出錯
 // 使用者同意直接收斂的照 migration 逐條列在這裡
-const ALLOWED_CONVERGENCE: Record<string, string[]> = {};
+const ALLOWED_CONVERGENCE: Record<string, string[]> = {
+  // 使用者選的資產走勢近 30 天每天一筆 分兩版 v0.2.11 改讀每天的表 這一版刪掉每月的舊表
+  "0001_drop_asset_snapshots": ['DROP TABLE "savings_asset_snapshots";'],
+};
 
 describe("基準檔之後的 migration 都只擴充（明列的收斂例外除外）", () => {
   const pending = journal().entries.filter((entry) => entry.tag !== BASELINE);

@@ -158,30 +158,27 @@ describe("讀天氣警特報（W-C0033-001）", () => {
     const { fetchWarnings } = await load();
     const fetch = fakeFetch(() => new Response("{}"));
 
-    expect(await fetchWarnings("臺北市", fetch.impl)).toBeNull();
-    expect(await fetchWarnings(null, fetch.impl)).toBeNull();
+    expect(await fetchWarnings(fetch.impl)).toBeNull();
     expect(fetch.calls).toEqual([]);
   });
 
-  it("選了縣市時只問那個縣市，null 時不帶 locationName 全台一次讀；授權碼與格式照氣象署的參數", async () => {
+  it("一律全台一次讀，不帶 locationName：跟排程同一個請求，各縣市共用一份；授權碼與格式照氣象署的參數", async () => {
     stubWeatherEnv();
     const { fetchWarnings } = await load();
     const fetch = fakeFetch(() => Response.json(cwaWarningResponse()));
 
-    await fetchWarnings("高雄市", fetch.impl);
-    await fetchWarnings(null, fetch.impl);
+    await fetchWarnings(fetch.impl);
 
-    const [one, all] = fetch.urls.map((url) => new URL(url));
-    expect(one.origin + one.pathname).toBe("https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0033-001");
-    expect(Object.fromEntries(one.searchParams)).toEqual({ Authorization: TEST_WEATHER_ENV.CWA_API_KEY, locationName: "高雄市", format: "JSON" });
-    expect(Object.fromEntries(all.searchParams)).toEqual({ Authorization: TEST_WEATHER_ENV.CWA_API_KEY, format: "JSON" });
+    const [url] = fetch.urls.map((value) => new URL(value));
+    expect(url.origin + url.pathname).toBe("https://opendata.cwa.gov.tw/api/v1/rest/datastore/W-C0033-001");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ Authorization: TEST_WEATHER_ENV.CWA_API_KEY, format: "JSON" });
   });
 
   it("回傳每個縣市的特報：沒有特報的縣市是空陣列，不是讀不到", async () => {
     stubWeatherEnv();
     const { fetchWarnings } = await load();
 
-    const warnings = await fetchWarnings(null, fakeFetch(() => Response.json(cwaWarningResponse(cwaWarningLocation("臺北市", [HEAVY_RAIN]), cwaWarningLocation("高雄市", [])))).impl);
+    const warnings = await fetchWarnings(fakeFetch(() => Response.json(cwaWarningResponse(cwaWarningLocation("臺北市", [HEAVY_RAIN]), cwaWarningLocation("高雄市", [])))).impl);
 
     expect(warnings?.get("臺北市")).toEqual([{ label: "大雨特報", severe: false, end: "2026-11-02T12:00:00.000Z" }]);
     expect(warnings?.get("高雄市")).toEqual([]);
@@ -193,9 +190,9 @@ describe("讀天氣警特報（W-C0033-001）", () => {
     const log = captureErrorLog();
     const warn = silenceWarnings();
 
-    expect(await fetchWarnings("臺北市", fakeFetch(() => new Response("Unauthorized", { status: 401 })).impl)).toBeNull();
-    expect(await fetchWarnings("臺北市", fakeFetch(() => Promise.reject(new TypeError(`fetch failed ${TEST_WEATHER_ENV.CWA_API_KEY}`))).impl)).toBeNull();
-    expect(await fetchWarnings("臺北市", fakeFetch(() => Response.json({ success: "false" })).impl)).toBeNull();
+    expect(await fetchWarnings(fakeFetch(() => new Response("Unauthorized", { status: 401 })).impl)).toBeNull();
+    expect(await fetchWarnings(fakeFetch(() => Promise.reject(new TypeError(`fetch failed ${TEST_WEATHER_ENV.CWA_API_KEY}`))).impl)).toBeNull();
+    expect(await fetchWarnings(fakeFetch(() => Response.json({ success: "false" })).impl)).toBeNull();
 
     const text = `${loggedText(log)} ${loggedText(warn)}`;
     expect(text).toContain("401");
@@ -209,7 +206,7 @@ describe("讀天氣警特報（W-C0033-001）", () => {
     const { fetchWarnings } = await load();
     const warn = silenceWarnings();
 
-    const warnings = await fetchWarnings("金門縣", fakeFetch(() => Response.json(cwaWarningResponse(cwaWarningLocation("金門縣", [{ phenomena: "濃霧", significance: "特報" }])))).impl);
+    const warnings = await fetchWarnings(fakeFetch(() => Response.json(cwaWarningResponse(cwaWarningLocation("金門縣", [{ phenomena: "濃霧", significance: "特報" }])))).impl);
 
     expect(warnings?.get("金門縣")).toEqual([{ label: "濃霧特報", severe: false, end: null }]);
     expect(loggedText(warn)).toContain("hazards[].validTime.endTime");
