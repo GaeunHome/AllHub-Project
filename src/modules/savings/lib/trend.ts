@@ -1,35 +1,45 @@
-import { accountStartDate, type AccountLike, type AccountMonthFlow } from "./ledger";
-import { dateToMonth, recentMonths, type MonthKey } from "./month";
+import { addDays, earliestOf, type DateKey } from "./dates";
+import { accountBalances, accountStartDate, type AccountDayFlow, type AccountLike, type AccountMonthFlow } from "./ledger";
 
-// 資產走勢 使用者選的回推加每月記一筆
-// 存款一律照紀錄回推 事後補記的也算得進去 投資有排程記下的市值就用市值 沒有的用帳上的成本
+// 資產走勢 使用者選的近 30 天每天記一筆
+// 存款照紀錄從今天往回扣 事後補記的也算得進去 投資有排程記下的市值就用市值 沒有的用帳上的成本
 
-/** 排程記下的那個月的投資市值 */
-export type AssetSnapshot = { month: MonthKey; investment: number };
+/** 畫幾天 排程也只留這麼多天 */
+export const TREND_DAYS = 30;
 
-/** atCost 是這個月的投資照帳上的成本算 沒有記到市值 */
-export type AssetTrendPoint = { month: MonthKey; deposit: number; investment: number; total: number; atCost: boolean };
+/** 排程記下的那天的投資市值 */
+export type AssetSnapshot = { day: DateKey; investment: number };
+
+/** atCost 是那天的投資照帳上的成本算 沒有記到市值 */
+export type AssetTrendPoint = { day: DateKey; deposit: number; investment: number; total: number; atCost: boolean };
 
 export type AssetTrendInput = {
   accounts: readonly AccountLike[];
+  /** 每個月的流量 算出現在的帳上餘額 */
   flows: readonly AccountMonthFlow[];
+  /** trendStart 起每天的流量 從現在的餘額往回扣 */
+  days: readonly AccountDayFlow[];
   snapshots: readonly AssetSnapshot[];
-  /** 台北時間的這個月 用 live 現在的數字 */
-  current: MonthKey;
+  /** 台北時間的今天 用 live 現在的數字 */
+  today: DateKey;
   live: { deposit: number; investment: number };
 };
 
-const netOf = (flow: AccountMonthFlow) => flow.income - flow.expense - flow.transferOut + flow.transferIn + flow.adjust;
+/** 圖的第一天 頁面讀每天的流量也從這天起 */
+export const trendStart = (today: DateKey): DateKey => addDays(today, 1 - TREND_DAYS);
+
+const netOf = (flow: AccountDayFlow) => flow.income - flow.expense - flow.transferOut + flow.transferIn + flow.adjust;
 
 /** 跟總資產一樣 只算啟用中的存款與投資 */
 const counted = (account: AccountLike) => account.active && account.kind !== "credit";
 
-/** 某個月底的帳上餘額 帳戶建立前的月份不算 */
-function ledgerAt(accounts: readonly AccountLike[], flows: readonly AccountMonthFlow[], month: MonthKey) {
+/** 某天結束時的帳上餘額 帳戶建立前的日子不算 */
+function ledgerAt(accounts: readonly AccountLike[], balances: ReadonlyMap<number, number>, days: readonly AccountDayFlow[], day: DateKey) {
   const totals = { deposit: 0, investment: 0, investing: false };
   for (const account of accounts) {
-    if (dateToMonth(accountStartDate(account)) > month) continue;
-    const balance = account.openingBalance + flows.filter((flow) => flow.accountId === account.id && flow.month <= month).reduce((sum, flow) => sum + netOf(flow), 0);
+    if (accountStartDate(account) > day) continue;
+    const later = days.filter((flow) => flow.accountId === account.id && flow.date > day).reduce((sum, flow) => sum + netOf(flow), 0);
+    const balance = (balances.get(account.id) ?? 0) - later;
     if (account.kind === "deposit") totals.deposit += balance;
     else {
       totals.investment += balance;
@@ -39,20 +49,20 @@ function ledgerAt(accounts: readonly AccountLike[], flows: readonly AccountMonth
   return totals;
 }
 
-/** 最多 count 個月 從最早的帳戶那個月開始 剛開始用時不畫一排空的月份 */
-export function assetTrend({ accounts, flows, snapshots, current, live }: AssetTrendInput, count = 12): AssetTrendPoint[] {
+/** 最多 TREND_DAYS 天 從最早的帳戶那天開始 剛開始用時不畫一排空的日子 */
+export function assetTrend({ accounts, flows, days, snapshots, today, live }: AssetTrendInput): AssetTrendPoint[] {
   const included = accounts.filter(counted);
-  if (included.length === 0) return [];
-  const earliest = included.map((account) => dateToMonth(accountStartDate(account))).reduce((a, b) => (b < a ? b : a));
-  const ownFlows = flows.filter((flow) => included.some((account) => account.id === flow.accountId));
-  const recorded = new Map(snapshots.map((snapshot) => [snapshot.month, snapshot.investment]));
-  return recentMonths(current, count)
-    .filter((month) => month >= earliest)
-    .map((month) => {
-      if (month === current) return { month, ...live, total: live.deposit + live.investment, atCost: false };
-      const ledger = ledgerAt(included, ownFlows, month);
-      const snapshot = recorded.get(month);
+  const earliest = earliestOf(included.map(accountStartDate));
+  if (earliest === null) return [];
+  const balances = new Map([...accountBalances(included, flows)].map(([id, { balance }]) => [id, balance]));
+  const recorded = new Map(snapshots.map((snapshot) => [snapshot.day, snapshot.investment]));
+  return Array.from({ length: TREND_DAYS }, (_, i) => addDays(trendStart(today), i))
+    .filter((day) => day >= earliest)
+    .map((day) => {
+      if (day === today) return { day, ...live, total: live.deposit + live.investment, atCost: false };
+      const ledger = ledgerAt(included, balances, days, day);
+      const snapshot = recorded.get(day);
       const investment = snapshot ?? ledger.investment;
-      return { month, deposit: ledger.deposit, investment, total: ledger.deposit + investment, atCost: snapshot === undefined && ledger.investing };
+      return { day, deposit: ledger.deposit, investment, total: ledger.deposit + investment, atCost: snapshot === undefined && ledger.investing };
     });
 }

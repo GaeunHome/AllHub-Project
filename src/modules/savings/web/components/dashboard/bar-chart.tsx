@@ -8,23 +8,51 @@ import { scalePercent, type NiceScale } from "./chart-geometry";
 import { monthRecordsHref } from "../../paths";
 import { axisLabels, readoutIndex } from "./trend-model";
 
-// 每月收支與資產走勢共用 刻度 月份 滑過的讀數與表格只寫一份
+// 每月收支與資產走勢共用 刻度 底下的日期 滑過的讀數與表格只寫一份
 
-type MonthChartProps<P extends { month: MonthKey }> = {
+/** 一根是一個月或一天 由各自的圖給 */
+export type ChartAxis<P> = {
+  key: (point: P) => string;
+  /** 底下那一列的字 放不下時只寫一部分 */
+  tick: (point: P, index: number) => ReactNode;
+  current: (point: P) => boolean;
+  /** 點了到紀錄頁看那個月 */
+  href: (point: P) => string;
+  /** 表格的第一欄 */
+  heading: string;
+  name: (point: P) => string;
+};
+
+/** 一個月一根 卡片太窄時只寫數字 才不會擠成兩行 年份寫在第一個月與一月 */
+export const monthAxis = (current: MonthKey): ChartAxis<{ month: MonthKey }> => ({
+  key: (point) => point.month,
+  tick: (point, i) => (
+    <>
+      <span className="@sm:hidden">{Number(point.month.slice(5, 7))}</span>
+      <span className="hidden @sm:inline">{formatMonthShort(point.month)}</span>
+      {(i === 0 || point.month.endsWith("-01")) && <span className="block">{point.month.slice(0, 4)}</span>}
+    </>
+  ),
+  current: (point) => point.month === current,
+  href: (point) => monthRecordsHref(point.month, current),
+  heading: "月份",
+  name: (point) => formatMonth(point.month),
+});
+
+type BarChartProps<P> = {
   title: string;
   /** 標題列右邊 例如說明的 i 圓圈 */
   actions?: ReactNode;
   /** 由舊到新 剛開始用時比較少 */
   points: P[];
-  /** 台北時間的這個月 連到紀錄頁時不帶月份 */
-  current: MonthKey;
+  axis: ChartAxis<P>;
   scale: NiceScale;
   /** 沒有任何數字時圖上寫的字 有數字時是 null */
   empty: string | null;
   bars: (point: P, index: number) => ReactNode;
-  /** 平常只是圖例 滑過或鍵盤移到哪個月才寫金額 */
+  /** 平常只是圖例 滑過或鍵盤移到哪一根才寫金額 */
   readout: (point: P | null) => ReactNode;
-  /** 每個月的連結念的內容 */
+  /** 每一根的連結念的內容 */
   label: (point: P) => string;
   table: { headers: string[]; cells: (point: P) => string[] };
 };
@@ -33,8 +61,8 @@ const onlyMouse = (handler: () => void) => (event: PointerEvent) => {
   if (event.pointerType === "mouse") handler();
 };
 
-/** 每個月是一個連結 點了到紀錄頁看那個月 */
-export function MonthChart<P extends { month: MonthKey }>({ title, actions, points, current, scale, empty, bars, readout, label, table }: MonthChartProps<P>) {
+/** 每一根是一個連結 點了到紀錄頁看那個月 */
+export function BarChart<P>({ title, actions, points, axis, scale, empty, bars, readout, label, table }: BarChartProps<P>) {
   const [hover, setHover] = useState<number | null>(null);
   const [focus, setFocus] = useState<number | null>(null);
   const headingId = useId();
@@ -63,7 +91,7 @@ export function MonthChart<P extends { month: MonthKey }>({ title, actions, poin
           ) : (
             <div className="fin-bars" aria-hidden="true" style={columns}>
               {points.map((point, i) => (
-                <div key={point.month} className="fin-bar-group">
+                <div key={axis.key(point)} className="fin-bar-group">
                   {bars(point, i)}
                 </div>
               ))}
@@ -72,20 +100,17 @@ export function MonthChart<P extends { month: MonthKey }>({ title, actions, poin
         </div>
         <ol className="fin-chart-months" aria-hidden="true" style={columns}>
           {points.map((point, i) => (
-            <li key={point.month} data-current={point.month === current ? "" : undefined}>
-              {/* 卡片太窄時只寫數字 才不會擠成兩行 */}
-              <span className="@sm:hidden">{Number(point.month.slice(5, 7))}</span>
-              <span className="hidden @sm:inline">{formatMonthShort(point.month)}</span>
-              {(i === 0 || point.month.endsWith("-01")) && <span className="block">{point.month.slice(0, 4)}</span>}
+            <li key={axis.key(point)} data-current={axis.current(point) ? "" : undefined}>
+              {axis.tick(point, i)}
             </li>
           ))}
         </ol>
-        {/* 疊在圖與月份上面 整欄都能點 手機上一欄只有 20 幾 px 寬 */}
+        {/* 疊在圖與日期上面 整欄都能點 手機上一欄很窄 */}
         <ol className="fin-chart-hits" style={columns}>
           {points.map((point, i) => (
-            <li key={point.month} className="flex">
+            <li key={axis.key(point)} className="flex">
               <Link
-                href={monthRecordsHref(point.month, current)}
+                href={axis.href(point)}
                 aria-label={label(point)}
                 className="fin-chart-hit"
                 onPointerEnter={onlyMouse(() => setHover(i))}
@@ -104,7 +129,7 @@ export function MonthChart<P extends { month: MonthKey }>({ title, actions, poin
           <thead>
             <tr>
               <th scope="col" className="fin-table-label">
-                月份
+                {axis.heading}
               </th>
               {table.headers.map((header) => (
                 <th key={header} scope="col">
@@ -115,9 +140,9 @@ export function MonthChart<P extends { month: MonthKey }>({ title, actions, poin
           </thead>
           <tbody>
             {[...points].reverse().map((point) => (
-              <tr key={point.month}>
+              <tr key={axis.key(point)}>
                 <th scope="row" className="fin-table-label">
-                  {formatMonth(point.month)}
+                  {axis.name(point)}
                 </th>
                 {table.cells(point).map((cell, i) => (
                   <td key={table.headers[i]}>{cell}</td>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dayFlowRow, ruleRow } from "../../dev/fixtures";
-import { cardBill, type CardBill, type CardDailyFlow, type CardStatement } from "../cards";
+import { cardBill, type CardBill, type CardStatement } from "../cards";
+import type { AccountDayFlow } from "../ledger";
 import { monthChecklist, type ChecklistContext, type ChecklistInput, type ChecklistItem, type ChecklistRecord } from "../checklist";
 import type { TransactionKind } from "../kinds";
 import { pendingItems, type PendingRuleRow } from "../pending";
@@ -38,7 +39,7 @@ type Statement = CardStatement & { paid: number; lastPaidOn: string | null };
 const statement = (accountId: number, statementDate: string, dueDate: string, amount: number, paid = 0, lastPaidOn: string | null = null): Statement => ({ id: accountId * 100, accountId, statementDate, dueDate, amount, paid, lastPaidOn });
 
 /** 每張卡用 cardBill 算最近一期 跟 accountsState 一樣 */
-function cardInput(today: string, cards: { id: number; balance: number; flows?: CardDailyFlow[] }[], statements: Statement[] = []) {
+function cardInput(today: string, cards: { id: number; balance: number; flows?: AccountDayFlow[] }[], statements: Statement[] = []) {
   const bills: CardBill[] = cards.map((card) => {
     const account = CONTEXT.accounts.find((candidate) => candidate.id === card.id);
     return cardBill({ id: card.id, statementDay: account?.statementDay ?? null }, card.balance, card.flows ?? [], today, statements);

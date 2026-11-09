@@ -73,7 +73,7 @@ export async function TripBody({ info, params }: TripPageProps) {
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Members tripId={trip.id} members={trip.members} managerId={trip.managerId} userId={user.id} joinPath={trip.joinPath} />
         <Checklist tripId={trip.id} checks={trip.checks} />
-        <ExpensePanel tripId={trip.id} userId={user.id} members={trip.members} board={expenseBoard(trip, user.id)} />
+        <ExpensePanel tripId={trip.id} userId={user.id} members={trip.members} people={trip.people} board={expenseBoard(trip, user.id)} />
       </div>
     </>
   );

@@ -6,11 +6,10 @@ import { Fact, FactList } from "@/core/ui/fact-list";
 import { Icon } from "@/core/ui/icon";
 import { NoticeItem, NoticeStrip } from "@/core/ui/notice-strip";
 import { CardHeader } from "@/core/ui/page-header";
-import { formatSlashDate } from "../../../lib/dates";
+import { formatSlashDate, taipeiToday } from "../../../lib/dates";
 import { formatSignedTwd, formatTwd } from "../../../lib/money";
-import { dateToMonth } from "../../../lib/month";
-import { assetTrend } from "../../../lib/trend";
-import { cachedAccounts, cachedAssetSnapshots, cachedCategories, cachedCategoryTotals, cachedRecurring } from "../../../service/cached";
+import { assetTrend, trendStart } from "../../../lib/trend";
+import { cachedAccountDayFlows, cachedAccounts, cachedAssetDays, cachedCategories, cachedCategoryTotals, cachedRecurring } from "../../../service/cached";
 import { categoryOptions, salaryAccountOptions } from "../../form-options";
 import { loadAccounts, loadChecklist } from "../../overview-data";
 import { checklistRows, checklistSummary, heroView, monthView, quickActionsView, urgentRows, type HeroView } from "../../overview-view";
@@ -163,14 +162,15 @@ export async function TrendSection() {
 }
 
 /**
- * 使用者選的回推加每月記一筆 最近 12 個月 這個月用總覽上面的總資產
+ * 使用者選的近 30 天每天記一筆 今天用總覽上面的總資產
  * 沒有啟用中的存款或投資帳戶時整張不出現
  */
 export async function AssetTrendSection() {
   const user = await requireModule("savings");
-  const [{ input, state }, snapshots] = await Promise.all([loadAccounts(user.id, new Date()), cachedAssetSnapshots(user.id)]);
-  const current = dateToMonth(input.today);
+  const now = new Date();
+  const today = taipeiToday(now);
+  const [{ input, state }, days, snapshots] = await Promise.all([loadAccounts(user.id, now), cachedAccountDayFlows(user.id, trendStart(today)), cachedAssetDays(user.id)]);
   const live = { deposit: state.summary.deposit, investment: state.summary.investment.value };
-  const points = assetTrend({ accounts: input.accounts, flows: input.flows, snapshots, current, live });
-  return points.length === 0 ? null : <AssetTrendChart points={points} current={current} />;
+  const points = assetTrend({ accounts: input.accounts, flows: input.flows, days, snapshots, today: input.today, live });
+  return points.length === 0 ? null : <AssetTrendChart points={points} today={input.today} />;
 }

@@ -286,19 +286,18 @@ export const savingsTransactions = pgTable(
 ).enableRLS();
 
 /**
- * 資產走勢 每人每月一列 排程每天更新前一天那個月的投資市值
+ * 資產走勢 每人每天一列 排程每天記下前一天的投資市值 只留 30 天
  * 存款照紀錄回推 不存 合計可能超過 integer 所以用 bigint
  */
-export const savingsAssetSnapshots = pgTable(
-  "savings_asset_snapshots",
+export const savingsAssetDays = pgTable(
+  "savings_asset_days",
   {
     userId: owner(),
-    // 那個月的 1 號
-    month: date("month", { mode: "string" }).notNull(),
+    day: date("day", { mode: "string" }).notNull(),
     investment: bigint("investment", { mode: "number" }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.month] }), check("savings_asset_snapshots_month_first_day", firstOfMonth(t.month))],
+  (t) => [primaryKey({ columns: [t.userId, t.day] })],
 ).enableRLS();
 
 export type SavingsCategory = typeof savingsCategories.$inferSelect;

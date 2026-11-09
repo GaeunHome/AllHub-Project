@@ -1,9 +1,8 @@
 import { expect } from "vitest";
 import { UserError } from "@/core/form";
 import type { SavingsAccount, SavingsRecurring } from "../data/schema";
-import type { CardDailyFlow } from "../lib/cards";
 import type { ChecklistItem } from "../lib/checklist";
-import type { AccountMonthFlow } from "../lib/ledger";
+import type { AccountDayFlow, AccountMonthFlow } from "../lib/ledger";
 
 // 理財測試共用的假資料 只有測試檔能 import 寫進測試資料庫的在 db-fixtures.ts
 
@@ -58,8 +57,8 @@ export function ruleRow(values: Pick<SavingsRecurring, "id"> & Partial<SavingsRe
 /** 一個帳戶一個月的合計 沒寫的都是 0 */
 export const flowRow = (accountId: number, month: string, values: Partial<AccountMonthFlow> = {}): AccountMonthFlow => ({ accountId, month, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
 
-/** 一張卡一天的合計 沒寫的都是 0 */
-export const dayFlowRow = (accountId: number, date: string, values: Partial<CardDailyFlow> = {}): CardDailyFlow => ({ accountId, date, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
+/** 一個帳戶一天的合計 沒寫的都是 0 */
+export const dayFlowRow = (accountId: number, date: string, values: Partial<AccountDayFlow> = {}): AccountDayFlow => ({ accountId, date, income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0, ...values });
 
 /** 這個月要做的事的一件 預設是按不了的固定收支 */
 export function checklistItem(values: Pick<ChecklistItem, "key" | "title" | "date" | "state"> & Partial<ChecklistItem>): ChecklistItem {

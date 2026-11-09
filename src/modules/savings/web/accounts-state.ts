@@ -1,8 +1,8 @@
-import { billDefaults, cardBill, type BillDefaults, type CardBill, type CardDailyFlow } from "../lib/cards";
+import { billDefaults, cardBill, type BillDefaults, type CardBill } from "../lib/cards";
 import type { DateKey } from "../lib/dates";
 import { accountsWithHoldings, investmentTotals, type HoldingLike, type InvestmentValue } from "../lib/holdings";
 import type { CardStyle } from "../lib/kinds";
-import { accountBalances, assetSummary, type AccountBalance, type AccountLike, type AccountMonthFlow, type AssetSummary } from "../lib/ledger";
+import { accountBalances, assetSummary, type AccountBalance, type AccountDayFlow, type AccountLike, type AccountMonthFlow, type AssetSummary } from "../lib/ledger";
 import type { Quote } from "../lib/quotes";
 import type { CardBillRecord } from "../service/cards";
 
@@ -19,7 +19,7 @@ export type AccountsInput = {
   /** 沒有持股時不查 是 null 讀不到也是 null */
   quotes: readonly Quote[] | null;
   /** 信用卡近 70 天每天的流量 算本期帳單用 */
-  cardFlows: CardDailyFlow[];
+  cardFlows: AccountDayFlow[];
   /** 每張卡最近 5 期填過的帳單 沒填的那一期照紀錄估 */
   cardBills: CardBillRecord[];
   today: DateKey;

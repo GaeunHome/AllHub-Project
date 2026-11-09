@@ -3,7 +3,9 @@ import { stubCoreEnv } from "@/dev/test-env";
 import { insertTestUser, insertTestUsers, setupTestDb } from "@/dev/test-db";
 
 stubCoreEnv();
-const { addExpense, deleteExpense, settleTransfer, undoSettlement, updateExpense } = await import("../expenses");
+const { addExpense, deleteExpense, recordRepayment, settleTransfer, undoSettlement, updateExpense } = await import("../expenses");
+const { balancesOf } = await import("../../lib/expenses");
+const { travelExpenses } = await import("../../data/schema");
 const { joinToken } = await import("../join-link");
 const { TripNotFoundError, TravelUserError } = await import("../errors");
 const { createTrip, joinTrip, leaveTrip, setJoinLink, tripDetail } = await import("../trips");
@@ -21,7 +23,8 @@ beforeEach(async () => {
   await joinTrip(other, tripId, joinToken(tripId, 0));
 });
 
-const dinner = () => ({ title: "晚餐", amount: "1000", currency: "TWD", rate: "", paidBy: me, shares: [me, other] });
+const dinner = () => ({ title: "晚餐", amount: "1000", currency: "TWD", rate: "", spentOn: "2026-12-01", category: "food", paidBy: me, manyPayers: false, paid: {}, split: "even", shares: [me, other], portions: {} });
+const balances = async () => Object.fromEntries(balancesOf((await detail()).expenses, (await detail()).settlements));
 const detail = async (userId = me) => (await tripDetail(userId, tripId))!;
 
 describe("記一筆帳", () => {
@@ -31,8 +34,8 @@ describe("記一筆帳", () => {
     const { expenses } = await detail();
 
     expect(expenses).toHaveLength(1);
-    expect(expenses[0]).toMatchObject({ title: "晚餐", paidBy: me, amountCents: 100000, currency: "TWD", rateMicros: 1000000 });
-    expect(new Set(expenses[0].shares)).toEqual(new Set([me, other]));
+    expect(expenses[0]).toMatchObject({ title: "晚餐", paidBy: me, amountCents: 100000, currency: "TWD", rateMicros: 1000000, spentOn: "2026-12-01", category: "food", split: "even", payers: [{ userId: me, amountCents: 100000 }] });
+    expect(new Set(expenses[0].shares.map(({ userId }) => userId))).toEqual(new Set([me, other]));
   });
 
   it("不是同行的人不能付也不能分 整筆不寫入", async () => {
@@ -50,7 +53,48 @@ describe("記一筆帳", () => {
   it("同一個人重複勾 只算一份", async () => {
     await addExpense(me, tripId, { ...dinner(), shares: [other, other] });
 
-    expect((await detail()).expenses[0].shares).toEqual([other]);
+    expect((await detail()).expenses[0].shares).toEqual([{ userId: other, weight: null }]);
+  });
+
+  it("舊程式記的帳（沒有日期、類別、分法與付款列）讀得到：一個人付整筆、平分", async () => {
+    await getDb().insert(travelExpenses).values({ tripId, paidBy: other, title: "舊的帳", amountCents: 50000, currency: "TWD", rateMicros: 1000000 });
+
+    expect((await detail()).expenses[0]).toMatchObject({ spentOn: null, category: null, split: "even", payers: [{ userId: other, amountCents: 50000 }] });
+  });
+
+  it("照金額分：$1,000 我 700、對方 300，每個人的份存著，對方要給我 300", async () => {
+    await addExpense(me, tripId, { ...dinner(), split: "amount", portions: { [me]: "700", [other]: "300" } });
+
+    expect((await detail()).expenses[0]).toMatchObject({ split: "amount" });
+    expect(new Set((await detail()).expenses[0].shares.map(({ userId, weight }) => `${userId}:${weight}`))).toEqual(new Set([`${me}:70000`, `${other}:30000`]));
+    expect(await balances()).toEqual({ [me]: 300, [other]: -300 });
+  });
+
+  it("照金額分加起來不等於這筆：不收", async () => {
+    await expect(addExpense(me, tripId, { ...dinner(), split: "amount", portions: { [me]: "700", [other]: "200" } })).rejects.toBeInstanceOf(TravelUserError);
+    expect((await detail()).expenses).toEqual([]);
+  });
+
+  it("好幾個人付：住宿 $9,000 我 6,000、對方 3,000，兩人平分各 4,500，對方要給我 1,500；paid_by 寫付最多的我", async () => {
+    await addExpense(other, tripId, { ...dinner(), title: "住宿", amount: "9000", manyPayers: true, paidBy: null, paid: { [me]: "6000", [other]: "3000" } });
+
+    const [hotel] = (await detail()).expenses;
+    expect(hotel.paidBy).toBe(me);
+    expect(new Set(hotel.payers.map(({ userId, amountCents }) => `${userId}:${amountCents}`))).toEqual(new Set([`${me}:600000`, `${other}:300000`]));
+    expect(await balances()).toEqual({ [me]: 1500, [other]: -1500 });
+  });
+
+  it("好幾個人付但只有一個人填：當成他一個人付", async () => {
+    await addExpense(me, tripId, { ...dinner(), manyPayers: true, paidBy: null, paid: { [other]: "1000" } });
+
+    expect((await detail()).expenses[0]).toMatchObject({ paidBy: other, payers: [{ userId: other, amountCents: 100000 }] });
+  });
+
+  it("付錢的人也只能是同行的人", async () => {
+    const stranger = await insertTestUser(getDb(), "carol");
+
+    await expect(addExpense(me, tripId, { ...dinner(), manyPayers: true, paidBy: null, paid: { [me]: "500", [stranger]: "500" } })).rejects.toBeInstanceOf(TravelUserError);
+    expect((await detail()).expenses).toEqual([]);
   });
 });
 
@@ -87,7 +131,16 @@ describe("修改與刪除", () => {
 
     await updateExpense(other, tripId, expenseId, { ...dinner(), title: "宵夜", shares: [other] });
 
-    expect((await detail()).expenses[0]).toMatchObject({ title: "宵夜", shares: [other] });
+    expect((await detail()).expenses[0]).toMatchObject({ title: "宵夜", shares: [{ userId: other, weight: null }] });
+  });
+
+  it("從好幾個人付改回一個人付：每人付的那幾列清掉，照比例改回平分也一樣", async () => {
+    const { expenseId } = await addExpense(me, tripId, { ...dinner(), manyPayers: true, paidBy: null, paid: { [me]: "400", [other]: "600" }, split: "ratio", portions: { [me]: "2", [other]: "1" } });
+
+    await updateExpense(me, tripId, expenseId, dinner());
+
+    expect((await detail()).expenses[0]).toMatchObject({ paidBy: me, split: "even", payers: [{ userId: me, amountCents: 100000 }] });
+    expect((await detail()).expenses[0].shares.every(({ weight }) => weight === null)).toBe(true);
   });
 
   it("已經離開的人留在舊帳上 修改時不會被擋", async () => {
@@ -115,6 +168,34 @@ describe("修改與刪除", () => {
     await deleteExpense(me, tripId, expenseId);
 
     expect((await detail()).expenses).toEqual([]);
+  });
+});
+
+describe("記還款", () => {
+  it("任意金額：對方欠我 500，先還 200，還差 300", async () => {
+    await addExpense(me, tripId, dinner());
+
+    await recordRepayment(other, tripId, { from: other, to: me, amount: "200" });
+
+    expect(await balances()).toEqual({ [me]: 300, [other]: -300 });
+  });
+
+  it("不是成員：當作旅程不存在；給或收的人不是這趟的人：不收", async () => {
+    const stranger = await insertTestUser(getDb(), "carol");
+    await addExpense(me, tripId, dinner());
+
+    await expect(recordRepayment(stranger, tripId, { from: other, to: me, amount: "100" })).rejects.toBeInstanceOf(TripNotFoundError);
+    await expect(recordRepayment(me, tripId, { from: stranger, to: me, amount: "100" })).rejects.toBeInstanceOf(TravelUserError);
+    expect((await detail()).settlements).toEqual([]);
+  });
+
+  it("已經離開、還留在帳上的人照樣可以記", async () => {
+    await addExpense(me, tripId, dinner());
+    await leaveTrip(other, tripId);
+
+    await recordRepayment(me, tripId, { from: other, to: me, amount: "500" });
+
+    expect(await balances()).toEqual({ [me]: 0, [other]: 0 });
   });
 });
 

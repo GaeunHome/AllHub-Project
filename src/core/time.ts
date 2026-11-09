@@ -55,6 +55,12 @@ export function formatTaipeiLongDate(date: Date): string {
   return `${month} 月 ${day} 日 星期${weekdayOf(year, month, day)}`;
 }
 
+/** 星期幾的那個字 例如 五 */
+export function formatTaipeiWeekday(date: Date): string {
+  const { year, month, day } = taipeiFields(date);
+  return weekdayOf(year, month, day);
+}
+
 /** 位置不夠時的日期 例如 11/4 加星期 */
 export function formatTaipeiShortDate(date: Date): string {
   const { year, month, day } = taipeiFields(date);

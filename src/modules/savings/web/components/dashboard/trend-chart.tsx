@@ -2,7 +2,7 @@
 
 import { formatTwd } from "../../../lib/money";
 import { formatMonth, type MonthKey } from "../../../lib/month";
-import { MonthChart } from "./month-chart";
+import { BarChart, monthAxis } from "./bar-chart";
 import { flowChart, type FlowPoint } from "./trend-model";
 
 type TrendChartProps = {
@@ -16,10 +16,10 @@ type TrendChartProps = {
 export function TrendChart({ points, current }: TrendChartProps) {
   const chart = flowChart(points);
   return (
-    <MonthChart
+    <BarChart
       title="每月收支"
       points={points}
-      current={current}
+      axis={monthAxis(current)}
       scale={chart.scale}
       empty={chart.empty ? "還沒有收入或支出" : null}
       bars={(_, i) => (

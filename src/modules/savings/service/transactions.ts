@@ -7,7 +7,7 @@ import { savingsAccounts, savingsCardBills, savingsCategories, savingsHoldings, 
 import type { ChecklistRecord } from "../lib/checklist";
 import { taipeiToday, type DateKey } from "../lib/dates";
 import type { CategoryKind, TransactionKind } from "../lib/kinds";
-import { accountBalances, accountIdsOf, balanceAdjustment, type AccountMonthFlow, type CategoryMonthTotal } from "../lib/ledger";
+import { accountBalances, accountIdsOf, balanceAdjustment, type AccountDayFlow, type AccountMonthFlow, type CategoryMonthTotal } from "../lib/ledger";
 import { MAX_AMOUNT } from "../lib/money";
 import { addMonths, dateToMonth, monthToDate, parseMonth, type MonthKey } from "../lib/month";
 import { isPeriodRecord, previousOccurrenceMonth, revertsPeriod } from "../lib/recurring";
@@ -333,6 +333,12 @@ async function monthFlows(executor: Executor, userId: string, accountId?: number
 /** 每個帳戶每月一列 資料量是帳戶數乘月數 彙總交給 lib */
 export async function accountMonthFlows(userId: string): Promise<AccountMonthFlow[]> {
   return monthFlows(db(), userId);
+}
+
+/** 每個帳戶每天一列 since 當天也算 資產走勢只要最近 30 天 */
+export async function accountDayFlows(userId: string, since: DateKey): Promise<AccountDayFlow[]> {
+  const flows = await flowsBy(db(), savingsTransactions.date, () => and(eq(savingsTransactions.userId, userId), gte(savingsTransactions.date, since)));
+  return flows.map(({ period, ...flow }) => ({ ...flow, date: period }));
 }
 
 /**

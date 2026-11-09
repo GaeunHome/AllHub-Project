@@ -10,6 +10,7 @@ import {
   formatTaipeiHourMinute,
   formatTaipeiHourMinuteSecond,
   formatTaipeiMonthDay,
+  formatTaipeiWeekday,
   isRealDateKey,
   taipeiDateKey,
   taipeiDayOffset,
@@ -42,6 +43,13 @@ describe("formatTaipeiLongDate", () => {
     ["2026-11-08T02:00:00.000Z", "11 月 8 日 星期日"],
   ])("%s 是 %s", (iso, expected) => {
     expect(formatTaipeiLongDate(new Date(iso))).toBe(expected);
+  });
+});
+
+describe("formatTaipeiWeekday：Twitch 開台時間表的週五 20:00", () => {
+  it("照台北的日期算：UTC 11/12 晚上已經是台北 11/13 星期五", () => {
+    expect(formatTaipeiWeekday(new Date("2026-11-12T16:30:00.000Z"))).toBe("五");
+    expect(formatTaipeiWeekday(new Date("2026-11-08T02:00:00.000Z"))).toBe("日");
   });
 });
 

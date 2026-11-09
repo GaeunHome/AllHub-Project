@@ -163,6 +163,37 @@
 .trv-fold[open] > summary::after {
   rotate: -135deg;
 }
+/* 分帳由上到下四段 段與段之間一條線 */
+.trv-money-part {
+  @apply border-t border-line pt-5;
+}
+/* 每個人的帳 金額靠右對齊 名字可以點開明細 */
+.trv-people {
+  @apply w-full text-ink tabular-nums;
+}
+.trv-people th,
+.trv-people td {
+  @apply py-1.5 pl-3 text-right whitespace-nowrap;
+}
+.trv-people th:first-child {
+  @apply w-full pl-0 text-left whitespace-normal;
+}
+.trv-people thead th {
+  @apply text-sm font-medium;
+}
+.trv-people tbody tr + tr {
+  @apply border-t border-line;
+}
+.trv-person {
+  @apply -mx-1 inline-flex min-h-11 cursor-pointer items-center gap-1 rounded-md px-1 text-left font-medium text-ink;
+}
+.trv-person:hover {
+  background-color: color-mix(in srgb, currentColor 7%, transparent);
+}
+/* 每一筆前面的類別圖示 */
+.trv-category {
+  @apply grid size-9 shrink-0 place-items-center rounded-full bg-surface-muted text-ink;
+}
 /* 跟著手指的標籤 不擋事件 放開位置才算得出來 */
 .trv-ghost {
   @apply pointer-events-none fixed top-0 left-0 z-40 max-w-56 truncate rounded-lg px-3 py-1.5 text-sm font-semibold;

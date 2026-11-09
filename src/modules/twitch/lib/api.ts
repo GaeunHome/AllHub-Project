@@ -151,6 +151,16 @@ export async function getGames(ids: string[]): Promise<TwitchGame[]> {
   return inBatches(ids, (batch) => displayGet<TwitchGame>("/games", batch.map((id) => ["id", id])));
 }
 
+/** 開台時間表 一次一位主播 主播沒有設定時 Twitch 回 404 這裡回 null */
+export async function getSchedule(broadcasterId: string): Promise<unknown> {
+  try {
+    return await helix<unknown>("GET", `/schedule?${new URLSearchParams({ broadcaster_id: broadcasterId })}`, undefined, { timeoutMs: DISPLAY_TIMEOUT_MS });
+  } catch (error) {
+    if (error instanceof TwitchApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
 export function eventSubCallbackUrl(): string {
   return new URL("/api/twitch/eventsub", twitchEnv().PUBLIC_BASE_URL).toString();
 }

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { externalAssetUrl } from "@/core/external-url";
 import { ActionButton } from "@/core/ui/action-button";
 import { Avatar } from "@/core/ui/avatar";
@@ -5,6 +6,7 @@ import { DialogButton } from "@/core/ui/dialog";
 import { ExternalImage } from "@/core/ui/external-image";
 import { Icon } from "@/core/ui/icon";
 import { NotifyToggle } from "@/core/ui/notify-toggle";
+import { Skeleton } from "@/core/ui/skeleton";
 import { StatusChip } from "@/core/ui/status-chip";
 import { twitchChannelUrl } from "../../lib/urls";
 import { formatCount, formatLiveDuration, formatViewerCount, type StreamerVisual } from "../../lib/visuals";
@@ -12,6 +14,7 @@ import type { FollowedStreamer } from "../../data/schema";
 import { removeStreamerAction, setStreamerNotifyAction } from "../actions";
 import { subscriptionBadge } from "../status";
 import { GameBoxArt } from "./game-box-art";
+import { NextStart, SchedulePanel } from "./stream-schedule";
 
 /** now 用來算開台多久 同一頁的直播卡片用同一個時間 */
 type RowProps = { streamer: StreamerVisual<FollowedStreamer>; now: Date };
@@ -47,7 +50,12 @@ export function ChannelRow({ streamer: s, now }: RowProps) {
                 {viewers ?? "直播中"}
               </span>
             ) : (
-              <span className="shrink-0 text-[0.8125rem] text-ink-soft">離線</span>
+              <span className="shrink-0 text-[0.8125rem] text-ink-soft tabular-nums">
+                {/* 有排開台時間時寫下次幾點 讀到之前先寫離線 */}
+                <Suspense fallback="離線">
+                  <NextStart broadcasterId={s.broadcasterId} now={now} />
+                </Suspense>
+              </span>
             )}
             <Icon name="chevron-right" className="size-3.5 shrink-0 text-muted" />
           </>
@@ -115,6 +123,9 @@ export function ChannelDetail({ streamer: s, now }: RowProps) {
           </div>
           {badge.detail && <p className={`text-sm leading-relaxed ${badge.tone === "danger" ? "text-danger" : "text-ink"}`}>{badge.detail}</p>}
         </div>
+        <Suspense fallback={<Skeleton className="h-28 w-full rounded-lg" />}>
+          <SchedulePanel broadcasterId={s.broadcasterId} now={now} />
+        </Suspense>
         {/* 右欄只有 22rem 很長的帳號截斷 不撐出橫向捲動 */}
         <a href={twitchChannelUrl(s.login)} target="_blank" rel="noreferrer" className="btn-secondary">
           <Icon name="external-link" className="size-4" />

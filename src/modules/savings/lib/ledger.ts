@@ -11,6 +11,9 @@ import type { MonthKey } from "./month";
  */
 export type AccountMonthFlow = { accountId: number; month: MonthKey; income: number; expense: number; transferIn: number; transferOut: number; adjust: number };
 
+/** 同上 每天一列 信用卡的帳單與資產走勢用 */
+export type AccountDayFlow = Omit<AccountMonthFlow, "month"> & { date: DateKey };
+
 /** 只有收入與支出 categoryId 是 null 是未分類 */
 export type CategoryMonthTotal = { categoryId: number | null; kind: CategoryKind; month: MonthKey; amount: number };
 
@@ -113,7 +116,7 @@ export function accountStartDate(account: Pick<AccountLike, "createdAt">): DateK
 }
 
 /** 起始餘額加上全部紀錄 投資另外算成本 信用卡另外算未繳 */
-export function accountBalances(accounts: AccountLike[], flows: AccountMonthFlow[]): Map<number, AccountBalance> {
+export function accountBalances(accounts: readonly AccountLike[], flows: readonly AccountMonthFlow[]): Map<number, AccountBalance> {
   const totals = new Map<number, FlowTotals>();
   for (const flow of flows) {
     const total = totals.get(flow.accountId) ?? noFlow();

@@ -24,6 +24,42 @@ function user(id, login) {
   };
 }
 
+/** 台北時間 offset 天後的 hour 點 換成 UTC 的 ISO 字串 */
+function taipeiAt(offset, hour) {
+  const taipei = new Date(Date.now() + 8 * 3_600_000);
+  return new Date(Date.UTC(taipei.getUTCFullYear(), taipei.getUTCMonth(), taipei.getUTCDate() + offset, hour - 8)).toISOString();
+}
+
+const segment = (id, offset, hour, hours, extra = {}) => ({
+  id: `seg-${id}`,
+  start_time: taipeiAt(offset, hour),
+  end_time: hours === null ? null : taipeiAt(offset, hour + hours),
+  title: "",
+  canceled_until: null,
+  category: null,
+  is_recurring: true,
+  ...extra,
+});
+
+// 開台時間表 id 是 3 的倍數沒有設定 Twitch 回 404 除 3 餘 2 的在休假
+function schedule(id) {
+  if (Number(id) % 3 === 0) return null;
+  const vacation = Number(id) % 3 === 2;
+  return {
+    segments: [
+      segment("tonight", 0, 20, 3, { title: "晚上一起玩", category: GAMES[0] }),
+      segment("canceled", 1, 20, 3, { canceled_until: taipeiAt(1, 23) }),
+      segment("weekend", 2, 14, 4, { title: "聊天", category: GAMES[1] }),
+      segment("holiday", 4, 20, 3, { title: "休假期間的那次" }),
+      segment("later", 9, 20, null, { title: "長時間直播" }),
+    ],
+    broadcaster_id: id,
+    broadcaster_name: (loginOf.get(id) ?? `u${id}`).toUpperCase(),
+    broadcaster_login: loginOf.get(id) ?? `u${id}`,
+    vacation: vacation ? { start_time: taipeiAt(3, 0), end_time: taipeiAt(6, 0) } : null,
+  };
+}
+
 export function handle({ req, url, body, json, image }) {
   if (url.pathname === "/oauth2/token") return json(200, { access_token: "mock-token", expires_in: 3600, token_type: "bearer" });
   if (url.pathname === "/helix/users") {
@@ -62,6 +98,10 @@ export function handle({ req, url, body, json, image }) {
   }
   if (url.pathname === "/helix/games") {
     return json(200, { data: GAMES.filter((g) => url.searchParams.getAll("id").includes(g.id)).map((g) => ({ ...g, box_art_url: `${CDN}/ttv-boxart/${g.id}-{width}x{height}.jpg` })) });
+  }
+  if (url.pathname === "/helix/schedule") {
+    const data = schedule(url.searchParams.get("broadcaster_id") ?? "");
+    return data ? json(200, { data, pagination: {} }) : json(404, { error: "Not Found", status: 404, message: "segments were not found" });
   }
   if (url.pathname === "/helix/eventsub/subscriptions") {
     if (req.method === "POST") {

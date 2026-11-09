@@ -1,11 +1,10 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { SavingsAccount, SavingsCategory, SavingsHolding, SavingsRecurring } from "../data/schema";
-import type { CardDailyFlow } from "../lib/cards";
 import type { ChecklistRecord } from "../lib/checklist";
 import type { DateKey } from "../lib/dates";
 import type { DividendEvent } from "../lib/dividends";
-import type { AccountMonthFlow, CategoryMonthTotal } from "../lib/ledger";
+import type { AccountDayFlow, AccountMonthFlow, CategoryMonthTotal } from "../lib/ledger";
 import type { MonthKey } from "../lib/month";
 import { quoteSymbols, type Quote } from "../lib/quotes";
 import type { AssetSnapshot } from "../lib/trend";
@@ -17,8 +16,8 @@ import { fetchDividends } from "./dividends";
 import { listHoldings } from "./holdings";
 import { fetchQuotes } from "./quotes";
 import { listRecurring } from "./recurring";
-import { accountMonthFlows, categoryMonthTotals, listMonthTransactions, recurringRecords, type TransactionView } from "./transactions";
-import { listAssetSnapshots } from "./trend";
+import { accountDayFlows, accountMonthFlows, categoryMonthTotals, listMonthTransactions, recurringRecords, type TransactionView } from "./transactions";
+import { listAssetDays } from "./trend";
 
 // 同一次請求裡重複呼叫會自動合併 不必再包 React cache
 // userId 來自 session 是快取 key 每人一份
@@ -51,11 +50,19 @@ export async function cachedAccountFlows(userId: string): Promise<AccountMonthFl
   return accountMonthFlows(userId);
 }
 
-export async function cachedAssetSnapshots(userId: string): Promise<AssetSnapshot[]> {
+export async function cachedAssetDays(userId: string): Promise<AssetSnapshot[]> {
   "use cache: remote";
   cacheLife("db");
-  cacheTag(savingsTags.snapshots);
-  return listAssetSnapshots(userId);
+  cacheTag(savingsTags.assetDays);
+  return listAssetDays(userId);
+}
+
+/** since 每天往後推 key 每天換一次 資產走勢從今天往回扣 */
+export async function cachedAccountDayFlows(userId: string, since: DateKey): Promise<AccountDayFlow[]> {
+  "use cache: remote";
+  cacheLife("db");
+  cacheTag(savingsTags.transactions);
+  return accountDayFlows(userId, since);
 }
 
 export async function cachedCategoryTotals(userId: string): Promise<CategoryMonthTotal[]> {
@@ -89,7 +96,7 @@ export async function cachedHoldings(userId: string): Promise<SavingsHolding[]> 
 }
 
 /** since 每天往後推 key 每天換一次 查詢時看帳戶挑出信用卡 */
-export async function cachedCardFlows(userId: string, since: DateKey): Promise<CardDailyFlow[]> {
+export async function cachedCardFlows(userId: string, since: DateKey): Promise<AccountDayFlow[]> {
   "use cache: remote";
   cacheLife("db");
   cacheTag(savingsTags.transactions, savingsTags.accounts);

@@ -1,13 +1,11 @@
 import { addDays, daysBetween, dueStatus, earliestOf, latestOf, type DateKey, type DueStatus } from "./dates";
 import { shiftForHoliday } from "./holidays";
+import type { AccountDayFlow } from "./ledger";
 import { addMonths, dateToMonth } from "./month";
 import { scheduledDate } from "./recurring";
 
 // 不是每筆刷卡都有記 填帳單時跟紀錄的差額自動補一筆
 // 沒有結帳日的卡 自己在帳戶頁填
-
-/** 每個帳戶每天的流量 金額都是正數 只有調整帶正負號 轉入算在 counter_account_id */
-export type CardDailyFlow = { accountId: number; date: DateKey; income: number; expense: number; transferIn: number; transferOut: number; adjust: number };
 
 export type CardLike = { id: number; statementDay: number | null };
 
@@ -97,7 +95,7 @@ export function defaultDueDate(statementDate: DateKey, statements: readonly Card
 }
 
 // 某天之後的紀錄扣回去就是那天的未繳
-function owedThrough(cardId: number, balance: number, flows: readonly CardDailyFlow[], date: DateKey): number {
+function owedThrough(cardId: number, balance: number, flows: readonly AccountDayFlow[], date: DateKey): number {
   const later = flows.filter((flow) => flow.accountId === cardId && flow.date > date);
   return Math.max(0, later.reduce((net, flow) => net + flow.income + flow.transferIn + flow.adjust - flow.expense - flow.transferOut, 0) - balance);
 }
@@ -145,7 +143,7 @@ export function billPayments(
  * flows 要涵蓋上次結帳日之後
  * 帶了 paid 就用它 沒有結帳日的卡最新一張可能早於 70 天的流量
  */
-export function cardBill(card: CardLike, balance: number, flows: CardDailyFlow[], today: DateKey, statements: readonly (CardStatement & { paid?: number })[] = []): CardBill {
+export function cardBill(card: CardLike, balance: number, flows: AccountDayFlow[], today: DateKey, statements: readonly (CardStatement & { paid?: number })[] = []): CardBill {
   const owedNow = Math.max(0, 0 - balance);
   const owedAt = (date: DateKey) => owedThrough(card.id, balance, flows, date);
   // 某天之後轉進卡的是繳款
@@ -190,7 +188,7 @@ export function cardBill(card: CardLike, balance: number, flows: CardDailyFlow[]
 }
 
 /** 填帳單視窗的預設 金額照紀錄算到這一期的結帳日 截止日照 defaultDueDate */
-export function billDefaults(card: CardLike, balance: number, flows: readonly CardDailyFlow[], today: DateKey, statements: readonly CardStatement[] = []): BillDefaults {
+export function billDefaults(card: CardLike, balance: number, flows: readonly AccountDayFlow[], today: DateKey, statements: readonly CardStatement[] = []): BillDefaults {
   const statementDate = fillStatementDate(card, today);
   const own = statements.filter((statement) => statement.accountId === card.id);
   return { statementDate, estimate: owedThrough(card.id, balance, flows, billCutoff(card, statementDate)), dueDate: defaultDueDate(statementDate, own) };

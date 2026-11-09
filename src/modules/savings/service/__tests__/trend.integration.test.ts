@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { coreServiceStatus, coreUsers } from "@/core/db/schema";
 import { fakeFetch } from "@/dev/fake-fetch";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
-import { savingsAssetSnapshots } from "../../data/schema";
+import { savingsAssetDays } from "../../data/schema";
 import { savingsRows } from "../../dev/db-fixtures";
-import { listAssetSnapshots, recordAssetSnapshots } from "../trend";
+import { listAssetDays, recordAssetDays } from "../trend";
 
-// 排程 savings:trend 使用者選的每月記一筆 前一天那個月的投資市值
+// 排程 savings:trend 使用者選的近 30 天每天記一筆 前一天的投資市值
 
 const getDb = setupTestDb();
 let me: string;
@@ -35,44 +35,64 @@ const brokenFetch = () => fakeFetch(() => new Response("down", { status: 503 }))
 
 /** 台北時間凌晨 00:45 排程在這個時候跑 */
 const runAt = (date: string) => new Date(`${date}T00:45:00+08:00`);
-const rows = () => getDb().select().from(savingsAssetSnapshots);
+const rows = () => getDb().select().from(savingsAssetDays).orderBy(savingsAssetDays.day);
 
-describe("recordAssetSnapshots：每天記下前一天那個月的投資市值", () => {
-  it("11/1 凌晨記的是 10 月：持股 1,000 股 006208 收盤 258.70 是 258,700，加上沒有持股的證券帳戶帳上 50,000", async () => {
+describe("recordAssetDays：每天記下前一天的投資市值", () => {
+  it("11/10 凌晨記的是 11/9：持股 1,000 股 006208 收盤 258.70 是 258,700，加上沒有持股的證券帳戶帳上 50,000", async () => {
     const broker = await mine.insertAccount({ name: "元大證券" });
     await mine.insertHolding({ accountId: broker.id, shares: 1_000, cost: 200_000 });
     await mine.insertAccount({ name: "基金", openingBalance: 50_000 });
 
-    await recordAssetSnapshots(runAt("2026-11-01"), quotesFetch().impl);
+    await recordAssetDays(runAt("2026-11-10"), quotesFetch().impl);
 
-    expect(await rows()).toMatchObject([{ userId: me, month: "2026-10-01", investment: 308_700 }]);
+    expect(await rows()).toMatchObject([{ userId: me, day: "2026-11-09", investment: 308_700 }]);
   });
 
-  it("同一個月每天覆蓋那一列，不多一列：月底那天跑完就是那個月最後的市值", async () => {
+  it("一天一列：同一天重跑覆蓋那一列，隔天多一列", async () => {
     const broker = await mine.insertAccount({ name: "元大證券" });
     await mine.insertHolding({ accountId: broker.id, shares: 100 });
 
-    await recordAssetSnapshots(runAt("2026-11-10"), quotesFetch("250.00").impl);
-    await recordAssetSnapshots(runAt("2026-11-11"), quotesFetch("260.00").impl);
+    await recordAssetDays(runAt("2026-11-10"), quotesFetch("250.00").impl);
+    await recordAssetDays(runAt("2026-11-10"), quotesFetch("255.00").impl);
+    await recordAssetDays(runAt("2026-11-11"), quotesFetch("260.00").impl);
 
-    expect(await rows()).toMatchObject([{ month: "2026-11-01", investment: 26_000 }]);
+    expect(await rows()).toMatchObject([
+      { day: "2026-11-09", investment: 25_500 },
+      { day: "2026-11-10", investment: 26_000 },
+    ]);
+  });
+
+  it("只留最近 30 天：11/10 的圖從 10/12 畫起，更早的每個人都清掉（停用的人與沒有證券帳戶的人也是），10/12 起留著", async () => {
+    await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.id, other));
+    await getDb()
+      .insert(savingsAssetDays)
+      .values([
+        { userId: me, day: "2026-10-11", investment: 100 },
+        { userId: me, day: "2026-10-12", investment: 200 },
+        { userId: other, day: "2026-09-01", investment: 300 },
+      ]);
+
+    const summary = await recordAssetDays(runAt("2026-11-10"), quotesFetch().impl);
+
+    expect((await rows()).map((row) => [row.userId, row.day])).toEqual([[me, "2026-10-12"]]);
+    expect(summary).toContain("清掉 2 筆");
   });
 
   it("每個人只算自己的帳戶與持股", async () => {
     await mine.insertAccount({ name: "基金", openingBalance: 1_000 });
     await theirs.insertAccount({ name: "基金", openingBalance: 7_000 });
 
-    await recordAssetSnapshots(runAt("2026-11-10"), quotesFetch().impl);
+    await recordAssetDays(runAt("2026-11-10"), quotesFetch().impl);
 
     const byUser = Object.fromEntries((await rows()).map((row) => [row.userId, row.investment]));
     expect(byUser).toEqual({ [me]: 1_000, [other]: 7_000 });
   });
 
-  it("停用的人不記：資料凍結，那幾個月畫面照成本算", async () => {
+  it("停用的人不記：資料凍結，那幾天畫面照成本算", async () => {
     await theirs.insertAccount({ name: "基金", openingBalance: 7_000 });
     await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.id, other));
 
-    await recordAssetSnapshots(runAt("2026-11-10"), quotesFetch().impl);
+    await recordAssetDays(runAt("2026-11-10"), quotesFetch().impl);
 
     expect(await rows()).toEqual([]);
   });
@@ -82,7 +102,7 @@ describe("recordAssetSnapshots：每天記下前一天那個月的投資市值",
     await mine.insertHolding({ accountId: broker.id, shares: 100 });
     await theirs.insertAccount({ name: "基金", openingBalance: 7_000 });
 
-    const summary = await recordAssetSnapshots(runAt("2026-11-10"), brokenFetch().impl);
+    const summary = await recordAssetDays(runAt("2026-11-10"), brokenFetch().impl);
 
     expect((await rows()).map((row) => row.userId)).toEqual([other]);
     expect(summary).toContain("1 人");
@@ -94,26 +114,26 @@ describe("recordAssetSnapshots：每天記下前一天那個月的投資市值",
     await mine.insertAccount({ name: "薪轉", kind: "deposit", openingBalance: 9_000 });
     const fetch = quotesFetch();
 
-    await recordAssetSnapshots(runAt("2026-11-10"), fetch.impl);
+    await recordAssetDays(runAt("2026-11-10"), fetch.impl);
 
     expect(await rows()).toEqual([]);
     expect(fetch.calls).toEqual([]);
   });
 });
 
-describe("listAssetSnapshots", () => {
-  it("只讀自己的，月份寫成 YYYY-MM，舊的在前", async () => {
+describe("listAssetDays", () => {
+  it("只讀自己的，舊的在前", async () => {
     await getDb()
-      .insert(savingsAssetSnapshots)
+      .insert(savingsAssetDays)
       .values([
-        { userId: me, month: "2026-10-01", investment: 300 },
-        { userId: me, month: "2026-09-01", investment: 200 },
-        { userId: other, month: "2026-10-01", investment: 999 },
+        { userId: me, day: "2026-11-09", investment: 300 },
+        { userId: me, day: "2026-11-08", investment: 200 },
+        { userId: other, day: "2026-11-09", investment: 999 },
       ]);
 
-    expect(await listAssetSnapshots(me)).toEqual([
-      { month: "2026-09", investment: 200 },
-      { month: "2026-10", investment: 300 },
+    expect(await listAssetDays(me)).toEqual([
+      { day: "2026-11-08", investment: 200 },
+      { day: "2026-11-09", investment: 300 },
     ]);
   });
 });

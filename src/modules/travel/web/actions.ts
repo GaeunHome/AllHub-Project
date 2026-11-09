@@ -8,12 +8,13 @@ import { displayNameOf } from "@/core/auth/nickname";
 import { updateTags } from "@/core/cache";
 import { logError } from "@/core/errors";
 import { formFlag, formId, formText, formUuid, toId } from "@/core/form";
+import { USER_ID_PATTERN } from "@/core/ids";
 import type { FormState } from "@/core/ui/form-message";
 import { isRealDateKey } from "@/core/time";
 import { TRAVEL_HREF, tripHref } from "../lib/urls";
 import { travelTags } from "../service/cache-tags";
 import { TripNotFoundError } from "../service/errors";
-import { addExpense, deleteExpense, settleTransfer, undoSettlement, updateExpense, type ExpenseInput } from "../service/expenses";
+import { addExpense, deleteExpense, recordRepayment, settleTransfer, undoSettlement, updateExpense, type ExpenseInput } from "../service/expenses";
 import { addCheck, addComment, deleteCheck, deleteComment, setCheckDone } from "../service/extras";
 import { addItem, deleteItem, moveItem, updateItem, type ItemInput } from "../service/items";
 import { announceTripChange } from "../service/notices";
@@ -42,13 +43,29 @@ const itemFields = (formData: FormData): ItemInput => ({
   fixedTime: formText(formData, "fixedTime"),
 });
 
+/** 每個人一格的欄位 名稱是 prefix 加使用者 id 認不得的 id 略過 */
+function perPerson(formData: FormData, prefix: string): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const [name, value] of formData) {
+    const id = name.slice(prefix.length);
+    if (name.startsWith(prefix) && USER_ID_PATTERN.test(id) && typeof value === "string") values[id] = value;
+  }
+  return values;
+}
+
 const expenseFields = (formData: FormData): ExpenseInput => ({
   title: formText(formData, "title"),
   amount: formText(formData, "amount"),
   currency: formText(formData, "currency"),
   rate: formText(formData, "rate"),
+  spentOn: formText(formData, "spentOn"),
+  category: formText(formData, "category"),
   paidBy: formUuid(formData, "paidBy"),
+  manyPayers: formText(formData, "payerMode") === "many",
+  paid: perPerson(formData, "paid:"),
+  split: formText(formData, "split"),
   shares: formData.getAll("shares").map(String),
+  portions: perPerson(formData, "portion:"),
 });
 
 /** 格式不對的 id 跟別人的旅程一樣當作不存在 */
@@ -266,6 +283,16 @@ export async function settleTransferAction(_prev: FormState, formData: FormData)
     await settleTransfer(user.id, tripId, { from, to, amount });
     updateTags(travelTags.expenses);
     announce(user, tripId);
+  });
+}
+
+export async function recordRepaymentAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const user = await requireModule("travel");
+  return runInTrip("記還款", formId(formData, "tripId"), async (tripId) => {
+    await recordRepayment(user.id, tripId, { from: formUuid(formData, "from") ?? "", to: formUuid(formData, "to") ?? "", amount: formText(formData, "amount") });
+    updateTags(travelTags.expenses);
+    announce(user, tripId);
+    return "已記下還款";
   });
 }
 

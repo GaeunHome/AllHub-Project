@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { dayFlowRow } from "../../dev/fixtures";
-import { billDefaults, billDifference, billPayments, billStatus, cardBill, defaultDueDate, lastStatementDate, payableDueDate, type CardDailyFlow, type CardStatement } from "../cards";
+import { billDefaults, billDifference, billPayments, billStatus, cardBill, defaultDueDate, lastStatementDate, payableDueDate, type CardStatement } from "../cards";
+import type { AccountDayFlow } from "../ledger";
 
 // 卡片 id 預設是下面的 CARD
-const flow = (date: string, values: Partial<CardDailyFlow>, accountId = 5) => dayFlowRow(accountId, date, values);
+const flow = (date: string, values: Partial<AccountDayFlow>, accountId = 5) => dayFlowRow(accountId, date, values);
 
 describe("lastStatementDate（嚴格早於今天、日子是結帳日的最近一天）", () => {
   it.each([

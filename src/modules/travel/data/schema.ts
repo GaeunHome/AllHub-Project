@@ -1,7 +1,10 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQLWrapper } from "drizzle-orm";
 import { boolean, check, date, doublePrecision, index, integer, pgTable, primaryKey, serial, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { coreUsers } from "@/core/db/schema";
+import { EXPENSE_CATEGORIES, SPLIT_MODES, type ExpenseCategory, type SplitMode } from "../lib/expenses";
 import type { ItemKind } from "../lib/rules";
+
+const oneOf = (column: SQLWrapper, values: readonly string[]) => sql`${column} in (${sql.raw(values.map((value) => `'${value}'`).join(", "))})`;
 
 /**
  * 成員都能改 所以沒有 user_id 權限看 travel_members
@@ -115,6 +118,11 @@ export const travelExpenses = pgTable(
     amountCents: integer("amount_cents").notNull(),
     currency: text("currency").notNull(),
     rateMicros: integer("rate_micros").notNull(),
+    // v0.2.10 以前記的帳沒有日期與類別 類別 null 算其他
+    spentOn: date("spent_on", { mode: "string" }),
+    category: text("category").$type<ExpenseCategory>(),
+    // 只決定表單怎麼顯示 怎麼分看每個人的 weight
+    split: text("split").$type<SplitMode>().notNull().default("even"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -124,6 +132,8 @@ export const travelExpenses = pgTable(
     check("travel_expenses_amount", sql`${t.amountCents} > 0`),
     check("travel_expenses_rate", sql`${t.rateMicros} > 0`),
     check("travel_expenses_currency", sql`${t.currency} ~ '^[A-Z]{3}$'`),
+    check("travel_expenses_category", sql`${t.category} is null or ${oneOf(t.category, Object.keys(EXPENSE_CATEGORIES))}`),
+    check("travel_expenses_split", oneOf(t.split, Object.keys(SPLIT_MODES))),
   ],
 ).enableRLS();
 
@@ -137,8 +147,28 @@ export const travelExpenseShares = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => coreUsers.id, { onDelete: "cascade" }),
+    // 平分是 null 照比例是份數 照金額是外幣的分
+    weight: integer("weight"),
   },
-  (t) => [primaryKey({ columns: [t.expenseId, t.userId] }), index("travel_expense_shares_user_id_idx").on(t.userId)],
+  (t) => [primaryKey({ columns: [t.expenseId, t.userId] }), index("travel_expense_shares_user_id_idx").on(t.userId), check("travel_expense_shares_weight", sql`${t.weight} is null or ${t.weight} > 0`)],
+).enableRLS();
+
+/**
+ * 好幾個人一起付的一筆 每人刷的外幣金額 一個人付時沒有列 看 paid_by
+ * paid_by 寫付最多的人 舊程式讀得懂 那個人刪除帳號時整筆跟著刪
+ */
+export const travelExpensePayers = pgTable(
+  "travel_expense_payers",
+  {
+    expenseId: integer("expense_id")
+      .notNull()
+      .references(() => travelExpenses.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => coreUsers.id, { onDelete: "cascade" }),
+    amountCents: integer("amount_cents").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.expenseId, t.userId] }), index("travel_expense_payers_user_id_idx").on(t.userId), check("travel_expense_payers_amount", sql`${t.amountCents} > 0`)],
 ).enableRLS();
 
 /** 已結清的一筆 記下誰給誰多少台幣 之後新增的帳才算得對 刪掉這一列就是復原 */

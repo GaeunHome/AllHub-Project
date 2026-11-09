@@ -3,9 +3,9 @@ import { and, asc, desc, eq, gt, gte, inArray, lte, sql } from "drizzle-orm";
 import { db, type Executor } from "@/core/db";
 import { lockUserRow } from "@/core/db/users";
 import { savingsAccounts, savingsCardBills, savingsTransactions, type SavingsAccount, type SavingsCardBill, type SavingsTransaction } from "../data/schema";
-import { billCutoff, billDifference, billPayments, fillStatementDate, isStatementDate, lastStatementDate, type CardDailyFlow, type CardStatement } from "../lib/cards";
+import { billCutoff, billDifference, billPayments, fillStatementDate, isStatementDate, lastStatementDate, type CardStatement } from "../lib/cards";
 import { addDays, earliestOf, taipeiToday, type DateKey } from "../lib/dates";
-import { accountStartDate } from "../lib/ledger";
+import { accountStartDate, type AccountDayFlow } from "../lib/ledger";
 import { MAX_AMOUNT } from "../lib/money";
 import { NOT_FOUND, checkBillDueDate, parseCardBillFields, parsePayCardFields } from "../lib/validation";
 import {
@@ -56,7 +56,7 @@ const cardColumns = {
 };
 
 /** 信用卡每天的流量 since 當天也算 帳單只要看上次結帳日之後 */
-export async function cardDailyFlows(userId: string, since: DateKey): Promise<CardDailyFlow[]> {
+export async function cardDailyFlows(userId: string, since: DateKey): Promise<AccountDayFlow[]> {
   const cards = db().select({ id: savingsAccounts.id }).from(savingsAccounts).where(eq(savingsAccounts.kind, "credit"));
   const flows = await flowsBy(db(), t.date, (side) => and(eq(t.userId, userId), gte(t.date, since), inArray(side, cards)));
   return flows.map(({ period, ...flow }) => ({ ...flow, date: period }));

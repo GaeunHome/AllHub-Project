@@ -210,7 +210,7 @@ AllHub Project：個人整合系統。
 
 ## 多人：依使用者的資料與擁有權
 
-- 依使用者的表都有 `user_id`（NOT NULL），外鍵指向 `core_users`、`on delete cascade`（刪除帳號時一起刪）：`core_notifications`、`twitch_follows`、`youtube_follows`、`youtube_settings`、`youtube_saved_videos`、`starrail_accounts`（簽到紀錄與自動兌換試過的兌換碼跟著帳號刪）、`savings_accounts`、`savings_categories`、`savings_transactions`、`savings_recurring`、`savings_holdings`、`savings_card_bills`、`savings_dividend_notices`、`savings_asset_snapshots`（舊的 `savings_goals`、`savings_entries`、`savings_purposes` 已經刪掉）、`weather_settings`、`reminders_items`、`core_module_denials`、`core_avatar_images`、`core_push_subscriptions`（`core_push_mutes` 跟著手機刪）、`youtube_ai_keys`、`travel_members`、`travel_comments`、`travel_expenses`（`paid_by`）、`travel_expense_shares`、`travel_settlements`（`from_user`、`to_user`）、`weather_places`、`transit_routes`；`core_invites.created_by` 也是 cascade。
+- 依使用者的表都有 `user_id`（NOT NULL），外鍵指向 `core_users`、`on delete cascade`（刪除帳號時一起刪）：`core_notifications`、`twitch_follows`、`youtube_follows`、`youtube_settings`、`youtube_saved_videos`、`starrail_accounts`（簽到紀錄與自動兌換試過的兌換碼跟著帳號刪）、`savings_accounts`、`savings_categories`、`savings_transactions`、`savings_recurring`、`savings_holdings`、`savings_card_bills`、`savings_dividend_notices`、`savings_asset_days`（舊的 `savings_asset_snapshots` 已經不讀寫，下一版刪掉；舊的 `savings_goals`、`savings_entries`、`savings_purposes` 已經刪掉）、`weather_settings`、`reminders_items`、`core_module_denials`、`core_avatar_images`、`core_push_subscriptions`（`core_push_mutes` 跟著手機刪）、`youtube_ai_keys`、`travel_members`、`travel_comments`、`travel_expenses`（`paid_by`）、`travel_expense_shares`、`travel_expense_payers`、`travel_settlements`（`from_user`、`to_user`）、`weather_places`、`transit_routes`；`core_invites.created_by` 也是 cascade。
   - 共用的表：`twitch_streamers`、`twitch_stream_events`、`youtube_channels`、`youtube_videos`、`youtube_translations`（發起人 `requested_by` 是 `on delete set null`，翻譯留給其他人）。
   - 新增依使用者的表照同樣寫，新增 core 以外的連帶刪除不用改 `deleteOwnAccount()`（core 不能 import 模組，連帶刪除只靠外鍵）。
 - 使用者 id 一律來自 `requireSession()`（Route Handler 是 `currentSession()`），當 service 函式的第一個參數（重新翻譯、上傳字幕要看角色，傳整個 session）；不從表單、網址或其他地方拿使用者 id。表單或網址送來的資料 id 只決定操作哪一筆。
@@ -233,7 +233,7 @@ AllHub Project：個人整合系統。
 
 - 讀取：各模組 `service/cached.ts`（通知在 `core/notifications/cached.ts`，管理頁在 `core/admin/cached.ts`；登入檢查不快取），函式開頭依序 `"use cache: remote"`、`cacheLife("db")`（外部資料見下一點，profile 都定義在 `next.config.ts`）、`cacheTag(...)`。只給頁面與輪詢 API 用；寫入流程、排程、翻譯鎖要讀最新資料，用原本的 service（service、cron、模組的 `web/actions*.ts` 與 `web/routes/`、core 的寫入流程都不能 import cached.ts）。例外：保留影片的 Server Action 用 `cachedVideoInfo()` 拿觀看頁讀過的 oEmbed 當標題快照（外部資料、只是顯示用的，不是寫入的判斷依據），經 `keepVideo()` 的 `lookup` 交給 service；交通的輪詢 API（`web/routes/live.ts`）用 `cachedRoutes()`、`cachedLive()`，每分鐘都會問，全部讀最新的會用掉資料庫與 TDX 的額度（`cache-rules.test.ts` 的 `ALLOWED_READS` 逐條列出）。
 - 一律 `use cache: remote`：Vercel 是 serverless，記憶體快取與 tag 失效跨不了實例。本機與測試自動退回記憶體快取。
-- 外部資料（Helix 的頭像與直播、頻道頁的頭像、oEmbed、HoYoLAB 的便箋、遊戲頭像、角色、開拓月曆、活動日曆、終局戰績、躍遷紀錄、證交所與櫃買中心的收盤價與除權息預告、氣象署的預報與警特報、環境部的空氣品質、Open-Meteo 的一週預報、TDX 的車站、時刻表、票價、行車時間與即時資料）**不存資料庫**，只放在 `service/cached.ts` 的快取：
+- 外部資料（Helix 的頭像、直播與開台時間表、頻道頁的頭像、oEmbed、HoYoLAB 的便箋、遊戲頭像、角色、開拓月曆、活動日曆、終局戰績、躍遷紀錄、證交所與櫃買中心的收盤價與除權息預告、氣象署的預報與警特報、環境部的空氣品質、Open-Meteo 的一週預報、TDX 的車站、時刻表、票價、行車時間與即時資料）**不存資料庫**，只放在 `service/cached.ts` 的快取：
   - 效期依資料變動的頻率：直播狀態 `live`（2 分鐘）、HoYoLAB 戰績類與天氣 `records`（30 分鐘）、即時便箋與天氣警特報 `external`（5 分鐘）、頭像、遊戲封面與 TDX 的票價、行車時間 `avatar`（一天）、收盤價與除權息預告 `quotes`（每小時重讀、最多 6 小時）、TDX 的即時資料 `board`（最多 1 分鐘）、TDX 的時刻表 `timetable`（半天重讀、最多一天）、TDX 的車站與捷運路線 `stations`（一天重讀、最多 30 天）。讀不到（被擋、出錯、資料不公開）時改用短效期 `external`，幾分鐘後再試：成功與失敗各一個 `cacheLife`，寫在讀完之後（收盤價與除權息預告只讀到其中一個來源時也用 `external`）。
   - tag 用各模組的 `<模組 id>:external`（沒有寫入點，靠效期更新，例如收盤價的 `savings:external`）；依附資料庫狀態的另外標那張表（例如直播狀態標 `twitch:streamers`，EventSub 寫入開台、關台時跟著重抓；HoYoLAB 的資料讀了帳號的 cookie，只標 `starrail:accounts`，星穹鐵道沒有 external tag）。
   - `starrail:accounts` 標著所有 HoYoLAB 的快取，只在帳號那一列真的改了時失效：排程用 `service/accounts.ts` 的 `trackingAccountChanges()` 記下有沒有改到（cookie 失效標記、開拓力提醒的狀態、重新加密），有改才 `expireTags()`；立即簽到由 `checkinAccount()` 回傳 `accountChanged`，有改才 `updateTags()`；兌換不寫資料庫，不失效。不然每小時的開拓力排程會讓頁面重查十幾個 HoYoLAB 端點。
@@ -311,6 +311,7 @@ AllHub Project：個人整合系統。
 - `youtube_saved_videos`（保留的影片）永久保留，直到使用者自己移除或刪除帳號：沒有清理排程，影片被清掉、頻道沒人追蹤時都不刪（跟影片表沒有外鍵）；只有清單滿了時先擠掉最舊的自動項目（見〈YouTube〉）。
 - 信用卡帳單 `savings_card_bills` 每張卡只留最新 5 張：`savings:recurring` 每天清掉更舊的（`pruneCardBills()`），填帳單時補的那一筆紀錄留著、`card_bill_id` 由外鍵改成 null。
 - 除權息通知的寄送紀錄 `savings_dividend_notices`（一個人一檔一個除息日一列）在除息日過了之後由 `savings:dividends` 刪掉。
+- 資產走勢每天的投資市值 `savings_asset_days` 只留圖上看得到的 30 天（使用者選的近 30 天）：`savings:trend` 每天清掉更早的，不分使用者（停用的人也清，圖上本來就看不到）。
 - 旅遊的旅程 `travel_trips` 回程 7 天後由 `travel:cleanup` 刪掉（使用者要的，`lib/rules.ts` 的 `RETENTION_DAYS`，照台北日期，第 7 天還在），項目、留言、清單與成員跟著外鍵刪；沒有成員的旅程也一起清掉。
 - 提醒與倒數 `reminders_items` 不重複的日期過了之後由 `reminders:daily` 刪掉（台北 7 點多，只刪擁有者沒停用的），重複的留到使用者自己刪；卡片在快取外面用今天的台北日期過濾，排程跑之前就不顯示。
 - 自動兌換試過的兌換碼 `starrail_redeem_codes` 只記答案不會變的（success、already、expired、invalid），留到移除那個帳號；手動輸入的兌換碼與結果都不存。
@@ -375,6 +376,7 @@ AllHub Project：個人整合系統。
 
 ### Twitch
 - 追蹤每人一份（`twitch_follows`），主播與 EventSub 訂閱共用；頁面、直播預覽、側欄與開台紀錄只列自己追蹤的主播。開台紀錄只留開台（使用者的決定）：關台只把 `is_live` 從 true 改成 false（條件式 update，真的改了才讓 `twitch:streamers` 失效），不寫紀錄列、不通知；`twitch_stream_events.type` v0.2.8 刪掉了，以前留下的關台列在 v0.2.7 的 migration 刪掉了。站內與 Twitch 的網址、`normalizeLogin()`（帳號、@帳號或頻道網址）在 `lib/urls.ts`；訂閱失敗寫進狀態的開頭是 `lib/subscriptions.ts` 的 `SUBSCRIPTION_FAILED`。
+- 開台時間表（使用者要的「清單＋詳情」，`lib/schedule.ts`、`web/components/stream-schedule.tsx`）：Helix 的 `schedule` 一次一位主播（`cachedSchedule()`，大家共用，讀到的 `records`、讀不到 `external`），主播沒有設定時 Twitch 回 404，當成沒有排、不算讀不到；取消的（`canceled_until`）與休假期間的不列。追蹤的頻道清單裡離線的主播把「離線」換成下次開台（今天、明天、一週內寫星期、再遠寫日期，`nextStartText()`），主播詳情的右欄列出接下來最多 5 次與休假（`SchedulePanel`，沒設定憑證時不放）。格式照 Twitch 的 Scheduling Broadcasts 指南，**尚未用真實的主播驗證**。
 - 畫面用的 Helix（`users` 頭像與離線橫幅、`streams` 直播狀態與預覽圖、`games` 封面）一次查多位主播；快取函式先用 `core/env.ts` 的 `hasTwitchEnv()` 判斷，沒設定憑證或出錯都回 null，畫面退回資料庫存的頭像與 `is_live`，不顯示錯誤。直播中 = EventSub 寫的 `is_live` 或 Helix 查得到直播（剛開台時 Helix 常常還查不到）。
 - 直播預覽圖：卡片用 640x360（`previewUrl`），主播詳情的大面板用 1920x1080（`largePreviewUrl`：面板在 1080p 螢幕上約 1460px 寬、2 倍螢幕要約 2000 像素，直播本身多半是 1080p），打開詳情才載入；假服務照網址要的大小回應。
 - 加主播與手動同步前先看 `missingTwitchEnv()`：缺 `TWITCH_CLIENT_ID`／`SECRET` 回「尚未設定 Twitch 應用程式：請到 Vercel 的環境變數加上…」，缺其他的列出名稱，不讓使用者只看到「加入主播失敗（詳見伺服器 log）」。
@@ -523,9 +525,12 @@ AllHub Project：個人整合系統。
 - 複製行程文字（`web/trip-text.ts`、`copy-trip-button.tsx`）：⋮ 選單複製整趟，每一天的標題旁複製單日，貼到 LINE 給沒有帳號的親友看。時間、地點加 Google Maps 連結（使用者選的）：沒貼連結的地點用名稱與目的地查，交通與其他不放。想去的點不列，備註不帶出去（可能有訂位代號這類私人內容）。
 - 同行的人的名字與頭像讀自 `core_users`，所以 `cachedTrip` 另外標 `core:users`（`service/cache-tags.ts` 的 `usersTag`：快取檔不能 import `@/core/auth`，tag 放在模組自己的 cache-tags 轉一手）。
 - 地點：不接付費 API（使用者的決定）。`lib/maps.ts` 只解析貼上的 Google Maps 連結（名稱與座標，只收 Google 的網域）與組出開地圖的網址（查地圖、兩點之間的大眾運輸、整天路線最多 9 個中途點）；`maps.app.goo.gl` 短網址由伺服器用 `externalFetch(redirect: "manual")` 問一次，轉去的網址也要是地圖才採用，問不到就手動填。交通時間由使用者按「查路線」看完填回來。**尚未用真實連結驗證**。不做離線（使用者的決定）。
-- 分帳（使用者要的，每筆選貨幣換算台幣；`lib/expenses.ts`、`service/expenses.ts`、`web/expense-view.ts`、`web/components/expense-panel.tsx`、`expense-form.tsx`）：一筆帳是項目、誰付、金額、貨幣、匯率與哪些人平分，都是同行的人才能付或分（修改舊帳時已經離開的人留著），所有成員都能記、改、刪與按已結清，寫入都經 `inMemberTrip()`。
-  - 金額存外幣的分 `amount_cents`，匯率存百萬分之一 `rate_micros`（台幣是 1000000），換算後的台幣不存，用 `twdOf()` 算（BigInt，四捨五入到元），不然改匯率時對不起來；零頭照 id 順序一人多一元（`splitEvenly()`），誰來算都一樣。
-  - 誰給誰：`balancesOf()` 算出每個人的帳，`minimalTransfers()` 每次讓欠最多的還給應收最多的，筆數最少，結算一律用台幣。已結清寫一列 `travel_settlements`，復原就是刪掉；`settleTransfer()` 在交易裡重算一次，只收現在真的該給的那一筆，畫面太舊時回「帳有變動」。
+- 分帳（使用者要的，每筆選貨幣換算台幣；v0.2.11 參考 LINE 的分帳龍寶寶加了不平分、好幾個人付、日期與類別、每個人的帳與明細、記還款與複製結算；`lib/expenses.ts`、`service/expenses.ts`、`web/expense-view.ts`、`web/components/expense-panel.tsx`、`expense-form.tsx`、`repayment-form.tsx`）：一筆帳是項目、金額、貨幣、匯率、日期（`spent_on`）、類別（`category`，使用者選的八類 `EXPENSE_CATEGORIES`：餐飲、交通、住宿、門票、購物、娛樂、伴手禮、其他，舊帳沒有日期與類別，類別算其他）、誰付與怎麼分，都是同行的人才能付或分（修改舊帳時已經離開的人留著），所有成員都能記、改、刪、按已結清與記還款，寫入都經 `inMemberTrip()`。
+  - 金額存外幣的分 `amount_cents`，匯率存百萬分之一 `rate_micros`（台幣是 1000000），換算後的台幣不存，用 `twdOf()` 算（BigInt，四捨五入到元），不然改匯率時對不起來。
+  - 記帳視窗（使用者選的「分段切換」）：誰付的預設一個人（`paid_by`），切到「好幾個人」時每人填付了多少，加起來要剛好等於這一筆，存在 `travel_expense_payers`（一個人付時沒有列；`paid_by` 寫付最多的人，舊程式讀得懂，那個人刪除帳號時整筆跟著刪）；怎麼分是 `平分｜照金額｜照比例`（`split`，只決定表單怎麼顯示），每個人的 `travel_expense_shares.weight` 平分是 null、照比例是份數（1–99，`MAX_UNITS`）、照金額是外幣的分（加起來要剛好等於這一筆）。照金額與照比例在表單裡各自一組格子，照比例預設每人一份；日期預設手機的今天（人在國外也對）。
+  - 計算：一筆帳的台幣總數是付的人刷的加起來換算（`expenseParts()`），付的與分的兩邊都用 `allocate()` 照比例分：先取整數，剩下的零頭給小數最大的人，一樣大時照 id 順序，比例都一樣時就是以前的平分（一人多一元的規則不變），誰來算都一樣；付的人之一刪除帳號後只算還在的人付的，帳一樣平。`personTotals()` 算每個人付了、分攤與差額（扣掉還過的錢），`balancesOf()` 是它的差額。
+  - 誰給誰：`minimalTransfers()` 每次讓欠最多的還給應收最多的，筆數最少，結算一律用台幣。已結清與記還款都寫一列 `travel_settlements`，復原就是刪掉；`settleTransfer()` 在交易裡重算一次，只收現在真的該給的那一筆，畫面太舊時回「帳有變動」；記還款（`recordRepayment()`，參考分帳龍寶寶的還款）是任意金額的台幣整數，給與收的人要是這趟的人或還留在帳上的人。
+  - 畫面（使用者選的「由上到下四段」，`web/expense-view.ts` 的 `expenseBoard()`）：這趟總共與各類別（多的在前面）、每個人（付了、分攤、差額，點名字打開他的明細：付的、分到的與還款，參考分帳龍寶寶的帳目明細）、誰給誰（「複製結算」把旅程名稱、總共與誰給誰複製到 LINE，「記還款」，下面是還款紀錄可以復原）、每一筆照日期分組（新的日子在上面，出發前的併成一組，沒有日期的舊帳排最後，前面是類別圖示）。
   - 匯率手動填（使用者的決定，不接匯率 API），新增時預填這趟同一種貨幣最後用的（`lastRates()`）。
   - 成員離開後帳留著，名字由 `TripDetail.people` 讀（比 `members` 多了留在帳上的人），只有刪除帳號才跟著外鍵刪：那個人付的帳不見，他分的那一份由其他人重新平分，每一筆自己都是收支相抵，所以誰給誰永遠算得平。回程 7 天後跟旅程一起刪掉（寫在分帳的 i 圓圈）。
   - 畫面是第三個 `trv-fold`，平常收起來，標題列寫「你要付 $X」；其他成員靠行程更新通知知道（`announce()`）。
@@ -533,7 +538,7 @@ AllHub Project：個人整合系統。
 ### 理財（savings）
 - 模組 id、網址與資料表前綴沿用 `savings`，名稱是「理財」。六個分頁照東西分（使用者的決定）：總覽 `/savings`、紀錄 `/savings/records`、帳戶 `/savings/accounts`、投資 `/savings/investments`、每月固定 `/savings/recurring`、設定 `/savings/settings`，共用 `web/components/page-frame.tsx`（外框、頁首的 `actions` 與 `StreamSection`；整頁是 `FOCUS_FRAME`）與 `savings-nav.tsx`（手機放不下時橫向捲動，目前的分頁捲進畫面）。
   - 網址集中在 `web/paths.ts`（`SAVINGS_PATHS`）：`addAccountPath(kind)`（帳戶頁 `?add=deposit|credit`、投資頁 `?add=investment`）打開就跳出新增的視窗，`addRecurringPath(preset)`（每月固定頁 `?add=salary|regular-buy|subscription|other`），`editRecurringPath(id)`（每月固定頁 `?edit=<id>`，只認自己的）打開那一條的修改視窗；打開後用 `router.replace` 拿掉參數（`settings/open-from-link.ts`）。設定頁的舊網址 `?add=account`、`?recurring=<id>` 轉到新頁面。紀錄頁收 `?month=`、`?account=`、`?category=`（只認自己的帳戶與分類），網址一律用 `recordsHref()` 組（只帶月份的是 `monthHref()`）。
-- 資料表：帳戶 `savings_accounts`（deposit／investment／credit，只存自己取的名稱與金額，不存帳號、卡號；用途是帳戶上的文字 `label`；信用卡另有結帳日 `statement_day`、扣款帳戶、自動扣繳 `autopay`、卡面顏色 `card_style`）、分類 `savings_categories`（收入／支出，支出可設每月預算，圖示 `icon`）、紀錄 `savings_transactions`（income／expense／transfer／adjust）、固定收支 `savings_recurring`、持股 `savings_holdings`、信用卡帳單 `savings_card_bills`、除權息通知的寄送紀錄 `savings_dividend_notices`、資產走勢每月的投資市值 `savings_asset_snapshots`。
+- 資料表：帳戶 `savings_accounts`（deposit／investment／credit，只存自己取的名稱與金額，不存帳號、卡號；用途是帳戶上的文字 `label`；信用卡另有結帳日 `statement_day`、扣款帳戶、自動扣繳 `autopay`、卡面顏色 `card_style`）、分類 `savings_categories`（收入／支出，支出可設每月預算，圖示 `icon`）、紀錄 `savings_transactions`（income／expense／transfer／adjust）、固定收支 `savings_recurring`、持股 `savings_holdings`、信用卡帳單 `savings_card_bills`、除權息通知的寄送紀錄 `savings_dividend_notices`、資產走勢每天的投資市值 `savings_asset_days`。
   - 用途 `label` 跟名稱一樣正規化、最多 20 字，選填。分類的 `icon` 只收 `lib/kinds.ts` 的 `CATEGORY_ICONS`（Lucide 圖示名稱 → 中文），沒有或不認得的照類型用預設圖示（`categoryIconOf()`）；資料庫不檢查，清單可以增減。卡面顏色只收 `CARD_STYLES`（資料庫有 check），沒選的照信用卡建立的順序輪流、跳過別張選走的顏色（`accounts-view.ts` 的 `cardStyles()`）。
 - 金額是新台幣整數（1 元～1 億）。紀錄的 amount 一律是正數、方向看 kind；只有 adjust（更新餘額、帳單差額）帶正負號。轉帳是一列：`account_id` 轉出、`counter_account_id` 轉入。
 - 餘額＝起始餘額＋收入－支出－轉出＋轉入＋調整。信用卡的餘額是負的（未繳＝max(0, －餘額)，正的是溢繳）。正負號只寫在 `lib/ledger.ts` 的 `shownFigure`、`balanceFromFigure`、`balanceAdjustment`，表單的試算與伺服器共用。
@@ -601,12 +606,12 @@ AllHub Project：個人整合系統。
   - 認領：`savings_dividend_notices` 一個人一檔一個除息日一列，有這一列就是公布寄過了，`amount_notified`、`reminded` 記金額與最後買進日。沒有列時 insert … on conflict do nothing、有列時條件式 update（舊的記號相同才改），同時跑的排程只有一個認領得到；寄不出去用 core 的 `sendOrRelease()` 放掉（刪掉新的那一列或把記號改回）。每次先刪掉除息日過了的列；預告表每次讀最新的、不走快取，沒有持股時不讀。摘要只有數字，log 只記錯誤種類與 id。
   - 投資頁的卡片（`components/investments/dividends-card.tsx`，資料整理在 `web/dividends-view.ts`）：摘要下面（超寬螢幕在右邊一欄、摘要與定期定額之間）列出持股之後要除權息的：代號、名稱、上下兩行「11/18 除息」與「還有 20 天」（今天、明天直接寫，最後買進日那天寫「今天最後買進」，`format.ts` 的 `dividendDateLines()`），右邊是估計金額與每股配息，還沒公布寫「金額還沒公布」；沒有要除權息的持股時整張不顯示，讀不到時是 `EmptyState`「除權息預告暫時無法讀取」。`cachedDividends()` 跟收盤價同時讀、同一套快取規則（排序去重的代號當 key、`quotes` 效期、讀不到或只讀到一個來源用 `external`）。骨架照沒有這張卡片的樣子（只在快到除息日時出現）。
 - 通知（`service/notices.ts`，`savings:recurring` 寄給擁有者，連到 `/savings`）：confirm 的固定收支某一期的日期是今天（「今天到期：<名稱> $金額」，薪水是「今天發薪：記得確認實際金額」）；信用卡結帳隔天還沒填帳單（「<卡名> 已結帳：照帳單填金額與截止日」），填了之後帳單的截止日（順延後）前 3 天還沒繳清（自動扣繳的寫「自動扣繳：本期 $X，記得確認」）。用 `last_notified_on`／`card_notified_on` 條件式 update 認領，同一天只寄一次，寄不出去退回；log 只記錯誤種類與 id。
-- 快取：一張表一個 tag（`savings:accounts`、`categories`、`recurring`、`transactions`、`holdings`、`bills`、`snapshots`），加上收盤價與除權息預告的 `savings:external`；紀錄一改，餘額、統計與明細都重算。刪除會連帶改到別張表時一起失效（刪除帳戶：紀錄、固定收支、持股、帳單；刪除紀錄：持股、固定收支、帳單；刪除持股：固定收支、紀錄），對照表在 `web/__tests__/actions.cache.test.ts`。
-- 資產走勢（使用者要的，總覽左欄這個月要做的事下面（使用者選的：左欄比較寬，兩欄也差不多高），`components/dashboard/asset-trend-chart.tsx`、`lib/trend.ts`、`service/trend.ts`）：使用者選的「回推＋每月記一筆」與「疊起來的長條」。最近 12 個月（從最早的啟用中存款或投資帳戶那個月起）每月一根，下面存款（`--fin-deposit` 藍）上面投資（`--fin-investment` 金），頂端就是總資產，滑過或鍵盤移到哪個月寫出金額，點了到紀錄頁看那個月，下面有表格檢視。
-  - 存款一律照紀錄回推月底的餘額（起始餘額加到那個月為止的流量，帳戶建立前的月份不算，事後補記也算得進去）；投資有排程記下市值的月份用 `savings_asset_snapshots`，沒有的月份用帳上的數字（有持股的是買進成本，讀數與表格寫「照成本」，證交所不准程式下載歷史股價）；這個月用總覽上面的總資產（`assetSummary()`）。信用卡與停用的帳戶不算，跟總資產一樣。
-  - `savings_asset_snapshots` 每人每月一列（主鍵 `user_id`、`month`，`month` 是 1 號），只存投資市值（`bigint`）。排程 `savings:trend`（台北 00:45，在 `savings:recurring` 之後）每天覆蓋前一天那個月的那一列，月底那天跑完就是那個月最後的市值；跟頁面同一套算法（`investmentTotals()`＋`assetSummary()`），有一檔讀不到收盤價時那個人今天略過（不把成本當市值），擁有者停用或沒有理財權限的略過（那幾個月畫面照成本算）；收盤價讀不到時回報系統狀態的 `savings:quotes`。摘要只有人數。
-  - 每月收支與資產走勢共用 `components/dashboard/month-chart.tsx` 的 `MonthChart`（刻度、月份、滑過的讀數、每月的連結與表格只寫一份，長條由各自畫）。
-- 記帳資料永久保留（帳單除外，見〈資料保留〉），不加清理排程；刪除帳號時一起刪。資產走勢的每月一列也是。
+- 快取：一張表一個 tag（`savings:accounts`、`categories`、`recurring`、`transactions`、`holdings`、`bills`、`asset-days`），加上收盤價與除權息預告的 `savings:external`；紀錄一改，餘額、統計與明細都重算。刪除會連帶改到別張表時一起失效（刪除帳戶：紀錄、固定收支、持股、帳單；刪除紀錄：持股、固定收支、帳單；刪除持股：固定收支、紀錄），對照表在 `web/__tests__/actions.cache.test.ts`。
+- 資產走勢（使用者要的，總覽左欄這個月要做的事下面（使用者選的：左欄比較寬，兩欄也差不多高），`components/dashboard/asset-trend-chart.tsx`、`lib/trend.ts`、`service/trend.ts`）：使用者選的「疊起來的長條」，v0.2.11 改成「近 30 天每天記一筆」（v0.2.10 是最近 12 個月每月一根）。最近 30 天（`TREND_DAYS`，從最早的啟用中存款或投資帳戶那天起）每天一根，下面存款（`--fin-deposit` 藍）上面投資（`--fin-investment` 金），頂端就是總資產，底下的日期從今天往回每 7 天寫一個（30 根時一欄很窄），滑過或鍵盤移到哪一天寫出金額，點了到紀錄頁看那天的那個月（紀錄頁照月份篩），下面有表格檢視。
+  - 存款一律照紀錄回推那天結束時的餘額：現在的帳上餘額（每月的流量加總）扣回那天之後的每天流量（`service/transactions.ts` 的 `accountDayFlows()`，只讀圖的第一天 `trendStart()` 起），帳戶建立前的日子不算，事後補記也算得進去；投資有排程記下市值的日子用 `savings_asset_days`，沒有的日子用帳上的數字（有持股的是買進成本，讀數與表格寫「照成本」，證交所不准程式下載歷史股價）；今天用總覽上面的總資產（`assetSummary()`）。信用卡與停用的帳戶不算，跟總資產一樣。
+  - `savings_asset_days` 每人每天一列（主鍵 `user_id`、`day`），只存投資市值（`bigint`）。排程 `savings:trend`（台北 00:45，在 `savings:recurring` 之後）記下前一天的市值（同一天重跑覆蓋那一列），先清掉圖上看不到的舊日子（見〈資料保留〉）；跟頁面同一套算法（`investmentTotals()`＋`assetSummary()`），有一檔讀不到收盤價時那個人今天略過（不把成本當市值），擁有者停用或沒有理財權限的略過（那幾天畫面照成本算）；收盤價讀不到時回報系統狀態的 `savings:quotes`。摘要只有人數與清掉的筆數。
+  - 每月收支與資產走勢共用 `components/dashboard/bar-chart.tsx` 的 `BarChart`（刻度、底下的日期、滑過的讀數、每一根的連結與表格只寫一份，長條由各自畫）；一根是一個月還是一天由 `axis` 決定（每月收支用 `monthAxis()`，資產走勢在自己的檔案寫一天一根的）。
+- 記帳資料永久保留（帳單與資產走勢除外，見〈資料保留〉），不加清理排程；刪除帳號時一起刪。
 - 測試共用的假資料：`dev/fixtures.ts`（帳戶、固定收支、每月與每天的流量、這個月要做的事的一件、`userError()`，不載入資料庫）與 `dev/db-fixtures.ts`（`savingsRows()` 寫進 PGlite、`dateParams()`）。
 
 ## 部署
@@ -618,7 +623,7 @@ AllHub Project：個人整合系統。
   - migration 不累積（使用者的決定）：資料夾只留基準檔 `0000_baseline`（v0.1.6 以前的 0000 到 0013 壓成的）與還沒併進去的這一版 migration。上一版的 migration 確認套用到正式資料庫後，下一版開始時把它併進基準檔：用 `drizzle-kit generate` 從現在的 schema 重新產生（另外指定輸出資料夾），欄位順序調成跟正式資料庫一樣，再把兩種方式建出來的資料庫逐項比對（表、欄位與順序、預設值、identity、約束、索引、RLS、sequence；刪過欄位的表在正式資料庫的欄位編號有空號，比相對順序，跟著刪掉的 check 也要拿掉），一樣才換掉；journal 的 `when` 等於正式資料庫最後套用的那一個（drizzle 只套時間比最後一筆晚的，正式資料庫會略過基準檔；測試另外模擬這件事）。舊檔留在 git 歷史裡。因此只能從上一版升級，更舊的要先升到上一版。
   - 收斂（刪舊欄位或舊表、把 `user_id` 改成 NOT NULL、刪掉舊索引）要等舊程式不再上線之後的版本，改成 NOT NULL 前先把 null 的列補回或刪掉。drizzle 的查詢會明列 schema 裡的每個欄位，所以刪欄位要分兩版：先從 schema 拿掉（migration 手動去掉 DROP），再下一版才刪。db-migrate 用 GitHub Secrets 的 `MIGRATION_DATABASE_URL`（Session pooler 5432），網站用 `DATABASE_URL`（Transaction pooler 6543）。
     - 例外：v0.1.8 由使用者同意一次做完（`0001_weather_cleanup` 直接刪掉主播表與頻道表的舊 `notify_enabled`、`youtube_settings` 的三個 `*_key_hint`、`savings_accounts.purpose_id` 與 `savings_purposes`、`core_notifications_unread_idx`，`user_id` 先刪掉 null 的列再改成 NOT NULL）。代價：推上 main 後到新版部署完成前（大約一兩分鐘），還在線上的 v0.1.7 讀寫到被刪的欄位會出錯，理財、Twitch、YouTube 的頁面與 webhook 都受影響（Twitch、YouTube 會重送 webhook）；所以推送時避開排程的時段（台北 0 點到 7 點）、不要正在用網站，之後也不能回到 v0.1.7。之後的版本照舊分兩版。
-- v0.2.7 從 schema 拿掉的欄位（理財分類的顏色、信用卡的舊截止日、關台紀錄的種類、YouTube 設定表的六個 API Key 與模型欄位、翻譯的舊批次欄位）v0.2.8 的 migration 刪掉了；`youtube_settings` 的主鍵 v0.2.8 換成 `user_id`，舊的 `id` 欄 v0.2.9 刪掉（schema 早就沒有它，drizzle 不會產生，migration 手寫 `DROP COLUMN` 並列進 `ALLOWED_CONVERGENCE`）。
+- v0.2.7 從 schema 拿掉的欄位（理財分類的顏色、信用卡的舊截止日、關台紀錄的種類、YouTube 設定表的六個 API Key 與模型欄位、翻譯的舊批次欄位）v0.2.8 的 migration 刪掉了；`youtube_settings` 的主鍵 v0.2.8 換成 `user_id`，舊的 `id` 欄 v0.2.9 刪掉（schema 早就沒有它，drizzle 不會產生，migration 手寫 `DROP COLUMN` 並列進 `ALLOWED_CONVERGENCE`）。v0.2.11 資產走勢改成每天一列（`savings_asset_days`），舊的 `savings_asset_snapshots` 從 schema 拿掉、資料庫還留著，下一版的 migration 手寫 `DROP TABLE` 並列進 `ALLOWED_CONVERGENCE`（`account-deletion.integration.test.ts` 的種子資料一起拿掉）。
 - 不能回滾、只能往前修：有成員之後不能回到多人化以前的版本（v0.1.0）；v0.1.6 起也不能回到 v0.1.5（舊程式不認得「到期請我確認」，會把薪水、定期定額這類固定收支照原日自動記帳，也看不到持股與帳單）；v0.1.8 起也不能回到 v0.1.7（migration 刪掉了 v0.1.7 的查詢會明列的欄位與表，Instant Rollback 也不要按）；v0.2.2 起也不能回到 v0.2.0（刪掉了 `zh_captions`，回到 v0.2.1 可以）。細節在 `docs/deploy.md` 的〈回滾與部署保護〉與〈之後的部署〉。
 - 第一次部署的順序（網頁操作）：Supabase 建專案 → Vercel 匯入並填環境變數 → GitHub Secrets 填 `MIGRATION_DATABASE_URL`、`CRON_SECRET`、`HUB_URL` → 重新部署 → 手動跑 db-migrate → `npm run account create`（依提示貼上 Session pooler 連線字串，第一個帳號是站長）→ 登入 → 在「管理」頁用邀請連結邀請其他人。帳號一定在 migration 之後建立。
 - 密鑰正本就是 Vercel 的環境變數與 GitHub Secrets（步驟見 `docs/secrets.md`）；Vercel 的環境變數改完要重新部署才生效。換 `ENCRYPTION_KEY`（都在 Vercel 網頁上）：舊值複製到 `ENCRYPTION_KEY_PREVIOUS` → 設新值 → 重新部署 → 等 reencrypt 排程回報 0 筆、沒有失敗 → 刪掉 `ENCRYPTION_KEY_PREVIOUS` 再重新部署。
@@ -630,7 +635,7 @@ AllHub Project：個人整合系統。
   - `starrail:redeem` 每天一條（UTC 04:00＝台北 12:00；`modules/__tests__/cron.test.ts` 檢查只有一條）。
   - `weather:rain` 每天一條（UTC 22:00＝台北 06:00，只保證在那個小時內；`modules/__tests__/cron.test.ts` 檢查只有一條、在那個小時）。
   - `savings:dividends` 每天一條（UTC 00:00＝台北 08:00，9 點開盤前；同樣檢查只有一條、在那個小時）。
-  - `savings:trend` 每天一條（UTC 16:45＝台北 00:45，`savings:recurring` 之後，記前一天那個月的投資市值）。
+  - `savings:trend` 每天一條（UTC 16:45＝台北 00:45，`savings:recurring` 之後，記前一天的投資市值、清掉 30 天以前的）。
   - `reminders:daily` 每天兩條（UTC 23:00＝台北 07:00、UTC 04:00＝台北 12:00：中午那一次補寄早上沒寄出去的，排程不只一條才會有下一次，不然寄不出去的提醒隔天就被刪掉）。
   - `weather:warnings` 同一個路徑每個 UTC 小時各一條（24 條，共 66 條，`modules/__tests__/cron.test.ts` 也檢查總數在 100 條內）。
   - 排程的 route 沒有設 `maxDuration`，靠 Vercel 的 Fluid compute 預設 300 秒（Hobby）：`youtube:cleanup`（外部請求最多 60 秒）、`starrail:redeem`（約 45 秒）、`weather:rain`、`weather:warnings`（讀全台資料最多等 15 秒）、`savings:dividends`（兩個預告表各最多等 15 秒）都要它開著，關掉時預設只有 10 秒。

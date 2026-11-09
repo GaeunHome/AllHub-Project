@@ -4,7 +4,7 @@ import type { GameArt, LiveStream, StreamerProfile } from "../lib/visuals";
 import type { FollowedStreamer } from "../data/schema";
 import { twitchTags } from "./cache-tags";
 import { listFollowedStreamers, recentEvents } from "./streamers";
-import { gameArt, liveStreams, streamerProfiles } from "./visuals";
+import { gameArt, liveStreams, streamSchedule, streamerProfiles, type ScheduleRead } from "./visuals";
 
 // 寫入流程與排程要讀最新資料 直接用 streamers.ts
 // userId 來自 session 是快取 key 只讀到自己追蹤的
@@ -52,4 +52,14 @@ export async function cachedGameArt(gameIds: string[]): Promise<GameArt[] | null
   if (art) cacheLife("avatar");
   else cacheLife("external");
   return art;
+}
+
+/** 一位主播一份 大家共用 時間表不常改 讀到的留 30 分鐘 */
+export async function cachedSchedule(broadcasterId: string): Promise<ScheduleRead> {
+  "use cache: remote";
+  cacheTag(twitchTags.external);
+  const read = await streamSchedule(broadcasterId);
+  if (read.schedule) cacheLife("records");
+  else cacheLife("external");
+  return read;
 }

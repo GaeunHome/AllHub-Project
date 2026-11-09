@@ -114,6 +114,12 @@ npm run account create
 - 一般的部署不會讓登入失效。只有換 `SESSION_SECRET`、改密碼或重建資料庫才會。
 - 每一版改了什麼見 [更新紀錄](../CHANGELOG.md)；下面是升級時要注意的事。
 - **只能從上一版升級**：`src/core/db/migrations/` 只留基準檔 `0000_baseline`（之前的 migration 合併成的）與這一版的 migration，每一版開始時把上一版的併進基準檔，GitHub 上不會一直累積。基準檔的時間戳記等於正式資料庫最後套用的那一個，db-migrate 會略過它，只套新的。所以正式資料庫要先在上一版：更舊的版本先部署上一版的標籤（例如 `v0.1.6`）跑完 db-migrate 再升級；舊版各自的升級說明在那個標籤的 `docs/deploy.md`。
+- **從 v0.2.10 升級到 v0.2.11**：一般的升級，推送前不用另外設定，排程與環境變數都沒變。
+  - db-migrate 套用 `0001_asset_days_expense_split`（`0001_asset_trend` 已經併進基準檔，基準檔的時間戳記等於它），一開始設 `lock_timeout = 5s`：新增資產走勢的 `savings_asset_days`（每人每天一列）與分帳的 `travel_expense_payers`（都開 RLS），`travel_expenses` 加上可以是 null 的 `spent_on`、`category` 與預設 `even` 的 `split`，`travel_expense_shares` 加上可以是 null 的 `weight`，只擴充、不刪不改。v0.2.10 的 `savings_asset_snapshots` 留著、不再讀寫（部署空窗期還在線上的 v0.2.10 會讀它），下一版刪掉。
+  - 部署空窗期還在線上的 v0.2.10 記的帳沒有日期與類別，新版照舊帳顯示（沒有日期、類別算其他），可以再修改補上。
+  - 資產走勢改成近 30 天：上線後第一次跑 `savings:trend`（台北 00:45）之前，每一天的投資照成本算，之後每天多一天市值。
+  - 部署比 db-migrate 先完成時：總覽的資產走勢讀不到新表，只有那張卡片顯示讀不到、可以重試；旅程頁讀不到分帳的新欄位會顯示錯誤；其他照常，db-migrate 跑完（通常幾十秒）重新整理就好。
+  - 要退回 v0.2.10 時可以用 Instant Rollback：它讀寫的舊表還在；退回後好幾個人付、照金額或照比例的帳會被舊程式當成付最多的人付整筆、勾到的人平分，帳會不準，要等再升回來。
 - **從 v0.2.9 升級到 v0.2.10**：一般的升級，推送前不用另外設定，環境變數沒變。
   - db-migrate 套用 `0001_asset_trend`（`0001_announcement_pin` 已經併進基準檔，基準檔的時間戳記等於它），一開始設 `lock_timeout = 5s`：只新增資產走勢的 `savings_asset_snapshots`（開 RLS），不動既有的表。
   - 排程多一條 `savings:trend`（每天台北 00:45，`vercel.json` 已經寫好，部署後 Vercel 自動加上，共 66 條）。第一次跑完之前，資產走勢的投資照成本算。

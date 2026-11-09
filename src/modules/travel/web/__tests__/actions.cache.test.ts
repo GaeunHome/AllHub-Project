@@ -13,7 +13,7 @@ vi.mock("../../service/expenses", { spy: true });
 const trips = mocksOf(await import("../../service/trips"), "createTrip", "updateTrip", "deleteTrip", "leaveTrip", "removeMember", "setJoinLink", "joinTrip");
 const items = mocksOf(await import("../../service/items"), "addItem", "updateItem", "deleteItem", "moveItem");
 const extras = mocksOf(await import("../../service/extras"), "addComment", "deleteComment", "addCheck", "setCheckDone", "deleteCheck");
-const expenses = mocksOf(await import("../../service/expenses"), "addExpense", "updateExpense", "deleteExpense", "settleTransfer", "undoSettlement");
+const expenses = mocksOf(await import("../../service/expenses"), "addExpense", "updateExpense", "deleteExpense", "settleTransfer", "recordRepayment", "undoSettlement");
 const actions = await import("../actions");
 
 const MEMBER = "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f";
@@ -42,6 +42,7 @@ describe("旅遊的 Server Action：寫入後讓對應的 tag 失效", () => {
     ["updateExpenseAction", ["travel:expenses"], () => actions.updateExpenseAction({}, form({ tripId: "1", expenseId: "2" }))],
     ["deleteExpenseAction", ["travel:expenses"], () => actions.deleteExpenseAction(1, {}, form({ id: "2" }))],
     ["settleTransferAction", ["travel:expenses"], () => actions.settleTransferAction({}, form({ tripId: "1", from: MEMBER, to: MEMBER, amount: "100" }))],
+    ["recordRepaymentAction", ["travel:expenses"], () => actions.recordRepaymentAction({}, form({ tripId: "1", from: MEMBER, to: MEMBER, amount: "100" }))],
     ["undoSettlementAction", ["travel:expenses"], () => actions.undoSettlementAction({}, form({ tripId: "1", settlementId: "2" }))],
     ["addCheckAction", ["travel:checks"], () => actions.addCheckAction({}, form({ tripId: "1" }))],
     ["setCheckDoneAction", ["travel:checks"], () => actions.setCheckDoneAction({}, form({ tripId: "1", checkId: "2", done: "true" }))],

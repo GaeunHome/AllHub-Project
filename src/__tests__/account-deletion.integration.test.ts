@@ -55,6 +55,7 @@ async function seedEverything(userId: string, n: number) {
   await first(sql`insert into travel_comments (item_id, user_id, body) values (${stop.id}, ${userId}, '留言')`);
   const spending = await first(sql`insert into travel_expenses (trip_id, paid_by, title, amount_cents, currency, rate_micros) values (${trip.id}, ${userId}, '晚餐', 100000, 'TWD', 1000000) returning id`);
   await first(sql`insert into travel_expense_shares (expense_id, user_id) values (${spending.id}, ${userId})`);
+  await first(sql`insert into travel_expense_payers (expense_id, user_id, amount_cents) values (${spending.id}, ${userId}, 100000)`);
   await first(sql`insert into starrail_redeem_codes (account_id, code, result) values (${game.id}, 'STARRAILGIFT', 'success')`);
   const category = await first(sql`insert into savings_categories (user_id, kind, name, monthly_budget) values (${userId}, 'expense', '餐飲', 6000) returning id`);
   const deposit = await first(sql`insert into savings_accounts (user_id, name, kind, opening_balance) values (${userId}, '存款', 'deposit', 1000) returning id`);
@@ -74,6 +75,7 @@ async function seedEverything(userId: string, n: number) {
   );
   await first(sql`insert into savings_dividend_notices (user_id, symbol, ex_date) values (${userId}, '006208', '2026-11-18')`);
   await first(sql`insert into savings_asset_snapshots (user_id, month, investment) values (${userId}, '2026-10-01', 125000)`);
+  await first(sql`insert into savings_asset_days (user_id, day, investment) values (${userId}, '2026-11-08', 125000)`);
   await first(sql`insert into weather_settings (user_id, county) values (${userId}, '臺北市')`);
   await first(sql`insert into weather_places (user_id, kind, name) values (${userId}, 'county', '臺南市')`);
   await first(sql`insert into transit_routes (user_id, mode, origin_id, origin_name, destination_id, destination_name) values (${userId}, 'thsr', '1000', '台北', '1070', '左營')`);

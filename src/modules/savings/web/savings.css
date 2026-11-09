@@ -143,7 +143,7 @@
 .fin-bar-expense {
   background-color: var(--fin-expense);
 }
-/* 資產走勢一個月一根 下面存款上面投資 兩段照金額分 */
+/* 資產走勢一天一根 下面存款上面投資 兩段照金額分 */
 .fin-bar-stack {
   display: flex;
   width: min(60%, 1.75rem);
@@ -179,6 +179,12 @@
 .fin-chart-months > [data-current] {
   font-weight: 700;
   color: var(--ink);
+}
+/* 資產走勢一天一欄 日期比一欄寬 往兩邊伸出去才會對著那一根置中 */
+.fin-chart-day {
+  display: block;
+  margin-inline: -1.5rem;
+  white-space: nowrap;
 }
 .fin-table {
   @apply mt-3 w-full;

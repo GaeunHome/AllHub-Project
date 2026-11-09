@@ -7,9 +7,9 @@ vi.mock("../../lib/api", { spy: true });
 
 stubTwitchEnv();
 
-const api = mocksOf(await import("../../lib/api"), "getUsersById", "getLiveStreams", "getGames");
+const api = mocksOf(await import("../../lib/api"), "getUsersById", "getLiveStreams", "getGames", "getSchedule");
 const { TwitchApiError } = await import("../../lib/api");
-const { cachedGameArt, cachedLiveStreams, cachedStreamerProfiles } = await import("../cached");
+const { cachedGameArt, cachedLiveStreams, cachedSchedule, cachedStreamerProfiles } = await import("../cached");
 
 beforeEach(() => {
   api.getUsersById.mockReset().mockResolvedValue([
@@ -19,6 +19,7 @@ beforeEach(() => {
     { user_id: "1", title: "早安", game_id: "99", game_name: "Just Chatting", viewer_count: 12, started_at: "2026-10-08T10:00:00Z", thumbnail_url: "https://p/{width}x{height}.jpg" },
   ]);
   api.getGames.mockReset().mockResolvedValue([{ id: "99", name: "Just Chatting", box_art_url: "https://b/99-{width}x{height}.jpg" }]);
+  api.getSchedule.mockReset().mockResolvedValue({ data: { segments: [{ id: "s", start_time: "2026-11-13T12:00:00Z", end_time: "2026-11-13T15:00:00Z", title: "聊天", canceled_until: null, category: null, is_recurring: true }], vacation: null } });
 });
 
 describe("cachedStreamerProfiles：主播頭像與離線橫幅（外部資料，不存資料庫）", () => {
@@ -86,5 +87,42 @@ describe("cachedGameArt：遊戲封面", () => {
     expect(await cachedGameArt(["99"])).toEqual([{ id: "99", boxArtUrl: "https://b/99-72x96.jpg" }]);
     expect(tagged()).toEqual(["twitch:external"]);
     expect(cacheLife).toHaveBeenCalledWith("avatar");
+  });
+});
+
+describe("cachedSchedule：主播的開台時間表（使用者選的清單＋詳情）", () => {
+  it("一位主播一份，標 twitch:external，效期 30 分鐘（records）", async () => {
+    expect(await cachedSchedule("1")).toEqual({ configured: true, schedule: { segments: [{ start: "2026-11-13T12:00:00.000Z", end: "2026-11-13T15:00:00.000Z", title: "聊天", category: null }], vacation: null } });
+    expect(api.getSchedule).toHaveBeenCalledWith("1");
+    expect(tagged()).toEqual(["twitch:external"]);
+    expect(cacheLife).toHaveBeenCalledWith("records");
+  });
+
+  it("主播沒有設定時間表（Twitch 回 404，getSchedule 回 null）：空的，不算讀不到", async () => {
+    api.getSchedule.mockResolvedValue(null);
+
+    expect(await cachedSchedule("1")).toEqual({ configured: true, schedule: { segments: [], vacation: null } });
+    expect(cacheLife).toHaveBeenCalledWith("records");
+  });
+
+  it("Helix 出錯或格式不同：schedule 是 null，短效期，log 不記回應原文", async () => {
+    const log = captureErrorLog();
+    api.getSchedule.mockRejectedValue(new TwitchApiError(500, "GET /schedule失敗（500）：secret stuff"));
+
+    expect(await cachedSchedule("1")).toEqual({ configured: true, schedule: null });
+    expect(cacheLife).toHaveBeenCalledWith("external");
+    expect(loggedText(log)).not.toContain("secret stuff");
+
+    api.getSchedule.mockResolvedValue({ message: "unexpected" });
+    expect((await cachedSchedule("2")).schedule).toBeNull();
+  });
+
+  it("還沒設定 Twitch 憑證：不呼叫 Helix，畫面不顯示時間表", async () => {
+    vi.stubEnv("TWITCH_CLIENT_ID", "");
+
+    expect(await cachedSchedule("1")).toEqual({ configured: false, schedule: null });
+    expect(api.getSchedule).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+    stubTwitchEnv();
   });
 });

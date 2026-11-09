@@ -1,6 +1,6 @@
 {
-  "id": "6b19cc61-54a8-41af-81a4-66261713efcd",
-  "prevId": "f53510cf-4775-45cb-a00b-d554e942010c",
+  "id": "e1321fbd-0f67-4e1d-92e4-a8c23a3b7cab",
+  "prevId": "6b19cc61-54a8-41af-81a4-66261713efcd",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1309,8 +1309,8 @@
       },
       "isRLSEnabled": true
     },
-    "public.savings_asset_snapshots": {
-      "name": "savings_asset_snapshots",
+    "public.savings_asset_days": {
+      "name": "savings_asset_days",
       "schema": "",
       "columns": {
         "user_id": {
@@ -1319,8 +1319,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "month": {
-          "name": "month",
+        "day": {
+          "name": "day",
           "type": "date",
           "primaryKey": false,
           "notNull": true
@@ -1341,9 +1341,9 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "savings_asset_snapshots_user_id_core_users_id_fk": {
-          "name": "savings_asset_snapshots_user_id_core_users_id_fk",
-          "tableFrom": "savings_asset_snapshots",
+        "savings_asset_days_user_id_core_users_id_fk": {
+          "name": "savings_asset_days_user_id_core_users_id_fk",
+          "tableFrom": "savings_asset_days",
           "tableTo": "core_users",
           "columnsFrom": [
             "user_id"
@@ -1356,22 +1356,17 @@
         }
       },
       "compositePrimaryKeys": {
-        "savings_asset_snapshots_user_id_month_pk": {
-          "name": "savings_asset_snapshots_user_id_month_pk",
+        "savings_asset_days_user_id_day_pk": {
+          "name": "savings_asset_days_user_id_day_pk",
           "columns": [
             "user_id",
-            "month"
+            "day"
           ]
         }
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "savings_asset_snapshots_month_first_day": {
-          "name": "savings_asset_snapshots_month_first_day",
-          "value": "\"savings_asset_snapshots\".\"month\" is null or extract(day from \"savings_asset_snapshots\".\"month\") = 1"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": true
     },
     "public.savings_card_bills": {
@@ -3211,6 +3206,93 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
+    "public.travel_expense_payers": {
+      "name": "travel_expense_payers",
+      "schema": "",
+      "columns": {
+        "expense_id": {
+          "name": "expense_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "travel_expense_payers_user_id_idx": {
+          "name": "travel_expense_payers_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "travel_expense_payers_expense_id_travel_expenses_id_fk": {
+          "name": "travel_expense_payers_expense_id_travel_expenses_id_fk",
+          "tableFrom": "travel_expense_payers",
+          "tableTo": "travel_expenses",
+          "columnsFrom": [
+            "expense_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "travel_expense_payers_user_id_core_users_id_fk": {
+          "name": "travel_expense_payers_user_id_core_users_id_fk",
+          "tableFrom": "travel_expense_payers",
+          "tableTo": "core_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "travel_expense_payers_expense_id_user_id_pk": {
+          "name": "travel_expense_payers_expense_id_user_id_pk",
+          "columns": [
+            "expense_id",
+            "user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "travel_expense_payers_amount": {
+          "name": "travel_expense_payers_amount",
+          "value": "\"travel_expense_payers\".\"amount_cents\" > 0"
+        }
+      },
+      "isRLSEnabled": true
+    },
     "public.travel_expense_shares": {
       "name": "travel_expense_shares",
       "schema": "",
@@ -3226,6 +3308,12 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "weight": {
+          "name": "weight",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -3284,7 +3372,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "travel_expense_shares_weight": {
+          "name": "travel_expense_shares_weight",
+          "value": "\"travel_expense_shares\".\"weight\" is null or \"travel_expense_shares\".\"weight\" > 0"
+        }
+      },
       "isRLSEnabled": true
     },
     "public.travel_expenses": {
@@ -3332,6 +3425,25 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "spent_on": {
+          "name": "spent_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "split": {
+          "name": "split",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'even'"
         },
         "created_at": {
           "name": "created_at",
@@ -3423,6 +3535,14 @@
         "travel_expenses_currency": {
           "name": "travel_expenses_currency",
           "value": "\"travel_expenses\".\"currency\" ~ '^[A-Z]{3}$'"
+        },
+        "travel_expenses_category": {
+          "name": "travel_expenses_category",
+          "value": "\"travel_expenses\".\"category\" is null or \"travel_expenses\".\"category\" in ('food', 'transport', 'lodging', 'tickets', 'shopping', 'fun', 'souvenirs', 'other')"
+        },
+        "travel_expenses_split": {
+          "name": "travel_expenses_split",
+          "value": "\"travel_expenses\".\"split\" in ('even', 'amount', 'ratio')"
         }
       },
       "isRLSEnabled": true
@@ -4345,7 +4465,7 @@
       "checkConstraints": {
         "weather_settings_county": {
           "name": "weather_settings_county",
-          "value": "\"weather_settings\".\"county\" in ('臺北市', '新北市', '基隆市', '桃園市', '新竹市', '新竹縣', '苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣', '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣', '澎湖縣', '金門縣', '連江縣')"
+          "value": "\"weather_settings\".\"county\" in ('\u81fa\u5317\u5e02', '\u65b0\u5317\u5e02', '\u57fa\u9686\u5e02', '\u6843\u5712\u5e02', '\u65b0\u7af9\u5e02', '\u65b0\u7af9\u7e23', '\u82d7\u6817\u7e23', '\u81fa\u4e2d\u5e02', '\u5f70\u5316\u7e23', '\u5357\u6295\u7e23', '\u96f2\u6797\u7e23', '\u5609\u7fa9\u5e02', '\u5609\u7fa9\u7e23', '\u81fa\u5357\u5e02', '\u9ad8\u96c4\u5e02', '\u5c4f\u6771\u7e23', '\u5b9c\u862d\u7e23', '\u82b1\u84ee\u7e23', '\u81fa\u6771\u7e23', '\u6f8e\u6e56\u7e23', '\u91d1\u9580\u7e23', '\u9023\u6c5f\u7e23')"
         }
       },
       "isRLSEnabled": true
