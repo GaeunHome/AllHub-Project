@@ -10,7 +10,8 @@ import { MAX_AMOUNT } from "../lib/money";
 import type { MonthKey } from "../lib/month";
 import { monthToDate } from "../lib/month";
 import type { Quote } from "../lib/quotes";
-import { NOT_FOUND, SYMBOL_NOT_FOUND, isRowId, parseHoldingFields, parseHoldingUpdateFields, parseTradeFields, type TradeInput } from "../lib/validation";
+import { SYMBOL_NOT_FOUND, parseHoldingFields, parseHoldingUpdateFields, parseTradeFields, type TradeInput } from "../lib/holding-fields";
+import { NOT_FOUND, isRowId } from "../lib/validation";
 import {
   DUPLICATE_HOLDING,
   HOLDING_COST_TOO_LARGE,

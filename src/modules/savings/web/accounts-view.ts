@@ -1,6 +1,6 @@
 import { dueText, formatSlashDate } from "../lib/dates";
 import { ACCOUNT_KIND_LABELS, CARD_STYLES, type AccountKind, type CardStyle } from "../lib/kinds";
-import { bySortOrder, type AccountMonthFlow } from "../lib/ledger";
+import { accountStartDate, bySortOrder, type AccountMonthFlow } from "../lib/ledger";
 import { formatTwd } from "../lib/money";
 import { accountDetails, creditOverdue, type CreditDetail, type DepositDetail } from "./account-details";
 import type { AccountsInput, AccountsState, OverviewAccount } from "./accounts-state";
@@ -85,6 +85,7 @@ export const accountDraft = (account: OverviewAccount): AccountDraft => ({
   statementDay: account.statementDay,
   payFromAccountId: account.payFromAccountId,
   autopay: account.autopay,
+  startDate: accountStartDate(account),
 });
 
 /** 卡面下方的字 只寫自己設的 沒有卡號 */

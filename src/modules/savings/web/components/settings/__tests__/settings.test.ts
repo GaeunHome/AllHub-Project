@@ -9,16 +9,11 @@ vi.mock("@/core/ui/more-menu", () => import("@/dev/more-menu-stub"));
 // 刪除鈕 要看交給它的確認訊息
 vi.mock("@/core/ui/action-button", { spy: true });
 vi.mock("../../forms/setup-button", () => ({ SetupButton: () => createElement("button", { "data-form": "setup" }, "開始使用") }));
-vi.mock("../../../actions", () => ({
-  createCategoryAction: vi.fn(),
-  updateCategoryAction: vi.fn(),
-  moveCategoryAction: vi.fn(),
-  deleteCategoryAction: vi.fn(),
-}));
+vi.mock("../../../actions", () => ({ createCategoryAction: vi.fn(), updateCategoryAction: vi.fn(), moveCategoryAction: vi.fn(), deleteCategoryAction: vi.fn() }));
 
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
-const actions = await import("../../../actions");
+const actions = { ...(await import("../../../actions")) };
 const { CategoriesCard } = await import("../categories-card");
 
 const menuForms = (markup: string) => [...markup.matchAll(/<form[^>]*>((?:(?!<\/form>)[\s\S])*)<\/form>/g)].map((m) => m[1]).filter((form) => form.includes('class="menu-item'));

@@ -83,6 +83,8 @@ export const savingsAccounts = pgTable(
     label: text("label"),
     // 信用卡的卡面顏色
     cardStyle: text("card_style").$type<CardStyle>(),
+    // 開始記帳的台北日期 起始餘額是那天的 null 是舊帳戶 當成建立那天
+    startDate: date("start_date", { mode: "string" }),
   },
   (t) => [
     uniqueIndex("savings_accounts_user_name_idx").on(t.userId, t.name),

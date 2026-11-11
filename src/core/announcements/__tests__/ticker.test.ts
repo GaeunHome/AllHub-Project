@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TICKER_HIDDEN_ATTRIBUTE, TICKER_KEY, isTickerDismissed, tickerItems, tickerScript } from "../ticker";
+import { TICKER_HIDDEN_ATTRIBUTE, TICKER_KEY, isTickerDismissed, tickerItems, tickerScript, tickerSeconds } from "../ticker";
 
 const row = (values: Record<string, unknown>) => ({ id: 1, kind: "general" as const, title: "公告", body: "", startsAt: null, endsAt: null, pinned: false, createdAt: new Date("2026-11-01T00:00:00Z"), updatedAt: new Date("2026-11-01T00:00:00Z"), ...values });
 const now = new Date("2026-11-10T00:00:00Z");
@@ -48,5 +48,15 @@ describe("關掉跑馬燈（使用者要的：可以關掉 有新的或改過的
     };
 
     for (const [stored, keys] of [["1:100,2:200", ["1:100", "2:200"]], ["1:100", ["1:100", "3:300"]], [null, ["1:100"]], ["", ["1:100"]]] as const) expect(run(stored, [...keys])).toBe(isTickerDismissed(stored, keys));
+  });
+});
+
+describe("跑馬燈的速度（使用者要的：不管長短都要跑）", () => {
+  it("一秒走 60px：一份清單 1,800px 寬是 30 秒一輪", () => {
+    expect(tickerSeconds(1_800)).toBe(30);
+  });
+
+  it("短的也跑，不會停住：300px 寬也要 12 秒一輪，字才讀得完", () => {
+    expect(tickerSeconds(300)).toBe(12);
   });
 });

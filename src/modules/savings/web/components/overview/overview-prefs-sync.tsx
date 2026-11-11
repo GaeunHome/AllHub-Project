@@ -1,10 +1,10 @@
 "use client";
 
-import { useLayoutEffect, useSyncExternalStore } from "react";
+import { useLayoutEffect } from "react";
+import { useHydrated } from "@/core/ui/client-value";
 import { remainingSteps, type SetupStep } from "../../../lib/setup";
 import { applyOverviewPrefs, clearOverviewPrefs, overviewPrefsScript, readOverviewPrefs, setupCollapsedPref, setupSkippedPref } from "./overview-prefs";
 
-const noSubscribe = () => () => {};
 
 /**
  * 偏好存在瀏覽器 靠 html 的屬性讓第一次繪製就對
@@ -12,7 +12,7 @@ const noSubscribe = () => () => {};
  */
 export function OverviewPrefsSync({ pending }: { pending: SetupStep[] }) {
   // 伺服器算繪與 hydration 時是 true 只有整頁載入時才需要腳本 瀏覽器端產生的 script 不會執行
-  const serverRendered = useSyncExternalStore(noSubscribe, () => false, () => true);
+  const serverRendered = !useHydrated();
   const pendingKey = pending.join(",");
 
   // 站內換頁時在繪製前標好 之後跟著偏好更新 其他分頁改的也算

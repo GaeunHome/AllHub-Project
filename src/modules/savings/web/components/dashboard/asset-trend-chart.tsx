@@ -18,13 +18,11 @@ const dayAxis = (today: DateKey): ChartAxis<AssetTrendPoint> => ({
   tick: (point) => daysBetween(point.day, today) % LABEL_EVERY === 0 && <span className="fin-chart-day">{formatSlashDate(point.day)}</span>,
   current: (point) => point.day === today,
   href: (point) => monthRecordsHref(dateToMonth(point.day), dateToMonth(today)),
-  heading: "日期",
-  name: (point) => formatDay(point.day),
 });
 
 const investmentText = (point: AssetTrendPoint) => `${formatTwd(point.investment)}${point.atCost ? "（照成本）" : ""}`;
 
-/** 使用者選的近 30 天每天一根疊起來的長條 下面是存款 上面是投資 頂端就是總資產 */
+/** 使用者選的近 30 天每天一根疊起來的長條 下面是存款 上面是投資 頂端就是總資產 使用者要的沒有表格檢視 */
 export function AssetTrendChart({ points, today }: { points: AssetTrendPoint[]; today: DateKey }) {
   const chart = assetChart(points);
   return (
@@ -46,7 +44,6 @@ export function AssetTrendChart({ points, today }: { points: AssetTrendPoint[]; 
       }}
       readout={(point) => <Readout point={point} />}
       label={(point) => `${formatDay(point.day)}：總資產 ${formatTwd(point.total)}，存款 ${formatTwd(point.deposit)}，投資 ${investmentText(point)}，查看這個月的紀錄`}
-      table={{ headers: ["總資產", "存款", "投資"], cells: (point) => [formatTwd(point.total), formatTwd(point.deposit), investmentText(point)] }}
     />
   );
 }

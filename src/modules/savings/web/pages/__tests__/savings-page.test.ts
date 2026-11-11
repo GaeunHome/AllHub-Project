@@ -13,24 +13,11 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 vi.mock("../../../service/cached", { spy: true });
 vi.mock("../../overview-data", { spy: true });
 // 只看總覽把什麼交給表單 表單送出另外測
-vi.mock("../../actions", () =>
-  Object.fromEntries(
-    [
-      "addTransactionAction",
-      "allocateSalaryAction",
-      "buyHoldingAction",
-      "confirmOccurrenceAction",
-      "createHoldingAction",
-      "enterCardBillAction",
-      "payCardAction",
-      "sellHoldingAction",
-      "setupAction",
-      "skipOccurrenceAction",
-      "updateBalanceAction",
-      "updateHoldingAction",
-    ].map((name) => [name, vi.fn()]),
-  ),
-);
+vi.mock("../../actions", () => ({ setupAction: vi.fn() }));
+vi.mock("../../actions-records", () => ({ addTransactionAction: vi.fn(), allocateSalaryAction: vi.fn(), updateBalanceAction: vi.fn() }));
+vi.mock("../../actions-recurring", () => ({ confirmOccurrenceAction: vi.fn(), skipOccurrenceAction: vi.fn() }));
+vi.mock("../../actions-investments", () => ({ buyHoldingAction: vi.fn(), createHoldingAction: vi.fn(), sellHoldingAction: vi.fn(), updateHoldingAction: vi.fn() }));
+vi.mock("../../actions-cards", () => ({ enterCardBillAction: vi.fn(), payCardAction: vi.fn() }));
 
 const cached = mocksOf(
   await import("../../../service/cached"),

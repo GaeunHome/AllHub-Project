@@ -1,0 +1,173 @@
+/* core 的元件樣式 標籤 燈號 系統狀態的表 表單的訊息與選項卡 */
+
+/* 行高寫死 16px 放了字級較大的數字也一樣是 22px 高 */
+.chip {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  background-color: var(--surface-muted);
+}
+.chip-accent {
+  border-color: var(--accent-line);
+  color: var(--accent-ink);
+  background-color: var(--accent-soft);
+}
+.chip-brand {
+  border-color: var(--brand-line);
+  color: var(--brand-ink);
+  background-color: var(--brand-soft);
+}
+.chip-success {
+  border-color: var(--success-line);
+  color: var(--success);
+  background-color: var(--success-soft);
+}
+.chip-warning {
+  border-color: var(--warning-line);
+  color: var(--warning);
+  background-color: var(--warning-soft);
+}
+.chip-danger {
+  border-color: var(--danger-line);
+  color: var(--danger);
+  background-color: var(--danger-soft);
+}
+
+.status-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--muted);
+}
+.status-dot-md {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.status-dot-lg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+.status-dot-success {
+  background-color: var(--success-dot);
+}
+.status-dot-warning {
+  background-color: var(--warning-dot);
+}
+.status-dot-danger {
+  background-color: var(--danger-dot);
+}
+
+/* 系統狀態的兩張表 使用者選的白底清單 */
+/* 手機上每一列改成兩行 不用橫向捲動 */
+.status-table {
+  @apply w-full border-collapse text-left;
+}
+.status-table thead {
+  @apply sr-only;
+}
+.status-table tr {
+  @apply grid items-baseline gap-x-4 gap-y-1 px-5 py-3 sm:px-6;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name when" "result took";
+}
+.status-table tbody tr + tr {
+  border-top: 1px solid var(--line);
+}
+.status-table th,
+.status-table td {
+  @apply p-0 font-normal text-ink;
+}
+.status-name {
+  grid-area: name;
+}
+.status-result {
+  grid-area: result;
+}
+/* 手機上結果在名稱下面 跟名稱的字對齊 燈號 0.75rem 加間距 */
+@media (width < 64rem) {
+  .status-table .status-result {
+    padding-left: 1.375rem;
+  }
+}
+.status-took {
+  grid-area: took;
+}
+.status-when {
+  grid-area: when;
+}
+.status-took,
+.status-when {
+  @apply text-right whitespace-nowrap tabular-nums;
+}
+@media (width >= 64rem) {
+  .status-table thead {
+    @apply not-sr-only;
+  }
+  .status-table thead th {
+    @apply px-3 py-2.5 text-sm font-semibold first:pl-6 last:pr-6;
+  }
+  .status-table thead th:nth-child(n + 3) {
+    @apply text-right;
+  }
+  .status-table tr {
+    @apply table-row p-0;
+  }
+  .status-table thead tr {
+    border-bottom: 1px solid var(--line);
+  }
+  .status-table tbody th,
+  .status-table tbody td {
+    @apply px-3 py-3 align-top first:pl-6 last:pr-6;
+  }
+  /* 兩張表的名稱欄一樣寬 結果從同一條線開始 */
+  .status-name {
+    width: 34%;
+  }
+  .status-took {
+    width: 7rem;
+  }
+  .status-when {
+    width: 11rem;
+  }
+}
+
+.form-message {
+  @apply inline-flex items-start gap-1.5 self-start rounded-lg px-3 py-1.5 text-sm;
+}
+.form-message > .icon {
+  @apply mt-0.5 size-4;
+}
+/* 跟按鈕排在同一列的錯誤 例如儲存鈕旁邊的 要跟按鈕垂直置中 */
+.button-row > .form-message {
+  align-self: center;
+}
+.form-message-error {
+  color: var(--danger);
+  background-color: var(--danger-soft);
+}
+.form-message-success {
+  color: var(--success);
+  background-color: var(--success-soft);
+}
+.choice-card {
+  @apply flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-soft);
+  background-color: var(--surface-solid);
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+.choice-card:hover {
+  border-color: var(--muted);
+}
+.choice-card:has(:checked) {
+  @apply font-semibold;
+  border-color: var(--brand);
+  color: var(--brand-ink);
+  background-color: var(--brand-soft);
+  box-shadow: 0 0 0 1px var(--brand);
+}

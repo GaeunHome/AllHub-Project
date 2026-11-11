@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useSyncExternalStore } from "react";
+import { useActionState } from "react";
 import { ActionButton } from "@/core/ui/action-button";
+import { useClientValue } from "@/core/ui/client-value";
 import { CopyButton } from "@/core/ui/copy-button";
 import { FormFeedback, type FormState } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
@@ -11,11 +12,9 @@ import { UserAvatar } from "@/core/ui/user-avatar";
 import type { TripCheck, TripMember } from "../../service/trips";
 import { addCheckAction, deleteCheckAction, removeMemberAction, setCheckDoneAction, setJoinLinkAction } from "../actions";
 
-const noSubscribe = () => () => {};
-
 /** 連結只在瀏覽器組成完整網址 伺服器算繪時沒有這個網站的網址 */
 function useOrigin(): string {
-  return useSyncExternalStore(noSubscribe, () => window.location.origin, () => "");
+  return useClientValue(() => window.location.origin, "");
 }
 
 export function Members({ tripId, members, managerId, userId, joinPath }: { tripId: number; members: TripMember[]; managerId: string | null; userId: string; joinPath: string | null }) {

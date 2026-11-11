@@ -25,7 +25,7 @@ const holdings = mocksOf(await import("../../service/holdings"), "listHoldings",
 const cards = mocksOf(await import("../../service/cards"), "payCard", "enterCardBill");
 const services = [accounts, categories, setup, transactions, recurring, holdings, cards];
 const allMocks = () => services.flatMap((service) => Object.values(service));
-const actions = await import("../actions");
+const actions = { ...(await import("../actions")), ...(await import("../actions-records")), ...(await import("../actions-recurring")), ...(await import("../actions-investments")), ...(await import("../actions-cards")) };
 
 const NOW = new Date("2026-10-14T04:00:00Z");
 const account = (id: number, name: string, kind: AccountKind = "deposit") => accountRow({ id, name, kind, userId: TEST_SESSION.id, createdAt: NOW });
@@ -67,6 +67,7 @@ const ACCOUNT_FIELDS = {
   payFromAccountId: "",
   statementDay: "",
   autopay: "",
+  startDate: "2026-10-01",
 };
 const ENTRY_FIELDS = { kind: "expense", accountId: "1", counterAccountId: "", categoryId: "11", amount: "120", date: "2026-10-14", note: "午餐" };
 const RULE_FIELDS = {

@@ -6,6 +6,13 @@ import { announcementWhen, importantFirst, inTicker } from "./rules";
 export type TickerItem = { key: string; kind: AnnouncementKind; title: string; when: string };
 
 export const TICKER_KEY = "allhub:announcements:ticker";
+
+/** 一秒走 60px 太短的也要 12 秒一輪 字才讀得完 */
+const PX_PER_SECOND = 60;
+const MIN_SECONDS = 12;
+
+/** 使用者要的 不管長短都一直跑 width 是一份清單的寬度 */
+export const tickerSeconds = (width: number): number => Math.max(MIN_SECONDS, width / PX_PER_SECOND);
 export const TICKER_HIDDEN_ATTRIBUTE = "data-ticker-hidden";
 
 /** key 帶修改時間 站長改過的算新的一則 關掉後會再出現 */

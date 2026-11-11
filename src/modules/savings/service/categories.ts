@@ -3,7 +3,8 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/core/db";
 import { savingsCategories, type SavingsCategory } from "../data/schema";
 import type { Direction } from "../lib/order";
-import { NOT_FOUND, isRowId, parseCategoryFields, parseCategoryKind } from "../lib/validation";
+import { parseCategoryFields } from "../lib/category-fields";
+import { NOT_FOUND, isRowId, parseCategoryKind } from "../lib/validation";
 import { DUPLICATE_NAME, SavingsUserError } from "./errors";
 import { allOf, moveWithin, nextSortOrder, valid, withUniqueName } from "./shared";
 

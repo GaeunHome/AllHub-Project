@@ -5,7 +5,7 @@ import { InfoTip } from "@/core/ui/info-tip";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
-import { updateTransactionAction } from "../../actions";
+import { updateTransactionAction } from "../../actions-records";
 import { CategoryChips, NoteField } from "./fields";
 import type { CategoryOption } from "./options";
 

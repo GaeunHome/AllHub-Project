@@ -88,7 +88,7 @@ export function BrokerageCard({ brokerage, depositAccounts, payFromAccounts, tod
         }
       />
       <Dialog {...edit.dialogProps} title={`修改「${brokerage.name}」`}>
-        <AccountForm account={brokerage.draft} payFromAccounts={payFromAccounts} onDone={edit.done} onCancel={edit.close} />
+        <AccountForm account={brokerage.draft} payFromAccounts={payFromAccounts} today={today} onDone={edit.done} onCancel={edit.close} />
       </Dialog>
       {hasHoldings ? (
         <Holdings holdings={brokerage.holdings} accounts={depositAccounts} today={today} minDate={brokerage.startDate} addTile={addTile} />

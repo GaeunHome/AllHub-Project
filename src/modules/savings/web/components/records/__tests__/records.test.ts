@@ -8,13 +8,13 @@ vi.mock("@/core/ui/dialog", { spy: true });
 vi.mock("@/core/ui/more-menu", () => import("@/dev/more-menu-stub"));
 // 刪除鈕 要看交給它的 action 與確認訊息
 vi.mock("@/core/ui/action-button", { spy: true });
-vi.mock("../../../actions", () => ({ deleteTransactionAction: vi.fn(), updateTransactionAction: vi.fn(), addTransactionAction: vi.fn() }));
+vi.mock("../../../actions-records", () => ({ deleteTransactionAction: vi.fn(), updateTransactionAction: vi.fn(), addTransactionAction: vi.fn() }));
 // 看代號有沒有用投資頁同一個樣子畫
 vi.mock("../../visuals", { spy: true });
 
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
-const actions = await import("../../../actions");
+const actions = { ...(await import("../../../actions-records")) };
 const { Ticker } = await import("../../visuals");
 const { RecordRow } = await import("../record-row");
 const { RecordList } = await import("../record-list");

@@ -9,7 +9,8 @@ import { MIN_DATE, latestOf, taipeiToday, type DateKey } from "../lib/dates";
 import { accountIdsOf, accountStartDate } from "../lib/ledger";
 import { monthToDate } from "../lib/month";
 import { dueMonths, occurrenceDate } from "../lib/recurring";
-import { NOT_FOUND, isRowId, parseConfirmFields, parseOccurrenceFields, parseRecurringFields, type RecurringFieldName, type RecurringInput } from "../lib/validation";
+import { parseConfirmFields, parseOccurrenceFields, parseRecurringFields, type RecurringFieldName, type RecurringInput } from "../lib/recurring-fields";
+import { NOT_FOUND, isRowId } from "../lib/validation";
 import { pruneCardBills } from "./cards";
 import { NOT_CONFIRM_MODE, PAY_FROM_NOT_DEPOSIT, PERIOD_DONE, RECURRING_INACTIVE, RULE_CHANGED, SALARY_INTO_CREDIT, SHARES_REQUIRED, SavingsUserError } from "./errors";
 import { lockOwnHolding, recordBuy } from "./holdings";
@@ -191,10 +192,10 @@ const NOTHING: PostResult = { posted: 0, skipped: 0, held: 0 };
  * 刪除使用者 帳戶或分類時會先鎖它再改固定收支 這裡也先鎖父列 反了會 deadlock
  * for key share 只擋刪除 不擋同時記帳
  */
-async function lockParents(tx: Executor, parents: RuleParents): Promise<{ id: number; active: boolean; createdAt: Date }[]> {
+async function lockParents(tx: Executor, parents: RuleParents): Promise<{ id: number; active: boolean; createdAt: Date; startDate: DateKey | null }[]> {
   await lockUserRow(tx, parents.userId, "key share");
   const accounts = await tx
-    .select({ id: savingsAccounts.id, active: savingsAccounts.active, createdAt: savingsAccounts.createdAt })
+    .select({ id: savingsAccounts.id, active: savingsAccounts.active, createdAt: savingsAccounts.createdAt, startDate: savingsAccounts.startDate })
     .from(savingsAccounts)
     .where(and(eq(savingsAccounts.userId, parents.userId), inArray(savingsAccounts.id, accountIdsOf(parents))))
     .orderBy(asc(savingsAccounts.id))

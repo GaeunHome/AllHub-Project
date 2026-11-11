@@ -15,13 +15,27 @@ const SOURCES: Source[] = [
 // 頁面在等 跟收盤價一樣各等 8 秒 排程沒有人在等 自己傳更久的
 const PAGE_TIMEOUT_MS = 8_000;
 
-export type DividendsResult = { ok: true; events: DividendEvent[]; complete: boolean } | { ok: false };
+/** missing 是讀不到的來源 例如櫃買中心 */
+export type DividendsResult = { ok: true; events: DividendEvent[]; missing: string[] } | { ok: false };
 
-/** 兩個同時讀 都讀不到才是 ok false 只讀到一個時 complete 是 false 預告表本來就可能是空的 */
-export async function fetchDividends({ timeoutMs = PAGE_TIMEOUT_MS, fetchImpl }: { timeoutMs?: number; fetchImpl?: typeof fetch } = {}): Promise<DividendsResult> {
-  const results = await Promise.all(
-    SOURCES.map((source) => readExternalJson(source.url, { module: "savings", what: `讀不到${source.label}的除權息預告`, parse: source.parse, timeoutMs, fetchImpl })),
-  );
+type FetchOptions = { timeoutMs?: number; fetchImpl?: typeof fetch; retryAfterMs?: number };
+
+/** 只有排程給 retryAfterMs 對方一時出錯時隔一下再讀一次 頁面有人在等不重讀 */
+async function readSource(source: Source, { timeoutMs, fetchImpl, retryAfterMs }: FetchOptions): Promise<DividendEvent[] | null> {
+  const read = () => readExternalJson(source.url, { module: "savings", what: `讀不到${source.label}的除權息預告`, parse: source.parse, timeoutMs, fetchImpl });
+  const first = await read();
+  if (first !== null || retryAfterMs === undefined) return first;
+  await new Promise((resolve) => setTimeout(resolve, retryAfterMs));
+  return read();
+}
+
+/** 兩個同時讀 都讀不到才是 ok false 預告表本來就可能是空的 空的不算讀不到 */
+export async function fetchDividends({ timeoutMs = PAGE_TIMEOUT_MS, fetchImpl, retryAfterMs }: FetchOptions = {}): Promise<DividendsResult> {
+  const results = await Promise.all(SOURCES.map((source) => readSource(source, { timeoutMs, fetchImpl, retryAfterMs })));
   if (results.every((events) => events === null)) return { ok: false };
-  return { ok: true, events: mergeDividendEvents(results.flatMap((events) => events ?? [])), complete: results.every((events) => events !== null) };
+  return {
+    ok: true,
+    events: mergeDividendEvents(results.flatMap((events) => events ?? [])),
+    missing: SOURCES.filter((_, index) => results[index] === null).map((source) => source.label),
+  };
 }

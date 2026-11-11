@@ -1,0 +1,116 @@
+/* core 的元件樣式 圖示 標誌 登入頁的背景 捲軸與拖曳捲動 */
+
+.icon {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  background-color: currentColor;
+  -webkit-mask: var(--icon-url) center / contain no-repeat;
+  mask: var(--icon-url) center / contain no-repeat;
+}
+
+/* 底色維持中性 只有圖示本身用模組的品牌色 */
+.icon-tile {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid var(--line);
+  border-radius: 0.875rem;
+  color: var(--accent);
+  background-color: var(--surface-muted);
+}
+.icon-tile > .icon {
+  width: 52%;
+  height: 52%;
+}
+
+.logo-mark {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 0.625rem;
+  color: var(--on-brand);
+  background-color: var(--brand);
+}
+
+/* 登入與註冊頁的背景 三團柔光慢慢飄 只動 transform 模糊不必每格重算 */
+.auth-glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.auth-glow-blob {
+  position: absolute;
+  width: 46vmax;
+  height: 46vmax;
+  border-radius: 9999px;
+  filter: blur(72px);
+  opacity: 0.38;
+}
+.auth-glow-a {
+  top: -14vmax;
+  left: -12vmax;
+  background: var(--accent-blue);
+}
+.auth-glow-b {
+  top: 18%;
+  right: -16vmax;
+  background: var(--accent-violet);
+}
+.auth-glow-c {
+  bottom: -18vmax;
+  left: 22%;
+  background: var(--accent-green);
+}
+@variant dark {
+  .auth-glow-blob {
+    opacity: 0.22;
+  }
+}
+/* 設了減少動態就停在原位 背景分頁瀏覽器本來就會暫停 */
+@media (prefers-reduced-motion: no-preference) {
+  .auth-glow-blob {
+    will-change: transform;
+    animation: auth-drift 24s ease-in-out infinite alternate;
+  }
+  .auth-glow-b {
+    animation-duration: 30s;
+    animation-delay: -8s;
+  }
+  .auth-glow-c {
+    animation-duration: 36s;
+    animation-delay: -16s;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* 用滑鼠拖曳橫捲時不要選到字 游標一直是抓住的樣子 */
+[data-drag-scroll] {
+  user-select: none;
+}
+[data-drag-scrolling],
+[data-drag-scrolling] * {
+  cursor: grabbing;
+}
+
+/* 768px 以下模組按鈕可能放不下 右緣淡出提示還能往右滑 */
+/* 末端留同樣寬的空白 捲到最後一顆時不會被淡出蓋住 */
+@media (width < 48rem) {
+  .nav-scroll {
+    scroll-padding-inline-end: 1.25rem;
+    mask-image: linear-gradient(to right, #000 calc(100% - 1.25rem), transparent);
+  }
+  .nav-scroll > ul {
+    padding-inline-end: 1.25rem;
+  }
+}

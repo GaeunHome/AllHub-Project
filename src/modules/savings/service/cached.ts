@@ -153,7 +153,7 @@ async function dividendsOf(symbols: string[]): Promise<DividendEvent[] | null> {
     cacheLife("external");
     return null;
   }
-  if (result.complete) cacheLife("quotes");
+  if (result.missing.length === 0) cacheLife("quotes");
   else cacheLife("external");
   const wanted = new Set(symbols);
   return result.events.filter((event) => wanted.has(event.symbol));

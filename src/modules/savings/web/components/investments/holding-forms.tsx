@@ -7,7 +7,7 @@ import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { formatSlashDate, type DateKey } from "../../../lib/dates";
 import type { HoldingView } from "../../account-details";
-import { buyHoldingAction, createHoldingAction, sellHoldingAction, updateHoldingAction } from "../../actions";
+import { buyHoldingAction, createHoldingAction, sellHoldingAction, updateHoldingAction } from "../../actions-investments";
 import { formatShares, priceText } from "../../format";
 import { pickAccount } from "../../last-used";
 import { AccountSelect, AmountField, DateField, NoteField } from "../forms/fields";

@@ -19,7 +19,7 @@ const transactions = mocksOf(await import("../../service/transactions"), "addTra
 const recurring = mocksOf(await import("../../service/recurring"), "createRecurring", "updateRecurring", "setRecurringActive", "deleteRecurring", "confirmOccurrence", "skipOccurrence");
 const holdings = mocksOf(await import("../../service/holdings"), "listHoldings", "addHolding", "updateHolding", "deleteHolding", "buyHolding", "sellHolding");
 const cards = mocksOf(await import("../../service/cards"), "payCard", "enterCardBill");
-const actions = await import("../actions");
+const actions = { ...(await import("../actions")), ...(await import("../actions-records")), ...(await import("../actions-recurring")), ...(await import("../actions-investments")), ...(await import("../actions-cards")) };
 
 const CATHAY = { id: 1, name: "國泰", kind: "deposit" };
 const EXPENSE = { id: 70, kind: "expense", accountId: 1, counterAccountId: null, categoryId: null, amount: 120, date: "2026-10-14" };

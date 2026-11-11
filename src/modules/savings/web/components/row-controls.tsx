@@ -6,7 +6,7 @@ import type { useDialog } from "@/core/ui/dialog";
 import type { FormState } from "@/core/ui/form-message";
 import { Icon, type UiIconName } from "@/core/ui/icon";
 import { formatMonth } from "../../lib/month";
-import { skipOccurrenceAction } from "../actions";
+import { skipOccurrenceAction } from "../actions-recurring";
 
 
 type RowAction = (previous: FormState, formData: FormData) => Promise<FormState>;

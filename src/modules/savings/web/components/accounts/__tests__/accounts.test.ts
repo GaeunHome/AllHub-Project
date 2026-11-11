@@ -5,12 +5,13 @@ import type { BillDraft } from "../../../account-details";
 
 // 視窗關著時不算繪內容 換掉才看得到裡面 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });
-vi.mock("../../../actions", () => Object.fromEntries(["payCardAction", "enterCardBillAction", "createAccountAction", "updateAccountAction"].map((name) => [name, vi.fn()])));
+vi.mock("../../../actions", () => ({ createAccountAction: vi.fn(), updateAccountAction: vi.fn() }));
+vi.mock("../../../actions-cards", () => ({ payCardAction: vi.fn(), enterCardBillAction: vi.fn() }));
 // 網址帶 add 參數時打開視窗並拿掉參數 這裡只看按鈕與表單
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/savings/accounts" }));
 
 const dialog = await import("@/core/ui/dialog");
-const actions = await import("../../../actions");
+const actions = { ...(await import("../../../actions")), ...(await import("../../../actions-cards")) };
 const { BillForm, BillHistory } = await import("../card-bill");
 const { AddAccountButton } = await import("../add-account-button");
 
@@ -119,7 +120,7 @@ describe("填帳單", () => {
 
 describe("新增帳戶的按鈕", () => {
   it("按鈕寫出要新增哪一種，打開的表單固定是那一種（不用再選類型），送到 createAccountAction", () => {
-    const markup = render(createElement(AddAccountButton, { kind: "credit", payFromAccounts: DEPOSITS.map((account) => ({ ...account, active: true })) }));
+    const markup = render(createElement(AddAccountButton, { kind: "credit", payFromAccounts: DEPOSITS.map((account) => ({ ...account, active: true })), today: TODAY }));
 
     expect(textOf(markup.match(/<button[^>]*aria-haspopup="dialog"[^>]*>.*?<\/button>/)![0])).toBe("新增信用卡");
     expect(inputOf(markup, "kind")).toMatch(/type="hidden"[^>]*value="credit"/);

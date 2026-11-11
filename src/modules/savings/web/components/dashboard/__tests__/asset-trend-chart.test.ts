@@ -45,12 +45,11 @@ describe("資產走勢：使用者選的近 30 天每天一根疊起來的長條
     expect(textOf(axis, { spaced: true }).trim().split(" ")).toEqual(["8/23", "8/30", "9/6", "9/13", "9/20"]);
   });
 
-  it("以表格檢視：新的在上面", () => {
+  it("沒有表格檢視（使用者要的：拿掉；每天的金額滑過或用鍵盤移到那天就看得到）", () => {
     const page = render();
-    const rows = [...page.slice(page.indexOf("<details")).matchAll(/<tr>(.*?)<\/tr>/g)].map((m) => textOf(m[1]));
 
-    expect(rows[0]).toBe("日期總資產存款投資");
-    expect(rows[1]).toBe("9 月 2 日（三）$44,200$39,000$5,200");
-    expect(rows[2]).toBe("9 月 1 日（二）$12,000$8,000$4,000（照成本）");
+    expect(page).not.toContain("<details");
+    expect(page).not.toContain("<table");
+    expect(textOf(page)).not.toContain("以表格檢視");
   });
 });

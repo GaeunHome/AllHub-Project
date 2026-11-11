@@ -9,7 +9,7 @@ import { CardHeader } from "@/core/ui/page-header";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import type { EntryKind } from "../../../lib/kinds";
 import { formatTwd } from "../../../lib/money";
-import { addTransactionAction } from "../../actions";
+import { addTransactionAction } from "../../actions-records";
 import { formatShares } from "../../format";
 import type { BalanceTarget, CardTarget, HoldingTarget, QuickActionsView } from "../../overview-view";
 import { SAVINGS_PATHS, addAccountPath } from "../../paths";

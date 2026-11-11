@@ -11,7 +11,9 @@ import { accountBalances, accountIdsOf, balanceAdjustment, type AccountDayFlow, 
 import { MAX_AMOUNT } from "../lib/money";
 import { addMonths, dateToMonth, monthToDate, parseMonth, type MonthKey } from "../lib/month";
 import { isPeriodRecord, previousOccurrenceMonth, revertsPeriod } from "../lib/recurring";
-import { NOT_FOUND, amountFromText, isRowId, parseBalanceFields, parseEntryDate, parseEntryFields, parseNote, parseRowId, parseSalaryFields } from "../lib/validation";
+import { parseBalanceFields, parseEntryFields } from "../lib/entry-fields";
+import { parseSalaryFields } from "../lib/salary-fields";
+import { NOT_FOUND, amountFromText, isRowId, parseEntryDate, parseNote, parseRowId } from "../lib/validation";
 import {
   ADJUST_NOT_EDITABLE,
   ADJUST_TOO_LARGE,

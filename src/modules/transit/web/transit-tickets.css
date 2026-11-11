@@ -1,0 +1,106 @@
+/* 交通 高鐵的車票 由 globals.css 照順序接在 transit.css 後面引入 */
+
+.trn-ticket {
+  @apply grid;
+  container-type: inline-size;
+  filter: drop-shadow(0 1px 2px rgb(64 44 14 / 0.24));
+}
+/* 紙的圖案只是淡淡的纖維 字色用全站的變數 淺色深色都讀得到 */
+.trn-ticket-paper {
+  --trn-stub: 5.5rem;
+  --trn-notch-x: calc(100% - var(--trn-stub));
+  @apply relative grid overflow-hidden rounded-xl text-ink;
+  grid-template-columns: minmax(0, 1fr) var(--trn-stub);
+  background-color: var(--trn-paper);
+  background-image: url("/images/transit/ticket-paper.svg");
+  background-size: 15rem;
+  /* 撕線碰到上下緣的地方打兩個半圓的洞 */
+  mask-image: radial-gradient(circle 0.5625rem at var(--trn-notch-x) 0, transparent 97%, black), radial-gradient(circle 0.5625rem at var(--trn-notch-x) 100%, transparent 97%, black);
+  mask-composite: intersect;
+}
+@variant dark {
+  .trn-ticket-paper {
+    background-image: url("/images/transit/ticket-paper-dark.svg");
+  }
+}
+.trn-ticket-paper::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 0.4375rem;
+  background-color: var(--trn-line);
+}
+.trn-ticket-main {
+  @apply flex min-w-0 flex-col gap-3 pt-5 pr-3 pb-4 pl-3.5;
+}
+.trn-ticket-head {
+  @apply flex flex-wrap items-center gap-2;
+}
+/* 上下兩列 時間與箭頭一列 站名與行車時間一列 DOM 順序留著給報讀器 */
+.trn-ticket-route {
+  @apply mt-auto grid items-center gap-x-2 gap-y-1.5;
+  grid-auto-flow: column;
+  grid-template-rows: auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+.trn-ticket-stop,
+.trn-ticket-ride {
+  display: contents;
+}
+.trn-ticket-name {
+  @apply inline-flex items-center gap-1 font-semibold text-ink;
+}
+.trn-ticket-ride + .trn-ticket-stop > * {
+  @apply justify-self-end text-right;
+}
+.trn-ticket-time {
+  @apply inline-flex items-center gap-1 justify-self-center text-sm font-semibold whitespace-nowrap text-ink tabular-nums;
+}
+/* 箭頭只用 CSS 畫 線的右端接一個三角形 */
+.trn-ticket-arrow {
+  @apply relative block h-0.5 w-full;
+  background-color: var(--trn-line);
+}
+.trn-ticket-arrow::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  border-block: 0.3125rem solid transparent;
+  border-left: 0.5rem solid var(--trn-line);
+  transform: translateY(-50%);
+}
+/* 票根 左邊的虛線是撕線 */
+.trn-ticket-stub {
+  @apply flex min-w-0 flex-col items-center justify-between gap-2 px-1.5 pt-5 pb-3;
+  border-left: 2px dashed color-mix(in srgb, var(--ink) 38%, transparent);
+}
+.trn-barcode {
+  @apply block h-10 w-full;
+  background-color: currentColor;
+  mask: url("/images/transit/barcode.svg") center / 100% 100% no-repeat;
+}
+@container (width >= 22rem) {
+  .trn-ticket-paper {
+    --trn-stub: 6.75rem;
+  }
+  .trn-ticket .trn-clock {
+    @apply text-3xl;
+  }
+}
+/* 手機上站名與行車時間排在同一列 拿掉圖示才不會疊在一起 */
+@container (width < 20rem) {
+  .trn-ticket-name > :first-child,
+  .trn-ticket-time > :first-child {
+    display: none;
+  }
+}
+/* 最窄的手機 時間縮小才放得下箭頭 */
+@container (width < 19rem) {
+  .trn-ticket .trn-clock {
+    @apply text-xl;
+  }
+  .trn-ticket-time {
+    @apply text-xs;
+  }
+}

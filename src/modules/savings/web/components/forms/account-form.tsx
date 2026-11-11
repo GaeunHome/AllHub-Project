@@ -10,7 +10,7 @@ import { shownFigure } from "../../../lib/ledger";
 import { createAccountAction, updateAccountAction } from "../../actions";
 import { pausedName } from "../../format";
 import { CardStyleField } from "../accounts/card-face";
-import { AmountField, CheckboxField, DayOfMonthSelect, LabelField, NameField } from "./fields";
+import { AmountField, CheckboxField, DayOfMonthSelect, LabelField, NameField, StartDateField } from "./fields";
 
 /** 修改時帶入的原本設定 信用卡的 openingBalance 負的是欠款 正的是溢繳 */
 export type AccountDraft = {
@@ -28,6 +28,8 @@ export type AccountDraft = {
   statementDay: number | null;
   payFromAccountId: number | null;
   autopay: boolean;
+  /** 開始記帳的那天 舊帳戶是建立那天 */
+  startDate: string;
 };
 
 type AccountFormProps = {
@@ -36,6 +38,8 @@ type AccountFormProps = {
   kind?: AccountKind;
   /** 信用卡的扣款帳戶只能是存款帳戶 */
   payFromAccounts: readonly { id: number; name: string; active: boolean }[];
+  /** 台北時間的今天 開始記帳日不能更晚 新增時預設這天 */
+  today: string;
   onDone: (message: string | undefined) => void;
   onCancel: () => void;
 };
@@ -46,7 +50,7 @@ const KIND_OPTIONS = ACCOUNT_KINDS.map((kind) => ({ id: kind, label: ACCOUNT_KIN
 const NAME_PLACEHOLDERS: Record<AccountKind, string> = { deposit: "例如：台銀（不用填帳號）", investment: "例如：臺銀證券", credit: "例如：國泰卡（不用填卡號）" };
 const LABEL_PLACEHOLDERS: Record<Exclude<AccountKind, "credit">, string> = { deposit: "例如：生活費、緊急預備金", investment: "例如：長期投資" };
 
-// 新增時填現在的數字 建立後改的是開始記帳時的數字 對帳要用更新餘額
+// 從今天開始記帳時填現在的數字 選了過去或建立後改的是開始記帳那天的數字 對帳要用更新餘額
 const OPENING_LABELS: Record<AccountKind, { create: string; edit: string }> = {
   deposit: { create: "目前餘額（元）", edit: "起始餘額（元）" },
   investment: { create: "目前市值（元）", edit: "起始市值（元）" },
@@ -62,8 +66,9 @@ const EDIT_TIPS: Record<AccountKind, string> = {
 };
 
 /** 新增與修改帳戶 欄位依類型不同 類型建立後不能改 */
-export function AccountForm({ account, kind: fixedKind, payFromAccounts, onDone, onCancel }: AccountFormProps) {
+export function AccountForm({ account, kind: fixedKind, payFromAccounts, today, onDone, onCancel }: AccountFormProps) {
   const [kind, setKind] = useState<AccountKind>(account?.kind ?? fixedKind ?? "deposit");
+  const [startDate, setStartDate] = useState(account?.startDate ?? today);
   const { state, pending, formProps } = useDialogForm(account ? updateAccountAction : createAccountAction, onDone);
   const opening = OPENING_LABELS[kind];
   // 表單填的是銀行 App 上的數字 信用卡是未繳 存的卻是負的餘額
@@ -85,11 +90,12 @@ export function AccountForm({ account, kind: fixedKind, payFromAccounts, onDone,
       )}
       <NameField defaultValue={account?.name} placeholder={NAME_PLACEHOLDERS[kind]} />
       {kind !== "credit" && <LabelField defaultValue={account?.label} placeholder={LABEL_PLACEHOLDERS[kind]} />}
+      <StartDateField defaultValue={startDate} today={today} onChange={setStartDate} />
       <div className="grid gap-4 sm:grid-cols-2">
         <AmountField
           key={`opening-${kind}`}
           name="openingBalance"
-          label={account ? opening.edit : opening.create}
+          label={account || startDate !== today ? opening.edit : opening.create}
           defaultValue={openingValue}
           placeholder="0"
           hint={kind === "credit" ? CREDIT_HINT : undefined}

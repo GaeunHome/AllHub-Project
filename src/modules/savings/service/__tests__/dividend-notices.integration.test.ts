@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { coreNotifications, coreUsers } from "@/core/db/schema";
+import { coreNotifications, coreServiceStatus, coreUsers } from "@/core/db/schema";
 import { fakeFetch } from "@/dev/fake-fetch";
 import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
@@ -58,6 +58,12 @@ const notices = () =>
     .from(coreNotifications)
     .orderBy(asc(coreNotifications.id));
 const titles = async () => (await notices()).map((notice) => notice.title);
+/** 系統狀態頁這個服務寫的問題 正常是 null 每個測試的資料庫是新的 只有這次寫的 */
+const problem = async () => {
+  const [row] = await getDb().select().from(coreServiceStatus).where(eq(coreServiceStatus.service, "savings:dividends"));
+  if (!row) return "沒有回報";
+  return row.lastErrorAt === null ? null : row.lastError;
+};
 const sentRows = () =>
   getDb()
     .select({ symbol: savingsDividendNotices.symbol, exDate: savingsDividendNotices.exDate, amountNotified: savingsDividendNotices.amountNotified, reminded: savingsDividendNotices.reminded })
@@ -220,22 +226,39 @@ describe("過期的紀錄與讀不到的來源", () => {
     expect((await sentRows()).map((row) => row.exDate)).toEqual(["2026-10-29"]);
   });
 
-  it("證交所讀不到（500）_櫃買中心的照常寄；摘要只寫數字，不寫代號與名稱", async () => {
+  it("證交所讀不到（500，再讀一次也是）_櫃買中心的照常寄；摘要與系統狀態寫出是哪一邊讀不到，不寫代號與名稱", async () => {
     captureErrorLog();
     await holding(1000, { symbol: "00679B", name: "元大美債20年" });
 
-    const summary = await sendDividendNotices(runAt("2026-10-29"), exchanges(500, [tpex("2026-11-10", "00679B", "0.38000000")]).impl);
+    const summary = await sendDividendNotices(runAt("2026-10-29"), exchanges(500, [tpex("2026-11-10", "00679B", "0.38000000")]).impl, 0);
 
-    expect(summary).toBe("寄出 1 則除權息通知，1 個來源讀不到");
+    expect(summary).toBe("寄出 1 則除權息通知，證交所的預告表讀不到");
     expect(await titles()).toEqual(["00679B 元大美債20年 11/10 除息：每股配息 0.38 元，估計 $380"]);
+    expect(await problem()).toBe("證交所的預告表讀不到");
+  });
+
+  it("一邊第一次讀不到、再讀一次就讀到了（使用者遇過一時讀不到）_照常寄，系統狀態正常", async () => {
+    captureErrorLog();
+    await holding(1000, { symbol: "00679B", name: "元大美債20年" });
+    let tpexCalls = 0;
+    const flaky = fakeFetch(({ url }) => {
+      if (new URL(url).host === "openapi.twse.com.tw") return Response.json([]);
+      tpexCalls++;
+      return tpexCalls === 1 ? new Response("busy", { status: 503 }) : Response.json([tpex("2026-11-10", "00679B", "0.38000000")]);
+    });
+
+    expect(await sendDividendNotices(runAt("2026-10-29"), flaky.impl, 0)).toBe("寄出 1 則除權息通知");
+    expect(tpexCalls).toBe(2);
+    expect(await problem()).toBeNull();
   });
 
   it("兩個都讀不到_今天略過、不寄", async () => {
     captureErrorLog();
     await holding(1000);
 
-    expect(await sendDividendNotices(runAt("2026-10-29"), exchanges(500, 503).impl)).toBe("讀不到除權息預告，今天略過");
+    expect(await sendDividendNotices(runAt("2026-10-29"), exchanges(500, 503).impl, 0)).toBe("讀不到除權息預告，今天略過");
     expect(await notices()).toEqual([]);
+    expect(await problem()).toBe("兩邊的預告表都讀不到");
   });
 });
 

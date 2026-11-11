@@ -8,7 +8,7 @@ import { MoreMenu } from "@/core/ui/more-menu";
 import type { DateKey } from "../../../lib/dates";
 import { formatTwd } from "../../../lib/money";
 import type { HoldingView } from "../../account-details";
-import { deleteHoldingAction } from "../../actions";
+import { deleteHoldingAction } from "../../actions-investments";
 import { averagePriceText, formatShares, priceText, profitText } from "../../format";
 import { CARD_GRID } from "../dashboard/layout";
 import type { AccountOption } from "../forms/options";

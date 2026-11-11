@@ -15,7 +15,7 @@ paths:
 - 自動還原：`vitest.config.mts` 開了 `unstubGlobals`，`vi.stubGlobal` 換掉的全域每個測試前自動還原，不用寫 `afterEach(() => vi.unstubAllGlobals())`；換全域一律在測試或 `beforeEach` 裡（寫在檔案最上層或 `beforeAll` 的會在第一個測試前就被還原）。環境變數不自動還原（`unstubEnvs` 不開：很多測試在 `await import()` 被測模組前就設好，要整個檔案都有效）。`vitest-setup.ts` 每個測試前把 `DEV_EXTERNAL_ORIGIN` 清空，本機 shell 設了假伺服器也看到真正的網址；要用假伺服器的測試自己在測試裡設。
 - 測試檔一律是 `.test.ts`，放在同資料夾的 `__tests__/` 裡（使用者要的：跟程式分開放），`__tests__/` 裡也只放測試：vitest 只跑 `.test.ts`，`.test.tsx` 這類不會執行（`architecture.test.ts` 檢查）。相對路徑從 `__tests__/` 算，要多一層 `../`。
 - **production 模式（`next start`）會忽略 `DEV_EXTERNAL_ORIGIN`**，請求會送到真的服務（之前就因此打到一次真的 Twitch）。`next start` 下只測不會對外連線的流程（登入、沒有持股的理財、通知頁、帳號頁，以及還沒追蹤、沒連結帳號、沒有持股的使用者的首頁）；加主播、加頻道、webhook 補資訊、簽到、即時便箋、翻譯、YouTube 頁的背景字幕檢查、新增持股與有持股的理財頁（證交所與櫃買中心的收盤價與除權息預告）、`youtube:cleanup` 排程（讀追蹤中頻道的 RSS、逐支請求 `/shorts/` 找 Shorts）、`starrail:stamina`（便箋與活動日曆）、`starrail:redeem`（社群的兌換碼清單與兌換）、`weather:rain`（全台的天氣預報）、`weather:warnings`（全台的天氣警特報）、`savings:dividends`（除權息預告），以及有追蹤、連結帳號、持股或選了天氣縣市時的首頁（直播狀態、頻道頭像、即時便箋、遊戲頭像、收盤價、天氣預報、警特報與空氣品質）都會對外，只能用 `next dev`＋mock。
-- 改了 CSS（`globals.css` 或模組的 `web/*.css`）畫面卻沒變：停掉 `next dev`、刪 `.next/dev/cache` 再重開（Turbopack 的持久快取偶爾會留著舊的 CSS）。
+- 改了 CSS（`globals.css`、`core/ui/styles/` 或模組的 `web/*.css`）畫面卻沒變：停掉 `next dev`、刪 `.next/dev/cache` 再重開（Turbopack 的持久快取偶爾會留著舊的 CSS）。
 - 手機版截圖要一起開觸控模擬（CDP 的 `Emulation.setTouchEmulationEnabled`），`(hover: none)` 才會成立：卡片的 ⋮ 在可以滑過的裝置上要滑過才出現。
 - 瀏覽器用獨立的 headless Chrome：暫存設定檔，`--host-resolver-rules="MAP * 127.0.0.1:9, EXCLUDE localhost, EXCLUDE 127.0.0.1"` 擋掉所有外部網域。截圖時順便確認瀏覽器沒有向 localhost 與假伺服器以外的網址發請求。啟動時加 `--disable-features=MacAppCodeSignClone`：Chrome 每次啟動會在暫存資料夾複製一份自己（`code_sign_clone`），每一份都會在 macOS 的「隱私權與安全性 → 區域網路」多一個刪不掉的 Google Chrome（macOS 的 bug），直接結束程序時複製檔也不會清掉（v0.1.5 開發期間累積了 26 個與約 2 GB）。結束時一樣用 CDP 的 `Browser.close` 正常關閉。
 - 點按一律用 CDP 的 `Input.dispatchMouseEvent`（手機用 `Input.dispatchTouchEvent`）模擬真的滑鼠與手指，不用 `element.click()`：它不經過命中測試、也不發 pointerdown，人像選單按下的瞬間就收起、項目全都點不到的問題就是這樣漏掉的。
@@ -44,4 +44,4 @@ paths:
   - `fake-fetch.ts`
   - `fake-storage.ts`（`fakeStorage()` 是 localStorage 的替身，`data` 看存了什麼；`brokenStorage` 讀寫都丟錯；`storageEvent(key)` 模擬別的分頁改了設定）
 - `mock-request.ts`：`await mockRequest(handle, 路徑, { method, body, headers })` 直接呼叫模組 `dev/mock.mjs` 的 `handle`，ctx 跟 `mock:external` 共用 `mock-context.mjs`；回傳 `handled`、`status`、`headers`、`body`、`data`（JSON）、`image`（`ctx.image` 收到的字與大小）。
-- `next-cache-stub.ts`＋`vitest-setup.ts`（設定見上面）、`icu-simulation.ts`、`stylesheet.ts`（`readStylesheet()`：`globals.css` 加上它引入的模組樣式，讀樣式的測試用它；`stylesheetImports()`：引入了哪些檔）。
+- `next-cache-stub.ts`＋`vitest-setup.ts`（設定見上面）、`icu-simulation.ts`、`stylesheet.ts`（`readStylesheet()`：`globals.css` 加上它引入的 core 與模組樣式，讀樣式的測試一律用它，不直接讀 `globals.css`；`stylesheetImports()`：引入了哪些檔）。

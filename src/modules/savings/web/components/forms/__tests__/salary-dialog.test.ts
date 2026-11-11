@@ -10,10 +10,10 @@ vi.mock("@/core/ui/dialog", { spy: true });
 vi.mock("@/core/ui/toast", () => import("@/dev/toast-stub"));
 // 入帳並分配要從打錯一行或分太多的狀態開始 只換掉那個 reducer 的初始狀態
 vi.mock("react", { spy: true });
-vi.mock("../../../actions", () => ({ allocateSalaryAction: vi.fn() }));
+vi.mock("../../../actions-records", () => ({ allocateSalaryAction: vi.fn() }));
 
 const dialog = await import("@/core/ui/dialog");
-const actions = await import("../../../actions");
+const actions = { ...(await import("../../../actions-records")) };
 const { lastSalaryAccountPref } = await import("../../../last-used");
 const { salaryFormReducer } = await import("../../../form-math");
 const { SalaryForm, SalaryMenu } = await import("../salary-dialog");

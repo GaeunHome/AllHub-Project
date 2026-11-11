@@ -145,6 +145,10 @@ function selectorsOf(css: string): string[] {
 const classesOf = (selector: string) => [...selector.replace(/"[^"]*"|'[^']*'/g, '""').matchAll(/\.(-?[A-Za-z_][\w-]*)/g)].map((m) => m[1]);
 const attributesOf = (selector: string) => [...selector.matchAll(/\[\s*([\w-]+)/g)].map((m) => m[1]);
 const isModuleCss = (file: string) => /^modules\/[^/]+\/web\/.+\.css$/.test(file);
+// core 的元件樣式照原本在 globals.css 的順序拆成幾個檔
+const isCoreCss = (file: string) => /^core\/ui\/styles\/[^/]+\.css$/.test(file);
+/** globals.css 加上 core/ui/styles 的檔 就是 core 的樣式 */
+const coreStyles = () => [read("app/globals.css"), ...[...fileSet].filter(isCoreCss).map(read)].join("\n");
 
 const lineOf = (sourceFile: ts.SourceFile, node: ts.Node) => sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 
@@ -197,6 +201,7 @@ describe("架構規則", () => {
       "core/admin/admin-page.tsx",
       "core/admin/audit-page.tsx",
       "core/admin/status-page.tsx",
+      "core/announcements/announcement-page.tsx",
       "core/auth/account-page.tsx",
       "core/auth/avatar-route.ts",
       "core/auth/captcha-route.ts",
@@ -640,17 +645,19 @@ describe("架構規則", () => {
 
   // Tailwind 編譯時把 @import 換成檔案內容
   // 沒從 globals.css 引入的檔不會生效
-  it("CSS 只有 src/app/globals.css 與模組 web/ 底下的檔：模組的檔都由 globals.css 引入一次、自己不再引入別的檔，TS 只有 src/app/layout.tsx 引入 globals.css", () => {
+  it("CSS 只有 src/app/globals.css、core 的 core/ui/styles 與模組 web/ 底下的檔：後兩種都由 globals.css 引入一次、自己不再引入別的檔，TS 只有 src/app/layout.tsx 引入 globals.css", () => {
     const cssFiles = [...fileSet].filter((file) => file.endsWith(".css"));
     const moduleCss = cssFiles.filter(isModuleCss);
-    const misplaced = cssFiles.filter((file) => file !== "app/globals.css" && !isModuleCss(file)).map((file) => `${file}：CSS 放在 src/app/globals.css 或模組的 web/`);
-    const nested = moduleCss.filter((file) => /@import\b/.test(read(file))).map((file) => `${file}：模組的 CSS 檔不再引入別的檔`);
+    const coreCss = cssFiles.filter(isCoreCss);
+    const misplaced = cssFiles.filter((file) => file !== "app/globals.css" && !isModuleCss(file) && !isCoreCss(file)).map((file) => `${file}：CSS 放在 src/app/globals.css、core/ui/styles 或模組的 web/`);
+    const nested = [...moduleCss, ...coreCss].filter((file) => /@import\b/.test(read(file))).map((file) => `${file}：引入的 CSS 檔不再引入別的檔`);
     const imports = stylesheetImports();
     const fromTs = files.flatMap((file) => specsOf(file).flatMap(({ spec }) => (spec.endsWith(".css") ? [`${file} → ${spec}`] : [])));
 
     expect([...misplaced, ...nested]).toEqual([]);
     expect(moduleCss.length).toBeGreaterThan(0);
-    expect([...imports].sort()).toEqual([...moduleCss].sort());
+    expect(coreCss.length).toBeGreaterThan(0);
+    expect([...imports].sort()).toEqual([...moduleCss, ...coreCss].sort());
     expect(new Set(imports).size).toBe(imports.length);
     expect(fromTs).toEqual(["app/layout.tsx → ./globals.css"]);
   });
@@ -672,7 +679,7 @@ describe("架構規則", () => {
     const owners = Object.entries(MODULE_CSS_PREFIXES).flatMap(([id, prefixes]) => prefixes.map((prefix) => ({ id, prefix })));
     const overlaps = owners.flatMap((a) => owners.filter((b) => a !== b && b.prefix.startsWith(a.prefix)).map((b) => `${a.id} 的 ${a.prefix} 跟 ${b.id} 的 ${b.prefix} 重疊`));
     const unused = Object.keys(MODULE_CSS_PREFIXES).filter((id) => !moduleCss.some((file) => file.split("/")[1] === id)).map((id) => `${id}：沒有 CSS 檔，從 MODULE_CSS_PREFIXES 拿掉`);
-    const coreClasses = new Set(selectorsOf(read("app/globals.css")).flatMap(classesOf).filter((name) => !isModuleClass(name)));
+    const coreClasses = new Set(selectorsOf(coreStyles()).flatMap(classesOf).filter((name) => !isModuleClass(name)));
     const problems = moduleCss.flatMap((file) => {
       const id = file.split("/")[1];
       const prefixes = MODULE_CSS_PREFIXES[id];
@@ -683,7 +690,7 @@ describe("架構規則", () => {
       const selectorProblems = selectorsOf(css).flatMap((selector) => {
         const classes = classesOf(selector);
         const strangers = classes.filter((name) => !own(name) && !coreClasses.has(name)).map((name) => `${file}：${selector} 的 .${name} 不是 ${id} 的前綴（${prefixes.join("、")}）也不是 core 的 class`);
-        const homeless = classes.some(own) || attributesOf(selector).some(ownAttribute) ? [] : [`${file}：${selector} 沒有 ${id} 自己的 class，core 的樣式寫在 globals.css`];
+        const homeless = classes.some(own) || attributesOf(selector).some(ownAttribute) ? [] : [`${file}：${selector} 沒有 ${id} 自己的 class，core 的樣式寫在 globals.css 或 core/ui/styles`];
         return [...strangers, ...homeless];
       });
       // text-sr-gold 這類 class 的顏色也要帶自己的前綴
@@ -709,8 +716,8 @@ describe("架構規則", () => {
     ".sr-tab",
   ];
 
-  it("globals.css 只放全站共用的樣式：模組的 class 只出現在共用的幾條（固定深色頁的圖示色與導覽列、減少動態、觸控放大）", () => {
-    const found = selectorsOf(read("app/globals.css")).filter((selector) => classesOf(selector).some(isModuleClass));
+  it("globals.css 與 core/ui/styles 只放全站共用的樣式：模組的 class 只出現在共用的幾條（固定深色頁的圖示色與導覽列、減少動態、觸控放大）", () => {
+    const found = selectorsOf(coreStyles()).filter((selector) => classesOf(selector).some(isModuleClass));
 
     expect([...new Set(found)].sort()).toEqual([...SHARED_IN_GLOBALS].sort());
   });

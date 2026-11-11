@@ -1,0 +1,166 @@
+/* core 的元件樣式 場景圖 有圖的頁首與卡片標題列 跑馬燈 */
+
+/* 字疊在場景圖上 字色寫死成白的 不換 CSS 變數 裡面打開的視窗才不會跟著變 */
+.scene {
+  @apply relative isolate overflow-hidden rounded-2xl;
+  color: #fff;
+  background-color: #1c2740;
+  box-shadow: var(--elevation-card);
+}
+.scene-image {
+  z-index: -2;
+  object-fit: cover;
+}
+@variant dark {
+  .scene-image {
+    filter: brightness(0.85);
+  }
+}
+/* 圖的亮處也要讀得到白字 左邊最深 右邊留給圖 */
+.scene-scrim {
+  @apply pointer-events-none absolute inset-0;
+  z-index: -1;
+  background: linear-gradient(100deg, rgb(7 13 28 / 0.72) 0%, rgb(7 13 28 / 0.3) 40%, rgb(7 13 28 / 0) 66%);
+}
+.scene-icon {
+  @apply inline-grid shrink-0 place-items-center rounded-2xl;
+  color: #fff;
+  background-color: rgb(255 255 255 / 0.16);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.28);
+}
+.scene-icon > .icon {
+  @apply size-6 sm:size-7;
+}
+.scene .info-tip-button {
+  color: #fff;
+}
+/* 圖上的字色變數是白的 反色會變成白底白字 這裡寫死 */
+.scene .info-tip-button:hover,
+.scene .info-tip-button[aria-expanded="true"] {
+  color: rgb(15 23 42);
+  background-color: #fff;
+}
+/* 場景圖上的小按鈕 半透明才看得到後面的圖 */
+.scene-button {
+  @apply inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-semibold whitespace-nowrap;
+  color: #fff;
+  background-color: rgb(255 255 255 / 0.16);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.3);
+  transition: background-color 150ms ease;
+}
+.scene-button:hover {
+  background-color: rgb(255 255 255 / 0.28);
+}
+/* 場景圖上的 FactList 只換這個區塊的字色與線色 */
+.scene-facts {
+  --ink: #fff;
+  --ink-soft: rgb(255 255 255 / 0.88);
+  --line: rgb(255 255 255 / 0.26);
+}
+.page-banner {
+  @apply flex flex-col gap-6 p-5 sm:p-7;
+}
+
+/* 卡片最上面一條有圖的標題列 撐滿卡片的左右 */
+.card-art {
+  @apply -mx-5 -mt-5 flex flex-col justify-center rounded-t-[calc(1rem-1px)] rounded-b-none px-5 py-3 sm:-mx-6 sm:-mt-6 sm:px-6;
+  --ink: #fff;
+  box-shadow: none;
+}
+/* 手機上卡片很窄 中間的圖才看得到 不要只切到左邊的暗處 */
+.card-art .scene-image {
+  object-position: 68% 42%;
+}
+.card-art .icon-tile {
+  color: #fff;
+  border-color: rgb(255 255 255 / 0.28);
+  background-color: rgb(255 255 255 / 0.16);
+}
+.card-art .card-header-link {
+  color: #fff;
+}
+
+/* 全站導覽列上面的跑馬燈 core/announcements/ticker-bar.tsx 使用者要的 細長一條 */
+/* 停止服務淡紅 維護淡黃 置頂的一般公告淡藍 看第一則 也就是最重要的那一則 */
+.ticker {
+  @apply text-[0.8125rem] text-ink;
+  border-bottom: 1px solid var(--brand-line);
+  background-color: var(--brand-soft);
+}
+.ticker[data-kind="outage"] {
+  border-color: var(--danger-line);
+  background-color: var(--danger-soft);
+}
+.ticker[data-kind="maintenance"] {
+  border-color: var(--warning-line);
+  background-color: var(--warning-soft);
+}
+:root[data-ticker-hidden] .ticker {
+  display: none;
+}
+.ticker-frame {
+  @apply flex min-h-8 items-center gap-2.5;
+}
+/* 一份清單至少跟畫面一樣寬 短的也能接著跑不會兩份同時出現 */
+.ticker-view {
+  @apply min-w-0 flex-1 overflow-hidden;
+  container-type: inline-size;
+}
+/* 兩份一樣的清單接在一起 走到一半剛好接回開頭 */
+.ticker-roll {
+  @apply flex w-max;
+}
+.ticker-view[data-rolling] .ticker-roll {
+  animation: ticker-roll var(--ticker-seconds, 20s) linear infinite;
+}
+.ticker:hover .ticker-roll,
+.ticker:focus-within .ticker-roll {
+  animation-play-state: paused;
+}
+.ticker-list {
+  @apply flex shrink-0 items-center gap-10;
+  min-width: 100cqw;
+}
+.ticker-view[data-rolling] .ticker-list {
+  @apply pr-10;
+}
+/* 每一則前面是自己種類的圖示 */
+.ticker-item {
+  @apply inline-flex items-center gap-2 py-1.5 whitespace-nowrap;
+}
+.ticker-item-icon {
+  @apply size-4 shrink-0;
+  color: var(--brand-ink);
+}
+.ticker-item[data-kind="outage"] .ticker-item-icon {
+  color: var(--danger);
+}
+.ticker-item[data-kind="maintenance"] .ticker-item-icon {
+  color: var(--warning);
+}
+/* 條很細 按鈕 28px 用透明的偽元素把點擊範圍撐到 44px */
+.ticker-close {
+  @apply relative inline-grid size-7 shrink-0 cursor-pointer place-items-center rounded-full;
+  color: var(--ink);
+}
+.ticker-close::before {
+  content: "";
+  position: absolute;
+  inset: -0.5rem;
+}
+.ticker-close:hover {
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+}
+/* 減少動態時不跑 放不下的用滑的看 */
+@media (prefers-reduced-motion: reduce) {
+  .ticker-view {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ticker-view[data-rolling] .ticker-roll {
+    animation: none;
+  }
+  .ticker-list[aria-hidden] {
+    display: none;
+  }
+}

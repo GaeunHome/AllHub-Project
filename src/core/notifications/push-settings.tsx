@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
+import { useClientValue } from "../ui/client-value";
 import { Icon } from "../ui/icon";
 import { InfoTip } from "../ui/info-tip";
 import { useToast } from "../ui/toast";
 import { ModuleBadge, type NotificationModule } from "./notification-summary";
 import { disablePush, enablePush, pushSupport, setPushMuted, syncPush } from "./push-client";
-
-const noSubscribe = () => () => {};
 
 const FAILED = "手機通知設定失敗，稍後再試";
 
@@ -19,7 +18,7 @@ const SUPPORT_TEXT = {
 /** 每支手機分開設定 存在伺服器 手機關著也要知道哪些模組不用送 */
 export function PushSettings({ publicKey, modules }: { publicKey: string; modules: NotificationModule[] }) {
   const toast = useToast();
-  const support = useSyncExternalStore(noSubscribe, pushSupport, () => null);
+  const support = useClientValue(pushSupport, null);
   // null 是這支手機還沒開啟
   const [muted, setMuted] = useState<string[] | null>(null);
   const [pending, setPending] = useState(false);

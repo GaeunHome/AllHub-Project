@@ -5,7 +5,7 @@ import { DeleteMenuItem } from "@/core/ui/delete-menu-item";
 import { Dialog, useDialog } from "@/core/ui/dialog";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { StatusChip } from "@/core/ui/status-chip";
-import { deleteRecurringAction, setRecurringActiveAction } from "../../actions";
+import { deleteRecurringAction, setRecurringActiveAction } from "../../actions-recurring";
 import { overdueBadge, recurringNext } from "../../format";
 import { choosableAccounts } from "../../form-math";
 import { SAVINGS_PATHS } from "../../paths";

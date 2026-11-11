@@ -1,10 +1,10 @@
-import fs from "node:fs";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { toasts } from "@/dev/toast-stub";
 import { textOf } from "@/dev/test-helpers";
 import type { FormState } from "../form-message";
+import { readStylesheet } from "@/dev/stylesheet";
 
 vi.mock("../toast", () => import("@/dev/toast-stub"));
 
@@ -288,7 +288,7 @@ describe("點背景關閉（isBackdropClick）", () => {
 });
 
 describe("開視窗時背後的頁面（globals.css）", () => {
-  const css = fs.readFileSync(new URL("../../../app/globals.css", import.meta.url), "utf8");
+  const css = readStylesheet();
   const rule = (selector: string) => new RegExp(`^\\s*${selector.replace(/[.()[\]]/g, "\\$&")} \\{([^}]*)\\}`, "m").exec(css)?.[1] ?? "";
 
   it("html 一律保留捲軸的位置：沒有捲軸的頁面打開視窗時，整頁不會左移捲軸的寬度", () => {
@@ -305,7 +305,7 @@ describe("開視窗時背後的頁面（globals.css）", () => {
 
 describe("滿版的大面板（globals.css 的 .dialog-full）", () => {
   // 先拿掉註解 規則前面的註解不能算進選擇器
-  const css = fs.readFileSync(new URL("../../../app/globals.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const css = readStylesheet().replace(/\/\*[\s\S]*?\*\//g, "");
   /** 每條 .dialog-full 規則的內容與所在的最內層 @media 沒有就是 null */
   const fullRules = () => {
     const found: { media: string | null; body: string }[] = [];

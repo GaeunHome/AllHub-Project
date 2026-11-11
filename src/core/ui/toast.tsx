@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, use, useLayoutEffect, useState, useSyncExternalStore, type FocusEvent, type ReactNode } from "react";
+import { useHydrated } from "./client-value";
 import { createPortal } from "react-dom";
 import { Icon } from "./icon";
 import { attachToastLayer } from "./toast-layer";
@@ -32,16 +33,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 const NO_TOASTS: readonly Toast[] = [];
-const noSubscribe = () => () => {};
 
 /** popover 的外層由瀏覽器建好再放進 top layer 伺服器與 hydration 時不畫 */
 function ToastLayer({ queue }: { queue: ToastQueue }) {
   const toasts = useSyncExternalStore(queue.subscribe, queue.visible, () => NO_TOASTS);
-  const inBrowser = useSyncExternalStore(
-    noSubscribe,
-    () => true,
-    () => false,
-  );
+  const inBrowser = useHydrated();
   const [layer] = useState(() => (typeof document === "undefined" ? null : createLayer()));
   useLayoutEffect(() => (layer ? attachToastLayer(layer) : undefined), [layer]);
 

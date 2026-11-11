@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useId, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { CardHeader } from "@/core/ui/page-header";
-import { formatMonth, formatMonthShort, type MonthKey } from "../../../lib/month";
+import { formatMonthShort, type MonthKey } from "../../../lib/month";
 import { scalePercent, type NiceScale } from "./chart-geometry";
 import { monthRecordsHref } from "../../paths";
 import { axisLabels, readoutIndex } from "./trend-model";
 
-// 每月收支與資產走勢共用 刻度 底下的日期 滑過的讀數與表格只寫一份
+// 每月收支與資產走勢共用 刻度 底下的日期與滑過的讀數只寫一份 表格只有每月收支有
 
 /** 一根是一個月或一天 由各自的圖給 */
 export type ChartAxis<P> = {
@@ -18,10 +18,10 @@ export type ChartAxis<P> = {
   current: (point: P) => boolean;
   /** 點了到紀錄頁看那個月 */
   href: (point: P) => string;
-  /** 表格的第一欄 */
-  heading: string;
-  name: (point: P) => string;
 };
+
+/** heading 與 name 是表格的第一欄 */
+type ChartTable<P> = { heading: string; name: (point: P) => string; headers: string[]; cells: (point: P) => string[] };
 
 /** 一個月一根 卡片太窄時只寫數字 才不會擠成兩行 年份寫在第一個月與一月 */
 export const monthAxis = (current: MonthKey): ChartAxis<{ month: MonthKey }> => ({
@@ -35,8 +35,6 @@ export const monthAxis = (current: MonthKey): ChartAxis<{ month: MonthKey }> => 
   ),
   current: (point) => point.month === current,
   href: (point) => monthRecordsHref(point.month, current),
-  heading: "月份",
-  name: (point) => formatMonth(point.month),
 });
 
 type BarChartProps<P> = {
@@ -54,7 +52,8 @@ type BarChartProps<P> = {
   readout: (point: P | null) => ReactNode;
   /** 每一根的連結念的內容 */
   label: (point: P) => string;
-  table: { headers: string[]; cells: (point: P) => string[] };
+  /** 以表格檢視 沒給就不畫 資產走勢不要 */
+  table?: ChartTable<P>;
 };
 
 const onlyMouse = (handler: () => void) => (event: PointerEvent) => {
@@ -123,36 +122,43 @@ export function BarChart<P>({ title, actions, points, axis, scale, empty, bars, 
         </ol>
       </div>
 
-      <details className="disclosure text-sm">
-        <summary>以表格檢視</summary>
-        <table className="fin-table">
-          <thead>
-            <tr>
-              <th scope="col" className="fin-table-label">
-                {axis.heading}
+      {table && <ChartTableView points={points} axis={axis} table={table} />}
+    </section>
+  );
+}
+
+/** 新的在上面 */
+function ChartTableView<P>({ points, axis, table }: { points: P[]; axis: ChartAxis<P>; table: ChartTable<P> }) {
+  return (
+    <details className="disclosure text-sm">
+      <summary>以表格檢視</summary>
+      <table className="fin-table">
+        <thead>
+          <tr>
+            <th scope="col" className="fin-table-label">
+              {table.heading}
+            </th>
+            {table.headers.map((header) => (
+              <th key={header} scope="col">
+                {header}
               </th>
-              {table.headers.map((header) => (
-                <th key={header} scope="col">
-                  {header}
-                </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {[...points].reverse().map((point) => (
+            <tr key={axis.key(point)}>
+              <th scope="row" className="fin-table-label">
+                {table.name(point)}
+              </th>
+              {table.cells(point).map((cell, i) => (
+                <td key={table.headers[i]}>{cell}</td>
               ))}
             </tr>
-          </thead>
-          <tbody>
-            {[...points].reverse().map((point) => (
-              <tr key={axis.key(point)}>
-                <th scope="row" className="fin-table-label">
-                  {axis.name(point)}
-                </th>
-                {table.cells(point).map((cell, i) => (
-                  <td key={table.headers[i]}>{cell}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </details>
-    </section>
+          ))}
+        </tbody>
+      </table>
+    </details>
   );
 }
 

@@ -1,0 +1,172 @@
+/* core 的元件樣式 彈出視窗 圖示按鈕 選單裡的開關圖示與 i 說明框 */
+
+/* 共用的彈出視窗 core/ui/dialog.tsx */
+/* 手機從底部升起撐滿寬度 寬螢幕置中 標題列固定只有本文捲動 */
+.dialog {
+  @apply m-0 mt-auto flex max-h-[90dvh] w-full max-w-none flex-col overflow-hidden rounded-t-2xl p-0;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background-color: var(--surface-solid);
+  box-shadow: var(--elevation-lift);
+}
+.dialog:not([open]) {
+  display: none;
+}
+.dialog::backdrop {
+  background-color: rgb(0 0 0 / 0.5);
+}
+/* 裡面是 CardHeader 這層只管內距與分隔線 */
+.dialog-header {
+  @apply shrink-0 px-4 pt-4 pb-3;
+  border-bottom: 1px solid var(--line);
+}
+.dialog-body {
+  @apply flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))];
+}
+/* 角色詳情這類內容自己帶標題列與內距 底部仍讓開手機的 Home 指示條 */
+.dialog-body-bare {
+  @apply block p-0 pb-[env(safe-area-inset-bottom)];
+}
+/* 滿版的大面板 手機是整個螢幕 高度固定讓內容依面板高度排版 */
+.dialog-full {
+  height: 100dvh;
+  max-height: none;
+  border-width: 0;
+  border-radius: 0;
+}
+@media (min-width: 40rem) {
+  .dialog {
+    inset: 0;
+    margin: auto;
+    width: calc(100vw - 2rem);
+    max-height: calc(100dvh - 4rem);
+    border-radius: 1rem;
+  }
+  .dialog-sm {
+    max-width: 24rem;
+  }
+  .dialog-md {
+    max-width: 32rem;
+  }
+  .dialog-lg {
+    max-width: 44rem;
+  }
+  /* 四周只留 1rem 不設上限 用 inset 撐開而不是 100vw 捲軸才不會吃掉右邊 */
+  .dialog-full {
+    inset: 1rem;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border-width: 1px;
+    border-radius: 1rem;
+  }
+  .dialog-header {
+    @apply px-6 pt-5 pb-4;
+  }
+  .dialog-body {
+    @apply px-6 pt-5 pb-6;
+  }
+  .dialog-body-bare {
+    @apply p-0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dialog[open] {
+    animation: dialog-sheet-in 200ms ease-out;
+  }
+  @media (min-width: 40rem) {
+    .dialog[open] {
+      animation-name: dialog-pop-in;
+    }
+  }
+}
+/* 視窗開著時背後的頁面不捲 捲軸位置在 html 一律保留 鎖住時不會跳 */
+html:has(.dialog[open]) {
+  overflow: hidden;
+}
+
+/* ⋮ 與關閉這類只有圖示的圓形按鈕 寬螢幕 36px 觸控 44px */
+.icon-button {
+  @apply inline-grid size-9 shrink-0 cursor-pointer place-items-center rounded-full;
+  color: var(--ink);
+  transition:
+    background-color 150ms ease,
+    opacity 150ms ease;
+}
+/* 滑過的底色跟著字色 台鐵與公車卡片這類白字的地方才不會白底白字 */
+.icon-button:hover,
+.icon-button[aria-expanded="true"] {
+  background-color: color-mix(in srgb, currentColor 7%, transparent);
+}
+
+/* 選單項目裡的開關圖示 跟著外層按鈕的 aria-checked 切換 */
+.switch-visual {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  background-color: var(--surface-sunken);
+  transition: background-color 150ms ease;
+}
+.switch-visual::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  transform: translateY(-50%);
+  transition: transform 150ms ease;
+}
+[aria-checked="true"] > .switch-visual {
+  background-color: var(--brand-ink);
+}
+[aria-checked="true"] > .switch-visual::before {
+  transform: translate(1rem, -50%);
+}
+
+/* 標題旁的 i 圓圈 core/ui/info-tip.tsx */
+.info-tip {
+  display: inline-flex;
+}
+/* 圖示平常用次要的字色 不搶標題的視線 */
+.info-tip-button {
+  color: var(--ink-soft);
+}
+/* 滑過時反色 深色的地方是白底圓圈 淺色的地方是深底圓圈 主題都有定義這兩個變數 */
+.info-tip-button:hover,
+.info-tip-button[aria-expanded="true"] {
+  color: var(--surface);
+  background-color: var(--ink);
+}
+/* 緊貼著標題文字 焦點框畫在圓圈裡面才不會壓到字 */
+.info-tip-button:focus-visible {
+  outline-offset: -2px;
+}
+/* popover 預設的置中要蓋掉 位置由元件算好 */
+/* 放在標題裡 字級與粗細要寫回一般內文 */
+.info-tip-bubble {
+  @apply fixed m-0 h-auto w-max overflow-visible rounded-xl px-3.5 py-2.5 text-left text-sm leading-relaxed font-normal whitespace-normal;
+  inset: auto;
+  top: var(--tip-top, 0);
+  left: var(--tip-left, 0);
+  z-index: 30;
+  max-width: min(20rem, calc(100vw - 2rem));
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background-color: var(--surface-solid);
+  box-shadow: var(--elevation-lift);
+}
+/* 上下各多 8px 透明範圍 滑鼠從按鈕移到說明框時經過空隙不算移開 */
+.info-tip-bubble::before {
+  content: "";
+  position: absolute;
+  inset: -0.5rem 0;
+}

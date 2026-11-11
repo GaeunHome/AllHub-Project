@@ -1,10 +1,13 @@
 import "server-only";
-import { and, asc, eq, inArray } from "drizzle-orm";
-import { db } from "@/core/db";
+import { and, asc, eq, inArray, min, or } from "drizzle-orm";
+import { db, type Executor } from "@/core/db";
 import { lockUserRow } from "@/core/db/users";
-import { savingsAccounts, type SavingsAccount } from "../data/schema";
+import { savingsAccounts, savingsTransactions, type SavingsAccount } from "../data/schema";
+import { taipeiToday, type DateKey } from "../lib/dates";
+import { accountStartDate } from "../lib/ledger";
 import type { Direction } from "../lib/order";
-import { ALLOCATION_ACCOUNT_INVALID, NOT_FOUND, isRowId, parseAccountFields, parseAccountKind, parseAllocationFields, type AccountInput } from "../lib/validation";
+import { ALLOCATION_ACCOUNT_INVALID, checkStartBeforeRecords, parseAccountFields, parseAllocationFields, parseStartDate, type AccountInput } from "../lib/account-fields";
+import { NOT_FOUND, isRowId, parseAccountKind } from "../lib/validation";
 import { DUPLICATE_NAME, PAY_FROM_NOT_DEPOSIT, SavingsUserError } from "./errors";
 import { allOf, moveWithin, nextSortOrder, valid, withUniqueName } from "./shared";
 
@@ -34,6 +37,8 @@ export type AccountFields = {
   statementDay: string;
   /** 只有信用卡有 勾選框 on 是自動扣繳 */
   autopay: string;
+  /** 開始記帳的那天 可以是過去 空字串是舊的畫面沒送 新增時當成今天 修改時不動 */
+  startDate: string;
 };
 
 const own = (userId: string, id: number) => and(eq(savingsAccounts.id, id), eq(savingsAccounts.userId, userId));
@@ -43,37 +48,64 @@ export async function listAccounts(userId: string): Promise<SavingsAccount[]> {
 }
 
 /** 扣款帳戶要是自己的存款帳戶 停用的也可以 */
-async function checkReferences(userId: string, input: AccountInput, selfId: number | null): Promise<void> {
+async function checkReferences(executor: Executor, userId: string, input: AccountInput, selfId: number | null): Promise<void> {
   if (input.payFromAccountId !== null) {
-    const [payFrom] = await db().select({ kind: savingsAccounts.kind }).from(savingsAccounts).where(own(userId, input.payFromAccountId));
+    const [payFrom] = await executor.select({ kind: savingsAccounts.kind }).from(savingsAccounts).where(own(userId, input.payFromAccountId));
     if (!payFrom) throw new SavingsUserError(NOT_FOUND.account);
     if (payFrom.kind !== "deposit" || input.payFromAccountId === selfId) throw new SavingsUserError(PAY_FROM_NOT_DEPOSIT);
   }
 }
 
-export async function createAccount(userId: string, fields: AccountFields): Promise<SavingsAccount> {
+export async function createAccount(userId: string, fields: AccountFields, now = new Date()): Promise<SavingsAccount> {
   const kind = valid(parseAccountKind(fields.kind));
-  const input = valid(parseAccountFields(fields, kind, "create"));
-  await checkReferences(userId, input, null);
+  const today = taipeiToday(now);
+  const startDate = valid(parseStartDate(fields.startDate, today)) ?? today;
+  // 從今天開始記帳時表單填的是目前的數字 選了過去就是那天的數字
+  const input = valid(parseAccountFields(fields, kind, startDate === today ? "create" : "update"));
+  await checkReferences(db(), userId, input, null);
   const [account] = await withUniqueName(
     db()
       .insert(savingsAccounts)
-      .values({ ...input, userId, kind, sortOrder: nextSortOrder(savingsAccounts, eq(savingsAccounts.userId, userId)) })
+      .values({ ...input, userId, kind, startDate, sortOrder: nextSortOrder(savingsAccounts, eq(savingsAccounts.userId, userId)) })
       .returning(),
     DUPLICATE_NAME.account,
   );
   return account;
 }
 
-/** 類型建立後不能改 哪些欄位有效看原本的類型 舊的繳款截止日不動 只當填帳單的預設 */
-export async function updateAccount(userId: string, id: number, fields: AccountFields): Promise<SavingsAccount> {
-  const [existing] = isRowId(id) ? await db().select({ kind: savingsAccounts.kind }).from(savingsAccounts).where(own(userId, id)) : [];
-  if (!existing) throw new SavingsUserError(NOT_FOUND.account);
-  const input = valid(parseAccountFields(fields, existing.kind, "update"));
-  await checkReferences(userId, input, id);
-  const [account] = await withUniqueName(db().update(savingsAccounts).set(input).where(own(userId, id)).returning(), DUPLICATE_NAME.account);
-  if (!account) throw new SavingsUserError(NOT_FOUND.account);
-  return account;
+/** 這個帳戶最早的紀錄 轉入的也算 */
+async function earliestRecord(executor: Executor, userId: string, id: number): Promise<DateKey | null> {
+  const t = savingsTransactions;
+  const [row] = await executor
+    .select({ earliest: min(t.date) })
+    .from(t)
+    .where(and(eq(t.userId, userId), or(eq(t.accountId, id), eq(t.counterAccountId, id))));
+  return row?.earliest ?? null;
+}
+
+/**
+ * 類型建立後不能改 哪些欄位有效看原本的類型 舊的繳款截止日不動 只當填帳單的預設
+ * 開始記帳日往前改都可以 往後改不能晚於最早的紀錄
+ */
+export async function updateAccount(userId: string, id: number, fields: AccountFields, now = new Date()): Promise<SavingsAccount> {
+  if (!isRowId(id)) throw new SavingsUserError(NOT_FOUND.account);
+  const startDate = valid(parseStartDate(fields.startDate, taipeiToday(now)));
+  return db().transaction(async (tx) => {
+    await lockUserRow(tx, userId, "key share");
+    // for update 連排程記固定收支的 key share 一起擋 查完最早的紀錄到改好之間不會多出更早的
+    const [existing] = await tx
+      .select({ kind: savingsAccounts.kind, startDate: savingsAccounts.startDate, createdAt: savingsAccounts.createdAt })
+      .from(savingsAccounts)
+      .where(own(userId, id))
+      .for("update");
+    if (!existing) throw new SavingsUserError(NOT_FOUND.account);
+    const input = valid(parseAccountFields(fields, existing.kind, "update"));
+    await checkReferences(tx, userId, input, id);
+    if (startDate !== null && startDate > accountStartDate(existing)) valid(checkStartBeforeRecords(startDate, await earliestRecord(tx, userId, id)));
+    const changes = startDate === null ? input : { ...input, startDate };
+    const [account] = await withUniqueName(tx.update(savingsAccounts).set(changes).where(own(userId, id)).returning(), DUPLICATE_NAME.account);
+    return account;
+  });
 }
 
 /** 修改分配的一個帳戶 空字串是不設 */

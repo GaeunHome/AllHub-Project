@@ -5,11 +5,12 @@ import { savingsAccounts, savingsRecurring, savingsTransactions } from "../../da
 import { savingsRows } from "../../dev/db-fixtures";
 import { userError } from "../../dev/fixtures";
 import { createAccount, deleteAccount, listAccounts, moveAccount, setAccountActive, updateAccount, updateAllocation, type AccountFields } from "../accounts";
+import { addTransaction, type TransactionFields } from "../transactions";
 
 const getDb = setupTestDb();
 let me: string;
 let other: string;
-const { insertAccount } = savingsRows(getDb, () => me);
+const { insertAccount, insertTransaction } = savingsRows(getDb, () => me);
 
 beforeEach(async () => {
   [me, other] = await insertTestUsers(getDb());
@@ -31,6 +32,7 @@ const fields = (values: Partial<AccountFields> = {}): AccountFields => ({
   payFromAccountId: "",
   statementDay: "",
   autopay: "",
+  startDate: "",
   ...values,
 });
 
@@ -409,6 +411,94 @@ describe("deleteAccount", () => {
 
   it.each([999, 2_147_483_648])("帳戶 %i 不存在_回傳 null", async (id) => {
     expect(await deleteAccount(me, id)).toBeNull();
+  });
+});
+
+describe("開始記帳日（使用者要的：可以選過去的日期，補記之前的支出）", () => {
+  // 台北時間 2026-11-11 中午
+  const NOW = new Date("2026-11-11T04:00:00Z");
+  const noonOf = (date: string) => new Date(`${date}T04:00:00Z`);
+  const expense = (accountId: number, date: string): TransactionFields => ({ kind: "expense", accountId: String(accountId), counterAccountId: "", categoryId: "", amount: "120", date, note: "" });
+  const startOf = async (id: number) => (await rowsOf(me)).find((a) => a.id === id)?.startDate;
+
+  it("新增時選過去的日期_存起來，那天起的支出可以補記、更早的不行", async () => {
+    const account = await createAccount(me, fields({ startDate: "2026-10-01", openingBalance: "30000" }), NOW);
+
+    expect(account.startDate).toBe("2026-10-01");
+    expect(await addTransaction(me, expense(account.id, "2026-10-01"), NOW)).toMatchObject({ date: "2026-10-01" });
+    expect(await userError(addTransaction(me, expense(account.id, "2026-09-30"), NOW))).toBe("「國泰」從 10 月 1 日開始記帳，日期不能更早");
+  });
+
+  it("新增時沒送開始記帳日（部署時還開著的舊畫面）_是今天的台北日期：UTC 11/10 16:30 是台北 11/11", async () => {
+    expect((await createAccount(me, fields(), new Date("2026-11-10T16:30:00Z"))).startDate).toBe("2026-11-11");
+  });
+
+  it("新增時開始記帳日是未來_丟使用者錯誤_沒有寫入", async () => {
+    expect(await userError(createAccount(me, fields({ startDate: "2026-11-12" }), NOW))).toBe("開始記帳日不能是未來的日期");
+    expect(await namesOf(me)).toEqual([]);
+  });
+
+  it("新增時開始記帳日不是今天_金額欄位的名稱是起始的數字（跟表單一樣）；今天還是目前的數字", async () => {
+    expect(await userError(createAccount(me, fields({ kind: "investment", startDate: "2026-10-01", openingBalance: "abc" }), NOW))).toMatch(/^起始市值：/);
+    expect(await userError(createAccount(me, fields({ kind: "credit", startDate: "2026-10-01", openingBalance: "abc" }), NOW))).toMatch(/^起始未繳：/);
+    expect(await userError(createAccount(me, fields({ kind: "investment", startDate: "2026-11-11", openingBalance: "abc" }), NOW))).toMatch(/^目前市值：/);
+  });
+
+  it("修改時往前改（從建立那天算的舊帳戶也可以）_之前的日期就能補記", async () => {
+    const bank = await insertAccount({ name: "國泰", createdAt: noonOf("2026-11-05") });
+
+    await updateAccount(me, bank.id, fields({ startDate: "2026-10-01" }), NOW);
+
+    expect(await startOf(bank.id)).toBe("2026-10-01");
+    expect(await addTransaction(me, expense(bank.id, "2026-10-15"), NOW)).toMatchObject({ date: "2026-10-15" });
+  });
+
+  it("修改時往後改_不能晚於這個帳戶最早的一筆紀錄（轉入的也算）_丟使用者錯誤_資料不變；改到那一天可以", async () => {
+    const bank = await insertAccount({ name: "國泰", startDate: "2026-10-01" });
+    const post = await insertAccount({ name: "郵局", startDate: "2026-01-01" });
+    await insertTransaction({ accountId: bank.id, amount: 100, date: "2026-10-20" });
+    await insertTransaction({ kind: "transfer", accountId: post.id, counterAccountId: bank.id, amount: 500, date: "2026-10-10" });
+    await insertTransaction({ accountId: post.id, amount: 100, date: "2026-03-01" });
+
+    expect(await userError(updateAccount(me, bank.id, fields({ name: "國泰世華", startDate: "2026-10-11" }), NOW))).toBe("這個帳戶最早的紀錄在 10 月 10 日，開始記帳日不能更晚");
+    expect(await namesOf(me)).toEqual(["國泰", "郵局"]);
+    expect(await startOf(bank.id)).toBe("2026-10-01");
+
+    expect((await updateAccount(me, bank.id, fields({ startDate: "2026-10-10" }), NOW)).startDate).toBe("2026-10-10");
+  });
+
+  it("修改時開始記帳日是未來_丟使用者錯誤_資料不變", async () => {
+    const bank = await insertAccount({ name: "國泰", startDate: "2026-10-01" });
+
+    expect(await userError(updateAccount(me, bank.id, fields({ startDate: "2026-11-12" }), NOW))).toBe("開始記帳日不能是未來的日期");
+    expect(await startOf(bank.id)).toBe("2026-10-01");
+  });
+
+  it("修改時沒送開始記帳日（部署時還開著的舊畫面）_其他欄位照改，開始記帳日不動", async () => {
+    const bank = await insertAccount({ name: "國泰", startDate: "2026-10-01" });
+
+    await updateAccount(me, bank.id, fields({ name: "國泰世華" }), NOW);
+
+    expect((await rowsOf(me))[0]).toMatchObject({ name: "國泰世華", startDate: "2026-10-01" });
+  });
+
+  it("改別人的帳戶的開始記帳日（IDOR）_當作找不到，資料不變", async () => {
+    const theirs = await insertAccount({ name: "別人的", startDate: "2026-10-01", userId: other });
+
+    expect(await userError(updateAccount(me, theirs.id, fields({ startDate: "2026-09-01" }), NOW))).toBe(NOT_FOUND);
+    expect((await rowsOf(other))[0].startDate).toBe("2026-10-01");
+  });
+
+  it("交易裡先鎖使用者、再用 for update 鎖帳戶，之後才查最早的紀錄與修改：排程記固定收支用 key share 鎖帳戶，for update 才擋得住，同時記帳不會記到新的開始記帳日之前", async () => {
+    const bank = await insertAccount({ name: "國泰", startDate: "2026-10-01" });
+    const statements = logQueries(getDb());
+
+    await updateAccount(me, bank.id, fields({ startDate: "2026-10-05" }), NOW);
+
+    const at = (pattern: RegExp) => statements.findIndex((sql) => pattern.test(sql));
+    const order = [at(/^begin$/), at(/from "core_users" where .* for key share$/i), at(/from "savings_accounts" where .* for update$/i), at(/from "savings_transactions"/i), at(/^update "savings_accounts"/i)];
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
   });
 });
 

@@ -1,0 +1,42 @@
+/* core 的元件樣式 卡片 頁面與欄位的間距 卡片裡的清單 */
+
+.card {
+  @apply rounded-2xl p-5 sm:p-6;
+  border: 1px solid var(--line);
+  background-color: var(--surface);
+  box-shadow: var(--elevation-card);
+}
+
+/* 版面的間距 規則見 .claude/rules/ui.md 的間距與對齊 距離交給父層的 gap 子元素不加 margin */
+/* 頁面上的卡片與區段之間 */
+.page-stack {
+  @apply flex flex-col gap-8;
+}
+/* 卡片與區段裡的元素之間 表單的欄位之間 */
+.stack {
+  @apply flex flex-col gap-4;
+}
+/* 一個欄位 標籤在上 輸入框在下 */
+.field {
+  @apply flex flex-col gap-1.5;
+}
+.field-label {
+  @apply text-sm font-medium text-ink-soft;
+}
+/* 一排按鈕 同一排一樣高 放不下時換行 */
+.button-row {
+  @apply flex flex-wrap items-center gap-2;
+}
+/* 卡片裡撐滿左右的清單 抵掉卡片的內距再由每一列補回 文字跟卡片內容對齊 */
+.card-list {
+  @apply -mx-5 flex flex-col divide-y divide-line border-t border-line sm:-mx-6;
+}
+.card-list:first-child {
+  @apply -mt-5 border-t-0 sm:-mt-6;
+}
+.card-list:last-child {
+  @apply -mb-5 sm:-mb-6;
+}
+.card-row {
+  @apply px-5 py-3 sm:px-6;
+}

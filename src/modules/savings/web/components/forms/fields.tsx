@@ -119,6 +119,17 @@ export function DateField({ defaultValue, today, min, autoFocus = false }: { def
   );
 }
 
+/** 帳戶的開始記帳日 可以選過去 補記之前的收支 onChange 給表單換金額欄位的名稱 */
+export function StartDateField({ defaultValue, today, onChange }: { defaultValue: string; today: string; onChange: (date: string) => void }) {
+  const id = useId();
+  return (
+    <div className="field">
+      <FieldLabel htmlFor={id} label="開始記帳日" tip="選更早的日期就能補記之前的收支，金額填那天的數字" />
+      <input id={id} type="date" name="startDate" required defaultValue={defaultValue} min={MIN_DATE} max={today} onChange={(event) => onChange(event.target.value)} className="input" />
+    </div>
+  );
+}
+
 export function NoteField({ defaultValue, placeholder = "例如：午餐、高鐵票" }: { defaultValue?: string | null; placeholder?: string }) {
   return (
     <label className="field">

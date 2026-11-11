@@ -1,0 +1,82 @@
+/* 交通 捷運的下一班 怎麼搭與站名牌 由 globals.css 照順序接在 transit.css 後面引入 */
+
+/* 捷運 左邊是下一班的大字倒數 右邊是怎麼搭 結果區夠寬時並排 */
+.trn-metro {
+  @apply grid gap-0 border-t border-line;
+}
+.trn-next {
+  @apply flex flex-col gap-3 px-5 py-5 sm:px-6;
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--trn-line) 12%, transparent), transparent 70%);
+}
+.trn-next-head {
+  @apply flex flex-wrap items-center gap-2 font-bold text-ink;
+}
+/* 開往哪裡用路線色的站名牌樣子 一眼分得出中途折返的車 */
+.trn-toward {
+  @apply inline-flex min-h-7 items-center rounded-lg px-2 text-sm font-extrabold;
+  color: var(--trn-plate-ink);
+  background-color: var(--trn-line);
+}
+.trn-next .trn-count {
+  @apply text-6xl;
+}
+.trn-next-clock {
+  @apply flex flex-wrap gap-x-4 gap-y-1 text-ink tabular-nums;
+}
+.trn-next-later {
+  @apply flex flex-wrap items-center gap-2 text-ink tabular-nums;
+}
+.trn-next-later .trn-pill {
+  @apply inline-flex items-center gap-1.5;
+}
+.trn-next-empty {
+  @apply text-2xl font-bold text-ink;
+}
+.trn-facts {
+  @apply mt-auto flex flex-wrap gap-2 pt-2;
+}
+.trn-facts > li {
+  @apply inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-line bg-surface-solid px-3 font-bold text-ink tabular-nums;
+}
+.trn-next-action {
+  @apply flex;
+}
+/* 怎麼搭 一段一條路線色的直線 站名牌在線的兩端 */
+.trn-route {
+  @apply flex flex-col px-5 py-5 sm:px-6;
+}
+.trn-route-stop {
+  @apply relative flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5;
+}
+.trn-route-time {
+  @apply inline-flex items-baseline gap-1 font-semibold text-ink tabular-nums;
+}
+.trn-route-time b {
+  @apply text-lg;
+}
+.trn-route-ride {
+  @apply ml-5 flex flex-wrap items-center gap-x-2 gap-y-1 border-l-4 py-4 pl-6 text-ink;
+  border-color: var(--trn-line);
+}
+@container trn-results (width >= 48rem) {
+  .trn-metro {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .trn-route {
+    @apply border-l border-line;
+  }
+}
+@container trn-results (width < 48rem) {
+  .trn-route {
+    @apply border-t border-line;
+  }
+}
+/* 站名牌 代碼是路線色的圓角方塊 字色照路線色選 文湖線與中和新蘆線是深色字 */
+.trn-plate {
+  @apply inline-flex min-w-0 items-center gap-1.5 font-bold text-ink;
+}
+.trn-plate-code {
+  @apply inline-grid min-h-7 min-w-10 shrink-0 place-items-center rounded-lg px-1.5 text-sm font-extrabold tabular-nums;
+  color: var(--trn-plate-ink);
+  background-color: var(--trn-line);
+}

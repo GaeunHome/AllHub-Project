@@ -1,0 +1,93 @@
+/* core 的元件樣式 提示框 步驟 空狀態 卡片標題列的連結 首頁的模組入口 */
+
+.notice {
+  @apply flex items-start gap-2 rounded-xl px-4 py-2.5 text-sm leading-relaxed;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background-color: var(--surface-muted);
+}
+.notice > .icon {
+  @apply mt-0.5 size-4;
+  color: var(--brand-ink);
+}
+.notice code {
+  background-color: var(--surface-solid);
+}
+
+.steps {
+  @apply flex flex-col gap-2.5;
+  counter-reset: step;
+}
+.steps > li {
+  position: relative;
+  padding-left: 2.25rem;
+  counter-increment: step;
+}
+.steps > li::before {
+  content: counter(step);
+  position: absolute;
+  top: 0.05rem;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink);
+  background-color: var(--surface-solid);
+}
+
+.empty-state {
+  @apply flex flex-col items-center gap-4 rounded-2xl px-6 py-10 text-center;
+  border: 1px dashed var(--line-strong);
+  background-color: var(--surface-muted);
+}
+/* 卡片裡的空狀態排成一列 按鈕放不下時換到下一行 */
+.empty-state-compact {
+  @apply flex flex-wrap items-center gap-4 rounded-xl p-4;
+  border: 1px dashed var(--line-strong);
+  background-color: var(--surface-muted);
+}
+
+/* 卡片標題列右邊前往模組頁的連結 負邊距讓箭頭對齊卡片內容的右邊線 */
+.card-header-link {
+  @apply -mr-1.5 inline-flex min-h-9 shrink-0 items-center gap-0.5 rounded-lg pr-1.5 pl-2.5 text-sm font-medium;
+  color: var(--brand-ink);
+  transition: background-color 150ms ease;
+}
+/* 跟著字色 首頁卡片圖片標題列上的白字連結滑過也看得到 */
+.card-header-link:hover {
+  background-color: color-mix(in srgb, currentColor 7%, transparent);
+}
+
+/* 首頁的模組入口 背景是模組自己的圖 字一律是白的 */
+.home-module-link {
+  @apply relative isolate flex min-h-16 w-full items-center gap-2 overflow-hidden rounded-xl px-3.5 text-sm font-semibold text-white sm:w-32;
+  background-color: var(--accent);
+  box-shadow: var(--elevation-card);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+.home-module-link > .icon {
+  @apply size-5 shrink-0 text-white;
+}
+.home-module-link > span:last-child {
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+}
+.home-module-link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-lift);
+}
+.home-module-cover {
+  z-index: -1;
+  object-fit: cover;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-module-link:hover {
+    transform: none;
+  }
+}

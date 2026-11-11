@@ -13,20 +13,13 @@ vi.mock("@/core/ui/more-menu", () => import("@/dev/more-menu-stub"));
 vi.mock("@/core/ui/action-button", { spy: true });
 // 真的 hook 要有路由才能算繪 這裡換成只記下要不要打開
 vi.mock("../../settings/open-from-link", () => ({ useOpenFromLink: vi.fn(), useLinkedTrigger: vi.fn((dialog: { triggerProps: unknown }) => dialog.triggerProps) }));
-vi.mock("../../../actions", () => ({
-  createRecurringAction: vi.fn(),
-  updateRecurringAction: vi.fn(),
-  setRecurringActiveAction: vi.fn(),
-  deleteRecurringAction: vi.fn(),
-  skipOccurrenceAction: vi.fn(),
-  confirmOccurrenceAction: vi.fn(),
-  allocateSalaryAction: vi.fn(),
-  updateAllocationAction: vi.fn(),
-}));
+vi.mock("../../../actions", () => ({ updateAllocationAction: vi.fn() }));
+vi.mock("../../../actions-records", () => ({ allocateSalaryAction: vi.fn() }));
+vi.mock("../../../actions-recurring", () => ({ createRecurringAction: vi.fn(), updateRecurringAction: vi.fn(), setRecurringActiveAction: vi.fn(), deleteRecurringAction: vi.fn(), skipOccurrenceAction: vi.fn(), confirmOccurrenceAction: vi.fn() }));
 
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
-const actions = await import("../../../actions");
+const actions = { ...(await import("../../../actions")), ...(await import("../../../actions-records")), ...(await import("../../../actions-recurring")) };
 const { useLinkedTrigger } = await import("../../settings/open-from-link");
 const { recurringPageView } = await import("../../../recurring-view");
 const { RegularBuyList } = await import("../regular-buy-list");

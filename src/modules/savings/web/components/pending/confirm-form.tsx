@@ -6,7 +6,7 @@ import { Fact, FactList } from "@/core/ui/fact-list";
 import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { formatSlashDate, type DateKey } from "../../../lib/dates";
-import { confirmOccurrenceAction } from "../../actions";
+import { confirmOccurrenceAction } from "../../actions-recurring";
 import { priceText } from "../../format";
 import type { ConfirmDraft } from "../../pending-view";
 import { AmountField, DateField, NoteField } from "../forms/fields";

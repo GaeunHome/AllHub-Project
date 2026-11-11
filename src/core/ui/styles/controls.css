@@ -1,0 +1,142 @@
+/* core 的元件樣式 小面板 按鈕 輸入框 下拉選單 連結與回上一層 */
+
+/* 卡片裡再小一級的區塊 例如統計面板與數字方塊 */
+.panel {
+  @apply rounded-xl p-4;
+  background-color: var(--surface-muted);
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-ghost {
+  @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-semibold whitespace-nowrap select-none;
+  border: 1px solid transparent;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+/* 停用的按鈕全站一個樣子 送出中標 aria-disabled 的也一樣 模組不另外寫 */
+:is(button, .btn-primary, .btn-secondary, .btn-danger, .btn-ghost, .icon-button, .switch):is(:disabled, [aria-disabled="true"]) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.btn-primary {
+  color: var(--on-brand);
+  background-color: var(--brand);
+}
+.btn-primary:hover:not(:disabled, [aria-disabled="true"]) {
+  background-color: var(--brand-hover);
+}
+.btn-secondary {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  background-color: var(--surface-solid);
+}
+.btn-secondary:hover:not(:disabled, [aria-disabled="true"]) {
+  background-color: var(--surface-muted);
+}
+.btn-danger {
+  border-color: var(--danger-line);
+  color: var(--danger);
+  background-color: var(--danger-soft);
+}
+.btn-danger:hover:not(:disabled, [aria-disabled="true"]) {
+  background-color: var(--danger-hover);
+}
+.btn-ghost {
+  color: var(--ink-soft);
+}
+/* 滑過的底色跟著字色 白字的地方是淡淡的白 不會白底白字 */
+.btn-ghost:hover:not(:disabled, [aria-disabled="true"]) {
+  color: var(--ink);
+  background-color: color-mix(in srgb, currentColor 7%, transparent);
+}
+/* 清單列與工具列裡的次要按鈕 寬螢幕 36px 觸控裝置在檔案最後放大到 44px */
+.btn-sm {
+  @apply min-h-9 gap-1 px-3 text-[0.8125rem];
+}
+/* 只有圖示的按鈕是正方形 一排放不下時也不會被擠扁 */
+.btn-icon {
+  @apply w-11 shrink-0 px-0;
+}
+.btn-sm.btn-icon {
+  @apply w-9;
+}
+
+/* 跟按鈕一樣 44px 高 行高寫死 24px 字級不同時也不會多出 1px */
+.input {
+  @apply min-h-11 w-full min-w-0 rounded-lg px-3.5 py-2 text-[0.9375rem] leading-6;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  background-color: var(--surface-solid);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+textarea.input {
+  @apply py-2.5 leading-relaxed;
+  resize: vertical;
+}
+.input::placeholder {
+  color: var(--placeholder);
+}
+.input:hover {
+  border-color: var(--muted);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+/* 下拉選單自己畫箭頭 離右邊框跟文字離左邊框一樣遠 右邊內距讓開它 */
+/* 用字色的變數畫 淺色深色與主題頁都跟著換 */
+select.input {
+  appearance: none;
+  padding-right: 2rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    right 1.1875rem center,
+    right 0.875rem center;
+  background-size: 0.3125rem 0.3125rem;
+  background-repeat: no-repeat;
+}
+.input[type="file"] {
+  @apply py-1.5 pl-1.5;
+  cursor: pointer;
+}
+.input::file-selector-button {
+  @apply mr-3 rounded-md px-3 py-1.5 text-[0.8125rem] font-semibold;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  background-color: var(--surface-muted);
+  cursor: pointer;
+}
+
+.link {
+  font-weight: 500;
+  color: var(--brand-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--brand-line);
+  text-underline-offset: 3px;
+}
+.link:hover {
+  text-decoration-color: currentColor;
+}
+/* 自己一行的文字連結 觸控裝置上點擊範圍放大到 44px */
+.link-block {
+  @apply inline-flex items-center self-start;
+}
+
+/* 左邊用負邊距抵掉內距 箭頭對齊頁面左邊線 滑過時底色往外多一點 */
+.back-link {
+  @apply -ml-2.5 inline-flex min-h-9 items-center gap-1 self-start rounded-lg px-2.5 text-sm font-medium;
+  color: var(--ink-soft);
+}
+.back-link:hover {
+  color: var(--ink);
+  background-color: var(--surface-muted);
+}

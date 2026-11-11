@@ -23,6 +23,7 @@ export function accountRow(values: Pick<SavingsAccount, "id" | "name" | "kind"> 
     statementDay: null,
     autopay: false,
     cardNotifiedOn: null,
+    startDate: null,
     ...values,
   };
 }

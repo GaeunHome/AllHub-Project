@@ -89,10 +89,14 @@ describe("信用卡的數字（畫面上的未繳）與餘額的換算：全站�
 });
 
 describe("accountStartDate（開始記帳的那天：起始餘額是那天的餘額）", () => {
-  it("建立帳戶的台北日期_UTC 10/13 16:30 是台北 10/14，15:59 還是 10/13", () => {
-    expect(accountStartDate({ createdAt: new Date("2026-10-13T16:30:00Z") })).toBe("2026-10-14");
-    expect(accountStartDate({ createdAt: new Date("2026-10-13T15:59:59Z") })).toBe("2026-10-13");
+  it("沒選開始記帳日的舊帳戶_建立帳戶的台北日期：UTC 10/13 16:30 是台北 10/14，15:59 還是 10/13", () => {
+    expect(accountStartDate({ startDate: null, createdAt: new Date("2026-10-13T16:30:00Z") })).toBe("2026-10-14");
+    expect(accountStartDate({ startDate: null, createdAt: new Date("2026-10-13T15:59:59Z") })).toBe("2026-10-13");
     expect(accountStartDate(account({ createdAt: createdOn("2026-10-14") }))).toBe("2026-10-14");
+  });
+
+  it("選了開始記帳日_就是那天，跟建立的時間無關（11/11 才建立、從 10/1 開始記帳）", () => {
+    expect(accountStartDate({ startDate: "2026-10-01", createdAt: createdOn("2026-11-11") })).toBe("2026-10-01");
   });
 });
 

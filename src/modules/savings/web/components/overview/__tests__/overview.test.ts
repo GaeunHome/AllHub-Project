@@ -11,30 +11,17 @@ vi.mock("@/core/ui/dialog", { spy: true });
 vi.mock("@/core/ui/action-button", { spy: true });
 vi.mock("@/core/ui/more-menu", () => import("@/dev/more-menu-stub"));
 // Server Action 換成假的 只看每個表單接到哪一個
-vi.mock("../../../actions", () =>
-  Object.fromEntries(
-    [
-      "addTransactionAction",
-      "allocateSalaryAction",
-      "buyHoldingAction",
-      "confirmOccurrenceAction",
-      "createHoldingAction",
-      "enterCardBillAction",
-      "payCardAction",
-      "sellHoldingAction",
-      "setupAction",
-      "skipOccurrenceAction",
-      "updateBalanceAction",
-      "updateHoldingAction",
-    ].map((name) => [name, vi.fn()]),
-  ),
-);
+vi.mock("../../../actions", () => ({ setupAction: vi.fn() }));
+vi.mock("../../../actions-records", () => ({ addTransactionAction: vi.fn(), allocateSalaryAction: vi.fn(), updateBalanceAction: vi.fn() }));
+vi.mock("../../../actions-recurring", () => ({ confirmOccurrenceAction: vi.fn(), skipOccurrenceAction: vi.fn() }));
+vi.mock("../../../actions-investments", () => ({ buyHoldingAction: vi.fn(), createHoldingAction: vi.fn(), sellHoldingAction: vi.fn(), updateHoldingAction: vi.fn() }));
+vi.mock("../../../actions-cards", () => ({ enterCardBillAction: vi.fn(), payCardAction: vi.fn() }));
 // 成功的訊息看跳出什麼提示
 vi.mock("@/core/ui/toast", () => import("@/dev/toast-stub"));
 
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
-const actions = await import("../../../actions");
+const actions = { ...(await import("../../../actions")), ...(await import("../../../actions-records")), ...(await import("../../../actions-recurring")), ...(await import("../../../actions-investments")), ...(await import("../../../actions-cards")) };
 const { MonthChecklist } = await import("../month-checklist");
 const { QuickActions, QuickActionBody } = await import("../quick-actions");
 const { SetupChecklist } = await import("../setup-checklist");

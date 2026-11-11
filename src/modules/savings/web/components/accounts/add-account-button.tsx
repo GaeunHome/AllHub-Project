@@ -14,6 +14,8 @@ export type AddAccountButtonProps = {
   kind: AccountKind;
   /** 信用卡的扣款帳戶 只列存款帳戶 停用的也帶上 表單會濾掉 */
   payFromAccounts: readonly { id: number; name: string; active: boolean }[];
+  /** 台北時間的今天 開始記帳日的預設與上限 */
+  today: string;
   className?: string;
   /** 網址帶 add 參數連過來時打開一次 之後拿掉參數 */
   openFromLink?: boolean;
@@ -21,7 +23,7 @@ export type AddAccountButtonProps = {
   cleanHref?: string;
 };
 
-export function AddAccountButton({ kind, payFromAccounts, className = "btn-secondary", openFromLink = false, cleanHref }: AddAccountButtonProps) {
+export function AddAccountButton({ kind, payFromAccounts, today, className = "btn-secondary", openFromLink = false, cleanHref }: AddAccountButtonProps) {
   const dialog = useDialog();
   const pathname = usePathname();
   const trigger = useLinkedTrigger(dialog, openFromLink, cleanHref ?? pathname);
@@ -33,7 +35,7 @@ export function AddAccountButton({ kind, payFromAccounts, className = "btn-secon
         {ADD_LABELS[kind]}
       </button>
       <Dialog {...dialog.dialogProps} title={ADD_LABELS[kind]}>
-        <AccountForm kind={kind} payFromAccounts={payFromAccounts} onDone={dialog.done} onCancel={dialog.close} />
+        <AccountForm kind={kind} payFromAccounts={payFromAccounts} today={today} onDone={dialog.done} onCancel={dialog.close} />
       </Dialog>
     </>
   );

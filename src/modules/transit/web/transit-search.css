@@ -1,0 +1,62 @@
+/* 交通 查詢的分頁與表單 由 globals.css 照順序接在 transit.css 後面引入 */
+
+/* 查詢卡最上面的分頁 選中的圖示與底線用路線圖的顏色 字維持深色才讀得清楚 */
+.trn-modes {
+  @apply grid grid-cols-4 border-b border-line;
+}
+.trn-mode {
+  @apply flex min-h-13 cursor-pointer items-center justify-center gap-2 font-semibold text-ink-soft transition-colors;
+}
+.trn-mode:hover {
+  @apply text-ink;
+}
+.trn-mode:focus-visible {
+  outline-offset: -3px;
+}
+.trn-mode[aria-pressed="true"] {
+  @apply text-ink;
+  background-color: color-mix(in srgb, var(--trn-line) 9%, transparent);
+  box-shadow: inset 0 -3px 0 var(--trn-line);
+}
+.trn-mode[aria-pressed="true"] .icon {
+  color: var(--trn-line);
+}
+/* 手機上起訖站與交換鈕一列 日期與時間一列 按鈕一列 夠寬時全部一列 看的是表單的寬度 不是螢幕 */
+.trn-search {
+  container: trn-search / inline-size;
+}
+.trn-search-fields {
+  @apply flex flex-wrap items-end gap-3 p-4 sm:p-5;
+}
+/* 切換交通工具時分頁先換 舊的欄位變淡 等新的車站清單 */
+.trn-search[aria-busy="true"] .trn-search-fields {
+  opacity: 0.55;
+  pointer-events: none;
+}
+.trn-search-fields > .field {
+  flex: 1 1 8rem;
+}
+.trn-search-route {
+  @apply flex w-full min-w-0 items-end gap-2;
+}
+.trn-search-buttons {
+  @apply flex w-full gap-2;
+}
+.trn-search-buttons > :first-child {
+  flex: 1;
+}
+@container trn-search (width >= 52rem) {
+  .trn-search-fields {
+    flex-wrap: nowrap;
+  }
+  .trn-search-route {
+    flex: 1 1 0;
+    width: auto;
+  }
+  .trn-search-fields > .field {
+    flex: 0 1 9.5rem;
+  }
+  .trn-search-buttons {
+    @apply w-auto shrink-0;
+  }
+}

@@ -78,7 +78,7 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
           {view.deposits.map((card) => (
             <DepositCard key={card.detail.id} card={card} {...shared} />
           ))}
-          <AddAccountButton kind="deposit" payFromAccounts={view.payFromAccounts} className={ADD_TILE} openFromLink={openAdd === "deposit"} />
+          <AddAccountButton kind="deposit" payFromAccounts={view.payFromAccounts} today={context.today} className={ADD_TILE} openFromLink={openAdd === "deposit"} />
         </div>
       </section>
       <section aria-labelledby="fin-cards" {...FOCUS_FRAME} className="stack">
@@ -87,7 +87,7 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
           {view.cards.map((card) => (
             <CreditCard key={card.detail.id} card={card} {...shared} />
           ))}
-          <AddAccountButton kind="credit" payFromAccounts={view.payFromAccounts} className={ADD_TILE} openFromLink={openAdd === "credit"} />
+          <AddAccountButton kind="credit" payFromAccounts={view.payFromAccounts} today={context.today} className={ADD_TILE} openFromLink={openAdd === "credit"} />
         </div>
       </section>
       {view.inactive.length > 0 && <InactiveAccounts items={view.inactive} {...shared} />}
@@ -134,7 +134,7 @@ function DepositCard({ card, context, payFromAccounts }: { card: DepositCardView
         <AccountMenu card={card} name={detail.name} editTrigger={edit.triggerProps} />
       </div>
       <Dialog {...edit.dialogProps} title={`修改「${detail.name}」`}>
-        <AccountForm account={card.draft} payFromAccounts={payFromAccounts} onDone={edit.done} onCancel={edit.close} />
+        <AccountForm account={card.draft} payFromAccounts={payFromAccounts} today={context.today} onDone={edit.done} onCancel={edit.close} />
       </Dialog>
     </article>
   );
@@ -224,7 +224,7 @@ function CreditCard({ card, context, payFromAccounts }: { card: CreditCardView }
         <PayCardForm draft={detail.pay} accounts={context.depositAccounts} today={context.today} onDone={pay.done} onCancel={pay.close} />
       </Dialog>
       <Dialog {...edit.dialogProps} title={`修改「${detail.name}」`}>
-        <AccountForm account={card.draft} payFromAccounts={payFromAccounts} onDone={edit.done} onCancel={edit.close} />
+        <AccountForm account={card.draft} payFromAccounts={payFromAccounts} today={context.today} onDone={edit.done} onCancel={edit.close} />
       </Dialog>
     </article>
   );
@@ -257,14 +257,14 @@ function AccountMenu({ card, name, editTrigger, refillTrigger }: AccountMenuProp
 const RESTORED_WHERE: Record<AccountKind, string> = { deposit: "", investment: "，在「投資」頁", credit: "" };
 
 /** 不常看 收起來 點一列可以修改 恢復與刪除在 ⋮ */
-function InactiveAccounts({ items, payFromAccounts }: { items: InactiveAccountView[] } & CardShared) {
+function InactiveAccounts({ items, context, payFromAccounts }: { items: InactiveAccountView[] } & CardShared) {
   return (
     <details className="disclosure">
       <summary>已停用（{items.length}）</summary>
       <div className="card overflow-hidden p-0">
         <ul className="divide-y divide-line">
           {items.map((item) => (
-            <InactiveRow key={item.id} item={item} payFromAccounts={payFromAccounts} />
+            <InactiveRow key={item.id} item={item} today={context.today} payFromAccounts={payFromAccounts} />
           ))}
         </ul>
       </div>
@@ -272,7 +272,7 @@ function InactiveAccounts({ items, payFromAccounts }: { items: InactiveAccountVi
   );
 }
 
-function InactiveRow({ item, payFromAccounts }: { item: InactiveAccountView } & Pick<CardShared, "payFromAccounts">) {
+function InactiveRow({ item, today, payFromAccounts }: { item: InactiveAccountView; today: DateKey } & Pick<CardShared, "payFromAccounts">) {
   const edit = useDialog();
   return (
     <ListRow
@@ -294,7 +294,7 @@ function InactiveRow({ item, payFromAccounts }: { item: InactiveAccountView } & 
       }
     >
       <Dialog {...edit.dialogProps} title={`修改「${item.name}」`}>
-        <AccountForm account={item.draft} payFromAccounts={payFromAccounts} onDone={edit.done} onCancel={edit.close} />
+        <AccountForm account={item.draft} payFromAccounts={payFromAccounts} today={today} onDone={edit.done} onCancel={edit.close} />
       </Dialog>
     </ListRow>
   );

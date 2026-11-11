@@ -9,11 +9,8 @@ import type { AccountsInput, OverviewAccount } from "../../../accounts-state";
 vi.mock("@/core/ui/dialog", { spy: true });
 vi.mock("@/core/ui/action-button", { spy: true });
 vi.mock("@/core/ui/more-menu", () => ({ MoreMenu: ({ label, children }: { label: string; children: ReactNode }) => createElement("menu-mock", { "data-menu": label }, children) }));
-vi.mock("../../../actions", () =>
-  Object.fromEntries(
-    ["createAccountAction", "updateAccountAction", "setAccountActiveAction", "moveAccountAction", "deleteAccountAction", "payCardAction", "enterCardBillAction"].map((name) => [name, vi.fn()]),
-  ),
-);
+vi.mock("../../../actions", () => ({ createAccountAction: vi.fn(), updateAccountAction: vi.fn(), setAccountActiveAction: vi.fn(), moveAccountAction: vi.fn(), deleteAccountAction: vi.fn() }));
+vi.mock("../../../actions-cards", () => ({ payCardAction: vi.fn(), enterCardBillAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }), usePathname: () => "/savings/accounts" }));
 // 停用與刪除成功時提示的那句要看交給誰
 vi.mock("@/core/ui/delete-menu-item", { spy: true });
@@ -29,7 +26,7 @@ vi.mock("../../forms/update-balance", () => ({
 
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
-const actions = await import("../../../actions");
+const actions = { ...(await import("../../../actions")), ...(await import("../../../actions-cards")) };
 const { DeleteMenuItem } = await import("@/core/ui/delete-menu-item");
 const { AddAccountButton } = await import("../add-account-button");
 const { accountsPageView } = await import("../../../accounts-view");

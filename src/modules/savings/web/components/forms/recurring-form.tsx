@@ -8,7 +8,7 @@ import { FormFeedback } from "@/core/ui/form-message";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import { HOLIDAY_RULES, HOLIDAY_RULE_LABELS, INTERVAL_LABELS, INTERVAL_MONTHS, NAME_MAX_LENGTH, RECURRING_MODES, RECURRING_MODE_LABELS, type RecurringMode } from "../../../lib/kinds";
 import { dateToMonth, formatMonth, monthToDate } from "../../../lib/month";
-import { createRecurringAction, updateRecurringAction } from "../../actions";
+import { createRecurringAction, updateRecurringAction } from "../../actions-recurring";
 import { defaultIncomeCategory, nextRunText } from "../../form-math";
 import { pickAccount, pickOtherAccount } from "../../last-used";
 import { SAVINGS_PATHS, type RecurringPreset } from "../../paths";

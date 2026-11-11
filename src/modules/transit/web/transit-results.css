@@ -1,0 +1,169 @@
+/* 交通 查詢結果的標題 每一班與頁碼 由 globals.css 照順序接在 transit.css 後面引入 */
+
+/* 查詢結果的主題 高鐵是車票 台鐵是站牌 捷運是站名牌 都不用官方的標誌與圖 */
+.trn-results {
+  container: trn-results / inline-size;
+}
+/* 標題疊在場景圖上 卡片本身有外框 這裡只留上面的圓角 */
+.trn-scene {
+  @apply flex min-h-28 flex-col justify-end;
+  border-radius: calc(1rem - 1px) calc(1rem - 1px) 0 0;
+  box-shadow: none;
+}
+.trn-scene .scene-image {
+  object-position: 50% 62%;
+}
+/* 手機上字佔滿寬度 整片壓暗 圖再亮白字也讀得到 */
+.trn-scene .scene-scrim {
+  background: rgb(7 13 28 / 0.66);
+}
+/* 夠寬時字只在左邊 右邊留給圖 右欄佔掉寬度後看的是結果卡片的寬度 */
+@container trn-results (width >= 44rem) {
+  .trn-scene .scene-scrim {
+    background: linear-gradient(90deg, rgb(7 13 28 / 0.8) 0%, rgb(7 13 28 / 0.66) 62%, rgb(7 13 28 / 0.12) 100%);
+  }
+  .trn-scene-body {
+    max-width: 60%;
+    padding-right: 1.5rem;
+  }
+}
+.trn-scene-body {
+  @apply flex flex-col gap-1 p-4 pr-32 sm:p-5 sm:pr-32;
+}
+.trn-scene-title {
+  @apply text-xl font-bold text-white sm:text-2xl;
+}
+.trn-scene-facts {
+  @apply flex flex-wrap items-center gap-x-4 gap-y-0.5 font-semibold text-white tabular-nums;
+}
+.trn-scene-actions {
+  @apply absolute top-3 right-3 flex items-center gap-1.5;
+}
+/* 全站的關閉鈕是深色字 放在圖上要換成白的 右邊的圖沒有壓暗 所以有自己的底 */
+.trn-scene .trn-scene-close,
+.trn-scene .trn-scene-edit {
+  color: white;
+  background-color: rgb(7 13 28 / 0.6);
+}
+.trn-scene .trn-scene-close:hover,
+.trn-scene .trn-scene-edit:hover {
+  background-color: rgb(7 13 28 / 0.8);
+}
+.trn-scene .trn-scene-close:focus-visible,
+.trn-scene .trn-scene-edit:focus-visible {
+  outline-color: white;
+}
+.trn-train-name {
+  @apply inline-flex min-w-0 items-center gap-1.5 text-ink tabular-nums;
+}
+/* 一班一列 出發與抵達最大 中間是一小段路線圖 窄的時候車次換到下一行 星星留在時間旁邊 */
+/* 台鐵的列淡淡交替 像車站的看板 */
+.trn-result-list {
+  @apply divide-y divide-line border-t border-line;
+}
+.trn-result {
+  @apply grid items-center gap-x-3 gap-y-1 px-5 py-2.5 sm:px-6;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "times add" "info add";
+}
+.trn-board .trn-result:nth-child(even) {
+  background-color: var(--trn-sign-tint);
+}
+.trn-times {
+  @apply flex items-center gap-3;
+  grid-area: times;
+}
+.trn-result-add {
+  grid-area: add;
+}
+@container trn-results (width >= 48rem) {
+  .trn-result {
+    @apply gap-x-6;
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr) auto;
+    grid-template-areas: "times info add";
+  }
+}
+.trn-clock {
+  @apply text-2xl leading-none font-extrabold text-ink tabular-nums;
+}
+.trn-ride {
+  @apply flex h-6 min-w-0 flex-1 items-center gap-2;
+  --trn-end: radial-gradient(circle, var(--trn-line) 0 0.3125rem, transparent 0.3438rem);
+  background: var(--trn-end) left center / 0.75rem 0.75rem no-repeat, var(--trn-end) right center / 0.75rem 0.75rem no-repeat;
+}
+/* 線分成左右兩段 字不用底色 深色模式才不會多一塊 */
+.trn-ride::before,
+.trn-ride::after {
+  content: "";
+  height: 0.1875rem;
+  flex: 1;
+  border-radius: 9999px;
+  background-color: var(--trn-line);
+}
+.trn-ride::before {
+  margin-inline-start: 0.25rem;
+}
+.trn-ride::after {
+  margin-inline-end: 0.25rem;
+}
+.trn-ride-text {
+  @apply shrink-0 text-sm font-semibold text-ink tabular-nums;
+}
+.trn-result-info {
+  @apply flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1;
+  grid-area: info;
+}
+/* 跟星星按鈕一樣大 加到常用之後這一列的版面才不會動 */
+.trn-star-saved {
+  @apply inline-grid size-9 place-items-center text-accent;
+}
+@media (pointer: coarse) {
+  .trn-star-saved {
+    @apply size-11;
+  }
+}
+/* 手機拿掉小圖示 一班兩行放得下 不用第三行 */
+@container trn-results (width < 30rem) {
+  .trn-train-name .icon,
+  .trn-fare .icon {
+    display: none;
+  }
+}
+.trn-fare {
+  @apply inline-flex items-center gap-1 font-bold text-ink tabular-nums;
+}
+/* 高鐵 一班一張車票 陰影放外層 遮罩會把裡面的陰影一起切掉 同一列的車票一樣高 */
+.trn-tickets {
+  @apply grid gap-3 border-t border-line px-3 pt-4 pb-2 sm:px-6;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
+}
+/* 頁碼在清單下面置中 窄的時候只寫第幾頁 */
+.trn-pages {
+  @apply flex items-center justify-center gap-2 border-t border-line px-5 py-3 sm:px-6;
+  container-type: inline-size;
+}
+.trn-page-numbers {
+  @apply hidden items-center gap-1;
+}
+.trn-page {
+  @apply inline-flex size-9 items-center justify-center rounded-lg text-sm font-semibold text-ink tabular-nums;
+  @apply hover:bg-surface-muted;
+}
+.trn-page[aria-current="page"] {
+  color: var(--on-brand);
+  background-color: var(--brand);
+}
+.trn-page-gap {
+  @apply inline-flex w-5 justify-center text-ink;
+}
+.trn-page-count {
+  @apply min-w-16 text-center font-semibold text-ink tabular-nums;
+}
+@container (width >= 26rem) {
+  .trn-page-numbers {
+    @apply inline-flex;
+  }
+  .trn-page-count {
+    @apply hidden;
+  }
+}

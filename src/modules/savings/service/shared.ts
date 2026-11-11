@@ -1,21 +1,19 @@
 import "server-only";
 import { and, asc, eq, inArray, sql, type SQL } from "drizzle-orm";
 import { db, type Executor } from "@/core/db";
+import { valueOrThrow, type Parsed } from "@/core/parsed";
 import { savingsAccounts, savingsCategories, savingsHoldings, savingsTransactions } from "../data/schema";
 import type { DateKey } from "../lib/dates";
 import { accountsWithHoldings } from "../lib/holdings";
 import { accountIdsOf } from "../lib/ledger";
 import type { AccountKind, EntryKind, TransactionKind } from "../lib/kinds";
 import { moveInOrder, type Direction } from "../lib/order";
-import { NOT_FOUND, checkAccountStart, type Parsed } from "../lib/validation";
+import { NOT_FOUND, checkAccountStart } from "../lib/validation";
 import { CATEGORY_KIND_MISMATCH, HELD_INVESTMENT_TRANSFER, INACTIVE_ACCOUNT, SavingsUserError } from "./errors";
 
 // userId 都是 Server Action 從 session 拿的登入者 別人的 id 一律當作不存在
 
-export function valid<T>(parsed: Parsed<T>): T {
-  if (!parsed.ok) throw new SavingsUserError(parsed.error);
-  return parsed.value;
-}
+export const valid = <T>(parsed: Parsed<T>): T => valueOrThrow(parsed, SavingsUserError);
 
 const UNIQUE_VIOLATION = "23505";
 
@@ -70,7 +68,7 @@ export async function moveWithin(table: OrderedTable, scope: SQL, id: number, di
   });
 }
 
-export type AccountRef = { id: number; name: string; kind: AccountKind; active: boolean; createdAt: Date };
+export type AccountRef = { id: number; name: string; kind: AccountKind; active: boolean; createdAt: Date; startDate: DateKey | null };
 
 /**
  * 只找自己的帳戶 別人的 id 不在結果裡
@@ -79,7 +77,7 @@ export type AccountRef = { id: number; name: string; kind: AccountKind; active: 
 export async function ownAccounts(executor: Executor, userId: string, ids: number[], lock?: "share"): Promise<Map<number, AccountRef>> {
   if (ids.length === 0) return new Map();
   const query = executor
-    .select({ id: savingsAccounts.id, name: savingsAccounts.name, kind: savingsAccounts.kind, active: savingsAccounts.active, createdAt: savingsAccounts.createdAt })
+    .select({ id: savingsAccounts.id, name: savingsAccounts.name, kind: savingsAccounts.kind, active: savingsAccounts.active, createdAt: savingsAccounts.createdAt, startDate: savingsAccounts.startDate })
     .from(savingsAccounts)
     .where(and(eq(savingsAccounts.userId, userId), inArray(savingsAccounts.id, [...new Set(ids)])))
     .orderBy(asc(savingsAccounts.id));

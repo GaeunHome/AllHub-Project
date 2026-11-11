@@ -7,7 +7,8 @@ import { billCutoff, billDifference, billPayments, fillStatementDate, isStatemen
 import { addDays, earliestOf, taipeiToday, type DateKey } from "../lib/dates";
 import { accountStartDate, type AccountDayFlow } from "../lib/ledger";
 import { MAX_AMOUNT } from "../lib/money";
-import { NOT_FOUND, checkBillDueDate, parseCardBillFields, parsePayCardFields } from "../lib/validation";
+import { checkBillDueDate, parseCardBillFields, parsePayCardFields } from "../lib/card-fields";
+import { NOT_FOUND } from "../lib/validation";
 import {
   BILL_DIFFERENCE_TOO_LARGE,
   CARD_BILL_NOT_CREDIT,
@@ -41,7 +42,7 @@ export type CardBillRecord = CardStatement & { paid: number; lastPaidOn: DateKey
 /** difference 正的是補記的刷卡 負的是記成調整的 0 是跟紀錄一樣 */
 export type BillEntry = { bill: SavingsCardBill; card: CardRow; difference: number };
 
-type CardRow = Pick<SavingsAccount, "id" | "name" | "kind" | "active" | "openingBalance" | "statementDay" | "createdAt">;
+type CardRow = Pick<SavingsAccount, "id" | "name" | "kind" | "active" | "openingBalance" | "statementDay" | "createdAt" | "startDate">;
 
 const t = savingsTransactions;
 
@@ -53,6 +54,7 @@ const cardColumns = {
   openingBalance: savingsAccounts.openingBalance,
   statementDay: savingsAccounts.statementDay,
   createdAt: savingsAccounts.createdAt,
+  startDate: savingsAccounts.startDate,
 };
 
 /** 信用卡每天的流量 since 當天也算 帳單只要看上次結帳日之後 */

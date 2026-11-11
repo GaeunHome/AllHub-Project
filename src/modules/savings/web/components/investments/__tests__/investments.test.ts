@@ -10,29 +10,15 @@ import type { BrokerageView, InvestmentSummary } from "../../../investments-view
 vi.mock("@/core/ui/dialog", { spy: true });
 vi.mock("@/core/ui/action-button", { spy: true });
 vi.mock("@/core/ui/more-menu", () => import("@/dev/more-menu-stub"));
-vi.mock("../../../actions", () =>
-  Object.fromEntries(
-    [
-      "createHoldingAction",
-      "updateHoldingAction",
-      "deleteHoldingAction",
-      "buyHoldingAction",
-      "sellHoldingAction",
-      "createAccountAction",
-      "updateAccountAction",
-      "setAccountActiveAction",
-      "moveAccountAction",
-      "deleteAccountAction",
-      "updateBalanceAction",
-    ].map((name) => [name, vi.fn()]),
-  ),
-);
+vi.mock("../../../actions", () => ({ createAccountAction: vi.fn(), updateAccountAction: vi.fn(), setAccountActiveAction: vi.fn(), moveAccountAction: vi.fn(), deleteAccountAction: vi.fn() }));
+vi.mock("../../../actions-records", () => ({ updateBalanceAction: vi.fn() }));
+vi.mock("../../../actions-investments", () => ({ createHoldingAction: vi.fn(), updateHoldingAction: vi.fn(), deleteHoldingAction: vi.fn(), buyHoldingAction: vi.fn(), sellHoldingAction: vi.fn() }));
 // 只看新增證券帳戶的按鈕收到什麼
 vi.mock("../../accounts/add-account-button", () => ({ AddAccountButton: vi.fn(() => createElement("button", { "data-add": "investment" }, "新增證券帳戶")) }));
 
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
-const actions = await import("../../../actions");
+const actions = { ...(await import("../../../actions")), ...(await import("../../../actions-records")), ...(await import("../../../actions-investments")) };
 const { AddAccountButton } = await import("../../accounts/add-account-button");
 const { Holdings } = await import("../holdings");
 const { AddHoldingForm, EditHoldingForm, BuySellForm } = await import("../holding-forms");
@@ -196,6 +182,7 @@ const BROKERAGE: BrokerageView = {
     statementDay: null,
     payFromAccountId: null,
     autopay: false,
+    startDate: "2026-01-05",
   },
   isFirst: true,
   isLast: true,

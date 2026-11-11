@@ -63,13 +63,14 @@ describe("首頁最下面的公告", () => {
     expect(readFileSync(join(process.cwd(), "public", src), "utf8").replaceAll("http://www.w3.org/2000/svg", "")).not.toMatch(/https?:|<script|<image/);
   });
 
-  it("有內文的可以點開，沒有內文的不用點", async () => {
+  it("每一則都是連結，點了到那則公告的頁面（使用者要的：點進去是一個頁面）；首頁不放內文", async () => {
     cached.cachedAnnouncements.mockResolvedValue([row({ id: 1, title: "有內文", body: "早上會暫停十分鐘" }), row({ id: 2, title: "沒內文" })]);
 
     const html = markup(await HomeAnnouncements());
 
-    expect(html.match(/<details/g)).toHaveLength(1);
-    expect(textOf(html)).toContain("早上會暫停十分鐘");
+    expect([...html.matchAll(/<a [^>]*href="([^"]*)"/g)].map(([, href]) => href)).toEqual(["/announcements/1", "/announcements/2"]);
+    expect(html).not.toContain("<details");
+    expect(textOf(html)).not.toContain("早上會暫停十分鐘");
     expect(textOf(html)).toContain("沒內文");
   });
 });

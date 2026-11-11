@@ -7,7 +7,9 @@ import { Icon } from "@/core/ui/icon";
 import { NoticeItem, NoticeStrip } from "@/core/ui/notice-strip";
 import { CardHeader } from "@/core/ui/page-header";
 import { formatSlashDate, taipeiToday } from "../../../lib/dates";
+import { accountStartDate } from "../../../lib/ledger";
 import { formatSignedTwd, formatTwd } from "../../../lib/money";
+import { dateToMonth } from "../../../lib/month";
 import { assetTrend, trendStart } from "../../../lib/trend";
 import { cachedAccountDayFlows, cachedAccounts, cachedAssetDays, cachedCategories, cachedCategoryTotals, cachedRecurring } from "../../../service/cached";
 import { categoryOptions, salaryAccountOptions } from "../../form-options";
@@ -153,12 +155,12 @@ export async function MonthSection() {
   );
 }
 
-/** 到本月為止最多 12 個月 從帳戶建立或第一筆紀錄的月份開始 */
+/** 到本月為止最多 12 個月 從帳戶開始記帳或第一筆紀錄的月份開始 */
 export async function TrendSection() {
   const user = await requireModule("savings");
   const [accounts, totals] = await Promise.all([cachedAccounts(user.id), cachedCategoryTotals(user.id)]);
   const current = taipeiMonthKey(new Date());
-  return <TrendChart points={flowSeries(totals, accounts.map((account) => taipeiMonthKey(account.createdAt)), current)} current={current} />;
+  return <TrendChart points={flowSeries(totals, accounts.map((account) => dateToMonth(accountStartDate(account))), current)} current={current} />;
 }
 
 /**

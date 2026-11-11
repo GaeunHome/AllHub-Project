@@ -30,6 +30,8 @@ export type AccountLike = {
   active: boolean;
   sortOrder: number;
   createdAt: Date;
+  /** 開始記帳的那天 null 是舊帳戶 */
+  startDate: DateKey | null;
 };
 export type CategoryLike = { id: number; name: string; kind: CategoryKind; monthlyBudget: number | null };
 
@@ -108,11 +110,11 @@ type FlowTotals = Omit<AccountMonthFlow, "accountId" | "month">;
 const noFlow = (): FlowTotals => ({ income: 0, expense: 0, transferIn: 0, transferOut: 0, adjust: 0 });
 
 /**
- * 開始記帳的那天就是建立帳戶的台北日期
- * 起始餘額是那天的餘額 紀錄不能更早 表單拿它當日期的 min
+ * 起始餘額是開始記帳那天的餘額 紀錄不能更早 表單拿它當日期的 min
+ * 沒選過的舊帳戶從建立帳戶的台北日期算
  */
-export function accountStartDate(account: Pick<AccountLike, "createdAt">): DateKey {
-  return taipeiToday(account.createdAt);
+export function accountStartDate(account: Pick<AccountLike, "startDate" | "createdAt">): DateKey {
+  return account.startDate ?? taipeiToday(account.createdAt);
 }
 
 /** 起始餘額加上全部紀錄 投資另外算成本 信用卡另外算未繳 */

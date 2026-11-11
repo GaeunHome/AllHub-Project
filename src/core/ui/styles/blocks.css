@@ -1,0 +1,181 @@
+/* core 的元件樣式 提示列 危險區 頭像 可以點的列 展開區塊 分段選擇 進度條與骨架 */
+
+/* 重要的事 不是卡片 一條上下有細線的布告列 */
+.notice-strip {
+  @apply flex flex-col gap-x-5 gap-y-2 py-3 sm:flex-row sm:items-center;
+  border-block: 1px solid var(--line);
+}
+.notice-strip:not(:has(.notice-item)) {
+  display: none;
+}
+.notice-strip-label {
+  @apply shrink-0 pl-2.5 font-bold text-ink;
+  border-left: 4px solid var(--brand);
+}
+.notice-strip-list {
+  @apply flex min-w-0 flex-col gap-x-6 gap-y-1.5 sm:flex-row sm:flex-wrap;
+}
+.notice-item-body {
+  @apply flex min-h-7 min-w-0 flex-wrap items-center gap-x-1.5;
+}
+.notice-item > .notice-item-body > .icon:first-child {
+  color: var(--brand);
+}
+.notice-item[data-tone="warning"] > .notice-item-body > .icon:first-child {
+  color: var(--warning);
+}
+.notice-item[data-tone="danger"] > .notice-item-body > .icon:first-child {
+  color: var(--danger);
+}
+.notice-item-link:hover > span:nth-child(2) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* 刪除帳號這類不能復原的動作 不用卡片 左邊一條紅線 */
+.danger-zone {
+  @apply flex flex-col gap-3 py-1 pl-4;
+  border-left: 4px solid var(--danger);
+}
+
+/* 站內帳號的頭像 顏色由帳號名稱決定 */
+.user-avatar {
+  @apply inline-grid shrink-0 place-items-center rounded-full font-bold;
+  color: #fff;
+  background: linear-gradient(135deg, hsl(var(--avatar-hue) 72% 52%), hsl(calc(var(--avatar-hue) + 48) 70% 38%));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.24);
+}
+
+.user-avatar-image {
+  @apply shrink-0 rounded-full object-cover;
+}
+/* 挑頭像的格子 單選鈕藏起來 選到的圈起來 */
+.avatar-choice {
+  @apply relative grid cursor-pointer place-items-center justify-self-center rounded-full p-1;
+  transition: box-shadow 150ms ease;
+}
+.avatar-choice:hover {
+  box-shadow: 0 0 0 2px var(--line-strong);
+}
+.avatar-choice:has(:checked) {
+  box-shadow: 0 0 0 3px var(--brand);
+}
+.avatar-choice:has(:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+
+/* 圓框外蓋一層暗色 圓框裡看到的就是存下來的頭像 */
+.avatar-crop {
+  @apply relative mx-auto aspect-square w-full max-w-72 overflow-hidden rounded-2xl;
+}
+.avatar-crop canvas {
+  @apply block size-full cursor-grab;
+  touch-action: none;
+}
+.avatar-crop canvas:active {
+  cursor: grabbing;
+}
+.avatar-crop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.5);
+  pointer-events: none;
+}
+.avatar-crop:has(:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+.avatar-crop-zoom {
+  @apply h-11 w-full cursor-pointer;
+  accent-color: var(--brand);
+}
+
+/* 卡片裡可以點的一列 左右內距由外層的負邊距抵掉 文字跟卡片內容對齊 */
+.home-row {
+  @apply flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-xl px-2 py-2 text-left;
+  transition: background-color 150ms ease;
+}
+.home-row:hover {
+  background-color: var(--surface-muted);
+}
+
+.disclosure > summary {
+  @apply inline-flex items-center gap-1.5 font-medium;
+  list-style: none;
+  color: var(--brand-ink);
+}
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure > summary::after {
+  content: "";
+  width: 0.45em;
+  height: 0.45em;
+  margin-left: 0.2em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-0.15em) rotate(45deg);
+  transition: transform 150ms ease;
+}
+.disclosure[open] > summary::after {
+  transform: translateY(0.1em) rotate(-135deg);
+}
+.disclosure > summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* details 不吃父層的 gap 展開內容跟 summary 的距離統一寫在這裡 */
+.disclosure > summary + * {
+  margin-top: 0.75rem;
+}
+
+/* 跟輸入框一樣 44px 高 選項矮一點 用透明偽元素把點擊範圍撐到外框高度 */
+.segmented {
+  @apply inline-flex min-h-11 items-stretch gap-0.5 rounded-lg p-1;
+  border: 1px solid var(--line);
+  background-color: var(--surface-sunken);
+}
+.segmented-option {
+  @apply relative inline-flex min-w-11 cursor-pointer items-center justify-center rounded-md px-3 text-sm font-medium;
+  color: var(--ink-soft);
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+.segmented-option::after {
+  content: "";
+  position: absolute;
+  inset: -0.3125rem 0;
+}
+.segmented-option:hover {
+  color: var(--ink);
+}
+.segmented-option[aria-pressed="true"] {
+  @apply font-semibold;
+  color: var(--ink);
+  background-color: var(--surface-solid);
+  box-shadow: 0 1px 2px rgb(16 24 40 / 0.12);
+}
+
+.progress-track {
+  @apply h-2 w-full overflow-hidden rounded-full;
+  background-color: var(--surface-sunken);
+}
+.progress-fill {
+  @apply h-full rounded-full;
+  background-color: var(--accent);
+  transition: width 400ms ease;
+}
+.progress-fill-danger {
+  background-color: var(--danger-dot);
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  background-color: var(--skeleton-base);
+}

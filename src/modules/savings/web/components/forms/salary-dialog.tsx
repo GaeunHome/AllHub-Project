@@ -8,7 +8,7 @@ import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { formatTwd } from "../../../lib/money";
-import { allocateSalaryAction } from "../../actions";
+import { allocateSalaryAction } from "../../actions-records";
 import { UNCATEGORIZED_LABEL } from "../../entry-display";
 import { confirmDate, defaultIncomeCategory, salaryFormReducer, salaryPreview, salaryStartDate, type SalaryLine } from "../../form-math";
 import { lastSalaryAccountPref, pickAccount } from "../../last-used";

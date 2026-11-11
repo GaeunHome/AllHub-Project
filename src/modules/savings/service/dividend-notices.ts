@@ -15,6 +15,8 @@ import { LOCK_SCREEN_PUSH } from "./notices";
 
 // 排程沒有人在等 比頁面的 8 秒久一點
 const CRON_TIMEOUT_MS = 15_000;
+// 一天只跑一次 一時讀不到就漏掉最後買進日的通知 沒有人在等 隔一下再讀一次
+const RETRY_AFTER_MS = 5_000;
 
 // service 不能 import 模組根目錄的 info 與 web 的網址 寫在這裡
 const MODULE_ID = "savings";
@@ -93,18 +95,20 @@ async function noticeUser(userId: string, holdings: HeldShares[], events: Divide
 }
 
 /** 摘要只有數字 不寫代號 名稱與使用者 */
-function summary({ sent, failed, unreadable }: Tally & { unreadable: number }): string {
-  const parts = [sent > 0 && `寄出 ${sent} 則除權息通知`, failed > 0 && `${failed} 則寄不出去（詳見伺服器 log）`, unreadable > 0 && `${unreadable} 個來源讀不到`].filter(
+function summary({ sent, failed, unreadable }: Tally & { unreadable: string | null }): string {
+  const parts = [sent > 0 && `寄出 ${sent} 則除權息通知`, failed > 0 && `${failed} 則寄不出去（詳見伺服器 log）`, unreadable].filter(
     (part): part is string => typeof part === "string",
   );
   return parts.length > 0 ? parts.join("，") : "今天沒有要寄的除權息通知";
 }
 
-async function noticeHeldDividends(today: DateKey, fetchImpl?: typeof fetch): Promise<string> {
+async function noticeHeldDividends(today: DateKey, fetchImpl: typeof fetch | undefined, retryAfterMs: number): Promise<string> {
   const holdings = await heldSharesByUser();
   if (holdings.size === 0) return "沒有持股，不讀除權息預告";
-  const fetched = await fetchDividends({ timeoutMs: CRON_TIMEOUT_MS, fetchImpl });
-  await reportService("savings:dividends", !fetched.ok ? "兩邊的預告表都讀不到" : fetched.complete ? null : "只讀到其中一邊的預告表");
+  const fetched = await fetchDividends({ timeoutMs: CRON_TIMEOUT_MS, fetchImpl, retryAfterMs });
+  // 寫出是哪一邊 系統狀態頁一看就知道 不用翻 log
+  const unreadable = fetched.ok && fetched.missing.length > 0 ? `${fetched.missing.join("、")}的預告表讀不到` : null;
+  await reportService("savings:dividends", fetched.ok ? unreadable : "兩邊的預告表都讀不到");
   if (!fetched.ok) return "讀不到除權息預告，今天略過";
 
   const sent = await db()
@@ -114,7 +118,7 @@ async function noticeHeldDividends(today: DateKey, fetchImpl?: typeof fetch): Pr
   const rows = new Map(sent.map((row) => [rowKey(row.userId, row.symbol, row.exDate), row]));
   const tally: Tally = { sent: 0, failed: 0 };
   for (const [userId, shares] of holdings) await noticeUser(userId, shares, fetched.events, rows, today, tally);
-  return summary({ ...tally, unreadable: fetched.complete ? 0 : 1 });
+  return summary({ ...tally, unreadable });
 }
 
 /** 除息日過了的紀錄用不到了 清不掉也不影響寄送 */
@@ -132,9 +136,9 @@ async function removePastNotices(today: DateKey): Promise<boolean> {
  * 公布 補上金額 最後買進日各寄一次
  * 停用的使用者與證券帳戶不算 預告表讀最新的 不走快取
  */
-export async function sendDividendNotices(now = new Date(), fetchImpl?: typeof fetch): Promise<string> {
+export async function sendDividendNotices(now = new Date(), fetchImpl?: typeof fetch, retryAfterMs = RETRY_AFTER_MS): Promise<string> {
   const today = taipeiToday(now);
   const cleaned = await removePastNotices(today);
-  const result = await noticeHeldDividends(today, fetchImpl);
+  const result = await noticeHeldDividends(today, fetchImpl, retryAfterMs);
   return cleaned ? result : `${result}，清理過期的紀錄失敗（詳見伺服器 log）`;
 }

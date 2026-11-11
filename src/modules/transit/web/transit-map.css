@@ -1,0 +1,132 @@
+/* 交通 選站視窗裡的路線圖 由 globals.css 照順序接在 transit.css 後面引入 */
+
+/* 選站視窗滿版 路線圖填滿搜尋框下面剩下的高度 */
+/* 格子 字級與間距由元件寫在 --trn-map-u 這些變數 */
+.trn-map-search {
+  @apply w-full max-w-xl;
+}
+.trn-map-panel {
+  @apply flex min-h-0 flex-1 flex-col gap-4;
+}
+.trn-map {
+  @apply relative flex min-h-72 flex-1 flex-col overflow-hidden rounded-xl;
+  border: 1px solid var(--line);
+  background-color: var(--surface-solid);
+}
+/* 手指照常捲動 兩指縮放由元件處理 不讓瀏覽器放大整頁 */
+.trn-map-viewport {
+  @apply relative flex min-h-0 flex-1 cursor-grab overflow-auto overscroll-contain;
+  touch-action: pan-x pan-y;
+}
+.trn-map-viewport[data-dragging] {
+  @apply cursor-grabbing;
+}
+/* 比視窗小時 auto 的外距讓圖置中 比較大時外距變 0 還捲得到最左邊 */
+.trn-map-canvas {
+  @apply relative m-auto flex-none select-none;
+}
+.trn-map-lines {
+  @apply absolute inset-0 size-full overflow-visible;
+}
+.trn-map-link {
+  stroke: var(--ink);
+  stroke-width: 0.3;
+  stroke-linecap: round;
+}
+.trn-map-link-gap {
+  stroke: var(--surface-solid);
+  stroke-width: 0.14;
+  stroke-linecap: round;
+}
+.trn-map-tools {
+  @apply absolute top-2 right-2 flex flex-col gap-1.5;
+}
+/* 點擊範圍至少 24px 圖縮得再小也點得到 */
+.trn-map-station {
+  @apply absolute grid cursor-pointer place-items-center rounded-full;
+  width: max(24px, calc(var(--trn-map-u) * 0.8));
+  height: max(24px, calc(var(--trn-map-u) * 0.8));
+  translate: -50% -50%;
+}
+.trn-map-dot {
+  @apply rounded-full;
+  width: calc(var(--trn-map-u) * 0.36);
+  height: calc(var(--trn-map-u) * 0.36);
+  border: calc(var(--trn-map-u) * 0.09) solid var(--trn-line);
+  background-color: var(--surface-solid);
+}
+.trn-map-station[data-transfer] .trn-map-dot {
+  width: calc(var(--trn-map-u) * 0.5);
+  height: calc(var(--trn-map-u) * 0.5);
+  border-color: var(--ink);
+}
+.trn-map-station:not(:disabled):hover .trn-map-dot {
+  box-shadow: 0 0 0 calc(var(--trn-map-u) * 0.12) var(--ring);
+}
+/* 站名疊在線上 描一圈底色才讀得到 */
+.trn-map-label {
+  @apply absolute leading-tight font-semibold whitespace-nowrap;
+  font-size: calc(var(--trn-map-u) * var(--trn-map-em));
+  color: var(--ink);
+  text-shadow:
+    0 0 0.2em var(--surface-solid),
+    0 0 0.2em var(--surface-solid),
+    0 0 0.1em var(--surface-solid);
+}
+.trn-map-station[data-side="e"] .trn-map-label {
+  left: calc(50% + var(--trn-map-u) * var(--trn-map-gap));
+  top: 50%;
+  translate: 0 -50%;
+}
+.trn-map-station[data-side="w"] .trn-map-label {
+  right: calc(50% + var(--trn-map-u) * var(--trn-map-gap));
+  top: 50%;
+  translate: 0 -50%;
+}
+/* 橫的一段站與站之間只有兩格 站名超過四個半字就換行 */
+.trn-map-station:is([data-side="n"], [data-side="s"]) .trn-map-label {
+  @apply w-max text-center whitespace-normal;
+  left: 50%;
+  max-width: 4.5em;
+  translate: -50% 0;
+  text-wrap: balance;
+}
+.trn-map-station[data-side="n"] .trn-map-label {
+  bottom: calc(50% + var(--trn-map-u) * var(--trn-map-gap));
+}
+.trn-map-station[data-side="s"] .trn-map-label {
+  top: calc(50% + var(--trn-map-u) * var(--trn-map-gap));
+}
+.trn-map-station:is([data-side="ne"], [data-side="se"]) .trn-map-label {
+  left: calc(50% + var(--trn-map-u) * var(--trn-map-slant));
+}
+.trn-map-station:is([data-side="nw"], [data-side="sw"]) .trn-map-label {
+  right: calc(50% + var(--trn-map-u) * var(--trn-map-slant));
+}
+.trn-map-station:is([data-side="ne"], [data-side="nw"]) .trn-map-label {
+  bottom: calc(50% + var(--trn-map-u) * var(--trn-map-slant));
+}
+.trn-map-station:is([data-side="se"], [data-side="sw"]) .trn-map-label {
+  top: calc(50% + var(--trn-map-u) * var(--trn-map-slant));
+}
+/* 選好的站用主色 另一端的站實心點加虛線框 不能再選 */
+.trn-map-station[aria-current="true"] .trn-map-dot {
+  border-color: var(--brand);
+  background-color: var(--brand);
+  box-shadow: 0 0 0 calc(var(--trn-map-u) * 0.12) var(--ring);
+}
+.trn-map-station[aria-current="true"] .trn-map-label {
+  @apply rounded px-1;
+  color: var(--on-brand);
+  background-color: var(--brand);
+  text-shadow: none;
+}
+.trn-map-station[data-other] .trn-map-dot {
+  border-color: var(--ink);
+  background-color: var(--ink);
+}
+.trn-map-station[data-other] .trn-map-label {
+  @apply rounded px-1;
+  border: 1px dashed var(--ink);
+  background-color: var(--surface-solid);
+}

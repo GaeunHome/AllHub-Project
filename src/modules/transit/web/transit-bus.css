@@ -1,0 +1,101 @@
+/* 交通 公車的儲值卡與站牌時間軸 由 globals.css 照順序接在 transit.css 後面引入 */
+
+/* 公車 原創的儲值卡樣子 不用任何真實卡片的標誌 路線色加黑才夠深 白字要 4.5:1 手機撐滿 寬螢幕照卡片比例 */
+.trn-bus {
+  @apply grid gap-4 xl:grid-cols-[26rem_minmax(0,1fr)] xl:items-start;
+}
+.trn-bus-card,
+.trn-card[data-mode="bus"],
+.trn-mini[data-mode="bus"] {
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--trn-line) 45%, black), color-mix(in srgb, var(--trn-line) 70%, black));
+}
+.trn-bus-card {
+  @apply relative isolate flex w-full flex-col justify-between gap-2 overflow-hidden rounded-2xl p-5 text-white;
+}
+@media (min-width: 40rem) {
+  .trn-bus-card {
+    max-width: 26rem;
+    aspect-ratio: 1.6;
+  }
+}
+/* 卡片右下角一個淡淡的圓 只是裝飾 */
+.trn-bus-card::after,
+.trn-card[data-mode="bus"]::after,
+.trn-mini[data-mode="bus"]::after {
+  content: "";
+  position: absolute;
+  right: -3rem;
+  bottom: -5rem;
+  z-index: -1;
+  width: 14rem;
+  height: 14rem;
+  border-radius: 9999px;
+  background-color: rgb(255 255 255 / 0.08);
+}
+.trn-bus-line {
+  @apply text-5xl leading-tight font-extrabold tracking-tight break-words;
+}
+/* 全站的關閉鈕是深色字 放在卡片上要換成白的 */
+.trn-bus-card .trn-bus-close {
+  color: white;
+}
+.trn-bus-edit {
+  @apply cursor-pointer gap-1;
+}
+.trn-bus-card .trn-bus-close:hover {
+  background-color: rgb(255 255 255 / 0.18);
+}
+.trn-bus-direction {
+  @apply inline-flex min-h-9 items-center rounded-full px-3 text-sm font-semibold text-white;
+  border: 1px solid rgb(255 255 255 / 0.5);
+}
+.trn-bus-direction:hover {
+  border-color: white;
+}
+/* 選到的方向底色加深 不用白底 卡片上的字都是白的 */
+.trn-bus-direction[aria-current] {
+  @apply font-bold;
+  border-color: white;
+  background-color: rgb(0 0 0 / 0.3);
+}
+.trn-bus-direction:focus-visible,
+.trn-bus-card .trn-bus-close:focus-visible {
+  outline-color: white;
+}
+@media (pointer: coarse) {
+  .trn-bus-direction {
+    min-height: 2.75rem;
+  }
+}
+/* 站牌是一條直的時間軸 線畫滿每一列 第一站與最後一站只畫到圓點 手機換行時列高不同也接得起來 */
+.trn-bus-stop {
+  @apply relative flex min-h-13 flex-wrap items-center gap-x-3 gap-y-1 py-2 pr-5 pl-11 sm:pr-6;
+}
+.trn-bus-stop::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 1.5rem;
+  z-index: 1;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 9999px;
+  background-color: var(--trn-line);
+  transform: translate(-50%, -50%);
+}
+.trn-bus-stop::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 1.5rem;
+  width: 0.1875rem;
+  background-color: var(--trn-line);
+  transform: translateX(-50%);
+}
+.trn-bus-stop:first-child::after {
+  top: 50%;
+}
+.trn-bus-stop:last-child::after {
+  bottom: 50%;
+}

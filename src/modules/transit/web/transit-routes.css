@@ -1,0 +1,276 @@
+/* 交通 我的路線的卡片 各交通工具的樣子與拖曳排序 由 globals.css 照順序接在 transit.css 後面引入 */
+
+.trn-tracked {
+  @apply grid gap-3 sm:grid-cols-2 lg:grid-cols-1;
+}
+/* 手機上常用路線橫向滑 不佔高度 查詢才不會被推到很下面 */
+.trn-grid {
+  @apply -mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:overflow-visible lg:px-0 lg:pb-0;
+}
+.trn-grid > * {
+  flex: 0 0 min(17rem, 78vw);
+}
+.trn-card {
+  @apply relative gap-3 overflow-hidden p-4;
+  background-image: linear-gradient(120deg, color-mix(in srgb, var(--trn-line) 9%, transparent), transparent 45%);
+}
+.trn-train {
+  @apply flex min-w-0 flex-1 items-center gap-2 font-semibold text-ink;
+}
+.trn-dot {
+  @apply size-2.5 shrink-0 rounded-full;
+  background-color: var(--trn-line);
+}
+.trn-track {
+  @apply inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-2 font-semibold;
+  color: var(--trn-line);
+}
+.trn-count {
+  @apply flex flex-wrap items-baseline gap-x-2 text-5xl leading-tight font-extrabold tracking-tight text-ink tabular-nums;
+}
+.trn-count small {
+  @apply ml-1 text-2xl font-bold text-ink;
+}
+.trn-line {
+  @apply relative mx-2 mt-3 mb-9 h-1.5 rounded-full;
+  background-color: color-mix(in srgb, var(--trn-line) 28%, var(--line));
+}
+.trn-stop {
+  @apply absolute top-1/2 size-4.5 -translate-y-1/2 rounded-full;
+  border: 4px solid var(--trn-line);
+  background-color: var(--surface);
+}
+.trn-stop[data-end="start"] {
+  @apply left-0 -translate-x-1/2;
+}
+.trn-stop[data-end="end"] {
+  @apply right-0 translate-x-1/2;
+}
+.trn-name {
+  @apply absolute top-4 flex max-w-[48%] items-center gap-1.5 font-bold text-ink;
+}
+.trn-name[data-end="start"] {
+  @apply -left-2;
+}
+.trn-name[data-end="end"] {
+  @apply -right-2 text-right;
+}
+.trn-pulse {
+  @apply absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full;
+  background-color: var(--trn-line);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--trn-line) 28%, transparent);
+  animation: trn-ride 5s linear both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trn-pulse {
+    animation: none;
+    display: none;
+  }
+}
+.trn-foot {
+  @apply flex flex-wrap items-center gap-x-3 gap-y-1.5 text-ink;
+}
+.trn-foot b {
+  @apply text-lg font-bold;
+}
+.trn-note {
+  @apply text-sm text-ink;
+}
+.trn-pill {
+  @apply rounded-full bg-[var(--line)] px-2.5 py-0.5 text-sm font-semibold text-ink;
+}
+.trn-mini {
+  @apply relative isolate flex flex-col gap-2.5 overflow-hidden p-4;
+}
+.trn-mini-title {
+  @apply flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 font-semibold break-words text-ink tabular-nums;
+}
+.trn-mini-foot {
+  @apply flex items-start justify-between gap-3;
+}
+.trn-end {
+  @apply min-w-0 break-words text-ink tabular-nums;
+}
+.trn-track-off,
+.trn-problem {
+  color: var(--ink);
+}
+/* 倒數的右邊 高鐵放條碼 其他的倒數佔滿 */
+.trn-face {
+  @apply flex items-center justify-between gap-3;
+}
+.trn-face .trn-barcode {
+  @apply h-9 w-16 shrink-0 text-ink;
+}
+.trn-mini-line {
+  @apply relative mx-1 block h-1 rounded-full;
+  background-color: var(--trn-line);
+}
+.trn-mini-line::before,
+.trn-mini-line::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0.625rem;
+  height: 0.625rem;
+  border: 2.5px solid var(--trn-line);
+  border-radius: 9999px;
+  background-color: var(--surface);
+  transform: translateY(-50%);
+}
+.trn-mini-line::before {
+  left: -0.25rem;
+}
+.trn-mini-line::after {
+  right: -0.25rem;
+}
+.trn-mini-count {
+  @apply text-2xl leading-tight font-extrabold tracking-tight text-ink;
+}
+/* 字色寫在各自的 class 不換變數 ⋮ 選單與視窗才不會跟著變 */
+/* 高鐵的車票 上緣橘色帶 撕線碰到兩邊打半圓的洞 */
+.trn-card[data-mode="thsr"],
+.trn-mini[data-mode="thsr"] {
+  border-color: transparent;
+  border-top: 0.4375rem solid var(--trn-line);
+  background-color: var(--trn-paper);
+  background-image: url("/images/transit/ticket-paper.svg");
+  background-size: 15rem;
+  box-shadow: 0 1px 3px rgb(64 44 14 / 0.24);
+}
+@variant dark {
+  .trn-card[data-mode="thsr"],
+  .trn-mini[data-mode="thsr"] {
+    background-image: url("/images/transit/ticket-paper-dark.svg");
+  }
+}
+.trn-card[data-mode="thsr"] .trn-foot,
+.trn-mini[data-mode="thsr"] .trn-mini-foot {
+  @apply relative pt-3;
+  border-top: 2px dashed color-mix(in srgb, var(--ink) 38%, transparent);
+}
+.trn-card[data-mode="thsr"] .trn-foot::before,
+.trn-card[data-mode="thsr"] .trn-foot::after,
+.trn-mini[data-mode="thsr"] .trn-mini-foot::before,
+.trn-mini[data-mode="thsr"] .trn-mini-foot::after {
+  content: "";
+  position: absolute;
+  top: -0.6875rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  background-color: var(--bg-base);
+}
+.trn-card[data-mode="thsr"] .trn-foot::before,
+.trn-mini[data-mode="thsr"] .trn-mini-foot::before {
+  left: -1.5625rem;
+}
+.trn-card[data-mode="thsr"] .trn-foot::after,
+.trn-mini[data-mode="thsr"] .trn-mini-foot::after {
+  right: -1.5625rem;
+}
+/* 台鐵 標題是站牌的深藍底白字加一條細白線 下面淡淡的底 */
+.trn-card[data-mode="tra"],
+.trn-mini[data-mode="tra"] {
+  background-color: var(--surface);
+  background-image: linear-gradient(var(--trn-sign-tint), var(--trn-sign-tint));
+}
+.trn-card[data-mode="tra"] > header,
+.trn-mini[data-mode="tra"] > header {
+  @apply -mx-4 -mt-4 px-4 py-2.5;
+  align-items: center;
+  background-color: var(--trn-sign);
+  box-shadow: inset 0 -2px 0 rgb(255 255 255 / 0.55);
+}
+/* 捷運 站名牌 上面一條路線色 下面再一條細的 像月台的站牌 */
+.trn-card[data-mode="metro"],
+.trn-mini[data-mode="metro"] {
+  border-top: 0.5rem solid var(--trn-line);
+  background-image: none;
+  box-shadow: inset 0 -0.25rem 0 var(--trn-line);
+}
+.trn-card[data-mode="metro"] .trn-line {
+  margin-bottom: 3rem;
+}
+/* 站號比字高 兩邊的站名才排得齊 */
+.trn-end .trn-plate-code {
+  @apply mr-1 inline-grid;
+}
+/* 公車 跟查詢結果同一張儲值卡 卡上的字都是白的 */
+.trn-card[data-mode="bus"],
+.trn-mini[data-mode="bus"] {
+  border-color: transparent;
+}
+.trn-card[data-mode="bus"] {
+  isolation: isolate;
+}
+.trn-card[data-mode="bus"] .trn-line,
+.trn-mini[data-mode="bus"] .trn-mini-line {
+  --trn-line: #ffffff;
+}
+.trn-card[data-mode="bus"] .trn-pill {
+  background-color: rgb(255 255 255 / 0.16);
+}
+/* 站牌的標題列與儲值卡整張都是深底 這幾個字換白色 */
+.trn-card[data-mode="tra"] .trn-train,
+.trn-card[data-mode="tra"] .trn-track,
+.trn-card[data-mode="tra"] .trn-track-off,
+.trn-card[data-mode="tra"] header .icon-button,
+.trn-mini[data-mode="tra"] .trn-mini-title,
+.trn-mini[data-mode="tra"] .trn-track,
+.trn-mini[data-mode="tra"] .trn-track-off,
+.trn-mini[data-mode="tra"] header .icon-button,
+.trn-card[data-mode="bus"] .trn-train,
+.trn-card[data-mode="bus"] .trn-track,
+.trn-card[data-mode="bus"] .trn-track-off,
+.trn-card[data-mode="bus"] header .icon-button,
+.trn-card[data-mode="bus"] .trn-count,
+.trn-card[data-mode="bus"] .trn-count small,
+.trn-card[data-mode="bus"] .trn-name,
+.trn-card[data-mode="bus"] .trn-foot,
+.trn-card[data-mode="bus"] .trn-note,
+.trn-card[data-mode="bus"] .trn-pill,
+.trn-card[data-mode="bus"] .trn-problem,
+.trn-mini[data-mode="bus"] .trn-mini-title,
+.trn-mini[data-mode="bus"] .trn-track,
+.trn-mini[data-mode="bus"] .trn-track-off,
+.trn-mini[data-mode="bus"] header .icon-button,
+.trn-mini[data-mode="bus"] .trn-mini-count,
+.trn-mini[data-mode="bus"] .trn-end {
+  color: #ffffff;
+}
+.trn-card[data-mode="tra"] .trn-dot,
+.trn-card[data-mode="bus"] .trn-dot {
+  background-color: #ffffff;
+}
+/* 拖曳排序 把手在卡片左邊 只有寬螢幕的側邊欄有 手機靠卡片的 ⋮ */
+.trn-sortable-item {
+  @apply relative flex min-w-0 items-stretch gap-1;
+}
+.trn-sortable-item > :last-child {
+  @apply min-w-0 flex-1;
+}
+.trn-handle {
+  @apply hidden w-6 shrink-0 cursor-grab items-center justify-center rounded-lg text-ink;
+  @apply hover:bg-surface-muted;
+  touch-action: none;
+}
+.trn-sortable[data-dragging] .trn-handle {
+  cursor: grabbing;
+}
+.trn-sortable-item[data-lifted] {
+  z-index: 1;
+  filter: drop-shadow(0 8px 16px rgb(0 0 0 / 0.18));
+}
+@media (min-width: 64rem) {
+  .trn-handle {
+    display: inline-flex;
+  }
+}
+/* 拖曳時頁面不要選到字 */
+.trn-sortable[data-dragging] {
+  user-select: none;
+}
+.trn-add {
+  @apply flex min-h-14 items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-line font-semibold text-ink;
+}

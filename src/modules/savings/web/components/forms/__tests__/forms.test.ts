@@ -11,22 +11,13 @@ vi.mock("@/core/ui/toast", () => import("@/dev/toast-stub"));
 // 一個按鈕的表單 要拿到交給它的 action
 vi.mock("@/core/ui/action-button", { spy: true });
 // Server Action 換成假的 只看每個表單接到哪一個
-vi.mock("../../../actions", () => ({
-  addTransactionAction: vi.fn(),
-  updateTransactionAction: vi.fn(),
-  updateBalanceAction: vi.fn(),
-  setupAction: vi.fn(),
-  createAccountAction: vi.fn(),
-  updateAccountAction: vi.fn(),
-  createCategoryAction: vi.fn(),
-  updateCategoryAction: vi.fn(),
-  createRecurringAction: vi.fn(),
-  updateRecurringAction: vi.fn(),
-}));
+vi.mock("../../../actions", () => ({ setupAction: vi.fn(), createAccountAction: vi.fn(), updateAccountAction: vi.fn(), createCategoryAction: vi.fn(), updateCategoryAction: vi.fn() }));
+vi.mock("../../../actions-records", () => ({ addTransactionAction: vi.fn(), updateTransactionAction: vi.fn(), updateBalanceAction: vi.fn() }));
+vi.mock("../../../actions-recurring", () => ({ createRecurringAction: vi.fn(), updateRecurringAction: vi.fn() }));
 
 const dialog = await import("@/core/ui/dialog");
 const { ActionButton } = await import("@/core/ui/action-button");
-const actions = await import("../../../actions");
+const actions = { ...(await import("../../../actions")), ...(await import("../../../actions-records")), ...(await import("../../../actions-recurring")) };
 const { lastAccountPref } = await import("../../../last-used");
 const { QuickAddButton } = await import("../quick-add");
 const { EntryForm } = await import("../entry-form");
@@ -296,47 +287,48 @@ describe("帳戶表單", () => {
     statementDay: 5,
     payFromAccountId: 2,
     autopay: true,
+    startDate: "2026-09-01",
   };
 
   it("新增：先選類型（預設存款），存款有用途、起始餘額、每月規劃與目標；送到 createAccountAction", () => {
-    const markup = render(createElement(AccountForm, { payFromAccounts, ...done }));
+    const markup = render(createElement(AccountForm, { payFromAccounts, today: TODAY, ...done }));
 
     expect(inputOf(markup, "kind")).toContain('value="deposit"');
-    expect(fieldNames(markup)).toEqual(["kind", "label", "monthlyPlan", "name", "openingBalance", "targetAmount"]);
+    expect(fieldNames(markup)).toEqual(["kind", "label", "monthlyPlan", "name", "openingBalance", "startDate", "targetAmount"]);
     expect(inputOf(markup, "name")).toContain("data-autofocus");
     expect(formActions()).toEqual([actions.createAccountAction]);
   });
 
   it("帳戶頁的「新增銀行帳戶」「新增信用卡」：類型已經決定，不再讓人選，送出的就是那一種", () => {
-    const deposit = render(createElement(AccountForm, { kind: "deposit", payFromAccounts, ...done }));
-    const credit = render(createElement(AccountForm, { kind: "credit", payFromAccounts, ...done }));
+    const deposit = render(createElement(AccountForm, { kind: "deposit", payFromAccounts, today: TODAY, ...done }));
+    const credit = render(createElement(AccountForm, { kind: "credit", payFromAccounts, today: TODAY, ...done }));
 
     expect(deposit).not.toContain('aria-label="帳戶類型"');
     expect(inputOf(deposit, "kind")).toMatch(/type="hidden"[^>]*value="deposit"/);
     expect(inputOf(credit, "kind")).toMatch(/type="hidden"[^>]*value="credit"/);
-    expect(fieldNames(credit)).toEqual(["autopay", "cardStyle", "kind", "name", "openingBalance", "payFromAccountId", "statementDay"]);
+    expect(fieldNames(credit)).toEqual(["autopay", "cardStyle", "kind", "name", "openingBalance", "payFromAccountId", "startDate", "statementDay"]);
   });
 
   it("用途是選填的文字，修改時帶入原本的；信用卡沒有用途", () => {
-    const markup = render(createElement(AccountForm, { account: { ...card, id: 1, kind: "deposit", label: "生活費", openingBalance: 52000, statementDay: null, payFromAccountId: null, autopay: false }, payFromAccounts, ...done }));
+    const markup = render(createElement(AccountForm, { account: { ...card, id: 1, kind: "deposit", label: "生活費", openingBalance: 52000, statementDay: null, payFromAccountId: null, autopay: false }, payFromAccounts, today: TODAY, ...done }));
 
     expect(inputOf(markup, "label")).toContain('value="生活費"');
     expect(inputOf(markup, "label")).not.toContain("required");
-    expect(inputOf(render(createElement(AccountForm, { account: card, payFromAccounts, ...done })), "label")).toBe("");
+    expect(inputOf(render(createElement(AccountForm, { account: card, payFromAccounts, today: TODAY, ...done })), "label")).toBe("");
   });
 
   it("信用卡的卡面顏色：六種顏色加「自動」（沒選時照建立的順序配色）；修改時選好原本的，沒選過的是自動", () => {
     const checked = (markup: string) => inputsOf(markup, "cardStyle").flatMap((input) => (input.includes("checked") ? [input.match(/value="([^"]*)"/)?.[1]] : []));
-    const edit = render(createElement(AccountForm, { account: { ...card, cardStyle: "green" }, payFromAccounts, ...done }));
+    const edit = render(createElement(AccountForm, { account: { ...card, cardStyle: "green" }, payFromAccounts, today: TODAY, ...done }));
 
     expect(inputsOf(edit, "cardStyle")).toHaveLength(7);
     expect(checked(edit)).toEqual(["green"]);
-    expect(checked(render(createElement(AccountForm, { kind: "credit", payFromAccounts, ...done })))).toEqual([""]);
+    expect(checked(render(createElement(AccountForm, { kind: "credit", payFromAccounts, today: TODAY, ...done })))).toEqual([""]);
   });
 
   it("隱私：只有自己取的名稱與金額，沒有帳號、卡號這類欄位（卡面顏色 cardStyle 不算），名稱的範例提醒不用填", () => {
-    const deposit = render(createElement(AccountForm, { payFromAccounts, ...done }));
-    const credit = render(createElement(AccountForm, { account: card, payFromAccounts, ...done }));
+    const deposit = render(createElement(AccountForm, { payFromAccounts, today: TODAY, ...done }));
+    const credit = render(createElement(AccountForm, { account: card, payFromAccounts, today: TODAY, ...done }));
 
     expect([...fieldNames(deposit), ...fieldNames(credit)].join(" ")).not.toMatch(/number|card(?!Style)|holder|account(?!Id)/i);
     expect(inputOf(deposit, "name")).toContain("不用填帳號");
@@ -344,7 +336,7 @@ describe("帳戶表單", () => {
   });
 
   it("修改信用卡：類型不能改，未繳用正數帶入；結帳日、扣款帳戶（只列存款、不列停用的，原本選的停用了也留著）、自動扣繳與卡面顏色；沒有繳款截止日（填帳單時照帳單填）", () => {
-    const markup = render(createElement(AccountForm, { account: card, payFromAccounts, ...done }));
+    const markup = render(createElement(AccountForm, { account: card, payFromAccounts, today: TODAY, ...done }));
 
     expect(markup).toMatch(/<input type="hidden" name="id" value="3"/);
     expect(inputOf(markup, "kind")).toBe("");
@@ -355,20 +347,20 @@ describe("帳戶表單", () => {
     expect(selectedOption(selectOf(markup, "payFromAccountId"))).toBe("郵局（已停用）");
     expect(textOf(selectOf(markup, "payFromAccountId"))).toBe("未設定國泰郵局（已停用）台新");
     expect(inputOf(markup, "autopay")).toMatch(/type="checkbox"[^>]*checked=""/);
-    expect(fieldNames(markup)).toEqual(["autopay", "cardStyle", "id", "name", "openingBalance", "payFromAccountId", "statementDay"]);
+    expect(fieldNames(markup)).toEqual(["autopay", "cardStyle", "id", "name", "openingBalance", "payFromAccountId", "startDate", "statementDay"]);
     expect(formActions()).toEqual([actions.updateAccountAction]);
   });
 
   it("信用卡的結帳日可以不設；自動扣繳預設不勾", () => {
-    const markup = render(createElement(AccountForm, { account: { ...card, statementDay: null, autopay: false }, payFromAccounts, ...done }));
+    const markup = render(createElement(AccountForm, { account: { ...card, statementDay: null, autopay: false }, payFromAccounts, today: TODAY, ...done }));
 
     expect(selectedOption(selectOf(markup, "statementDay"))).toBe("未設定");
     expect(inputOf(markup, "autopay")).not.toContain("checked");
   });
 
   it("新增信用卡：目前未繳可以填負數（溢繳），不限定數字鍵盤（iPhone 的數字鍵盤沒有負號），說明寫在欄位下面", () => {
-    const markup = render(createElement(AccountForm, { payFromAccounts, ...done }));
-    const credit = render(createElement(AccountForm, { account: { ...card, openingBalance: 200 }, payFromAccounts, ...done }));
+    const markup = render(createElement(AccountForm, { payFromAccounts, today: TODAY, ...done }));
+    const credit = render(createElement(AccountForm, { account: { ...card, openingBalance: 200 }, payFromAccounts, today: TODAY, ...done }));
 
     expect(inputOf(markup, "openingBalance")).toContain('inputMode="numeric"');
     expect(inputOf(credit, "openingBalance")).not.toContain("inputMode");
@@ -376,13 +368,29 @@ describe("帳戶表單", () => {
   });
 
   it("修改溢繳的信用卡（起始餘額是正的）：起始未繳帶入負數，不會變成 0", () => {
-    const markup = render(createElement(AccountForm, { account: { ...card, openingBalance: 200 }, payFromAccounts, ...done }));
+    const markup = render(createElement(AccountForm, { account: { ...card, openingBalance: 200 }, payFromAccounts, today: TODAY, ...done }));
 
     expect(inputOf(markup, "openingBalance")).toContain('value="-200"');
   });
 
+  it("開始記帳日（使用者要的：可以選過去，補記之前的支出）：新增時預設今天、不能選未來；修改時帶入原本的", () => {
+    const create = render(createElement(AccountForm, { payFromAccounts, today: TODAY, ...done }));
+    const edit = render(createElement(AccountForm, { account: card, payFromAccounts, today: TODAY, ...done }));
+
+    expect(inputOf(create, "startDate")).toMatch(/type="date"/);
+    expect(inputOf(create, "startDate")).toContain(`value="${TODAY}"`);
+    expect(inputOf(create, "startDate")).toContain(`max="${TODAY}"`);
+    expect(inputOf(edit, "startDate")).toContain('value="2026-09-01"');
+    expect(inputOf(edit, "startDate")).toContain(`max="${TODAY}"`);
+  });
+
+  it("新增時開始記帳日是今天：金額寫目前的數字；修改時是開始記帳那天的數字（起始）", () => {
+    expect(textOf(render(createElement(AccountForm, { kind: "investment", payFromAccounts, today: TODAY, ...done })))).toContain("目前市值（元）");
+    expect(textOf(render(createElement(AccountForm, { account: card, payFromAccounts, today: TODAY, ...done })))).toContain("起始未繳（元）");
+  });
+
   it("修改投資帳戶：有市值與成本（成本留空當成跟市值一樣）", () => {
-    const markup = render(createElement(AccountForm, { account: { ...card, id: 4, kind: "investment", openingBalance: 80000, openingCost: 60000, statementDay: null, payFromAccountId: null, autopay: false }, payFromAccounts, ...done }));
+    const markup = render(createElement(AccountForm, { account: { ...card, id: 4, kind: "investment", openingBalance: 80000, openingCost: 60000, statementDay: null, payFromAccountId: null, autopay: false }, payFromAccounts, today: TODAY, ...done }));
 
     expect(inputOf(markup, "openingBalance")).toContain('value="80000"');
     expect(inputOf(markup, "openingCost")).toContain('value="60000"');
@@ -626,7 +634,7 @@ describe("視窗裡的表單不用 <form action>", () => {
     const forms = [
       render(createElement(EntryForm, { ...OPTIONS, action: actions.addTransactionAction, ...done })),
       render(createElement(UpdateBalanceButton, { account: { id: 1, name: "國泰", kind: "deposit", balance: 0 } })),
-      render(createElement(AccountForm, { payFromAccounts: [], ...done })),
+      render(createElement(AccountForm, { payFromAccounts: [], today: TODAY, ...done })),
       render(createElement(CategoryForm, { defaultKind: "expense", ...done })),
       render(createElement(RecurringForm, { ...OPTIONS, holdings: [], preset: "other", ...done })),
       render(createElement(TradeForm, { record: { id: 80, accountId: 1, counterAccountId: 4, amount: 1000, date: TODAY, note: null }, accounts: [], today: TODAY, ...done })),

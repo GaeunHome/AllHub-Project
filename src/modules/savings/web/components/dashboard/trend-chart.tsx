@@ -30,7 +30,7 @@ export function TrendChart({ points, current }: TrendChartProps) {
       )}
       readout={(point) => <Readout point={point} />}
       label={(point) => `${formatMonth(point.month)}：收入 ${formatTwd(point.income)}，支出 ${formatTwd(point.expense)}，查看這個月的紀錄`}
-      table={{ headers: ["收入", "支出"], cells: (point) => [formatTwd(point.income), formatTwd(point.expense)] }}
+      table={{ heading: "月份", name: (point) => formatMonth(point.month), headers: ["收入", "支出"], cells: (point) => [formatTwd(point.income), formatTwd(point.expense)] }}
     />
   );
 }

@@ -3,7 +3,7 @@
 import { Dialog, useDialog } from "@/core/ui/dialog";
 import { Icon } from "@/core/ui/icon";
 import type { EntryKind } from "../../../lib/kinds";
-import { addTransactionAction } from "../../actions";
+import { addTransactionAction } from "../../actions-records";
 import { EntryForm } from "./entry-form";
 import type { EntryFormOptions } from "./options";
 

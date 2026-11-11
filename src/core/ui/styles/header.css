@@ -1,0 +1,132 @@
+/* core 的元件樣式 導覽列 篩選膠囊 未讀數 鈴鐺面板與人像選單 */
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid var(--line);
+  background-color: var(--header-bg);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(16px) saturate(1.2);
+}
+
+/* 導覽列與通知頁的篩選膠囊 跟次要按鈕一樣高 */
+.nav-pill {
+  @apply inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-medium whitespace-nowrap;
+  border: 1px solid transparent;
+  color: var(--ink-soft);
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+.nav-pill > .icon {
+  color: var(--accent);
+}
+.nav-pill:hover {
+  color: var(--ink);
+  background-color: var(--surface-muted);
+}
+.nav-pill[aria-current] {
+  @apply font-semibold;
+  border-color: var(--line);
+  color: var(--ink);
+  background-color: var(--surface-muted);
+}
+
+/* 未讀數 鈴鐺右上角與篩選膠囊裡的小圓角數字 */
+.count-badge {
+  @apply inline-flex h-[1.125rem] min-w-[1.125rem] shrink-0 items-center justify-center rounded-full px-1 text-[0.6875rem] leading-none font-bold tabular-nums;
+  color: var(--on-brand);
+  background-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--surface-solid);
+}
+
+.unread-dot {
+  @apply inline-block size-2 shrink-0 rounded-full;
+  background-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+/* header 的 backdrop-filter 會框住 fixed 的子元素 */
+/* 手機撐滿整列留 16px 大螢幕對齊鈴鐺 */
+.notification-panel {
+  @apply absolute inset-x-4 top-full mt-2 flex max-h-[min(34rem,calc(100dvh-5rem))] flex-col overflow-hidden rounded-2xl sm:inset-x-auto sm:right-0 sm:w-96;
+  z-index: 50;
+  border: 1px solid var(--line);
+  background-color: var(--surface-solid);
+  box-shadow: var(--elevation-lift);
+}
+
+.notification-row {
+  @apply flex w-full min-w-0 items-start gap-3 px-4 py-3 text-left;
+  transition: background-color 150ms ease;
+}
+button.notification-row {
+  cursor: pointer;
+}
+button.notification-row:hover {
+  background-color: var(--surface-muted);
+}
+
+/* 跟鈴鐺面板一樣用 absolute 手機上靠右留 16px 大螢幕對齊人像按鈕 */
+/* max-w 讓很窄的螢幕也不超出 */
+.menu-panel {
+  @apply absolute top-full right-4 mt-2 flex w-60 max-w-[calc(100vw-2rem)] flex-col gap-1 rounded-2xl p-1.5 sm:right-0;
+  z-index: 50;
+  border: 1px solid var(--line);
+  background-color: var(--surface-solid);
+  box-shadow: var(--elevation-lift);
+}
+
+.menu-item {
+  @apply flex min-h-10 w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-sm font-medium;
+  color: var(--ink-soft);
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  color: var(--ink);
+  background-color: var(--surface-muted);
+}
+/* 項目之間只隔一點點 外框往內畫才不會壓到隔壁 */
+.menu-item:focus-visible {
+  outline-offset: -2px;
+}
+/* 登出是離開的動作 平常就用紅色跟一般項目區分 */
+.menu-item-danger,
+.menu-item-danger:hover,
+.menu-item-danger:focus-visible {
+  color: var(--danger);
+}
+.menu-item-danger:hover,
+.menu-item-danger:focus-visible {
+  background-color: var(--danger-soft);
+}
+
+/* 人像選單裡的外觀 三個選項並排 選中的用主色框起來 */
+.theme-option {
+  @apply flex min-h-14 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg px-1 text-[0.8125rem] font-medium whitespace-nowrap;
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  background-color: var(--surface-solid);
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+.theme-option:hover {
+  color: var(--ink);
+  background-color: var(--surface-muted);
+}
+.theme-option:focus-visible {
+  outline-offset: -2px;
+}
+.theme-option[aria-checked="true"] {
+  @apply font-semibold;
+  border-color: var(--brand);
+  color: var(--brand-ink);
+  background-color: var(--brand-soft);
+}

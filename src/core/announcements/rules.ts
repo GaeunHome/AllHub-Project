@@ -66,5 +66,8 @@ export function announcementWhen({ startsAt, endsAt, createdAt }: { startsAt: Da
   return `${formatTaipeiMonthDay(createdAt)} 發布`;
 }
 
+/** 一則一頁 使用者要的 首頁的公告點進去是一個頁面 */
+export const announcementHref = (id: number): string => `/announcements/${id}`;
+
 /** datetime-local 欄位的值 */
 export const dateTimeInputValue = (date: Date): string => `${taipeiDateKey(date)}T${formatTaipeiHourMinute(date)}`;

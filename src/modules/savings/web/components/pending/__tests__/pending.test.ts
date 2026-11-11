@@ -6,10 +6,11 @@ import type { ConfirmDraft } from "../../../pending-view";
 
 // 只看表單送出什麼 其他照原本的實作
 vi.mock("@/core/ui/dialog", { spy: true });
-vi.mock("../../../actions", () => ({ confirmOccurrenceAction: vi.fn(), payCardAction: vi.fn() }));
+vi.mock("../../../actions-recurring", () => ({ confirmOccurrenceAction: vi.fn() }));
+vi.mock("../../../actions-cards", () => ({ payCardAction: vi.fn() }));
 
 const dialog = await import("@/core/ui/dialog");
-const actions = await import("../../../actions");
+const actions = { ...(await import("../../../actions-recurring")), ...(await import("../../../actions-cards")) };
 const { ConfirmForm } = await import("../confirm-form");
 const { PayCardForm } = await import("../../accounts/pay-card-form");
 

@@ -1,0 +1,46 @@
+/* 交通 起訖交換鈕 選站的按鈕視窗與車站清單 由 globals.css 照順序接在 transit.css 後面引入 */
+
+.trn-swap {
+  @apply shrink-0;
+}
+
+/* 選車站的按鈕與視窗 按鈕跟下拉選單一樣高 視窗高度固定 打字時搜尋框才不會跳 */
+.trn-picker-button {
+  @apply flex cursor-pointer items-center justify-between gap-2 text-left;
+}
+.trn-picker {
+  height: 90dvh;
+}
+@media (min-width: 40rem) {
+  .trn-picker {
+    height: min(44rem, calc(100dvh - 4rem));
+  }
+}
+/* 清單在視窗本文裡捲 搜尋框留在上面 蓋住捲上來的站所以要有底色 上下留的內距放焦點框 */
+.trn-picker-search {
+  @apply sticky top-0 z-10 -my-1 py-1;
+  background-color: var(--surface-solid);
+}
+.trn-picker-group {
+  @apply flex flex-col gap-2;
+}
+.trn-picker-title {
+  @apply flex items-center gap-2 font-semibold text-ink;
+}
+.trn-picker-list {
+  @apply grid gap-2;
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+}
+.trn-station {
+  @apply flex size-full min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-center text-sm leading-tight font-medium text-ink;
+  border: 1px solid var(--line-strong);
+  background-color: var(--surface-solid);
+}
+.trn-station:hover {
+  background-color: var(--surface-muted);
+}
+.trn-station[aria-current="true"] {
+  @apply font-bold;
+  border-color: var(--focus);
+  box-shadow: inset 0 0 0 1px var(--focus);
+}

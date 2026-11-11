@@ -5,7 +5,7 @@ import { Dialog, useDialog } from "@/core/ui/dialog";
 import { MoreMenu } from "@/core/ui/more-menu";
 import { formatDay } from "../../../lib/dates";
 import { formatNumber } from "../../../lib/money";
-import { deleteTransactionAction, updateTransactionAction } from "../../actions";
+import { deleteTransactionAction, updateTransactionAction } from "../../actions-records";
 import { isTrade, recordDetails, recordIcon, recordTitle, signedAmount } from "../../entry-display";
 import { choosableAccounts } from "../../form-math";
 import type { RecordItem } from "../../record-filter";

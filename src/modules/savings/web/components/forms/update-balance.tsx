@@ -6,7 +6,7 @@ import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { formatTwd } from "../../../lib/money";
-import { updateBalanceAction } from "../../actions";
+import { updateBalanceAction } from "../../actions-records";
 import { balanceHint } from "../../form-math";
 import { AmountField } from "./fields";
 

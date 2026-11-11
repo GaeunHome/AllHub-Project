@@ -33,7 +33,7 @@ export function BrokerageList({ view, depositAccounts, payFromAccounts, today, o
             </h2>
             <p className="text-ink">新增證券帳戶後，照券商 App 填持股的代號、股數與成本，市值會照每天的收盤價自動算。</p>
             <div className="button-row">
-              <AddAccountButton kind="investment" payFromAccounts={payFromAccounts} openFromLink={openAdd} cleanHref={SAVINGS_PATHS.investments} />
+              <AddAccountButton kind="investment" payFromAccounts={payFromAccounts} today={today} openFromLink={openAdd} cleanHref={SAVINGS_PATHS.investments} />
             </div>
           </div>
         </section>
@@ -48,7 +48,7 @@ export function BrokerageList({ view, depositAccounts, payFromAccounts, today, o
         <BrokerageCard key={brokerage.id} brokerage={brokerage} depositAccounts={depositAccounts} payFromAccounts={payFromAccounts} today={today} />
       ))}
       <div className={CARD_GRID}>
-        <AddAccountButton kind="investment" payFromAccounts={payFromAccounts} openFromLink={openAdd} cleanHref={SAVINGS_PATHS.investments} className={ADD_TILE} />
+        <AddAccountButton kind="investment" payFromAccounts={payFromAccounts} today={today} openFromLink={openAdd} cleanHref={SAVINGS_PATHS.investments} className={ADD_TILE} />
       </div>
       <PausedNote count={view.pausedCount} />
     </div>

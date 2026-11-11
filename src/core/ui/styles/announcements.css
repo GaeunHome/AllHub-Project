@@ -1,0 +1,64 @@
+/* core 的元件樣式 首頁的公告清單與公告頁 */
+
+/* 公告清單 首頁與公告頁的其他公告共用 種類靠圖示與文字分開 不只靠顏色 */
+.announcement-list {
+  @apply overflow-hidden rounded-b-[calc(1rem-1px)];
+}
+/* 首頁的清單緊接著場景標題 */
+.card-art + .announcement-list {
+  @apply -mt-4 border-t-0;
+}
+.announcement-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "tile title mark" "tile meta mark";
+  @apply items-center gap-x-3 gap-y-1 py-3.5 hover:bg-surface-muted;
+}
+/* 清單會裁掉超出圓角的部分 焦點框往內畫 */
+.announcement-row:focus-visible {
+  outline-offset: -2px;
+}
+.announcement-tile {
+  grid-area: tile;
+  @apply size-10 rounded-xl;
+}
+[data-kind="outage"] .announcement-tile {
+  border-color: var(--danger-line);
+  color: var(--danger);
+  background-color: var(--danger-soft);
+}
+[data-kind="maintenance"] .announcement-tile {
+  border-color: var(--warning-line);
+  color: var(--warning);
+  background-color: var(--warning-soft);
+}
+/* 紅線畫在最上層 滑過時的底色才不會蓋掉 */
+.announcement-list > [data-kind="outage"] {
+  position: relative;
+}
+.announcement-list > [data-kind="outage"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 1;
+  width: 4px;
+  background-color: var(--danger);
+}
+/* 公告頁 橫幅上標題下面的種類與時間 */
+.announcement-facts {
+  @apply flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/90 sm:text-base;
+}
+/* 內文卡片上緣一條種類的顏色 停止服務紅 維護黃 一般公告藍 用燈號的亮色 淺色與深色都看得出來 */
+.announcement-article {
+  border-top: 4px solid var(--brand);
+}
+.announcement-article[data-kind="outage"] {
+  border-top-color: var(--danger-dot);
+}
+.announcement-article[data-kind="maintenance"] {
+  border-top-color: var(--warning-dot);
+}
+/* 站長打的換行照原樣 字大一點行距寬一點 長的也好讀 */
+.announcement-text {
+  @apply max-w-prose text-[1.0625rem] leading-8 whitespace-pre-line text-ink;
+}

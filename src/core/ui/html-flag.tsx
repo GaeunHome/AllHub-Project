@@ -1,4 +1,5 @@
-import { useLayoutEffect, useSyncExternalStore, type ReactElement } from "react";
+import { useLayoutEffect, type ReactElement } from "react";
+import { useHydrated } from "./client-value";
 
 // 伺服器讀不到存在瀏覽器的偏好 所以標在 html 的屬性上
 // 整頁載入靠同步腳本 站內換頁靠 layout effect
@@ -14,8 +15,6 @@ export function setHtmlFlag(root: HtmlRoot, attribute: string, on: boolean): voi
   else root.removeAttribute(attribute);
 }
 
-const noSubscribe = () => () => {};
-
 /** apply 照現在的偏好標上或拿掉 clear 一律拿掉 都要是固定的函式 */
 type HtmlFlagSync = { script: string; apply: (root: HtmlRoot) => void; subscribe: (listener: () => void) => () => void; clear: (root: HtmlRoot) => void };
 
@@ -23,7 +22,7 @@ type HtmlFlagSync = { script: string; apply: (root: HtmlRoot) => void; subscribe
 export function useHtmlFlagSync({ script, apply, subscribe, clear }: HtmlFlagSync): ReactElement | null {
   // 伺服器算繪與 hydration 時是 true 只有整頁載入時才需要腳本
   // 瀏覽器端產生的 script 不會執行 React 還會警告
-  const serverRendered = useSyncExternalStore(noSubscribe, () => false, () => true);
+  const serverRendered = !useHydrated();
 
   // 站內換頁時在繪製前標好 之後跟著偏好更新 其他分頁改的也算
   // 藏起來或卸載時拿掉 屬性才不會留到別頁

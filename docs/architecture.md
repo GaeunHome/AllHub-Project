@@ -46,7 +46,7 @@ src/
   - 測試檢查的是 `src/app` 只透過模組的 `info`、`cron`、`web/pages`、`web/routes` 使用模組；core 只用頁面元件、route handler、排程、robots、外觀與登入檢查（測試裡的允許清單）。
 - **首頁卡片**：每個模組的首頁卡片放在自己的 `web/pages/home-card.tsx`，由 `src/app/(main)/page.tsx` 組合後交給 core 的 `HomePage` 排版（core 不 import 模組）；每張卡片都要組合到首頁。要放進最上面「今天要注意」的事放在 `web/pages/home-notices.tsx`（回傳 `NoticeItem`，沒有事就是空的），一樣由那個頁面組合，傳給 `notices`。只有首頁卡片、沒有自己頁面的模組（例如天氣）在 `info.ts` 設 `homeOnly: true`，導覽列與首頁的模組入口就不列出它，卡片標題列也不放連結。
 - **資料表的位置**：只能定義在 `core/db/schema.ts`（表名以 `core_` 開頭）或模組的 `data/schema.ts`（表名以 `<id>_` 開頭）；每張表都加 `.enableRLS()`（見〈安全〉的資料庫的 RLS）。
-- **樣式的位置**：CSS 只有 `src/app/globals.css` 與模組 `web/` 底下的檔，模組的檔都由 `globals.css` 引入；模組的檔只寫自己前綴的 class（`MODULE_CSS_PREFIXES`）與自己的 `.theme-<id>`，`globals.css` 裡的模組 class 只剩跟 core 或兩個模組共用的幾條（`SHARED_IN_GLOBALS`）。
+- **樣式的位置**：CSS 只有 `src/app/globals.css`、core 的 `src/core/ui/styles/` 與模組 `web/` 底下的檔，後兩種都由 `globals.css` 照固定的順序引入一次（拆檔時比對編譯出來的 CSS 要一字不差）；模組的檔只寫自己前綴的 class（`MODULE_CSS_PREFIXES`）與自己的 `.theme-<id>`，`globals.css` 與 `core/ui/styles` 裡的模組 class 只剩跟 core 或兩個模組共用的幾條（`SHARED_IN_GLOBALS`）。
 - **環境變數**：都定義在 `core/env.ts`，順序同 `.env.example`（由 `env.test.ts` 檢查）；其他地方不直接讀 `process.env`（少數例外列在 `.claude/rules/architecture.md`，也由 `architecture.test.ts` 檢查）。
 - **其他**：日期時間的顯示一律經 `core/time.ts`（不直接用 `Intl.DateTimeFormat`、`Intl.RelativeTimeFormat`、`toLocale*String`）；`next/image` 一律 `unoptimized`；原生 `<dialog>` 只在 `core/ui/dialog.tsx`；對外請求一律經 `externalFetch()`；測試檔一律是 `.test.ts`（vitest 只跑這種）。
 - **快取寫法**：由 `src/__tests__/cache-rules.test.ts` 檢查（見下方〈快取〉）。
@@ -132,7 +132,7 @@ src/
 | `travel:cleanup` | 刪除回程超過 7 天的旅程與沒有成員的旅程 | 每天 03:10 | Vercel Cron |
 | `weather:rain` | 開著下雨通知的人，選的縣市今天白天或今晚的降雨機率 50% 以上時提醒帶傘（全台的預報一次讀；每人每天最多一則，重送不會重寄；停用的使用者略過；沒設定氣象署的授權碼時不做） | 每天 06:00 | Vercel Cron |
 | `reminders:daily` | 寄今天到期與提前那天的提醒（同一天重跑不重複），再刪掉日期過了的項目；中午那一次補寄早上沒寄出去的，也涵蓋早上才新增的；停用的使用者不寄也不刪 | 每天 07:00、12:00 | Vercel Cron |
-| `savings:dividends` | 持股（沒停用的使用者、啟用中的證券帳戶）公布除息日、補上配息金額、最後買進日（除息前一個交易日）各寄一次除權息通知，同一天碰上兩種時併成一則；證交所與櫃買中心的除權除息預告表同時讀、各最多等 15 秒，一個讀不到另一個照常；重送不會重寄；刪掉除息日過了的寄送紀錄 | 每天 08:00 | Vercel Cron |
+| `savings:dividends` | 持股（沒停用的使用者、啟用中的證券帳戶）公布除息日、補上配息金額、最後買進日（除息前一個交易日）各寄一次除權息通知，同一天碰上兩種時併成一則；證交所與櫃買中心的除權除息預告表同時讀、各最多等 15 秒，讀不到的那一邊隔 5 秒再讀一次，還是讀不到時另一邊照常，系統狀態寫出是哪一邊；重送不會重寄；刪掉除息日過了的寄送紀錄 | 每天 08:00 | Vercel Cron |
 | `starrail:redeem` | 替打開自動兌換的帳號，兌換社群兌換碼清單上還沒試過的碼（清單最多 50 個；每次約 30 秒、同一個 HoYoLAB 帳號每 6 秒一個，剩下的隔天再試；成功時通知） | 每天 12:00 | Vercel Cron |
 
 | `weather:warnings` | 開著警特報通知的人，選的縣市有天氣特報或警報時通知（全台一次讀；同一縣市同一種特報每人每天最多一則，一天從台北 6 點算起；結束時間已過的不寄；停用的使用者略過） | 大約每小時 | Vercel Cron |

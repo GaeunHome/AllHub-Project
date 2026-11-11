@@ -1,0 +1,133 @@
+/* core 的元件樣式 提示視窗 開關與 ⋮ 選單 */
+
+.toast-region {
+  @apply pointer-events-none fixed right-4 bottom-4 flex w-[min(23rem,calc(100vw-2rem))] flex-col gap-3 sm:right-5 sm:bottom-5;
+  z-index: 60;
+}
+.toast {
+  @apply pointer-events-auto relative flex items-start gap-1 overflow-hidden rounded-2xl p-1.5;
+  border: 1px solid var(--line);
+  background-color: var(--surface-solid);
+  box-shadow: var(--elevation-lift);
+}
+.toast-main {
+  @apply flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-xl p-2.5 text-left;
+  transition: background-color 150ms ease;
+}
+.toast-main:hover {
+  background-color: var(--surface-muted);
+}
+
+/* 外層是 popover 放在 top layer 蓋得過彈出視窗 */
+/* 在導覽列下方置中 不跟右下角的通知卡片疊 */
+.toast-layer {
+  @apply flex flex-col gap-2;
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 4.75rem);
+  right: 1rem;
+  bottom: auto;
+  left: 1rem;
+  width: auto;
+  max-width: 26rem;
+  height: auto;
+  margin: 0 auto;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  pointer-events: none;
+  /* 不支援 popover 的瀏覽器照樣在頁面上層 */
+  z-index: 80;
+}
+.toast-list {
+  @apply flex flex-col gap-2;
+}
+.toast-card {
+  @apply pointer-events-auto flex items-start gap-3 rounded-xl py-3 pr-2 pl-4;
+  border: 1px solid var(--line);
+  background-color: var(--surface-solid);
+  box-shadow: var(--elevation-lift);
+}
+.toast-card > .icon {
+  @apply mt-0.5;
+}
+.toast-card-success > .icon {
+  color: var(--success);
+}
+.toast-card-warning > .icon {
+  color: var(--warning);
+}
+.toast-card-error > .icon {
+  color: var(--danger);
+}
+
+.switch {
+  @apply relative inline-flex h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full;
+  border: 1px solid var(--line-strong);
+  background-color: var(--surface-sunken);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+.switch::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0.1875rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgb(16 24 40 / 0.3);
+  transform: translateY(-50%);
+  transition: transform 150ms ease;
+}
+.switch:checked {
+  border-color: transparent;
+  background-color: var(--brand);
+}
+.switch:checked::before {
+  transform: translate(1.125rem, -50%);
+}
+
+/* 選單是 popover 預設的置中與邊框要蓋掉 */
+/* 位置由元件算好 z-index 給不支援 popover 的瀏覽器 */
+.more-menu {
+  @apply fixed inset-x-0 top-auto bottom-0 m-0 flex h-auto max-h-[80dvh] w-auto flex-col gap-0.5 overflow-y-auto rounded-t-2xl p-2 pb-[max(0.75rem,env(safe-area-inset-bottom))];
+  z-index: 70;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background-color: var(--surface-solid);
+  box-shadow: var(--elevation-lift);
+}
+.more-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 69;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background-color: rgb(0 0 0 / 0.45);
+}
+@media (min-width: 40rem) {
+  .more-menu {
+    inset: auto;
+    top: var(--menu-top, 0);
+    left: var(--menu-left, 0);
+    width: 16rem;
+    max-height: min(28rem, calc(100dvh - 1rem));
+    border-radius: 0.75rem;
+    padding: 0.375rem;
+  }
+  .more-menu-backdrop {
+    display: none;
+  }
+  /* 視窗裡點選單外面要先落在這層 落到視窗的背景會連視窗一起關掉 */
+  dialog .more-menu-backdrop {
+    display: block;
+    background-color: transparent;
+  }
+}
