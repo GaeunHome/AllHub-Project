@@ -342,15 +342,24 @@ describe("帳戶頁", () => {
       cardBills: [{ ...BILL, paid: amount, lastPaidOn: "2026-10-12" }],
     });
 
-    it("結帳了還沒填帳單：寫結帳日，標「待填帳單」，按鈕是填帳單（還不知道截止日）", () => {
-      expect(cardOf("國泰卡", { cardBills: [] }).status).toEqual({ facts: [{ label: "結帳日", value: "10/5" }], badge: { label: "待填帳單", tone: "warning" }, action: "bill" });
+    // 使用者說刷卡好像都沒記到 以前結帳後刷的 6,000 在這兩種狀態下看不到
+    it("結帳了還沒填帳單：寫結帳日與結帳後刷的未出帳，標「待填帳單」，按鈕是填帳單（還不知道截止日）", () => {
+      expect(cardOf("國泰卡", { cardBills: [] }).status).toEqual({
+        facts: [
+          { label: "結帳日", value: "10/5" },
+          { label: "未出帳", value: "$6,000" },
+        ],
+        badge: { label: "待填帳單", tone: "warning" },
+        action: "bill",
+      });
     });
 
-    it("填了還沒繳：本期應繳與截止日各一列，截止日旁寫還有幾天，按鈕是已繳", () => {
+    it("填了還沒繳：本期應繳、截止日與結帳後刷的未出帳各一列，截止日旁寫還有幾天，按鈕是已繳", () => {
       expect(cardOf("國泰卡").status).toEqual({
         facts: [
           { label: "本期應繳", value: "$12,480" },
           { label: "截止日", value: "10/20（還有 5 天）" },
+          { label: "未出帳", value: "$6,000" },
         ],
         badge: null,
         action: "pay",
@@ -366,6 +375,7 @@ describe("帳戶頁", () => {
         facts: [
           { label: "本期應繳", value: "$12,480" },
           { label: "截止日", value: "10/20" },
+          { label: "未出帳", value: "$6,000" },
         ],
         badge: { label: "逾期 2 天", tone: "danger" },
         action: "pay",
@@ -376,6 +386,7 @@ describe("帳戶頁", () => {
       expect(cardOf("國泰卡", paid(5000)).status.facts).toEqual([
         { label: "本期還要繳", value: "$7,480" },
         { label: "截止日", value: "10/20（還有 5 天）" },
+        { label: "未出帳", value: "$6,000" },
       ]);
     });
 

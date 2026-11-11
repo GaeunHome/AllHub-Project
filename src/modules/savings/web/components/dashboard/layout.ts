@@ -1,8 +1,8 @@
 // 內容與骨架共用 排得一樣串流進來時才不會跳
 // 放在一般模組 伺服器元件才拿得到字串 從 use client 檔案匯入的只是參照
 
-/** 一個大數字加上幾列合計 放得下時左右排 放不下時數字在上 */
-export const BIG_FIGURE = "flex min-w-0 flex-wrap content-center items-center justify-between gap-x-8 gap-y-3";
+/** 一個大數字加上幾列合計 放得下時左右排 放不下時數字在上 合計緊跟著數字 右邊留給橫幅的金庫圖 */
+export const BIG_FIGURE = "flex min-w-0 flex-wrap content-center items-center gap-x-12 gap-y-3";
 
 /** 限寬 標籤與數字才不會隔得太遠 */
 export const BIG_FIGURE_FACTS = "min-w-56 flex-1 sm:max-w-sm";

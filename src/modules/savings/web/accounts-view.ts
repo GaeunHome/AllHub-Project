@@ -30,23 +30,25 @@ export function cardStyles(accounts: readonly Pick<OverviewAccount, "id" | "kind
 /** 信用卡卡面下面的幾列 action 是這張卡現在要按的 標籤只給待填帳單與逾期 */
 export type CardStatusView = { facts: FactRow[]; badge: Badge | null; action: "bill" | "pay" | null };
 
-type CardStatusSource = Pick<CreditDetail, "needsBill" | "statementDate" | "dueDate" | "remainingDue" | "statementAmount" | "owedNow" | "balance" | "status" | "daysLeft" | "statementDay">;
+type CardStatusSource = Pick<CreditDetail, "needsBill" | "statementDate" | "dueDate" | "remainingDue" | "statementAmount" | "owedNow" | "unbilled" | "balance" | "status" | "daysLeft" | "statementDay">;
 
 /**
  * 結帳了要填帳單 填了還沒繳清要繳 沒有結帳日的卡帳單來了隨時可以填
  * 繳了一部分時寫還要繳多少 才不會以為整張都沒繳
  */
 export function cardStatusView(detail: CardStatusSource): CardStatusView {
+  // 結帳後又刷的另外一列 不然記了也看不出來
+  const afterStatement: FactRow[] = detail.unbilled > 0 ? [{ label: "未出帳", value: formatTwd(detail.unbilled) }] : [];
   if (detail.needsBill && detail.statementDate !== null) {
-    return { facts: [{ label: "結帳日", value: formatSlashDate(detail.statementDate) }], badge: { label: "待填帳單", tone: "warning" }, action: "bill" };
+    return { facts: [{ label: "結帳日", value: formatSlashDate(detail.statementDate) }, ...afterStatement], badge: { label: "待填帳單", tone: "warning" }, action: "bill" };
   }
   if (detail.dueDate !== null && detail.remainingDue > 0) {
     const paidSome = detail.statementAmount !== null && detail.remainingDue < detail.statementAmount;
     const amount = { label: paidSome ? "本期還要繳" : "本期應繳", value: formatTwd(detail.remainingDue) };
     const dueOn = formatSlashDate(detail.dueDate);
-    if (creditOverdue(detail)) return { facts: [amount, { label: "截止日", value: dueOn }], badge: overdueBadge(detail.daysLeft), action: "pay" };
+    if (creditOverdue(detail)) return { facts: [amount, { label: "截止日", value: dueOn }, ...afterStatement], badge: overdueBadge(detail.daysLeft), action: "pay" };
     const due = detail.daysLeft === 0 ? "今天" : detail.daysLeft === null ? dueOn : `${dueOn}（${dueText(detail.daysLeft)}）`;
-    return { facts: [amount, { label: "截止日", value: due }], badge: null, action: "pay" };
+    return { facts: [amount, { label: "截止日", value: due }, ...afterStatement], badge: null, action: "pay" };
   }
   const action = detail.statementDay === null ? "bill" : null;
   if (detail.balance > 0) return { facts: [{ label: "溢繳", value: formatTwd(detail.balance) }], badge: null, action };

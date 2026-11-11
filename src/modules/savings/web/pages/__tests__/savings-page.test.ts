@@ -127,7 +127,7 @@ describe("理財的總覽頁", () => {
   it("這個月要做的事處理完那一列的按鈕會不見：焦點交給一直都在的整頁外框（訊息改用提示視窗）", () => {
     const markup = renderNode(createElement(SavingsPage, { info: INFO }));
 
-    expect(markup).toMatch(/^(?:<link[^>]*>)*<div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入總覽…/);
+    expect(markup).toMatch(/^(?:<link[^>]*>)*<div[^>]*class="theme-savings"[^>]*><div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入總覽…/);
   });
 
   it("由上而下：開始設定、我要…（平常怎麼用寫在它的 i 圓圈）、這個月要做的事、本月收支、每月收支", async () => {

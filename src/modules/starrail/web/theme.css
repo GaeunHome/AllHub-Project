@@ -22,6 +22,8 @@
   --sr-detail-bar: color-mix(in oklab, #0d1233 95%, transparent);
   --sr-bonus: #8fe3bd;
   --sr-rarity: #ffe3a3;
+  /* 異相仲裁的王棋 星星與高難度跟一般的金色分開 */
+  --sr-boss-star: #ff9d8a;
   --surface: rgb(18 24 58 / 0.78);
   --surface-solid: #141a3d;
   --surface-muted: rgb(255 255 255 / 0.055);

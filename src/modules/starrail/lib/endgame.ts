@@ -58,6 +58,30 @@ export function formatPartialTime(value: unknown): string | null {
   return `${year}/${month}/${day} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
+/** 記下缺少的欄位 這一期沒有挑戰時換成原樣回傳 */
+export type Need = <T>(value: T | null, path: string) => T | null;
+
+/** 上場隊伍的角色 終局戰績與異相仲裁共用 path 是記錄缺少欄位用的路徑 */
+export function teamMembers(list: readonly unknown[], need: Need, path: string): TeamMember[] {
+  return list.flatMap((value): TeamMember[] => {
+    const avatar = asRecord(value);
+    if (!avatar) return [];
+    const at = (key: string) => `${path}[].${key}`;
+    const element = need(text(avatar.element)?.toLowerCase() ?? null, at("element"));
+    return [
+      {
+        id: numberOf(avatar.id),
+        level: need(numberOf(avatar.level), at("level")),
+        icon: need(image(avatar.icon), at("icon")),
+        rarity: need(numberOf(avatar.rarity), at("rarity")),
+        element,
+        elementIcon: elementIconUrl(element),
+        eidolon: numberOf(avatar.rank),
+      },
+    ];
+  });
+}
+
 const withExtra = (stars: number | null, extra: unknown) => (stars === null ? null : stars + (numberOf(extra) ?? 0));
 
 export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
@@ -72,31 +96,13 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
   // 這一期沒有挑戰時很多欄位本來就是空的 不算格式不同
   const need = declared === false ? <T>(value: T | null) => value : missing.need;
 
-  const member = (value: unknown): TeamMember[] => {
-    const avatar = asRecord(value);
-    if (!avatar) return [];
-    const at = (key: string) => `all_floor_detail[].node[].avatars[].${key}`;
-    const element = need(text(avatar.element)?.toLowerCase() ?? null, at("element"));
-    return [
-      {
-        id: numberOf(avatar.id),
-        level: need(numberOf(avatar.level), at("level")),
-        icon: need(image(avatar.icon), at("icon")),
-        rarity: need(numberOf(avatar.rarity), at("rarity")),
-        element,
-        elementIcon: elementIconUrl(element),
-        eidolon: numberOf(avatar.rank),
-      },
-    ];
-  };
-
   const node = (value: unknown): EndgameNode[] => {
     const n = asRecord(value);
     if (!n) return [];
     const at = (key: string) => `all_floor_detail[].node[].${key}`;
     return [
       {
-        avatars: (Array.isArray(n.avatars) ? n.avatars : (missing.add(at("avatars")), [])).flatMap(member),
+        avatars: teamMembers(Array.isArray(n.avatars) ? n.avatars : (missing.add(at("avatars")), []), need, at("avatars")),
         score: mode === "chaos" ? null : need(numberOf(n.score), at("score")),
         bossDefeated: mode === "shadow" ? need(boolOf(n.boss_defeated), at("boss_defeated")) : null,
       },

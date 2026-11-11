@@ -149,7 +149,6 @@ const card = (id: number, name: string, needsBill: boolean) => ({
   id,
   name,
   status: needsBill ? ["結帳日 10/5", "待填帳單"] : ["截止日 10/20"],
-  needsBill,
   bill: { cardId: id, cardName: name, estimate: 7000, statementDate: "2026-10-05", dueDate: "2026-10-27", payFromAccountId: 2, minDate: "2026-01-05" },
   pay: { cardId: id, cardName: name, amount: 7000, payFromAccountId: 2, minDate: "2026-01-05" },
 });
@@ -202,15 +201,25 @@ describe("我要…", () => {
     expect(textOf(body("trade", { holdings: [...VIEW.holdings, second] }), { spaced: true })).toContain("0050 0050 名稱 元大證券 目前 1,000 股");
   });
 
-  it("只有一張卡時直接打開表單：還沒填這一期的帳單是填帳單，填了是繳卡費", async () => {
-    body("card", { cards: [card(6, "國泰卡", true)] });
-    const [[submitBill]] = vi.mocked(dialog.useDialogForm).mock.calls;
-    await submitBill({}, new FormData());
-    expect(actions.enterCardBillAction).toHaveBeenCalled();
+  // 使用者說刷卡好像都沒記到 以前這顆只有填帳單與繳卡費 刷卡要從記支出自己換帳戶
+  it("信用卡只有一張時直接打開記刷卡：帳戶先選好這張卡、類型是支出，送出是記一筆；不管有沒有待填的帳單都一樣", () => {
+    const entry = { ...VIEW.entry, accounts: [...DEPOSITS, { id: 6, name: "國泰卡", kind: "credit" as const }, { id: 7, name: "台新卡", kind: "credit" as const }] };
 
-    vi.mocked(dialog.useDialogForm).mockClear();
-    body("card", { cards: [card(7, "台新卡", false)] });
-    expect(formActions()).toEqual([actions.payCardAction]);
+    for (const target of [card(6, "國泰卡", true), card(7, "台新卡", false)]) {
+      vi.mocked(dialog.useDialogForm).mockClear();
+      const markup = body("card", { entry, cards: [target] });
+
+      expect(formActions()).toEqual([actions.addTransactionAction]);
+      expect(markup.match(/<select[^>]*name="accountId"[^>]*>.*?<\/select>/)?.[0].match(/<option value="(\d+)" selected="">/)?.[1]).toBe(String(target.id));
+      expect(markup).toMatch(/<button[^>]*aria-pressed="true"[^>]*>支出<\/button>/);
+    }
+  });
+
+  it("信用卡的視窗可以切換記刷卡、填帳單、繳卡費；沒有銀行帳戶時不能繳卡費", () => {
+    const segments = (markup: string) => [...(markup.match(/<div role="group" aria-label="要做什麼"[^>]*>(.*?)<\/div>/)?.[1] ?? "").matchAll(/<button[^>]*>(.*?)<\/button>/g)].map((m) => textOf(m[1]));
+
+    expect(segments(body("card", { cards: [card(6, "國泰卡", true)] }))).toEqual(["記刷卡", "填帳單", "繳卡費"]);
+    expect(segments(body("card", { cards: [card(6, "國泰卡", true)], depositAccounts: [] }))).toEqual(["記刷卡", "填帳單"]);
   });
 
   it("沒有可以選的對象：按鈕照樣在，視窗裡說明並連到新增的頁面", () => {

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { requireModule } from "@/core/auth";
 import { externalAssetUrl } from "@/core/external-url";
 import { ExternalImage } from "@/core/ui/external-image";
@@ -66,20 +67,17 @@ function NoteView({ note, expeditions, fetchedAt, customThreshold }: NoteViewPro
   return (
     <div className="stack">
       <div className={NOTE_GRID}>
-        {/* 開拓力最常看 放大成主角 */}
-        <div className="sr-panel flex flex-col justify-between gap-4 p-5 sm:p-6">
-          <p className="flex items-center gap-2 font-semibold text-ink-soft">
+        {/* 開拓力最常看 放大成主角 使用者要的圓環 */}
+        <div className="sr-panel flex flex-col items-center justify-between gap-4 p-5 sm:p-6">
+          <p className="flex items-center gap-2 self-start font-semibold text-ink">
             <Icon name="battery-charging" className="size-5 text-sr-gold" />
             開拓力
           </p>
-          <p className="sr-num leading-none text-ink">
-            <span className="text-6xl font-bold">{note.stamina ?? "—"}</span>
-            <span className="text-2xl font-semibold text-ink-soft"> / {note.maxStamina ?? "—"}</span>
-          </p>
-          <div aria-hidden className="h-2 w-full bg-white/10">
-            <div className="h-full bg-linear-to-r from-[var(--sr-gauge-from)] to-[var(--sr-gauge-to)]" style={{ width: `${percent}%` }} />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
+          <StaminaRing percent={percent}>
+            <span className="sr-num text-5xl leading-none font-bold text-ink">{note.stamina ?? "—"}</span>
+            <span className="sr-num text-base font-semibold text-ink">/ {note.maxStamina ?? "—"}</span>
+          </StaminaRing>
+          <div className="flex flex-wrap justify-center gap-1.5">
             <span className="chip">
               <Icon name="clock" className="size-3.5" />
               {staminaFullText(note, fullAt, now)}
@@ -101,6 +99,19 @@ function NoteView({ note, expeditions, fetchedAt, customThreshold }: NoteViewPro
         </div>
       </div>
       {expeditions.length > 0 && <ExpeditionList expeditions={expeditionStates(expeditions, fetchedAt, now)} />}
+    </div>
+  );
+}
+
+/** 從正上方順時針畫到開拓力的比例 數字放在圓環中間 */
+function StaminaRing({ percent, children }: { percent: number; children: ReactNode }) {
+  return (
+    <div className="sr-ring">
+      <svg viewBox="0 0 120 120" aria-hidden className="sr-ring-svg">
+        <circle cx="60" cy="60" r="52" pathLength={100} className="sr-ring-track" />
+        <circle cx="60" cy="60" r="52" pathLength={100} className="sr-ring-value" strokeDasharray={`${Math.round(percent)} 100`} />
+      </svg>
+      <div className="sr-ring-label">{children}</div>
     </div>
   );
 }
@@ -158,12 +169,18 @@ function ExpeditionList({ expeditions }: { expeditions: ExpeditionState[] }) {
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium text-ink">{expedition.name ?? "委託"}</p>
               {remaining && (
-                <p className={done ? "flex items-center gap-1 text-sm font-semibold text-success" : "text-sm text-ink-soft"}>
+                <p className={done ? "flex items-center gap-1 text-sm font-semibold text-success" : "text-sm text-ink"}>
                   {done ? <Icon name="circle-check" className="size-3.5" /> : null}
                   {remaining}
                 </p>
               )}
             </div>
+            {/* HoYoLAB 沒給委託的總時長 畫不出準確的進度 改放獎勵的圖示 */}
+            {expedition.reward && (
+              <span aria-hidden className="sr-reward">
+                <ExternalImage src={externalAssetUrl(expedition.reward)} alt="" fill className="object-contain p-1" />
+              </span>
+            )}
           </li>
         );
       })}

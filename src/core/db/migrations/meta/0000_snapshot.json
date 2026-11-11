@@ -1198,6 +1198,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {

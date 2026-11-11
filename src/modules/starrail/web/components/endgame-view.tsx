@@ -8,18 +8,28 @@ import { SegmentedControl } from "@/core/ui/segmented-control";
 import { groupDigits } from "@/core/number";
 import { challengeLabel } from "../../lib/calendar";
 import { ENDGAME_MODES, type Endgame, type EndgameFloor, type EndgameMode, type EndgameSchedule } from "../../lib/endgame";
-import { TeamAvatar } from "./team-avatar";
+import type { Peak } from "../../lib/peak";
+import { PeakView, peakSeasonFor } from "./peak-view";
+import { NoRecordNotice, QuickClear, RoundCount } from "./sr-visuals";
+import { MEMBER_HEIGHT, TeamAvatar } from "./team-avatar";
 
 export type EndgameRecord = { mode: EndgameMode; schedule: EndgameSchedule } & ({ ok: true; endgame: Endgame } | { ok: false; message: string });
+
+/** 異相仲裁一次讀最近三期 本期與上期都在裡面 */
+export type PeakRecord = { ok: true; peak: Peak } | { ok: false; message: string };
+
+/** 使用者要的 異相仲裁排在另外三種後面 */
+type Tab = EndgameMode | "peak";
+const TABS: readonly Tab[] = [...ENDGAME_MODES, "peak"];
 
 const SCHEDULES: { id: EndgameSchedule; label: string }[] = [
   { id: "current", label: "本期" },
   { id: "previous", label: "上期" },
 ];
 
-/** 六份資料已經一起查好 模式與期別的切換在瀏覽器裡做 */
-export function EndgameView({ records, names }: { records: EndgameRecord[]; names: Record<number, string | null> }) {
-  const [mode, setMode] = useState<EndgameMode>("chaos");
+/** 三種模式的本期上期與異相仲裁已經一起查好 模式與期別的切換在瀏覽器裡做 */
+export function EndgameView({ records, peak, names }: { records: EndgameRecord[]; peak: PeakRecord; names: Record<number, string | null> }) {
+  const [mode, setMode] = useState<Tab>("chaos");
   const [schedule, setSchedule] = useState<EndgameSchedule>("current");
   const id = useId();
   const record = records.find((r) => r.mode === mode && r.schedule === schedule);
@@ -36,27 +46,29 @@ export function EndgameView({ records, names }: { records: EndgameRecord[]; name
         </div>
       </div>
       <div {...DRAG_SCROLL} role="tablist" aria-label="模式" className="no-scrollbar flex overflow-x-auto border-b border-line">
-        {ENDGAME_MODES.map((m) => (
+        {TABS.map((m) => (
           <button key={m} type="button" role="tab" aria-selected={m === mode} onClick={() => setMode(m)} className="sr-tab shrink-0">
             {challengeLabel(m)}
           </button>
         ))}
       </div>
-      {!record ? null : record.ok ? <EndgameRecordView endgame={record.endgame} names={names} /> : <FormMessage tone="error">{record.message}</FormMessage>}
+      {mode === "peak" ? (
+        peak.ok ? (
+          <PeakView season={peakSeasonFor(peak.peak, schedule)} names={names} />
+        ) : (
+          <FormMessage tone="error">{peak.message}</FormMessage>
+        )
+      ) : !record ? null : record.ok ? (
+        <EndgameRecordView endgame={record.endgame} names={names} />
+      ) : (
+        <FormMessage tone="error">{record.message}</FormMessage>
+      )}
     </section>
   );
 }
 
 function EndgameRecordView({ endgame, names }: { endgame: Endgame; names: Record<number, string | null> }) {
-  if (!endgame.hasData) {
-    return (
-      <p className="sr-panel flex items-center gap-3 p-5 text-ink-soft sm:p-6">
-        <Icon name="info" className="size-4 text-sr-gold" />
-        這一期還沒有挑戰紀錄
-        {endgame.name && <span className="text-ink">（{endgame.name}）</span>}
-      </p>
-    );
-  }
+  if (!endgame.hasData) return <NoRecordNotice name={endgame.name} />;
   return (
     <div className="stack">
       {/* 手機上名稱與期間一列 數字排在下一列 寬螢幕數字排在右邊 */}
@@ -103,9 +115,9 @@ function Summary({ label, value, star = false }: { label: string; value: string;
 // 三隊要排在同一列 面板窄的時候頭像小一點 手機才一隊一列
 const THREE_TEAMS = "grid gap-3 @2xl:grid-cols-3 @2xl:[--sr-team:2.5rem] @3xl:[--sr-team:3rem]";
 // 兩隊並排時分數緊跟自己的頭像 推到右緣會貼著下一隊的編號
-const TEAM_RESULT = "ml-auto flex h-[var(--sr-team,3rem)] items-center gap-2.5 @2xl:ml-0";
+const TEAM_RESULT = `ml-auto flex ${MEMBER_HEIGHT} items-center gap-2.5 @2xl:ml-0`;
 // 三隊時一欄放不下分數 擠在旁邊頭像會折行 夠寬才排回旁邊
-const TEAM_RESULT_BELOW = "flex w-full items-center justify-end gap-2.5 @5xl:ml-0 @5xl:h-[var(--sr-team,3rem)] @5xl:w-auto";
+const TEAM_RESULT_BELOW = "flex w-full items-center justify-end gap-2.5 @5xl:ml-0 @5xl:h-[calc(var(--sr-team,3rem)*7/6)] @5xl:w-auto";
 
 function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number, string | null> }) {
   const earned = Math.min(floor.stars ?? 0, 3);
@@ -117,16 +129,14 @@ function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number,
           <span className="text-sr-gold">{"★".repeat(earned)}</span>
           <span className="text-white/25">{"★".repeat(3 - earned)}</span>
         </span>
-        <span className="ml-auto flex items-center gap-2">
-          {floor.quickClear && <span className="chip">快速通關</span>}
-          {floor.rounds !== null && (
-            <span className="chip">
-              <span className="sr-num text-[0.875rem] font-bold">{floor.rounds}</span> 回合
-            </span>
-          )}
+        {/* 使用者要的少用小標籤 跟異相仲裁一樣用圖示加文字 */}
+        <span className="ml-auto flex items-center gap-4">
+          {floor.quickClear && <QuickClear />}
+          {floor.rounds !== null && <RoundCount rounds={floor.rounds} />}
           {floor.score !== null && (
-            <span className="chip">
-              <span className="sr-num text-[0.875rem] font-bold">{groupDigits(floor.score)}</span> 分
+            <span className="flex items-center gap-1.5 text-ink">
+              <Icon name="target" className="size-4 text-sr-gold" />
+              <span className="sr-num text-lg font-bold">{groupDigits(floor.score)}</span> 分
             </span>
           )}
         </span>
@@ -138,7 +148,7 @@ function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number,
             // 編號 分數 未擊敗各包一層跟頭像一樣高 對準頭像的中線
             <div key={i} className="flex min-w-0 flex-wrap items-start gap-x-2.5 gap-y-1">
               {/* 隊伍編號用固定大小的方塊不換行 頭像才對齊 */}
-              <span className="grid h-[var(--sr-team,3rem)] shrink-0 place-items-center">
+              <span className={`grid ${MEMBER_HEIGHT} shrink-0 place-items-center`}>
                 <span className="sr-num grid size-6 place-items-center rounded-sm border border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-sm leading-none font-bold text-[var(--sr-gold-ink)]">
                   <span aria-hidden>{i + 1}</span>
                   <span className="sr-only">第 {i + 1} 隊</span>

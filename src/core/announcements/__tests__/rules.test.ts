@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { announcementWhen, dateTimeInputValue, inTicker, isAnnouncementShown, parseAnnouncement } from "../rules";
+import { announcementTimeline, announcementWhen, dateTimeInputValue, inTicker, isAnnouncementShown, parseAnnouncement } from "../rules";
 
 const fields = (values: Partial<Record<"kind" | "title" | "body" | "startsAt" | "endsAt" | "pinned", string>> = {}) => ({ kind: "outage", title: "資料庫維護", body: "", startsAt: "", endsAt: "", pinned: "", ...values });
 
@@ -99,5 +99,57 @@ describe("dateTimeInputValue（修改時帶回表單）", () => {
 
     expect(value).toBe("2026-11-10T02:00");
     expect(parseAnnouncement(fields({ startsAt: value }))).toMatchObject({ ok: true, value: { startsAt: new Date("2026-11-09T18:00:00Z") } });
+  });
+});
+
+describe("announcementTimeline（使用者選的站長來信：有開始或結束時間的公告畫公布、開始、結束三步）", () => {
+  // 11/11 14:00 公布 維護在 11/15 凌晨 2:00 到 4:00 都是台北時間
+  const created = new Date("2026-11-11T06:00:00Z");
+  const starts = new Date("2026-11-14T18:00:00Z");
+  const ends = new Date("2026-11-14T20:00:00Z");
+  const row = (values: { startsAt?: Date | null; endsAt?: Date | null } = {}) => ({ createdAt: created, startsAt: starts, endsAt: ends, ...values });
+  const at = (iso: string) => new Date(iso);
+
+  it("沒寫開始也沒寫結束_不畫", () => {
+    expect(announcementTimeline(row({ startsAt: null, endsAt: null }), created)).toBeNull();
+  });
+
+  it("還沒開始_公布那一步做完了、下一步是開始，寫還有幾天開始", () => {
+    expect(announcementTimeline(row(), at("2026-11-11T08:00:00Z"))).toEqual({
+      status: "還有 3 天開始",
+      steps: [
+        { label: "公布", time: "11/11 14:00", state: "done" },
+        { label: "開始", time: "11/15 02:00", state: "next" },
+        { label: "結束", time: "11/15 04:00", state: "later" },
+      ],
+    });
+  });
+
+  it("一天內開始寫幾小時、一小時內寫幾分鐘（不到一分鐘也寫 1 分鐘）", () => {
+    expect(announcementTimeline(row(), at("2026-11-14T12:30:00Z"))?.status).toBe("還有 5 小時開始");
+    expect(announcementTimeline(row(), at("2026-11-14T17:40:00Z"))?.status).toBe("還有 20 分鐘開始");
+    expect(announcementTimeline(row(), at("2026-11-14T17:59:30Z"))?.status).toBe("還有 1 分鐘開始");
+  });
+
+  it("開始了還沒結束_進行中，開始做完了、下一步是結束", () => {
+    expect(announcementTimeline(row(), at("2026-11-14T18:30:00Z"))).toEqual({
+      status: "進行中",
+      steps: [
+        { label: "公布", time: "11/11 14:00", state: "done" },
+        { label: "開始", time: "11/15 02:00", state: "done" },
+        { label: "結束", time: "11/15 04:00", state: "next" },
+      ],
+    });
+  });
+
+  it("只寫結束時間的當成已經開始（跟跑馬燈一樣）；只寫開始時間的沒有結束那一步", () => {
+    expect(announcementTimeline(row({ startsAt: null }), created)).toEqual({
+      status: "進行中",
+      steps: [
+        { label: "公布", time: "11/11 14:00", state: "done" },
+        { label: "結束", time: "11/15 04:00", state: "next" },
+      ],
+    });
+    expect(announcementTimeline(row({ endsAt: null }), created)?.steps.map((step) => step.label)).toEqual(["公布", "開始"]);
   });
 });

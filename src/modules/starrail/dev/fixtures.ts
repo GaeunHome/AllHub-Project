@@ -66,6 +66,7 @@ export const hoyolab = {
   fetchActCalendar: vi.fn(),
   fetchLedger: vi.fn(),
   fetchEndgame: vi.fn(),
+  fetchPeak: vi.fn(),
   redeemCode: vi.fn(),
   fetchCheckinInfo: vi.fn(),
   signIn: vi.fn(),

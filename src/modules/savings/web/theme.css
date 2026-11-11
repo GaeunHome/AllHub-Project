@@ -1,0 +1,73 @@
+/* 由 globals.css 在 @layer 外面引入 跟全站的 :root 變數同一層 */
+/* text-fin-gold 這類 class 用的金色 */
+@theme inline {
+  --color-fin-gold: var(--fin-gold);
+}
+
+/* 使用者選的黑卡私人銀行 淺色是米白底配海軍藍字 深色是深海軍藍 兩種都配香檳金 */
+/* 跟著全站的外觀切換 使用者要的 調色盤只放在外框上 */
+.theme-savings {
+  /* 金色的字 在淺底上也有 4.5:1 */
+  --fin-gold: #8a6420;
+  /* 金屬的金色 亮面在左上 按鈕 圖示底與總資產共用 上面的字是深海軍藍 */
+  --fin-metal: linear-gradient(135deg, #f7e4b2 0%, #d8b469 46%, #a07c37 100%);
+  --fin-gold-line: rgb(176 136 58 / 0.4);
+  --fin-gold-glow: rgb(201 163 90 / 0.16);
+  --surface: #fffdf8;
+  --surface-solid: #fffdf8;
+  --surface-muted: #f4efe3;
+  --surface-sunken: #ebe4d3;
+  --line: #e7dfcd;
+  --line-strong: #d4c8ad;
+  --ink: #131a2e;
+  --ink-soft: #2e3650;
+  --muted: #535a6e;
+  --placeholder: #6e7385;
+  --brand: #d4ae63;
+  --brand-hover: #e0bc72;
+  --brand-ink: #7c5a1c;
+  --brand-soft: #f6eedb;
+  --brand-line: #e3cf9f;
+  --on-brand: #0b1124;
+  --focus: #1b2b5c;
+  --ring: rgb(27 43 92 / 0.22);
+  --accent: #9a7428;
+  --accent-ink: #7c5a1c;
+  --accent-soft: #f6eedb;
+  --accent-line: #e3cf9f;
+  --elevation-card: 0 1px 2px rgb(60 45 20 / 0.05), 0 14px 32px -26px rgb(60 45 20 / 0.35);
+  --elevation-lift: 0 16px 36px -16px rgb(60 45 20 / 0.3);
+  --skeleton-base: #efe9db;
+  --skeleton-shine: rgb(255 255 255 / 0.6);
+
+  @variant dark {
+    --fin-gold: #e2c17f;
+    --fin-gold-line: rgb(220 187 120 / 0.4);
+    --fin-gold-glow: rgb(201 163 90 / 0.14);
+    --surface: rgb(13 20 40 / 0.86);
+    --surface-solid: #0e1530;
+    --surface-muted: rgb(255 255 255 / 0.05);
+    --surface-sunken: rgb(255 255 255 / 0.09);
+    --line: rgb(222 198 150 / 0.14);
+    --line-strong: rgb(222 198 150 / 0.3);
+    --ink: #f6f2e9;
+    --ink-soft: #ddd8cc;
+    --muted: #bab6ac;
+    --placeholder: #8f8d87;
+    --brand: #d9b46a;
+    --brand-hover: #e8c57f;
+    --brand-ink: #efd59f;
+    --brand-soft: rgb(217 180 106 / 0.13);
+    --brand-line: rgb(217 180 106 / 0.42);
+    --focus: #f1d9a2;
+    --ring: rgb(241 217 162 / 0.35);
+    --accent: #dcbb78;
+    --accent-ink: #efd59f;
+    --accent-soft: rgb(220 187 120 / 0.12);
+    --accent-line: rgb(220 187 120 / 0.4);
+    --elevation-card: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 18px 40px -28px rgb(0 0 0 / 0.9);
+    --elevation-lift: 0 16px 40px -16px rgb(0 0 0 / 0.8);
+    --skeleton-base: rgb(255 255 255 / 0.07);
+    --skeleton-shine: rgb(255 255 255 / 0.05);
+  }
+}

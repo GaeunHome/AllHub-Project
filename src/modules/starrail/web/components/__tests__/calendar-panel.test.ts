@@ -77,11 +77,23 @@ describe("活動日曆", () => {
     expect(markup).toContain("3.7");
   });
 
-  it("躍遷：五星的名字當標題、四星寫在說明；圖片經 externalAssetUrl（開發時改寫到假伺服器）", async () => {
+  it("躍遷卡池（使用者要的：有圖）：五星的大圖與名字當標題，四星是下面一排小頭像；圖片經 externalAssetUrl（開發時改寫到假伺服器）", async () => {
     const markup = await html();
 
     expect(markup.indexOf("黃泉")).toBeLessThan(markup.indexOf("三月七"));
     expect(markup).toContain('src="http://127.0.0.1:4010/a/1308.png"');
+    expect(markup).toContain('src="http://127.0.0.1:4010/a/1001.png"');
+  });
+
+  it("卡池畫出時間過了多少：21 天的卡池（10 天前開始、11 天後結束）過了 47.6%", async () => {
+    expect(await html()).toContain('style="width:47.6%"');
+  });
+
+  it("終局挑戰與活動的進度畫成進度條：混沌回憶 24/36 與虛構敘事 8/12 是 66.7%、以太戰線 2/10 是 20%", async () => {
+    const markup = await html();
+
+    expect(markup.match(/style="width:66.7%"/g)).toHaveLength(2);
+    expect(markup).toContain('style="width:20%"');
   });
 
   it("讀不到_只在這一塊顯示原因", async () => {

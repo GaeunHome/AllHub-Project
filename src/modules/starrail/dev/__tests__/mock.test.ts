@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mockRequest } from "@/dev/mock-request";
+import { interpretPeak } from "../../lib/peak";
 import { interpretWarpLogin, interpretWarpPage, summarizeBanner, WARP_BANNERS, type WarpRow } from "../../lib/warps";
 import { handle } from "../mock.mjs";
 
@@ -85,5 +86,36 @@ describe("假的躍遷紀錄：跟真的介面一樣", () => {
 
   it("沒抽過的卡池是空的清單", async () => {
     expect((await readBanner("GachaType_CollabAvatarUp")).rows).toEqual([]);
+  });
+});
+
+describe("假的異相仲裁：跟 genshin.py 整理的格式一樣", () => {
+  const peak = async (roleId = "900000001") => interpretPeak((await mockRequest(handle, `/game_record/hkrpg/api/challenge_peak?schedule_type=3&role_id=${roleId}&server=prod_official_cht`, { headers: { Cookie: COOKIE } })).data);
+
+  it("一次回三期，正式的解析讀得懂、沒有缺欄位；本期打完了，王棋是高難度、有增益與評級勳章，三個騎士都有紀錄", async () => {
+    const result = await peak();
+    if (!result.ok) throw new Error(result.message);
+
+    expect(result.data.missing).toEqual([]);
+    expect(result.data.peak.seasons).toHaveLength(3);
+    const [current] = result.data.peak.seasons;
+    expect(current.boss).toMatchObject({ cleared: true, hardMode: true });
+    expect(current.boss.buff?.name).toBeTruthy();
+    expect(current.boss.medal).toBeTruthy();
+    expect(current.knights.map((k) => k.cleared)).toEqual([true, true, true]);
+  });
+
+  it("上上期沒打（has_challenge_record 是 false）", async () => {
+    const result = await peak();
+    if (!result.ok) throw new Error(result.message);
+
+    expect(result.data.peak.seasons[2].hasData).toBe(false);
+  });
+
+  it("亞服小號從來沒打過_沒有任何一期", async () => {
+    const result = await peak("800000002");
+    if (!result.ok) throw new Error(result.message);
+
+    expect(result.data.peak.seasons).toEqual([]);
   });
 });

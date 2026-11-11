@@ -198,8 +198,8 @@ describe("interpretResponse：常見的錯誤代碼給中文說明（不顯示 H
   });
 });
 
-describe("parseExpeditions：委託的角色圖與剩餘時間", () => {
-  it("讀出名稱、狀態、剩餘秒數與角色圖", () => {
+describe("parseExpeditions：委託的角色圖、剩餘時間與獎勵圖示", () => {
+  it("讀出名稱、狀態、剩餘秒數、角色圖與獎勵的圖示（item_url，空字串是沒有）", () => {
     expect(
       parseExpeditions({
         expeditions: [
@@ -219,8 +219,9 @@ describe("parseExpeditions：委託的角色圖與剩餘時間", () => {
         status: "ongoing",
         remainingSeconds: 7260,
         avatars: ["https://act-webstatic.hoyoverse.com/a/1.png", "https://act-webstatic.hoyoverse.com/a/2.png"],
+        reward: "https://act-webstatic.hoyoverse.com/item/1.png",
       },
-      { name: "陽光下的迷宮", status: "finished", remainingSeconds: 0, avatars: [] },
+      { name: "陽光下的迷宮", status: "finished", remainingSeconds: 0, avatars: [], reward: null },
     ]);
   });
 
@@ -228,7 +229,7 @@ describe("parseExpeditions：委託的角色圖與剩餘時間", () => {
     expect(parseExpeditions({})).toEqual([]);
     expect(parseExpeditions(null)).toEqual([]);
     expect(parseExpeditions({ expeditions: [{ avatars: ["not-a-url", 3], status: "?", name: 1 }] })).toEqual([
-      { name: null, status: null, remainingSeconds: null, avatars: [] },
+      { name: null, status: null, remainingSeconds: null, avatars: [], reward: null },
     ]);
   });
 });
@@ -256,7 +257,7 @@ describe("formatRemaining：還剩多久（委託與活動日曆共用）", () =
 describe("expeditionStates：委託現在完成了沒（星穹鐵道頁與首頁共用）", () => {
   const fetchedAt = new Date("2026-10-07T04:00:00Z");
   const now = new Date("2026-10-07T04:10:00Z");
-  const expedition = (status: "ongoing" | "finished" | null, remainingSeconds: number | null) => ({ name: "委託", status, remainingSeconds, avatars: [] });
+  const expedition = (status: "ongoing" | "finished" | null, remainingSeconds: number | null) => ({ name: "委託", status, remainingSeconds, avatars: [], reward: null });
 
   it("剩餘時間扣掉查詢後已經過去的時間", () => {
     expect(expeditionStates([expedition("ongoing", 3600)], fetchedAt, now)).toEqual([{ ...expedition("ongoing", 3000), done: false }]);

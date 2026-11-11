@@ -13,7 +13,7 @@ import { openEmptyDb } from "@/dev/test-db";
 const MIGRATIONS = "src/core/db/migrations";
 const BASELINE = "0000_baseline";
 // 正式資料庫最後套用的 migration 的時間戳記
-const LAST_APPLIED_BEFORE_BASELINE = 1794205348678;
+const LAST_APPLIED_BEFORE_BASELINE = 1794361050935;
 const cleanups: Array<() => Promise<void> | void> = [];
 
 afterEach(async () => {

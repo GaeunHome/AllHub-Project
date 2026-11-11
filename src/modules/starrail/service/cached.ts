@@ -11,12 +11,14 @@ import {
   dailyNoteFor,
   endgameFor,
   ledgerFor,
+  peakFor,
   profileFor,
   type ActCalendarFetch,
   type CharactersFetch,
   type DailyNoteFetch,
   type EndgameFetch,
   type LedgerFetch,
+  type PeakFetch,
 } from "./page-reads";
 
 // 只給頁面用 排程與簽到要讀最新資料 直接用 service 的其他檔
@@ -91,6 +93,16 @@ export async function cachedEndgame(userId: string, accountId: number, mode: End
   "use cache: remote";
   cacheTag(starrailTags.accounts);
   const result = await endgameFor(userId, accountId, mode, schedule);
+  if (result.ok) cacheLife("hoyolab");
+  else cacheLife("external");
+  return result;
+}
+
+/** 異相仲裁不存資料庫 參數是使用者與帳號 id 一次回最近三期 */
+export async function cachedPeak(userId: string, accountId: number): Promise<PeakFetch> {
+  "use cache: remote";
+  cacheTag(starrailTags.accounts);
+  const result = await peakFor(userId, accountId);
   if (result.ok) cacheLife("hoyolab");
   else cacheLife("external");
   return result;

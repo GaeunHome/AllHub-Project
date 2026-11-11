@@ -203,7 +203,7 @@
   --accent-line: var(--accent-green-line);
 }
 
-/* 三個主題頁的調色盤與整頁底色放在各模組的 web/ 照這個順序引入 */
+/* 四個主題頁的調色盤與整頁底色放在各模組的 web/ 照這個順序引入 */
 /* Twitch 與星穹鐵道共用的兩條留在這裡 */
 @import "../modules/twitch/web/theme.css";
 @import "../modules/starrail/web/theme.css";
@@ -248,6 +248,8 @@
 
 @import "../modules/youtube/web/theme.css";
 @import "../modules/youtube/web/page-background.css";
+@import "../modules/savings/web/theme.css";
+@import "../modules/savings/web/page-background.css";
 
 @theme inline {
   --color-ink: var(--ink);

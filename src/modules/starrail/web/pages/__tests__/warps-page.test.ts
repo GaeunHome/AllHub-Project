@@ -125,6 +125,34 @@ describe("星穹鐵道頁的摘要卡", () => {
     expect(html).toContain("/starrail/warps?account=1");
   });
 
+  it("每個卡池一條保底進度條（使用者要的：不要只有字）：角色活動 23/90 是 26%、光錐活動 10/80 是 13%", async () => {
+    const { html } = await card();
+
+    expect(html).toContain('style="width:26%"');
+    expect(html).toContain('style="width:13%"');
+  });
+
+  it("進度條旁邊是上一隻五星的頭像（新的在前：真珠）", async () => {
+    cached.cachedWarps.mockResolvedValue({
+      ok: true,
+      summaries: summaries({ 11: [{ pulls: 23, star: null }, { pulls: 77, star: { name: "真珠", isUp: true, icon: "https://act-webstatic.hoyoverse.com/x/zhenzhu.png" } }] }),
+    });
+
+    const { html } = await card();
+
+    expect(html).toContain("https://act-webstatic.hoyoverse.com/x/zhenzhu.png");
+  });
+
+  it("抽到保底的八成以後換成亮金色（使用者要的：接近保底換顏色）：角色 72/90 標出來、光錐 63/80 還沒到", async () => {
+    cached.cachedWarps.mockResolvedValue({ ok: true, summaries: summaries({ 11: [{ pulls: 72, star: null }], 12: [{ pulls: 63, star: null }] }) });
+
+    const { html } = await card();
+    const near = [...html.matchAll(/<li[^>]*data-near=""[^>]*>(.*?)<\/li>/g)].map(([, inner]) => textOf(inner, { spaced: true }));
+
+    expect(near).toHaveLength(1);
+    expect(near[0]).toContain("角色活動");
+  });
+
   it("都沒有紀錄_不再叫人按已經不存在的立即更新", async () => {
     cached.cachedWarps.mockResolvedValue({ ok: true, summaries: summaries({}) });
 

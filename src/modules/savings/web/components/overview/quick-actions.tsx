@@ -114,34 +114,26 @@ function usePicked<T extends { id: number }>(targets: readonly T[]) {
 
 function CardAction({ view, onDone, onCancel }: { view: QuickActionsView } & Done) {
   const { picked, pick, back, last } = usePicked(view.cards);
-  if (view.cards.length === 0) return <Missing text="還沒有信用卡。新增信用卡後，結帳時可以在這裡填帳單、記繳款。" href={addAccountPath("credit")} label="新增信用卡" />;
+  if (view.cards.length === 0) return <Missing text="還沒有信用卡。新增信用卡後，可以在這裡記刷卡、填帳單與繳卡費。" href={addAccountPath("credit")} label="新增信用卡" />;
   if (!picked) return <Picker prompt="哪一張卡？" items={view.cards.map((card) => ({ id: card.id, name: card.name, detail: card.status }))} focusId={last} onPick={pick} />;
   return <CardForms key={picked.id} card={picked} view={view} back={back} onDone={onDone} onCancel={onCancel} />;
 }
 
-/** 還沒填這一期的帳單就先填帳單 填了就是繳卡費 兩個都可以切換 */
+type CardMode = "swipe" | "bill" | "pay";
+
+/** 平常最常做的是記刷卡 所以先打開它 結帳後再切到填帳單或繳卡費 */
 function CardForms({ card, view, back, onDone, onCancel }: { card: CardTarget; view: QuickActionsView; back?: () => void } & Done) {
   const canPay = view.depositAccounts.length > 0;
-  const [mode, setMode] = useState<"bill" | "pay">(card.needsBill || !canPay ? "bill" : "pay");
+  const [mode, setMode] = useState<CardMode>("swipe");
+  const options: { id: CardMode; label: string }[] = [{ id: "swipe", label: "記刷卡" }, { id: "bill", label: "填帳單" }, ...(canPay ? [{ id: "pay" as const, label: "繳卡費" }] : [])];
   return (
     <Picked name={card.name} detail={card.status} back={back} backLabel="換一張卡">
-      {canPay && (
-        <SegmentedControl
-          variant="field"
-          label="要做什麼"
-          options={[
-            { id: "bill", label: "填帳單" },
-            { id: "pay", label: "繳卡費" },
-          ]}
-          value={mode}
-          onChange={setMode}
-        />
+      <SegmentedControl variant="field" label="要做什麼" options={options} value={mode} onChange={setMode} />
+      {mode === "swipe" && (
+        <EntryForm accounts={view.entry.accounts} categories={view.entry.categories} today={view.today} action={addTransactionAction} accountId={card.id} defaultKind="expense" onDone={onDone} onCancel={onCancel} />
       )}
-      {mode === "bill" ? (
-        <BillForm draft={card.bill} categories={view.categories} accounts={view.depositAccounts} today={view.today} onDone={onDone} onCancel={onCancel} />
-      ) : (
-        <PayCardForm draft={card.pay} accounts={view.depositAccounts} today={view.today} onDone={onDone} onCancel={onCancel} />
-      )}
+      {mode === "bill" && <BillForm draft={card.bill} categories={view.categories} accounts={view.depositAccounts} today={view.today} onDone={onDone} onCancel={onCancel} />}
+      {mode === "pay" && <PayCardForm draft={card.pay} accounts={view.depositAccounts} today={view.today} onDone={onDone} onCancel={onCancel} />}
     </Picked>
   );
 }

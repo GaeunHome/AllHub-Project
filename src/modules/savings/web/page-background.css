@@ -1,0 +1,26 @@
+/* 排除 Activity 藏起來的頁面 底色才不會漏到別頁 導覽列維持全站的樣子 */
+/* html 給底色 body 的背景才不會被當成畫布背景 */
+:root:has(.theme-savings:not([data-activity-hidden])) {
+  background-color: #f6f2e9;
+
+  @variant dark {
+    background-color: #070b17;
+  }
+}
+/* 右上角是自己畫的淡金色雕版花紋 高 60rem 長頁面不跟著拉大 */
+:root:has(.theme-savings:not([data-activity-hidden])) body {
+  background-color: #f6f2e9;
+  background-image:
+    url("/images/finance-backdrop.svg"), radial-gradient(56rem 34rem at 88% -6rem, rgb(201 163 90 / 0.16), transparent 70%),
+    linear-gradient(180deg, #f9f6ef 0%, #f6f2e9 48rem);
+  background-repeat: no-repeat;
+  background-position: top right, 0 0, 0 0;
+  background-size: 100% 60rem, auto, auto;
+
+  @variant dark {
+    background-color: #070b17;
+    background-image:
+      url("/images/finance-backdrop.svg"), radial-gradient(56rem 34rem at 88% -6rem, rgb(201 163 90 / 0.12), transparent 70%),
+      linear-gradient(180deg, #091024 0%, #070b17 48rem);
+  }
+}

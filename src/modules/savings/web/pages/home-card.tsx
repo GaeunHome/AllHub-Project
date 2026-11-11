@@ -21,7 +21,7 @@ import { SAVINGS_PATHS } from "../paths";
 // web 層不能 import 模組根目錄 所以 info 由 src/app 傳進來
 export function SavingsHomeCard({ info }: { info: ModuleInfo }) {
   return (
-    <HomeCard info={info} title="資產與要做的事" art="/images/scenes/banner-finance.svg" skeleton={<FinanceSnapshotSkeleton />}>
+    <HomeCard info={info} title="資產與要做的事" art="/images/scenes/banner-finance-vault.svg" skeleton={<FinanceSnapshotSkeleton />}>
       <FinanceSnapshot />
     </HomeCard>
   );

@@ -105,6 +105,7 @@ CREATE TABLE "savings_accounts" (
 	"card_notified_on" date,
 	"label" text,
 	"card_style" text,
+	"start_date" date,
 	CONSTRAINT "savings_accounts_kind" CHECK ("savings_accounts"."kind" in ('deposit', 'investment', 'credit')),
 	CONSTRAINT "savings_accounts_opening_balance" CHECK ("savings_accounts"."opening_balance" between -100000000 and 100000000),
 	CONSTRAINT "savings_accounts_opening_cost" CHECK ("savings_accounts"."opening_cost" is null or ("savings_accounts"."kind" = 'investment' and "savings_accounts"."opening_cost" between 0 and 100000000)),

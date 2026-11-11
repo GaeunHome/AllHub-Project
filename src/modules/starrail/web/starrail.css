@@ -113,6 +113,211 @@
 .sr-four {
   background-image: var(--sr-four);
 }
+/* 上場隊伍的角色小卡 使用者選的 稀有度底色上放頭像 角上是屬性與星魂 下緣是等級 */
+.sr-member {
+  @apply relative block shrink-0 overflow-hidden rounded-md;
+  width: var(--sr-team, 3rem);
+  aspect-ratio: 6 / 7;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+.sr-member-element {
+  @apply absolute top-0.5 left-0.5;
+}
+.sr-member-eidolon {
+  @apply absolute top-0.5 right-0.5 rounded-sm px-1 text-[0.5625rem] leading-[0.875rem] font-bold;
+  color: var(--sr-gold-ink);
+  background-color: rgb(8 11 32 / 0.8);
+}
+/* 頭像下緣壓暗一點 白字的等級才看得清楚 */
+.sr-member-level {
+  @apply absolute inset-x-0 bottom-0 pt-2.5 pb-0.5 text-center text-[0.6875rem] leading-none font-semibold;
+  color: #fff;
+  background: linear-gradient(to top, rgb(5 8 26 / 0.88), transparent);
+}
+/* 一關的星數 拿到的金色 沒拿到的淡白 王棋的星另外一個顏色 */
+.sr-stars {
+  @apply inline-flex gap-0.5 text-lg leading-none;
+  color: rgb(255 255 255 / 0.22);
+}
+.sr-stars > [data-on] {
+  color: var(--sr-gold);
+}
+.sr-stars-boss,
+.sr-stars.sr-stars-boss > [data-on] {
+  color: var(--sr-boss-star);
+}
+/* 卡片最上面的小標 例如王棋 騎士一 */
+.sr-kicker {
+  @apply text-xs font-bold tracking-[0.24em];
+  color: var(--sr-gold-ink);
+}
+.sr-hard {
+  @apply text-base font-bold tracking-wider;
+  color: var(--sr-boss-star);
+}
+/* 異相仲裁 使用者選的 王棋在上用首領大圖 三個騎士在下 */
+/* 窄的時候第一列是主題圖 名稱與勳章 第二列是星數 夠寬時排成一列 */
+.sr-peak-summary {
+  @apply grid items-center gap-x-5 gap-y-4 p-5 sm:p-6;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "theme info medal" "figures figures figures";
+}
+.sr-peak-theme {
+  @apply relative size-16 shrink-0 overflow-hidden rounded-lg;
+  grid-area: theme;
+  box-shadow: 0 0 0 1px var(--sr-gold-line);
+}
+.sr-peak-info {
+  grid-area: info;
+}
+.sr-peak-figures {
+  grid-area: figures;
+}
+.sr-peak-medal {
+  @apply relative size-12 shrink-0 justify-self-end;
+  grid-area: medal;
+  filter: drop-shadow(0 2px 6px rgb(0 0 0 / 0.5));
+}
+@container (min-width: 46rem) {
+  .sr-peak-summary {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas: "theme info figures medal";
+  }
+  .sr-peak-medal {
+    @apply size-16;
+  }
+}
+.sr-peak-boss {
+  @apply min-h-60 overflow-hidden;
+  --sr-cut: 18px;
+  background:
+    radial-gradient(ellipse 55% 90% at 88% 55%, color-mix(in oklab, var(--sr-boss-star) 20%, transparent), transparent 70%),
+    linear-gradient(180deg, rgb(27 35 80 / 0.94), rgb(15 20 54 / 0.94));
+}
+/* 手機上圖疊在字後面 淡一點字才看得清楚 夠寬時圖在右半邊 */
+.sr-peak-boss-art {
+  @apply pointer-events-none absolute inset-y-0 right-0 w-3/4 opacity-35 sm:w-1/2 sm:opacity-95;
+  mask-image: linear-gradient(to left, #000 35%, transparent 85%);
+}
+.sr-peak-boss-body {
+  @apply relative flex max-w-xl flex-col gap-3.5 p-5 sm:p-7;
+}
+.sr-peak-knight {
+  @apply p-4 sm:p-5;
+  --sr-cut: 12px;
+}
+.sr-peak-monster {
+  @apply relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-full;
+  background-color: var(--sr-avatar-bg);
+  box-shadow: 0 0 0 2px var(--sr-gold-line);
+}
+/* 開拓月曆 最近三個月的直條 選到的月份金色 其他淡白 數字寫在柱頂 */
+.sr-month-chart {
+  margin: 0;
+}
+.sr-month-cols {
+  @apply flex items-end gap-4;
+}
+.sr-month-cols > li {
+  @apply flex flex-col items-center gap-1.5;
+}
+.sr-month-value,
+.sr-month-name {
+  @apply text-xs font-semibold text-ink;
+}
+.sr-month-track {
+  @apply flex h-20 w-6 items-end;
+}
+.sr-month-bar {
+  @apply block w-full rounded-t-[4px];
+  min-height: 2px;
+  background-color: rgb(255 255 255 / 0.22);
+}
+.sr-month-cols > [data-selected] .sr-month-bar {
+  background: linear-gradient(to top, var(--sr-gauge-from), var(--sr-gauge-to));
+}
+.sr-month-cols > [data-selected] .sr-month-name {
+  color: var(--sr-gold-ink);
+}
+/* 星瓊來源 名稱 橫條 數量 百分比 手機上橫條換到名稱下面 */
+.sr-source-list {
+  @apply divide-y divide-line border-t border-line;
+}
+.sr-source-row {
+  @apply grid items-center gap-x-4 gap-y-2 px-5 py-3 sm:px-6;
+  grid-template-columns: minmax(0, 1fr) auto 3rem;
+  grid-template-areas: "name amount percent" "bar bar bar";
+}
+.sr-source-name {
+  @apply truncate text-ink;
+  grid-area: name;
+}
+.sr-source-track {
+  @apply block h-2 overflow-hidden rounded-full;
+  grid-area: bar;
+  background-color: rgb(255 255 255 / 0.08);
+}
+.sr-source-bar {
+  @apply block h-full rounded-full;
+  background: linear-gradient(90deg, var(--sr-gauge-from), var(--sr-gauge-to));
+}
+.sr-source-amount {
+  @apply text-right text-base font-semibold text-ink;
+  grid-area: amount;
+}
+.sr-source-percent {
+  @apply text-right text-sm text-ink;
+  grid-area: percent;
+}
+@media (min-width: 40rem) {
+  .sr-source-row {
+    grid-template-columns: minmax(0, 11rem) minmax(0, 1fr) 5rem 3rem;
+    grid-template-areas: "name bar amount percent";
+  }
+}
+/* 活動日曆的進度與時間 細細的一條金色 */
+.sr-meter {
+  @apply block h-1.5 min-w-0 flex-1 overflow-hidden rounded-full;
+  background-color: rgb(255 255 255 / 0.1);
+}
+.sr-meter-fill {
+  @apply block h-full rounded-full;
+  background: linear-gradient(90deg, var(--sr-gauge-from), var(--sr-gauge-to));
+}
+/* 卡池的五星大圖 底色是稀有度的顏色 */
+.sr-pool-art {
+  @apply relative size-16 shrink-0 overflow-hidden rounded-xl sm:size-[4.5rem];
+  box-shadow: 0 0 0 1px var(--sr-gold-line);
+}
+/* 開拓力的圓環 使用者要的 從正上方順時針畫 數字放中間 */
+.sr-ring {
+  @apply relative grid size-36 place-items-center;
+}
+.sr-ring-svg {
+  @apply absolute inset-0 size-full -rotate-90;
+}
+.sr-ring-track,
+.sr-ring-value {
+  fill: none;
+  stroke-width: 8;
+}
+.sr-ring-track {
+  stroke: rgb(255 255 255 / 0.1);
+}
+.sr-ring-value {
+  stroke: var(--sr-gauge-to);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgb(241 210 142 / 0.45));
+}
+.sr-ring-label {
+  @apply relative flex flex-col items-center gap-1;
+}
+/* 委託獎勵的圖示 */
+.sr-reward {
+  @apply relative size-11 shrink-0 overflow-hidden rounded-lg;
+  background-color: var(--sr-avatar-bg);
+  box-shadow: 0 0 0 1px var(--sr-gold-line);
+}
 .sr-tab {
   @apply inline-flex min-h-9 cursor-pointer items-center px-3.5 text-sm font-medium;
   color: var(--muted);
@@ -158,6 +363,14 @@
 }
 .sr-warp-fill {
   @apply block h-full rounded-full bg-sr-gold;
+}
+/* 使用者要的 快到保底時換成亮金色 會發光 數字也換成金色 */
+.sr-warp-row[data-near] .sr-warp-fill {
+  background: linear-gradient(90deg, var(--sr-gauge-from), #ffe6a8);
+  box-shadow: 0 0 10px rgb(241 210 142 / 0.65);
+}
+.sr-warp-row[data-near] .sr-warp-pulls {
+  color: var(--sr-gold-ink);
 }
 .sr-warp-row {
   @apply grid items-center gap-x-3 gap-y-1.5 py-2.5;

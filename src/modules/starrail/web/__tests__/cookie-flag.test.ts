@@ -9,7 +9,7 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("../../service/cached", { spy: true });
 vi.mock("../../service/accounts", { spy: true });
 
-const cached = mocksOf(await import("../../service/cached"), "cachedDailyNote", "cachedCharacters", "cachedEndgame", "cachedLedger", "cachedProfile");
+const cached = mocksOf(await import("../../service/cached"), "cachedDailyNote", "cachedCharacters", "cachedEndgame", "cachedPeak", "cachedLedger", "cachedProfile");
 const accounts = mocksOf(await import("../../service/accounts"), "syncCookieInvalid");
 const { after } = await import("next/server");
 const { syncCookieFlagAfter } = await import("../cookie-flag");
@@ -41,6 +41,7 @@ beforeEach(() => {
   cached.cachedDailyNote.mockReset().mockResolvedValue(failed(false));
   cached.cachedCharacters.mockReset().mockResolvedValue({ ok: true, characters: [], fetchedAt });
   cached.cachedEndgame.mockReset().mockResolvedValue(endgameOk);
+  cached.cachedPeak.mockReset().mockResolvedValue({ ok: true, peak: { seasons: [] } });
   cached.cachedLedger.mockReset().mockResolvedValue(ledgerOk);
   cached.cachedProfile.mockReset().mockResolvedValue(null);
 });

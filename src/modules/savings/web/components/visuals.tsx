@@ -8,7 +8,7 @@ const TILE_SIZE = { sm: "size-8 [&>.icon]:size-4", md: "size-10 [&>.icon]:size-5
 /** 灰底圓形的圖示 放在列的最前面 */
 export function IconTile({ name, size = "md", label }: { name: UiIconName; size?: keyof typeof TILE_SIZE; label?: string }) {
   return (
-    <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-surface-muted text-ink-soft ${TILE_SIZE[size]}`}>
+    <span className={`fin-tile inline-flex shrink-0 items-center justify-center rounded-full ${TILE_SIZE[size]}`}>
       <Icon name={name} label={label} />
     </span>
   );

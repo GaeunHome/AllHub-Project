@@ -31,7 +31,7 @@ const chaos: Endgame = {
 
 const render = (endgame: Endgame) => {
   const records: EndgameRecord[] = [{ mode: "chaos", schedule: "current", ok: true, endgame }];
-  return markup(createElement(EndgameView, { records, names: { 1102: "希兒" } }));
+  return markup(createElement(EndgameView, { records, peak: { ok: true, peak: { seasons: [] } }, names: { 1102: "希兒" } }));
 };
 
 describe("終局戰績的上場隊伍", () => {
@@ -54,5 +54,20 @@ describe("終局戰績的上場隊伍", () => {
 
     expect(markup).not.toContain("element/quantum.png");
     expect(markup).toContain(">量</span>");
+  });
+});
+
+describe("終局戰績的模式與角色小卡（使用者選的 B）", () => {
+  it("模式多一個異相仲裁，排在另外三種後面", () => {
+    const tabs = [...render(chaos).matchAll(/<button[^>]*role="tab"[^>]*>(.*?)<\/button>/g)].map(([, label]) => textOf(label));
+
+    expect(tabs).toEqual(["混沌回憶", "虛構敘事", "末日幻影", "異相仲裁"]);
+  });
+
+  it("角色小卡寫出等級與星魂（1 魂以上），看得出是幾魂", () => {
+    const html = render({ ...chaos, floors: [{ ...chaos.floors[0], nodes: [{ avatars: [member(1102, { eidolon: 2 }), member(1005, { level: 70 })], score: null, bossDefeated: null }] }] });
+
+    expect(textOf(html, { spaced: true })).toContain("2 魂");
+    expect(textOf(html, { spaced: true })).toContain("Lv.70");
   });
 });

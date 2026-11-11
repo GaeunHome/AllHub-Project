@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { groupDigits } from "@/core/number";
 import { Icon } from "@/core/ui/icon";
 import { monthLabel, type Ledger } from "../../lib/ledger";
+import { shareOfMax } from "../chart-scale";
 
 type LedgerViewProps = { ledgers: Ledger[]; current: string; fetchedLabel: string };
 
@@ -36,47 +37,85 @@ export function LedgerView({ ledgers, current, fetchedLabel }: LedgerViewProps) 
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <MonthFigure label={`${monthLabel(ledger.month)}的星瓊`} icon="sparkles" value={ledger.current.jade} today={isCurrent ? ledger.today.jade : null} />
-        <MonthFigure label={`${monthLabel(ledger.month)}的車票`} icon="train-front" value={ledger.current.passes} today={isCurrent ? ledger.today.passes : null} />
+        <MonthCard label={`${monthLabel(ledger.month)}的星瓊`} chart="最近三個月的星瓊" icon="sparkles" value={ledger.current.jade} today={isCurrent ? ledger.today.jade : null} ledgers={ledgers} selected={ledger.month} pick={(l) => l.current.jade} />
+        <MonthCard label={`${monthLabel(ledger.month)}的車票`} chart="最近三個月的車票" icon="train-front" value={ledger.current.passes} today={isCurrent ? ledger.today.passes : null} ledgers={ledgers} selected={ledger.month} pick={(l) => l.current.passes} />
       </div>
-
-      <div className="sr-panel">
-        <h4 className="card-row font-semibold text-ink">星瓊來源</h4>
-        {ledger.sources.length > 0 ? (
-          // 數字兩欄固定寬度靠右 每列的數字對齊
-          <ul className="divide-y divide-line border-t border-line">
-            {ledger.sources.map((source, i) => (
-              <li key={source.id ?? i} className="card-row grid grid-cols-[minmax(0,1fr)_auto_3rem] items-center gap-x-4">
-                <span className="truncate text-ink">{source.name ?? "（未知來源）"}</span>
-                <span className="sr-num text-right text-base font-semibold text-ink">{source.amount === null ? "—" : groupDigits(source.amount)}</span>
-                <span className="sr-num text-right text-base text-ink-soft">{source.percent !== null ? `${source.percent}%` : ""}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="card-row border-t border-line text-ink-soft">這個月還沒有星瓊紀錄。</p>
-        )}
-      </div>
+      <SourceBars sources={ledger.sources} />
     </section>
   );
 }
 
-type MonthFigureProps = { label: string; icon: "sparkles" | "train-front"; value: number | null; today: number | null };
+type MonthCardProps = {
+  label: string;
+  /** 直條圖給報讀器的名稱 */
+  chart: string;
+  icon: "sparkles" | "train-front";
+  value: number | null;
+  today: number | null;
+  ledgers: Ledger[];
+  selected: string;
+  pick: (ledger: Ledger) => number | null;
+};
 
-/** 只有這個月的總數 本月再加一行今天拿到的 */
-function MonthFigure({ label, icon, value, today }: MonthFigureProps) {
+/** 左邊是這個月的大數字 右邊是最近三個月的直條 選到的月份強調 其他淡一點 */
+function MonthCard({ label, chart, icon, value, today, ledgers, selected, pick }: MonthCardProps) {
+  const values = ledgers.map(pick);
+  const heights = shareOfMax(values);
   return (
-    <div className="sr-panel flex flex-col gap-3 p-5 sm:p-6">
-      <p className="flex items-center gap-2 text-sm font-medium text-ink-soft">
-        <Icon name={icon} className="size-4 text-sr-gold" />
-        {label}
-      </p>
-      <p className="sr-num text-5xl leading-none font-bold text-ink">{value === null ? "—" : groupDigits(value)}</p>
-      {today !== null && (
-        <p className="text-sm text-ink-soft">
-          今日已獲得 <span className="sr-num text-base font-semibold text-ink">{groupDigits(today)}</span>
+    <div className="sr-panel flex flex-wrap items-end justify-between gap-x-6 gap-y-4 p-5 sm:p-6">
+      <div className="flex flex-col gap-3">
+        <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Icon name={icon} className="size-4 text-sr-gold" />
+          {label}
         </p>
+        <p className="sr-num text-5xl leading-none font-bold text-ink">{value === null ? "—" : groupDigits(value)}</p>
+        {today !== null && (
+          <p className="text-sm text-ink">
+            今天 <span className="sr-num text-base font-bold text-[var(--sr-gold-ink)]">+{groupDigits(today)}</span>
+          </p>
+        )}
+      </div>
+      {ledgers.length > 1 && (
+        <figure aria-label={chart} className="sr-month-chart">
+          <ol className="sr-month-cols">
+            {ledgers.map((l, i) => (
+              <li key={l.month} data-selected={l.month === selected ? "" : undefined}>
+                <span className="sr-month-value sr-num">{values[i] === null ? "—" : groupDigits(values[i])}</span>
+                <span aria-hidden className="sr-month-track">
+                  <span className="sr-month-bar" style={{ height: `${heights[i]}%` }} />
+                </span>
+                <span className="sr-month-name">{Number(l.month.slice(4))} 月</span>
+              </li>
+            ))}
+          </ol>
+        </figure>
       )}
     </div>
+  );
+}
+
+/** 由多到少一項一條橫條 只用一種金色 最多的那一項最長 數量與百分比寫在旁邊 */
+function SourceBars({ sources }: { sources: Ledger["sources"] }) {
+  const widths = shareOfMax(sources.map((source) => source.amount));
+  return (
+    <figure aria-label="星瓊來源" className="sr-panel">
+      <figcaption className="card-row font-semibold text-ink">星瓊來源</figcaption>
+      {sources.length > 0 ? (
+        <ol className="sr-source-list">
+          {sources.map((source, i) => (
+            <li key={source.id ?? i} className="sr-source-row">
+              <span className="sr-source-name">{source.name ?? "（未知來源）"}</span>
+              <span aria-hidden className="sr-source-track">
+                <span className="sr-source-bar" style={{ width: `${widths[i]}%` }} />
+              </span>
+              <span className="sr-source-amount sr-num">{source.amount === null ? "—" : groupDigits(source.amount)}</span>
+              <span className="sr-source-percent sr-num">{source.percent !== null ? `${source.percent}%` : ""}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="card-row border-t border-line text-ink">這個月還沒有星瓊紀錄。</p>
+      )}
+    </figure>
   );
 }

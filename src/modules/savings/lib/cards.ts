@@ -34,6 +34,8 @@ export type CardBill = {
   needsBill: boolean;
   status: CardBillStatus;
   daysLeft: number | null;
+  /** 結帳之後刷的 還沒算進任何一期 */
+  unbilled: number;
 };
 
 /**
@@ -166,6 +168,7 @@ export function cardBill(card: CardLike, balance: number, flows: AccountDayFlow[
       needsBill: false,
       status: remainingDue > 0 ? dueStatus(dueDate, today) : "none",
       daysLeft: daysBetween(today, dueDate),
+      unbilled: Math.max(0, owedNow - remainingDue),
     };
   };
   // statementDate 是 null 的是沒有結帳日的卡還沒填過帳單 不用填也不列
@@ -173,7 +176,10 @@ export function cardBill(card: CardLike, balance: number, flows: AccountDayFlow[
     const estimate = statementDate === null ? owedNow : owedAt(statementDate);
     const paid = statementDate === null ? 0 : paidAfter(statementDate);
     const needsBill = statementDate !== null;
-    return { accountId: card.id, owedNow, statementDate, dueDate: null, statementAmount: null, estimate, paid, remainingDue: Math.max(0, estimate - paid), needsBill, status: needsBill ? "needs-bill" : "none", daysLeft: null };
+    const remainingDue = Math.max(0, estimate - paid);
+    // 從沒結帳過的卡 刷的都還沒出帳
+    const unbilledNow = statementDate === null ? owedNow : Math.max(0, owedNow - remainingDue);
+    return { accountId: card.id, owedNow, statementDate, dueDate: null, statementAmount: null, estimate, paid, remainingDue, needsBill, status: needsBill ? "needs-bill" : "none", daysLeft: null, unbilled: unbilledNow };
   };
 
   const own = statements.filter((statement) => statement.accountId === card.id);

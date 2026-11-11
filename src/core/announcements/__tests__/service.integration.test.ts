@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { setupTestDb } from "@/dev/test-db";
-import { createAnnouncement, deleteAnnouncement, listAnnouncements, updateAnnouncement } from "../service";
+import { cleanupAnnouncements, createAnnouncement, deleteAnnouncement, listAnnouncements, updateAnnouncement } from "../service";
 
 setupTestDb();
 
@@ -33,5 +33,21 @@ describe("公告", () => {
 
     expect(await deleteAnnouncement(created.id)).toBe(true);
     expect(await listAnnouncements()).toEqual([]);
+  });
+});
+
+describe("cleanupAnnouncements（使用者要的：結束超過一個月的自動刪掉，用 30 天算）", () => {
+  const NOW = new Date("2026-12-15T00:00:00Z");
+  const ending = (title: string, endsAt: string | null) => createAnnouncement({ ...input(title), endsAt: endsAt === null ? null : new Date(endsAt) });
+
+  it("結束超過 30 天的刪掉；剛好 30 天、30 天內、還沒結束與沒寫結束時間的都留著；摘要寫刪了幾則", async () => {
+    await ending("31 天前結束", "2026-11-14T00:00:00Z");
+    await ending("剛好 30 天前結束", "2026-11-15T00:00:00Z");
+    await ending("上週結束", "2026-12-08T00:00:00Z");
+    await ending("還沒結束", "2026-12-20T00:00:00Z");
+    await ending("沒寫結束時間", null);
+
+    expect(await cleanupAnnouncements(NOW)).toBe("刪除 1 則結束超過 30 天的公告");
+    expect((await listAnnouncements()).map((row) => row.title).sort()).toEqual(["上週結束", "剛好 30 天前結束", "沒寫結束時間", "還沒結束"]);
   });
 });

@@ -288,15 +288,71 @@ const TEAMS = [
   [1402, 1005, 1101, 1001],
 ];
 
-/** 終局戰績 本期有 3 層紀錄 上期少一層 隊伍用角色清單裡的角色 */
+/** 終局戰績與異相仲裁的上場角色 用角色清單裡的角色 */
+const member = (id) => {
+  const c = CHARACTERS.find((x) => x.id === id);
+  return { id, level: c.level, icon: `${IMG}/avatar/${id}.png`, rarity: c.rarity, element: c.element[0].toUpperCase() + c.element.slice(1), rank: c.rank };
+};
+
+/**
+ * 異相仲裁 照 genshin.py 的 AnomalyArbitration 一次回最近三期 新的在前
+ * 本期打完了 王棋是高難度 上期騎士少一顆星 上上期沒打 騎士的紀錄順序跟 mob_infos 不同
+ */
+function peakRecords() {
+  const KNIGHTS = ["銀鬃鐵衛", "虛卒・掠奪者", "裂界造物・恆星"];
+  return [0, 1, 2].map((index) => {
+    const start = new Date(Date.now() - (14 + 42 * index) * 86_400_000);
+    const end = new Date(start.getTime() + 42 * 86_400_000);
+    const played = index < 2;
+    const groupId = 4003 - index;
+    const knights = KNIGHTS.map((name, i) => ({ id: groupId * 10 + i + 1, name }));
+    const at = (days) => partial(new Date(start.getTime() + days * 86_400_000));
+    return {
+      group: {
+        group_id: groupId,
+        begin_time: partial(start),
+        end_time: partial(end),
+        status: index === 0 ? "challengeStatusInProgress" : "challengeStatusFinished",
+        name_mi18n: ["王棋與三騎士", "灰燼中的棋局", "群星的審判"][index],
+        game_version: ["3.7", "3.6", "3.5"][index],
+        theme_pic_path: `${IMG}/peak/theme-${groupId}.png`,
+      },
+      boss_info: { maze_id: groupId * 10, name_mi18n: ["帕姆王", "毀滅者幻影", "星核獵手"][index], hard_mode_name_mi18n: "絕境", icon: `${IMG}/peak/boss-${groupId}.png` },
+      mob_infos: knights.map((k) => ({ maze_id: k.id, name: "騎士關卡", monster_name: k.name, monster_icon: `${IMG}/peak/monster-${k.id}.png` })),
+      has_challenge_record: played,
+      battle_num: played ? 5 + index * 2 : 0,
+      boss_record: played
+        ? {
+            maze_id: groupId * 10,
+            has_challenge_record: true,
+            challenge_time: at(3),
+            avatars: TEAMS[0].map(member),
+            buff: { id: 1, name_mi18n: "王的敕令", desc_mi18n: "首領的弱點擊破效率提高 20%，每回合開始時恢復 5% 生命值", icon: `${IMG}/peak/buff-1.png` },
+            hard_mode: index === 0,
+            round_num: index === 0 ? 12 : 18,
+            star_num: 3,
+            finish_color_medal: index === 0,
+            challenge_peak_rank_icon_type: index === 0 ? "ChallengePeakRankIconTypeGold" : "ChallengePeakRankIconTypeSilver",
+            challenge_peak_rank_icon: `${IMG}/peak/medal-${index === 0 ? "gold" : "silver"}.png`,
+            record_unique_key: `peak-${groupId}`,
+          }
+        : null,
+      mob_records: played
+        ? knights
+            .map((k, i) => ({ maze_id: k.id, has_challenge_record: true, challenge_time: at(1 + i), avatars: TEAMS[(i + 1) % TEAMS.length].map(member), round_num: [3, 6, 4][i], star_num: index === 1 && i === 1 ? 2 : 3, is_fast: i === 2 }))
+            .reverse()
+        : [],
+      boss_stars: played ? 3 : 0,
+      mob_stars: played ? (index === 1 ? 8 : 9) : 0,
+    };
+  });
+}
+
+/** 終局戰績 本期有 3 層紀錄 上期少一層 */
 function endgame(kind, scheduleType) {
   const previous = scheduleType === "2";
   const start = new Date(Date.UTC(2026, 9, previous ? 6 - 42 : 6));
   const end = new Date(start.getTime() + 41 * 86_400_000);
-  const member = (id) => {
-    const c = CHARACTERS.find((x) => x.id === id);
-    return { id, level: c.level, icon: `${IMG}/avatar/${id}.png`, rarity: c.rarity, element: c.element[0].toUpperCase() + c.element.slice(1), rank: c.rank };
-  };
   const floorCount = previous ? 2 : 3;
   const floors = Array.from({ length: floorCount }, (_, i) => {
     const level = kind === "challenge" ? 12 - i : 4 - i;
@@ -453,6 +509,14 @@ export function handle({ req, url, body, json, image }) {
     if (!hasCookieKey(cookie, "cookie_token_v2") || !hasCookieKey(cookie, "account_mid_v2")) return json(200, ledgerLogin);
     return json(200, ok(ledger(url.searchParams.get("month"))));
   }
+  if (url.pathname === "/game_record/hkrpg/api/challenge_peak") {
+    if (isExpired) return json(200, expired);
+    const roleId = url.searchParams.get("role_id");
+    const role = { server: "prod_official_cht", nickname: "開拓者", level: 70, role_id: roleId };
+    if (roleId === SMALL_UID) return json(200, ok({ challenge_peak_records: [], has_more_boss_record: false, challenge_peak_best_record_brief: null, role }));
+    const best = { total_battle_num: 12, mob_stars: 9, boss_stars: 3, challenge_peak_rank_icon_type: "ChallengePeakRankIconTypeGold", challenge_peak_rank_icon: `${IMG}/peak/medal-gold.png` };
+    return json(200, ok({ challenge_peak_records: peakRecords(), has_more_boss_record: false, challenge_peak_best_record_brief: best, role }));
+  }
   const endgameKind = /^\/game_record\/hkrpg\/api\/(challenge|challenge_story|challenge_boss)$/.exec(url.pathname)?.[1];
   if (endgameKind) {
     if (isExpired) return json(200, expired);
@@ -489,6 +553,13 @@ export function handle({ req, url, body, json, image }) {
       return image(`${Array.from(NAME_OF.get(characterId) ?? "?")[0]}${pos}`, { width: 88, height: 88 });
     }
     if (kind === "rank") return image(`魂${key}`, { width: 88, height: 88, round: true });
+    if (kind === "peak") {
+      if (key.startsWith("boss")) return image("王棋", { width: 512, height: 512 });
+      if (key.startsWith("monster")) return image("騎", { width: 128, height: 128, round: true });
+      if (key.startsWith("medal")) return image(key.endsWith("gold") ? "金" : "銀", { width: 128, height: 128, round: true });
+      if (key.startsWith("theme")) return image("仲裁", { width: 256, height: 256 });
+      return image("益", { width: 64, height: 64, round: true });
+    }
     if (kind === "skill") return image(key.startsWith("major") ? "行" : key === "bonus" ? "+" : "技", { width: 64, height: 64, round: true });
     return image(kind, { width: 96, height: 96 });
   }

@@ -85,6 +85,7 @@ describe("cardBill（有結帳日：結帳後就要填帳單，填了之後還�
       needsBill: true,
       status: "needs-bill",
       daysLeft: null,
+      unbilled: 1500,
     });
   });
 
@@ -137,6 +138,24 @@ describe("cardBill（有結帳日：結帳後就要填帳單，填了之後還�
     expect(cardBill(CARD, -7500 + 800 - 300, withRefund, "2026-10-15")).toMatchObject({ estimate: 10_000, paid: 4000, remainingDue: 6000, owedNow: 7000 });
   });
 
+  // 使用者說刷卡好像都沒記到 結帳後刷的卡在帳單的狀態下不顯示
+  it("結帳後刷的卡是未出帳（10/7 刷的 1,500）：還沒填帳單、填了帳單、帳單繳清了都照樣算出來，不算進本期", () => {
+    // 填 12,480 時在結帳日補記差額 2,480 目前是 -7,500 再多欠 2,480
+    const filled = [...FLOWS, flow("2026-10-05", { expense: 2480 })];
+    // 帳單 4,000 比紀錄少 在結帳日補記調整 +6,000
+    const smaller = [...FLOWS, flow("2026-10-05", { adjust: 6000 })];
+
+    expect(cardBill(CARD, -7500, FLOWS, "2026-10-15")).toMatchObject({ remainingDue: 6000, unbilled: 1500 });
+    expect(cardBill(CARD, -9980, filled, "2026-10-15", [bill(1, "2026-10-05", "2026-10-20", 12_480)])).toMatchObject({ remainingDue: 8480, unbilled: 1500 });
+    expect(cardBill(CARD, -1500, smaller, "2026-10-15", [bill(1, "2026-10-05", "2026-10-20", 4000)])).toMatchObject({ remainingDue: 0, unbilled: 1500 });
+  });
+
+  it("結帳後刷退 800、帳單差額以外的調整多欠 300_未出帳是 1,500 減 800 加 300 等於 1,000", () => {
+    const withRefund = [...FLOWS, flow("2026-10-12", { income: 800, adjust: -300 })];
+
+    expect(cardBill(CARD, -7000, withRefund, "2026-10-15")).toMatchObject({ unbilled: 1000 });
+  });
+
   it("結帳時是溢繳（餘額是正的）_估計 0，還是要填帳單（不是每筆刷卡都有記）", () => {
     expect(cardBill(CARD, 300, [], "2026-10-15")).toMatchObject({ owedNow: 0, estimate: 0, remainingDue: 0, needsBill: true, status: "needs-bill" });
   });
@@ -147,6 +166,13 @@ describe("cardBill（沒有結帳日：不會自動要你填，自己在帳戶�
 
   it("還沒填過帳單_不用填也不列，沒有截止日；本期應繳先用目前未繳", () => {
     expect(cardBill(CARD, -3500, [], "2026-10-17")).toMatchObject({ needsBill: false, status: "none", statementDate: null, dueDate: null, daysLeft: null, estimate: 3500, remainingDue: 3500 });
+  });
+
+  it("還沒填過帳單_刷的都還沒出帳，未出帳是目前未繳 3,500；10/18 填了 3,800 之後 10/19 又刷 600_未出帳 600（填帳單那天補的差額算本期）", () => {
+    const flows = [flow("2026-10-18", { transferIn: 1000, expense: 300 }), flow("2026-10-19", { expense: 600 })];
+
+    expect(cardBill(CARD, -3500, [], "2026-10-17")).toMatchObject({ unbilled: 3500 });
+    expect(cardBill(CARD, -3400, flows, "2026-10-20", [bill(2, "2026-10-18", "2026-10-25", 3800)])).toMatchObject({ remainingDue: 2800, unbilled: 600 });
   });
 
   it("10/18 填了帳單 3,800、截止日照帳單填 10/25（順延到 10/27）_填帳單那天起繳的才算已繳（10/17 繳的 500 是上一期的）：10/18 繳 1,000 還要繳 2,800", () => {

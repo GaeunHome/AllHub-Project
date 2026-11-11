@@ -7,6 +7,7 @@ import { interpretCharacters, type CharacterList } from "./characters";
 import { cookieKeys, withAccountIds } from "./cookie";
 import { generateDs } from "./ds";
 import { ENDGAME_ENDPOINTS, interpretEndgame, type EndgameMode, type EndgameResult, type EndgameSchedule } from "./endgame";
+import { interpretPeak, type PeakResult } from "./peak";
 import { explainLedgerLogin, interpretLedger, type LedgerResult } from "./ledger";
 import { interpretRedeem, type RedeemOutcome } from "./redeem";
 import {
@@ -156,6 +157,11 @@ export async function fetchWarpPage(cookie: string, uid: string, region: string,
 export async function fetchEndgame(cookie: string, uid: string, region: string, mode: EndgameMode, schedule: EndgameSchedule): Promise<HoyolabResult<EndgameResult>> {
   const query = { schedule_type: schedule === "current" ? "1" : "2", need_all: "true", role_id: uid, server: region };
   return interpretEndgame(await recordGet(cookie, ENDGAME_ENDPOINTS[mode], query), mode);
+}
+
+/** 異相仲裁 schedule_type 3 一次回最近三期 照 genshin.py 與 Starward */
+export async function fetchPeak(cookie: string, uid: string, region: string): Promise<HoyolabResult<PeakResult>> {
+  return interpretPeak(await recordGet(cookie, "challenge_peak", { schedule_type: "3", role_id: uid, server: region }));
 }
 
 /**

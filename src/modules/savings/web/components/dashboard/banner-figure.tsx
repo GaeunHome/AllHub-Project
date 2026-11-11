@@ -11,9 +11,9 @@ export function BannerFigure({ id, label, amount, facts }: { id: string; label: 
         <h2 id={id} className="font-medium text-white/90">
           {label}
         </h2>
-        <p className="text-5xl font-bold tracking-tight text-white tabular-nums sm:text-6xl">{formatTwd(amount)}</p>
+        <p className="fin-figure text-5xl font-bold tracking-tight tabular-nums sm:text-6xl">{formatTwd(amount)}</p>
       </div>
-      {facts && <FactList className={`scene-facts rounded-xl bg-black/40 px-4 ${BIG_FIGURE_FACTS}`}>{facts}</FactList>}
+      {facts && <FactList className={`scene-facts fin-banner-facts rounded-xl px-4 ${BIG_FIGURE_FACTS}`}>{facts}</FactList>}
     </section>
   );
 }

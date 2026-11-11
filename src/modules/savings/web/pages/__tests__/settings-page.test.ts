@@ -42,7 +42,7 @@ describe("理財的設定頁", () => {
   it("「開始使用」成功後分類的卡片會換掉：焦點交給一直都在的整頁外框（訊息改用提示視窗）", () => {
     const markup = render(createElement(SettingsPage, { info: INFO }));
 
-    expect(markup).toMatch(/^(?:<link[^>]*>)*<div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入分類…/);
+    expect(markup).toMatch(/^(?:<link[^>]*>)*<div[^>]*class="theme-savings"[^>]*><div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入分類…/);
   });
 });
 

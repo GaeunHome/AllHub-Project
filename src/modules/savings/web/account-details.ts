@@ -76,6 +76,8 @@ export type CreditDetail = DetailBase & {
   balance: number;
   owedNow: number;
   remainingDue: number;
+  /** 結帳之後刷的 還沒算進任何一期 */
+  unbilled: number;
   /** 這一期填的帳單 還沒填時是 null */
   statementAmount: number | null;
   /** 這一期的結帳日 沒有結帳日的卡還沒填過帳單時是 null */
@@ -154,6 +156,7 @@ function creditDetail(account: OverviewAccount, base: DetailBase, balance: Accou
     balance: balance.balance,
     owedNow: bill.owedNow,
     remainingDue: bill.remainingDue,
+    unbilled: bill.unbilled,
     statementAmount: bill.statementAmount,
     statementDate: bill.statementDate,
     dueDate: bill.dueDate,

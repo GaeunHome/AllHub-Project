@@ -85,7 +85,7 @@ describe("理財的紀錄頁", () => {
   it("刪掉一筆後那一列不見：焦點交給一直都在的整頁外框（訊息改用提示視窗）", () => {
     const markup = render(createElement(RecordsPage, { info: INFO, searchParams: params() }));
 
-    expect(markup).toMatch(/^(?:<link[^>]*>)*<div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入紀錄…/);
+    expect(markup).toMatch(/^(?:<link[^>]*>)*<div[^>]*class="theme-savings"[^>]*><div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入紀錄…/);
   });
 
   it("用登入者的 id 讀帳戶、分類、月份與那個月的紀錄", async () => {

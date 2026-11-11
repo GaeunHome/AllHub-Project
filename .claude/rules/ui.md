@@ -38,9 +38,9 @@ paths:
   - 重要提示（使用者要的：不一定要用卡片）：要一眼看到、但不用馬上打斷的事用 `NoticeStrip`＋`NoticeItem`：貼著頁面的一條細線，一件接一件，手機上一件一行；裡面都沒有項目時 `:has()` 整條藏起來。
     - 首頁是「今天要注意」、理財總覽是「要先處理」、管理頁是鎖定的帳號。
     - 帶傘與特報留在天氣卡片的圖上（圖加白字，不用小標籤）；刪除帳號這類不能復原的動作用 `.danger-zone`（左邊一條紅線，平常收在 `<details>`）。
-  - 主題頁：Twitch 頁用 `.theme-twitch`、星穹鐵道頁用 `.theme-starrail`（兩頁固定深色），YouTube 頁用 `.theme-youtube`（照 YouTube 網站的淺色與深色，跟著外觀切換，紅色只用在標誌與進度條）：只換 CSS 變數，共用的 class（`card`、`chip`、按鈕、`input`…）自動跟著換色，不要另外複製一套元件。
-    - 三頁都是整頁主題：整頁底色鋪滿全寬與整個高度（`:root:has(.theme-…:not([data-activity-hidden]))`），內容直接放在 AppShell 的外框裡（不再包一張圓角大卡片）。
-    - YouTube 連導覽列也換（`:root` 換 `--bg-base` 與 `--header-bg`）；Twitch 與星穹鐵道的導覽列、鈴鐺面板、人像選單維持全站的樣子（使用者的決定）：調色盤（含 `color-scheme: dark` 與深色模式的 `--accent-*`、`--*-dot`）只放在 `PageTheme` 的外框上，`:root`／`html`／`body` 只換背景（與星空的變數 `--sr-sky`），這兩頁的導覽列改成不透明（全站的 `--header-bg` 疊在 `--bg-base` 上；半透明疊在深色底上會變灰，`page-theme.test.ts` 檢查）。
+  - 主題頁：Twitch 頁用 `.theme-twitch`、星穹鐵道頁用 `.theme-starrail`（兩頁固定深色），YouTube 頁用 `.theme-youtube`（照 YouTube 網站的淺色與深色，跟著外觀切換，紅色只用在標誌與進度條），理財六頁用 `.theme-savings`（使用者選的黑卡私人銀行：淺色米白、深色深海軍藍，都配香檳金，跟著外觀切換，使用者要的；見 `src/modules/savings/CLAUDE.md`）：只換 CSS 變數，共用的 class（`card`、`chip`、按鈕、`input`…）自動跟著換色，不要另外複製一套元件。
+    - 四種都是整頁主題：整頁底色鋪滿全寬與整個高度（`:root:has(.theme-…:not([data-activity-hidden]))`），內容直接放在 AppShell 的外框裡（不再包一張圓角大卡片）。
+    - YouTube 連導覽列也換（`:root` 換 `--bg-base` 與 `--header-bg`）；理財只換整頁的底色與背景圖，導覽列維持全站的樣子；Twitch 與星穹鐵道的導覽列、鈴鐺面板、人像選單維持全站的樣子（使用者的決定）：調色盤（含 `color-scheme: dark` 與深色模式的 `--accent-*`、`--*-dot`）只放在 `PageTheme` 的外框上，`:root`／`html`／`body` 只換背景（與星空的變數 `--sr-sky`），這兩頁的導覽列改成不透明（全站的 `--header-bg` 疊在 `--bg-base` 上；半透明疊在深色底上會變灰，`page-theme.test.ts` 檢查）。
     - 星穹鐵道的星空畫在 `body`（最上層是自己畫的靜態 `public/images/starrail-sky.svg`，不加動畫：背景圖一動整頁都要重畫；html 另外給底色，背景才跟著長頁面拉長），彈出視窗用 `sr-dialog` 自己畫星空底。
     - 外框一律用 `core/ui/page-theme.tsx` 的 `PageTheme`：Activity 藏起來的頁面還留在文件裡，`:root:has()` 會比對到它，`PageTheme` 在藏起來時（layout effect 的清除函式）標上 `data-activity-hidden`，換頁時主題不會漏過去；伺服器算繪的 HTML 沒有標記，整頁載入時第一次繪製就是這一頁的底色。
     - 主題 class 只能放在 `PageTheme` 上（視窗、卡片也不行，`architecture.test.ts` 檢查）。

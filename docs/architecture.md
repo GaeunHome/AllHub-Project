@@ -72,7 +72,7 @@ src/
 | `travel_expense_shares` | 依使用者 | 一筆帳由哪些人分，照比例的份數或照金額的金額 | 跟著那筆帳，刪除帳號時一起刪 |
 | `travel_expense_payers` | 依使用者 | 好幾個人一起付的一筆，每人刷了多少（一個人付時沒有列） | 跟著那筆帳，刪除帳號時一起刪 |
 | `travel_settlements` | 依使用者（給的人與收的人） | 按過「已結清」的金額，復原就是刪掉 | 跟著旅程，刪除帳號時一起刪 |
-| `core_announcements` | — | 站長的公告：種類、標題、內文、開始與結束時間、是否置頂到跑馬燈 | 留到站長刪除 |
+| `core_announcements` | — | 站長的公告：種類、標題、內文、開始與結束時間、是否置頂到跑馬燈 | 結束超過 30 天自動刪除，沒寫結束時間的留到站長刪除 |
 | `core_push_subscriptions` | 依使用者 | 開了手機通知的手機：推送服務的網址與加密用的金鑰，每人最多 5 支 | 推送服務說失效、關掉手機通知、登出、改密碼或刪除帳號時刪 |
 | `core_push_mutes` | 跟著手機 | 這支手機關掉的模組，只記關掉的 | 跟著手機 |
 | `core_cron_status` | — | 每個排程最後一次的結果，只更新不新增，只有站長看得到 | 一直留著，一個排程一列 |
@@ -127,7 +127,7 @@ src/
 | `youtube:reencrypt` | 每個人的 AI API Key 改用目前的金鑰加密 | 每天 03:30 | Vercel Cron |
 | `twitch:sync` | 檢查並補建 EventSub 訂閱；刪掉沒有人追蹤的主播與它的訂閱 | 每天 04:00 | Vercel Cron |
 | `youtube:renew` | 續訂快到期的 WebSub 訂閱；取消並刪掉沒有人追蹤的頻道 | 每天 04:30 | Vercel Cron |
-| `notifications:cleanup` | 刪除超過 14 天的網站通知 | 每天 05:00 | Vercel Cron |
+| `notifications:cleanup` | 刪除超過 14 天的網站通知，與結束超過 30 天的公告（不另外佔一條排程） | 每天 05:00 | Vercel Cron |
 | `audit:cleanup` | 刪除超過 7 天的操作紀錄 | 每天 04:50 | Vercel Cron |
 | `travel:cleanup` | 刪除回程超過 7 天的旅程與沒有成員的旅程 | 每天 03:10 | Vercel Cron |
 | `weather:rain` | 開著下雨通知的人，選的縣市今天白天或今晚的降雨機率 50% 以上時提醒帶傘（全台的預報一次讀；每人每天最多一則，重送不會重寄；停用的使用者略過；沒設定氣象署的授權碼時不做） | 每天 06:00 | Vercel Cron |

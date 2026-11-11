@@ -1,7 +1,55 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { ExternalImage } from "@/core/ui/external-image";
+import { Icon } from "@/core/ui/icon";
 import { elementLabel } from "../../lib/characters";
+
+/**
+ * 一關拿了幾顆星 label 是報讀器念的 例如王棋 3 顆星
+ * boss 是異相仲裁的王棋星 跟一般的星分開顏色 另外有文字標明
+ */
+export function StarRow({ stars, label, tone = "gold", max = 3 }: { stars: number | null; label: string; tone?: "gold" | "boss"; max?: number }) {
+  const earned = Math.max(0, Math.min(stars ?? 0, max));
+  return (
+    <span role="img" aria-label={`${label} ${earned} 顆星`} className={tone === "boss" ? "sr-stars sr-stars-boss" : "sr-stars"}>
+      {Array.from({ length: max }, (_, i) => (
+        <span key={i} aria-hidden data-on={i < earned ? "" : undefined}>
+          ★
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** 用了幾回合 圖示加文字 不用小標籤 */
+export function RoundCount({ rounds }: { rounds: number }) {
+  return (
+    <span className="flex items-center gap-1.5 text-ink">
+      <Icon name="refresh-cw" className="size-4 text-sr-gold" />
+      <span className="sr-num text-lg font-bold">{rounds}</span> 回合
+    </span>
+  );
+}
+
+export function QuickClear() {
+  return (
+    <span className="flex items-center gap-1 font-semibold text-[var(--sr-gold-ink)]">
+      <Icon name="zap" className="size-4" />
+      快速通關
+    </span>
+  );
+}
+
+/** 終局戰績與異相仲裁這一期沒有挑戰時 */
+export function NoRecordNotice({ name }: { name: string | null }) {
+  return (
+    <p className="sr-panel flex items-center gap-3 p-5 text-ink sm:p-6">
+      <Icon name="info" className="size-4 text-sr-gold" />
+      這一期還沒有挑戰紀錄
+      {name && <span>（{name}）</span>}
+    </p>
+  );
+}
 
 /** 伺服器與稀有度這類金色的標籤 */
 export function GoldChip({ children }: { children: ReactNode }) {

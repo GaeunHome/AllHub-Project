@@ -4,6 +4,7 @@ import { CardErrorBoundary } from "@/core/ui/card-error-boundary";
 import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { Icon } from "@/core/ui/icon";
 import { PageBanner } from "@/core/ui/page-banner";
+import { PageTheme } from "@/core/ui/page-theme";
 import { SavingsNav, type SavingsSection } from "./savings-nav";
 
 type SavingsPageFrameProps = {
@@ -16,19 +17,24 @@ type SavingsPageFrameProps = {
   children: ReactNode;
 };
 
-/** 整頁的外框一直都在 按鈕或那一列不見而附近沒有外框時焦點落在這裡 */
+/**
+ * 使用者選的黑卡私人銀行 六頁都是固定深色的主題頁
+ * 整頁的外框一直都在 按鈕或那一列不見而附近沒有外框時焦點落在這裡
+ */
 export function SavingsPageFrame({ info, current, actions, hero, children }: SavingsPageFrameProps) {
   return (
-    <div data-accent={info.accent} {...FOCUS_FRAME} className="page-stack">
-      {/* 分頁列跟頁首是一組 距離比區塊之間近 */}
-      <div className="stack">
-        <PageBanner image="/images/scenes/banner-finance.svg" icon={<Icon src={info.icon} />} title={info.name} actions={actions}>
-          {hero}
-        </PageBanner>
-        <SavingsNav current={current} />
+    <PageTheme accent={info.accent} className="theme-savings">
+      <div {...FOCUS_FRAME} className="page-stack">
+        {/* 分頁列跟頁首是一組 距離比區塊之間近 */}
+        <div className="stack">
+          <PageBanner image="/images/scenes/banner-finance-vault.svg" icon={<Icon src={info.icon} />} title={info.name} actions={actions} className="fin-banner">
+            {hero}
+          </PageBanner>
+          <SavingsNav current={current} />
+        </div>
+        {children}
       </div>
-      {children}
-    </div>
+    </PageTheme>
   );
 }
 

@@ -110,6 +110,8 @@ export type Expedition = {
   status: "ongoing" | "finished" | null;
   remainingSeconds: number | null;
   avatars: string[];
+  /** 委託獎勵的圖示 */
+  reward: string | null;
 };
 
 export function parseExpeditions(data: unknown): Expedition[] {
@@ -125,6 +127,7 @@ export function parseExpeditions(data: unknown): Expedition[] {
         status: status === "ongoing" || status === "finished" ? status : null,
         remainingSeconds: numberOf(expedition.remaining_time),
         avatars: Array.isArray(expedition.avatars) ? expedition.avatars.flatMap((avatar) => image(avatar) ?? []) : [],
+        reward: image(expedition.item_url),
       },
     ];
   });

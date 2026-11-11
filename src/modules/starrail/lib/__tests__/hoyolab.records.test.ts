@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fakeFetch } from "@/dev/fake-fetch";
 
-const { fetchActCalendar, fetchEndgame, fetchLedger, fetchProfile } = await import("../hoyolab");
+const { fetchActCalendar, fetchEndgame, fetchLedger, fetchPeak, fetchProfile } = await import("../hoyolab");
 
 const COOKIE = "ltoken_v2=v2_top_secret; ltuid_v2=42";
 const ok = (data: unknown) => Response.json({ retcode: 0, message: "OK", data });
@@ -105,6 +105,20 @@ describe("fetchEndgame：終局戰績", () => {
     expect(query(hoyolab.urls[0])).toEqual({ schedule_type: type, need_all: "true", role_id: "900000001", server: "prod_official_cht" });
     expect((hoyolab.calls[0].init.headers as Record<string, string>).ds).toMatch(/^\d+,[a-z0-9]{6},[0-9a-f]{32}$/);
     expect(result.ok && result.data.endgame).toMatchObject({ mode, hasData: false });
+  });
+});
+
+describe("fetchPeak：異相仲裁（challenge_peak）", () => {
+  it("打 challenge_peak、schedule_type=3（genshin.py：HoYoLAB 2026-04 起一次回最近三期）、role_id、server，帶 DS", async () => {
+    const hoyolab = fakeFetch(() => ok({ challenge_peak_records: [] }));
+    vi.stubGlobal("fetch", hoyolab.impl);
+
+    const result = await fetchPeak(COOKIE, "900000001", "prod_official_cht");
+
+    expect(endpoint(hoyolab.urls[0])).toBe("https://bbs-api-os.hoyolab.com/game_record/hkrpg/api/challenge_peak");
+    expect(query(hoyolab.urls[0])).toEqual({ schedule_type: "3", role_id: "900000001", server: "prod_official_cht" });
+    expect((hoyolab.calls[0].init.headers as Record<string, string>).ds).toMatch(/^\d+,[a-z0-9]{6},[0-9a-f]{32}$/);
+    expect(result.ok && result.data.peak.seasons).toEqual([]);
   });
 });
 

@@ -15,6 +15,10 @@
   border-radius: inherit;
   background-color: var(--muted);
 }
+/* 理財頁的中性色是香檳金 首頁卡片照全站的灰 */
+.theme-savings .fin-meter > span {
+  background-image: linear-gradient(90deg, #a07c37, #d8b469);
+}
 
 /* 每月收支的圖高度固定 月份那一列另外算 卡片才不會出現自己的捲軸 */
 .fin-readout {
@@ -213,17 +217,21 @@
 .fin-action {
   @apply flex min-h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl px-2 py-2.5 text-center text-sm font-semibold;
   color: var(--ink);
-  transition: background-color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
 }
 .fin-action:hover {
   background-color: var(--surface-muted);
 }
+/* 金屬的金色圓 圖示是深海軍藍 淺色深色都看得清楚 */
 .fin-action-icon {
   @apply inline-grid size-12 shrink-0 place-items-center rounded-full;
-  /* 深色模式的主色是亮的 圖示要換成深的 用底色剛好都對比得出來 */
-  color: var(--bg-base);
-  background-color: var(--accent);
-  box-shadow: var(--elevation-card);
+  color: var(--on-brand);
+  background-image: var(--fin-metal);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.45),
+    0 6px 14px -8px rgb(120 90 30 / 0.7);
 }
 .fin-action-icon > .icon {
   @apply size-6;
@@ -237,6 +245,7 @@
     box-shadow: var(--elevation-card);
   }
   .fin-action:hover {
+    border-color: var(--fin-gold-line);
     background-color: var(--surface-muted);
   }
   .fin-action-icon {
@@ -270,7 +279,7 @@
 }
 .fin-timeline-mark {
   @apply relative z-1 grid size-7 place-items-center rounded-full;
-  background-color: var(--bg-base);
+  background-color: var(--surface-solid);
 }
 .fin-timeline-row[data-next] .fin-timeline-mark {
   background-color: var(--accent-soft);
@@ -355,4 +364,144 @@ html[data-fin-skip~="recurring"] .fin-setup:not([data-required]) [data-step="rec
     --illu-mid: #3d414a;
     --illu-paper: #32363e;
   }
+}
+
+/* 黑卡私人銀行 使用者選的 底色與字色在 theme.css 這裡是只有理財有的質感 */
+
+/* 橫幅外圈一條淡金線 畫在圖的上面 */
+.fin-banner {
+  outline: 1px solid rgb(220 187 120 / 0.3);
+  outline-offset: -1px;
+}
+/* 總資產與總市值是金屬的金色 高對比模式改回一般的字色 */
+.fin-figure {
+  color: #f3dca6;
+  background-image: linear-gradient(180deg, #fbefcf 0%, #e6c57f 55%, #c49a4e 100%);
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+@media (forced-colors: active) {
+  .fin-figure {
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+.fin-banner-facts {
+  border: 1px solid rgb(220 187 120 / 0.28);
+  background-color: rgb(5 9 22 / 0.55);
+}
+
+/* 區段標題前面一顆金色的菱形 */
+.fin-heading > h2::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  rotate: 45deg;
+  border-radius: 1px;
+  background-image: var(--fin-metal);
+}
+
+/* 分類與帳戶類型的圓形圖示 理財頁是淡金色 首頁卡片照全站的灰 */
+.fin-tile {
+  color: var(--ink-soft);
+  background-color: var(--surface-muted);
+}
+.theme-savings .fin-tile {
+  color: var(--fin-gold);
+  background-color: var(--accent-soft);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), inset 0 0 0 1px var(--fin-gold-line);
+}
+
+/* 卡片上緣一點點光 像打磨過的面 */
+.theme-savings .card {
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.04), rgb(255 255 255 / 0) 8rem);
+}
+.theme-savings .nav-pill[aria-current] {
+  border-color: var(--fin-gold-line);
+  color: var(--ink);
+  background-color: var(--accent-soft);
+}
+/* 主要按鈕是金屬的金色 */
+.theme-savings .btn-primary {
+  background-image: var(--fin-metal);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4);
+}
+.theme-savings .btn-primary:hover:not(:disabled, [aria-disabled="true"]) {
+  background-image: linear-gradient(135deg, #fbeac0 0%, #e2c078 46%, #ad8841 100%);
+}
+
+/* 信用卡卡面 六種顏色的拉絲金屬 選色的小方塊也用 */
+.fin-metal-black {
+  --fin-face: linear-gradient(135deg, #34363d 0%, #16171c 45%, #060607 100%);
+  background-image: var(--fin-face);
+}
+.fin-metal-silver {
+  --fin-face: linear-gradient(135deg, #f4f5f7 0%, #c9ccd3 48%, #979ba5 100%);
+  background-image: var(--fin-face);
+}
+.fin-metal-blue {
+  --fin-face: linear-gradient(135deg, #36569f 0%, #15296a 50%, #08122f 100%);
+  background-image: var(--fin-face);
+}
+.fin-metal-green {
+  --fin-face: linear-gradient(135deg, #2e7d66 0%, #114836 52%, #05231a 100%);
+  background-image: var(--fin-face);
+}
+.fin-metal-purple {
+  --fin-face: linear-gradient(135deg, #6d4dab 0%, #3a2470 52%, #170c33 100%);
+  background-image: var(--fin-face);
+}
+.fin-metal-orange {
+  --fin-face: linear-gradient(135deg, #e3ab84 0%, #a8623c 50%, #552a15 100%);
+  background-image: var(--fin-face);
+}
+/* 細的直紋是拉絲 外圈一條亮邊像金屬的切面 */
+.fin-face {
+  color: #fbf8f1;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.45);
+  background-image: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.035) 0 1px, transparent 1px 3px), var(--fin-face);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    inset 0 0 0 1px rgb(255 255 255 / 0.1),
+    0 22px 36px -22px rgb(0 0 0 / 0.75);
+}
+.fin-face[data-style="silver"] {
+  color: #191b21;
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.5);
+}
+/* 斜斜的一道反光與右上角的雕版花紋 */
+.fin-face-shine {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(115deg, transparent 32%, rgb(255 255 255 / 0.14) 46%, transparent 60%),
+    radial-gradient(110% 80% at 100% 0%, rgb(255 255 255 / 0.16), transparent 55%),
+    url("/images/finance-backdrop.svg") right -4rem top -5rem / 26rem auto no-repeat;
+}
+/* 晶片 金色的接點分成幾格 */
+.fin-chip {
+  position: relative;
+  width: 2.5rem;
+  height: 1.85rem;
+  border-radius: 0.4rem;
+  background-image: linear-gradient(135deg, #f7e4b2 0%, #cfa75a 55%, #8f6c2d 100%);
+  box-shadow: inset 0 0 0 1px rgb(90 62 18 / 0.5);
+}
+.fin-chip::before,
+.fin-chip::after {
+  content: "";
+  position: absolute;
+  border: 1px solid rgb(90 62 18 / 0.45);
+}
+.fin-chip::before {
+  inset: 26% 32%;
+  border-radius: 0.2rem;
+}
+.fin-chip::after {
+  inset: 50% 0 auto;
+  border-width: 1px 0 0;
 }

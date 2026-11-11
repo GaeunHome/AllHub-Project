@@ -6,6 +6,9 @@ export const RETENTION_DAYS = 14;
 /** 操作紀錄有 IP 使用者要求只留一週 */
 export const AUDIT_RETENTION_DAYS = 7;
 
+/** 使用者要的 公告結束超過一個月就刪 用 30 天算 沒寫結束時間的留到站長刪 */
+export const ANNOUNCEMENT_RETENTION_DAYS = 30;
+
 export function retentionCutoff(now: Date, days = RETENTION_DAYS): Date {
   return new Date(now.getTime() - days * DAY_MS);
 }

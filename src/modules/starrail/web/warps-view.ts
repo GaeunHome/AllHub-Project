@@ -17,3 +17,6 @@ export function pickBanner(summaries: readonly BannerSummary[], requested: strin
 export const percentOf = (pulls: number, hardPity: number) => `${Math.min(Math.round((pulls / hardPity) * 100), 100)}%`;
 
 export const pityText = (summary: BannerSummary) => (hasRecords(summary) ? `已墊 ${summary.pity} 抽` : "還沒有紀錄");
+
+/** 使用者要的 抽到保底的八成以後換成亮金色 提醒快到保底了 */
+export const nearPity = ({ pity, banner }: BannerSummary) => pity >= banner.hardPity * 0.8;

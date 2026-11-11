@@ -26,4 +26,5 @@ paths:
 - 躍遷紀錄不存資料庫，打開頁面時才向 HoYoLAB 讀（見 `src/modules/starrail/CLAUDE.md`）。
 - 系統狀態 `core_cron_status`、`core_service_status` 只更新不新增（使用者要的），排程與服務各一列，沒有清理排程；排程的摘要會顯示在站長的頁面上，不寫成員的遊戲暱稱與開拓力（`CronTask` 的註解）。
 - 上傳的頭像 `core_avatar_images` 每人一張：換照片或改用範例時刪掉舊的，刪除帳號時跟外鍵刪。交通的常用路線 `transit_routes` 與天氣頁的城市 `weather_places` 留到使用者自己刪除或刪除帳號。
+- 站長的公告 `core_announcements` 結束超過 30 天（使用者要的一個月，`core/retention/index.ts` 的 `ANNOUNCEMENT_RETENTION_DAYS`）由 `notifications:cleanup` 一起刪掉（`announcements/service.ts` 的 `cleanupAnnouncements()`，Hobby 的排程有條數上限，不另外佔一條）；沒寫結束時間的留到站長刪除，刪除是硬刪除。
 - 其他資料永久保留，刪除帳號時依使用者的資料一起刪除。

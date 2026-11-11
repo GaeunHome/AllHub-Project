@@ -52,8 +52,8 @@ export function heroView({ accounts }: Pick<AccountsInput, "accounts">, { summar
   };
 }
 
-/** status 是帳戶頁那張卡的狀態 一項一行 needsBill 是先打開填帳單 */
-export type CardTarget = { id: number; name: string; status: string[]; needsBill: boolean; bill: BillDraft; pay: PayCardDraft };
+/** status 是帳戶頁那張卡的狀態 一項一行 */
+export type CardTarget = { id: number; name: string; status: string[]; bill: BillDraft; pay: PayCardDraft };
 
 /** minDate 是證券帳戶開始記帳的那天 買賣不能更早 */
 export type HoldingTarget = { holding: HoldingView; accountName: string; minDate: DateKey };
@@ -85,7 +85,7 @@ export function quickActionsView(input: AccountsInput, state: AccountsState, cat
   const cardTarget = (detail: CreditDetail): CardTarget => {
     const status = cardStatusView(detail);
     const lines = [...status.facts.map(({ label, value }) => `${label} ${value}`), ...(status.badge ? [status.badge.label] : [])];
-    return { id: detail.id, name: detail.name, status: lines, needsBill: status.action === "bill", bill: detail.bill, pay: detail.pay };
+    return { id: detail.id, name: detail.name, status: lines, bill: detail.bill, pay: detail.pay };
   };
 
   return {

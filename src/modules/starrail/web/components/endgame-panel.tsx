@@ -3,21 +3,22 @@ import { externalAssetUrl } from "@/core/external-url";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
 import { ENDGAME_MODES, type EndgameSchedule } from "../../lib/endgame";
 import type { StarrailAccountView } from "../../service/accounts";
-import { cachedCharacters, cachedEndgame } from "../../service/cached";
-import { endgameAssetUrls } from "../endgame-assets";
-import { EndgameView, type EndgameRecord } from "./endgame-view";
+import { cachedCharacters, cachedEndgame, cachedPeak } from "../../service/cached";
+import { endgameAssetUrls, peakAssetUrls } from "../endgame-assets";
+import { EndgameView, type EndgameRecord, type PeakRecord } from "./endgame-view";
 
 const SCHEDULES: EndgameSchedule[] = ["current", "previous"];
 
 /**
- * 三種模式的本期與上期一起查 切換時不用再等
+ * 三種模式的本期與上期和異相仲裁一起查 切換時不用再等
  * 角色名字從同一份快取對照 失效標記只由即時便箋決定
  */
 export async function EndgamePanel({ account }: { account: StarrailAccountView }) {
   const user = await requireModule("starrail");
   const requests = ENDGAME_MODES.flatMap((mode) => SCHEDULES.map((schedule) => ({ mode, schedule })));
-  const [results, characters] = await Promise.all([
+  const [results, peakResult, characters] = await Promise.all([
     Promise.all(requests.map(({ mode, schedule }) => cachedEndgame(user.id, account.id, mode, schedule))),
+    cachedPeak(user.id, account.id),
     cachedCharacters(user.id, account.id),
   ]);
 
@@ -25,8 +26,9 @@ export async function EndgamePanel({ account }: { account: StarrailAccountView }
     const result = results[i];
     return result.ok ? { mode, schedule, ok: true, endgame: endgameAssetUrls(result.endgame, externalAssetUrl) } : { mode, schedule, ok: false, message: result.message };
   });
+  const peak: PeakRecord = peakResult.ok ? { ok: true, peak: peakAssetUrls(peakResult.peak, externalAssetUrl) } : { ok: false, message: peakResult.message };
   const names = characters.ok ? Object.fromEntries(characters.characters.map((c) => [c.id, c.name])) : {};
-  return <EndgameView records={records} names={names} />;
+  return <EndgameView records={records} peak={peak} names={names} />;
 }
 
 export function EndgameSkeleton() {

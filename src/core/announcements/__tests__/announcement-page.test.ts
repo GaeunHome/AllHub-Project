@@ -44,6 +44,31 @@ describe("公告頁（使用者要的：首頁的公告點進去是一個頁面�
     expect(html).toContain("更新期間照常可以用。\n畫面怪怪的就重新整理。");
   });
 
+  // 使用者選的站長來信 原本的漸層橫幅與上緣色條看起來像樣板
+  it("站長來信：最後是站長署名，上面有回首頁公告清單的連結；不再用漸層橫幅", async () => {
+    cached.cachedAnnouncements.mockResolvedValue([row({ id: 1, title: "新功能" })]);
+
+    const html = await page("1");
+
+    expect(textOf(html, { spaced: true })).toMatch(/站長\s/);
+    expect(html).toMatch(/<a [^>]*href="\/#home-announcements"/);
+    expect(html).not.toContain("page-banner");
+  });
+
+  it("維護還沒開始：寫還有幾天開始與公布、開始、結束三步；沒寫時間的一般公告沒有時間軸", async () => {
+    cached.cachedAnnouncements.mockResolvedValue([
+      row({ id: 1, kind: "maintenance", title: "下週維護", startsAt: new Date(Date.now() + 49 * HOUR), endsAt: new Date(Date.now() + 51 * HOUR) }),
+      row({ id: 2, title: "新功能" }),
+    ]);
+
+    const steps = (html: string) => [...html.matchAll(/<li[^>]*data-state="(\w+)"[^>]*>/g)].map(([, state]) => state);
+    const upcoming = await page("1");
+
+    expect(textOf(upcoming)).toContain("還有 2 天開始");
+    expect(steps(upcoming)).toEqual(["done", "next", "later"]);
+    expect(steps(await page("2"))).toEqual([]);
+  });
+
   it("還沒開始的維護也看得到（跟首頁一樣，才來得及知道）", async () => {
     cached.cachedAnnouncements.mockResolvedValue([row({ id: 1, kind: "maintenance", title: "下週維護", startsAt: new Date(Date.now() + 48 * HOUR) })]);
 

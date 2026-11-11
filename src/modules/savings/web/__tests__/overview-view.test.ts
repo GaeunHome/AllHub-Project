@@ -59,24 +59,26 @@ describe("我要…", () => {
     return quickActionsView(data, accountsState(data), [{ id: 11, name: "餐飲", kind: "expense" }], [{ holdingId: 2, accountId: 1 }]);
   };
 
-  it("信用卡：只列啟用中的卡；打開的表單跟帳戶頁那張卡上的按鈕一樣，還沒填帳單的先填帳單（沒有結帳日的卡沒有待繳的帳單時也是）", () => {
-    expect(view().cards.map(({ name, needsBill }) => ({ name, needsBill }))).toEqual([
-      { name: "國泰卡", needsBill: true },
-      { name: "台新卡", needsBill: true },
-    ]);
-    expect(view().cards[0].status).toEqual(["結帳日 10/5", "待填帳單"]);
+  it("信用卡：只列啟用中的卡；選卡時每張寫帳戶頁那張卡的狀態", () => {
+    expect(view().cards.map(({ name }) => name)).toEqual(["國泰卡", "台新卡"]);
+    // 10/10 刷的 7,000 在 10/5 結帳之後
+    expect(view().cards[0].status).toEqual(["結帳日 10/5", "未出帳 $7,000", "待填帳單"]);
   });
 
-  it("沒有結帳日的卡填了帳單還沒繳清：繳卡費", () => {
+  it("沒有結帳日的卡填了帳單還沒繳清：寫本期應繳，不再是待填帳單", () => {
     const billed = view({ cardBills: [{ id: 2, accountId: 7, statementDate: "2026-10-12", dueDate: "2026-10-30", amount: 3000, paid: 0, lastPaidOn: null }] });
+    const status = billed.cards.find((card) => card.name === "台新卡")?.status;
 
-    expect(billed.cards.find((card) => card.name === "台新卡")?.needsBill).toBe(false);
+    expect(status).toContain("本期應繳 $3,000");
+    expect(status).not.toContain("待填帳單");
   });
 
-  it("國泰卡 10/5 的帳單填了以後就不用再填帳單", () => {
+  it("國泰卡 10/5 的帳單填了以後就不用再填帳單：寫本期應繳", () => {
     const filled = view({ cardBills: [{ id: 1, accountId: 6, statementDate: "2026-10-05", dueDate: "2026-10-20", amount: 12480, paid: 0, lastPaidOn: null }] });
+    const status = filled.cards.find((card) => card.name === "國泰卡")?.status;
 
-    expect(filled.cards.find((card) => card.name === "國泰卡")?.needsBill).toBe(false);
+    expect(status).toContain("本期應繳 $12,480");
+    expect(status).not.toContain("待填帳單");
   });
 
   it("買賣股票：每一檔持股都能選，日期不能早於證券帳戶開始記帳那天；定期定額的扣款帳戶是買賣的預設", () => {

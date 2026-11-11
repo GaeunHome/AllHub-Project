@@ -29,6 +29,7 @@
 | HoYoLAB | 含 `ltoken_v2`、`ltuid_v2` 的 cookie | 連結成功；`ltoken_v2=expired` 會得到「HoYoLAB cookie 已失效…」 |
 | HoYoLAB | 開拓月曆 | 跟正式環境一樣，Cookie 少了 `cookie_token_v2` 或 `account_mid_v2` 就回 -100「请先登录」（沒貼 `account_mid_v2` 時網站用 `ltmid_v2` 補上）。六個都貼的假 cookie：`ltoken_v2=v2_mock; ltuid_v2=1; ltmid_v2=mock_mid; cookie_token_v2=v2_mock_ct; account_id_v2=1; account_mid_v2=mock_mid` |
 | HoYoLAB | 遊戲頭像（戰績首頁 `index`） | 每個 UID 一張不同的佔位圖（「像」加 UID 的最後兩碼） |
+| HoYoLAB | 異相仲裁（`challenge_peak`） | 一次回三期：本期打完了（王棋是高難度、有增益與金色勳章，騎士三關都三星、第三關快速通關），上期騎士少一顆星，上上期沒打；`ltuid_v2` 以 2 開頭的亞服小號從來沒打過 |
 | HoYoLAB | 活動日曆（`get_act_calender`） | 時間跟著現在算：混沌回憶一天半後結束、還沒拿滿（傍晚 6 點後跑 `starrail:stamina` 會發終局提醒），虛構敘事、異相仲裁進行中，末日幻影已拿滿，下一期的混沌回憶還沒開放；活動有雙倍獎勵、登入獎勵、限時挑戰，常駐的沒有結束時間、還沒開始的都不列；角色與光錐各有卡池。`ltuid_v2` 以 2 開頭的亞服小號，混沌回憶與虛構敘事的進度是 0 |
 | HoYoLAB | `ltuid_v2` 的數字 | 主要角色的 UID 跟著它變（`ltuid_v2=123456` 是 `900123456`）：換一個數字就是另一個遊戲帳號；別的使用者用同一個數字連結時，會被拒絕（已經被其他使用者連結） |
 | HoYoLAB | `ltuid_v2` 以 2 開頭（例如 `ltuid_v2=223456`） | 台港澳服與亞服各有一個角色（亞服的是 4 級的小號），連結時會出現選伺服器的步驟 |

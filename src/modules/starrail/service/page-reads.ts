@@ -3,8 +3,9 @@ import { logMissing } from "@/core/json";
 import type { ActCalendar } from "../lib/calendar";
 import type { StarrailCharacter } from "../lib/characters";
 import type { Endgame, EndgameMode, EndgameSchedule } from "../lib/endgame";
-import { fetchActCalendar, fetchCharacters, fetchDailyNote, fetchEndgame, fetchLedger, fetchProfile } from "../lib/hoyolab";
+import { fetchActCalendar, fetchCharacters, fetchDailyNote, fetchEndgame, fetchLedger, fetchPeak, fetchProfile } from "../lib/hoyolab";
 import type { Ledger } from "../lib/ledger";
+import type { Peak } from "../lib/peak";
 import type { DailyNote, Expedition, HoyolabResult } from "../lib/responses";
 import type { StarrailAccount } from "../data/schema";
 import { pageAccount } from "./accounts";
@@ -78,6 +79,14 @@ export type EndgameFetch = { ok: true; endgame: Endgame } | PageFailure;
 export async function endgameFor(userId: string, accountId: number, mode: EndgameMode, schedule: EndgameSchedule): Promise<EndgameFetch> {
   const read = await readRecord(userId, accountId, "終局戰績", (cookie, account) => fetchEndgame(cookie, account.uid, account.region, mode, schedule));
   return read.ok ? { ok: true, endgame: read.data.endgame } : read;
+}
+
+export type PeakFetch = { ok: true; peak: Peak } | PageFailure;
+
+/** 異相仲裁 一次讀最近三期 本期與上期都在裡面 */
+export async function peakFor(userId: string, accountId: number): Promise<PeakFetch> {
+  const read = await readRecord(userId, accountId, "異相仲裁", (cookie, account) => fetchPeak(cookie, account.uid, account.region));
+  return read.ok ? { ok: true, peak: read.data.peak } : read;
 }
 
 export type ActCalendarFetch = Fetched<{ calendar: ActCalendar }>;

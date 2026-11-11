@@ -44,21 +44,108 @@
   width: 4px;
   background-color: var(--danger);
 }
-/* 公告頁 橫幅上標題下面的種類與時間 */
-.announcement-facts {
-  @apply flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/90 sm:text-base;
+/* 公告頁 使用者選的站長來信 置中一欄像一封信 */
+.announcement-page {
+  @apply mx-auto flex w-full max-w-3xl flex-col gap-6;
 }
-/* 內文卡片上緣一條種類的顏色 停止服務紅 維護黃 一般公告藍 用燈號的亮色 淺色與深色都看得出來 */
-.announcement-article {
-  border-top: 4px solid var(--brand);
+/* 種類的顏色 停止服務紅 維護黃 一般公告藍 用燈號的亮色 淺色與深色都看得出來 */
+.announcement-letter {
+  --letter-tone: var(--brand);
+  --letter-soft: var(--brand-soft);
+  @apply relative flex flex-col gap-7 rounded-[1.25rem] px-5 py-7 sm:px-12 sm:py-11;
+  border: 1px solid var(--line);
+  background-color: #fffdf9;
+  box-shadow:
+    0 1px 2px rgb(16 24 40 / 0.04),
+    0 28px 60px -40px rgb(16 24 40 / 0.35);
+
+  @variant dark {
+    background-color: var(--surface);
+    box-shadow: none;
+  }
 }
-.announcement-article[data-kind="outage"] {
-  border-top-color: var(--danger-dot);
+.announcement-letter[data-kind="outage"] {
+  --letter-tone: var(--danger-dot);
+  --letter-soft: var(--danger-soft);
 }
-.announcement-article[data-kind="maintenance"] {
-  border-top-color: var(--warning-dot);
+.announcement-letter[data-kind="maintenance"] {
+  --letter-tone: var(--warning-dot);
+  --letter-soft: var(--warning-soft);
+}
+/* 信頭 下面一條細線 印章斜斜的蓋在右上角 */
+.announcement-letterhead {
+  @apply flex items-start justify-between gap-4 pb-5;
+  border-bottom: 1px solid var(--line);
+}
+.announcement-stamp {
+  @apply -my-3 -mr-1 size-24 shrink-0 sm:-my-5 sm:size-28;
+  rotate: -10deg;
+  color: var(--letter-tone);
+  opacity: 0.85;
+}
+.announcement-kind {
+  @apply inline-flex items-center gap-1.5 text-sm font-semibold;
+  color: var(--ink);
+}
+.announcement-kind > .icon {
+  color: var(--letter-tone);
+}
+.announcement-title {
+  @apply text-3xl leading-tight font-bold tracking-tight text-balance sm:text-4xl;
+  color: var(--ink);
+}
+/* 時間軸 公布 開始 結束 一步一欄 點之間一條線 做完的那段是種類的顏色 */
+.announcement-timeline {
+  @apply flex flex-col gap-4 rounded-2xl p-4 sm:p-5;
+  background-color: var(--letter-soft);
+}
+.announcement-timeline-status {
+  @apply inline-flex items-center gap-1.5 font-bold;
+  color: var(--ink);
+}
+.announcement-timeline-status > .icon {
+  color: var(--letter-tone);
+}
+.announcement-steps {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+}
+.announcement-step {
+  @apply relative flex flex-col gap-0.5 pt-6 pr-2 text-sm;
+}
+.announcement-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: calc(0.5rem - 1px);
+  left: 0.5rem;
+  width: 100%;
+  height: 2px;
+  background-color: var(--line-strong);
+}
+.announcement-step[data-state="done"]::after {
+  background-color: var(--letter-tone);
+}
+.announcement-step-dot {
+  @apply absolute top-0 left-0 z-1 size-4 rounded-full;
+  border: 2px solid var(--line-strong);
+  background-color: var(--surface-solid);
+}
+.announcement-step[data-state="done"] .announcement-step-dot {
+  border-color: var(--letter-tone);
+  background-color: var(--letter-tone);
+}
+.announcement-step[data-state="next"] .announcement-step-dot {
+  border-color: var(--letter-tone);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--letter-tone) 25%, transparent);
 }
 /* 站長打的換行照原樣 字大一點行距寬一點 長的也好讀 */
 .announcement-text {
   @apply max-w-prose text-[1.0625rem] leading-8 whitespace-pre-line text-ink;
+}
+/* 署名靠右 上面一條短線 */
+.announcement-sign {
+  @apply flex flex-col items-end gap-1 self-end pt-4;
+  border-top: 1px solid var(--line-strong);
+  min-width: 10rem;
 }

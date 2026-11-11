@@ -66,6 +66,30 @@ export function announcementWhen({ startsAt, endsAt, createdAt }: { startsAt: Da
   return `${formatTaipeiMonthDay(createdAt)} 發布`;
 }
 
+type TimelineStep = { label: string; time: string; state: "done" | "next" | "later" };
+
+const MINUTE_MS = 60_000;
+
+function startsInText(ms: number): string {
+  if (ms >= DAY_MS) return `還有 ${Math.floor(ms / DAY_MS)} 天開始`;
+  if (ms >= 60 * MINUTE_MS) return `還有 ${Math.floor(ms / (60 * MINUTE_MS))} 小時開始`;
+  return `還有 ${Math.max(1, Math.ceil(ms / MINUTE_MS))} 分鐘開始`;
+}
+
+/**
+ * 使用者選的站長來信 有開始或結束時間的畫公布 開始 結束三步
+ * 沒寫開始時間的當成已經開始 跟跑馬燈一樣
+ */
+export function announcementTimeline(row: { createdAt: Date; startsAt: Date | null; endsAt: Date | null }, now: Date): { status: string; steps: TimelineStep[] } | null {
+  if (!row.startsAt && !row.endsAt) return null;
+  const startsIn = row.startsAt ? row.startsAt.getTime() - now.getTime() : 0;
+  const started = startsIn <= 0;
+  const steps: TimelineStep[] = [{ label: "公布", time: dayAndTime(row.createdAt), state: "done" }];
+  if (row.startsAt) steps.push({ label: "開始", time: dayAndTime(row.startsAt), state: started ? "done" : "next" });
+  if (row.endsAt) steps.push({ label: "結束", time: dayAndTime(row.endsAt), state: started ? "next" : "later" });
+  return { status: started ? "進行中" : startsInText(startsIn), steps };
+}
+
 /** 一則一頁 使用者要的 首頁的公告點進去是一個頁面 */
 export const announcementHref = (id: number): string => `/announcements/${id}`;
 

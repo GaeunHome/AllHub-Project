@@ -6,6 +6,7 @@ import { captureErrorLog, captureWarnLog, loggedText, resetNextCache, tagged } f
 import type { ActCalendar } from "../../lib/calendar";
 import type { Endgame } from "../../lib/endgame";
 import type { Ledger } from "../../lib/ledger";
+import type { Peak } from "../../lib/peak";
 import { starrailAccounts } from "../../data/schema";
 import { COOKIE, hoyolab, ok, ROLE } from "../../dev/fixtures";
 
@@ -13,7 +14,7 @@ vi.mock("../../lib/hoyolab", async () => (await import("../../dev/fixtures")).ho
 
 stubCoreEnv();
 
-const { cachedActCalendar, cachedEndgame, cachedLedger, cachedProfile } = await import("../cached");
+const { cachedActCalendar, cachedEndgame, cachedLedger, cachedPeak, cachedProfile } = await import("../cached");
 const { linkAccount } = await import("../link");
 
 const LEDGER: Ledger = {
@@ -30,6 +31,7 @@ const CALENDAR: ActCalendar = {
   events: [],
   warps: [],
 };
+const PEAK: Peak = { seasons: [] };
 const ENDGAME: Endgame = { mode: "chaos", hasData: true, name: "星海中的回聲", begin: "2026/10/6 04:00", end: "2026/10/20 03:00", stars: 36, maxFloor: "混沌回憶 12", battles: 14, floors: [] };
 
 let testDb: TestDb;
@@ -46,6 +48,7 @@ beforeEach(async () => {
   // 回應裡夾帶 cookie 也不能跟著進到快取
   hoyolab.fetchLedger.mockResolvedValue({ ...ok({ ledger: LEDGER, missing: [] }), echo: COOKIE });
   hoyolab.fetchEndgame.mockResolvedValue({ ...ok({ endgame: ENDGAME, missing: [] }), echo: COOKIE });
+  hoyolab.fetchPeak.mockResolvedValue({ ...ok({ peak: PEAK, missing: [] }), echo: COOKIE });
   hoyolab.fetchProfile.mockResolvedValue({ ...ok({ avatar: AVATAR, missing: [] }), echo: COOKIE });
   hoyolab.fetchActCalendar.mockResolvedValue({ ...ok({ calendar: CALENDAR, missing: [] }), echo: COOKIE });
   await linkAccount(me, COOKIE);
@@ -168,6 +171,27 @@ describe("cachedActCalendar：活動日曆，參數是帳號 id", () => {
   });
 });
 
+describe("cachedPeak：異相仲裁，參數是帳號 id（一次回最近三期）", () => {
+  it("回傳整理好的戰績_沒有 cookie_標 starrail:accounts、hoyolab 效期（同另外三種）", async () => {
+    const result = await cachedPeak(me, (await account()).id);
+
+    expect(hoyolab.fetchPeak).toHaveBeenCalledWith(COOKIE, "900000001", "prod_official_cht");
+    expect(result).toMatchObject({ ok: true, peak: PEAK });
+    expect(JSON.stringify(result)).not.toContain("v2_secret_token");
+    expect(tagged()).toEqual(["starrail:accounts"]);
+    expect(cacheLife).toHaveBeenCalledWith("hoyolab");
+  });
+
+  it("讀不到_只在這一塊寫原因、短效期，不寫帳號的失效標記", async () => {
+    captureErrorLog();
+    hoyolab.fetchPeak.mockResolvedValue({ ok: false, retcode: -100, message: "cookie 已失效", cookieInvalid: true });
+
+    expect(await cachedPeak(me, (await account()).id)).toMatchObject({ ok: false, message: "cookie 已失效" });
+    expect(cacheLife).toHaveBeenCalledWith("external");
+    expect((await account()).cookieInvalid).toBe(false);
+  });
+});
+
 describe("擁有權：快取函式的參數有使用者 id，別人的帳號 id 當作不存在", () => {
   it("用別人的帳號 id 讀活動日曆_回找不到，不呼叫 HoYoLAB", async () => {
     expect(await cachedActCalendar(other, (await account()).id)).toMatchObject({ ok: false, message: "找不到這個帳號，請重新整理頁面" });
@@ -179,8 +203,10 @@ describe("擁有權：快取函式的參數有使用者 id，別人的帳號 id 
 
     expect(await cachedLedger(other, id, "202610")).toMatchObject({ ok: false, message: "找不到這個帳號，請重新整理頁面" });
     expect(await cachedEndgame(other, id, "chaos", "current")).toMatchObject({ ok: false, message: "找不到這個帳號，請重新整理頁面" });
+    expect(await cachedPeak(other, id)).toMatchObject({ ok: false, message: "找不到這個帳號，請重新整理頁面" });
     expect(hoyolab.fetchLedger).not.toHaveBeenCalled();
     expect(hoyolab.fetchEndgame).not.toHaveBeenCalled();
+    expect(hoyolab.fetchPeak).not.toHaveBeenCalled();
   });
 
   it("用別人的帳號 id 讀遊戲頭像_回 null，不呼叫 HoYoLAB", async () => {
