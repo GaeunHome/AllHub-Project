@@ -2,7 +2,7 @@
 
 全站的規則在根目錄的 `CLAUDE.md` 與 `.claude/rules/`（讀寫相關的檔案時自動載入），這裡只寫這個部分自己的。
 
-- 帳號存在 `core_users`。第一個帳號用 `npm run account create` 建立，就是站長（CLI 在 insert 裡判斷資料庫是不是空的）；其他人只能用站長在 `/admin` 建立的邀請連結到 `/register` 註冊，一律是成員。CLI 先讀環境變數 `DATABASE_URL`；沒有的話在終端機提示輸入（不顯示、不留在 shell 歷史）；不是 TTY 就報錯、不連線。不讀 `.env.local`。連線字串缺 port 或資料庫名稱（貼上時中間斷行）直接報錯，不往下問帳號。
+- 帳號存在 `core_users`。第一個帳號用 `npm run account create` 建立，就是站長（CLI 在 insert 裡判斷資料庫是不是空的）；其他人只能用站長在 `/admin` 建立的邀請連結到 `/register` 註冊，一律是成員。邀請到期或撤銷超過 30 天由每天的 `notifications:cleanup` 刪掉（見 `.claude/rules/data-retention.md`），註冊時開放的功能已經複製進模組權限，不受影響。CLI 先讀環境變數 `DATABASE_URL`；沒有的話在終端機提示輸入（不顯示、不留在 shell 歷史）；不是 TTY 就報錯、不連線。不讀 `.env.local`。連線字串缺 port 或資料庫名稱（貼上時中間斷行）直接報錯，不往下問帳號。
 - 密碼欄位一律用 `core/ui/password-input.tsx` 的 `PasswordInput`（眼睛按鈕切換明碼，預設隱藏；`type="button"`、`aria-pressed`）；外面用 `label htmlFor` 對應，不要用 label 包住（裡面有按鈕）。登入與註冊表單另有 `CaptchaField`（圖片、換一張、輸入框），圖片網址用 `messages.ts` 的 `captchaImageUrl()` 在伺服器算繪時帶時間參數。
 - 設定新密碼（註冊、改密碼、CLI）用 `credentials.ts` 的 `newPasswordProblem()`：8–256 字、同時有英文大小寫（使用者要的，太長太複雜記不住；舊的常見密碼清單、重複與帳號名稱檢查都拿掉了）；`passwordProblem()` 只管長度，登入不檢查強度，以前設的密碼照樣能用。
 - 解除登入鎖定：管理頁的使用者清單顯示「鎖定中，到 HH:mm」與「解除鎖定」（`unlockUserAction`，只把 `failed_logins` 歸零、清掉 `locked_until`，不改密碼與停用狀態；自己那一列沒有）；站長自己被鎖住時用 `npm run account unlock <帳號>`。鎖定狀態是登入失敗時寫入的，登入流程不讓快取失效（回應時間不能因帳號存在而不同），所以管理頁用 `listLockedUsers()` 每次直接讀，不走 `cached.ts`。

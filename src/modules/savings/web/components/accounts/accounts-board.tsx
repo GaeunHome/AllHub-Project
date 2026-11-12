@@ -82,7 +82,18 @@ export function AccountsBoard({ view, context, openAdd }: AccountsBoardProps) {
         </div>
       </section>
       <section aria-labelledby="fin-cards" {...FOCUS_FRAME} className="stack">
-        <SectionHeading id="fin-cards" title="信用卡" summary={view.cards.length > 0 && <Sum label="未繳" amount={view.owedTotal} />} />
+        <SectionHeading
+          id="fin-cards"
+          title="信用卡"
+          summary={
+            view.cards.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+                <Sum label="未繳" amount={view.owedTotal} />
+                <Sum label="未出帳" amount={view.unbilledTotal} />
+              </div>
+            )
+          }
+        />
         <div className={CARD_GRID}>
           {view.cards.map((card) => (
             <CreditCard key={card.detail.id} card={card} {...shared} />

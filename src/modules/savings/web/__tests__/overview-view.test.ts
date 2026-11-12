@@ -48,6 +48,11 @@ describe("總資產大卡（合計的算法在 lib/ledger 的 assetSummary）", 
     expect(heroOf({ quotes: null }).investment).toMatchObject({ priced: false, quoteDate: null });
   });
 
+  // 使用者要的 未繳只算帳單 未出帳不加進來
+  it("信用卡未繳只算帳單：國泰卡 10/5 結帳的 12,480（還沒填帳單照紀錄估）算，10/10 刷的 7,000 與台新卡從沒結帳的 3,000 不算，停用的卡也不算", () => {
+    expect(heroOf().cardOwed).toBe(12_480);
+  });
+
   it("沒有那一類帳戶就不寫那一段", () => {
     expect(heroOf({ accounts: ACCOUNTS.filter((item) => item.kind === "deposit"), holdings: [] })).toEqual({ total: 132300, deposit: 132300, investment: null, cardOwed: null });
   });

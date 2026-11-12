@@ -5,6 +5,7 @@ import { insertTestUsers, setupTestDb } from "@/dev/test-db";
 import { stubCoreEnv } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
 import type { PublicCode } from "../../lib/codes";
+import { loginCookie } from "../../lib/cookie";
 import type { RedeemOutcome } from "../../lib/redeem";
 import type { GameRole } from "../../lib/responses";
 import { starrailAccounts, starrailRedeemCodes } from "../../data/schema";
@@ -269,6 +270,56 @@ describe("autoRedeemAll：替打開自動兌換的帳號送出還沒試過的兌
 
     expect(loggedText(log)).not.toContain("GIFTNEW");
     expect(loggedText(log)).not.toContain("ct_secret");
+  });
+});
+
+// 使用者要的 盡可能保存 cookie cookie_token_v2 最常被換掉 兌換前先用 stoken 換新
+describe("用帳號密碼登入的帳號：兌換前先用 stoken 換新 cookie", () => {
+  const LOGGED_IN = loginCookie({ aid: "41", mid: "mid_41", stoken: "v2_stoken", ltoken: "v2_old_lt", cookieToken: "v2_old_ct" });
+  const twoRoles = [role(), role({ uid: "800000002", nickname: "小號", region: "prod_official_asia" })];
+  const sentCookies = () => hoyolab.redeemCode.mock.calls.map(([cookie]) => cookie as string);
+
+  it("有新的碼時先換新，用新的 cookie_token_v2 兌換；同一個 HoYoLAB 帳號的角色只換一次", async () => {
+    await linkFor(me, twoRoles, "41", { cookie: LOGGED_IN });
+    hoyolab.tokensFromStoken.mockResolvedValue({ ok: true, ltoken: "v2_new_lt", cookieToken: "v2_new_ct" });
+
+    await autoRedeemAll(clock);
+
+    expect(hoyolab.tokensFromStoken).toHaveBeenCalledOnce();
+    expect(sentCookies()).toHaveLength(4);
+    expect(sentCookies().every((cookie) => cookie.includes("cookie_token_v2=v2_new_ct"))).toBe(true);
+  });
+
+  it("沒有新的碼：不換新", async () => {
+    await linkFor(me, [role()], "41", { cookie: LOGGED_IN });
+    const id = await accountIdOf("900000001");
+    await getDb().insert(starrailRedeemCodes).values([{ accountId: id, code: "GIFTNEW1", result: "success" }, { accountId: id, code: "GIFTNEW2", result: "success" }]);
+
+    await autoRedeemAll(clock);
+
+    expect(hoyolab.tokensFromStoken).not.toHaveBeenCalled();
+  });
+
+  it("換新被拒（例如改了密碼）：不兌換，標失效並寄一次登入失效的通知", async () => {
+    await linkFor(me, [role()], "41", { cookie: LOGGED_IN });
+    hoyolab.tokensFromStoken.mockResolvedValue({ ok: false, retcode: -100, message: "失效" });
+
+    await autoRedeemAll(clock);
+
+    expect(hoyolab.redeemCode).not.toHaveBeenCalled();
+    expect((await getDb().select().from(starrailAccounts))[0].cookieInvalid).toBe(true);
+    expect(notify).toHaveBeenCalledOnce();
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: "login_expired" }));
+  });
+
+  it("換新時連不上（暫時的）：用原本的 cookie 照樣兌換", async () => {
+    await linkFor(me, [role()], "41", { cookie: LOGGED_IN });
+    hoyolab.tokensFromStoken.mockResolvedValue({ ok: false, retcode: null, message: "連不上" });
+
+    await autoRedeemAll(clock);
+
+    expect(sentCookies()).toHaveLength(2);
+    expect(sentCookies().every((cookie) => cookie.includes("cookie_token_v2=v2_old_ct"))).toBe(true);
   });
 });
 

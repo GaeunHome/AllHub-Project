@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mockRequest } from "@/dev/mock-request";
+import { aigisHeader, interpretAppLogin, interpretEmailVerify, interpretTokens, verifyTicketOf } from "../../lib/passport";
 import { interpretPeak } from "../../lib/peak";
 import { interpretWarpLogin, interpretWarpPage, summarizeBanner, WARP_BANNERS, type WarpRow } from "../../lib/warps";
 import { handle } from "../mock.mjs";
@@ -117,5 +118,57 @@ describe("假的異相仲裁：跟 genshin.py 整理的格式一樣", () => {
     if (!result.ok) throw new Error(result.message);
 
     expect(result.data.peak.seasons).toEqual([]);
+  });
+});
+
+describe("假的帳號密碼登入：回應用正式的解析讀得懂（docs/development.md）", () => {
+  const LOGIN_PATH = "/account/ma-passport/api/appLoginByPassword";
+  const VERIFY_PATH = "/account/ma-verifier/api/verifyActionTicketPartly";
+  const appLogin = (headers: Record<string, string> = {}) => mockRequest(handle, LOGIN_PATH, { method: "POST", body: JSON.stringify({ account: "enc", password: "enc" }), headers });
+  const headerOf = (reply: Awaited<ReturnType<typeof appLogin>>) => (name: string) => (reply.headers[name] as string | undefined) ?? null;
+  const verifyCode = (code: string, ticket: string) =>
+    mockRequest(handle, VERIFY_PATH, { method: "POST", body: JSON.stringify({ action_type: "verify_for_component", action_ticket: ticket, email_captcha: code, verify_method: 2 }) });
+
+  it("先要圖形驗證，解完要 email 驗證；驗證碼 123456 對了才登入成功，拿到 stoken", async () => {
+    const first = await appLogin();
+    const captcha = interpretAppLogin(first.data, headerOf(first));
+    expect(captcha.kind).toBe("captcha");
+    if (captcha.kind !== "captcha") return;
+
+    const result = { captcha_id: captcha.captcha.captchaId, lot_number: "l", pass_token: "p", gen_time: "1", captcha_output: "o" };
+    const second = await appLogin({ "x-rpc-aigis": aigisHeader(captcha.captcha.sessionId, result) });
+    const email = interpretAppLogin(second.data, headerOf(second));
+    expect(email.kind).toBe("email");
+    if (email.kind !== "email") return;
+    const ticket = verifyTicketOf(email.verify)!;
+
+    expect(interpretEmailVerify((await verifyCode("000000", ticket)).data)).toMatchObject({ ok: false, message: expect.stringContaining("驗證碼錯了") });
+    expect(interpretEmailVerify((await verifyCode("123456", ticket)).data)).toEqual({ ok: true });
+    const done = await appLogin({ "x-rpc-verify": email.verify });
+    expect(interpretAppLogin(done.data, headerOf(done))).toMatchObject({ kind: "ok", stoken: expect.any(String), aid: "1" });
+  });
+
+  it("用 stoken 換新：每次換到不同的 ltoken_v2 與 cookie_token_v2；stoken=expired 時被拒", async () => {
+    const refresh = (cookie: string) => mockRequest(handle, "/account/ma-passport/token/getBySToken", { method: "POST", body: JSON.stringify({ dst_token_types: [2, 4] }), headers: { Cookie: cookie } });
+
+    const first = interpretTokens((await refresh("stoken=v2_mock_stoken; mid=mock_mid")).data);
+    const second = interpretTokens((await refresh("stoken=v2_mock_stoken; mid=mock_mid")).data);
+    expect(first.ok && second.ok && first.cookieToken !== second.cookieToken).toBe(true);
+    expect(interpretTokens((await refresh("stoken=expired; mid=mock_mid")).data)).toMatchObject({ ok: false, retcode: -100 });
+  });
+
+  it("Geetest 的程式（static.geetest.com/v4/gt4.js）是假的：定義 initGeetest4，按一下就通過", async () => {
+    const reply = await mockRequest(handle, "/v4/gt4.js");
+
+    expect(reply.headers["Content-Type"]).toContain("javascript");
+    expect(reply.body).toContain("window.initGeetest4");
+  });
+});
+
+describe("假的簽到", () => {
+  it("cookie 失效（ltoken_v2=expired）時讀簽到資訊也回 -100，跟正式環境一樣", async () => {
+    const reply = await mockRequest(handle, "/event/luna/os/info?act_id=x", { headers: { Cookie: "ltoken_v2=expired; ltuid_v2=1" } });
+
+    expect(reply.data).toMatchObject({ retcode: -100 });
   });
 });

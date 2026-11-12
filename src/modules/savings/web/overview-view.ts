@@ -35,7 +35,7 @@ export type HeroView = {
 };
 
 /** 只算啟用中的帳戶 合計是 accountsState 算好的 有持股的證券帳戶寫有沒有讀到股價與收盤日 */
-export function heroView({ accounts }: Pick<AccountsInput, "accounts">, { summary, investments }: Pick<AccountsState, "summary" | "investments">): HeroView {
+export function heroView({ accounts }: Pick<AccountsInput, "accounts">, { summary, investments, cards }: Pick<AccountsState, "summary" | "investments" | "cards">): HeroView {
   const has = (kind: AccountKind) => accounts.some((account) => account.active && account.kind === kind);
   const held = accounts.flatMap((account) => {
     const value = account.active && account.kind === "investment" ? investments.get(account.id) : undefined;
@@ -48,7 +48,7 @@ export function heroView({ accounts }: Pick<AccountsInput, "accounts">, { summar
     investment: has("investment")
       ? { value: summary.investment.value, profit: summary.investment.profit, priced: held.every((value) => value.priced), quoteDate: latestOf(held.map((value) => value.date)) }
       : null,
-    cardOwed: has("credit") ? summary.owed : null,
+    cardOwed: has("credit") ? cards.due : null,
   };
 }
 

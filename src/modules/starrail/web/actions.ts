@@ -2,13 +2,17 @@
 
 import { requireModule } from "@/core/auth";
 import { updateTags } from "@/core/cache";
+import { externalAssetUrl } from "@/core/external-url";
 import { runAction } from "@/core/action";
 import { INVALID_FORM_MESSAGE, formFlag, formId, formText } from "@/core/form";
 import type { FormState } from "@/core/ui/form-message";
+import { GEETEST_SCRIPT } from "../lib/geetest";
+import type { CaptchaChallenge } from "../lib/passport";
 import { removeAccount, setAutoRedeem, setGameReminders, setStaminaThreshold, type Outcome } from "../service/accounts";
 import { starrailTags } from "../service/cache-tags";
 import { checkinAccount } from "../service/checkin";
 import { linkAccount, type RoleChoice, type RoleSelection } from "../service/link";
+import { loginAccount, type LoginFields } from "../service/login";
 import { redeemCodeFor } from "../service/redeem";
 
 /**
@@ -50,6 +54,58 @@ export async function linkAccountAction(_prev: LinkState, formData: FormData): P
   } finally {
     // 選伺服器的步驟還沒寫入 不用讓快取失效
     if (!roles) updateTags(starrailTags.accounts);
+  }
+}
+
+/**
+ * 帳號密碼登入的下一步 captcha 是要解 Geetest verify 是要填 email 驗證碼
+ * 好幾個伺服器都有角色時 cookie 跟清單一起回到瀏覽器 跟貼上的一樣用 linkAccountAction 選
+ */
+export type LoginState = LinkState & { captcha?: GeetestChallenge; verify?: string; cookie?: string };
+
+/** script 是 Geetest 的程式 開發時改寫到假伺服器 */
+export type GeetestChallenge = CaptchaChallenge & { script: string };
+
+const optional = (formData: FormData, name: string) => {
+  const value = formText(formData, name).trim();
+  return value === "" ? {} : { [name]: value };
+};
+
+/** 帳號密碼只轉給 service 操作紀錄只寫動作名稱 */
+export async function loginAccountAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
+  const { id: userId } = await requireModule("starrail");
+  const fields: LoginFields = {
+    account: formText(formData, "account"),
+    password: formText(formData, "password"),
+    deviceId: formText(formData, "deviceId"),
+    ...optional(formData, "aigis"),
+    ...optional(formData, "verify"),
+    ...optional(formData, "code"),
+  };
+  let next: LoginState | undefined;
+  let linked: Pick<LinkState, "warning" | "accountId"> | undefined;
+  // service 回了下一步或錯誤就是沒寫入 預期外的錯誤不知道寫了沒有
+  let untouched = false;
+  try {
+    const state = await run("用帳號密碼連結帳號", async () => {
+      const result = await loginAccount(userId, fields);
+      if ("step" in result) {
+        untouched = true;
+        if (result.step === "captcha") next = { captcha: { ...result.captcha, script: externalAssetUrl(GEETEST_SCRIPT) ?? GEETEST_SCRIPT } };
+        else if (result.step === "email") next = { verify: result.verify };
+        else next = { roles: result.roles, cookie: result.cookie };
+        return;
+      }
+      if (!result.ok) {
+        untouched = true;
+        return { error: result.error };
+      }
+      linked = { accountId: result.accountId, ...(result.warning ? { warning: result.warning } : {}) };
+      return result.message;
+    });
+    return next ?? { ...state, ...linked };
+  } finally {
+    if (!untouched) updateTags(starrailTags.accounts);
   }
 }
 

@@ -208,6 +208,33 @@ describe("正在進行的項目：快結束的排前面", () => {
     expect(ongoing.warps.map((w) => w.name)).toEqual(["蝶立鋒鍔", "流光定影"]);
   });
 
+  // 使用者回報 當期 up 角色要在最上面 照 4.7 版真實的卡池整理
+  // 新角色自己一個池到版本結束 三個復刻五星同一個池 上半就結束
+  it("躍遷：角色池在光錐池前面；同一種裡只有一個五星的（當期 up）在好幾個五星的復刻池前面，再照結束時間", () => {
+    const item = (name: string, rarity: number) => ({ id: name, name, icon: null, rarity });
+    const pool = (id: string, kind: "character" | "lightCone", fives: string[], endsAt: string) => ({
+      id,
+      kind,
+      name: null,
+      startsAt: Date.parse("2026-11-05T02:00:00Z"),
+      endsAt: Date.parse(endsAt),
+      items: [...fives.map((name) => item(name, 5)), item("四星", 4)],
+    });
+    const calendar = {
+      version: "4.7",
+      challenges: [],
+      events: [],
+      warps: [
+        pool("101", "character", ["銀狼 LV.999", "Sparxie", "爻光"], "2026-11-26T03:59:00Z"),
+        pool("105", "character", ["阿哈"], "2026-12-16T04:00:00Z"),
+        pool("103", "lightCone", ["光錐 A", "光錐 B", "光錐 C"], "2026-11-26T03:59:00Z"),
+        pool("106", "lightCone", ["阿哈的光錐"], "2026-12-16T04:00:00Z"),
+      ],
+    };
+
+    expect(ongoingCalendar(calendar, new Date("2026-11-12T04:00:00Z")).warps.map((w) => w.id)).toEqual(["105", "101", "106", "103"]);
+  });
+
   it("剛好在結束的那一刻_已經結束；開始的那一刻_已經開始", () => {
     const item = { startsAt: NOW.getTime(), endsAt: NOW.getTime() + 1000 };
 

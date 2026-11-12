@@ -2,11 +2,12 @@ import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { setupTestDb } from "@/dev/test-db";
-import { coreInvites, coreUsers } from "../../db/schema";
+import { coreInvites, coreModuleDenials, coreUsers } from "../../db/schema";
 import { INVITE_DAY_OPTIONS, INVITE_USE_OPTIONS } from "../invite-rules";
 
 const {
   InviteInputError,
+  cleanupInvites,
   consumeInvite,
   createInvite,
   findUsableInvite,
@@ -214,5 +215,44 @@ describe("revokeInvite", () => {
     expect(await revokeInvite(id, later(2000))).toBe(false);
     expect((await inviteRow(id)).revokedAt).toEqual(later(1000));
     expect(await revokeInvite(99999, NOW)).toBe(false);
+  });
+});
+
+// 使用者要的 失效的邀請不要一直留著 到期或撤銷超過 30 天就刪
+describe("cleanupInvites（到期或撤銷超過 30 天的邀請自動刪掉）", () => {
+  const at = (days: number) => later(days * DAY);
+  async function invite(owner: { id: string }, note: string, values: { expiresAt: Date; revokedAt?: Date; usedCount?: number; deniedModules?: string[] }) {
+    await getDb()
+      .insert(coreInvites)
+      .values({ tokenHash: note, createdBy: owner.id, createdAt: at(-90), maxUses: 1, usedCount: 0, note, ...values });
+  }
+  const notes = async () => (await getDb().select({ note: coreInvites.note }).from(coreInvites)).map((row) => row.note).sort();
+
+  it("到期超過 30 天、撤銷超過 30 天的刪掉；剛好 30 天、30 天內與還有效的留著；用完的照到期算；摘要寫刪了幾個", async () => {
+    const owner = await createOwner();
+    await invite(owner, "31 天前到期", { expiresAt: at(-31) });
+    await invite(owner, "剛好 30 天前到期", { expiresAt: at(-30) });
+    await invite(owner, "用完 31 天前到期", { expiresAt: at(-31), usedCount: 1 });
+    await invite(owner, "用完還沒到期", { expiresAt: at(5), usedCount: 1 });
+    await invite(owner, "31 天前撤銷", { expiresAt: at(-10), revokedAt: at(-31) });
+    await invite(owner, "上週撤銷", { expiresAt: at(20), revokedAt: at(-7) });
+    await invite(owner, "還有效", { expiresAt: at(7) });
+
+    expect(await cleanupInvites(NOW)).toBe("刪除 3 個到期或撤銷超過 30 天的邀請");
+    expect(await notes()).toEqual(["上週撤銷", "剛好 30 天前到期", "用完還沒到期", "還有效"].sort());
+  });
+
+  // 使用者問過會不會影響別人的帳號 能用哪些功能在註冊時已經寫進模組權限
+  it("用刪掉的邀請註冊的帳號照常：帳號與它不能用的功能都不動", async () => {
+    const owner = await createOwner();
+    const [member] = await getDb().insert(coreUsers).values({ username: "member", passwordHash: "scrypt$unused", role: "member" }).returning();
+    await getDb().insert(coreModuleDenials).values({ userId: member.id, moduleId: "twitch" });
+    await invite(owner, "很久以前的邀請", { expiresAt: at(-40), usedCount: 1, deniedModules: ["twitch"] });
+
+    await cleanupInvites(NOW);
+
+    expect(await notes()).toEqual([]);
+    expect((await getDb().select({ username: coreUsers.username }).from(coreUsers)).map((row) => row.username).sort()).toEqual(["member", "owner"]);
+    expect(await getDb().select({ userId: coreModuleDenials.userId, moduleId: coreModuleDenials.moduleId }).from(coreModuleDenials)).toEqual([{ userId: member.id, moduleId: "twitch" }]);
   });
 });

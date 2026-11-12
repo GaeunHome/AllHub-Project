@@ -217,7 +217,7 @@ function actCalendar(uid) {
     const c = CHARACTERS.find((x) => x.cone?.[0] === id);
     return { item_id: String(id), item_name: c.cone[1], item_url: `${IMG}/equip/${id}.png`, rarity: String(c.cone[2]), avatar_base_type: String(c.base_type), is_forward: c.cone[2] === 5, wiki_url: "" };
   };
-  const pool = (id, name, type, avatars, equips) => ({ id, name, type, avatar_list: avatars, equip_list: equips, is_after_version: false, time_info: time(-9, 11.4), version: "3.7" });
+  const pool = (id, name, type, avatars, equips, endDays = 11.4) => ({ id, name, type, avatar_list: avatars, equip_list: equips, is_after_version: false, time_info: time(-9, endDays), version: "3.7" });
   return {
     cur_game_version: "3.7",
     now: sec(now),
@@ -235,11 +235,15 @@ function actCalendar(uid) {
       act(31004, "ActivityTypeOther", "常駐的模擬宇宙", "OtherActStatusUnFinish", 0, 0, { start_ts: "0", end_ts: "0", start_time: "", end_time: "", now: sec(now) }),
       act(31005, "ActivityTypeOther", "下個版本的活動", "OtherActStatusUnopened", 0, 10, time(5, 20)),
     ],
+    // 照 4.7 版 新角色自己一個池到版本結束 三個復刻五星同一個池 上半就結束
     avatar_card_pool_list: [
-      pool("4001", "蝶立鋒鍔", "CardPoolRole", [avatar(1102), avatar(1001), avatar(1002), avatar(1105)], []),
-      pool("4002", "天殛之鎗", "CardPoolRole", [avatar(1005), avatar(1001), avatar(1002), avatar(1105)], []),
+      pool("4001", "蝶立鋒鍔", "CardPoolRole", [avatar(1102), avatar(1213), avatar(1101), avatar(1001), avatar(1002), avatar(1105)], []),
+      pool("4002", "天殛之鎗", "CardPoolRole", [avatar(1402), avatar(1001), avatar(1002), avatar(1105)], [], 32.4),
     ],
-    equip_card_pool_list: [pool("5001", "流光定影", "CardPoolEquipment", [], [cone(23001), cone(21000), cone(21010), cone(21005)])],
+    equip_card_pool_list: [
+      pool("5001", "流光定影", "CardPoolEquipment", [], [cone(23001), cone(23015), cone(23003), cone(21000), cone(21010), cone(21005)]),
+      pool("5002", "光陰織金", "CardPoolEquipment", [], [cone(23036), cone(21000), cone(21010), cone(21005)], 32.4),
+    ],
   };
 }
 
@@ -448,6 +452,48 @@ const WARP_PAGE_SIZE = 4;
 const WARP_VERSION = 41;
 const BADGE_COOKIES = ["e_hkrpg_token=mock-badge; Path=/; Domain=.hoyolab.com; Max-Age=172800; HttpOnly; Secure", "e_lrsag=mock-risk; Path=/", "SERVERID=mock-server; Path=/", "SERVERCORSID=mock-cors; Path=/; SameSite=None", "acw_tc=mock-acw; Path=/; HttpOnly", "cdn_sec_tc=mock-cdn; Path=/"];
 
+// 帳號密碼登入 帳號密碼用 HoYoverse 的公鑰加密過 假伺服器解不開
+// 不看帳號密碼 依帶了哪一種驗證走下一步 圖形驗證 email 驗證 成功
+const MOCK_AIGIS = JSON.stringify({ session_id: "mock-session", mmt_type: 1, data: JSON.stringify({ success: 1, gt: "mock-captcha", risk_type: "slide", use_v4: true }) });
+const MOCK_TICKET = "mock-ticket";
+const MOCK_VERIFY = JSON.stringify({ risk_ticket: "mock-risk", verify_str: JSON.stringify({ ticket: MOCK_TICKET, verify_type: "email" }) });
+const MOCK_EMAIL_CODE = "123456";
+const verifiedTickets = new Set();
+/** 每次換新拿到不同的 token 看得出換過 */
+let tokenSerial = 0;
+
+function appLogin(req, json) {
+  if (req.headers["x-rpc-verify"]) {
+    if (!verifiedTickets.has(MOCK_TICKET)) return json(200, { retcode: -3239, message: "", data: null }, { "x-rpc-verify": MOCK_VERIFY });
+    verifiedTickets.delete(MOCK_TICKET);
+    return json(200, ok({ token: { token_type: 1, token: "v2_mock_stoken" }, user_info: { aid: "1", mid: "mock_mid", account_name: "mock" } }));
+  }
+  if (req.headers["x-rpc-aigis"]?.startsWith("mock-session;")) return json(200, { retcode: -3239, message: "", data: null }, { "x-rpc-verify": MOCK_VERIFY });
+  return json(200, { retcode: -3101, message: "", data: null }, { "x-rpc-aigis": MOCK_AIGIS });
+}
+
+/** static.geetest.com 的 gt4.js 按一下按鈕就算通過 */
+const FAKE_GEETEST = `window.initGeetest4 = function (config, ready) {
+  var handlers = {};
+  var button;
+  var captcha = {
+    appendTo: function (target) {
+      button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn-secondary";
+      button.textContent = "假的圖形驗證（" + config.riskType + "）：按這裡通過";
+      button.onclick = function () { if (handlers.success) handlers.success(); };
+      target.appendChild(button);
+    },
+    onSuccess: function (fn) { handlers.success = fn; },
+    onError: function (fn) { handlers.error = fn; },
+    getValidate: function () { return { lot_number: "mock-lot", pass_token: "mock-pass", gen_time: "1700000000", captcha_output: "mock-output" }; },
+    destroy: function () { if (button) button.remove(); },
+  };
+  setTimeout(function () { ready(captcha); }, 0);
+};
+`;
+
 /** 新的在前 max_id 是這一頁開始的位置 真的怎麼算看不出來 回應的形狀一樣就好 */
 function warpPage(gachaType, maxId) {
   const list = WARP_LISTS[gachaType] ?? [];
@@ -457,9 +503,22 @@ function warpPage(gachaType, maxId) {
   return { version_id: WARP_VERSION, next_max_id: has_more ? String(end) : "", has_more, list: list.slice(start, end) };
 }
 
-export function handle({ req, url, body, json, image }) {
+export function handle({ req, url, body, json, text, image }) {
   const cookie = req.headers.cookie ?? "";
   const isExpired = cookie.includes("ltoken_v2=expired");
+  if (url.pathname === "/account/ma-passport/api/appLoginByPassword" && req.method === "POST") return appLogin(req, json);
+  if (url.pathname === "/account/ma-verifier/api/verifyActionTicketPartly" && req.method === "POST") {
+    const { action_ticket: ticket, email_captcha: code } = JSON.parse(body || "{}");
+    if (ticket !== MOCK_TICKET || code !== MOCK_EMAIL_CODE) return json(200, { retcode: -3205, message: "Invalid verification code", data: null });
+    verifiedTickets.add(ticket);
+    return json(200, ok(null));
+  }
+  if (url.pathname === "/account/ma-passport/token/getBySToken" && req.method === "POST") {
+    if (!hasCookieKey(cookie, "stoken") || cookie.includes("stoken=expired")) return json(200, expired);
+    tokenSerial += 1;
+    return json(200, ok({ tokens: [{ token_type: 2, token: `v2_mock_lt_${tokenSerial}` }, { token_type: 4, token: `v2_mock_ct_${tokenSerial}` }] }));
+  }
+  if (url.pathname === "/v4/gt4.js") return text(200, FAKE_GEETEST, "application/javascript");
   if (url.pathname === "/account/binding/api/getUserGameRolesByCookie") {
     if (isExpired) return json(200, expired);
     const main = { game_biz: "hkrpg_global", region: "prod_official_cht", game_uid: mainUidOf(cookie), nickname: "開拓者", level: 70, region_name: "TW, HK, MO" };
@@ -527,6 +586,7 @@ export function handle({ req, url, body, json, image }) {
   // hoyo-codes.seria.moe
   if (url.pathname === "/codes" && url.searchParams.get("game") === "hkrpg") return json(200, { codes: PUBLIC_CODES, game: "hkrpg" });
   if (url.pathname === "/event/luna/os/info") {
+    if (isExpired) return json(200, expired);
     const uid = /ltuid_v2=(\d+)/.exec(cookie)?.[1] ?? "?";
     return json(200, ok({ total_sign_day: signedUids.has(uid) ? 8 : 7, is_sign: signedUids.has(uid) }));
   }

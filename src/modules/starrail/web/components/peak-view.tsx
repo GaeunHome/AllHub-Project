@@ -126,7 +126,7 @@ function BossCard({ boss, names }: { boss: PeakBoss; names: Names }) {
                 {boss.buff.description && <InfoTip label={`${boss.buff.name}的說明`}>{boss.buff.description}</InfoTip>}
               </p>
             )}
-            <div className="[--sr-team:3.5rem]">
+            <div className="[--sr-team:4.5rem]">
               <Team avatars={boss.avatars} names={names} />
             </div>
           </>
@@ -163,7 +163,11 @@ function KnightCard({ knight, label, names }: { knight: PeakStage; label: string
             <p className="text-ink">還沒挑戰</p>
           )}
         </div>
-        {knight.cleared && <Team avatars={knight.avatars} names={names} />}
+        {knight.cleared && (
+          <div className="sr-knight-team">
+            <Team avatars={knight.avatars} names={names} />
+          </div>
+        )}
       </div>
     </li>
   );

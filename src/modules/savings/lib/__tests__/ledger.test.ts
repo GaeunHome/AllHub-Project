@@ -164,11 +164,11 @@ describe("assetSummary（總資產與信用卡未繳）", () => {
       [7, balanceOf(1000, { cost: 500, profit: 500 })],
     ]);
 
-    expect(assetSummary(accounts, balances)).toEqual({ assets: 125_400, deposit: 36_200, investment: { value: 89_200, cost: 80_000, profit: 9200 }, owed: 1200 });
+    expect(assetSummary(accounts, balances)).toEqual({ assets: 125_400, deposit: 36_200, investment: { value: 89_200, cost: 80_000, profit: 9200 } });
   });
 
   it("什麼都沒有_全部是 0", () => {
-    expect(assetSummary([], new Map())).toEqual({ assets: 0, deposit: 0, investment: { value: 0, cost: 0, profit: 0 }, owed: 0 });
+    expect(assetSummary([], new Map())).toEqual({ assets: 0, deposit: 0, investment: { value: 0, cost: 0, profit: 0 } });
   });
 
   it("有持股的投資帳戶用持股的市值與賺賠，不看帳上的餘額；沒有持股的照帳上的餘額（更新市值填的數字）", () => {
@@ -184,7 +184,6 @@ describe("assetSummary（總資產與信用卡未繳）", () => {
       assets: 108_450 + 53_644 + 20_000,
       deposit: 108_450,
       investment: { value: 53_644 + 20_000, cost: 47_400 + 18_000, profit: 6244 + 2000 },
-      owed: 0,
     });
   });
 });

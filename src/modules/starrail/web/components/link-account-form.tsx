@@ -1,64 +1,133 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { DialogButton, useDialogForm } from "@/core/ui/dialog";
+import { useEffect, useId, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { Dialog, useDialog, useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { useToast } from "@/core/ui/toast";
 import { linkAccountAction, type LinkState } from "../actions";
 import { accountHref } from "../../lib/urls";
 import type { RoleChoice } from "../../service/link";
+import { BoardingPass, PassTrack } from "./boarding-pass";
+import { LoginLinkForm } from "./login-link-form";
 import { GoldChip } from "./sr-visuals";
 
-/** 還沒連結時直接顯示表單 已有帳號時只是一個按鈕 要新增或更新 cookie 再打開視窗 */
-export function LinkAccountForm({ defaultOpen }: { defaultOpen: boolean }) {
-  if (!defaultOpen) return <LinkAccountDialog />;
+/**
+ * 使用者選的 登入用彈出視窗 樣子是星穹列車的乘車證
+ * 還沒連結時是一張大卡片加按鈕 已有帳號時只是一個按鈕 打開的是同一個視窗
+ */
+export function LinkAccountForm({ variant }: { variant: "hero" | "button" }) {
+  const dialog = useDialog();
+  const titleId = useId();
+  const heroId = useId();
+
   return (
-    <section aria-labelledby="sr-link-account" className="sr-panel stack p-5 sm:p-6">
-      <h3 id="sr-link-account" className="flex min-h-11 items-center gap-3 font-semibold text-ink">
-        <Icon name="key-round" className="size-5 text-sr-gold" />
-        連結 HoYoLAB 帳號
-      </h3>
-      <LinkAccountFields />
-    </section>
+    <>
+      {variant === "hero" ? (
+        <section aria-labelledby={heroId} className="sr-panel flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:p-8">
+          <span className="sr-pass-emblem size-14" aria-hidden>
+            <Icon name="train-front" className="size-7" />
+          </span>
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <h3 id={heroId} className="text-xl font-semibold text-ink">
+              連結 HoYoLAB 帳號
+            </h3>
+            <p className="text-ink">用 HoYoverse 帳號登入，就能看到開拓力、角色與戰績；登入過期時會自動換新。</p>
+          </div>
+          <button {...dialog.triggerProps} className="btn-primary sr-pass-cta self-start sm:self-center">
+            <Icon name="link" className="size-4" />
+            連結帳號
+          </button>
+        </section>
+      ) : (
+        <div className="button-row">
+          <button {...dialog.triggerProps} className="btn-secondary">
+            <Icon name="key-round" className="size-4 text-sr-gold" />
+            新增帳號或更新 cookie
+          </button>
+        </div>
+      )}
+      {/* sr-dialog 是星空底 票根與標題由乘車證自己畫 連結好了就關掉 結果用提示視窗 */}
+      <Dialog {...dialog.dialogProps} bare labelledBy={titleId} size="lg" className="sr-dialog sr-pass-dialog">
+        <BoardingPass titleId={titleId} onClose={dialog.close}>
+          <LinkAccountFields onLinked={() => dialog.done()} />
+        </BoardingPass>
+      </Dialog>
+    </>
   );
 }
 
-/** 視窗也套星空配色與切角 連結好了就關掉 結果用提示視窗 */
-function LinkAccountDialog() {
+type Mode = "login" | "cookie";
+
+/** 帳號密碼登入後好幾個伺服器都有角色 cookie 交給貼上 cookie 那一份選伺服器 */
+type Handoff = { cookie: string; roles: RoleChoice[] };
+
+/**
+ * 使用者要的 盡可能不用重貼 cookie 預設用帳號密碼登入
+ * 貼 cookie 是下方的小連結 HoYoverse 改版讓登入失效時照常能用
+ */
+export function LinkAccountFields({ onLinked }: { onLinked?: () => void }) {
+  const [mode, setMode] = useState<Mode>("login");
+  const [handoff, setHandoff] = useState<Handoff | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const onDone = useLinkedDone(onLinked);
+
+  // 換了表單 按下的連結或按鈕跟著不見 焦點放到新表單的第一個欄位
+  const show = (change: () => void) => {
+    flushSync(change);
+    box.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+  };
+
   return (
-    <div className="button-row">
-      <DialogButton
-        label={
-          <>
-            <Icon name="key-round" className="size-4 text-sr-gold" />
-            新增帳號或更新 cookie
-          </>
-        }
-        title="新增帳號或更新 cookie"
-        icon={<Icon name="key-round" />}
-        size="lg"
-        className="sr-dialog"
-      >
-        {({ done }) => <LinkAccountFields onLinked={() => done()} />}
-      </DialogButton>
+    <div ref={box} className="stack">
+      {handoff ? (
+        <CookieLinkForm onDone={onDone} handoff={handoff} onBack={() => show(() => setHandoff(null))} />
+      ) : (
+        <>
+          {mode === "login" ? <LoginLinkForm onRoles={(roles, cookie) => show(() => setHandoff({ roles, cookie }))} onDone={onDone} /> : <CookieLinkForm onDone={onDone} />}
+          <button type="button" onClick={() => show(() => setMode(mode === "login" ? "cookie" : "login"))} className="sr-pass-switch">
+            {mode === "login" ? "登不進去？改用貼上 cookie" : "改回帳號密碼登入"}
+            <Icon name="chevron-right" className="size-4" />
+          </button>
+        </>
+      )}
     </div>
   );
+}
+
+/** 連結好了 關掉視窗 結果用提示視窗 導向剛連結的帳號 */
+function useLinkedDone(onLinked?: () => void) {
+  const router = useRouter();
+  const toast = useToast();
+  return (message: string | undefined, result: LinkState) => {
+    onLinked?.();
+    if (result.accountId === undefined) return;
+    toast.success(message ?? "已連結帳號");
+    if (result.warning) toast.warning(result.warning);
+    // 捲回最上面 看得到剛連結的帳號
+    router.push(accountHref(result.accountId));
+  };
 }
 
 /** 還要選伺服器或出錯時留在表單裡 */
 const isLinked = (result: LinkState) => !result.error && !result.roles;
 
+type CookieLinkFormProps = {
+  onDone: (message: string | undefined, result: LinkState) => void;
+  /** 帳號密碼登入後直接從選伺服器開始 返回時回到登入 */
+  handoff?: Handoff;
+  onBack?: () => void;
+};
+
 /**
  * cookie 只放在表單狀態裡 選伺服器的第二步再送一次 伺服器不存
  * 連結好了導向剛連結的帳號 結果用提示視窗
  */
-function LinkAccountFields({ onLinked }: { onLinked?: () => void }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [cookie, setCookie] = useState("");
-  const [choices, setChoices] = useState<RoleChoice[] | null>(null);
+export function CookieLinkForm({ onDone, handoff, onBack }: CookieLinkFormProps) {
+  const [cookie, setCookie] = useState(handoff?.cookie ?? "");
+  const [choices, setChoices] = useState<RoleChoice[] | null>(handoff?.roles ?? null);
   const step = async (previous: LinkState, formData: FormData) => {
     const result = await linkAccountAction(previous, formData);
     if (result.roles) setChoices(result.roles);
@@ -70,12 +139,7 @@ function LinkAccountFields({ onLinked }: { onLinked?: () => void }) {
       // 連結好了就不用再留著 cookie
       setChoices(null);
       setCookie("");
-      onLinked?.();
-      if (result.accountId === undefined) return;
-      toast.success(message ?? "已連結帳號");
-      if (result.warning) toast.warning(result.warning);
-      // 捲回最上面 看得到剛連結的帳號
-      router.push(accountHref(result.accountId));
+      onDone(message, result);
     },
     isLinked,
   );
@@ -88,8 +152,15 @@ function LinkAccountFields({ onLinked }: { onLinked?: () => void }) {
 
   return (
     <form {...formProps} className="stack">
+      {handoff && <PassTrack current={3} />}
       {choices ? (
-        <RoleChooser cookie={cookie} choices={choices} pending={pending} onBack={() => setChoices(null)} />
+        <RoleChooser
+          cookie={cookie}
+          choices={choices}
+          pending={pending}
+          backLabel={handoff ? "重新登入" : undefined}
+          onBack={handoff && onBack ? onBack : () => setChoices(null)}
+        />
       ) : (
         <>
           <CookieHelp />
@@ -140,16 +211,16 @@ function CookieHelp() {
         </li>
         <li>值要整段複製：在值上點兩下選取時，遇到「-」就會停住，只選到一部分。</li>
         <li>開拓月曆、兌換碼與躍遷紀錄要用 <code>cookie_token_v2</code> 和 <code>account_</code> 開頭的兩個；找不到 <code>cookie_token_v2</code> 時，登出 HoYoLAB 再重新登入，然後重新複製。</li>
-        <li>cookie 等同登入憑證，會加密後才存。登出 HoYoLAB 或改密碼後會失效，到時再貼一次。</li>
+        <li>cookie 等同登入憑證，會加密後才存。登出 HoYoLAB 或改密碼後會失效，到時再貼一次；想自動換新就改用帳號密碼登入。</li>
       </ol>
     </details>
   );
 }
 
-type RoleChooserProps = { cookie: string; choices: RoleChoice[]; pending: boolean; onBack: () => void };
+type RoleChooserProps = { cookie: string; choices: RoleChoice[]; pending: boolean; onBack: () => void; backLabel?: string };
 
 /** 好幾個伺服器都有角色時讓使用者勾選要連結哪些 預設勾等級最高的 */
-export function RoleChooser({ cookie, choices, pending, onBack }: RoleChooserProps) {
+export function RoleChooser({ cookie, choices, pending, onBack, backLabel = "重新貼 cookie" }: RoleChooserProps) {
   return (
     <fieldset className="stack min-w-0">
       {/* legend 浮動後才是一般的子元素 吃得到父層的 gap */}
@@ -175,7 +246,7 @@ export function RoleChooser({ cookie, choices, pending, onBack }: RoleChooserPro
           {pending ? "連結中…" : "連結勾選的帳號"}
         </button>
         <button type="button" onClick={onBack} disabled={pending} className="btn-secondary">
-          重新貼 cookie
+          {backLabel}
         </button>
       </div>
     </fieldset>

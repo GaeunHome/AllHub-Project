@@ -134,6 +134,62 @@
   color: #fff;
   background: linear-gradient(to top, rgb(5 8 26 / 0.88), transparent);
 }
+/* 小卡放大時星魂與等級的字跟著放大 */
+.sr-member-eidolon {
+  font-size: max(0.5625rem, calc(var(--sr-team, 3rem) * 0.14));
+  line-height: 1.5;
+}
+.sr-member-level {
+  font-size: max(0.6875rem, calc(var(--sr-team, 3rem) * 0.16));
+}
+/* 終局戰績一層的隊伍 使用者選的 兩隊兩欄 星啟模式的三隊三欄 */
+/* 欄數與小卡大小看這一層卡片的寬度 手機一隊一列 */
+.sr-teams {
+  display: grid;
+  gap: 1rem 1.5rem;
+  --sr-team: 4.25rem;
+}
+@container (width >= 42rem) {
+  .sr-teams {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (width >= 56rem) {
+  .sr-teams[data-teams="2"] {
+    --sr-team: 5.5rem;
+  }
+}
+@container (width >= 72rem) {
+  .sr-teams[data-teams="3"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    --sr-team: 5rem;
+  }
+}
+@container (width >= 80rem) {
+  .sr-teams[data-teams="3"] {
+    --sr-team: 5.5rem;
+  }
+}
+.sr-team-number {
+  @apply grid size-7 place-items-center rounded-sm text-sm leading-none font-bold;
+  border: 1px solid var(--sr-gold-line);
+  color: var(--sr-gold-ink);
+  background-color: var(--sr-gold-soft);
+}
+/* 異相仲裁的騎士卡 三張並排時窄 小卡跟著騎士卡的寬度放大 */
+.sr-knight-team {
+  --sr-team: 3rem;
+}
+@container (width >= 20rem) {
+  .sr-knight-team {
+    --sr-team: 3.75rem;
+  }
+}
+@container (width >= 32rem) {
+  .sr-knight-team {
+    --sr-team: 4.25rem;
+  }
+}
 /* 一關的星數 拿到的金色 沒拿到的淡白 王棋的星另外一個顏色 */
 .sr-stars {
   @apply inline-flex gap-0.5 text-lg leading-none;
@@ -401,3 +457,156 @@
   }
 }
 
+
+/* 使用者選的 連結帳號的視窗是星穹列車的乘車證 手機上票根在上面 寬螢幕在左邊 */
+.sr-pass-dialog {
+  --sr-stub: 6.5rem;
+}
+.sr-pass {
+  @apply flex min-h-full flex-col;
+}
+.sr-pass-stub {
+  @apply flex shrink-0 items-center gap-3 px-4 py-3.5;
+  color: var(--sr-gold-ink);
+  background:
+    radial-gradient(circle at 30% 15%, rgb(230 194 122 / 0.16), transparent 60%),
+    linear-gradient(180deg, #232b66, #111743);
+  border-bottom: 2px dashed var(--sr-gold-line);
+}
+.sr-pass-emblem {
+  @apply grid size-11 shrink-0 place-items-center rounded-full;
+  color: var(--sr-gold);
+  border: 1px solid var(--sr-gold-line);
+  background: radial-gradient(circle, rgb(230 194 122 / 0.22), rgb(230 194 122 / 0.04) 70%);
+  box-shadow: 0 0 18px rgb(230 194 122 / 0.25);
+}
+.sr-pass-line {
+  @apply font-bold;
+  letter-spacing: 0.3em;
+}
+.sr-pass-date {
+  @apply ml-auto flex flex-col items-end text-xs leading-tight;
+}
+.sr-pass-date .sr-num {
+  @apply text-2xl font-bold;
+  color: var(--sr-gold);
+}
+.sr-pass-main {
+  @apply flex min-w-0 flex-1 flex-col gap-4 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))];
+}
+.sr-pass-header {
+  @apply flex items-start justify-between gap-3;
+}
+.sr-pass-kicker {
+  @apply text-xs font-semibold;
+  letter-spacing: 0.25em;
+  color: var(--sr-gold);
+}
+/* 登入走到哪一站 做完的金色實心 目前這站發光 還沒到的空心 */
+.sr-pass-track {
+  @apply grid grid-cols-3 text-sm;
+  color: var(--ink-soft);
+}
+.sr-pass-track li {
+  @apply relative flex flex-col items-center gap-1.5 text-center;
+}
+.sr-pass-track li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 0.375rem;
+  left: calc(50% + 0.875rem);
+  right: calc(-50% + 0.875rem);
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--line-strong) 0 6px, transparent 6px 10px);
+}
+.sr-pass-track li[data-state="done"]::after {
+  background: var(--sr-gold);
+}
+.sr-pass-track li[data-state="current"] {
+  @apply font-semibold;
+  color: var(--sr-gold-ink);
+}
+.sr-pass-stop {
+  @apply size-3.5 rounded-full;
+  border: 2px solid var(--line-strong);
+  background: #0d1233;
+}
+.sr-pass-track li[data-state="done"] .sr-pass-stop {
+  border-color: var(--sr-gold);
+  background: var(--sr-gold);
+}
+.sr-pass-track li[data-state="current"] .sr-pass-stop {
+  border-color: var(--sr-gold);
+  box-shadow:
+    0 0 0 4px rgb(230 194 122 / 0.2),
+    0 0 12px rgb(230 194 122 / 0.6);
+}
+/* 票上的欄位只留底線 */
+.sr-pass input.input {
+  @apply rounded-none;
+  border-width: 0 0 1px;
+  border-color: var(--sr-gold-line);
+  background-color: rgb(255 255 255 / 0.04);
+}
+.sr-pass input.input:focus {
+  border-color: var(--sr-gold);
+  box-shadow:
+    0 2px 0 0 var(--sr-gold),
+    0 10px 16px -12px rgb(230 194 122 / 0.7);
+}
+/* 金色按鈕兩端是斜角 焦點框畫在裡面才不會被切掉 */
+.sr-pass .btn-primary,
+.sr-pass-cta {
+  @apply rounded-none px-7;
+  clip-path: polygon(0.75rem 0, calc(100% - 0.75rem) 0, 100% 50%, calc(100% - 0.75rem) 100%, 0.75rem 100%, 0 50%);
+  background-image: linear-gradient(180deg, #f3d491, #d4a653);
+}
+.sr-pass .btn-primary:hover:not(:disabled, [aria-disabled="true"]),
+.sr-pass-cta:hover:not(:disabled, [aria-disabled="true"]) {
+  filter: brightness(1.08);
+}
+.sr-pass .btn-primary:focus-visible,
+.sr-pass-cta:focus-visible {
+  outline: 2px solid var(--on-brand);
+  outline-offset: -5px;
+}
+.sr-pass-cta {
+  @apply min-h-12 text-base;
+}
+/* 換登入方式的小連結 像票的最下面一行 */
+.sr-pass-switch {
+  @apply inline-flex min-h-11 cursor-pointer items-center justify-end gap-1 pt-3 text-sm font-semibold;
+  color: var(--sr-gold-ink);
+  border-top: 1px solid var(--line);
+}
+.sr-pass-switch:hover {
+  @apply underline underline-offset-4;
+}
+@media (min-width: 40rem) {
+  .sr-pass {
+    @apply flex-row;
+  }
+  .sr-pass-stub {
+    @apply flex-col justify-between px-3 py-6;
+    width: var(--sr-stub);
+    border-bottom: 0;
+    border-right: 2px dashed var(--sr-gold-line);
+  }
+  .sr-pass-line {
+    @apply text-lg;
+    writing-mode: vertical-rl;
+    letter-spacing: 0.5em;
+  }
+  .sr-pass-date {
+    @apply ml-0 items-center;
+  }
+  .sr-pass-main {
+    @apply px-7 pt-6 pb-7;
+  }
+  /* 票根與表單之間的撕口 視窗上下緣各挖一個半圓 */
+  .sr-pass-dialog {
+    mask:
+      radial-gradient(circle 10px at var(--sr-stub) 0, transparent 97%, #000) top / 100% 51% no-repeat,
+      radial-gradient(circle 10px at var(--sr-stub) 100%, transparent 97%, #000) bottom / 100% 51% no-repeat;
+  }
+}

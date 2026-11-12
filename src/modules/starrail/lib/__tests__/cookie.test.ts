@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { missingKeysWarning, parseHoyolabCookie, withAccountIds } from "../cookie";
+import { canRefresh, loginCookie, missingKeysWarning, parseHoyolabCookie, refreshPartsOf, requestCookie, withAccountIds, withTokens } from "../cookie";
 
 describe("parseHoyolabCookie：只留需要的鍵", () => {
   it("其他追蹤用的 cookie 丟掉，只留 HoYoLAB 介面要用的", () => {
@@ -146,5 +146,37 @@ describe("withAccountIds：開拓月曆與兌換沒貼 account_ 開頭的欄位�
 
   it("沒有 ltmid_v2_補不出 account_mid_v2（只補 account_id_v2）", () => {
     expect(pairs(withAccountIds("ltoken_v2=v2_t; ltuid_v2=42"))).toEqual(["account_id_v2=42", "ltoken_v2=v2_t", "ltuid_v2=42"]);
+  });
+});
+
+// 使用者要的 盡可能保存 cookie 用帳號密碼登入時多存 stoken 失效時拿它換新
+describe("stoken：用帳號密碼登入時多存的換新憑證", () => {
+  const LOGGED_IN = loginCookie({ aid: "123456", mid: "mid_x", stoken: "v2_stoken", ltoken: "v2_lt", cookieToken: "v2_ct" });
+
+  it("登入拿到的組成跟貼上的一樣的六個鍵，加上 stoken（帳號 id 與 mid 各填 lt 與 account 兩個）", () => {
+    expect(LOGGED_IN).toBe("ltoken_v2=v2_lt; ltuid_v2=123456; ltmid_v2=mid_x; account_id_v2=123456; account_mid_v2=mid_x; cookie_token_v2=v2_ct; stoken=v2_stoken");
+  });
+
+  it("貼上的 cookie 帶著 stoken 時也留著", () => {
+    expect(parseHoyolabCookie("ltoken_v2=v2_lt; ltuid_v2=1; ltmid_v2=m; stoken=v2_s")).toMatchObject({ ok: true, cookie: "ltoken_v2=v2_lt; ltuid_v2=1; ltmid_v2=m; stoken=v2_s" });
+  });
+
+  it("送給一般 HoYoLAB 介面的 cookie 拿掉 stoken，只有換新時才送出", () => {
+    expect(requestCookie(LOGGED_IN)).toBe("ltoken_v2=v2_lt; ltuid_v2=123456; ltmid_v2=mid_x; account_id_v2=123456; account_mid_v2=mid_x; cookie_token_v2=v2_ct");
+    expect(requestCookie("ltoken_v2=v2_lt; ltuid_v2=1")).toBe("ltoken_v2=v2_lt; ltuid_v2=1");
+  });
+
+  it("有 stoken 與 ltmid_v2 才能換新；貼上的 cookie 通常沒有 stoken", () => {
+    expect(canRefresh(LOGGED_IN)).toBe(true);
+    expect(refreshPartsOf(LOGGED_IN)).toEqual({ stoken: "v2_stoken", mid: "mid_x" });
+    expect(canRefresh("ltoken_v2=v2_lt; ltuid_v2=1; ltmid_v2=m")).toBe(false);
+    expect(refreshPartsOf("ltoken_v2=v2_lt; ltuid_v2=1; stoken=v2_s")).toBeNull();
+  });
+
+  it("換新後只換掉 ltoken_v2 與 cookie_token_v2，其他鍵與 stoken 不動；原本沒有 cookie_token_v2 的也補上", () => {
+    expect(withTokens(LOGGED_IN, { ltoken: "v2_new_lt", cookieToken: "v2_new_ct" })).toBe(
+      "ltoken_v2=v2_new_lt; ltuid_v2=123456; ltmid_v2=mid_x; account_id_v2=123456; account_mid_v2=mid_x; cookie_token_v2=v2_new_ct; stoken=v2_stoken",
+    );
+    expect(withTokens("ltoken_v2=old; ltuid_v2=1; ltmid_v2=m; stoken=s", { ltoken: "new", cookieToken: "ct" })).toBe("ltoken_v2=new; ltuid_v2=1; ltmid_v2=m; cookie_token_v2=ct; stoken=s");
   });
 });

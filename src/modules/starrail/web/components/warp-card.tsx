@@ -12,6 +12,7 @@ import { cachedWarps } from "../../service/cached";
 import { reportWarps } from "../../service/warps";
 import { hasRecords, nearPity, percentOf, pityText } from "../warps-view";
 import { PanelNotice } from "./panel-parts";
+import { refreshLoginAfter } from "../cookie-flag";
 
 // 星穹鐵道頁已經很長 這裡只放最常看的兩個卡池
 const CARD_BANNERS: readonly number[] = [11, 12];
@@ -21,6 +22,7 @@ export async function WarpCard({ account }: { account: StarrailAccountView }) {
   const user = await requireModule("starrail");
   const read = await cachedWarps(user.id, account.id);
   after(() => reportWarps(read));
+  refreshLoginAfter(user.id, account.id, read);
   if (!read.ok) {
     return (
       <PanelNotice title="躍遷紀錄">

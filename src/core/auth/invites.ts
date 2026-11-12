@@ -1,9 +1,10 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
-import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { db, type Executor } from "../db";
 import { coreInvites, coreUsers } from "../db/schema";
 import { UserError } from "../form";
+import { INVITE_RETENTION_DAYS, retentionCutoff } from "../retention";
 import { charLength } from "../text";
 import { DAY_MS } from "../time";
 import { INVITE_DAY_OPTIONS, INVITE_NOTE_MAX_LENGTH, INVITE_USE_OPTIONS } from "./invite-rules";
@@ -132,4 +133,17 @@ export async function revokeInvite(id: number, now = new Date()): Promise<boolea
     .where(and(eq(coreInvites.id, id), isNull(coreInvites.revokedAt)))
     .returning({ id: coreInvites.id });
   return rows.length > 0;
+}
+
+/**
+ * 每天的 notifications:cleanup 順便跑 到期或撤銷超過 30 天的刪掉
+ * 帳號能用哪些功能註冊時已經寫進模組權限 刪掉邀請不影響
+ */
+export async function cleanupInvites(now = new Date()): Promise<string> {
+  const cutoff = retentionCutoff(now, INVITE_RETENTION_DAYS);
+  const deleted = await db()
+    .delete(coreInvites)
+    .where(or(lt(coreInvites.expiresAt, cutoff), lt(coreInvites.revokedAt, cutoff)))
+    .returning({ id: coreInvites.id });
+  return `刪除 ${deleted.length} 個到期或撤銷超過 ${INVITE_RETENTION_DAYS} 天的邀請`;
 }

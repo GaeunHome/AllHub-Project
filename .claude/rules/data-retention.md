@@ -27,4 +27,5 @@ paths:
 - 系統狀態 `core_cron_status`、`core_service_status` 只更新不新增（使用者要的），排程與服務各一列，沒有清理排程；排程的摘要會顯示在站長的頁面上，不寫成員的遊戲暱稱與開拓力（`CronTask` 的註解）。
 - 上傳的頭像 `core_avatar_images` 每人一張：換照片或改用範例時刪掉舊的，刪除帳號時跟外鍵刪。交通的常用路線 `transit_routes` 與天氣頁的城市 `weather_places` 留到使用者自己刪除或刪除帳號。
 - 站長的公告 `core_announcements` 結束超過 30 天（使用者要的一個月，`core/retention/index.ts` 的 `ANNOUNCEMENT_RETENTION_DAYS`）由 `notifications:cleanup` 一起刪掉（`announcements/service.ts` 的 `cleanupAnnouncements()`，Hobby 的排程有條數上限，不另外佔一條）；沒寫結束時間的留到站長刪除，刪除是硬刪除。
+- 邀請 `core_invites` 到期或撤銷超過 30 天（使用者要的，`core/retention/index.ts` 的 `INVITE_RETENTION_DAYS`，已用完的照到期算）也由 `notifications:cleanup` 一起刪掉（`auth/invites.ts` 的 `cleanupInvites()`，結束後讓 `core:invites` 失效）。帳號能用哪些功能在註冊時已經寫進 `core_module_denials`，帳號與模組權限都沒有外鍵指向邀請，刪掉不影響已經註冊的人（使用者問過，`invites.integration.test.ts` 檢查）。
 - 其他資料永久保留，刪除帳號時依使用者的資料一起刪除。

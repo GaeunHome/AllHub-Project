@@ -8,7 +8,7 @@ import { DAILY_LIMIT, DATA_NOT_PUBLIC, GEETEST } from "../lib/retcodes";
 import { NEEDS_COOKIE_TOKEN, WARP_BANNERS, summarizeBanner, type BannerSummary, type WarpBanner, type WarpCursor, type WarpRow } from "../lib/warps";
 import type { StarrailAccount } from "../data/schema";
 import { pageAccount } from "./accounts";
-import type { PageFailure } from "./page-reads";
+import { failure, type PageFailure } from "./page-reads";
 
 // 躍遷紀錄打開頁面時才向 HoYoLAB 讀 不存資料庫 cached.ts 包上快取
 
@@ -58,22 +58,26 @@ async function bannerRows({ account, cookie }: Target, banner: WarpBanner, sleep
   return NOT_FINISHED;
 }
 
-const failed = ({ retcode, message, cookieInvalid }: { retcode: number | null; message: string; cookieInvalid: boolean }): WarpsResult => ({ ok: false, message, serviceDown: !cookieInvalid && !ACCOUNT_RETCODES.includes(retcode) });
+/** cookie 是存著的那一份 有 stoken 時頁面在回應後換新 */
+const failed = (result: Extract<HoyolabResult<unknown>, { ok: false }>, cookie: string): WarpsResult => ({
+  ...failure(result, cookie),
+  serviceDown: !result.cookieInvalid && !ACCOUNT_RETCODES.includes(result.retcode),
+});
 
 async function readWarps(userId: string, accountId: number, sleep: Sleep): Promise<WarpsResult> {
   const target = await pageAccount(userId, accountId);
-  if (!target.ok) return { ok: false, message: target.message, serviceDown: false };
-  if (!cookieKeys(target.cookie).has("cookie_token_v2")) return { ok: false, message: NEEDS_COOKIE_TOKEN, serviceDown: false };
+  if (!target.ok) return { ok: false, message: target.message, loginExpired: false, serviceDown: false };
+  if (!cookieKeys(target.cookie).has("cookie_token_v2")) return { ok: false, message: NEEDS_COOKIE_TOKEN, loginExpired: false, serviceDown: false };
   const login = await warpLogin(target.cookie, target.account.uid, target.account.region);
   if (!login.ok) {
     console.error("[starrail] 登入躍遷紀錄的活動頁失敗", accountId, `retcode ${login.retcode}`);
-    return failed(login);
+    return failed(login, target.cookie);
   }
   const summaries: BannerSummary[] = [];
   for (const banner of WARP_BANNERS) {
     if (summaries.length > 0) await sleep(REQUEST_GAP_MS);
     const rows = await bannerRows({ account: target.account, cookie: login.data }, banner, sleep);
-    if (!rows.ok) return failed(rows);
+    if (!rows.ok) return failed(rows, target.cookie);
     summaries.push(summarizeBanner(banner, rows.data));
   }
   return { ok: true, summaries };

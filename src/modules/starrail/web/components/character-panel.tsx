@@ -8,6 +8,7 @@ import { cachedCharacters } from "../../service/cached";
 import { characterAssetUrls } from "../character-assets";
 import { CharacterBrowser } from "./character-browser";
 import { LoadingTitle, PanelNotice } from "./panel-parts";
+import { refreshLoginAfter } from "../cookie-flag";
 
 /**
  * 角色列表每個帳號快取 30 分鐘 HoYoLAB 失敗時只在這一塊顯示錯誤
@@ -16,6 +17,7 @@ import { LoadingTitle, PanelNotice } from "./panel-parts";
 export async function CharacterPanel({ account }: { account: StarrailAccountView }) {
   const user = await requireModule("starrail");
   const result = await cachedCharacters(user.id, account.id);
+  refreshLoginAfter(user.id, account.id, result);
 
   if (!result.ok || result.characters.length === 0) {
     return (

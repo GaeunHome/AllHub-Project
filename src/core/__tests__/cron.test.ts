@@ -7,11 +7,13 @@ stubCoreEnv();
 
 vi.mock("../notifications/service", { spy: true });
 vi.mock("../announcements/service", { spy: true });
+vi.mock("../auth/invites", { spy: true });
 vi.mock("../status", () => ({ recordCronRun: vi.fn() }));
 
 const { runCron } = await import("../cron");
 const { cleanupNotifications } = mocksOf(await import("../notifications/service"), "cleanupNotifications");
 const { cleanupAnnouncements } = mocksOf(await import("../announcements/service"), "cleanupAnnouncements");
+const { cleanupInvites } = mocksOf(await import("../auth/invites"), "cleanupInvites");
 const { recordCronRun } = mocksOf(await import("../status"), "recordCronRun");
 
 const tasks = {
@@ -26,6 +28,7 @@ beforeEach(() => {
   tasks["demo:boom"].mockReset().mockRejectedValue(new Error("Cookie: ltoken_v2=v2_top_secret 無效"));
   cleanupNotifications.mockReset().mockResolvedValue("刪除 2 筆超過 14 天的網站通知");
   cleanupAnnouncements.mockReset().mockResolvedValue("刪除 1 則結束超過 30 天的公告");
+  cleanupInvites.mockReset().mockResolvedValue("刪除 3 個到期或撤銷超過 30 天的邀請");
   recordCronRun.mockReset().mockResolvedValue(undefined);
 });
 
@@ -114,12 +117,13 @@ describe("排程網址", () => {
 });
 
 describe("core 自己的排程", () => {
-  it("notifications:cleanup 由 core 合併進排程清單_src/app 只要傳模組的排程；結束很久的公告也一起清（使用者要的，不另外佔一條排程）", async () => {
+  it("notifications:cleanup 由 core 合併進排程清單_src/app 只要傳模組的排程；結束很久的公告與失效很久的邀請也一起清（使用者要的，不另外佔一條排程）", async () => {
     const response = await runCron(authed(), "notifications:cleanup", tasks);
 
-    expect(await response.json()).toEqual({ results: { "notifications:cleanup": "刪除 2 筆超過 14 天的網站通知，刪除 1 則結束超過 30 天的公告" } });
+    expect(await response.json()).toEqual({ results: { "notifications:cleanup": "刪除 2 筆超過 14 天的網站通知，刪除 1 則結束超過 30 天的公告，刪除 3 個到期或撤銷超過 30 天的邀請" } });
     expect(cleanupNotifications).toHaveBeenCalledOnce();
     expect(cleanupAnnouncements).toHaveBeenCalledOnce();
+    expect(cleanupInvites).toHaveBeenCalledOnce();
   });
 
   it("模組的排程不能蓋掉 core 的同名排程", async () => {
@@ -127,7 +131,7 @@ describe("core 自己的排程", () => {
 
     const response = await runCron(authed(), "notifications:cleanup", { ...tasks, "notifications:cleanup": impostor });
 
-    expect(await response.json()).toEqual({ results: { "notifications:cleanup": "刪除 2 筆超過 14 天的網站通知，刪除 1 則結束超過 30 天的公告" } });
+    expect(await response.json()).toEqual({ results: { "notifications:cleanup": "刪除 2 筆超過 14 天的網站通知，刪除 1 則結束超過 30 天的公告，刪除 3 個到期或撤銷超過 30 天的邀請" } });
     expect(impostor).not.toHaveBeenCalled();
   });
 

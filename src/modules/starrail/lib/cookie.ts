@@ -1,5 +1,9 @@
-/** 只留 HoYoLAB 介面需要的鍵 其他追蹤用的 cookie 都丟掉不存 */
-const KEPT_KEYS = ["ltoken_v2", "ltuid_v2", "ltmid_v2", "account_id_v2", "account_mid_v2", "cookie_token_v2"] as const;
+/**
+ * 只留 HoYoLAB 介面需要的鍵 其他追蹤用的 cookie 都丟掉不存
+ * stoken 是用帳號密碼登入時拿到的 失效時拿它換新 不送給一般的介面
+ */
+const KEPT_KEYS = ["ltoken_v2", "ltuid_v2", "ltmid_v2", "account_id_v2", "account_mid_v2", "cookie_token_v2", "stoken"] as const;
+const REFRESH_KEY = "stoken";
 
 /** 連結只要 ltoken_v2 與 ltuid_v2 這幾個沒貼的話有些功能不能用 */
 const RECOMMENDED_KEYS = ["ltmid_v2", "cookie_token_v2", "account_id_v2", "account_mid_v2"] as const;
@@ -90,4 +94,42 @@ export function withAccountIds(cookie: string): string {
     return !values.has(key) && value ? [`${key}=${value}`] : [];
   });
   return [cookie, ...filled].join("; ");
+}
+
+const joinKept = (values: ReadonlyMap<string, string>) =>
+  KEPT_KEYS.flatMap((key) => {
+    const value = values.get(key);
+    return value ? [`${key}=${value}`] : [];
+  }).join("; ");
+
+/** 用帳號密碼登入拿到的 組成跟貼上的一樣 帳號 id 與 mid 各填 lt 與 account 兩個 */
+export function loginCookie({ aid, mid, stoken, ltoken, cookieToken }: { aid: string; mid: string; stoken: string; ltoken: string; cookieToken: string }): string {
+  return joinKept(new Map([["ltoken_v2", ltoken], ["ltuid_v2", aid], ["ltmid_v2", mid], ["account_id_v2", aid], ["account_mid_v2", mid], ["cookie_token_v2", cookieToken], [REFRESH_KEY, stoken]]));
+}
+
+/** 一般的介面不用 stoken 送出前拿掉 只有換新時才送 */
+export function requestCookie(cookie: string): string {
+  return cookie
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => part !== "" && !part.startsWith(`${REFRESH_KEY}=`))
+    .join("; ");
+}
+
+/** 換新要 stoken 與 mid mid 就是 ltmid_v2 */
+export function refreshPartsOf(cookie: string): { stoken: string; mid: string } | null {
+  const values = cookieValues(cookie);
+  const stoken = values.get(REFRESH_KEY);
+  const mid = values.get("ltmid_v2");
+  return stoken && mid ? { stoken, mid } : null;
+}
+
+export const canRefresh = (cookie: string): boolean => refreshPartsOf(cookie) !== null;
+
+/** 換新後只換這兩個 其他鍵與 stoken 不動 */
+export function withTokens(cookie: string, tokens: { ltoken: string; cookieToken: string }): string {
+  const values = cookieValues(cookie);
+  values.set("ltoken_v2", tokens.ltoken);
+  values.set("cookie_token_v2", tokens.cookieToken);
+  return joinKept(values);
 }

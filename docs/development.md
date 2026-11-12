@@ -34,6 +34,7 @@
 | HoYoLAB | `ltuid_v2` 的數字 | 主要角色的 UID 跟著它變（`ltuid_v2=123456` 是 `900123456`）：換一個數字就是另一個遊戲帳號；別的使用者用同一個數字連結時，會被拒絕（已經被其他使用者連結） |
 | HoYoLAB | `ltuid_v2` 以 2 開頭（例如 `ltuid_v2=223456`） | 台港澳服與亞服各有一個角色（亞服的是 4 級的小號），連結時會出現選伺服器的步驟 |
 | HoYoLAB | `ltoken_v2=private` | 角色詳情沒有公開（10102） |
+| HoYoLAB | 帳號密碼登入 | 帳號密碼隨便填（假伺服器解不開加密）：先出現假的圖形驗證（按「按這裡通過」），接著要 email 驗證碼，填 `123456` 就連結 `ltuid_v2=1` 的帳號（UID 900000001）；每次用 `stoken` 換新都拿到不同的 token，cookie 裡 `stoken=expired` 時換新被拒 |
 | HoYoLAB | 角色詳情的遺器副詞條 | 強化次數是固定的：+15 的遺器每件強化 5 次，最多的一條是連結繩的暴擊率 +5；頭部是暴擊率 +2、暴擊傷害 +1、攻擊力 +2；每件都有沒強化過的詞條（不顯示 +N）。等級低於 80 的角色（例如布洛妮婭、丹恆）腳部是 +12，只強化 4 次（暴擊率 +3、暴擊傷害 +1） |
 | HoYoLAB | 兌換碼 | `STARRAILGIFT` 或 `GIFT` 開頭成功（同一個 UID 第二次是已兌換）、`USED` 開頭已兌換、`EXPIRED` 開頭過期、`LEVEL` 開頭等級不足、`RISK` 開頭要求驗證（10035，自動兌換會整批停下），其他無效；同一個 UID 5 秒內再兌換是太頻繁。cookie 要有 `cookie_token_v2`（`account_id_v2` 沒貼時網站用 `ltuid_v2` 補上） |
 | HoYoLAB | 社群的兌換碼清單（hoyo-codes 的 `/codes?game=hkrpg`） | 自動兌換讀這份：`GIFTAUTO2026`、`GIFTLIVESTREAM`、`STARRAILGIFT` 第一次會成功（同一個 UID 第二次是已兌換），`OMEGA` 在假伺服器是無效，`EXPIREDCODE1` 過期。手動跑排程：`curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/starrail:redeem`，帳號要先在「帳號設定」打開自動兌換 |

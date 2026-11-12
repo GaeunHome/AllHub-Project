@@ -174,10 +174,20 @@ function byEndTime(a: Timed, b: Timed): number {
   return (a.endsAt ?? Infinity) - (b.endsAt ?? Infinity);
 }
 
-/** 正在進行的 依結束時間排好 畫面與提醒共用 */
+/**
+ * 使用者要的 當期 up 角色在最上面 角色池在光錐池前面
+ * 好幾個五星同一個池的是復刻 排在只有一個五星的後面
+ */
+function warpOrder(a: CalendarWarp, b: CalendarWarp): number {
+  const kind = (warp: CalendarWarp) => (warp.kind === "character" ? 0 : 1);
+  const rerun = (warp: CalendarWarp) => (warp.items.filter((item) => item.rarity === 5).length > 1 ? 1 : 0);
+  return kind(a) - kind(b) || rerun(a) - rerun(b) || byEndTime(a, b);
+}
+
+/** 正在進行的 快結束的排前面 躍遷照 warpOrder 畫面與提醒共用 */
 export function ongoingCalendar(calendar: ActCalendar, now: Date): Omit<ActCalendar, "version"> {
-  const pick = <T extends Timed>(items: T[]) => items.filter((item) => isOngoing(item, now)).sort(byEndTime);
-  return { challenges: pick(calendar.challenges), events: pick(calendar.events), warps: pick(calendar.warps) };
+  const ongoing = <T extends Timed>(items: T[]) => items.filter((item) => isOngoing(item, now));
+  return { challenges: ongoing(calendar.challenges).sort(byEndTime), events: ongoing(calendar.events).sort(byEndTime), warps: ongoing(calendar.warps).sort(warpOrder) };
 }
 
 /** 進度拿滿了沒 總數讀不到或是 0 時判斷不了 回 null */

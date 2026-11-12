@@ -112,8 +112,10 @@ export type AccountsPageView = {
   /** 啟用中的存款餘額合計 */
   depositTotal: number;
   cards: CreditCardView[];
-  /** 啟用中的信用卡目前未繳合計 */
+  /** 啟用中的信用卡帳單還沒繳的合計 */
   owedTotal: number;
+  /** 啟用中的信用卡結帳後刷的合計 */
+  unbilledTotal: number;
   /** 照存款 投資 信用卡排 證券帳戶停用後也在這裡恢復 */
   inactive: InactiveAccountView[];
   /** 信用卡扣款帳戶的選項 停用的也帶上 修改時才留得住原本選的 */
@@ -160,7 +162,8 @@ export function accountsPageView(input: AccountsInput, state: AccountsState, rul
     deposits,
     depositTotal: state.summary.deposit,
     cards,
-    owedTotal: state.summary.owed,
+    owedTotal: state.cards.due,
+    unbilledTotal: state.cards.unbilled,
     inactive,
     payFromAccounts: input.accounts
       .filter((account) => account.kind === "deposit")

@@ -5,7 +5,7 @@ import { logError } from "@/core/errors";
 import { reportService } from "@/core/status";
 import { DAY_MS, taipeiDateKey } from "@/core/time";
 import { fetchActiveCodes, type PublicCode } from "../lib/codes";
-import { withAccountIds } from "../lib/cookie";
+import { canRefresh, withAccountIds } from "../lib/cookie";
 import { redeemCode } from "../lib/hoyolab";
 import { redeemCookieProblem, redeemVerdict } from "../lib/redeem";
 import { serverLabel } from "../lib/roles";
@@ -13,6 +13,7 @@ import { accountHref, STARRAIL_HREF } from "../lib/urls";
 import { starrailRedeemCodes, type StarrailAccount } from "../data/schema";
 import { cookieOf, listAccounts, trackingAccountChanges, type AccountChanges } from "./accounts";
 import { notifiedOwnerSince, notifyOnce, notifyOwner } from "./notices";
+import { markLoginExpired, refreshCookie, type Refreshed } from "./refresh";
 
 /** HoYoLAB 兩次兌換之間要等約 5 秒 從上一次的回應起算 多留一秒 */
 const REDEEM_GAP_MS = 6_000;
@@ -66,7 +67,10 @@ export async function autoRedeemAll(clock: RedeemClock = realClock): Promise<str
   });
 }
 
-/** 每個帳號還沒試過的兌換碼 cookie 解不開或少了兌換要用的鍵就略過 */
+/**
+ * 每個帳號還沒試過的兌換碼 cookie 解不開或少了兌換要用的鍵就略過
+ * 有 stoken 又有新的碼時先換新 cookie_token_v2 最常被換掉 同一個 HoYoLAB 帳號只換一次
+ */
 async function buildQueues(accounts: StarrailAccount[], codes: PublicCode[], changes: AccountChanges): Promise<{ queues: Queue[]; skipped: number }> {
   const accountIds = accounts.map((account) => account.id);
   const tried = await db()
@@ -75,14 +79,27 @@ async function buildQueues(accounts: StarrailAccount[], codes: PublicCode[], cha
     .where(and(inArray(starrailRedeemCodes.accountId, accountIds), inArray(starrailRedeemCodes.code, codes.map((code) => code.code))));
   const triedKeys = new Set(tried.map((row) => `${row.accountId}:${row.code}`));
   const queues: Queue[] = [];
+  const refreshed = new Map<string, Refreshed>();
   let skipped = 0;
   for (const account of accounts) {
-    const cookie = await cookieOf(account, changes);
+    let cookie = await cookieOf(account, changes);
     if (cookie === null || redeemCookieProblem(withAccountIds(cookie)) !== null) {
       skipped++;
       continue;
     }
-    queues.push({ account, cookie, codes: codes.filter((code) => !triedKeys.has(`${account.id}:${code.code}`)) });
+    const pending = codes.filter((code) => !triedKeys.has(`${account.id}:${code.code}`));
+    if (pending.length > 0 && canRefresh(cookie)) {
+      const key = `${account.userId}:${account.ltuid}`;
+      const fresh = refreshed.get(key) ?? (await refreshCookie(account, cookie, changes));
+      refreshed.set(key, fresh);
+      if (!fresh.ok && fresh.rejected) {
+        await markLoginExpired(account, changes);
+        skipped++;
+        continue;
+      }
+      if (fresh.ok) cookie = fresh.cookie;
+    }
+    queues.push({ account, cookie, codes: pending });
   }
   return { queues, skipped };
 }

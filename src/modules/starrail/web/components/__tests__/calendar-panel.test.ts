@@ -85,6 +85,28 @@ describe("活動日曆", () => {
     expect(markup).toContain('src="http://127.0.0.1:4010/a/1001.png"');
   });
 
+  it("使用者選的：角色與光錐躍遷排在最上面，接著才是終局挑戰與活動", async () => {
+    const page = await html();
+
+    expect(page.indexOf("角色與光錐躍遷")).toBeLessThan(page.indexOf("終局挑戰"));
+    expect(page.indexOf("終局挑戰")).toBeLessThan(page.indexOf("進行中的活動"));
+  });
+
+  // 使用者回報 這期三個復刻五星在同一個池 以前只畫第一個
+  it("三個五星同一個池（復刻）：三個都畫出大圖、名字各自寫出來", async () => {
+    const five = (id: string, name: string) => ({ id, name, icon: `https://act-webstatic.hoyoverse.com/a/${id}.png`, rarity: 5 });
+    cached.cachedActCalendar.mockResolvedValue({
+      ok: true,
+      calendar: { ...CALENDAR, warps: [{ id: "101", kind: "character", name: null, ...span(14), items: [five("1506", "銀狼 LV.999"), five("1501", "Sparxie"), five("1502", "爻光")] }] },
+      fetchedAt: new Date(now),
+    });
+
+    const rendered = await html();
+
+    for (const id of ["1506", "1501", "1502"]) expect(rendered).toContain(`src="http://127.0.0.1:4010/a/${id}.png"`);
+    for (const name of ["銀狼 LV.999", "Sparxie", "爻光"]) expect(rendered).toMatch(new RegExp(`>${name}<`));
+  });
+
   it("卡池畫出時間過了多少：21 天的卡池（10 天前開始、11 天後結束）過了 47.6%", async () => {
     expect(await html()).toContain('style="width:47.6%"');
   });

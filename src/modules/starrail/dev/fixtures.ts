@@ -70,4 +70,7 @@ export const hoyolab = {
   redeemCode: vi.fn(),
   fetchCheckinInfo: vi.fn(),
   signIn: vi.fn(),
+  appLogin: vi.fn(),
+  verifyEmailCode: vi.fn(),
+  tokensFromStoken: vi.fn(),
 };

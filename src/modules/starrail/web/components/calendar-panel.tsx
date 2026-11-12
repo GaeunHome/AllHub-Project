@@ -13,6 +13,7 @@ import type { StarrailAccountView } from "../../service/accounts";
 import { cachedActCalendar } from "../../service/cached";
 import { PanelNotice } from "./panel-parts";
 import { rarityClass } from "./sr-visuals";
+import { refreshLoginAfter } from "../cookie-flag";
 
 const TITLE_ID = "starrail-calendar-title";
 // 手機一欄 寬螢幕兩欄 超寬螢幕三塊並排
@@ -25,6 +26,7 @@ const LIST_GRID = "grid items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3";
 export async function CalendarPanel({ account }: { account: StarrailAccountView }) {
   const user = await requireModule("starrail");
   const result = await cachedActCalendar(user.id, account.id);
+  refreshLoginAfter(user.id, account.id, result);
   if (!result.ok) {
     return (
       <PanelNotice title="活動日曆" tall>
@@ -46,6 +48,12 @@ export async function CalendarPanel({ account }: { account: StarrailAccountView 
         <span className="text-sm text-ink">{updated}</span>
       </div>
       <div className={LIST_GRID}>
+        {/* 使用者選的 當期卡池排最上面 兩欄時自己佔一整列 */}
+        <CalendarList title="角色與光錐躍遷" empty="目前沒有進行中的躍遷" className="lg:col-span-2 2xl:col-span-1">
+          {warps.map((warp, i) => (
+            <WarpRow key={warp.id ?? `w${i}`} warp={warp} now={now} />
+          ))}
+        </CalendarList>
         <CalendarList title="終局挑戰" empty="目前沒有進行中的終局挑戰">
           {challenges.map((challenge, i) => (
             <ChallengeRow key={challenge.id ?? `c${i}`} challenge={challenge} now={now} />
@@ -54,12 +62,6 @@ export async function CalendarPanel({ account }: { account: StarrailAccountView 
         <CalendarList title="進行中的活動" empty="目前沒有進行中的活動">
           {events.map((event, i) => (
             <EventRow key={event.id ?? `e${i}`} event={event} now={now} />
-          ))}
-        </CalendarList>
-        {/* 兩欄時自己佔一整列 不在右邊留空 */}
-        <CalendarList title="角色與光錐躍遷" empty="目前沒有進行中的躍遷" className="lg:col-span-2 2xl:col-span-1">
-          {warps.map((warp, i) => (
-            <WarpRow key={warp.id ?? `w${i}`} warp={warp} now={now} />
           ))}
         </CalendarList>
       </div>
@@ -149,39 +151,69 @@ function EventRow({ event, now }: { event: CalendarEvent; now: Date }) {
   return <Row title={event.name ?? "活動"} extra={extra} endsAt={event.endsAt} now={now} current={event.current} total={event.total} />;
 }
 
-/** 使用者要的有圖 五星的大圖與名字當標題 四星是下面一排小頭像 最下面是時間過了多少 */
+/**
+ * 使用者要的有圖 五星的大圖與名字當標題 四星是下面一排小頭像 最下面是時間過了多少
+ * 好幾個五星同一個池時 也就是復刻 每個都畫大圖 名字寫在圖下面
+ */
 function WarpRow({ warp, now }: { warp: CalendarWarp; now: Date }) {
   const featured = warp.items.filter((item) => item.rarity === 5);
   const headline = featured.length > 0 ? featured : warp.items;
   const others = warp.items.filter((item) => !headline.includes(item));
-  const names = (items: WarpItem[]) => items.map((item) => item.name ?? "?").join("、");
   const elapsed = elapsedPercent(warp.startsAt, warp.endsAt, now.getTime());
   const lightCone = warp.kind === "lightCone";
+  const kicker = <span className="sr-kicker">{lightCone ? "光錐躍遷" : "角色躍遷"}</span>;
+  const footer = (
+    <>
+      {others.length > 0 && (
+        <span className="flex items-center gap-1.5">
+          <span className="sr-only">四星：{others.map((item) => item.name ?? "?").join("、")}</span>
+          {others.map((item, i) => (
+            <WarpIcon key={item.id ?? i} item={item} lightCone={lightCone} />
+          ))}
+        </span>
+      )}
+      {/* 進度條會撐滿剩下的寬度 外面要包一層左右排的 不然高度會被壓成 0 */}
+      {elapsed !== null && (
+        <span className="flex">
+          <Meter percent={elapsed} />
+        </span>
+      )}
+    </>
+  );
+
+  if (headline.length > 1) {
+    return (
+      <li className="card-row flex flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-3">
+          {kicker}
+          <Remaining endsAt={warp.endsAt} now={now} />
+        </div>
+        <ul className="flex flex-wrap gap-x-4 gap-y-3">
+          {headline.map((item, i) => (
+            <li key={item.id ?? i} className="flex w-20 flex-col items-center gap-1.5 sm:w-[5.5rem]">
+              <PoolArt item={item} lightCone={lightCone} />
+              <span className="w-full text-center text-sm leading-snug font-semibold break-words text-ink">{item.name ?? "?"}</span>
+            </li>
+          ))}
+        </ul>
+        {footer}
+      </li>
+    );
+  }
+
+  const [item] = headline;
   return (
     <li className="card-row flex items-center gap-4">
-      {headline[0] && <PoolArt item={headline[0]} lightCone={lightCone} />}
+      {item && <PoolArt item={item} lightCone={lightCone} />}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex items-baseline justify-between gap-3">
           <p className="flex min-w-0 flex-col">
-            <span className="sr-kicker">{lightCone ? "光錐躍遷" : "角色躍遷"}</span>
-            <span className="truncate text-lg font-bold text-ink">{headline.length > 0 ? names(headline) : (warp.name ?? "躍遷")}</span>
+            {kicker}
+            <span className="truncate text-lg font-bold text-ink">{item?.name ?? warp.name ?? "躍遷"}</span>
           </p>
           <Remaining endsAt={warp.endsAt} now={now} />
         </div>
-        {others.length > 0 && (
-          <span className="flex items-center gap-1.5">
-            <span className="sr-only">四星：{names(others)}</span>
-            {others.map((item, i) => (
-              <WarpIcon key={item.id ?? i} item={item} lightCone={lightCone} />
-            ))}
-          </span>
-        )}
-        {/* 進度條會撐滿剩下的寬度 外面要包一層左右排的 不然高度會被壓成 0 */}
-        {elapsed !== null && (
-          <span className="flex">
-            <Meter percent={elapsed} />
-          </span>
-        )}
+        {footer}
       </div>
     </li>
   );
@@ -228,9 +260,9 @@ export function CalendarSkeleton() {
     <LoadingState label="向 HoYoLAB 查詢活動日曆…" className="stack">
       <h3 className="sr-title min-h-11">活動日曆</h3>
       <div className={LIST_GRID}>
-        {Array.from({ length: 3 }, (_, i) => (
-          <Skeleton key={i} className="h-44 rounded-none" />
-        ))}
+        <Skeleton className="h-44 rounded-none lg:col-span-2 2xl:col-span-1" />
+        <Skeleton className="h-44 rounded-none" />
+        <Skeleton className="h-44 rounded-none" />
       </div>
     </LoadingState>
   );

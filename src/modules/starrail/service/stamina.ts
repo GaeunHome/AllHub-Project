@@ -12,14 +12,19 @@ import { STARRAIL_HREF } from "../lib/urls";
 import { starrailAccounts, type StarrailAccount } from "../data/schema";
 import { cookieOf, isolate, listAccounts, setCookieInvalid, trackingAccountChanges, UNDECRYPTABLE, type AccountChanges, type Outcome } from "./accounts";
 import { notifyOwner } from "./notices";
+import { markLoginExpired, readWithRefresh } from "./refresh";
 import { sendEndgameReminders, sendNoteReminders } from "./reminders";
 
-/** 排程用的即時便箋 跟頁面不同 讀完就寫回 cookie 失效標記 */
+/**
+ * 排程用的即時便箋 跟頁面不同 讀完就寫回 cookie 失效標記
+ * 登入過期時有 stoken 就先換新 換新也失敗才標失效並通知
+ */
 export async function getDailyNote(account: StarrailAccount, changes?: AccountChanges): Promise<HoyolabResult<DailyNote>> {
   const cookie = await cookieOf(account, changes);
   if (cookie === null) return { ok: false, retcode: null, message: UNDECRYPTABLE, cookieInvalid: true };
-  const result = await fetchDailyNote(cookie, account.uid, account.region);
-  await setCookieInvalid(account.id, !result.ok && result.cookieInvalid, changes);
+  const { result, expired } = await readWithRefresh(account, cookie, (fresh) => fetchDailyNote(fresh, account.uid, account.region), changes);
+  if (expired) await markLoginExpired(account, changes);
+  else await setCookieInvalid(account.id, !result.ok && result.cookieInvalid, changes);
   return result;
 }
 

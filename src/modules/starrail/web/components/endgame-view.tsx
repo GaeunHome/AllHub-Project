@@ -11,7 +11,7 @@ import { ENDGAME_MODES, type Endgame, type EndgameFloor, type EndgameMode, type 
 import type { Peak } from "../../lib/peak";
 import { PeakView, peakSeasonFor } from "./peak-view";
 import { NoRecordNotice, QuickClear, RoundCount } from "./sr-visuals";
-import { MEMBER_HEIGHT, TeamAvatar } from "./team-avatar";
+import { TeamAvatar } from "./team-avatar";
 
 export type EndgameRecord = { mode: EndgameMode; schedule: EndgameSchedule } & ({ ok: true; endgame: Endgame } | { ok: false; message: string });
 
@@ -36,7 +36,7 @@ export function EndgameView({ records, peak, names }: { records: EndgameRecord[]
 
   return (
     <section aria-labelledby={`${id}-title`} className="stack">
-      {/* 至少 44px 跟並排的開拓月曆標題列一樣 兩邊標題才在同一條線上 */}
+      {/* 至少 44px 跟分段選擇一樣高 有沒有選項時標題都在同一個位置 */}
       <div className="flex min-h-11 flex-wrap items-center gap-x-4 gap-y-3">
         <h3 id={`${id}-title`} className="sr-title">
           終局戰績
@@ -90,7 +90,7 @@ function EndgameRecordView({ endgame, names }: { endgame: Endgame; names: Record
         </div>
       </div>
       {endgame.floors.length > 0 && (
-        <ul className="stack @container">
+        <ul className="stack">
           {endgame.floors.map((floor, i) => (
             <FloorRow key={`${floor.name}-${i}`} floor={floor} names={names} />
           ))}
@@ -112,20 +112,17 @@ function Summary({ label, value, star = false }: { label: string; value: string;
   );
 }
 
-// 三隊要排在同一列 面板窄的時候頭像小一點 手機才一隊一列
-const THREE_TEAMS = "grid gap-3 @2xl:grid-cols-3 @2xl:[--sr-team:2.5rem] @3xl:[--sr-team:3rem]";
-// 兩隊並排時分數緊跟自己的頭像 推到右緣會貼著下一隊的編號
-const TEAM_RESULT = `ml-auto flex ${MEMBER_HEIGHT} items-center gap-2.5 @2xl:ml-0`;
-// 三隊時一欄放不下分數 擠在旁邊頭像會折行 夠寬才排回旁邊
-const TEAM_RESULT_BELOW = "flex w-full items-center justify-end gap-2.5 @5xl:ml-0 @5xl:h-[calc(var(--sr-team,3rem)*7/6)] @5xl:w-auto";
-
+/**
+ * 使用者選的 兩隊就兩欄 星啟模式的三隊就三欄 放不下時少一欄
+ * 欄數與角色卡大小看這一層卡片的寬度 在 starrail.css 的 sr-teams
+ */
 function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number, string | null> }) {
   const earned = Math.min(floor.stars ?? 0, 3);
   return (
-    <li className="sr-panel flex flex-col gap-3 p-4 [--sr-cut:12px]">
+    <li className="sr-panel @container flex flex-col gap-4 p-4 [--sr-cut:12px] sm:p-5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <p className="font-semibold text-ink">{floor.name ?? "（未知關卡）"}</p>
-        <span aria-label={`${floor.stars ?? 0} 顆星`} className="text-base tracking-wider">
+        <p className="text-lg font-semibold text-ink">{floor.name ?? "（未知關卡）"}</p>
+        <span aria-label={`${floor.stars ?? 0} 顆星`} className="text-lg tracking-wider">
           <span className="text-sr-gold">{"★".repeat(earned)}</span>
           <span className="text-white/25">{"★".repeat(3 - earned)}</span>
         </span>
@@ -142,29 +139,22 @@ function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number,
         </span>
       </div>
       {floor.nodes.length > 0 && (
-        // 依這一塊的寬度決定幾隊並排 並排在月曆旁邊時一樣排得下
-        <div className={floor.nodes.length > 2 ? THREE_TEAMS : "grid gap-3 @2xl:grid-cols-2"}>
+        <div data-teams={floor.nodes.length} className="sr-teams">
           {floor.nodes.map((node, i) => (
-            // 編號 分數 未擊敗各包一層跟頭像一樣高 對準頭像的中線
-            <div key={i} className="flex min-w-0 flex-wrap items-start gap-x-2.5 gap-y-1">
-              {/* 隊伍編號用固定大小的方塊不換行 頭像才對齊 */}
-              <span className={`grid ${MEMBER_HEIGHT} shrink-0 place-items-center`}>
-                <span className="sr-num grid size-6 place-items-center rounded-sm border border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-sm leading-none font-bold text-[var(--sr-gold-ink)]">
+            <div key={i} className="flex min-w-0 flex-col gap-2">
+              <div className="flex min-h-7 items-center gap-2.5">
+                <span className="sr-team-number sr-num">
                   <span aria-hidden>{i + 1}</span>
                   <span className="sr-only">第 {i + 1} 隊</span>
                 </span>
-              </span>
-              <div className="flex shrink-0 gap-1.5">
+                {node.score !== null && <span className="sr-num text-base font-bold text-ink">{groupDigits(node.score)}</span>}
+                {node.bossDefeated === false && <span className="chip chip-warning">未擊敗</span>}
+              </div>
+              <div className="flex gap-2">
                 {node.avatars.map((member, j) => (
                   <TeamAvatar key={`${member.id}-${j}`} member={member} name={member.id === null ? null : (names[member.id] ?? null)} />
                 ))}
               </div>
-              {(node.score !== null || node.bossDefeated === false) && (
-                <span className={floor.nodes.length > 2 ? TEAM_RESULT_BELOW : TEAM_RESULT}>
-                  {node.score !== null && <span className="sr-num text-base font-bold text-ink">{groupDigits(node.score)}</span>}
-                  {node.bossDefeated === false && <span className="chip chip-warning">未擊敗</span>}
-                </span>
-              )}
             </div>
           ))}
         </div>

@@ -199,3 +199,19 @@ export function billDefaults(card: CardLike, balance: number, flows: readonly Ac
   const own = statements.filter((statement) => statement.accountId === card.id);
   return { statementDate, estimate: owedThrough(card.id, balance, flows, billCutoff(card, statementDate)), dueDate: defaultDueDate(statementDate, own) };
 }
+
+export type CardTotals = { due: number; unbilled: number };
+
+/**
+ * 使用者要的 未繳只算帳單 結帳後刷的另外算未出帳
+ * 結帳了還沒填帳單的那一期照紀錄估 從沒結帳過的卡刷的都是未出帳
+ */
+export function cardTotals(bills: Iterable<Pick<CardBill, "statementDate" | "remainingDue" | "unbilled">>): CardTotals {
+  let due = 0;
+  let unbilled = 0;
+  for (const bill of bills) {
+    if (bill.statementDate !== null) due += bill.remainingDue;
+    unbilled += bill.unbilled;
+  }
+  return { due, unbilled };
+}

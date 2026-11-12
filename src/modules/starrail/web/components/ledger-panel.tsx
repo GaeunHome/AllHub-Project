@@ -7,6 +7,7 @@ import type { StarrailAccountView } from "../../service/accounts";
 import { cachedLedger } from "../../service/cached";
 import { LedgerView } from "./ledger-view";
 import { PanelNotice } from "./panel-parts";
+import { refreshLoginAfter } from "../cookie-flag";
 
 /**
  * 先查這個月 再一起查其他給得到的月份 各自快取 30 分鐘
@@ -15,6 +16,7 @@ import { PanelNotice } from "./panel-parts";
 export async function LedgerPanel({ account }: { account: StarrailAccountView }) {
   const user = await requireModule("starrail");
   const first = await cachedLedger(user.id, account.id, ledgerMonthOf(new Date()));
+  refreshLoginAfter(user.id, account.id, first);
   if (!first.ok) {
     return (
       <PanelNotice title="開拓月曆" tall>

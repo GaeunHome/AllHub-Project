@@ -53,7 +53,7 @@ export type InvestmentFigures = { value: number; cost: number; profit: number };
  * 啟用中帳戶的合計 assets 是存款餘額加投資市值 owed 是信用卡未繳
  * 總覽 帳戶頁 投資頁與首頁卡片都用這一份 數字才一致
  */
-export type AssetSummary = { assets: number; deposit: number; investment: InvestmentFigures; owed: number };
+export type AssetSummary = { assets: number; deposit: number; investment: InvestmentFigures };
 
 export type BudgetRow = { categoryId: number; name: string; budget: number; spent: number; percent: number };
 
@@ -151,21 +151,19 @@ const owedOf = (balance: AccountBalance | undefined) => balance?.owed ?? Math.ma
  */
 export function assetSummary(accounts: AccountLike[], balances: Map<number, AccountBalance>, investmentValues?: ReadonlyMap<number, InvestmentFigures>): AssetSummary {
   let deposit = 0;
-  let owed = 0;
   const investment = { value: 0, cost: 0, profit: 0 };
   for (const account of accounts) {
     if (!account.active) continue;
     const balance = balances.get(account.id);
-    if (account.kind === "credit") owed += owedOf(balance);
-    else if (account.kind === "deposit") deposit += balance?.balance ?? 0;
-    else {
+    if (account.kind === "deposit") deposit += balance?.balance ?? 0;
+    else if (account.kind === "investment") {
       const held = investmentValues?.get(account.id);
       investment.value += held?.value ?? balance?.balance ?? 0;
       investment.cost += held?.cost ?? balance?.cost ?? balance?.balance ?? 0;
     }
   }
   investment.profit = investment.value - investment.cost;
-  return { assets: deposit + investment.value, deposit, investment, owed };
+  return { assets: deposit + investment.value, deposit, investment };
 }
 
 export function monthTotals(totals: CategoryMonthTotal[], month: MonthKey): MonthTotals {

@@ -9,14 +9,16 @@ import { expeditionStates, formatRemaining, formatTaipeiTime, type DailyNote, ty
 import { alertThreshold, percentOf, staminaFullText, staminaGauge } from "../../lib/stamina";
 import type { StarrailAccountView } from "../../service/accounts";
 import { cachedDailyNote } from "../../service/cached";
-import { syncCookieFlagAfter } from "../cookie-flag";
+import { refreshLoginAfter, syncCookieFlagAfter } from "../cookie-flag";
 import { LoadingTitle } from "./panel-parts";
 
 /** 即時便箋快取最多 5 分鐘 HoYoLAB 失敗時只在這一塊顯示錯誤 */
 export async function DailyNotePanel({ account }: { account: StarrailAccountView }) {
   const user = await requireModule("starrail");
   const result = await cachedDailyNote(user.id, account.id);
-  syncCookieFlagAfter(user.id, account, result.cookieInvalid);
+  // 有 stoken 的登入過期先換新 不動失效標記 換新也失敗時 service 才標
+  if (!result.ok && result.loginExpired) refreshLoginAfter(user.id, account.id, result);
+  else syncCookieFlagAfter(user.id, account, result.cookieInvalid);
   return (
     <section className="stack">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">

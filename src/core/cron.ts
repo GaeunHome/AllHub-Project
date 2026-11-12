@@ -11,7 +11,7 @@ import { recordCronRun } from "./status";
 const CORE_TASKS: Record<string, CronTask> = { ...notificationsCron, ...auditCron };
 
 /** core 自己的排程 系統狀態頁跟模組的排程一起列出 */
-export const coreCronLabels: Record<string, string> = { "notifications:cleanup": "清理舊通知與公告", "audit:cleanup": "清理操作紀錄" };
+export const coreCronLabels: Record<string, string> = { "notifications:cleanup": "清理舊通知、公告與邀請", "audit:cleanup": "清理操作紀錄" };
 
 /**
  * core 不能依賴模組 模組的排程由 src/app 傳進來

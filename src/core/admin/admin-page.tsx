@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { requireOwner } from "../auth";
 import type { ModuleInfo } from "../module";
 import { FOCUS_FRAME } from "../ui/focus-frame";
@@ -8,14 +8,14 @@ import { Icon } from "../ui/icon";
 import { NoticeItem, NoticeStrip } from "../ui/notice-strip";
 import { PageBanner } from "../ui/page-banner";
 import { CardHeader } from "../ui/page-header";
-import { ListSkeleton, LoadingState, Skeleton } from "../ui/skeleton";
+import { ListSkeleton } from "../ui/skeleton";
 import { cachedAnnouncements } from "../announcements/cached";
 import { inviteStatus } from "../auth/invites";
 import { displayNameOf } from "../auth/nickname";
 import { formatTaipeiHourMinute } from "../time";
 import { AnnouncementList } from "./announcement-list";
 import { cachedInvites, cachedUsers } from "./cached";
-import { CreateInviteForm } from "./create-invite-form";
+import { CreateInvite } from "./create-invite-form";
 import { InviteList } from "./invite-list";
 import { ModuleAccessTable } from "./module-access-table";
 import { listLockedUsers, listModuleDenials } from "./service";
@@ -75,10 +75,8 @@ export function AdminPage({ modules }: { modules: ModuleInfo[] }) {
         </section>
       </div>
 
+      {/* 標題旁的建立按鈕等確認是站長才出現 標題跟著放在裡面 */}
       <section aria-labelledby="admin-invites" className="card stack">
-        <CardHeader id="admin-invites" icon={<Icon name="link" />}>
-          邀請連結
-        </CardHeader>
         <Suspense fallback={<InviteSectionSkeleton />}>
           <InviteSection modules={modules} />
         </Suspense>
@@ -141,7 +139,7 @@ export async function InviteSection({ modules }: { modules: ModuleInfo[] }) {
   const invites = await cachedInvites();
   return (
     <>
-      <CreateInviteForm modules={modules} />
+      <InviteHeader actions={<CreateInvite modules={modules} />} />
       <InviteList invites={invites} now={new Date()} modules={modules} />
     </>
   );
@@ -176,24 +174,19 @@ function ModuleAccessSkeleton() {
   );
 }
 
+function InviteHeader({ actions }: { actions?: ReactNode }) {
+  return (
+    <CardHeader id="admin-invites" icon={<Icon name="link" />} actions={actions}>
+      邀請連結
+    </CardHeader>
+  );
+}
+
 function InviteSectionSkeleton() {
   return (
     <>
-      <LoadingState label="載入邀請連結…" className="stack">
-        {[0, 1].map((i) => (
-          <div key={i} className="field">
-            <Skeleton className="h-4 w-24" />
-            <div className="grid grid-cols-3 gap-2">
-              {[0, 1, 2].map((j) => (
-                <Skeleton key={j} className="h-11 rounded-xl" />
-              ))}
-            </div>
-          </div>
-        ))}
-        <Skeleton className="h-11 rounded-lg" />
-        <Skeleton className="h-11 w-36 rounded-lg" />
-      </LoadingState>
-      <ListSkeleton rows={2} />
+      <InviteHeader />
+      <ListSkeleton rows={2} label="載入邀請連結…" />
     </>
   );
 }

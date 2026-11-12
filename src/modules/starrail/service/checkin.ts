@@ -8,6 +8,7 @@ import { CHECKIN_PAGE } from "../lib/urls";
 import { starrailAccounts, starrailCheckinLogs, type StarrailAccount } from "../data/schema";
 import { cookieOf, isolate, listAccounts, ownAccount, setCookieInvalid, trackingAccountChanges, UNDECRYPTABLE, type AccountChanges, type Outcome } from "./accounts";
 import { notifyOwner } from "./notices";
+import { markLoginExpired, readWithRefresh } from "./refresh";
 
 /** already 是今天已經簽過 排程不為這種結果發通知 */
 type CheckinResult = Outcome<{ message: string; already?: boolean }>;
@@ -25,12 +26,13 @@ export async function recentCheckins(userId: string, limit = 20, accountId?: num
 
 /** 簽到以 HoYoLAB 帳號為單位 紀錄掛在觸發簽到的那個角色上 */
 export async function checkin(account: StarrailAccount, changes?: AccountChanges): Promise<CheckinResult> {
-  const cookie = await cookieOf(account, changes);
-  if (cookie === null) {
+  const stored = await cookieOf(account, changes);
+  if (stored === null) {
     await db().insert(starrailCheckinLogs).values({ accountId: account.id, result: "failed", message: UNDECRYPTABLE });
     return { ok: false, error: UNDECRYPTABLE };
   }
-  const info = await fetchCheckinInfo(cookie);
+  const { result: info, expired, cookie } = await readWithRefresh(account, stored, fetchCheckinInfo, changes);
+  if (expired) await markLoginExpired(account, changes);
   if (info.ok) await setCookieInvalid(account.id, false, changes);
 
   let result: "success" | "already" | "failed";

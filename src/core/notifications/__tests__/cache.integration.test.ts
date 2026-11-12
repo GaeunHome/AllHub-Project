@@ -4,6 +4,7 @@ import { OTHER_SESSION, TEST_SESSION, currentSession } from "@/dev/session-stub"
 import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { tagged } from "@/dev/test-helpers";
 import { announcementTags } from "../../announcements/cache-tags";
+import { authTags } from "../../auth/cache-tags";
 import { coreNotifications } from "../../db/schema";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
@@ -135,12 +136,13 @@ describe("寫入通知的地方都讓 core:notifications 失效（expire: 0）",
     expect(expired()).toEqual([]);
   });
 
-  it("排程 notifications:cleanup_刪除後失效：通知與一起清掉的舊公告", async () => {
+  it("排程 notifications:cleanup_刪除後失效：通知與一起清掉的舊公告與邀請", async () => {
     await notificationsCron["notifications:cleanup"]();
 
     expect(expired()).toEqual([
       [TAG, { expire: 0 }],
       [announcementTags.announcements, { expire: 0 }],
+      [authTags.invites, { expire: 0 }],
     ]);
   });
 });

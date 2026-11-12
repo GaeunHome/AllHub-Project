@@ -12,3 +12,6 @@ export const TOO_FREQUENT = -110;
 export const GEETEST = [1034, 5003, 10035, 10041];
 /** 今天已經簽過 */
 export const ALREADY_SIGNED = -5003;
+
+/** 回 -100 或 10001 是登入過期 ltoken_v2 與 cookie_token_v2 都可能 有 stoken 時可以換新 */
+export const isLoginExpired = (result: { ok: true } | { ok: false; retcode: number | null }): boolean => !result.ok && result.retcode !== null && NOT_LOGGED_IN.includes(result.retcode);

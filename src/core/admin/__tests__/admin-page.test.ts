@@ -1,4 +1,4 @@
-import { isValidElement, type ReactElement, type ReactNode } from "react";
+import { Fragment, createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TEST_SESSION, requireOwner } from "@/dev/session-stub";
@@ -9,12 +9,14 @@ vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ connection: async () => {} }));
 vi.mock("../cached", () => ({ cachedUsers: vi.fn(), cachedInvites: vi.fn() }));
 vi.mock("../service", () => ({ listLockedUsers: vi.fn(), listModuleDenials: vi.fn() }));
+// 視窗關著時不算繪內容 換掉才看得到建立邀請的表單
+vi.mock("../../ui/dialog", { spy: true });
 vi.mock("../actions", () => ({ createInviteAction: vi.fn(), revokeInviteAction: vi.fn(), setUserDisabledAction: vi.fn(), deleteUserAction: vi.fn(), unlockUserAction: vi.fn(), setModuleAccessAction: vi.fn() }));
 
 const cached = mocksOf(await import("../cached"), "cachedUsers", "cachedInvites");
 const service = mocksOf(await import("../service"), "listLockedUsers", "listModuleDenials");
 const { AdminPage, AdminStats, InviteSection, LockedNotices, ModuleAccessSection, UserSection } = await import("../admin-page");
-const { inviteResult } = await import("../create-invite-form");
+const { Dialog } = await import("../../ui/dialog");
 
 const DAY = 86_400_000;
 const at = (offsetMs: number) => new Date(Date.now() + offsetMs);
@@ -49,6 +51,7 @@ beforeEach(() => {
   cached.cachedInvites.mockReset().mockResolvedValue([]);
   service.listLockedUsers.mockReset().mockResolvedValue([]);
   service.listModuleDenials.mockReset().mockResolvedValue([]);
+  vi.mocked(Dialog).mockImplementation(({ children }) => createElement(Fragment, null, children));
 });
 
 describe("管理頁：使用者", () => {
@@ -205,7 +208,8 @@ describe("管理頁：邀請", () => {
     expect(text).toContain("開放：理財、天氣");
   });
 
-  it("列出有效、過期、撤銷、用完的邀請；只有有效的可以撤銷", async () => {
+  // 使用者覺得建立表單下面直接接著清單很醜 選了清單為主 已失效的收起來
+  it("有效的列在上面、可以撤銷；用完、過期、撤銷的收在「已失效（3）」裡，寫出各自的狀態、不能撤銷", async () => {
     cached.cachedInvites.mockResolvedValue([
       invite({ id: 11, note: "給小明", usedCount: 1 }),
       invite({ id: 12, expiresAt: at(-1000) }),
@@ -214,25 +218,20 @@ describe("管理頁：邀請", () => {
     ]);
 
     const markup = renderToStaticMarkup((await InviteSection({ modules: MODULES })) as ReactElement);
-    const text = textOf(markup);
+    const folded = markup.slice(markup.indexOf("<details"));
 
-    for (const label of ["有效", "已過期", "已撤銷", "已用完", "給小明", "已用 1／5 次"]) expect(text).toContain(label);
-    expect(markup).toContain('value="11"');
+    expect(markup.indexOf("給小明")).toBeLessThan(markup.indexOf("<details"));
+    expect(textOf(markup)).toContain("已用 1／5 次");
+    expect(textOf(folded)).toContain("已失效（3）");
+    for (const label of ["已過期", "已撤銷", "已用完"]) expect(textOf(folded)).toContain(label);
+    expect(markup).toMatch(/name="inviteId"[^>]*value="11"|value="11"[^>]*name="inviteId"/);
     for (const id of ["12", "13", "14"]) expect(markup).not.toMatch(new RegExp(`name="inviteId"[^>]*value="${id}"|value="${id}"[^>]*name="inviteId"`));
   });
-});
 
-describe("建立邀請後的畫面（inviteResult）", () => {
-  const LINK = "https://hub.example.com/register?code=new";
-  const created = { message: "已建立邀請連結：7 天內可以註冊 1 個帳號。", link: LINK };
+  it("沒有失效的邀請時不出現「已失效」", async () => {
+    cached.cachedInvites.mockResolvedValue([invite({ id: 11 })]);
 
-  it("還沒建立或出錯：不開視窗，也沒有「再看一次連結」（錯誤照樣顯示在表單下方）", () => {
-    expect(inviteResult({}, undefined)).toEqual({ dialogOpen: false, canReopen: false });
-    expect(inviteResult({ error: "建立邀請連結失敗（詳見伺服器 log）" }, undefined)).toEqual({ dialogOpen: false, canReopen: false });
-  });
-
-  it("再建立一條：新的連結照樣自動打開", () => {
-    expect(inviteResult({ ...created, link: `${LINK}2` }, LINK)).toMatchObject({ dialogOpen: true });
+    expect(renderToStaticMarkup((await InviteSection({ modules: MODULES })) as ReactElement)).not.toContain("已失效");
   });
 });
 

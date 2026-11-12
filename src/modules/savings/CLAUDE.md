@@ -12,7 +12,7 @@
 - 日期是台北時間的 YYYY-MM-DD：不能記未來，也不能早於帳戶的開始記帳日（`accountStartDate()`），起始餘額就是開始記帳那天的餘額。
   - 開始記帳日（使用者要的，v1.0.0，`savings_accounts.start_date`）：新增與修改帳戶時選（`parseStartDate()`，預設今天、不能是未來），才能補記之前的收支；null 是 v1.0.0 以前的帳戶，當成建立的台北日期。表單的金額欄位從今天開始時寫目前的數字（目前餘額），選了過去或修改時寫起始的數字（起始餘額）。往前改都可以，往後改不能晚於這個帳戶最早的紀錄（轉入的也算，`checkStartBeforeRecords()`）；`updateAccount()` 在交易裡先鎖使用者，再用 `for update` 鎖帳戶（排程記固定收支用 `key share` 鎖帳戶，`no key update` 擋不住），之後才查最早的紀錄與修改。往前改不會補記固定收支已經過去的期別。
 - 總資產＝啟用中的存款餘額＋投資的市值（`assetSummary`，只用 `active`）；有持股的投資帳戶用持股的市值（`lib/holdings.ts` 的 `investmentTotals()`），不看帳上的餘額。總覽只看現在，月份切換在紀錄頁。
-  - 各頁的帳戶數字、這個月要做的事與首頁卡片都從 `web/overview-data.ts` 的 `loadAccounts()`／`loadPending()`／`loadChecklist()`（`accounts-state.ts` 的 `accountsState()`）算，數字才一致：存款、投資（市值、成本、損益）、信用卡未繳與總資產由 `assetSummary()` 算一次，放在 `accountsState()` 的 `summary`，各頁不另外加總。沒有持股時不查股價，沒有信用卡時不查每天的流量與帳單；帳戶頁用不到市值，`loadAccounts(…, { quotes: false })` 不查股價。
+  - 各頁的帳戶數字、這個月要做的事與首頁卡片都從 `web/overview-data.ts` 的 `loadAccounts()`／`loadPending()`／`loadChecklist()`（`accounts-state.ts` 的 `accountsState()`）算，數字才一致：存款、投資（市值、成本、損益）與總資產由 `assetSummary()` 算一次，放在 `accountsState()` 的 `summary`；信用卡的未繳與未出帳由 `lib/cards.ts` 的 `cardTotals()` 算，放在 `cards`（使用者要的，v1.2.0：未繳只算帳單，也就是填了還沒繳清的與結帳了還沒填帳單照紀錄估的那一期，結帳後刷的另外算未出帳，從沒結帳過的卡刷的都是未出帳；總覽寫未繳，帳戶頁的信用卡標題旁兩個都寫），各頁不另外加總。沒有持股時不查股價，沒有信用卡時不查每天的流量與帳單；帳戶頁用不到市值，`loadAccounts(…, { quotes: false })` 不查股價。
 - 刪除帳戶時，跟它有關的紀錄（含轉帳的另一邊）、固定收支、持股與帳單一起刪（外鍵 cascade），其他帳戶的餘額會跟著變；刪除分類時改成未分類（set null）。停用的帳戶不能記帳、不算進總覽，紀錄留著。
 - 名稱先去掉看不見的格式字元（emoji 的零寬接合字留著）、NFC 正規化、連續空白縮成一個，再檢查長度（20 字）與重複。固定收支的名稱選填：空的照 `recurringTitle()` 的規則取標題；產生的紀錄備註是規則的 note，沒有就用名稱。
 - 「開始使用」（`setupDefaults`）：沒有分類時建薪水、餐飲、交通、訂閱、提領現金（都帶圖示）；重按不會重複。

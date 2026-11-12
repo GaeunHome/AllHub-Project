@@ -11,10 +11,21 @@
   - 開拓月曆已用真實帳號確認讀得到（2026-11-04）；貼了六個鍵還回 -100 時是 `cookie_token_v2` 的值無效：可能過期、被新的登入換掉，或沒複製完整（值裡有 `-`，雙擊選取會截斷），這次登出再登入、重新複製後就好了，分不出是哪一個。
   - 開拓月曆回 -100／10001 時不說整個 cookie 失效（`lib/ledger.ts` 的 `explainLedgerLogin()`，只看鍵名、不帶值）：補完還少 `cookie_token_v2` 或 `account_mid_v2` 就請使用者重新貼上含這兩個欄位的 cookie，都在就寫「開拓月曆無法讀取（代碼：訊息），請重新貼上最新的 cookie」。
   - 假服務的開拓月曆照正式環境，Cookie 少了這兩個就回 -100（`请先登录`）。
+- 帳號密碼登入與自動換新（使用者要的：盡可能不用重貼 cookie，v1.2.0；照 genshin.py 的 auth 與 cookie manager 整理，**尚未用真實帳號驗證**，壞了時貼 cookie 照常能用）：
+  - 連結一律用彈出視窗（使用者選的，v1.2.0）：沒有帳號時頁面上是一張「連結 HoYoLAB 帳號」的大卡片加金色按鈕，已有帳號時是「新增帳號或更新 cookie」按鈕，打開同一個視窗（`web/components/link-account-form.tsx`）。視窗是星穹列車的乘車證（`boarding-pass.tsx`，不畫標題列的 `Dialog bare`）：左邊票根（列車圖示、直寫的星穹列車、乘車日），撕口是金色虛線，寬螢幕時視窗上下緣在撕口挖半圓（`mask`）；手機上票根是最上面一條。表單上方的軌道是帳號、驗證、伺服器三站（`PassTrack`），票上的輸入框只留底線，金色按鈕兩端是斜角（焦點框畫在裡面）。樣式都在 `starrail.css` 的 `sr-pass-*`，圖都用 CSS 畫。
+  - 預設「帳號密碼登入」（`login-link-form.tsx`），「貼上 cookie」是最下面的小連結「登不進去？改用貼上 cookie」（使用者選的），那邊有「改回帳號密碼登入」；換表單時焦點移到新表單的第一個欄位。
+  - `service/login.ts` 的 `loginAccount()`：HoYoLAB App 的登入介面（`lib/hoyolab.ts` 的 `appLogin()`，DS、RSA 加密與回應解析在 `lib/passport.ts`）拿到 `stoken` 與 `mid`，立刻換出 `ltoken_v2`、`cookie_token_v2`（`tokensFromStoken()`），組成 cookie（`lib/cookie.ts` 的 `loginCookie()`）後跟貼上的一樣 `linkAccount(..., "ask")`；好幾個伺服器都有角色時 cookie 交回瀏覽器，用貼上 cookie 那一份的選伺服器。
+  - HoYoverse 要求驗證時：圖形驗證（-3101）是 Geetest v4，瀏覽器到這一步才載入程式（`lib/geetest.ts`，開發時經 `externalAssetUrl()` 改寫到假伺服器），用 `float` 畫在視窗裡（modal 視窗外面的東西點不到），解完自動再登入一次；email 驗證碼（-3239）由使用者填，先驗證再登入。device id 每次登入在瀏覽器產生一個，同一次登入的每一步都一樣，不存。
+  - `stoken` 跟 cookie 放在同一個加密欄位（`KEPT_KEYS` 的最後一個），送給其他介面時 `requestCookie()` 拿掉；換新只帶 `stoken` 與 `mid`（`ltmid_v2`）。
+  - 換新（`service/refresh.ts`）：排程（開拓力、簽到）讀到登入過期（`lib/retcodes.ts` 的 `isLoginExpired()`）時 `readWithRefresh()` 換新再讀一次；自動兌換有新的碼時先換新（`cookie_token_v2` 最常被換掉）；頁面讀到時結果帶 `loginExpired`、畫面寫「正在自動換新」，`web/cookie-flag.ts` 的 `refreshLoginAfter()` 在 `after()` 換新並讓 `starrail:accounts` 失效（一分鐘內只換一次，已標失效的頁面不換，等排程試）。同一個 HoYoLAB 帳號連結的每個角色一起換，換好清掉 cookie 失效標記。
+  - 換新被拒（例如改了密碼）標 cookie 失效，標記從沒失效變成失效時寄一次 `login_expired` 通知請擁有者重新登入；連不上這類暫時的不算。
+  - 次數限制與密碼不存見 `.claude/rules/security.md`。
 - 帳號每人一份（`starrail_accounts.user_id`）；UID 全站唯一，別人已經連結的 UID 拒絕。排程（簽到、開拓力與提醒、自動兌換）處理擁有者沒停用的帳號，同一個 HoYoLAB 帳號只簽到一次，每個擁有者只收到自己帳號的結果。
 - service 依用途分檔：
   - `accounts.ts`（帳號的讀寫與共用的 `pageAccount()`、`cookieOf()`、`setCookieInvalid()`、`trackingAccountChanges()`、`Outcome` 型別）
   - `link.ts`（連結）
+  - `login.ts`（帳號密碼登入）
+  - `refresh.ts`（用 `stoken` 換新 cookie）
   - `page-reads.ts`（頁面向 HoYoLAB 讀的資料，`cached.ts` 包上快取）
   - `warps.ts`（躍遷紀錄，頁面才讀，`cached.ts` 包上快取）
   - `redeem.ts`（手動兌換）
@@ -31,7 +42,7 @@
   - 終局挑戰：18:00 以後才查活動日曆，還剩 24～48 小時結束、還沒拿滿的（混沌回憶、虛構敘事、末日幻影、異相仲裁）各一則。
   - 同一個帳號同一期只寄一次：`service/notices.ts` 的 `notifyOnce()` 用 core 的 `sendOnce()`（scope `starrail:<種類>`，key 是 `claimKey(帳號 id, 期別)`）先認領再寄，寄不出去放掉，下一輪再試；提醒出錯不影響開拓力的結果。
 - 自動兌換（`starrail:redeem`，每天 UTC 04:00＝台北 12:00；`service/auto-redeem.ts`）：
-  - 只處理帳號設定打開「自動兌換新的兌換碼」（`auto_redeem`，預設關）、cookie 沒標失效的帳號；打開前檢查 cookie 有兌換要用的鍵（補完 `account_` 開頭的之後只差 `cookie_token_v2`）。
+  - 只處理帳號設定打開「自動兌換新的兌換碼」（`auto_redeem`，預設關）、cookie 沒標失效的帳號（有 `stoken` 的先換新，見上面的帳號密碼登入）；打開前檢查 cookie 有兌換要用的鍵（補完 `account_` 開頭的之後只差 `cookie_token_v2`）。
   - 清單來自社群的 hoyo-codes（`hoyo-codes.seria.moe/codes?game=hkrpg`，作者用亞服帳號試過、只列有效的；`lib/codes.ts`）：讀清單最多等 5 秒，新加入的先，最多 50 個；讀不到明天再試。
   - 每個 HoYoLAB 帳號兩次兌換之間等 6 秒（冷卻約 5 秒），不同帳號輪流送；兌換合計 30 秒（一個 HoYoLAB 帳號一天大約試 5、6 個）、每個請求最多 10 秒，加上清單 5 秒也在 60 秒內，剩下的明天再試。
   - 結果（`lib/redeem.ts` 的 `redeemVerdict()`）：成功、已兌換、過期、無效記進 `starrail_redeem_codes` 不再送；還沒開放（-2014）、等級不足、認不得的代碼明天再試；要求驗證（`RISK`：1034、5003、10035、10041、-502）整批停下；太頻繁（-110、1028、10101）、冷卻、cookie 被拒、連不上時，那個 HoYoLAB 帳號今天先停。log 只記帳號 id 與 retcode，不記兌換碼。
@@ -47,9 +58,9 @@
   - 遺器副詞條的強化次數用 `lib/characters.ts` 的 `relicUpgrades()`（times − 1）：推定 `times` 跟遊戲資料的詞條次數（Enka 的 `cnt`、Mihomo 的 `count`；hsr-optimizer 用 count − 1 算強化次數）一樣含初始那一次，依據是使用者回報實際畫面每條副詞條都至少 +1、+15 遺器的總次數也對得上，尚未用真實帳號的回應確認（mock 也從 1 起算）。
   - 只在強化過時於數值左邊寫「+N」（照資料寫、不設上限，title 與報讀器是「強化 N 次」），主屬性不顯示。
 - 畫面改版（使用者要的：好看精緻、不要都是字、旁邊不要堆灰色的小字；參考 HoYoLAB 官方戰績、Starward 與 StarRail-plugin 的版面，只參考配置，程式、樣式與星星都自己寫，圖片照舊由瀏覽器從 HoYoLAB 載入）。長條的長度都在 `web/chart-scale.ts`（`shareOfMax()` 照最大的一項、`ratioPercent()` 拿到的除以上限、`elapsedPercent()` 過了多久），照資料視覺化的原則只用一種金色、不做圓餅圖：
-  - 終局戰績（使用者選的 B）：上場角色是直式小卡（`team-avatar.tsx`，6 比 7，稀有度底色、屬性在左上、星魂 1 魂以上在右上、等級在下緣，隊伍編號與分數跟它一樣高 `MEMBER_HEIGHT`），回合與快速通關用圖示加文字（`sr-visuals.tsx` 的 `RoundCount`、`QuickClear`），不用小標籤。異相仲裁是第四個分頁（`lib/peak.ts` 解析，騎士照 `mob_infos` 的順序、紀錄用 `maze_id` 對上；`web/components/peak-view.tsx`，`peakSeasonFor()` 本期是第一期、上期是第二期）：王棋在上用首領大圖（使用者選的），三個騎士在下並排（騎士卡本身 32rem 以上時左邊名稱與星數、右邊隊伍，平板直放一欄一張時才不會空一半）；王棋的星與高難度用 `--sr-boss-star`，跟一般的金色分開，另外有文字標明。
+  - 終局戰績（使用者選的 B）：上場角色是直式小卡（`team-avatar.tsx`，6 比 7，稀有度底色、屬性在左上、星魂 1 魂以上在右上、等級在下緣，寬度是 `--sr-team`，屬性圖示與字跟著它放大）。v1.2.0 使用者說太小、之後有星啟模式會有三隊，選了「整列寬＋隊伍分欄」：終局戰績獨佔一整列（不再跟開拓月曆並排），每一層的隊伍上面是編號方塊與分數、下面是小卡，`starrail.css` 的 `.sr-teams` 照這一層卡片的寬度分欄（42rem 起兩欄，三隊在 72rem 起三欄），小卡 68px 起、兩隊或三隊夠寬時 88px；解析一直都讀 `node_1` 到 `node_3`。回合與快速通關用圖示加文字（`sr-visuals.tsx` 的 `RoundCount`、`QuickClear`），不用小標籤。異相仲裁是第四個分頁（`lib/peak.ts` 解析，騎士照 `mob_infos` 的順序、紀錄用 `maze_id` 對上；`web/components/peak-view.tsx`，`peakSeasonFor()` 本期是第一期、上期是第二期）：王棋在上用首領大圖（使用者選的），三個騎士在下並排（騎士卡本身 32rem 以上時左邊名稱與星數、右邊隊伍，平板直放一欄一張時才不會空一半）；王棋的星與高難度用 `--sr-boss-star`，跟一般的金色分開，另外有文字標明。
   - 開拓月曆：大數字旁邊是最近三個月的直條（選到的月份金色、其他淡白，數字寫在柱頂），星瓊來源是由多到少的橫條。
-  - 活動日曆：終局挑戰與活動的進度、卡池過了多久都是細細的金色進度條；卡池是五星大圖加四星小頭像；剩幾天的確切結束時間放在滑過的說明，不多寫一行小字。
+  - 活動日曆：卡池排在最上面（使用者選的，v1.2.0），終局挑戰與活動的進度、卡池過了多久都是細細的金色進度條；卡池是五星大圖加四星小頭像，同一個池有好幾個五星（例如 4.7 版三個復刻同池，光錐也是）時每個都畫大圖、名字寫在圖下面（使用者回報以前只畫第一個）；卡池的順序是角色在光錐前面，同一種裡只有一個五星的（當期 up）在好幾個五星的復刻池前面，再照結束時間（`lib/calendar.ts` 的 `warpOrder()`，使用者要的）；剩幾天的確切結束時間放在滑過的說明，不多寫一行小字。
   - 躍遷摘要：每個卡池一條保底進度條與上一隻五星的頭像，沿用躍遷紀錄頁的 `sr-warp-row`；抽到保底的八成以後換成亮金色（`warps-view.ts` 的 `nearPity()`）。
   - 即時便箋：開拓力是圓環（`StaminaRing`，SVG 的 `pathLength` 是 100）；委託沒有總時長畫不出進度，改放獎勵的圖示（`parseExpeditions()` 的 `reward`，來自 `item_url`）。
 - 躍遷紀錄（使用者要的，`/starrail/warps`、`lib/warps.ts`、`service/warps.ts`，已用真實帳號確認，2026-11-05）：讀 HoYoLAB 官方的活動頁（`sg-act-public-api.hoyolab.com`，照 genshin.py 的 `hsr_warp_records.py` 與 `badge.py`）：先 POST `common/badge/v1/login/account`（body 是 `game_biz`、`lang`、`region`、`uid`，帶 `x-rpc-lang`、`x-rpc-language`，不帶 `x-rpc-device_id` 與 DS），回應的 Set-Cookie 有 `e_hkrpg_token`，接在原本的 cookie 後面讀 `event/rpg_gacha_record/five_star_list`（`gacha_type` 見 `WARP_BANNERS`，`has_more` 時帶 `version_id`、`max_id` 讀下一頁，每個卡池最多 30 頁；還有下一頁卻問不到或超過上限算讀不完，不顯示少掉紀錄的數字；游標可能是 19 位數字，`quoteBigCursors()` 在 JSON 解開前寫成字串）。登入靠 `cookie_token_v2`，別的地方登入就會換掉它，所以讀不到時請使用者重新貼 cookie，不動帳號的 cookie 失效標記（同開拓月曆）。

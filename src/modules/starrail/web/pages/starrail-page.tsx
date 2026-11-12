@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { requireModule } from "@/core/auth";
 import type { ModuleInfo, SearchParams } from "@/core/module";
-import { Icon } from "@/core/ui/icon";
 import { PageTheme } from "@/core/ui/page-theme";
 import { serverLabel } from "../../lib/roles";
 import { cachedAccounts, cachedRecentCheckins } from "../../service/cached";
@@ -40,15 +39,7 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
   const accounts = await cachedAccounts(user.id);
   const account = pickAccount(accounts, (await searchParams).account);
   if (!account) {
-    return (
-      <div className="stack">
-        <LinkAccountForm defaultOpen />
-        <p className="sr-panel flex items-center gap-3 p-5 text-ink sm:p-6">
-          <Icon name="sparkles" className="size-5 text-sr-gold" />
-          還沒有連結任何帳號：貼上 cookie 就能看到開拓力、角色與戰績
-        </p>
-      </div>
-    );
+    return <LinkAccountForm variant="hero" />;
   }
 
   return (
@@ -67,15 +58,13 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
       <Suspense key={`characters-${account.id}`} fallback={<CharacterPanelSkeleton />}>
         <CharacterPanel account={account} />
       </Suspense>
-      {/* 超寬螢幕上開拓月曆與終局戰績並排 不會被拉成一長條 */}
-      <div className="grid items-start gap-8 2xl:grid-cols-2">
-        <Suspense key={`ledger-${account.id}`} fallback={<LedgerSkeleton />}>
-          <LedgerPanel account={account} />
-        </Suspense>
-        <Suspense key={`endgame-${account.id}`} fallback={<EndgameSkeleton />}>
-          <EndgamePanel account={account} />
-        </Suspense>
-      </div>
+      <Suspense key={`ledger-${account.id}`} fallback={<LedgerSkeleton />}>
+        <LedgerPanel account={account} />
+      </Suspense>
+      {/* 使用者選的 終局戰績獨佔一整列 隊伍與角色卡才放得大 */}
+      <Suspense key={`endgame-${account.id}`} fallback={<EndgameSkeleton />}>
+        <EndgamePanel account={account} />
+      </Suspense>
       <Suspense key={`warps-${account.id}`} fallback={<WarpCardSkeleton />}>
         <WarpCard account={account} />
       </Suspense>
@@ -86,7 +75,7 @@ export async function AccountArea({ searchParams }: { searchParams: SearchParams
           <CheckinLogs accountId={account.id} />
         </Suspense>
       </div>
-      <LinkAccountForm defaultOpen={false} />
+      <LinkAccountForm variant="button" />
     </div>
   );
 }

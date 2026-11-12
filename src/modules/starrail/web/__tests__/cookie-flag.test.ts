@@ -8,9 +8,11 @@ vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("../../service/cached", { spy: true });
 vi.mock("../../service/accounts", { spy: true });
+vi.mock("../../service/refresh", () => ({ refreshOwnCookie: vi.fn() }));
 
 const cached = mocksOf(await import("../../service/cached"), "cachedDailyNote", "cachedCharacters", "cachedEndgame", "cachedPeak", "cachedLedger", "cachedProfile");
 const accounts = mocksOf(await import("../../service/accounts"), "syncCookieInvalid");
+const refresh = mocksOf(await import("../../service/refresh"), "refreshOwnCookie");
 const { after } = await import("next/server");
 const { syncCookieFlagAfter } = await import("../cookie-flag");
 const { DailyNotePanel } = await import("../components/daily-note-panel");
@@ -38,6 +40,7 @@ const runAfter = async () => {
 beforeEach(() => {
   vi.mocked(after).mockReset();
   accounts.syncCookieInvalid.mockReset().mockResolvedValue(true);
+  refresh.refreshOwnCookie.mockReset().mockResolvedValue("refreshed");
   cached.cachedDailyNote.mockReset().mockResolvedValue(failed(false));
   cached.cachedCharacters.mockReset().mockResolvedValue({ ok: true, characters: [], fetchedAt });
   cached.cachedEndgame.mockReset().mockResolvedValue(endgameOk);
@@ -127,5 +130,42 @@ describe("帳號的 cookie 失效標記只由即時便箋決定（排程的簽�
 
     expect(after).not.toHaveBeenCalled();
     expect(accounts.syncCookieInvalid).not.toHaveBeenCalled();
+  });
+});
+
+// 使用者要的 盡可能保存 cookie 有 stoken 時讀到登入過期就在回應後換新
+describe("讀到登入過期、cookie 有 stoken：回應後自動換新，不標帳號失效", () => {
+  const expired = { ok: false as const, message: "HoYoLAB 的登入過期了，正在自動換新，過幾秒重新整理就好", loginExpired: true };
+
+  it("即時便箋：回應後換新（登入者與這個帳號），不寫失效標記", async () => {
+    cached.cachedDailyNote.mockResolvedValue({ ...expired, cookieInvalid: false });
+
+    await DailyNotePanel({ account: account(false) });
+    await runAfter();
+
+    expect(refresh.refreshOwnCookie).toHaveBeenCalledExactlyOnceWith(TEST_SESSION.id, 3);
+    expect(accounts.syncCookieInvalid).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["角色", () => cached.cachedCharacters.mockResolvedValue(expired), () => CharacterPanel({ account: account(false) })],
+    ["終局戰績", () => cached.cachedEndgame.mockResolvedValue(expired), () => EndgamePanel({ account: account(false) })],
+    ["開拓月曆", () => cached.cachedLedger.mockResolvedValue(expired), () => LedgerPanel({ account: account(false) })],
+  ] as const)("%s：回應後換新", async (_name, respond, render) => {
+    respond();
+
+    await render();
+    await runAfter();
+
+    expect(refresh.refreshOwnCookie).toHaveBeenCalledWith(TEST_SESSION.id, 3);
+  });
+
+  it("沒有 stoken 的登入過期（貼上的 cookie）：不換新", async () => {
+    cached.cachedCharacters.mockResolvedValue(failed(true));
+
+    await CharacterPanel({ account: account(false) });
+    await runAfter();
+
+    expect(refresh.refreshOwnCookie).not.toHaveBeenCalled();
   });
 });

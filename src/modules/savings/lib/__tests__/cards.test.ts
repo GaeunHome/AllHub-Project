@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dayFlowRow } from "../../dev/fixtures";
-import { billDefaults, billDifference, billPayments, billStatus, cardBill, defaultDueDate, lastStatementDate, payableDueDate, type CardStatement } from "../cards";
+import { billDefaults, billDifference, billPayments, billStatus, cardBill, cardTotals, defaultDueDate, lastStatementDate, payableDueDate, type CardStatement } from "../cards";
 import type { AccountDayFlow } from "../ledger";
 
 // 卡片 id 預設是下面的 CARD
@@ -293,5 +293,22 @@ describe("billPayments（每張帳單繳了多少：結帳日之後到下一張�
       { id: 2, paid: 3800, lastPaidOn: "2026-10-20" },
       { id: 3, paid: 0, lastPaidOn: null },
     ]);
+  });
+});
+
+// 使用者要的 未繳跟未出帳加在一起會以為帳單很多
+describe("cardTotals（信用卡未繳只算帳單，結帳後刷的另外算未出帳）", () => {
+  const part = (statementDate: string | null, remainingDue: number, unbilled: number) => ({ statementDate, remainingDue, unbilled });
+
+  it("填了帳單還要繳的 8,480、結帳了還沒填帳單照紀錄估的 6,000 算未繳；結帳後刷的 1,500 與 2,000 算未出帳", () => {
+    expect(cardTotals([part("2026-10-05", 8480, 1500), part("2026-10-05", 6000, 2000)])).toEqual({ due: 14_480, unbilled: 3500 });
+  });
+
+  it("沒有結帳日又從沒填過帳單的卡_刷的 3,500 都是未出帳，不算未繳", () => {
+    expect(cardTotals([part(null, 3500, 3500)])).toEqual({ due: 0, unbilled: 3500 });
+  });
+
+  it("沒有信用卡_都是 0", () => {
+    expect(cardTotals([])).toEqual({ due: 0, unbilled: 0 });
   });
 });

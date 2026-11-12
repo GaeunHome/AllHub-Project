@@ -5,7 +5,7 @@ import { HomeCard } from "@/core/ui/home-card";
 import type { StarrailAccountView } from "../../service/accounts";
 import { cachedAccounts, cachedDailyNote } from "../../service/cached";
 import { AccountNoteRow, AccountNoteSkeleton, NoLinkedAccount, NotesSkeleton } from "../components/home-note";
-import { syncCookieFlagAfter } from "../cookie-flag";
+import { refreshLoginAfter, syncCookieFlagAfter } from "../cookie-flag";
 
 // web 層不能 import 模組根目錄 名稱 圖示 點綴色由 src/app 從 info.ts 傳進來
 export function StarrailHomeCard({ info }: { info: ModuleInfo }) {
@@ -39,6 +39,7 @@ export async function StarrailNotes() {
 export async function AccountNote({ account }: { account: StarrailAccountView }) {
   const user = await requireModule("starrail");
   const result = await cachedDailyNote(user.id, account.id);
-  syncCookieFlagAfter(user.id, account, result.cookieInvalid);
+  if (!result.ok && result.loginExpired) refreshLoginAfter(user.id, account.id, result);
+  else syncCookieFlagAfter(user.id, account, result.cookieInvalid);
   return <AccountNoteRow account={account} result={result} now={new Date()} />;
 }

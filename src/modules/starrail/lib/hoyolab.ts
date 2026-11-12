@@ -4,9 +4,10 @@ import { logError } from "@/core/errors";
 import { externalFetch } from "@/core/external-url";
 import { interpretActCalendar, type ActCalendarResult } from "./calendar";
 import { interpretCharacters, type CharacterList } from "./characters";
-import { cookieKeys, withAccountIds } from "./cookie";
+import { cookieKeys, requestCookie, withAccountIds } from "./cookie";
 import { generateDs } from "./ds";
 import { ENDGAME_ENDPOINTS, interpretEndgame, type EndgameMode, type EndgameResult, type EndgameSchedule } from "./endgame";
+import { appLoginDs, encryptCredential, interpretAppLogin, interpretEmailVerify, interpretTokens, passportDs, PASSPORT_APP_ID, type LoginStep, type TokenResult } from "./passport";
 import { interpretPeak, type PeakResult } from "./peak";
 import { explainLedgerLogin, interpretLedger, type LedgerResult } from "./ledger";
 import { interpretRedeem, type RedeemOutcome } from "./redeem";
@@ -41,6 +42,9 @@ const GIFT_PAGE = "https://hsr.hoyoverse.com";
 const CHECKIN_BASE = "https://sg-public-api.hoyolab.com/event/luna/os";
 const WARP_LOGIN_URL = "https://sg-act-public-api.hoyolab.com/common/badge/v1/login/account";
 const WARP_LIST_URL = "https://sg-act-public-api.hoyolab.com/event/rpg_gacha_record/five_star_list";
+const APP_LOGIN_URL = "https://sg-public-api.hoyoverse.com/account/ma-passport/api/appLoginByPassword";
+const VERIFY_EMAIL_URL = "https://sg-public-api.hoyoverse.com/account/ma-verifier/api/verifyActionTicketPartly";
+const TOKEN_BY_STOKEN_URL = "https://sg-public-api.hoyoverse.com/account/ma-passport/token/getBySToken";
 
 /** 自動兌換的排程要在 60 秒內跑完 兌換的請求最多等 10 秒 */
 const REDEEM_TIMEOUT_MS = 10_000;
@@ -48,9 +52,10 @@ const REDEEM_TIMEOUT_MS = 10_000;
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 
+/** stoken 只在換新時送 一般的介面用不到 */
 function headers(cookie: string, extra: Record<string, string> = {}): Record<string, string> {
   return {
-    Cookie: cookie,
+    Cookie: requestCookie(cookie),
     "User-Agent": USER_AGENT,
     Origin: "https://act.hoyolab.com",
     Referer: "https://act.hoyolab.com/",
@@ -61,8 +66,13 @@ function headers(cookie: string, extra: Record<string, string> = {}): Record<str
   };
 }
 
-/** setCookies 只有躍遷紀錄的登入用得到 */
-async function send(url: string, init: RequestInit, timeoutMs?: number, prepare: (body: string) => string = (body) => body): Promise<{ json: unknown; setCookies: string[] }> {
+/** setCookies 只有躍遷紀錄的登入用得到 header 只有帳號密碼登入用得到 */
+async function send(
+  url: string,
+  init: RequestInit,
+  timeoutMs?: number,
+  prepare: (body: string) => string = (body) => body,
+): Promise<{ json: unknown; setCookies: string[]; header: (name: string) => string | null }> {
   let response: Response;
   let text: string;
   try {
@@ -71,15 +81,16 @@ async function send(url: string, init: RequestInit, timeoutMs?: number, prepare:
   } catch (error) {
     // 錯誤訊息可能帶著 header 裡的 cookie 只記錯誤種類
     logError("starrail", "呼叫 HoYoLAB 失敗", error, new URL(url).pathname);
-    return { json: { localError: "連不上 HoYoLAB（逾時或網路錯誤），請稍後再試" }, setCookies: [] };
+    return { json: { localError: "連不上 HoYoLAB（逾時或網路錯誤），請稍後再試" }, setCookies: [], header: () => null };
   }
   const setCookies = response.headers.getSetCookie();
+  const header = (name: string) => response.headers.get(name);
   try {
-    return { json: JSON.parse(prepare(text)), setCookies };
+    return { json: JSON.parse(prepare(text)), setCookies, header };
   } catch {
     // 被擋或維護時回的是網頁 內容可能帶有帳號資料 只記狀態碼 畫面照樣說格式不同
     console.error("[starrail] HoYoLAB 的回應不是 JSON", new URL(url).pathname, `HTTP ${response.status}`);
-    return { json: null, setCookies };
+    return { json: null, setCookies, header };
   }
 }
 
@@ -132,7 +143,7 @@ export async function fetchLedger(cookie: string, uid: string, region: string, m
 
 /** 活動頁的請求 帶 x-rpc-device_id 會被拒絕 DS 也用不到 所以不用共用的 headers() */
 function warpHeaders(cookie: string): Record<string, string> {
-  return { Cookie: cookie, "User-Agent": USER_AGENT, "x-rpc-lang": "zh-tw", "x-rpc-language": "zh-tw" };
+  return { Cookie: requestCookie(cookie), "User-Agent": USER_AGENT, "x-rpc-lang": "zh-tw", "x-rpc-language": "zh-tw" };
 }
 
 /**
@@ -196,4 +207,42 @@ export async function signIn(cookie: string): Promise<CheckinOutcome> {
     body: JSON.stringify({ act_id: CHECKIN_ACT_ID, lang: "zh-tw" }),
   });
   return interpretSign(json);
+}
+
+/** HoYoLAB App 的標頭 照 genshin.py 的 APP_LOGIN_HEADERS */
+const appHeaders = (extra: Record<string, string>) => ({
+  "User-Agent": USER_AGENT,
+  "Content-Type": "application/json",
+  "x-rpc-app_id": PASSPORT_APP_ID,
+  "x-rpc-client_type": "2",
+  ...extra,
+});
+
+/**
+ * 帳號密碼用公鑰加密後才送 log 只記路徑 不記帳號密碼
+ * deviceId 同一次登入的每一步要一樣 不然會一直要 email 驗證
+ */
+export async function appLogin(input: { account: string; password: string; deviceId: string; aigis?: string; verify?: string }): Promise<LoginStep> {
+  const body = { account: encryptCredential(input.account), password: encryptCredential(input.password) };
+  const extra: Record<string, string> = { "x-rpc-aigis_v4": "true", "x-rpc-app_version": "4.8.0", "x-rpc-sdk_version": "2.2.0", "x-rpc-device_id": input.deviceId, ds: appLoginDs(body) };
+  if (input.aigis) extra["x-rpc-aigis"] = input.aigis;
+  if (input.verify) extra["x-rpc-verify"] = input.verify;
+  const { json, header } = await send(APP_LOGIN_URL, { method: "POST", headers: appHeaders(extra), body: JSON.stringify(body) });
+  return interpretAppLogin(json, header);
+}
+
+/** HoYoverse 已經把驗證碼寄到帳號的 email 這裡只驗證 */
+export async function verifyEmailCode(ticket: string, code: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  const body = { action_type: "verify_for_component", action_ticket: ticket, email_captcha: code, verify_method: 2 };
+  return interpretEmailVerify(await call(VERIFY_EMAIL_URL, { method: "POST", headers: appHeaders({}), body: JSON.stringify(body) }));
+}
+
+/** 用 stoken 換新 cookie 只帶 stoken 與 mid */
+export async function tokensFromStoken(stoken: string, mid: string): Promise<TokenResult> {
+  const json = await call(TOKEN_BY_STOKEN_URL, {
+    method: "POST",
+    headers: { ...appHeaders({ ds: passportDs() }), Cookie: `stoken=${stoken}; mid=${mid}` },
+    body: JSON.stringify({ dst_token_types: [2, 4] }),
+  });
+  return interpretTokens(json);
 }

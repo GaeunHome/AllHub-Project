@@ -17,6 +17,7 @@ import { AccountTabs } from "../components/account-card";
 import { StarrailBanner } from "../components/starrail-banner";
 import { FiveStarList, PityPanel } from "../components/warp-history";
 import { hasRecords, pickBanner, shownBanners } from "../warps-view";
+import { refreshLoginAfter } from "../cookie-flag";
 
 // web 層不能 import 模組根目錄 圖示 名稱 點綴色由 src/app 從 info.ts 傳進來
 export function WarpsPage({ info, searchParams }: { info: ModuleInfo; searchParams: SearchParams }) {
@@ -48,6 +49,7 @@ export async function WarpsArea({ searchParams }: { searchParams: SearchParams }
   }
   const read = await cachedWarps(user.id, account.id);
   after(() => reportWarps(read));
+  refreshLoginAfter(user.id, account.id, read);
 
   return (
     <div className="page-stack">

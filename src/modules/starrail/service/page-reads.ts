@@ -6,14 +6,27 @@ import type { Endgame, EndgameMode, EndgameSchedule } from "../lib/endgame";
 import { fetchActCalendar, fetchCharacters, fetchDailyNote, fetchEndgame, fetchLedger, fetchPeak, fetchProfile } from "../lib/hoyolab";
 import type { Ledger } from "../lib/ledger";
 import type { Peak } from "../lib/peak";
+import { canRefresh } from "../lib/cookie";
 import type { DailyNote, Expedition, HoyolabResult } from "../lib/responses";
+import { isLoginExpired } from "../lib/retcodes";
 import type { StarrailAccount } from "../data/schema";
 import { pageAccount } from "./accounts";
 
 // 頁面向 HoYoLAB 讀的資料 只讀不寫 cached.ts 包上快取 失效標記由頁面在回應後寫回
 
-/** 讀不到時只在那一塊寫原因 */
-export type PageFailure = { ok: false; message: string };
+/**
+ * 讀不到時只在那一塊寫原因
+ * loginExpired 是登入過期但有 stoken 頁面在回應後換新 這一塊請使用者重新整理
+ */
+export type PageFailure = { ok: false; message: string; loginExpired: boolean };
+
+const REFRESHING = "HoYoLAB 的登入過期了，正在自動換新，過幾秒重新整理就好";
+
+/** 有 stoken 時不標失效 改成在回應後換新 躍遷紀錄也用 */
+export function failure(result: Extract<HoyolabResult<unknown>, { ok: false }>, cookie: string): PageFailure {
+  const loginExpired = isLoginExpired(result) && canRefresh(cookie);
+  return { ok: false, message: loginExpired ? REFRESHING : result.message, loginExpired };
+}
 
 /**
  * fetchedAt 是查詢的時間 快取最多 5 分鐘 回滿時間從這裡算
@@ -25,10 +38,13 @@ export type DailyNoteFetch =
 
 export async function dailyNoteFor(userId: string, accountId: number): Promise<DailyNoteFetch> {
   const target = await pageAccount(userId, accountId);
-  if (!target.ok) return target;
+  if (!target.ok) return { ...target, loginExpired: false };
   const result = await fetchDailyNote(target.cookie, target.account.uid, target.account.region);
   const fetchedAt = new Date();
-  if (!result.ok) return { ok: false, message: result.message, cookieInvalid: result.cookieInvalid };
+  if (!result.ok) {
+    const failed = failure(result, target.cookie);
+    return { ...failed, cookieInvalid: !failed.loginExpired && result.cookieInvalid };
+  }
   const { expeditions = [], ...note } = result.data;
   return { ok: true, note, expeditions, fetchedAt, cookieInvalid: false };
 }
@@ -47,12 +63,12 @@ async function readRecord<T extends { missing: string[] }>(
   request: (cookie: string, account: StarrailAccount) => Promise<HoyolabResult<T>>,
 ): Promise<Fetched<{ data: T }>> {
   const target = await pageAccount(userId, accountId);
-  if (!target.ok) return { ok: false, message: target.message };
+  if (!target.ok) return { ok: false, message: target.message, loginExpired: false };
   const result = await request(target.cookie, target.account);
   const fetchedAt = new Date();
   if (!result.ok) {
     console.error(`[starrail] 讀取${what}失敗`, accountId, `retcode ${result.retcode}`);
-    return { ok: false, message: result.message };
+    return failure(result, target.cookie);
   }
   logMissing("starrail", what, result.data.missing, accountId);
   return { ok: true, data: result.data, fetchedAt };

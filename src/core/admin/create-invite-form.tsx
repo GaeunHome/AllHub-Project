@@ -1,10 +1,11 @@
 "use client";
 
-import { startTransition, useActionState, useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { INVITE_DAY_OPTIONS, INVITE_NOTE_MAX_LENGTH, INVITE_USE_OPTIONS } from "../auth/invite-rules";
 import type { ModuleInfo } from "../module";
 import { CopyButton } from "../ui/copy-button";
-import { Dialog } from "../ui/dialog";
+import { Dialog, useDialog, useDialogForm } from "../ui/dialog";
+import { FormButtons } from "../ui/form-buttons";
 import { FormFeedback, FormMessage } from "../ui/form-message";
 import { Icon } from "../ui/icon";
 import { useToast } from "../ui/toast";
@@ -13,147 +14,171 @@ import { createInviteAction, type InviteFormState } from "./actions";
 // legend 預設壓在 fieldset 邊框上又不吃 gap 浮動後才跟一般標籤一樣排
 const LEGEND_CLASS = "field-label float-left";
 
-export type InviteResult = { dialogOpen: boolean; canReopen: boolean };
-
 /** 關掉視窗後提示一次 連結還能再看一次 */
-const CLOSED_MESSAGE = "已建立邀請連結，可以在下面的清單撤銷";
+const CLOSED_MESSAGE = "已建立邀請連結，可以在清單裡撤銷";
+
+/** 剛建立的連結 資料庫只存雜湊 只留在這一頁的畫面上 */
+export type CreatedInvite = { link: string; message?: string };
+
+type Ref<T> = { current: T };
 
 /**
- * 新連結自動開視窗 關掉後留著再看一次連結 不必用確認擋著關閉
- * 建立下一條失敗時錯誤顯示在表單下方
+ * 上一次的結果不送回伺服器 完整連結只在建立的回應裡出現一次
+ * 連結交給畫面另外記 表單的狀態不留 失敗時上一條也還在
  */
-export function inviteResult(state: InviteFormState, closedLink: string | undefined): InviteResult {
-  if (!state.link) return { dialogOpen: false, canReopen: false };
-  // 視窗開著時按鈕也留在背景 關掉後焦點才有地方放
-  return { dialogOpen: state.link !== closedLink, canReopen: true };
+export function submitInvite(onCreated: (created: CreatedInvite) => void) {
+  return async (_previous: InviteFormState, formData: FormData): Promise<InviteFormState> => {
+    const result = await createInviteAction({}, formData);
+    if (!result.link) return result;
+    onCreated({ link: result.link, message: result.message });
+    return { message: result.message };
+  };
 }
 
-/** 建立失敗時留著上一條連結 資料庫只存雜湊 弄丟就拿不回來 */
-export function keepLastLink(previous: InviteFormState, result: InviteFormState): InviteFormState {
-  if (result.link || !previous.link) return result;
-  return { error: result.error, message: previous.message, link: previous.link };
+/** 關掉建立結果的視窗時提示一次 再看一次後關掉或頁面藏起來時跟著關掉都不再提示 */
+export function announceOnce(announced: Ref<string | undefined>, link: string | undefined, notify: () => void) {
+  if (!link || announced.current === link) return;
+  announced.current = link;
+  notify();
 }
 
-/** 離開這一頁時要忘掉的那一條連結 */
-type ForgetLink = { forget: string };
+type ForgetParts = {
+  announced: Ref<string | undefined>;
+  shownLink: Ref<string | undefined>;
+  setCreated: (created: null) => void;
+  setLinkOpen: (open: false) => void;
+};
 
-/** 送出時建立邀請 離開這一頁時忘掉畫面上的連結 已經換成新的就不動 */
-function inviteFormAction(previous: InviteFormState, payload: FormData | ForgetLink): InviteFormState | Promise<InviteFormState> {
-  if (!(payload instanceof FormData)) return previous.link === payload.forget ? {} : previous;
-  // 上一次的結果不送回伺服器 完整連結只在建立的回應裡出現一次
-  return createInviteAction({}, payload).then((result) => keepLastLink(previous, result));
+/** Activity 藏起頁面時的清除函式 連結只在這一頁看得到 回來就沒了 視窗跟著關掉也不提示 */
+export function forgetCreated({ announced, shownLink, setCreated, setLinkOpen }: ForgetParts) {
+  return () => {
+    announced.current = shownLink.current;
+    setCreated(null);
+    setLinkOpen(false);
+  };
 }
 
-/** 開放的功能一個都沒預設 要先決定才產生連結 之後要加再到模組權限勾 */
-export function CreateInviteForm({ modules }: { modules: Pick<ModuleInfo, "id" | "name" | "icon" | "accent">[] }) {
+/**
+ * 使用者選的 卡片裡是邀請連結的清單 標題旁的按鈕打開視窗填表單
+ * 建立好了自動跳出連結 關掉後還能再看一次
+ */
+export function CreateInvite({ modules }: { modules: Pick<ModuleInfo, "id" | "name" | "icon" | "accent">[] }) {
   const toast = useToast();
-  const [state, action, pending] = useActionState<InviteFormState, FormData | ForgetLink>(inviteFormAction, {});
-  // 記下關掉的是哪一條 建立下一條時才會照樣自動打開
-  const [closedLink, setClosedLink] = useState<string>();
-  const result = inviteResult(state, closedLink);
-  const dialogId = useId();
+  const form = useDialog();
+  const [created, setCreated] = useState<CreatedInvite | null>(null);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const linkDialogId = useId();
   const reopenRef = useRef<HTMLButtonElement>(null);
-  // 再看一次後關掉不用再提示
-  const announcedLink = useRef<string>(undefined);
-  const shownLink = useRef(state.link);
+  const announced = useRef<string | undefined>(undefined);
+  const shownLink = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
-    shownLink.current = state.link;
-  }, [state.link]);
-  // Activity 藏起頁面時會跑清除函式 連結只在這一頁看得到 回來就沒了
-  useLayoutEffect(
-    () => () => {
-      const link = shownLink.current;
-      // 視窗跟著關掉 不要在換到的那一頁跳出已建立的提示
-      announcedLink.current = link;
-      if (link) startTransition(() => action({ forget: link }));
-    },
-    [action],
+    shownLink.current = created?.link;
+  }, [created]);
+  useLayoutEffect(() => forgetCreated({ announced, shownLink, setCreated, setLinkOpen }), []);
+  const { state, pending, formProps } = useDialogForm(
+    submitInvite((next) => {
+      setCreated(next);
+      setLinkOpen(true);
+    }),
+    form.close,
   );
 
   return (
-    <div className="stack">
-      <form action={action} className="stack">
-        <fieldset className="field min-w-0">
-          <legend className={LEGEND_CLASS}>期限</legend>
-          <div className="grid grid-cols-3 gap-2">
-            {INVITE_DAY_OPTIONS.map((days) => (
-              <label key={days} className="choice-card justify-center">
-                <input type="radio" name="days" value={days} defaultChecked={days === 7} className="size-4 shrink-0" />
-                {days} 天
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <fieldset className="field min-w-0">
-          <legend className={LEGEND_CLASS}>可以註冊幾個帳號</legend>
-          <div className="grid grid-cols-3 gap-2">
-            {INVITE_USE_OPTIONS.map((uses) => (
-              <label key={uses} className="choice-card justify-center">
-                <input type="radio" name="uses" value={uses} defaultChecked={uses === 1} className="size-4 shrink-0" />
-                {uses} 次
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <fieldset className="field min-w-0">
-          <legend className={LEGEND_CLASS}>開放哪些功能</legend>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {modules.map((module) => (
-              <label key={module.id} data-accent={module.accent} className="choice-card">
-                <input type="hidden" name="allModules" value={module.id} />
-                <input type="checkbox" name="modules" value={module.id} className="size-4 shrink-0" />
-                <Icon src={module.icon} className="size-4 shrink-0 text-accent" />
-                <span className="min-w-0 break-words">{module.name}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <label className="field">
-          <span className="field-label">備註（選填，只有你看得到）</span>
-          <input name="note" maxLength={INVITE_NOTE_MAX_LENGTH} placeholder="例如：給小明" className="input" />
-        </label>
-        {result.canReopen ? (
-          <div className="button-row">
-            <FormFeedback state={state} />
-            <button ref={reopenRef} type="button" aria-haspopup="dialog" aria-expanded={result.dialogOpen} aria-controls={dialogId} onClick={() => setClosedLink(undefined)} className="btn-secondary btn-sm">
-              <Icon name="link" className="size-4" />
-              再看一次連結
-            </button>
-          </div>
-        ) : (
-          <FormFeedback state={state} />
+    <>
+      <div className="button-row">
+        {created && (
+          <button ref={reopenRef} type="button" aria-haspopup="dialog" aria-expanded={linkOpen} aria-controls={linkDialogId} onClick={() => setLinkOpen(true)} className="btn-secondary btn-sm">
+            <Icon name="link" className="size-4" />
+            再看一次連結
+          </button>
         )}
-        <button disabled={pending} className="btn-primary self-start">
+        <button {...form.triggerProps} className="btn-primary btn-sm">
           <Icon name="plus" className="size-4" />
-          {pending ? "建立中…" : "建立邀請連結"}
+          建立邀請連結
         </button>
-      </form>
-      {/* 內容跟視窗一起出現 放 live region 來不及念
-          改用 aria-describedby 跟標題一起念 */}
-      <Dialog
-        id={dialogId}
-        open={result.dialogOpen}
-        onClose={() => {
-          setClosedLink(state.link);
-          reopenRef.current?.focus();
-          if (state.link && announcedLink.current !== state.link) {
-            announcedLink.current = state.link;
-            toast.success(CLOSED_MESSAGE);
-          }
-        }}
-        title="邀請連結已建立"
-        icon={<Icon name="link" />}
-        size="lg"
-        describedBy={`${dialogId}-summary ${dialogId}-warning`}
-      >
-        {state.message && (
-          <FormMessage tone="success" id={`${dialogId}-summary`} live={false}>
-            {state.message}
-          </FormMessage>
-        )}
-        {state.link && <InviteCreated link={state.link} warningId={`${dialogId}-warning`} />}
+      </div>
+      <Dialog {...form.dialogProps} title="建立邀請連結" icon={<Icon name="link" />}>
+        <form {...formProps} className="stack">
+          <InviteFields modules={modules} />
+          <FormFeedback state={state} />
+          <FormButtons pending={pending} onCancel={form.close} label="建立邀請連結" pendingLabel="建立中…" icon="plus" />
+        </form>
       </Dialog>
-    </div>
+      <InviteLinkDialog
+        id={linkDialogId}
+        created={created}
+        open={linkOpen}
+        onClose={() => {
+          setLinkOpen(false);
+          reopenRef.current?.focus();
+          announceOnce(announced, created?.link, () => toast.success(CLOSED_MESSAGE));
+        }}
+      />
+    </>
+  );
+}
+
+/** 開放的功能一個都沒預設 要先決定才產生連結 之後要加再到模組權限勾 */
+function InviteFields({ modules }: { modules: Pick<ModuleInfo, "id" | "name" | "icon" | "accent">[] }) {
+  return (
+    <>
+      <fieldset className="field min-w-0">
+        <legend className={LEGEND_CLASS}>期限</legend>
+        <div className="grid grid-cols-3 gap-2">
+          {INVITE_DAY_OPTIONS.map((days) => (
+            <label key={days} className="choice-card justify-center">
+              <input type="radio" name="days" value={days} defaultChecked={days === 7} data-autofocus={days === 7 || undefined} className="size-4 shrink-0" />
+              {days} 天
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="field min-w-0">
+        <legend className={LEGEND_CLASS}>可以註冊幾個帳號</legend>
+        <div className="grid grid-cols-3 gap-2">
+          {INVITE_USE_OPTIONS.map((uses) => (
+            <label key={uses} className="choice-card justify-center">
+              <input type="radio" name="uses" value={uses} defaultChecked={uses === 1} className="size-4 shrink-0" />
+              {uses} 次
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <fieldset className="field min-w-0">
+        <legend className={LEGEND_CLASS}>開放哪些功能</legend>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {modules.map((module) => (
+            <label key={module.id} data-accent={module.accent} className="choice-card">
+              <input type="hidden" name="allModules" value={module.id} />
+              <input type="checkbox" name="modules" value={module.id} className="size-4 shrink-0" />
+              <Icon src={module.icon} className="size-4 shrink-0 text-accent" />
+              <span className="min-w-0 break-words">{module.name}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <label className="field">
+        <span className="field-label">備註（選填，只有你看得到）</span>
+        <input name="note" maxLength={INVITE_NOTE_MAX_LENGTH} placeholder="例如：給小明" className="input" />
+      </label>
+    </>
+  );
+}
+
+/**
+ * 建立好的連結 內容跟視窗一起出現 放 live region 來不及念
+ * 改用 aria-describedby 跟標題一起念
+ */
+export function InviteLinkDialog({ id, created, open, onClose }: { id: string; created: CreatedInvite | null; open: boolean; onClose: () => void }) {
+  return (
+    <Dialog id={id} open={open && created !== null} onClose={onClose} title="邀請連結已建立" icon={<Icon name="link" />} size="lg" describedBy={`${id}-summary ${id}-warning`}>
+      {created?.message && (
+        <FormMessage tone="success" id={`${id}-summary`} live={false}>
+          {created.message}
+        </FormMessage>
+      )}
+      {created && <InviteCreated link={created.link} warningId={`${id}-warning`} />}
+    </Dialog>
   );
 }
 

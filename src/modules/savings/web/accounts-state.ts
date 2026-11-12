@@ -1,4 +1,4 @@
-import { billDefaults, cardBill, type BillDefaults, type CardBill } from "../lib/cards";
+import { billDefaults, cardBill, cardTotals, type BillDefaults, type CardBill, type CardTotals } from "../lib/cards";
 import type { DateKey } from "../lib/dates";
 import { accountsWithHoldings, investmentTotals, type HoldingLike, type InvestmentValue } from "../lib/holdings";
 import type { CardStyle } from "../lib/kinds";
@@ -36,6 +36,8 @@ export type AccountsState = {
   withHoldings: Set<number>;
   /** 啟用中帳戶的合計 總資產是存款餘額加投資市值 有持股的投資帳戶用持股的市值 */
   summary: AssetSummary;
+  /** 啟用中信用卡的帳單還沒繳的與結帳後刷的 */
+  cards: CardTotals;
 };
 
 export function accountsState({ accounts, flows, holdings, quotes, cardFlows, cardBills, today }: AccountsInput): AccountsState {
@@ -45,5 +47,9 @@ export function accountsState({ accounts, flows, holdings, quotes, cardFlows, ca
   const balanceOf = (card: OverviewAccount) => balances.get(card.id)?.balance ?? 0;
   const bills = new Map(cards.map((card) => [card.id, cardBill(card, balanceOf(card), cardFlows, today, cardBills)]));
   const fills = new Map(cards.map((card) => [card.id, billDefaults(card, balanceOf(card), cardFlows, today, cardBills)]));
-  return { balances, investments, bills, fills, withHoldings: accountsWithHoldings(holdings), summary: assetSummary(accounts, balances, investments) };
+  const activeBills = cards.flatMap((card) => {
+    const bill = bills.get(card.id);
+    return card.active && bill ? [bill] : [];
+  });
+  return { balances, investments, bills, fills, withHoldings: accountsWithHoldings(holdings), summary: assetSummary(accounts, balances, investments), cards: cardTotals(activeBills) };
 }
