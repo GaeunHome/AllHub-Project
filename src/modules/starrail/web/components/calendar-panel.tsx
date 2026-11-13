@@ -16,7 +16,7 @@ import { rarityClass } from "./sr-visuals";
 import { refreshLoginAfter } from "../cookie-flag";
 
 const TITLE_ID = "starrail-calendar-title";
-// 手機一欄 寬螢幕兩欄 超寬螢幕三塊並排
+// 手機一欄 寬螢幕兩欄 超寬螢幕卡池佔兩欄 終局挑戰與活動在第三欄
 const LIST_GRID = "grid items-start gap-4 lg:grid-cols-2 2xl:grid-cols-3";
 
 /**
@@ -48,28 +48,49 @@ export async function CalendarPanel({ account }: { account: StarrailAccountView 
         <span className="text-sm text-ink">{updated}</span>
       </div>
       <div className={LIST_GRID}>
-        {/* 使用者選的 當期卡池排最上面 兩欄時自己佔一整列 */}
-        <CalendarList title="角色與光錐躍遷" empty="目前沒有進行中的躍遷" className="lg:col-span-2 2xl:col-span-1">
-          {warps.map((warp, i) => (
-            <WarpRow key={warp.id ?? `w${i}`} warp={warp} now={now} />
-          ))}
-        </CalendarList>
-        <CalendarList title="終局挑戰" empty="目前沒有進行中的終局挑戰">
-          {challenges.map((challenge, i) => (
-            <ChallengeRow key={challenge.id ?? `c${i}`} challenge={challenge} now={now} />
-          ))}
-        </CalendarList>
-        <CalendarList title="進行中的活動" empty="目前沒有進行中的活動">
-          {events.map((event, i) => (
-            <EventRow key={event.id ?? `e${i}`} event={event} now={now} />
-          ))}
-        </CalendarList>
+        {/* 使用者選的 當期卡池排最上面 自己佔兩欄 */}
+        <WarpList warps={warps} now={now} />
+        {/* 使用者選的 超寬螢幕時終局挑戰與活動疊在右邊一欄 才不會空一大塊 其他寬度各佔一格 */}
+        <div className="flex flex-col gap-4 lg:contents 2xl:flex">
+          <CalendarList title="終局挑戰" empty="目前沒有進行中的終局挑戰">
+            {challenges.map((challenge, i) => (
+              <ChallengeRow key={challenge.id ?? `c${i}`} challenge={challenge} now={now} />
+            ))}
+          </CalendarList>
+          <CalendarList title="進行中的活動" empty="目前沒有進行中的活動">
+            {events.map((event, i) => (
+              <EventRow key={event.id ?? `e${i}`} event={event} now={now} />
+            ))}
+          </CalendarList>
+        </div>
       </div>
     </section>
   );
 }
 
-function CalendarList({ title, empty, className = "", children }: { title: string; empty: string; className?: string; children: ReactNode[] }) {
+/** 超寬螢幕時角色躍遷與光錐躍遷左右並排 其他寬度上下接著排 角色在前 */
+function WarpList({ warps, now }: { warps: CalendarWarp[]; now: Date }) {
+  const groups = [warps.filter((warp) => warp.kind === "character"), warps.filter((warp) => warp.kind === "lightCone")].filter((group) => group.length > 0);
+  if (groups.length === 0) {
+    return <CalendarList title="角色與光錐躍遷" empty="目前沒有進行中的躍遷" className="lg:col-span-2" />;
+  }
+  return (
+    <div className="sr-panel lg:col-span-2">
+      <h4 className="card-row font-semibold text-ink">角色與光錐躍遷</h4>
+      <div className={groups.length > 1 ? "grid border-t border-line 2xl:grid-cols-2" : "border-t border-line"}>
+        {groups.map((group, i) => (
+          <ul key={group[0].kind} className={i > 0 ? "divide-y divide-line border-t border-line 2xl:border-t-0 2xl:border-l" : "divide-y divide-line"}>
+            {group.map((warp, j) => (
+              <WarpRow key={warp.id ?? `w${j}`} warp={warp} now={now} />
+            ))}
+          </ul>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CalendarList({ title, empty, className = "", children = [] }: { title: string; empty: string; className?: string; children?: ReactNode[] }) {
   return (
     <div className={`sr-panel ${className}`}>
       <h4 className="card-row font-semibold text-ink">{title}</h4>
@@ -260,9 +281,11 @@ export function CalendarSkeleton() {
     <LoadingState label="向 HoYoLAB 查詢活動日曆…" className="stack">
       <h3 className="sr-title min-h-11">活動日曆</h3>
       <div className={LIST_GRID}>
-        <Skeleton className="h-44 rounded-none lg:col-span-2 2xl:col-span-1" />
-        <Skeleton className="h-44 rounded-none" />
-        <Skeleton className="h-44 rounded-none" />
+        <Skeleton className="h-44 rounded-none lg:col-span-2" />
+        <div className="flex flex-col gap-4 lg:contents 2xl:flex">
+          <Skeleton className="h-44 rounded-none" />
+          <Skeleton className="h-44 rounded-none" />
+        </div>
       </div>
     </LoadingState>
   );

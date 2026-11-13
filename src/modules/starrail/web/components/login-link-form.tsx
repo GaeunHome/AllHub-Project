@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormFeedback } from "@/core/ui/form-message";
@@ -67,6 +67,7 @@ export function LoginLinkForm({ onRoles, onDone }: Props) {
     formProps.ref.current?.requestSubmit();
   };
 
+  // 後面兩步帳號密碼跟著再送一次
   const credentials = (
     <>
       <input type="hidden" name="account" value={account} />
@@ -83,65 +84,103 @@ export function LoginLinkForm({ onRoles, onDone }: Props) {
     <form {...formProps} className="stack">
       <PassTrack current={challenge || verify ? 2 : 1} />
       {challenge ? (
-        <>
+        <CaptchaStep challenge={challenge} aigis={aigis} pending={pending} onPass={passCaptcha}>
           {credentials}
-          <input type="hidden" name="aigis" value={aigis} />
-          <p tabIndex={-1} data-autofocus className="text-ink outline-none">
-            HoYoverse 要求圖形驗證，完成後會自動繼續登入。
-          </p>
-          {pending ? <Pending label="登入中…" /> : <GeetestCaptcha challenge={challenge} onPass={passCaptcha} />}
-          <div className="button-row">{restartButton}</div>
-        </>
+          {restartButton}
+        </CaptchaStep>
       ) : verify ? (
-        <>
+        <EmailStep verify={verify} pending={pending}>
           {credentials}
-          <input type="hidden" name="verify" value={verify} />
-          <label className="field">
-            <span className="field-label">HoYoverse 寄到 email 的驗證碼</span>
-            <input name="code" required inputMode="numeric" autoComplete="one-time-code" maxLength={8} className="input sr-num text-lg" data-autofocus />
-          </label>
-          <div className="button-row">
-            <button disabled={pending} className="btn-primary">
-              <PendingIcon pending={pending} icon="shield-check" />
-              {pending ? "驗證中…" : "驗證並連結"}
-            </button>
-            {restartButton}
-          </div>
-        </>
+          {restartButton}
+        </EmailStep>
       ) : (
-        <>
-          <label className="field">
-            <span className="field-label">HoYoverse 帳號（email）</span>
-            <input
-              name="account"
-              required
-              value={account}
-              onChange={(event) => setAccount(event.target.value)}
-              maxLength={200}
-              autoComplete="off"
-              spellCheck={false}
-              className="input"
-              data-autofocus
-            />
-          </label>
-          <div className="field">
-            <label htmlFor={`${id}-password`} className="field-label">
-              密碼
-            </label>
-            <PasswordInput id={`${id}-password`} name="password" required value={password} onChange={(event) => setPassword(event.target.value)} maxLength={200} autoComplete="off" />
-          </div>
-          <p className="notice">
-            <Icon name="lock" />
-            密碼只用來向 HoYoverse 登入這一次，不會存下來；之後登入過期時，網站會自動換新，不用再貼 cookie。
-          </p>
-          <button disabled={pending} className="btn-primary self-start">
-            <PendingIcon pending={pending} icon="link" />
-            {pending ? "登入中…" : "登入並連結"}
-          </button>
-        </>
+        <CredentialsStep id={id} account={account} password={password} pending={pending} onAccount={setAccount} onPassword={setPassword} />
       )}
       {!pending && !state.roles && <FormFeedback state={{ error: state.error }} />}
     </form>
+  );
+}
+
+type CredentialsStepProps = {
+  id: string;
+  account: string;
+  password: string;
+  pending: boolean;
+  onAccount: (value: string) => void;
+  onPassword: (value: string) => void;
+};
+
+/** 第一步 帳號與密碼 */
+function CredentialsStep({ id, account, password, pending, onAccount, onPassword }: CredentialsStepProps) {
+  return (
+    <>
+      <label className="field">
+        <span className="field-label">HoYoverse 帳號（email）</span>
+        <input
+          name="account"
+          required
+          value={account}
+          onChange={(event) => onAccount(event.target.value)}
+          maxLength={200}
+          autoComplete="off"
+          spellCheck={false}
+          className="input"
+          data-autofocus
+        />
+      </label>
+      <div className="field">
+        <label htmlFor={`${id}-password`} className="field-label">
+          密碼
+        </label>
+        <PasswordInput id={`${id}-password`} name="password" required value={password} onChange={(event) => onPassword(event.target.value)} maxLength={200} autoComplete="off" />
+      </div>
+      <p className="notice">
+        <Icon name="lock" />
+        密碼只用來向 HoYoverse 登入這一次，不會存下來；之後登入過期時，網站會自動換新，不用再貼 cookie。
+      </p>
+      <button disabled={pending} className="btn-primary self-start">
+        <PendingIcon pending={pending} icon="link" />
+        {pending ? "登入中…" : "登入並連結"}
+      </button>
+    </>
+  );
+}
+
+type StepProps = { pending: boolean; children: [ReactNode, ReactNode] };
+
+/** 第二步之一 圖形驗證 解完自動送出 children 是帳號密碼的隱藏欄位與重新登入 */
+function CaptchaStep({ challenge, aigis, pending, onPass, children: [credentials, restart] }: StepProps & { challenge: GeetestChallenge; aigis: string; onPass: (payload: string) => void }) {
+  return (
+    <>
+      {credentials}
+      <input type="hidden" name="aigis" value={aigis} />
+      <p tabIndex={-1} data-autofocus className="text-ink outline-none">
+        HoYoverse 要求圖形驗證，完成後會自動繼續登入。
+      </p>
+      {pending ? <Pending label="登入中…" /> : <GeetestCaptcha challenge={challenge} onPass={onPass} />}
+      <div className="button-row">{restart}</div>
+    </>
+  );
+}
+
+/** 第二步之二 email 驗證碼 */
+function EmailStep({ verify, pending, children: [credentials, restart] }: StepProps & { verify: string }) {
+  return (
+    <>
+      {credentials}
+      <input type="hidden" name="verify" value={verify} />
+      <label className="field">
+        <span className="field-label">HoYoverse 寄到 email 的驗證碼</span>
+        <input name="code" required inputMode="numeric" autoComplete="one-time-code" maxLength={8} className="input sr-num text-lg" data-autofocus />
+      </label>
+      <div className="button-row">
+        <button disabled={pending} className="btn-primary">
+          <PendingIcon pending={pending} icon="shield-check" />
+          {pending ? "驗證中…" : "驗證並連結"}
+        </button>
+        {restart}
+      </div>
+    </>
   );
 }
 

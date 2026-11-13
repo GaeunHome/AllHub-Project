@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StarrailCharacter } from "../../lib/characters";
 import { characterAssetUrls } from "../character-assets";
+import { fakeAsset } from "../../dev/fixtures";
 
 const full: StarrailCharacter = {
   id: 1102,
@@ -15,7 +16,7 @@ const full: StarrailCharacter = {
   icon: "https://cdn/icon.png",
   image: "https://cdn/image.png",
   lightCone: { id: 1, name: "光錐", level: 80, superimposition: 1, rarity: 5, icon: "https://cdn/cone.png" },
-  relics: [{ id: 1, pos: 1, name: "頭", level: 15, rarity: 5, icon: "https://cdn/relic.png", mainStat: { name: "生命值", value: "705", times: 0, icon: "/icons/starrail/property/max-hp.png" }, subStats: [{ name: "暴擊率", value: "3.2%", times: 2, icon: "/icons/starrail/property/critical-chance.png" }] }],
+  relics: [{ id: 1, pos: 1, name: "頭", level: 15, rarity: 5, icon: "https://cdn/relic.png", mainStat: { type: 27, name: "生命值", value: "705", times: 0, icon: "/icons/starrail/property/max-hp.png" }, subStats: [{ type: 52, name: "暴擊率", value: "3.2%", times: 2, icon: "/icons/starrail/property/critical-chance.png" }] }],
   eidolons: [{ pos: 1, name: "星魂", icon: "https://cdn/rank.png", unlocked: true }],
   stats: [{ type: 1, name: "生命值", icon: "/icons/starrail/property/max-hp.png", base: "1", add: "2", final: "3" }],
   traces: [{ kind: "skill", name: "強寇", typeLabel: "普攻", level: 6, icon: "https://cdn/skill.png", activated: true }],
@@ -28,12 +29,10 @@ function strings(value: unknown): string[] {
   return [];
 }
 
-/** 跟 externalAssetUrl 一樣只認 http(s) 的網址 站內路徑會變成 null */
-const asset = (url: string | null) => (url?.startsWith("https://cdn/") ? url.replace("https://cdn/", "http://mock/") : null);
 
 describe("characterAssetUrls：角色資料裡的外部圖片網址都經過 externalAssetUrl", () => {
   it("每一個外部圖片欄位都換掉，沒有漏掉的原始網址（新增圖片欄位時這裡會失敗）", () => {
-    const [mapped] = characterAssetUrls([full], asset);
+    const [mapped] = characterAssetUrls([full], fakeAsset);
 
     expect(strings(mapped).filter((s) => s.startsWith("https://"))).toEqual([]);
     expect(mapped.icon).toBe("http://mock/icon.png");
@@ -45,7 +44,7 @@ describe("characterAssetUrls：角色資料裡的外部圖片網址都經過 ext
   });
 
   it("屬性、命途與詞條的遊戲圖示是內建的靜態檔：原樣保留，不經 externalAssetUrl", () => {
-    const [mapped] = characterAssetUrls([full], asset);
+    const [mapped] = characterAssetUrls([full], fakeAsset);
 
     expect(mapped.elementIcon).toBe("/icons/starrail/element/quantum.png");
     expect(mapped.pathIcon).toBe("/icons/starrail/path/hunt.png");

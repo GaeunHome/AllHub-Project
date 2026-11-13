@@ -34,6 +34,8 @@ export const coreUsers = pgTable(
     /** 上次成功後連錯幾次 每 5 次鎖一段時間 放資料庫各執行個體才看得到同一個數 */
     failedLogins: integer("failed_logins").notNull().default(0),
     lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    /** 站長在管理頁看多久沒來 每小時最多寫一次 */
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

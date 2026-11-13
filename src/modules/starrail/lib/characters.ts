@@ -5,13 +5,14 @@ import { asRecord, boolOf, createMissing, numberOf, text } from "@/core/json";
 import { ELEMENTS, elementIconUrl, elementOf, pathIconUrl, pathOf, propertyIconUrl } from "./game-icons";
 import { image } from "./image";
 import { DATA_NOT_PUBLIC } from "./retcodes";
+import type { RelicGrade, RelicRating } from "./relic-score";
 import { interpretWith, type HoyolabResult } from "./responses";
 
 /**
  * times 是原樣的次數 畫面用 relicUpgrades 換成強化次數
- * icon 對照表以外的屬性是 null
+ * icon 對照表以外的屬性是 null useful 是評分時標的角色用得到的副詞條
  */
-export type RelicStat = { name: string; value: string | null; times: number | null; icon: string | null };
+export type RelicStat = { type: number | null; name: string; value: string | null; times: number | null; icon: string | null; useful?: boolean };
 
 export type Relic = {
   id: number | null;
@@ -23,6 +24,8 @@ export type Relic = {
   icon: string | null;
   mainStat: RelicStat | null;
   subStats: RelicStat[];
+  /** 評分見 relic-score.ts 不是五星是 null 角色不在權重表時沒有這一欄 */
+  rating?: RelicRating | null;
 };
 
 export type LightCone = { id: number | null; name: string | null; level: number | null; superimposition: number | null; rarity: number | null; icon: string | null };
@@ -55,6 +58,8 @@ export type StarrailCharacter = {
   eidolons: Eidolon[];
   stats: StatLine[];
   traces: Trace[];
+  /** 遺器總評 角色不在權重表或沒有五星遺器時沒有這一欄 */
+  relicGrade?: RelicGrade;
 };
 
 export type CharacterList = { characters: StarrailCharacter[]; missing: string[] };
@@ -93,7 +98,7 @@ export function parseCharacters(data: unknown): CharacterList {
     const stat = asRecord(value);
     if (!stat) return null;
     const type = need(numberOf(stat.property_type), `${path}.property_type`);
-    return { name: propertyName(type, true), value: need(text(stat.value), `${path}.value`), times: need(numberOf(stat.times), `${path}.times`), icon: propertyIcon(type) };
+    return { type, name: propertyName(type, true), value: need(text(stat.value), `${path}.value`), times: need(numberOf(stat.times), `${path}.times`), icon: propertyIcon(type) };
   };
 
   const relic = (value: unknown, path: string): Relic | null => {

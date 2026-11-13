@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useRef, useState, type ChangeEvent, type ReactNode, type RefObject } from "react";
 import { Fact, FactList } from "@/core/ui/fact-list";
 import { FOCUS_FRAME } from "@/core/ui/focus-frame";
 import { CardHeader } from "@/core/ui/page-header";
@@ -69,62 +69,14 @@ export function RecordList({ records, accounts, categories, today, monthSwitcher
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             {monthSwitcher}
             {records.length > 0 && (
-              // 手機上三個選單並排很窄 不篩選時只寫欄位名 選了才寫名稱
-              <div role="group" aria-label="篩選紀錄" className="grid w-full grid-cols-3 gap-2 lg:flex lg:w-auto">
-                <select ref={firstFilter} aria-label="帳戶" value={filters.account} onChange={change("account")} className="input min-w-0 lg:w-auto">
-                  <option value="">帳戶</option>
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {pausedName(account.name, account.active)}
-                    </option>
-                  ))}
-                </select>
-                <select aria-label="分類" value={filters.category} onChange={change("category")} className="input min-w-0 lg:w-auto">
-                  <option value="">分類</option>
-                  {CATEGORY_KINDS.map((kind) => (
-                    <optgroup key={kind} label={CATEGORY_KIND_LABELS[kind]}>
-                      {categories
-                        .filter((category) => category.kind === kind)
-                        .map((category) => (
-                          <option key={category.id} value={category.id}>
-                            {category.name}
-                          </option>
-                        ))}
-                    </optgroup>
-                  ))}
-                  <option value={UNCATEGORIZED_KEY}>{UNCATEGORIZED_LABEL}</option>
-                </select>
-                <select aria-label="類型" value={filters.kind} onChange={change("kind")} className="input min-w-0 lg:w-auto">
-                  <option value="">類型</option>
-                  {TRANSACTION_KINDS.map((kind) => (
-                    <option key={kind} value={kind}>
-                      {TRANSACTION_KIND_LABELS[kind]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <RecordFilterSelects filters={filters} onChange={change} accounts={accounts} categories={categories} firstRef={firstFilter} />
             )}
           </div>
           {records.length === 0 ? (
             <p className="text-ink">{monthLabel}還沒有紀錄。</p>
           ) : (
             <>
-              <div className="flex min-h-9 flex-wrap items-center gap-x-6 gap-y-1 text-ink tabular-nums">
-                {filtered && (
-                  <p>
-                    篩選後 {shown.length} 筆（共 {records.length} 筆）
-                  </p>
-                )}
-                <dl className="flex flex-wrap gap-x-6 gap-y-1">
-                  <RecordTotal label="收入" amount={totals.income} />
-                  <RecordTotal label="支出" amount={totals.expense} />
-                </dl>
-                {filtered && (
-                  <button type="button" onClick={clearFilters} className="btn-ghost btn-sm">
-                    清除篩選
-                  </button>
-                )}
-              </div>
+              <RecordSummary shown={shown.length} total={records.length} totals={totals} filtered={filtered} onClear={clearFilters} />
               {shown.length === 0 ? (
                 <p className="text-ink">沒有符合篩選條件的紀錄。</p>
               ) : (
@@ -179,5 +131,77 @@ function MonthPanel({ label, month, selected, onSelect }: { label: string; month
       </FactList>
       {month.expenses.length > 0 && <ExpenseList rows={month.expenses} selected={selected} onSelect={onSelect} />}
     </section>
+  );
+}
+
+type RecordFilterSelectsProps = {
+  filters: RecordFilters;
+  onChange: (key: keyof RecordFilters) => (event: ChangeEvent<HTMLSelectElement>) => void;
+  accounts: RecordListProps["accounts"];
+  categories: RecordListProps["categories"];
+  /** 清除篩選後焦點移到第一個選單 */
+  firstRef: RefObject<HTMLSelectElement | null>;
+};
+
+/** 帳戶 分類與類型 手機上三個選單並排很窄 不篩選時只寫欄位名 選了才寫名稱 */
+function RecordFilterSelects({ filters, onChange, accounts, categories, firstRef }: RecordFilterSelectsProps) {
+  return (
+    <div role="group" aria-label="篩選紀錄" className="grid w-full grid-cols-3 gap-2 lg:flex lg:w-auto">
+      <select ref={firstRef} aria-label="帳戶" value={filters.account} onChange={onChange("account")} className="input min-w-0 lg:w-auto">
+        <option value="">帳戶</option>
+        {accounts.map((account) => (
+          <option key={account.id} value={account.id}>
+            {pausedName(account.name, account.active)}
+          </option>
+        ))}
+      </select>
+      <select aria-label="分類" value={filters.category} onChange={onChange("category")} className="input min-w-0 lg:w-auto">
+        <option value="">分類</option>
+        {CATEGORY_KINDS.map((kind) => (
+          <optgroup key={kind} label={CATEGORY_KIND_LABELS[kind]}>
+            {categories
+              .filter((category) => category.kind === kind)
+              .map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+          </optgroup>
+        ))}
+        <option value={UNCATEGORIZED_KEY}>{UNCATEGORIZED_LABEL}</option>
+      </select>
+      <select aria-label="類型" value={filters.kind} onChange={onChange("kind")} className="input min-w-0 lg:w-auto">
+        <option value="">類型</option>
+        {TRANSACTION_KINDS.map((kind) => (
+          <option key={kind} value={kind}>
+            {TRANSACTION_KIND_LABELS[kind]}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+type RecordSummaryProps = { shown: number; total: number; totals: ReturnType<typeof recordTotals>; filtered: boolean; onClear: () => void };
+
+/** 篩選後幾筆與收入支出的合計 篩選時才有清除篩選 */
+function RecordSummary({ shown, total, totals, filtered, onClear }: RecordSummaryProps) {
+  return (
+    <div className="flex min-h-9 flex-wrap items-center gap-x-6 gap-y-1 text-ink tabular-nums">
+      {filtered && (
+        <p>
+          篩選後 {shown} 筆（共 {total} 筆）
+        </p>
+      )}
+      <dl className="flex flex-wrap gap-x-6 gap-y-1">
+        <RecordTotal label="收入" amount={totals.income} />
+        <RecordTotal label="支出" amount={totals.expense} />
+      </dl>
+      {filtered && (
+        <button type="button" onClick={onClear} className="btn-ghost btn-sm">
+          清除篩選
+        </button>
+      )}
+    </div>
   );
 }

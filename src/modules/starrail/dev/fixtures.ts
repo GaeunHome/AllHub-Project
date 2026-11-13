@@ -74,3 +74,6 @@ export const hoyolab = {
   verifyEmailCode: vi.fn(),
   tokensFromStoken: vi.fn(),
 };
+
+/** 假的 externalAssetUrl 只認 https://cdn/ 開頭的 跟真的一樣站內路徑會變成 null */
+export const fakeAsset = (url: string | null) => (url?.startsWith("https://cdn/") ? url.replace("https://cdn/", "http://mock/") : null);

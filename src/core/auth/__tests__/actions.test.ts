@@ -29,7 +29,16 @@ vi.mock("next/navigation", () => ({
 }));
 
 const users = vi.hoisted(() => ({ updateAvatar: vi.fn(), authenticate: vi.fn(), changePassword: vi.fn(), findSessionUser: vi.fn(), hasAnyUser: vi.fn(), deleteOwnAccount: vi.fn(), updateNickname: vi.fn() }));
-vi.mock("../users", () => users);
+// 登入檢查讀的是帶最後上線的那一份 包住 findSessionUser 各測試照舊設定它
+vi.mock("../users", () => ({
+  ...users,
+  LAST_SEEN_INTERVAL_MS: 3_600_000,
+  touchLastSeen: vi.fn(),
+  findSessionRow: async (claims: unknown) => {
+    const user = await users.findSessionUser(claims);
+    return user ? { user, lastSeenAt: new Date() } : null;
+  },
+}));
 vi.mock("../../push/service", () => ({ removeOtherSubscriptions: vi.fn() }));
 // 驗證碼本身另外測 這裡預設答對 專心測登入流程
 vi.mock("../captcha", { spy: true });

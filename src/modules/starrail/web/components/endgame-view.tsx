@@ -6,12 +6,13 @@ import { FormMessage } from "@/core/ui/form-message";
 import { Icon } from "@/core/ui/icon";
 import { SegmentedControl } from "@/core/ui/segmented-control";
 import { groupDigits } from "@/core/number";
+import { ExternalImage } from "@/core/ui/external-image";
 import { challengeLabel } from "../../lib/calendar";
-import { ENDGAME_MODES, type Endgame, type EndgameFloor, type EndgameMode, type EndgameSchedule } from "../../lib/endgame";
+import { deepestFloor, ENDGAME_MODES, type Endgame, type EndgameFloor, type EndgameMode, type EndgameNode, type EndgameSchedule } from "../../lib/endgame";
 import type { Peak } from "../../lib/peak";
+import { BuffLine, Figure, Team, TeamNumber, type Names } from "./endgame-parts";
 import { PeakView, peakSeasonFor } from "./peak-view";
-import { NoRecordNotice, QuickClear, RoundCount } from "./sr-visuals";
-import { TeamAvatar } from "./team-avatar";
+import { BossResult, NoRecordNotice, QuickClear, RoundCount, ScoreCount, StarRow } from "./sr-visuals";
 
 export type EndgameRecord = { mode: EndgameMode; schedule: EndgameSchedule } & ({ ok: true; endgame: Endgame } | { ok: false; message: string });
 
@@ -28,7 +29,7 @@ const SCHEDULES: { id: EndgameSchedule; label: string }[] = [
 ];
 
 /** 三種模式的本期上期與異相仲裁已經一起查好 模式與期別的切換在瀏覽器裡做 */
-export function EndgameView({ records, peak, names }: { records: EndgameRecord[]; peak: PeakRecord; names: Record<number, string | null> }) {
+export function EndgameView({ records, peak, names }: { records: EndgameRecord[]; peak: PeakRecord; names: Names }) {
   const [mode, setMode] = useState<Tab>("chaos");
   const [schedule, setSchedule] = useState<EndgameSchedule>("current");
   const id = useId();
@@ -67,48 +68,117 @@ export function EndgameView({ records, peak, names }: { records: EndgameRecord[]
   );
 }
 
-function EndgameRecordView({ endgame, names }: { endgame: Endgame; names: Record<number, string | null> }) {
+/**
+ * 使用者選的 最深的一層照異相仲裁放大 每一隊一張卡
+ * 其他層收在其他關卡裡 點了才展開 照原本一列一層
+ */
+export function EndgameRecordView({ endgame, names }: { endgame: Endgame; names: Names }) {
   if (!endgame.hasData) return <NoRecordNotice name={endgame.name} />;
+  const deepest = deepestFloor(endgame);
+  const others = endgame.floors.filter((floor) => floor !== deepest);
   return (
-    <div className="stack">
-      {/* 手機上名稱與期間一列 數字排在下一列 寬螢幕數字排在右邊 */}
-      <div className="sr-panel flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="truncate text-lg font-bold tracking-wide text-ink">{endgame.name ?? challengeLabel(endgame.mode)}</p>
-          {(endgame.begin || endgame.end) && (
-            <p className="flex items-center gap-1.5 text-sm text-ink-soft">
-              <Icon name="calendar" className="size-3.5" />
-              {endgame.begin ?? "?"} – {endgame.end ?? "?"}
-            </p>
-          )}
-        </div>
-        {/* 中間的最高關卡字比較長 那一欄撐開 另外兩欄照內容寬度 */}
-        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-4 sm:flex sm:gap-6">
-          <Summary label="總星數" value={endgame.stars === null ? "—" : String(endgame.stars)} star />
-          <Summary label="最高關卡" value={endgame.maxFloor ?? "—"} />
-          <Summary label="挑戰次數" value={endgame.battles === null ? "—" : String(endgame.battles)} />
-        </div>
-      </div>
-      {endgame.floors.length > 0 && (
-        <ul className="stack">
-          {endgame.floors.map((floor, i) => (
-            <FloorRow key={`${floor.name}-${i}`} floor={floor} names={names} />
-          ))}
-        </ul>
+    <div className="stack @container">
+      <EndgameSummary endgame={endgame} />
+      {deepest && <DeepestFloor floor={deepest} mode={endgame.mode} names={names} />}
+      {others.length > 0 && (
+        <details className="disclosure">
+          <summary>其他關卡（{others.length}）</summary>
+          <ul className="stack">
+            {others.map((floor, i) => (
+              <FloorRow key={`${floor.name}-${i}`} floor={floor} names={names} />
+            ))}
+          </ul>
+        </details>
       )}
     </div>
   );
 }
 
-function Summary({ label, value, star = false }: { label: string; value: string; star?: boolean }) {
+/** 跟異相仲裁的總覽一樣 名稱與期間在左 大數字在右 手機上數字換到下一列 */
+function EndgameSummary({ endgame }: { endgame: Endgame }) {
   return (
-    <div className="flex min-w-0 flex-col">
-      <span className="text-sm text-ink-soft">{label}</span>
-      <span className="sr-num flex items-center gap-1 text-2xl font-bold whitespace-nowrap text-ink">
-        {star && <span className="text-sr-gold">★</span>}
-        {value}
-      </span>
+    <div className="sr-panel flex flex-col gap-4 p-5 sm:p-6 @3xl:flex-row @3xl:items-center @3xl:gap-8">
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <p className="text-lg font-bold tracking-wide text-ink">{endgame.name ?? challengeLabel(endgame.mode)}</p>
+        {(endgame.begin || endgame.end) && (
+          <p className="flex items-center gap-1.5 text-sm text-ink">
+            <Icon name="calendar" className="size-3.5 text-sr-gold" />
+            {endgame.begin ?? "?"} – {endgame.end ?? "?"}
+          </p>
+        )}
+      </div>
+      <dl className="flex flex-wrap items-end gap-x-8 gap-y-4">
+        <Figure label="總星數">
+          <span className="text-sr-gold">★</span>
+          {endgame.stars ?? "—"}
+        </Figure>
+        <Figure label="最深">{endgame.maxFloor ?? "—"}</Figure>
+        <Figure label="挑戰">
+          {endgame.battles ?? "—"}
+          <span className="text-base font-semibold"> 次</span>
+        </Figure>
+      </dl>
     </div>
+  );
+}
+
+/** 兩隊兩欄 星啟模式的三隊在夠寬時三欄 */
+function DeepestFloor({ floor, mode, names }: { floor: EndgameFloor; mode: EndgameMode; names: Names }) {
+  return (
+    <section aria-label={`最深的一層：${floor.name ?? ""}`} className="stack">
+      <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
+        <div className="min-w-0">
+          <p className="sr-kicker">最深的一層</p>
+          <h4 className="text-2xl font-bold text-ink">{floor.name ?? "（未知關卡）"}</h4>
+        </div>
+        <span className="flex flex-wrap items-center gap-x-5 gap-y-1.5 pb-1">
+          <StarRow stars={floor.stars} label={floor.name ?? "這一層"} />
+          {floor.rounds !== null && <RoundCount rounds={floor.rounds} />}
+          {floor.quickClear && <QuickClear />}
+          {floor.score !== null && <ScoreCount score={floor.score} />}
+        </span>
+      </div>
+      {floor.nodes.length > 0 && (
+        <ul className={floor.nodes.length > 2 ? "grid gap-4 @3xl:grid-cols-2 @6xl:grid-cols-3" : "grid gap-4 @3xl:grid-cols-2"}>
+          {floor.nodes.map((node) => (
+            <NodeCard key={node.slot} node={node} mode={mode} names={names} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * 末日幻影照王棋放首領大圖 虛構敘事放增益的圖示
+ * 混沌回憶沒有圖 只有隊伍 角色卡跟著卡片的寬度放大
+ */
+function NodeCard({ node, mode, names }: { node: EndgameNode; mode: EndgameMode; names: Names }) {
+  const { boss, buff } = node;
+  return (
+    <li className={boss?.icon ? "sr-panel sr-peak-boss sr-node" : "sr-panel sr-node"}>
+      {boss?.icon && (
+        <span aria-hidden className="sr-peak-boss-art">
+          <ExternalImage src={boss.icon} alt="" fill className="object-contain object-right-bottom" />
+        </span>
+      )}
+      <div className="sr-node-body">
+        <div className="flex items-center gap-3">
+          <TeamNumber slot={node.slot} />
+          {boss?.name && <h5 className="min-w-0 text-xl font-bold text-ink">{boss.name}</h5>}
+        </div>
+        {buff && <BuffLine buff={buff} iconSize={mode === "fiction" ? "size-10" : "size-6"} />}
+        {(node.score !== null || node.bossDefeated !== null) && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+            {node.score !== null && <ScoreCount score={node.score} />}
+            {node.bossDefeated !== null && <BossResult defeated={node.bossDefeated} />}
+          </div>
+        )}
+        <div className="sr-node-team">
+          <Team avatars={node.avatars} names={names} />
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -116,45 +186,29 @@ function Summary({ label, value, star = false }: { label: string; value: string;
  * 使用者選的 兩隊就兩欄 星啟模式的三隊就三欄 放不下時少一欄
  * 欄數與角色卡大小看這一層卡片的寬度 在 starrail.css 的 sr-teams
  */
-function FloorRow({ floor, names }: { floor: EndgameFloor; names: Record<number, string | null> }) {
-  const earned = Math.min(floor.stars ?? 0, 3);
+function FloorRow({ floor, names }: { floor: EndgameFloor; names: Names }) {
   return (
     <li className="sr-panel @container flex flex-col gap-4 p-4 [--sr-cut:12px] sm:p-5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <p className="text-lg font-semibold text-ink">{floor.name ?? "（未知關卡）"}</p>
-        <span aria-label={`${floor.stars ?? 0} 顆星`} className="text-lg tracking-wider">
-          <span className="text-sr-gold">{"★".repeat(earned)}</span>
-          <span className="text-white/25">{"★".repeat(3 - earned)}</span>
-        </span>
+        <StarRow stars={floor.stars} label={floor.name ?? "這一層"} />
         {/* 使用者要的少用小標籤 跟異相仲裁一樣用圖示加文字 */}
         <span className="ml-auto flex items-center gap-4">
           {floor.quickClear && <QuickClear />}
           {floor.rounds !== null && <RoundCount rounds={floor.rounds} />}
-          {floor.score !== null && (
-            <span className="flex items-center gap-1.5 text-ink">
-              <Icon name="target" className="size-4 text-sr-gold" />
-              <span className="sr-num text-lg font-bold">{groupDigits(floor.score)}</span> 分
-            </span>
-          )}
+          {floor.score !== null && <ScoreCount score={floor.score} />}
         </span>
       </div>
       {floor.nodes.length > 0 && (
         <div data-teams={floor.nodes.length} className="sr-teams">
-          {floor.nodes.map((node, i) => (
-            <div key={i} className="flex min-w-0 flex-col gap-2">
+          {floor.nodes.map((node) => (
+            <div key={node.slot} className="flex min-w-0 flex-col gap-2">
               <div className="flex min-h-7 items-center gap-2.5">
-                <span className="sr-team-number sr-num">
-                  <span aria-hidden>{i + 1}</span>
-                  <span className="sr-only">第 {i + 1} 隊</span>
-                </span>
+                <TeamNumber slot={node.slot} />
                 {node.score !== null && <span className="sr-num text-base font-bold text-ink">{groupDigits(node.score)}</span>}
-                {node.bossDefeated === false && <span className="chip chip-warning">未擊敗</span>}
+                {node.bossDefeated === false && <BossResult defeated={false} />}
               </div>
-              <div className="flex gap-2">
-                {node.avatars.map((member, j) => (
-                  <TeamAvatar key={`${member.id}-${j}`} member={member} name={member.id === null ? null : (names[member.id] ?? null)} />
-                ))}
-              </div>
+              <Team avatars={node.avatars} names={names} />
             </div>
           ))}
         </div>

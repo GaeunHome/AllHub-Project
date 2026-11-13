@@ -174,14 +174,14 @@ describe("parseCharacters：角色列表與詳情", () => {
       level: 15,
       rarity: 5,
       icon: `${IMG}/relic/61042.png`,
-      mainStat: { name: "攻擊力", value: "352", times: 0, icon: `${ICONS}/property/attack.png` },
+      mainStat: { type: 29, name: "攻擊力", value: "352", times: 0, icon: `${ICONS}/property/attack.png` },
       subStats: [
-        { name: "暴擊率", value: "6.4%", times: 2, icon: `${ICONS}/property/critical-chance.png` },
-        { name: "暴擊傷害", value: "12.9%", times: 3, icon: `${ICONS}/property/critical-damage.png` },
+        { type: 52, name: "暴擊率", value: "6.4%", times: 2, icon: `${ICONS}/property/critical-chance.png` },
+        { type: 53, name: "暴擊傷害", value: "12.9%", times: 3, icon: `${ICONS}/property/critical-damage.png` },
       ],
     });
     // property_name_relic 是空字串時退回 name
-    expect(seele.relics[2].mainStat).toEqual({ name: "量子屬性傷害", value: "38.8%", times: 0, icon: `${ICONS}/property/quantum-added-ratio.png` });
+    expect(seele.relics[2].mainStat).toEqual({ type: 22, name: "量子屬性傷害", value: "38.8%", times: 0, icon: `${ICONS}/property/quantum-added-ratio.png` });
   });
 
   it("面板數值：基礎、加成、最終；名稱用 property_info 的 name，圖示用內建的遊戲圖示", () => {

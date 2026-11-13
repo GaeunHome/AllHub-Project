@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { mockRequest } from "@/dev/mock-request";
 import { aigisHeader, interpretAppLogin, interpretEmailVerify, interpretTokens, verifyTicketOf } from "../../lib/passport";
+import { interpretEndgame } from "../../lib/endgame";
 import { interpretPeak } from "../../lib/peak";
 import { interpretWarpLogin, interpretWarpPage, summarizeBanner, WARP_BANNERS, type WarpRow } from "../../lib/warps";
 import { handle } from "../mock.mjs";
@@ -170,5 +171,28 @@ describe("假的簽到", () => {
     const reply = await mockRequest(handle, "/event/luna/os/info?act_id=x", { headers: { Cookie: "ltoken_v2=expired; ltuid_v2=1" } });
 
     expect(reply.data).toMatchObject({ retcode: -100 });
+  });
+});
+
+describe("假的終局戰績：最深一層的大卡要有首領與增益（docs/development.md）", () => {
+  const read = async (path: string, mode: "fiction" | "shadow") => {
+    const result = interpretEndgame((await mockRequest(handle, `/game_record/hkrpg/api/${path}?role_id=900000001&schedule_type=1`, { headers: { Cookie: COOKIE } })).data, mode);
+    if (!result.ok) throw new Error(result.message);
+    return result.data;
+  };
+
+  it("末日幻影_每一隊對上上半、下半與星啟模式的首領，有圖與增益；正式的解析讀得懂、沒有缺欄位", async () => {
+    const { endgame, missing } = await read("challenge_boss", "shadow");
+
+    expect(missing).toEqual([]);
+    const nodes = endgame.floors[0].nodes;
+    expect(nodes.map((n) => n.boss?.name)).toEqual(["上半首領", "下半首領", "星啟首領"]);
+    expect(nodes.every((n) => n.boss?.icon && n.buff?.name && n.buff.icon)).toBe(true);
+  });
+
+  it("虛構敘事_每一隊有增益的圖示與名稱", async () => {
+    const { endgame } = await read("challenge_story", "fiction");
+
+    expect(endgame.floors[0].nodes.every((n) => n.buff?.name && n.buff.icon)).toBe(true);
   });
 });

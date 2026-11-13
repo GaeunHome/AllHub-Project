@@ -175,6 +175,8 @@ describe("快取規則", () => {
       "modules/youtube/web/actions.ts": ["cachedVideoInfo"],
       // 倒數卡片的輪詢 不是寫入流程 同一站要共用快取才省 TDX 的額度
       "modules/transit/web/routes/live.ts": ["cachedLive", "cachedRoutes"],
+      // 記帳視窗換貨幣或日期時讀 匯率大家共用一份 不是寫入流程
+      "modules/travel/web/routes/rates.ts": ["cachedRates"],
     };
     const offenders = sources.filter(isWriter).flatMap((file) =>
       [...read(file).matchAll(/\bimport\s+(type\s+)?([^;]*?)\s*from\s*["']([^"']*\/cached)["']/g)].flatMap((m) => {

@@ -1,8 +1,8 @@
 import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
 import { markup as render, mocksOf } from "@/dev/test-helpers";
+import { SAVINGS_INFO } from "../../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/navigation", () => ({ redirect: vi.fn(), useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }), usePathname: () => "/savings/settings" }));
@@ -15,7 +15,6 @@ const cached = mocksOf(await import("../../../service/cached"), "cachedCategorie
 const { CategoriesCard } = await import("../../components/settings/categories-card");
 const { SettingsPage, CategoriesLoader, LegacyLinkRedirect } = await import("../settings-page");
 
-const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: true };
 const CREATED = new Date("2026-09-01T02:00:00Z");
 const CATEGORIES = [
   { id: 11, userId: "u", kind: "expense", name: "餐飲", monthlyBudget: 6000, sortOrder: 1, createdAt: CREATED, icon: "utensils" },
@@ -33,14 +32,14 @@ beforeEach(() => {
 
 describe("理財的設定頁", () => {
   it("帳戶與固定收支搬到自己的分頁：設定頁連過去（帳戶、投資、每月固定）", () => {
-    const markup = render(createElement(SettingsPage, { info: INFO }));
+    const markup = render(createElement(SettingsPage, { info: SAVINGS_INFO }));
     const below = markup.slice(markup.indexOf("載入分類…"));
 
     expect(hrefs(below)).toEqual(expect.arrayContaining(["/savings/accounts", "/savings/investments", "/savings/recurring"]));
   });
 
   it("「開始使用」成功後分類的卡片會換掉：焦點交給一直都在的整頁外框（訊息改用提示視窗）", () => {
-    const markup = render(createElement(SettingsPage, { info: INFO }));
+    const markup = render(createElement(SettingsPage, { info: SAVINGS_INFO }));
 
     expect(markup).toMatch(/^(?:<link[^>]*>)*<div[^>]*class="theme-savings"[^>]*><div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入分類…/);
   });

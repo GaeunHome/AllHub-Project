@@ -25,7 +25,7 @@ const fetchedAt = new Date();
 const account = (cookieInvalid: boolean) => accountView({ cookieInvalid });
 // 便箋讀不到時帶著 cookie 狀態 戰績類的結果沒有這個欄位 多給了畫面也不能理
 const failed = (cookieInvalid: boolean) => ({ ok: false as const, message: cookieInvalid ? "HoYoLAB cookie 已失效" : "HoYoLAB 說查詢太頻繁", cookieInvalid });
-const empty: Endgame = { mode: "chaos", hasData: false, name: null, begin: null, end: null, stars: null, maxFloor: null, battles: null, floors: [] };
+const empty: Endgame = { mode: "chaos", hasData: false, name: null, begin: null, end: null, stars: null, maxFloor: null, maxFloorId: null, battles: null, floors: [] };
 const endgameOk = { ok: true as const, endgame: empty };
 const ledgerOk = {
   ok: true as const,

@@ -8,13 +8,13 @@ import type { ModuleInfo } from "../../module";
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
 vi.mock("next/server", () => ({ connection: async () => {} }));
 vi.mock("../cached", () => ({ cachedUsers: vi.fn(), cachedInvites: vi.fn() }));
-vi.mock("../service", () => ({ listLockedUsers: vi.fn(), listModuleDenials: vi.fn() }));
+vi.mock("../service", () => ({ listLastSeen: vi.fn(), listLockedUsers: vi.fn(), listModuleDenials: vi.fn() }));
 // 視窗關著時不算繪內容 換掉才看得到建立邀請的表單
 vi.mock("../../ui/dialog", { spy: true });
 vi.mock("../actions", () => ({ createInviteAction: vi.fn(), revokeInviteAction: vi.fn(), setUserDisabledAction: vi.fn(), deleteUserAction: vi.fn(), unlockUserAction: vi.fn(), setModuleAccessAction: vi.fn() }));
 
 const cached = mocksOf(await import("../cached"), "cachedUsers", "cachedInvites");
-const service = mocksOf(await import("../service"), "listLockedUsers", "listModuleDenials");
+const service = mocksOf(await import("../service"), "listLastSeen", "listLockedUsers", "listModuleDenials");
 const { AdminPage, AdminStats, InviteSection, LockedNotices, ModuleAccessSection, UserSection } = await import("../admin-page");
 const { Dialog } = await import("../../ui/dialog");
 
@@ -50,6 +50,7 @@ beforeEach(() => {
   ]);
   cached.cachedInvites.mockReset().mockResolvedValue([]);
   service.listLockedUsers.mockReset().mockResolvedValue([]);
+  service.listLastSeen.mockReset().mockResolvedValue(new Map());
   service.listModuleDenials.mockReset().mockResolvedValue([]);
   vi.mocked(Dialog).mockImplementation(({ children }) => createElement(Fragment, null, children));
 });
@@ -84,6 +85,36 @@ describe("管理頁：使用者", () => {
     expect(text).toContain("停用");
     expect(text).toContain("恢復");
     expect(text).toContain("刪除");
+  });
+});
+
+describe("管理頁：最後上線（使用者要的：看每個成員多久沒來，方便清掉不用的帳號）", () => {
+  const rowOf = (markup: string, username: string) => textOf(markup.split("<li").find((row) => row.includes(username))!);
+
+  it("每個人寫出最後上線多久以前；每小時最多記一次，一小時內的寫成 1 小時內", async () => {
+    service.listLastSeen.mockResolvedValue(
+      new Map([
+        [TEST_SESSION.id, at(-20 * 60_000)],
+        [MEMBER_ID, at(-3 * DAY - 60_000)],
+      ]),
+    );
+
+    const markup = renderToStaticMarkup((await UserSection()) as ReactElement);
+
+    expect(rowOf(markup, "alice")).toContain("最後上線 1 小時內");
+    expect(rowOf(markup, "bob")).toContain("最後上線 3 天前");
+  });
+
+  it("還沒有紀錄的人寫出來，不是空白", async () => {
+    const markup = renderToStaticMarkup((await UserSection()) as ReactElement);
+
+    expect(rowOf(markup, "carol")).toContain("還沒有上線紀錄");
+  });
+
+  it("最後上線每次直接讀，不走使用者清單的快取", async () => {
+    await UserSection();
+
+    expect(service.listLastSeen).toHaveBeenCalled();
   });
 });
 

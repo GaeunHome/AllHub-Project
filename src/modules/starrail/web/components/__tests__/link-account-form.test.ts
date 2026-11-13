@@ -13,7 +13,8 @@ vi.mock("../../actions", () => ({ linkAccountAction: vi.fn(), loginAccountAction
 
 const dialog = await import("@/core/ui/dialog");
 const { linkAccountAction, loginAccountAction } = await import("../../actions");
-const { CookieLinkForm, LinkAccountFields, LinkAccountForm, RoleChooser } = await import("../link-account-form");
+const { LinkAccountFields, LinkAccountForm } = await import("../link-account-form");
+const { CookieLinkForm, RoleChooser } = await import("../cookie-link-form");
 const { LoginLinkForm } = await import("../login-link-form");
 
 // 使用者選的 登入用彈出視窗 樣子是星穹列車的乘車證 貼 cookie 放在下方的小連結

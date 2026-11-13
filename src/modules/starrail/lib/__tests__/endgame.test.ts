@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { challengeLabel } from "../calendar";
-import { ENDGAME_MODES, formatPartialTime, interpretEndgame, parseEndgame } from "../endgame";
+import { deepestFloor, ENDGAME_MODES, formatPartialTime, interpretEndgame, parseEndgame } from "../endgame";
 
 const IMG = "https://act-webstatic.hoyoverse.com/darkmatter/hkrpg";
 const ICONS = "/icons/starrail";
@@ -68,11 +68,21 @@ const shadow = () => ({
       maze_id: 3004,
       is_fast: false,
       last_update_time: time(9),
-      node_1: { challenge_time: null, avatars: [avatar(1402, 5, "Lightning")], score: 2100, boss_defeated: true },
+      node_1: { challenge_time: null, avatars: [avatar(1402, 5, "Lightning")], score: 2100, boss_defeated: true, buff: { id: 7, name_mi18n: "戰意", desc_mi18n: "擊破時額外造成傷害", icon: `${IMG}/buff/7.png` } },
       node_2: { challenge_time: null, avatars: [avatar(1009, 4, "Fire")], score: 1950, boss_defeated: true },
     },
   ],
-  groups: [{ schedule_id: 3004, name_mi18n: "毀滅之境", status: "Running", begin_time: time(13), end_time: time(27, 3), upper_boss: { id: 1, name_mi18n: "首領", icon: "" } }],
+  groups: [
+    {
+      schedule_id: 3004,
+      name_mi18n: "毀滅之境",
+      status: "Running",
+      begin_time: time(13),
+      end_time: time(27, 3),
+      upper_boss: { id: 1, name_mi18n: "上半首領", icon: `${IMG}/boss/1.png` },
+      lower_boss: { id: 2, name_mi18n: "下半首領", icon: `${IMG}/boss/2.png` },
+    },
+  ],
 });
 
 describe("parseEndgame：混沌回憶", () => {
@@ -119,6 +129,64 @@ describe("parseEndgame：虛構敘事與末日幻影", () => {
     expect(missing).toEqual([]);
     expect(endgame.floors[0]).toMatchObject({ score: 4050, rounds: null });
     expect(endgame.floors[0].nodes.map((n) => n.bossDefeated)).toEqual([true, true]);
+  });
+});
+
+// 使用者選的 最深的一層照異相仲裁放大 末日幻影有首領圖 虛構敘事與末日幻影有增益
+// 欄位依 genshin.py 的 APCShadowSeason 的 upper_boss lower_boss tierce_boss 與 ChallengeBuff
+describe("parseEndgame：每一隊的首領與增益", () => {
+  it("末日幻影_第一隊對上這一期的 upper_boss、第二隊 lower_boss；增益有名稱、說明與圖示", () => {
+    const [floor] = parseEndgame(shadow(), "shadow").endgame.floors;
+
+    expect(floor.nodes.map((n) => n.boss)).toEqual([
+      { name: "上半首領", icon: `${IMG}/boss/1.png` },
+      { name: "下半首領", icon: `${IMG}/boss/2.png` },
+    ]);
+    expect(floor.nodes[0].buff).toEqual({ name: "戰意", description: "擊破時額外造成傷害", icon: `${IMG}/buff/7.png` });
+    expect(floor.nodes[1].buff).toBeNull();
+  });
+
+  it("末日幻影的星啟模式_第三隊對上 tierce_boss；第一隊沒挑戰時第二隊照樣對上 lower_boss", () => {
+    const data = shadow();
+    const group = data.groups[0] as Record<string, unknown>;
+    group.tierce_boss = { id: 3, name_mi18n: "星啟首領", icon: `${IMG}/boss/3.png` };
+    const floor = data.all_floor_detail[0] as Record<string, unknown>;
+    floor.node_3 = { challenge_time: null, avatars: [avatar(1005)], score: 1000, boss_defeated: false };
+    floor.node_1 = null;
+
+    const nodes = parseEndgame(data, "shadow").endgame.floors[0].nodes;
+
+    expect(nodes.map((n) => n.boss?.name)).toEqual(["下半首領", "星啟首領"]);
+    expect(nodes.map((n) => n.slot)).toEqual([2, 3]);
+  });
+
+  it("虛構敘事_有增益、沒有首領；混沌回憶兩個都沒有", () => {
+    const [fictionFloor] = parseEndgame(fiction(), "fiction").endgame.floors;
+    const [chaosFloor] = parseEndgame(chaos(), "chaos").endgame.floors;
+
+    expect(fictionFloor.nodes[0]).toMatchObject({ boss: null, buff: { name: "增益", description: "說明", icon: null } });
+    expect(chaosFloor.nodes.map((n) => [n.boss, n.buff])).toEqual([
+      [null, null],
+      [null, null],
+    ]);
+  });
+});
+
+describe("deepestFloor：放大顯示的最深一層", () => {
+  it("max_floor_id 對到的那一層（maze_id）", () => {
+    const data = chaos();
+    data.max_floor_id = 1012011;
+
+    expect(deepestFloor(parseEndgame(data, "chaos").endgame)?.name).toBe("混沌回憶 11");
+  });
+
+  it("沒有 max_floor_id 或對不到時用最高關卡的名稱；名稱也對不到時用第一層；沒有關卡時 null", () => {
+    const byName = { ...chaos(), max_floor_id: undefined, max_floor: "混沌回憶 11" };
+    const neither = { ...chaos(), max_floor_id: 999, max_floor: "不存在" };
+
+    expect(deepestFloor(parseEndgame(byName, "chaos").endgame)?.name).toBe("混沌回憶 11");
+    expect(deepestFloor(parseEndgame(neither, "chaos").endgame)?.name).toBe("混沌回憶 12");
+    expect(deepestFloor(parseEndgame({ ...chaos(), all_floor_detail: [] }, "chaos").endgame)).toBeNull();
   });
 });
 

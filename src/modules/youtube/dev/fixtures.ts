@@ -62,3 +62,6 @@ export function findByType(node: ReactNode, type: unknown): ReactElement | undef
   const element = node as ReactElement<{ children?: ReactNode }>;
   return element.type === type ? element : findByType(element.props.children, type);
 }
+
+/** 上傳字幕的表單送出的韓文字幕檔 一句 */
+export const subtitleFile = () => new File(["1\n00:00:01,000 --> 00:00:02,000\n안녕하세요\n"], "a.ko.srt", { type: "text/plain" });

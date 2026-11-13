@@ -1,6 +1,6 @@
 import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { markup as render, textOf } from "@/dev/test-helpers";
+import { markup as render, textOf, valueOf } from "@/dev/test-helpers";
 import { toasts } from "@/dev/toast-stub";
 import type { BillDraft, HoldingView } from "../../../account-details";
 import type { ChecklistRow, QuickActionsView } from "../../../overview-view";
@@ -27,7 +27,6 @@ const { QuickActions, QuickActionBody } = await import("../quick-actions");
 const { SetupChecklist } = await import("../setup-checklist");
 
 const TODAY = "2026-10-15";
-const valueOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0].match(/value="([^"]*)"/)?.[1];
 const formActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
 const linkTo = (markup: string, text: string) => markup.match(new RegExp(`<a [^>]*href="([^"]*)"[^>]*>(?:(?!</a>).)*${text}`))?.[1]?.replace(/&amp;/g, "&");
 

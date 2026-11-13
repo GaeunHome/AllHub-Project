@@ -1,6 +1,7 @@
 import { displayNameOf } from "../auth/nickname";
+import { LAST_SEEN_INTERVAL_MS } from "../auth/users";
 import { ROLE_LABELS, type UserRole } from "../db/schema";
-import { formatTaipeiDateTime, formatTaipeiHourMinute } from "../time";
+import { formatRelativeTime, formatTaipeiDateTime, formatTaipeiHourMinute } from "../time";
 import { ActionButton } from "../ui/action-button";
 import { Icon } from "../ui/icon";
 import { UserAvatar } from "../ui/user-avatar";
@@ -13,17 +14,26 @@ const ROLE_CHIP: Record<UserRole, string> = { owner: "chip chip-brand", member: 
 const disableConfirmMessage = (username: string) =>
   `確定停用「${username}」？停用後他會立刻被登出、不能再登入，排程與通知也會暫停；資料與追蹤的訂閱都會保留，恢復後要重新登入。`;
 
+/** 每小時才記一次 不到一小時的寫幾分鐘前不準 */
+function lastSeenText(seen: Date | undefined, now: Date): string {
+  if (!seen) return "還沒有上線紀錄";
+  if (now.getTime() - seen.getTime() < LAST_SEEN_INTERVAL_MS) return "最後上線 1 小時內";
+  return `最後上線 ${formatRelativeTime(seen, now)}`;
+}
+
+type UserListProps = { users: ManagedUser[]; currentUserId: string; lockedUntil: ReadonlyMap<string, Date>; lastSeen: ReadonlyMap<string, Date>; now: Date };
+
 /**
  * 自己那一列不給停用與刪除 停用自己就沒人能恢復 刪除要到帳號頁輸入密碼
  * 站長被鎖時進不了這一頁 所以也不必解除自己的鎖定
  */
-export function UserList({ users, currentUserId, lockedUntil }: { users: ManagedUser[]; currentUserId: string; lockedUntil: ReadonlyMap<string, Date> }) {
+export function UserList({ users, currentUserId, lockedUntil, lastSeen, now }: UserListProps) {
   return (
     <ul aria-label="使用者清單" className="card-list">
       {users.map((user) => {
         const self = user.id === currentUserId;
         const lockEnd = self ? undefined : lockedUntil.get(user.id);
-        const dates = [`建立於 ${formatTaipeiDateTime(user.createdAt)}`, ...(user.disabledAt ? [`停用於 ${formatTaipeiDateTime(user.disabledAt)}`] : [])];
+        const dates = [`建立於 ${formatTaipeiDateTime(user.createdAt)}`, ...(user.disabledAt ? [`停用於 ${formatTaipeiDateTime(user.disabledAt)}`] : []), lastSeenText(lastSeen.get(user.id), now)];
         return (
           // 手機上按鈕換到下一行 每列文字才會一樣寬
           <li key={user.id} className="card-row flex flex-col gap-3 sm:flex-row sm:items-center">

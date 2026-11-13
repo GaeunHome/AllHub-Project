@@ -6,11 +6,16 @@ type Asset = (url: string | null) => string | null;
 // elementIcon 是內建的靜態檔 原樣保留
 const team = (avatars: TeamMember[], asset: Asset): TeamMember[] => avatars.map((avatar) => ({ ...avatar, icon: asset(avatar.icon) }));
 
-/** 上場隊伍的頭像換成瀏覽器載入用的網址 新增圖片欄位要一起加 測試會檢查 */
+const withIcon = <T extends { icon: string | null }>(value: T | null, asset: Asset): T | null => value && { ...value, icon: asset(value.icon) };
+
+/** 上場隊伍的頭像 首領與增益的圖換成瀏覽器載入用的網址 新增圖片欄位要一起加 測試會檢查 */
 export function endgameAssetUrls(endgame: Endgame, asset: Asset): Endgame {
   return {
     ...endgame,
-    floors: endgame.floors.map((floor) => ({ ...floor, nodes: floor.nodes.map((node) => ({ ...node, avatars: team(node.avatars, asset) })) })),
+    floors: endgame.floors.map((floor) => ({
+      ...floor,
+      nodes: floor.nodes.map((node) => ({ ...node, avatars: team(node.avatars, asset), boss: withIcon(node.boss, asset), buff: withIcon(node.buff, asset) })),
+    })),
   };
 }
 
@@ -22,7 +27,7 @@ export function peakAssetUrls(peak: Peak, asset: Asset): Peak {
     seasons: peak.seasons.map((season) => ({
       ...season,
       theme: asset(season.theme),
-      boss: { ...stage(season.boss, asset), medal: asset(season.boss.medal), buff: season.boss.buff && { ...season.boss.buff, icon: asset(season.boss.buff.icon) } },
+      boss: { ...stage(season.boss, asset), medal: asset(season.boss.medal), buff: withIcon(season.boss.buff, asset) },
       knights: season.knights.map((knight) => stage(knight, asset)),
     })),
   };

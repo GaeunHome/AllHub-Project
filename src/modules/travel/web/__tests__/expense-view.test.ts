@@ -126,10 +126,6 @@ describe("分帳的畫面", () => {
     expect(board({ expenses: [taxi], settlements: [{ id: 9, fromUser: "a", toUser: "b", amountTwd: 150 }] }).copyText).toBe("京都五日遊 分帳\n這趟總共 $300\n都結清了");
   });
 
-  it("新增時預填這趟同一種貨幣最後用的匯率 台幣不用", () => {
-    expect(board({ expenses: [yen, { ...yen, id: 3, rateMicros: 215000 }, taxi] }).rates).toEqual({ JPY: "0.215" });
-  });
-
   it("修改時預填原本的內容：照比例的份數、好幾個人付的金額、日期與類別；舊帳沒有日期時留空、類別是其他", () => {
     const hotel = expense({ id: 5, title: "住宿", paidBy: "a", amountCents: 900050, split: "ratio", shares: [{ userId: "a", weight: 2 }], payers: [{ userId: "a", amountCents: 600050 }, { userId: "b", amountCents: 300000 }] });
     const [hotelRow, oldRow] = allRows({ expenses: [{ ...taxi, spentOn: null, category: null }, hotel] });

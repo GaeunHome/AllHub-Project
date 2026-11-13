@@ -12,3 +12,6 @@ export const travelTags = {
 
 /** 同行的人的名字與頭像讀自 core_users 由帳號那邊失效 */
 export const usersTag = authTags.users;
+
+/** 匯率 沒有寫入點 靠效期更新 不跟旅程的表一起失效 */
+export const ratesTag = "travel:external" satisfies CacheTag<"travel">;

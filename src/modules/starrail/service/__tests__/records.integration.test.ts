@@ -32,7 +32,7 @@ const CALENDAR: ActCalendar = {
   warps: [],
 };
 const PEAK: Peak = { seasons: [] };
-const ENDGAME: Endgame = { mode: "chaos", hasData: true, name: "星海中的回聲", begin: "2026/10/6 04:00", end: "2026/10/20 03:00", stars: 36, maxFloor: "混沌回憶 12", battles: 14, floors: [] };
+const ENDGAME: Endgame = { mode: "chaos", hasData: true, name: "星海中的回聲", begin: "2026/10/6 04:00", end: "2026/10/20 03:00", stars: 36, maxFloor: "混沌回憶 12", maxFloorId: null, battles: 14, floors: [] };
 
 let testDb: TestDb;
 setupTestDb((d) => (testDb = d));

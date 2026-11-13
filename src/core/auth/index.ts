@@ -2,11 +2,13 @@ import "server-only";
 import { navigation } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { after, connection } from "next/server";
 import { cache } from "react";
 import { coreEnv } from "../env";
+import { logError } from "../errors";
 import { canUseModule, deniedModules } from "./module-access";
 import { SESSION_COOKIE, SESSION_DAYS, signSession, verifySessionToken } from "./session";
-import { findSessionUser, type SessionUser } from "./users";
+import { findSessionRow, LAST_SEEN_INTERVAL_MS, touchLastSeen, type SessionUser } from "./users";
 
 export { canUseModule, deniedModules } from "./module-access";
 export type { SessionUser, UserRole } from "./users";
@@ -31,10 +33,22 @@ export const currentSession = cache(async (): Promise<SessionUser | null> => {
   // 站內連結的預先抓取不讀 cookie 直接用建置時的外框 點進去才查登入
   // Route Handler 與 Server Action 呼叫時會直接往下走
   await navigation();
-  const claims = await verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value, coreEnv().SESSION_SECRET);
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  // 驗證期限要讀現在的時間 預先算繪時不能讀 等真的有請求才驗
+  await connection();
+  const claims = await verifySessionToken(token, coreEnv().SESSION_SECRET);
   // proxy 只驗簽章 被刪除 停用或改過密碼的使用者要在這裡擋下
-  return claims ? findSessionUser(claims) : null;
+  const row = claims ? await findSessionRow(claims) : null;
+  if (!row) return null;
+  noteLastSeen(row.user.id, row.lastSeenAt, new Date());
+  return row.user;
 });
+
+/** 站長在管理頁看多久沒來 回應送出後才寫 不拖慢頁面 */
+function noteLastSeen(userId: string, lastSeenAt: Date | null, now: Date): void {
+  if (lastSeenAt && now.getTime() - lastSeenAt.getTime() < LAST_SEEN_INTERVAL_MS) return;
+  after(() => touchLastSeen(userId, now).catch((error: unknown) => logError("auth", "記錄最後上線失敗", error)));
+}
 
 /**
  * proxy 只驗簽章 Server Action 與讀資料的元件都要呼叫

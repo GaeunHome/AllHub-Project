@@ -1,15 +1,16 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { Icon, type UiIconName } from "@/core/ui/icon";
 import type { SubtitleMode } from "../../lib/subtitles/format";
 import { shouldAutoContinue, shouldAutoStart, useAutoTranslate } from "../auto-translate";
 import { usePlayerSize } from "../player-size";
 import { SUBTITLE_SIZES, useSubtitleSize } from "../subtitle-size";
+import { useLiveTranslation } from "../use-live-translation";
+import { PillChoice } from "./pill-choice";
 import { AutoSavedContext } from "./save-video-button";
 import { StartPanel, useStartTranslation } from "./start-panel";
 import { TranslationPanel, type WatchTranslation } from "./translation-panel";
-import { isActive, type LiveUpdate } from "./watch-panel-parts";
+import { isActive } from "./watch-panel-parts";
 import { YoutubePlayer, type PlayerHandle } from "./youtube-player";
 
 const MODES: { id: SubtitleMode; label: string }[] = [
@@ -63,19 +64,7 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
     startedByViewer,
     consented: consentedVideo === videoId,
   });
-  // 翻譯中每批回來就更新 播放器可以先顯示翻好的部分
-  // 伺服器端狀態換了就改用伺服器給的資料
-  const [live, setLive] = useState<{ key: string; translated: (string | null)[]; translating: boolean } | null>(null);
-  const current = live?.key === translationKey ? live : null;
-  const translated = current?.translated ?? translation?.translated ?? [];
-  const translating = current?.translating ?? autoContinue;
-
-  const report = ({ translated: next, translating: nowTranslating }: LiveUpdate) =>
-    setLive((previous) => ({
-      key: translationKey,
-      translated: next ?? (previous?.key === translationKey ? previous.translated : (translation?.translated ?? [])),
-      translating: nowTranslating,
-    }));
+  const { translated, translating, report } = useLiveTranslation(translationKey, translation?.translated, autoContinue);
 
   /** 只在觀看頁播放時翻譯 同一頁只自動試一次 讀不到字幕時不會每按一次播放就重讀 */
   const autoStart = (enabled: boolean) => {
@@ -157,29 +146,5 @@ export function WatchClient({ videoId, title, channel, translationKey, translati
         </div>
       </div>
     </AutoSavedContext>
-  );
-}
-
-type PillChoiceProps<T extends string> = {
-  label: string;
-  icon?: UiIconName;
-  text?: string;
-  options: readonly { id: T; label: string }[];
-  value: T;
-  onChange: (value: T) => void;
-};
-
-/** 一組互斥的選項收在同一顆膠囊裡 例如字幕語言與大小 */
-function PillChoice<T extends string>({ label, icon, text, options, value, onChange }: PillChoiceProps<T>) {
-  return (
-    <div role="group" aria-label={label} className="yt-segmented">
-      {icon && <Icon name={icon} className="size-4" />}
-      {text && <span aria-hidden>{text}</span>}
-      {options.map((option) => (
-        <button key={option.id} type="button" aria-pressed={option.id === value} onClick={() => onChange(option.id)}>
-          {option.label}
-        </button>
-      ))}
-    </div>
   );
 }

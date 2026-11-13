@@ -1,6 +1,6 @@
 import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { markup, textOf } from "@/dev/test-helpers";
+import { factsOf, markup, textOf } from "@/dev/test-helpers";
 import { accountRow, dayFlowRow, flowRow as flow } from "../../../../dev/fixtures";
 import type { CardBillRecord } from "../../../../service/cards";
 import type { AccountsInput, OverviewAccount } from "../../../accounts-state";
@@ -122,7 +122,6 @@ describe("存款的卡片", () => {
   });
 });
 
-const factsOf = (markup: string) => [...markup.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2])]);
 
 describe("信用卡", () => {
   it("卡面下面的狀態分開寫：本期應繳與截止各一列；要處理的標籤接在最後一列的值後面", () => {

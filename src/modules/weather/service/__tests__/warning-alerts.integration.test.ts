@@ -1,7 +1,7 @@
 import { asc, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { coreNotifications, coreRateLimits, coreUsers } from "@/core/db/schema";
-import { fakeFetch } from "@/dev/fake-fetch";
+import { fakeFetch, serveJson } from "@/dev/fake-fetch";
 import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { stubWeatherEnv, TEST_WEATHER_ENV } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
@@ -30,12 +30,6 @@ async function load() {
   return { notify, sendWarningAlerts };
 }
 
-function serve(json: unknown) {
-  const fetch = fakeFetch(() => Response.json(json));
-  vi.stubGlobal("fetch", fetch.impl);
-  return fetch;
-}
-
 async function member(name: string, county: string, alerts: { rainAlert?: boolean; warningAlert?: boolean } = {}): Promise<string> {
   const id = await insertTestUser(getDb(), name);
   await getDb().insert(weatherSettings).values({ userId: id, county, ...alerts });
@@ -61,7 +55,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
     const taipei = await member("taipei", "臺北市");
     const tainan = await member("tainan", "臺南市");
     const kaohsiung = await member("kaohsiung", "高雄市");
-    serve(RAINY);
+    serveJson(RAINY);
     const { sendWarningAlerts } = await load();
 
     expect(await sendWarningAlerts(AFTERNOON)).toBe("寄出 3 則天氣警特報通知");
@@ -80,7 +74,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("同一縣市有警報也有特報時警報最後寫入：通知新的在上面，最急的排最上面", async () => {
     stubWeatherEnv();
     const tainan = await member("tainan", "臺南市");
-    serve(RAINY);
+    serveJson(RAINY);
     const { sendWarningAlerts } = await load();
 
     await sendWarningAlerts(AFTERNOON);
@@ -94,7 +88,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
     await member("alice", "臺北市");
     await member("bob", "臺北市");
     await member("carol", "臺南市");
-    const fetch = serve(RAINY);
+    const fetch = serveJson(RAINY);
     const timeout = vi.spyOn(AbortSignal, "timeout");
     onTestFinished(() => timeout.mockRestore());
     const { sendWarningAlerts } = await load();
@@ -112,7 +106,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("認領紀錄只存雜湊：看不出是誰、哪個縣市的哪種特報", async () => {
     stubWeatherEnv();
     await member("alice", "臺北市");
-    serve(RAINY);
+    serveJson(RAINY);
     const { sendWarningAlerts } = await load();
 
     await sendWarningAlerts(AFTERNOON);
@@ -127,7 +121,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
     const off = await member("bob", "臺北市", { warningAlert: false });
     const disabled = await member("carol", "臺北市");
     await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.id, disabled));
-    serve(RAINY);
+    serveJson(RAINY);
     const { sendWarningAlerts } = await load();
 
     expect(await sendWarningAlerts(AFTERNOON)).toBe("寄出 2 則天氣警特報通知");
@@ -141,7 +135,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("沒有人開著時不讀資料，也不寄", async () => {
     stubWeatherEnv();
     await member("alice", "臺北市", { warningAlert: false });
-    const fetch = serve(RAINY);
+    const fetch = serveJson(RAINY);
     const { sendWarningAlerts } = await load();
 
     expect(await sendWarningAlerts(AFTERNOON)).toBe("沒有開著天氣警特報通知的人");
@@ -151,7 +145,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("沒有設定氣象署的授權碼：不對外請求，也不寄", async () => {
     vi.stubEnv("CWA_API_KEY", "");
     const alice = await member("alice", "臺北市");
-    const fetch = serve(RAINY);
+    const fetch = serveJson(RAINY);
     const { sendWarningAlerts } = await load();
 
     expect(await sendWarningAlerts(AFTERNOON)).toBe("沒有設定氣象署的授權碼，略過");
@@ -173,14 +167,14 @@ describe("天氣警特報通知（weather:warnings）", () => {
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     onTestFinished(() => warn.mockRestore());
-    serve({ success: "false" });
+    serveJson({ success: "false" });
     expect(await sendWarningAlerts(AFTERNOON)).toBe("讀不到天氣警特報，這一輪略過");
   });
 
   it("結束時間已過、氣象署還沒撤掉的特報不寄：這一輪沒有要通知的，還在生效的照寄", async () => {
     stubWeatherEnv();
     const id = await member("taipei", "臺北市");
-    serve(cwaWarningResponse(cwaWarningLocation("臺北市", [{ ...HEAVY_RAIN, end: "2026-11-02 08:00:00" }, { ...DENSE_FOG, end: "2026-11-02 20:00:00" }])));
+    serveJson(cwaWarningResponse(cwaWarningLocation("臺北市", [{ ...HEAVY_RAIN, end: "2026-11-02 08:00:00" }, { ...DENSE_FOG, end: "2026-11-02 20:00:00" }])));
     const { sendWarningAlerts } = await load();
 
     await sendWarningAlerts(new Date("2026-11-02T02:00:00.000Z"));
@@ -191,7 +185,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("同一種特報有兩筆時看最晚結束的：08:00 那筆過了、20:00 那筆還在生效，早上 10 點照寄，內文寫 20:00", async () => {
     stubWeatherEnv();
     const id = await member("taipei", "臺北市");
-    serve(cwaWarningResponse(cwaWarningLocation("臺北市", [{ ...DENSE_FOG, end: "2026-11-02 08:00:00" }, { ...DENSE_FOG, end: "2026-11-02 20:00:00" }])));
+    serveJson(cwaWarningResponse(cwaWarningLocation("臺北市", [{ ...DENSE_FOG, end: "2026-11-02 08:00:00" }, { ...DENSE_FOG, end: "2026-11-02 20:00:00" }])));
     const { sendWarningAlerts } = await load();
 
     expect(await sendWarningAlerts(new Date("2026-11-02T02:00:00.000Z"))).toBe("寄出 1 則天氣警特報通知");
@@ -202,11 +196,11 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("全台都沒有特報，或回應裡沒有收件人的縣市：讀到了，只是沒有要寄的", async () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
-    serve(cwaWarningResponse(cwaWarningLocation("高雄市", [HEAVY_RAIN])));
+    serveJson(cwaWarningResponse(cwaWarningLocation("高雄市", [HEAVY_RAIN])));
     const { sendWarningAlerts } = await load();
 
     expect(await sendWarningAlerts(AFTERNOON)).toBe("目前沒有要通知的天氣警特報");
-    serve(cwaWarningResponse());
+    serveJson(cwaWarningResponse());
     expect(await sendWarningAlerts(AFTERNOON)).toBe("目前沒有要通知的天氣警特報");
     expect(await notificationsOf(alice)).toEqual([]);
   });
@@ -214,7 +208,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("特報持續好幾天時每天早上提醒一次：同一天重跑不重複，23 點寄過之後隔天 00:30、05:30 不再寄，隔天 06:30 再寄一次，再隔一天早上也是", async () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
-    serve(LONG_RAIN);
+    serveJson(LONG_RAIN);
     const { sendWarningAlerts } = await load();
 
     expect(await sendWarningAlerts(new Date("2026-11-02T15:00:00Z"))).toBe("寄出 1 則天氣警特報通知"); // 11/2 23:00
@@ -234,7 +228,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("一天的分界剛好是台北 6 點：05:59 還算前一天，06:00 就是新的一天", async () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
-    serve(LONG_RAIN);
+    serveJson(LONG_RAIN);
     const { sendWarningAlerts } = await load();
 
     expect(await sendWarningAlerts(new Date("2026-11-02T21:59:00Z"))).toBe("寄出 1 則天氣警特報通知"); // 11/3 05:59
@@ -245,7 +239,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("早上 6 點多第一次寄之後，一直到隔天 05:59 都算同一天：認領紀錄不能在這之前被清掉（清理是超過 24 小時）", async () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
-    serve(LONG_RAIN);
+    serveJson(LONG_RAIN);
     const { sendWarningAlerts } = await load();
 
     expect(await sendWarningAlerts(new Date("2026-11-01T22:00:30Z"))).toBe("寄出 1 則天氣警特報通知"); // 11/2 06:00:30
@@ -256,11 +250,11 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("氣象署更新特報時開始或結束時間變了不重寄：同一縣市同一種特報一天一次", async () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
-    serve(RAINY);
+    serveJson(RAINY);
     const { sendWarningAlerts } = await load();
     expect(await sendWarningAlerts(AFTERNOON)).toBe("寄出 1 則天氣警特報通知");
 
-    serve(cwaWarningResponse(cwaWarningLocation("臺北市", [{ ...HEAVY_RAIN, start: "2026-11-02 14:00:00", end: "2026-11-03 02:00:00" }])));
+    serveJson(cwaWarningResponse(cwaWarningLocation("臺北市", [{ ...HEAVY_RAIN, start: "2026-11-02 14:00:00", end: "2026-11-03 02:00:00" }])));
 
     expect(await sendWarningAlerts(new Date(AFTERNOON.getTime() + 60 * 60_000))).toBe("1 則今天已經提醒過");
     expect(await notificationsOf(alice)).toHaveLength(1);
@@ -269,11 +263,11 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("同一天新發布的另一種特報照寄，已經寄過的不重寄；搬到別的縣市後，那裡同一種特報也照寄", async () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
-    serve(RAINY);
+    serveJson(RAINY);
     const { sendWarningAlerts } = await load();
     expect(await sendWarningAlerts(AFTERNOON)).toBe("寄出 1 則天氣警特報通知");
 
-    serve(cwaWarningResponse(cwaWarningLocation("臺北市", [HEAVY_RAIN, DENSE_FOG]), cwaWarningLocation("新北市", [HEAVY_RAIN])));
+    serveJson(cwaWarningResponse(cwaWarningLocation("臺北市", [HEAVY_RAIN, DENSE_FOG]), cwaWarningLocation("新北市", [HEAVY_RAIN])));
     expect(await sendWarningAlerts(new Date(AFTERNOON.getTime() + 60 * 60_000))).toBe("寄出 1 則天氣警特報通知，1 則今天已經提醒過");
     expect(await titlesOf(alice)).toEqual(["臺北市 大雨特報", "臺北市 濃霧特報"]);
 
@@ -286,7 +280,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺南市");
     const bob = await member("bob", "臺南市");
-    serve(RAINY);
+    serveJson(RAINY);
     const { notify, sendWarningAlerts } = await load();
     notify.mockRejectedValueOnce(new Error(`寫入失敗 ${TEST_WEATHER_ENV.CWA_API_KEY}`));
     const log = captureErrorLog();
@@ -306,7 +300,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
     const bob = await member("bob", "新北市");
-    serve(cwaWarningResponse(cwaWarningLocation("臺北市", [HEAVY_RAIN]), cwaWarningLocation("新北市", [HEAVY_RAIN])));
+    serveJson(cwaWarningResponse(cwaWarningLocation("臺北市", [HEAVY_RAIN]), cwaWarningLocation("新北市", [HEAVY_RAIN])));
     const { notify, sendWarningAlerts } = await load();
     notify.mockRejectedValueOnce(new Error("寫入失敗"));
     captureErrorLog();
@@ -322,7 +316,7 @@ describe("天氣警特報通知（weather:warnings）", () => {
   it("同一種特報裡只放掉這次認領到的人：同一個縣市已經收過的人不動，之後也不會收到第二則", async () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
-    serve(RAINY);
+    serveJson(RAINY);
     const { notify, sendWarningAlerts } = await load();
     expect(await sendWarningAlerts(AFTERNOON)).toBe("寄出 1 則天氣警特報通知");
 

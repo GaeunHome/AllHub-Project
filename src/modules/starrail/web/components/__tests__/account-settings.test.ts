@@ -4,9 +4,8 @@ import { markup as render } from "@/dev/test-helpers";
 import { accountView } from "../../../dev/fixtures";
 
 vi.mock("@/core/auth", () => import("@/dev/session-stub"));
-vi.mock("../../../service/cached", { spy: true });
 
-const { AutoRedeemSetting, GameRemindersSetting } = await import("../account-card");
+const { AutoRedeemSetting, GameRemindersSetting } = await import("../account-settings");
 
 const account = (autoRedeem: boolean, canAutoRedeem: boolean, gameReminders = true) => accountView({ autoRedeem, canAutoRedeem, gameReminders });
 const toggle = (autoRedeem: boolean, canAutoRedeem: boolean) => {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useReducer, useState, type ReactNode } from "react";
+import { useId, useReducer, useState, type Dispatch, type ReactNode } from "react";
 import { useDialogForm } from "@/core/ui/dialog";
 import { FormButtons } from "@/core/ui/form-buttons";
 import { FormFeedback } from "@/core/ui/form-message";
@@ -121,45 +121,7 @@ export function RecurringForm(props: RecurringFormProps) {
         </>
       )}
       {isRegular && holding && <input type="hidden" name="counterAccountId" value={holding.accountId} />}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="field">
-          <span className="field-label">多久一次</span>
-          <select name="intervalMonths" value={form.intervalMonths} onChange={(event) => dispatch({ type: "interval", value: parseInterval(Number(event.target.value)) })} className="input">
-            {INTERVAL_MONTHS.map((months) => (
-              <option key={months} value={months}>
-                {INTERVAL_LABELS[months]}
-              </option>
-            ))}
-          </select>
-        </label>
-        {form.intervalMonths !== 1 && (
-          <label className="field">
-            <span className="field-label">從哪個月開始</span>
-            <select name="startMonth" value={form.startMonth} onChange={(event) => dispatch({ type: "startMonth", value: event.target.value })} className="input">
-              {startMonthOptions(today, rule?.startMonth ? dateToMonth(rule.startMonth) : null).map((month) => (
-                <option key={month} value={month}>
-                  {formatMonth(month)}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <DayOfMonthSelect name="dayOfMonth" label="日期" value={form.day} onValueChange={(day) => dispatch({ type: "day", value: day })} />
-        <label className="field">
-          <span className="field-label">遇假日</span>
-          <select name="holidayRule" value={form.holidayRule} onChange={(event) => dispatch({ type: "holidayRule", value: parseHolidayRule(event.target.value) })} className="input">
-            {HOLIDAY_RULES.map((value) => (
-              <option key={value} value={value}>
-                {HOLIDAY_RULE_LABELS[value]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      {/* 改日期或遇假日時馬上念出新的日子 */}
-      <p aria-live="polite" className="text-ink">
-        {next}
-      </p>
+      <ScheduleFields form={form} dispatch={dispatch} today={today} savedStartMonth={rule?.startMonth ? dateToMonth(rule.startMonth) : null} next={next} />
       <ModeSelect mode={mode} locked={locked ? LOCKED_HINTS[locked] : null} onChange={(value) => dispatch({ type: "mode", value })} />
       {/* 以前記在其他固定收支的 Netflix 打勾就搬到訂閱 */}
       {form.type === "expense" && <CheckboxField name="subscription" label="這是訂閱，續訂前 3 天提醒我" defaultChecked={rule ? rule.subscription : preset === "subscription"} />}
@@ -246,5 +208,62 @@ function ModeSelect({ mode, locked, onChange }: { mode: RecurringMode; locked: s
         </>
       )}
     </div>
+  );
+}
+
+type ScheduleFieldsProps = {
+  form: ReturnType<typeof initialRecurringState>;
+  dispatch: Dispatch<Parameters<typeof recurringFormReducer>[1]>;
+  today: string;
+  /** 修改時原本的開始月份 選單才列得到它 */
+  savedStartMonth: string | null;
+  /** 下一次是哪天 改日期或遇假日時馬上念出來 */
+  next: string;
+};
+
+/** 多久一次 從哪個月開始 日期與遇假日 */
+function ScheduleFields({ form, dispatch, today, savedStartMonth, next }: ScheduleFieldsProps) {
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <label className="field">
+          <span className="field-label">多久一次</span>
+          <select name="intervalMonths" value={form.intervalMonths} onChange={(event) => dispatch({ type: "interval", value: parseInterval(Number(event.target.value)) })} className="input">
+            {INTERVAL_MONTHS.map((months) => (
+              <option key={months} value={months}>
+                {INTERVAL_LABELS[months]}
+              </option>
+            ))}
+          </select>
+        </label>
+        {form.intervalMonths !== 1 && (
+          <label className="field">
+            <span className="field-label">從哪個月開始</span>
+            <select name="startMonth" value={form.startMonth} onChange={(event) => dispatch({ type: "startMonth", value: event.target.value })} className="input">
+              {startMonthOptions(today, savedStartMonth).map((month) => (
+                <option key={month} value={month}>
+                  {formatMonth(month)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <DayOfMonthSelect name="dayOfMonth" label="日期" value={form.day} onValueChange={(day) => dispatch({ type: "day", value: day })} />
+        <label className="field">
+          <span className="field-label">遇假日</span>
+          <select name="holidayRule" value={form.holidayRule} onChange={(event) => dispatch({ type: "holidayRule", value: parseHolidayRule(event.target.value) })} className="input">
+            {HOLIDAY_RULES.map((value) => (
+              <option key={value} value={value}>
+                {HOLIDAY_RULE_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {/* 改日期或遇假日時馬上念出新的日子 */}
+      <p aria-live="polite" className="text-ink">
+        {next}
+      </p>
+    </>
   );
 }

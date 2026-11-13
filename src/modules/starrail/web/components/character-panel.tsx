@@ -2,6 +2,7 @@ import { requireModule } from "@/core/auth";
 import { externalAssetUrl } from "@/core/external-url";
 import { FormMessage } from "@/core/ui/form-message";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
+import { rateCharacters } from "../../lib/relic-score";
 import { formatTaipeiTime } from "../../lib/responses";
 import type { StarrailAccountView } from "../../service/accounts";
 import { cachedCharacters } from "../../service/cached";
@@ -26,7 +27,7 @@ export async function CharacterPanel({ account }: { account: StarrailAccountView
       </PanelNotice>
     );
   }
-  return <CharacterBrowser characters={characterAssetUrls(result.characters, externalAssetUrl)} fetchedLabel={formatTaipeiTime(result.fetchedAt, new Date())} />;
+  return <CharacterBrowser characters={characterAssetUrls(rateCharacters(result.characters), externalAssetUrl)} fetchedLabel={formatTaipeiTime(result.fetchedAt, new Date())} />;
 }
 
 export function CharacterPanelSkeleton() {

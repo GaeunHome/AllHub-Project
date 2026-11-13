@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { markup as render, textOf } from "@/dev/test-helpers";
+import { inputOf, markup as render, selectedOption, textOf, valueOf } from "@/dev/test-helpers";
 import type { PayCardDraft } from "../../../account-details";
 import type { ConfirmDraft } from "../../../pending-view";
 
@@ -15,9 +15,6 @@ const { ConfirmForm } = await import("../confirm-form");
 const { PayCardForm } = await import("../../accounts/pay-card-form");
 
 const TODAY = "2026-10-15";
-const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
-const valueOf = (markup: string, name: string) => inputOf(markup, name).match(/value="([^"]*)"/)?.[1];
-const selectedOption = (markup: string, name: string) => markup.match(new RegExp(`<select[^>]*name="${name}"[^>]*>[\\s\\S]*?</select>`))?.[0].match(/<option[^>]*selected=""[^>]*>([^<]*)<\/option>/)?.[1];
 
 const DEPOSITS = [
   { id: 1, name: "台銀", kind: "deposit" as const },

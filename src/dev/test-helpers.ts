@@ -90,3 +90,29 @@ export function loggedText(log: { mock: { calls: unknown[][] } }): string {
     .map((arg) => (arg instanceof Error ? `${arg.message} ${arg.stack}` : typeof arg === "string" ? arg : JSON.stringify(arg)))
     .join(" ");
 }
+
+// 從算繪出來的 HTML 取欄位 好幾個模組的畫面測試共用
+
+/** 名稱是 name 的 input 整個標籤 找不到是空字串 */
+export const inputOf = (html: string, name: string): string => html.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
+
+/** 同名的 input 全部 例如勾選框 */
+export const inputsOf = (html: string, name: string): string[] => [...html.matchAll(new RegExp(`<input[^>]*name="${name}"[^>]*>`, "g"))].map((m) => m[0]);
+
+/** input 的 value 屬性 */
+export const valueOf = (html: string, name: string): string | undefined => inputOf(html, name).match(/value="([^"]*)"/)?.[1];
+
+/** 名稱是 name 的下拉選單 含裡面的選項 */
+export const selectOf = (html: string, name: string): string => html.match(new RegExp(`<select[^>]*name="${name}"[^>]*>[\\s\\S]*?</select>`))?.[0] ?? "";
+
+/** 下拉選單選到的那一項的文字 */
+export const selectedOption = (html: string, name: string): string | undefined => selectOf(html, name).match(/<option[^>]*selected=""[^>]*>([^<]*)<\/option>/)?.[1];
+
+/** 表單裡所有欄位的名稱 排序後去掉重複 */
+export const fieldNames = (html: string): string[] => [...new Set([...html.matchAll(/<(?:input|select|textarea)[^>]*name="([^"]+)"/g)].map((m) => m[1]))].sort();
+
+/** 每個按鈕的文字 */
+export const buttonsOf = (html: string): string[] => [...html.matchAll(/<button[^>]*>((?:(?!<\/button>)[\s\S])*)<\/button>/g)].map((m) => textOf(m[1]).trim());
+
+/** dl 裡的每一組 dt 與 dd 的文字 */
+export const factsOf = (html: string): string[][] => [...html.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2])]);

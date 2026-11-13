@@ -1,6 +1,6 @@
 import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { markup as render, textOf } from "@/dev/test-helpers";
+import { inputOf, markup as render, textOf, valueOf } from "@/dev/test-helpers";
 import type { BillDraft } from "../../../account-details";
 
 // 視窗關著時不算繪內容 換掉才看得到裡面 其他照原本的實作
@@ -16,8 +16,6 @@ const { BillForm, BillHistory } = await import("../card-bill");
 const { AddAccountButton } = await import("../add-account-button");
 
 const TODAY = "2026-10-15";
-const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
-const valueOf = (markup: string, name: string) => inputOf(markup, name).match(/value="([^"]*)"/)?.[1];
 const formActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
 
 const DEPOSITS = [

@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, count, desc, eq, gt, sql } from "drizzle-orm";
 import { db } from "../db";
 import { coreAuditLogs, coreModuleDenials, coreUsers, type UserRole } from "../db/schema";
-import { userAvatar } from "../db/users";
+import { userAvatar, userLastSeen } from "../db/users";
 import { UserError } from "../form";
 import { AUDIT_PAGE_SIZE, type AuditQuery } from "./audit-query";
 
@@ -97,6 +97,12 @@ export async function listAuditActors(): Promise<string[]> {
 export async function listLockedUsers(now = new Date()): Promise<LockedUser[]> {
   const rows = await db().select({ id: coreUsers.id, lockedUntil: coreUsers.lockedUntil }).from(coreUsers).where(gt(coreUsers.lockedUntil, now));
   return rows.flatMap(({ id, lockedUntil }) => (lockedUntil ? [{ id, lockedUntil }] : []));
+}
+
+/** 每次直接讀 使用者清單的快取不會因為有人上線而失效 還沒有紀錄的不列 */
+export async function listLastSeen(): Promise<Map<string, Date>> {
+  const rows = await db().select({ id: coreUsers.id, lastSeenAt: userLastSeen }).from(coreUsers);
+  return new Map(rows.flatMap(({ id, lastSeenAt }) => (lastSeenAt ? [[id, new Date(lastSeenAt)] as const] : [])));
 }
 
 /** 只清掉失敗次數與鎖定期限 不改密碼與停用狀態 回 false 代表帳號已經不在 */

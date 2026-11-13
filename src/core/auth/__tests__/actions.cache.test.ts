@@ -29,7 +29,7 @@ vi.mock("../captcha", { spy: true });
 
 const registration = mocksOf(await import("../registration"), "registerMember");
 const attempts = mocksOf(await import("../attempts"), "checkAttempts", "recordAttempt");
-const users = mocksOf(await import("../users"), "deleteOwnAccount", "findSessionUser", "updateAvatar", "updateNickname");
+const users = mocksOf(await import("../users"), "deleteOwnAccount", "findSessionRow", "updateAvatar", "updateNickname");
 const captcha = mocksOf(await import("../captcha"), "takeCaptchaToken", "verifyCaptcha");
 const { deleteAccountAction, registerAction, updateAvatarAction, updateNicknameAction } = await import("../actions");
 const { SESSION_COOKIE, signSession } = await import("../session");
@@ -43,7 +43,7 @@ beforeEach(async () => {
   attempts.checkAttempts.mockReset().mockResolvedValue({ allowed: true });
   attempts.recordAttempt.mockReset().mockResolvedValue({ allowed: true });
   registration.registerMember.mockReset().mockResolvedValue({ ok: true, id: USER_ID, sessionVersion: 1, deniedModules: [] });
-  users.findSessionUser.mockReset().mockResolvedValue({ id: USER_ID, username: "alice", role: "member" });
+  users.findSessionRow.mockReset().mockResolvedValue({ user: { id: USER_ID, username: "alice", nickname: null, avatar: null, role: "member" }, lastSeenAt: new Date() });
   users.deleteOwnAccount.mockReset().mockResolvedValue({ ok: true });
   users.updateNickname.mockReset().mockResolvedValue({ ok: true, nickname: "小明" });
   users.updateAvatar.mockReset().mockResolvedValue({ ok: true, avatar: "cat" });

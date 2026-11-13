@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { ExternalImage } from "@/core/ui/external-image";
 import { Icon, type UiIconName } from "@/core/ui/icon";
+import { InfoTip } from "@/core/ui/info-tip";
 import {
   elementLabel,
   pathLabel,
@@ -14,6 +15,7 @@ import {
   type StatLine,
   type Trace,
 } from "../../lib/characters";
+import type { RelicGrade, RelicRating } from "../../lib/relic-score";
 import { CharacterStage } from "./character-stage";
 import { ElementBadge, GameIcon, GoldChip, rarityClass } from "./sr-visuals";
 
@@ -57,7 +59,7 @@ export function CharacterDetail({ character, titleId, onClose }: { character: St
               )}
             </div>
 
-            <Section title="遺器與位面飾品" icon="shield-check" className="@3xl:col-span-2">
+            <Section title="遺器與位面飾品" icon="shield-check" className="@3xl:col-span-2" aside={c.relicGrade && <RelicGradeSummary grade={c.relicGrade} />}>
               {c.relics.length > 0 ? (
                 <ul className="grid grid-cols-1 gap-4 @lg:grid-cols-2 @3xl:grid-cols-3">
                   {c.relics.map((relic, i) => (
@@ -209,15 +211,51 @@ function EidolonGrid({ eidolons }: { eidolons: Eidolon[] }) {
 }
 
 /** className 給排欄用 col-span 寫在區塊自己身上 */
-function Section({ title, icon, className = "", children }: { title: string; icon: UiIconName; className?: string; children: ReactNode }) {
+type SectionProps = { title: string; icon: UiIconName; className?: string; aside?: ReactNode; children: ReactNode };
+
+/** aside 放在標題右邊 例如遺器總評 */
+function Section({ title, icon, className = "", aside, children }: SectionProps) {
+  const heading = (
+    <h4 className="sr-title">
+      <Icon name={icon} className="size-4 text-sr-gold" />
+      {title}
+    </h4>
+  );
   return (
     <section className={`stack min-w-0 ${className}`.trim()}>
-      <h4 className="sr-title">
-        <Icon name={icon} className="size-4 text-sr-gold" />
-        {title}
-      </h4>
+      {aside ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          {heading}
+          {aside}
+        </div>
+      ) : (
+        heading
+      )}
       {children}
     </section>
+  );
+}
+
+/** 使用者選的等級字母 方法與權重照 hsr-optimizer */
+function RelicGradeSummary({ grade }: { grade: RelicGrade }) {
+  return (
+    <p className="flex items-center gap-2 text-ink">
+      <span className="font-medium">遺器總評</span>
+      <span className="sr-num text-2xl leading-none font-bold text-[var(--sr-gold-ink)]">{grade}</span>
+      <InfoTip label="遺器評分的說明">照 hsr-optimizer 的角色權重算，SS 最好，C 最差</InfoTip>
+    </p>
+  );
+}
+
+/** 主屬性角色用不到時 hsr-optimizer 也不給等級 */
+function RelicGradeMark({ rating }: { rating: RelicRating | null | undefined }) {
+  if (!rating) return null;
+  if (rating.grade === null) return <span className="shrink-0 text-sm font-medium text-ink">主屬性不合</span>;
+  return (
+    <span className="sr-num shrink-0 text-2xl leading-none font-bold text-[var(--sr-gold-ink)]" title={`約理想的 ${Math.round(rating.percent)}%`}>
+      <span aria-hidden>{rating.grade}</span>
+      <span className="sr-only">評分 {rating.grade}</span>
+    </span>
   );
 }
 
@@ -234,8 +272,13 @@ function StatText({ stat, main = false }: { stat: RelicStat; main?: boolean }) {
   const upgrades = main ? 0 : relicUpgrades(stat.times);
   return (
     <>
+      {/* 有評分時每一條都留圓點的位置 圖示才對得齊 */}
+      {stat.useful !== undefined && <span aria-hidden className={`size-1.5 shrink-0 rounded-full ${stat.useful ? "bg-sr-gold" : ""}`} />}
       <GameIcon src={stat.icon} />
-      <span className={`min-w-0 truncate ${main ? "font-semibold text-ink" : "text-ink-soft"}`}>{stat.name}</span>
+      <span className={`min-w-0 truncate ${main ? "font-semibold text-ink" : "text-ink-soft"}`}>
+        {stat.name}
+        {stat.useful && <span className="sr-only">，角色用得到</span>}
+      </span>
       <span className="ml-auto flex shrink-0 items-center gap-1.5">
         {upgrades > 0 && <Upgrades count={upgrades} />}
         <span className={`sr-num min-w-12 text-right ${main ? "text-lg font-bold text-ink" : "text-[1.0625rem] text-ink"}`}>{dash(stat.value)}</span>
@@ -258,6 +301,7 @@ function RelicCard({ relic }: { relic: Relic }) {
           </p>
         </div>
         {relic.level !== null && <span className="sr-num shrink-0 text-lg font-bold text-ink">+{relic.level}</span>}
+        <RelicGradeMark rating={relic.rating} />
       </div>
       {relic.mainStat && (
         <p className="flex items-center gap-2 border-b border-line pb-1.5">

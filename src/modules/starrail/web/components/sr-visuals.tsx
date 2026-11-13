@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { ExternalImage } from "@/core/ui/external-image";
+import { groupDigits } from "@/core/number";
 import { Icon } from "@/core/ui/icon";
 import { elementLabel } from "../../lib/characters";
 
@@ -27,6 +28,26 @@ export function RoundCount({ rounds }: { rounds: number }) {
     <span className="flex items-center gap-1.5 text-ink">
       <Icon name="refresh-cw" className="size-4 text-sr-gold" />
       <span className="sr-num text-lg font-bold">{rounds}</span> 回合
+    </span>
+  );
+}
+
+/** 虛構敘事與末日幻影的分數 跟回合數一樣是圖示加文字 */
+export function ScoreCount({ score }: { score: number }) {
+  return (
+    <span className="flex items-center gap-1.5 text-ink">
+      <Icon name="target" className="size-4 text-sr-gold" />
+      <span className="sr-num text-lg font-bold">{groupDigits(score)}</span> 分
+    </span>
+  );
+}
+
+/** 末日幻影這一隊有沒有擊敗首領 不用小標籤 */
+export function BossResult({ defeated }: { defeated: boolean }) {
+  return (
+    <span className="flex items-center gap-1.5 text-ink">
+      <Icon name={defeated ? "circle-check" : "circle-alert"} className={defeated ? "size-4 text-sr-gold" : "size-4 text-[var(--sr-boss-star)]"} />
+      {defeated ? "擊敗首領" : "未擊敗"}
     </span>
   );
 }

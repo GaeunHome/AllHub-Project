@@ -1,9 +1,10 @@
 import "server-only";
-import { and, asc, eq, isNull, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import { avatarOf, uploadedAvatar } from "../avatars";
 import { db } from "../db";
 import { coreAvatarImages, coreModuleDenials, coreUsers, type UserRole } from "../db/schema";
-import { userAvatar } from "../db/users";
+import { userAvatar, userLastSeen } from "../db/users";
+import { HOUR_MS } from "../time";
 import { AVATAR_STORED_MAX_BYTES, KEEP_AVATAR, isJpeg } from "./avatar-rules";
 import { hashPassword, needsRehash, newPasswordProblem, normalizeUsername, usernameProblem, verifyPassword } from "./credentials";
 import { nicknameProblem, normalizeNickname } from "./nickname";
@@ -78,8 +79,13 @@ function lockedUntilAfter(count: SQL, now: Date): SQL {
 }
 
 /** 停用的帳號也查不到 站長停用後簽章仍有效的 cookie 立刻失效 */
-export async function findSessionUser({ userId, version }: SessionClaims): Promise<SessionUser | null> {
-  const [user] = await db()
+export async function findSessionUser(claims: SessionClaims): Promise<SessionUser | null> {
+  return (await findSessionRow(claims))?.user ?? null;
+}
+
+/** 登入檢查順便讀最後上線 不用為了每小時記一次多查一次資料庫 */
+export async function findSessionRow({ userId, version }: SessionClaims): Promise<{ user: SessionUser; lastSeenAt: Date | null } | null> {
+  const [row] = await db()
     // 每個請求都會走到這裡 新程式比 migration 先上線時欄位還不存在 從整列取值才不會全站登入失敗
     .select({
       id: coreUsers.id,
@@ -89,10 +95,24 @@ export async function findSessionUser({ userId, version }: SessionClaims): Promi
       role: coreUsers.role,
       // 每個請求都要判斷模組權限 一起讀才不用再來回一次
       denied: sql<string[]>`coalesce((select array_agg(${coreModuleDenials.moduleId}) from ${coreModuleDenials} where ${coreModuleDenials.userId} = ${coreUsers.id}), '{}')`,
+      lastSeenAt: userLastSeen,
     })
     .from(coreUsers)
     .where(and(eq(coreUsers.id, userId), eq(coreUsers.sessionVersion, version), isNull(coreUsers.disabledAt)));
-  return user ?? null;
+  if (!row) return null;
+  const { lastSeenAt, ...user } = row;
+  return { user, lastSeenAt: lastSeenAt ? new Date(lastSeenAt) : null };
+}
+
+/** 每小時最多寫一次 通知每 10 秒輪詢一次 每個請求都寫太多 */
+export const LAST_SEEN_INTERVAL_MS = HOUR_MS;
+
+/** 條件式寫入 同時好幾個請求只有第一個會寫 */
+export async function touchLastSeen(userId: string, now: Date): Promise<void> {
+  await db()
+    .update(coreUsers)
+    .set({ lastSeenAt: now })
+    .where(and(eq(coreUsers.id, userId), or(isNull(coreUsers.lastSeenAt), lt(coreUsers.lastSeenAt, new Date(now.getTime() - LAST_SEEN_INTERVAL_MS)))));
 }
 
 export async function hasAnyUser(): Promise<boolean> {
@@ -108,7 +128,8 @@ export async function changePassword(userId: string, currentPassword: string, ne
   const problem = newPasswordProblem(newPassword);
   if (problem) return { ok: false, reason: "invalid", error: problem };
 
-  const [user] = await db().select().from(coreUsers).where(eq(coreUsers.id, userId));
+  // 只讀要用的欄位 部署時新程式比 migration 先上線 整列讀會碰到還不存在的欄位
+  const [user] = await db().select({ passwordHash: coreUsers.passwordHash }).from(coreUsers).where(eq(coreUsers.id, userId));
   if (!(await verifyPassword(currentPassword, user?.passwordHash ?? null)) || !user) {
     return user ? { ok: false, reason: "wrong_password", error: "目前的密碼不正確" } : { ok: false, reason: "not_found", error: NOT_FOUND_MESSAGE };
   }

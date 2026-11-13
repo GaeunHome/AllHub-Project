@@ -1,6 +1,6 @@
 import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { markup as render, textOf } from "@/dev/test-helpers";
+import { fieldNames, markup as render, textOf } from "@/dev/test-helpers";
 import type { RecordItem } from "../../../record-filter";
 
 // 視窗與選單關著時不算繪內容 換成直接算繪才看得到修改的表單與刪除鈕
@@ -62,7 +62,6 @@ const BUY = record({ id: 80, kind: "transfer", counterAccountId: 4, counterAccou
 const row = (item: RecordItem) => render(createElement("ul", null, createElement(RecordRow, { record: item, accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY })));
 /** 整列是打開修改視窗的按鈕 報讀器先念修改 */
 const rowButton = (markup: string) => markup.match(/<button[^>]*aria-haspopup="dialog"[^>]*>((?:(?!<\/button>)[\s\S])*)<\/button>/)?.[1];
-const fieldNames = (markup: string) => [...new Set([...markup.matchAll(/<(?:input|select|textarea)[^>]*name="([^"]+)"/g)].map((m) => m[1]))].sort();
 const hiddenValue = (markup: string, name: string) => markup.match(new RegExp(`<input type="hidden" name="${name}" value="([^"]*)"`))?.[1];
 /** 選單裡的刪除鈕 也就是 ActionButton 收到的 props */
 const deleteButton = () => vi.mocked(ActionButton).mock.calls.find(([props]) => String(props.className).includes("menu-item-danger"))![0];

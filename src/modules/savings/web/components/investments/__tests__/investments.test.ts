@@ -1,7 +1,7 @@
 import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { menuOf, outsideMenus } from "@/dev/more-menu-stub";
-import { markup as render, textOf } from "@/dev/test-helpers";
+import { buttonsOf, factsOf, fieldNames, markup as render, selectedOption, textOf, valueOf } from "@/dev/test-helpers";
 import type { HoldingView } from "../../../account-details";
 import type { DividendRowView } from "../../../dividends-view";
 import type { BrokerageView, InvestmentSummary } from "../../../investments-view";
@@ -28,14 +28,7 @@ const { SummaryCard } = await import("../summary-card");
 const { DividendsCard } = await import("../dividends-card");
 
 const TODAY = "2026-10-15";
-const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
-const valueOf = (markup: string, name: string) => inputOf(markup, name).match(/value="([^"]*)"/)?.[1];
-const selectedOption = (markup: string, name: string) =>
-  markup.match(new RegExp(`<select[^>]*name="${name}"[^>]*>[\\s\\S]*?</select>`))?.[0].match(/<option[^>]*selected=""[^>]*>([^<]*)<\/option>/)?.[1];
-const fieldNames = (markup: string) => [...new Set([...markup.matchAll(/<(?:input|select)[^>]*name="([^"]+)"/g)].map((m) => m[1]))].sort();
 const formActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
-const factsOf = (markup: string) => [...markup.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2])]);
-const buttonsOf = (markup: string) => [...markup.matchAll(/<button[^>]*>((?:(?!<\/button>)[\s\S])*)<\/button>/g)].map((m) => textOf(m[1]).trim());
 
 const DEPOSITS = [
   { id: 1, name: "台銀", kind: "deposit" as const },

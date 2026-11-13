@@ -7,6 +7,10 @@ import { toasts } from "./toast-stub";
 // 要測紀錄本身的測試檔用 vi.unmock 換回來
 vi.mock("@/core/audit", () => import("./audit-stub"));
 
+// 真的 connection 與 after 在 Next 的請求外會丟錯 測試沒有請求 直接放行 回應送出後的事不跑
+// 其他 next/server 照用真的 要檢查有沒有呼叫或要跑 after 的測試檔自己再 mock
+vi.mock("next/server", async (importOriginal) => ({ ...(await importOriginal<typeof import("next/server")>()), connection: async () => {}, after: () => {} }));
+
 beforeEach(() => {
   // 每個測試都從沒有 next/cache 呼叫紀錄的狀態開始 測試檔不用自己清
   for (const spy of Object.values(nextCache)) spy.mockReset();

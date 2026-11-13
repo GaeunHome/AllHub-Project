@@ -39,7 +39,6 @@ export type ExpenseBoard = {
   transfers: TransferRow[];
   settled: SettledRow[];
   days: DayGroup[];
-  rates: Record<string, string>;
   copyText: string | null;
 };
 
@@ -65,11 +64,6 @@ function summaryOf(mine: number, hasExpenses: boolean, settled: boolean): string
 }
 
 const balanceText = (balance: number) => (balance > 0 ? `收 ${moneyText(balance)}` : balance < 0 ? `付 ${moneyText(-balance)}` : "清了");
-
-/** 新增時預填這趟最後用過的匯率 一趟旅程幾乎都用同一個 */
-function lastRates(expenses: readonly TripExpense[]): Record<string, string> {
-  return Object.fromEntries(expenses.filter(({ currency }) => currency !== HOME_CURRENCY).map(({ currency, rateMicros }) => [currency, rateInput(rateMicros)]));
-}
 
 function splitText({ split, shares }: TripExpense, nameOf: (id: string) => string): string {
   const many = shares.length > NAMES_SHOWN;
@@ -189,7 +183,6 @@ export function expenseBoard({ title, startDate, expenses, settlements, members,
     transfers,
     settled: settlements.map(({ id, fromUser, toUser, amountTwd }) => ({ id, text: `${nameOf(fromUser)} 給 ${nameOf(toUser)}`, money: moneyText(amountTwd) })),
     days,
-    rates: lastRates(expenses),
     copyText: expenses.length > 0 ? [`${title} 分帳`, `這趟總共 ${moneyText(totalTwd)}`, ...copyLines].join("\n") : null,
   };
 }

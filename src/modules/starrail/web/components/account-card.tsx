@@ -1,16 +1,14 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { ActionButton } from "@/core/ui/action-button";
 import { DRAG_SCROLL } from "@/core/ui/drag-scroll";
 import { Icon } from "@/core/ui/icon";
-import { InfoTip } from "@/core/ui/info-tip";
 import { LoadingState, Skeleton } from "@/core/ui/skeleton";
-import { checkinAction, removeAccountAction, setAutoRedeemAction, setGameRemindersAction, setThresholdAction } from "../actions";
+import { checkinAction } from "../actions";
 import { serverLabel } from "../../lib/roles";
 import { accountHref } from "../../lib/urls";
 import type { StarrailAccountView } from "../../service/accounts";
 import { AccountActionForm } from "./account-action-form";
 import { AccountAvatar } from "./account-avatar";
+import { AccountSettings } from "./account-settings";
 import { DailyNoteSkeleton } from "./daily-note-panel";
 import { GoldChip } from "./sr-visuals";
 
@@ -30,22 +28,24 @@ export function AccountTabs({ accounts, selectedId, hrefOf = accountHref }: { ac
   );
 }
 
-/** 頭像還在讀或讀不到時的列車圖示 跟 md 頭像一樣大 */
+/** 頭像還在讀或讀不到時的列車圖示 跟 xl 頭像一樣大 */
 const TRAIN_BADGE = (
-  <span className="grid size-12 shrink-0 place-items-center rounded-full border border-[var(--sr-gold-line)] bg-[var(--sr-gold-soft)] text-sr-gold">
-    <Icon name="train-front" className="size-6" />
+  <span className="sr-nameplate-avatar grid size-24 shrink-0 place-items-center rounded-full bg-[var(--sr-gold-soft)] text-sr-gold sm:size-28">
+    <Icon name="train-front" className="size-10" />
   </span>
 );
 
-/** 帳號的名牌 常用的立即簽到放外面 門檻與移除收在帳號設定 */
+/**
+ * 帳號的名牌 使用者要的頭像放大 常用的立即簽到放在名字下面
+ * 使用者選的 電腦上帳號設定直接放在右邊 手機上收在帳號設定裡
+ */
 export function AccountHeader({ account }: { account: StarrailAccountView }) {
   return (
-    <header className="sr-panel stack p-5 sm:p-6">
-      {/* 名牌文字至少佔 14rem 手機上立即簽到換到下一行 標籤才不會被擠成直的 */}
-      <div className="flex flex-wrap items-center gap-4">
-        <AccountAvatar account={account} size="md" placeholder={TRAIN_BADGE} className="ring-1 ring-[var(--sr-gold-line)]" />
-        <div className="flex min-w-0 flex-1 basis-56 flex-col gap-2">
-          <h2 className="truncate text-xl font-bold tracking-wide text-ink">{account.nickname ?? "（未知暱稱）"}</h2>
+    <header className="sr-panel flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:gap-8 lg:p-7">
+      <div className="flex min-w-0 flex-1 items-center gap-5 sm:gap-6 lg:max-w-md">
+        <AccountAvatar account={account} size="xl" placeholder={TRAIN_BADGE} className="sr-nameplate-avatar" />
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-3">
+          <h2 className="max-w-full truncate text-2xl font-bold tracking-wide text-ink sm:text-3xl">{account.nickname ?? "（未知暱稱）"}</h2>
           <div className="flex flex-wrap items-center gap-1.5">
             <GoldChip>{serverLabel(account.region)}</GoldChip>
             <span className="chip">
@@ -63,112 +63,24 @@ export function AccountHeader({ account }: { account: StarrailAccountView }) {
               </span>
             )}
           </div>
+          <AccountActionForm action={checkinAction} accountId={account.id} label="立即簽到" pendingLabel="簽到中…" icon="calendar-check" />
         </div>
-        <AccountActionForm action={checkinAction} accountId={account.id} label="立即簽到" pendingLabel="簽到中…" icon="calendar-check" />
       </div>
-      <details className="disclosure text-sm">
+      <section aria-label="帳號設定" className="sr-nameplate-settings hidden lg:flex">
+        <p className="sr-kicker flex items-center gap-1.5">
+          <Icon name="settings" className="size-3.5" />
+          帳號設定
+        </p>
+        <AccountSettings account={account} side />
+      </section>
+      <details className="disclosure text-sm lg:hidden">
         <summary>
           <Icon name="settings" className="size-4" />
           帳號設定
         </summary>
-        {/* 移除放在最後 手機上排成一欄時不夾在兩個設定中間 */}
-        <div className="stack">
-          <div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-            <AutoRedeemSetting account={account} />
-            <GameRemindersSetting account={account} />
-          </div>
-          <div className="flex flex-wrap items-start gap-3">
-            <AccountActionForm action={setThresholdAction} accountId={account.id} label="設定開拓力提醒門檻" pendingLabel="儲存中…" icon="bell">
-              <input
-                type="number"
-                name="threshold"
-                min={0}
-                max={1000}
-                aria-label="開拓力提醒門檻"
-                defaultValue={account.staminaAlertThreshold ?? ""}
-                placeholder="預設：上限 − 20"
-                className="input w-44"
-              />
-            </AccountActionForm>
-            <div className="sm:ml-auto">
-              <ActionButton
-                action={removeAccountAction}
-                fields={{ accountId: account.id }}
-                confirmMessage={`確定移除「${account.nickname ?? account.uid}」？之後要重新貼 cookie 才能再連結。`}
-                pendingLabel={
-                  <>
-                    <Icon name="trash-2" className="size-4" />
-                    移除中…
-                  </>
-                }
-                className="btn-danger"
-              >
-                <Icon name="trash-2" className="size-4" />
-                移除這個帳號
-              </ActionButton>
-            </div>
-          </div>
-        </div>
+        <AccountSettings account={account} />
       </details>
     </header>
-  );
-}
-
-/** 開關旁的 i 圓圈收著說明 跟開關一樣高才對齊 */
-function SettingWithTip({ tipLabel, tip, children }: { tipLabel: string; tip: string; children: ReactNode }) {
-  return (
-    <div className="flex items-start gap-1">
-      {children}
-      <span className="flex h-11 items-center">
-        <InfoTip label={tipLabel}>{tip}</InfoTip>
-      </span>
-    </div>
-  );
-}
-
-/**
- * 每天把社群整理的新兌換碼送到這個帳號 cookie 少了兌換要用的鍵時不能打開
- * 已經打開的照樣可以關掉
- */
-export function AutoRedeemSetting({ account }: { account: StarrailAccountView }) {
-  const locked = !account.canAutoRedeem && !account.autoRedeem;
-  return (
-    <SettingWithTip
-      tipLabel="關於自動兌換"
-      tip={account.canAutoRedeem ? "每天中午自動兌換新的兌換碼，成功會通知你" : "cookie 少了 cookie_token_v2，請重新貼上"}
-    >
-      <ActionButton
-        action={setAutoRedeemAction}
-        fields={{ accountId: account.id, enabled: String(!account.autoRedeem) }}
-        role="switch"
-        aria-checked={account.autoRedeem}
-        disabled={locked}
-        formClassName="flex flex-col items-start gap-1"
-        className="btn-secondary"
-      >
-        <span aria-hidden className="switch-visual" />
-        自動兌換新的兌換碼
-      </ActionButton>
-    </SettingWithTip>
-  );
-}
-
-/** 開拓力提醒另外看門檻 這裡只管每日實訓 每週內容與終局挑戰 */
-export function GameRemindersSetting({ account }: { account: StarrailAccountView }) {
-  return (
-    <SettingWithTip tipLabel="關於每日、每週與終局提醒" tip="每日、每週內容與終局挑戰快到期時通知你">
-      <ActionButton
-        action={setGameRemindersAction}
-        fields={{ accountId: account.id, enabled: String(!account.gameReminders) }}
-        role="switch"
-        aria-checked={account.gameReminders}
-        formClassName="flex flex-col items-start gap-1"
-        className="btn-secondary"
-      >
-        <span aria-hidden className="switch-visual" />
-        每日、每週與終局提醒
-      </ActionButton>
-    </SettingWithTip>
   );
 }
 
@@ -176,7 +88,7 @@ export function AccountSkeleton() {
   return (
     <LoadingState label="載入帳號中…" className="page-stack">
       <div className="sr-panel flex items-center gap-4 p-5 sm:p-6">
-        <Skeleton className="size-12 shrink-0 rounded-full" />
+        <Skeleton className="size-24 shrink-0 rounded-full sm:size-28" />
         <div className="flex flex-1 flex-col gap-2">
           <Skeleton className="h-6 w-36" />
           <Skeleton className="h-5 w-64 max-w-full" />

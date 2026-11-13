@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { coreNotifications, coreUsers } from "@/core/db/schema";
-import { fakeFetch } from "@/dev/fake-fetch";
+import { fakeFetch, serveJson } from "@/dev/fake-fetch";
 import { insertTestUser, setupTestDb } from "@/dev/test-db";
 import { stubWeatherEnv, TEST_WEATHER_ENV } from "@/dev/test-env";
 import { captureErrorLog, loggedText, mocksOf } from "@/dev/test-helpers";
@@ -45,12 +45,6 @@ async function load() {
   return { notify, sendRainAlerts };
 }
 
-function serve(json: unknown) {
-  const fetch = fakeFetch(() => Response.json(json));
-  vi.stubGlobal("fetch", fetch.impl);
-  return fetch;
-}
-
 async function member(name: string, county: string, rainAlert = true): Promise<string> {
   const id = await insertTestUser(getDb(), name);
   await getDb().insert(weatherSettings).values({ userId: id, county, rainAlert });
@@ -75,7 +69,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
     const hualien = await member("hualien", "花蓮縣");
     const kaohsiung = await member("kaohsiung", "高雄市");
     const taichung = await member("taichung", "臺中市");
-    serve(RAINY_MORNING);
+    serveJson(RAINY_MORNING);
     const { sendRainAlerts } = await load();
 
     expect(await sendRainAlerts(MORNING)).toBe("寄出 2 則下雨提醒");
@@ -91,7 +85,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
     await member("alice", "臺北市");
     await member("bob", "臺北市");
     await member("carol", "花蓮縣");
-    const fetch = serve(RAINY_MORNING);
+    const fetch = serveJson(RAINY_MORNING);
     const { sendRainAlerts } = await load();
 
     const result = await sendRainAlerts(MORNING);
@@ -108,7 +102,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
     const off = await member("bob", "臺北市", false);
     const disabled = await member("carol", "臺北市");
     await getDb().update(coreUsers).set({ disabledAt: new Date() }).where(eq(coreUsers.id, disabled));
-    serve(RAINY_MORNING);
+    serveJson(RAINY_MORNING);
     const { sendRainAlerts } = await load();
 
     expect(await sendRainAlerts(MORNING)).toBe("寄出 1 則下雨提醒");
@@ -122,7 +116,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
     stubWeatherEnv();
     const alice = await insertTestUser(getDb(), "alice");
     await getDb().insert(weatherSettings).values({ userId: alice, county: "臺北市", rainAlert: true, warningAlert: false });
-    serve(RAINY_MORNING);
+    serveJson(RAINY_MORNING);
     const { sendRainAlerts } = await load();
 
     expect(await sendRainAlerts(MORNING)).toBe("寄出 1 則下雨提醒");
@@ -132,7 +126,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
   it("沒有人開著下雨通知時不讀預報", async () => {
     stubWeatherEnv();
     await member("alice", "臺北市", false);
-    const fetch = serve(RAINY_MORNING);
+    const fetch = serveJson(RAINY_MORNING);
     const { sendRainAlerts } = await load();
 
     expect(await sendRainAlerts(MORNING)).toBe("沒有開著下雨提醒的人");
@@ -142,7 +136,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
   it("每人每天（台北的日期）只寄一次：同一天再跑（例如排程重送、UTC 已經換日的早上 8 點半）不重寄，隔天早上會下雨時照常寄", async () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
-    serve(RAINY_MORNING);
+    serveJson(RAINY_MORNING);
     const { sendRainAlerts } = await load();
 
     expect(await sendRainAlerts(MORNING)).toBe("寄出 1 則下雨提醒");
@@ -151,7 +145,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
     expect(await sendRainAlerts(new Date("2026-10-19T00:30:00Z"))).toBe("1 人今天已經提醒過");
     expect(await notificationsOf(alice)).toHaveLength(1);
 
-    serve(forecast(location("臺北市", [[TOMORROW, "60"], [TOMORROW_NIGHT, "20"], [["2026-10-21T06:00:00+08:00", "2026-10-21T18:00:00+08:00"], "10"]])));
+    serveJson(forecast(location("臺北市", [[TOMORROW, "60"], [TOMORROW_NIGHT, "20"], [["2026-10-21T06:00:00+08:00", "2026-10-21T18:00:00+08:00"], "10"]])));
     expect(await sendRainAlerts(new Date(MORNING.getTime() + DAY))).toBe("寄出 1 則下雨提醒");
     expect((await notificationsOf(alice)).map((n) => n.body)).toEqual(["臺北市 今天白天降雨機率 70%、今晚 40%", "臺北市 今天白天降雨機率 60%、今晚 20%"]);
   });
@@ -160,7 +154,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
     const bob = await member("bob", "花蓮縣");
-    serve(RAINY_MORNING);
+    serveJson(RAINY_MORNING);
     const { notify, sendRainAlerts } = await load();
     notify.mockRejectedValueOnce(new Error(`寫入失敗 ${TEST_WEATHER_ENV.CWA_API_KEY}`));
     const log = captureErrorLog();
@@ -179,7 +173,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
   it("寄不出去時只放掉這一次認領到的人：同一個縣市今天已經收過的人不動，之後也不會收到第二則", async () => {
     stubWeatherEnv();
     const alice = await member("alice", "臺北市");
-    serve(RAINY_MORNING);
+    serveJson(RAINY_MORNING);
     const { notify, sendRainAlerts } = await load();
     expect(await sendRainAlerts(MORNING)).toBe("寄出 1 則下雨提醒");
 
@@ -197,7 +191,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
   it("沒有設定氣象署的授權碼：不讀資料庫以外的東西，也不寄", async () => {
     vi.stubEnv("CWA_API_KEY", "");
     const alice = await member("alice", "臺北市");
-    const fetch = serve(RAINY_MORNING);
+    const fetch = serveJson(RAINY_MORNING);
     const { sendRainAlerts } = await load();
 
     expect(await sendRainAlerts(MORNING)).toBe("沒有設定氣象署的授權碼，略過");
@@ -222,7 +216,7 @@ describe("早上會下雨時提醒帶傘（weather:rain）", () => {
     stubWeatherEnv();
     const taipei = await member("taipei", "臺北市");
     const kinmen = await member("kinmen", "金門縣");
-    serve(RAINY_MORNING);
+    serveJson(RAINY_MORNING);
     const { sendRainAlerts } = await load();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 

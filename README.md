@@ -143,10 +143,12 @@ npm run dev             # 開 http://localhost:3000，用剛建立的帳號登�
 
 - 天氣預報：中央氣象署的氣象資料開放平臺。空氣品質：環境部的環境資料開放平臺。都依政府資料開放授權條款使用。
 - 國外城市的一週預報：[Open-Meteo](https://open-meteo.com)（CC BY 4.0）。
+- 旅遊分帳的匯率：[exchange-api](https://github.com/fawazahmed0/exchange-api)（CC0，公眾領域）。
 - 交通：交通部的 [TDX](https://tdx.transportdata.tw) 運輸資料流通服務。
 - 股價與除權息預告：臺灣證券交易所與證券櫃檯買賣中心的 OpenAPI。
 - 假日：行政院人事行政總處的辦公日曆表（政府資料開放平臺）。
 - 自動兌換的兌換碼清單：社群整理的 [hoyo-codes](https://github.com/seriaati/hoyo-codes)。
+- 遺器評分的角色權重與算法：[hsr-optimizer](https://github.com/fribbels/hsr-optimizer)（MIT，授權全文在 `src/modules/starrail/lib/relic-weights.LICENSE.md`）。
 
 **商標**：YouTube、Twitch、HoYoLAB、《崩壞：星穹鐵道》、Claude、OpenAI、Gemini 是各自公司的商標，本專案與這些公司沒有關係。
 

@@ -2,7 +2,7 @@
 // 還沒用真實帳號驗證 一期是 3 個騎士關加 1 個王棋關
 
 import { asRecord, boolOf, createMissing, numberOf, text } from "@/core/json";
-import { formatPartialTime, teamMembers, type Need, type TeamMember } from "./endgame";
+import { challengeBuff, formatPartialTime, teamMembers, type ChallengeBuff, type Need, type TeamMember } from "./endgame";
 import { image } from "./image";
 import { interpretWith, type HoyolabResult } from "./responses";
 
@@ -18,7 +18,7 @@ export type PeakStage = {
   avatars: TeamMember[];
 };
 
-export type PeakBuff = { name: string | null; description: string | null; icon: string | null };
+export type PeakBuff = ChallengeBuff;
 
 export type PeakBoss = PeakStage & {
   hardMode: boolean;
@@ -64,10 +64,9 @@ function timeKey(value: unknown): number {
 }
 
 function parseBuff(value: unknown, need: Need): PeakBuff | null {
-  const buff = asRecord(value);
+  const buff = challengeBuff(value);
   if (!buff) return null;
-  const at = (key: string) => `${RECORD}.boss_record.buff.${key}`;
-  return { name: need(text(buff.name_mi18n), at("name_mi18n")), description: text(buff.desc_mi18n), icon: image(buff.icon) };
+  return { ...buff, name: need(buff.name, `${RECORD}.boss_record.buff.name_mi18n`) };
 }
 
 function parseSeason(value: unknown, missing: ReturnType<typeof createMissing>): PeakSeason[] {

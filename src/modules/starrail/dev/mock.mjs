@@ -285,6 +285,12 @@ function ledger(month) {
 }
 
 const partial = (date) => ({ year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate(), hour: 4, minute: 0 });
+/** 虛構敘事與末日幻影每一隊的增益 名稱與說明照遊戲的寫法自己編 */
+const ENDGAME_BUFFS = [
+  { id: 1, name_mi18n: "光速飛馳", desc_mi18n: "我方角色施放終結技後，下一次攻擊造成的傷害提高 30%" },
+  { id: 2, name_mi18n: "群星共鳴", desc_mi18n: "每擊破一個敵人的弱點，我方全體行動提前 10%" },
+  { id: 3, name_mi18n: "餘燼燎原", desc_mi18n: "敵人陷入灼燒時，受到的持續傷害提高 25%" },
+];
 const ENDGAME_NAMES = { challenge: ["星海中的回聲", "長夜的守望"], challenge_story: ["飛光競逐", "夢境迷宮的寓言"], challenge_boss: ["毀滅之境", "天外的審判"] };
 const TEAMS = [
   [1102, 1005, 1001, 1105],
@@ -367,6 +373,7 @@ function endgame(kind, scheduleType) {
       avatars: TEAMS[(team + i) % TEAMS.length].map(member),
       ...(kind === "challenge" ? {} : { score: kind === "challenge_story" ? 18000 + n * 1500 - i * 2000 : 2400 - n * 150 - i * 300 }),
       ...(kind === "challenge_boss" ? { boss_defeated: stars === 3 || n === 0 } : {}),
+      ...(kind === "challenge" ? {} : { buff: { ...ENDGAME_BUFFS[n], icon: `${IMG}/buff/${ENDGAME_BUFFS[n].id}.png` } }),
     });
     return {
       name,
@@ -387,7 +394,13 @@ function endgame(kind, scheduleType) {
     status: previous ? "Finished" : "Running",
     begin_time: partial(start),
     end_time: partial(end),
-    ...(kind === "challenge_boss" ? { upper_boss: { id: 1, name_mi18n: "上半首領", icon: `${IMG}/boss/1.png` }, lower_boss: { id: 2, name_mi18n: "下半首領", icon: `${IMG}/boss/2.png` } } : {}),
+    ...(kind === "challenge_boss"
+      ? {
+          upper_boss: { id: 1, name_mi18n: "上半首領", icon: `${IMG}/boss/1.png` },
+          lower_boss: { id: 2, name_mi18n: "下半首領", icon: `${IMG}/boss/2.png` },
+          tierce_boss: { id: 3, name_mi18n: "星啟首領", icon: `${IMG}/boss/3.png` },
+        }
+      : {}),
   };
   return {
     ...(kind === "challenge" ? { schedule_id: group.schedule_id, begin_time: group.begin_time, end_time: group.end_time } : {}),
@@ -620,6 +633,9 @@ export function handle({ req, url, body, json, text, image }) {
       if (key.startsWith("theme")) return image("仲裁", { width: 256, height: 256 });
       return image("益", { width: 64, height: 64, round: true });
     }
+    // 末日幻影的首領是大圖 增益是小圖示
+    if (kind === "boss") return image(`首領${key}`, { width: 512, height: 512 });
+    if (kind === "buff") return image(`益${key}`, { width: 64, height: 64, round: true });
     if (kind === "skill") return image(key.startsWith("major") ? "行" : key === "bonus" ? "+" : "技", { width: 64, height: 64, round: true });
     return image(kind, { width: 96, height: 96 });
   }

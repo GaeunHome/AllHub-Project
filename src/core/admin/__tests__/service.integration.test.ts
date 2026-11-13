@@ -4,7 +4,7 @@ import { setupTestDb } from "@/dev/test-db";
 import { hashPassword } from "../../auth/credentials";
 import { coreInvites, coreModuleDenials, coreUsers } from "../../db/schema";
 
-const { AdminUserError, deleteUser, listLockedUsers, listModuleDenials, listUsers, setModuleAccess, setUserDisabled, unlockUser } = await import("../service");
+const { AdminUserError, deleteUser, listLastSeen, listLockedUsers, listModuleDenials, listUsers, setModuleAccess, setUserDisabled, unlockUser } = await import("../service");
 const { authenticate, findSessionUser } = await import("../../auth/users");
 
 const getDb = setupTestDb();
@@ -93,6 +93,15 @@ describe("deleteUser", () => {
     const owner = await createUser("owner", { role: "owner" });
 
     expect(await deleteUser(owner.id, "6f1c2b9e-3a4d-4c5e-8f70-1a2b3c4d5e6f")).toBe(false);
+  });
+});
+
+describe("listLastSeen", () => {
+  it("每個有紀錄的人的最後上線時間；還沒有紀錄的不列", async () => {
+    const alice = await createUser("alice", { lastSeenAt: new Date("2026-10-07T12:00:00Z") });
+    await createUser("bob");
+
+    expect(await listLastSeen()).toEqual(new Map([[alice.id, new Date("2026-10-07T12:00:00Z")]]));
   });
 });
 

@@ -1,6 +1,7 @@
 import { refresh, revalidateTag, updateTag } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { captureErrorLog, expiredTags, form, mocksOf, updated } from "@/dev/test-helpers";
+import { subtitleFile } from "../../dev/fixtures";
 
 const deferred = vi.hoisted(() => ({ tasks: [] as (() => unknown)[] }));
 
@@ -21,7 +22,6 @@ const actions = await import("../actions");
 const VIDEO = "dQw4w9WgXcQ";
 const QUEUED = { status: "queued", done: 0, total: 8, error: null, translated: [] };
 
-const subtitleFile = () => new File(["1\n00:00:01,000 --> 00:00:02,000\n안녕하세요\n"], "a.ko.srt", { type: "text/plain" });
 
 beforeEach(() => {
   deferred.tasks = [];

@@ -18,7 +18,7 @@ import { cachedInvites, cachedUsers } from "./cached";
 import { CreateInvite } from "./create-invite-form";
 import { InviteList } from "./invite-list";
 import { ModuleAccessTable } from "./module-access-table";
-import { listLockedUsers, listModuleDenials } from "./service";
+import { listLastSeen, listLockedUsers, listModuleDenials } from "./service";
 import { UserList } from "./user-list";
 
 /** 導覽列只是藏起入口 讀資料與 Server Action 都會用 requireOwner 再確認 */
@@ -149,8 +149,9 @@ export async function UserSection() {
   const owner = await requireOwner();
   // 鎖定是否到期要用這次請求的時間算 預先讀取時不能先算好
   await connection();
-  const [users, locked] = await Promise.all([cachedUsers(), listLockedUsers(new Date())]);
-  return <UserList users={users} currentUserId={owner.id} lockedUntil={new Map(locked.map((user) => [user.id, user.lockedUntil]))} />;
+  const now = new Date();
+  const [users, locked, lastSeen] = await Promise.all([cachedUsers(), listLockedUsers(now), listLastSeen()]);
+  return <UserList users={users} currentUserId={owner.id} lockedUntil={new Map(locked.map((user) => [user.id, user.lockedUntil]))} lastSeen={lastSeen} now={now} />;
 }
 
 export async function ModuleAccessSection({ modules }: { modules: ModuleInfo[] }) {

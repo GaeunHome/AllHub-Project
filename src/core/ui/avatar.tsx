@@ -1,11 +1,15 @@
 import { ExternalImage } from "./external-image";
 
-/** 只用這四種大小 xs 跟文字同一行 sm 清單與卡片 md 標題旁 lg 沒有預覽圖時佔位 */
+/**
+ * 只用這五種大小 xs 跟文字同一行 sm 清單與卡片 md 標題旁 lg 沒有預覽圖時佔位
+ * xl 是名牌的大頭像 手機上小一點
+ */
 const SIZES = {
   xs: { className: "size-6 text-[0.6875rem]", pixels: 48 },
   sm: { className: "size-9 text-sm", pixels: 72 },
   md: { className: "size-12 text-lg", pixels: 96 },
   lg: { className: "size-16 text-2xl", pixels: 128 },
+  xl: { className: "size-24 text-4xl sm:size-28", pixels: 224 },
 } as const;
 
 export type AvatarSize = keyof typeof SIZES;

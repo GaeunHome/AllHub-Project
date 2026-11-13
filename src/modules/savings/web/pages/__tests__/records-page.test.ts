@@ -1,10 +1,9 @@
 import { createElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ModuleInfo } from "@/core/module";
 import { taipeiMonthKey } from "@/core/time";
 import { OTHER_SESSION, TEST_SESSION, requireSession } from "@/dev/session-stub";
 import { markup as render, mocksOf, textOf } from "@/dev/test-helpers";
-import { accountRow } from "../../../dev/fixtures";
+import { accountRow, SAVINGS_INFO } from "../../../dev/fixtures";
 import { taipeiToday } from "../../../lib/dates";
 import { addMonths } from "../../../lib/month";
 
@@ -23,7 +22,6 @@ const cached = mocksOf(await import("../../../service/cached"), "cachedAccounts"
 const { ActionButton } = await import("@/core/ui/action-button");
 const { RecordsPage, RecordsSection, RecordsActions } = await import("../records-page");
 
-const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: true };
 // 固定在台北時間 2026-10-14 中午 午夜或月底跑測試時本月與今天才不會變
 vi.useFakeTimers({ now: new Date("2026-10-14T04:00:00Z"), toFake: ["Date"] });
 const MONTH = taipeiMonthKey(new Date());
@@ -79,11 +77,11 @@ beforeEach(() => {
 
 describe("理財的紀錄頁", () => {
   it("紀錄串流進來前先出現骨架", () => {
-    expect(textOf(render(createElement(RecordsPage, { info: INFO, searchParams: params() })))).toContain("載入紀錄…");
+    expect(textOf(render(createElement(RecordsPage, { info: SAVINGS_INFO, searchParams: params() })))).toContain("載入紀錄…");
   });
 
   it("刪掉一筆後那一列不見：焦點交給一直都在的整頁外框（訊息改用提示視窗）", () => {
-    const markup = render(createElement(RecordsPage, { info: INFO, searchParams: params() }));
+    const markup = render(createElement(RecordsPage, { info: SAVINGS_INFO, searchParams: params() }));
 
     expect(markup).toMatch(/^(?:<link[^>]*>)*<div[^>]*class="theme-savings"[^>]*><div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入紀錄…/);
   });

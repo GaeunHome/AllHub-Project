@@ -54,7 +54,7 @@ paths:
     - 排欄（`col-span`、`row-span`）寫在元素自己身上，或把同一欄的卡片包成一個 `page-stack`，不從外框用 `[&>:first-child]`、`[&>:nth-child()]`、`*:first:` 挑第幾個（永遠排第一個的 `PageHeader` 例外；`architecture.test.ts` 檢查）：Server Action 的表單開頭有 React 加的隱藏 input，串流中的 Suspense 也會在原地多一個 `<template>`，第幾個會算錯。
     - 同一個元件在不同地方寬度不同的（首頁卡片外框、理財的這個月要做的事、快捷按鈕、信用卡卡面與帳單紀錄、星穹鐵道角色詳情的右欄）用 `@container`，裡面用容器查詢（例如 `@sm:`、`@md:`、`@3xl:`）依所在的寬度排欄，不用螢幕寬度；Twitch 的直播卡片改用 auto-fit 的格線（見上面）。
   - 高度：按鈕、輸入框、下拉選單、分段選擇、YouTube 的膠囊按鈕（`yt-pill`）與搜尋列都是 44px；下拉選單（`select.input`，`appearance: none`，箭頭是 CSS 畫的，離右邊框跟文字離左邊框一樣遠，使用者覺得原生的太貼右邊）同樣 44px；清單列與工具列裡的次要按鈕（`btn-sm`）、導覽膠囊、YouTube 的篩選膠囊（`yt-chip`）與 `yt-pill-sm`、⋮ 是 36px，觸控裝置一律放大到 44px（`globals.css` 最後的 `pointer: coarse`），太小的元素用透明的偽元素把點擊範圍撐到 44px；只有圖示的按鈕是正方形（`btn-icon`、`icon-button`）；chip 一律 22px。
-  - 同一列的卡片用 grid 等寬等高、清單的列一樣高；頭像只用 `Avatar` 的四種大小；圖示與文字垂直置中；金額與數字靠右加 `tabular-nums`，同一欄用固定欄寬對齊。
+  - 同一列的卡片用 grid 等寬等高、清單的列一樣高；頭像只用 `Avatar` 的五種大小（`xl` 是名牌的大頭像）；圖示與文字垂直置中；金額與數字靠右加 `tabular-nums`，同一欄用固定欄寬對齊。
   - 手機：單欄、左右內距 16px（彈出面板也一樣）、不能橫向捲動（刻意橫捲的導覽列模組按鈕、頭像列、篩選膠囊列、觀看頁的膠囊列除外；導覽列的按鈕不換行，放不下時目前的模組自動捲進畫面，窄螢幕右緣淡出提示還能滑，見 `core/ui/styles/basics.css` 的 `.nav-scroll`；這些橫向列在電腦上用滑鼠拖，見 `drag-scroll.ts`）。
 - 外觀（淺色／深色／跟隨系統）在導覽列的人像選單切換：`createLocalPref`（key `allhub:theme`）存在瀏覽器、跨分頁同步，寫在 `<html data-theme>`（跟隨系統時拿掉）。根 layout `<head>` 的同步腳本（`THEME_INIT_SCRIPT`）在第一次繪製前套用，深色不會先閃一下淺色；`ThemeSync` 補回開發模式 StrictMode 清掉的屬性。深色的樣式一律用 `@variant dark`／`dark:`（`globals.css` 的 `@custom-variant dark`：有 `data-theme` 時以它為準，沒有時跟隨系統），不要直接寫 `prefers-color-scheme`（`theme.test.ts` 檢查）。
 - 不用灰色的說明字（使用者要的，全站都是）：使用者需要的狀態用標籤（`StatusChip`、`chip`）或圖示加正常大小的深色文字；說明文字收進標題或欄位標籤旁的 `InfoTip`（i 圓圈，使用者要的，例如新密碼的規則、資料來源、開始設定每一步的說明、理財帳戶的結帳日與起始餘額、提醒的日期；只寫濃縮的一句，40 字以內，不用「。」「；」，`src/__tests__/info-tip-text.test.ts` 檢查；理財表單的 `AmountField`、`DayOfMonthSelect` 用 `tip`）；跟著輸入變的試算（差額、估的股數、預計金額）與輸入時要看的規則（信用卡填負數）照舊寫在欄位下面，但用深色（`text-ink`）；空狀態的說明、`notice`、`<details>` 打開的內容、視窗與選單裡的說明都是深色；很長的內容才用 `<details>`（`disclosure`）或移到 docs；時間、數量、頻道名稱這類資料保留但要夠深（`text-ink-soft`），不用 `text-muted`（只留給輸入框裡的圖示與裝飾的箭頭）。錯誤與提醒照上面回饋的分工（提示視窗與表單的 `FormFeedback`）。
@@ -78,7 +78,7 @@ paths:
 - `back-link.tsx`（`BackLink`：回上一層的連結）
 - `empty-state.tsx`（`compact` 是卡片裡的橫向小版，可以帶 `action` 按鈕）
 - `external-image.tsx`（外部圖片）
-- `avatar.tsx`（圓形頭像，只有 xs／sm／md／lg 四種大小，退回文字頭像）
+- `avatar.tsx`（圓形頭像，只有 xs／sm／md／lg／xl 五種大小，退回文字頭像）
 - `page-header.tsx`（`PageHeader` 頁首、`CardHeader` 卡片的標題列、`SectionTitle` 卡片外的區段標題）
 - `status-chip.tsx`（狀態標籤）
 - `form-message.tsx`（`FormState`、`FormMessage`、`FormFeedback`：只放表單的錯誤，分工見上面的回饋）

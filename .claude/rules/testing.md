@@ -29,19 +29,19 @@ paths:
 
 ## `src/dev/` 的測試輔助
 
-換掉模組的部分函式用 `vi.mock(path, { spy: true })`，不寫轉接的 `(...a) => fn(...a)`。
+換掉模組的部分函式用 `vi.mock(path, { spy: true })`，不寫轉接的 `(...a) => fn(...a)`。同一個模組好幾個測試檔都要的假資料放模組的 `dev/fixtures.ts`（或 `dev/db-fixtures.ts`），全站通用的放這裡；`module:` 欄位在模組的 `dev/` 裡要寫成模組 id（`architecture.test.ts`），所以讀回通知表 module 欄的查詢留在各測試檔。
 
 - `test-db-snapshot.ts`：vitest 的 `globalSetup`，整輪只建一次資料庫，存成兩份快照（套好 migration 的與空的），放在 `node_modules/.cache/allhub-test-db/`，migration 或 PGlite 版本一變就重建。
 - `test-db.ts`：`setupTestDb()`（PGlite；同一個檔案共用一個資料庫，每個測試開始前清空資料、序號歸零並拆掉裝在連線上的 spy，所以測試裡不能改表結構，要改的放到自己的檔案，例如 `users-old-schema.integration.test.ts`；要一個測試一個資料庫的改 `describe` 各自呼叫）、`openEmptyDb()`（還沒套 migration 的資料庫，測 migration 本身用）、`insertTestUser()`（依使用者的表有外鍵，先建帳號；可以指定成 `TEST_SESSION.id`）、`insertTestUsers()`（站長 alice＋成員 bob，id 跟 `TEST_SESSION`、`OTHER_SESSION` 一樣，`[me, other] = await insertTestUsers(getDb())`）、`pgliteOf()`、`logQueries(db)`／`logStatements(db)`（看送出的 SQL）。
 - `test-env.ts`：`stubCoreEnv()` 等，要在 `await import()` 被測模組前呼叫；跨模組的測試用 `stubAllEnv()`（新模組的環境變數要加進去，`env.test.ts` 檢查）。
-- `test-helpers.ts`：`form`、`captureErrorLog`、`loggedText`、`tagged`／`updated`／`expiredTags`、`mocksOf`、`markup()`（`renderToStaticMarkup`，伺服器元件先 await 再傳）、`textOf()`（去標籤，把 React 跳脫的 `&amp;`、`&quot;`、`&#x27;` 這類換回原字；`{ spaced: true }` 時每個標籤換成空白並合併連續空白）、`captureWarnLog()`（同 `captureErrorLog`，攔 `console.warn`）。
+- `test-helpers.ts`：`form`、`captureErrorLog`、`loggedText`、`tagged`／`updated`／`expiredTags`、`mocksOf`、`markup()`（`renderToStaticMarkup`，伺服器元件先 await 再傳）、`textOf()`（去標籤，把 React 跳脫的 `&amp;`、`&quot;`、`&#x27;` 這類換回原字；`{ spaced: true }` 時每個標籤換成空白並合併連續空白）、`captureWarnLog()`（同 `captureErrorLog`，攔 `console.warn`），從算繪出來的 HTML 取欄位的 `inputOf()`、`inputsOf()`、`valueOf()`、`selectOf()`、`selectedOption()`、`fieldNames()`、`buttonsOf()`、`factsOf()`（畫面測試先用這些，不在測試檔裡各寫一份）。
 - `audit-stub.ts`：`vitest-setup.ts` 把 `@/core/audit` 全部換成它（單元測試沒有請求可以讀 header），`audit` 是 spy，每個測試前清空；測紀錄本身的測試檔用 `vi.unmock("@/core/audit")`。
 - 替身：
   - `session-stub.ts`（`vi.mock("@/core/auth", () => import("@/dev/session-stub"))`；預設是站長 `TEST_SESSION`，測擁有權時用 `requireSession.mockResolvedValue(OTHER_SESSION)` 換成成員 bob）
   - `navigation-stub.ts`（`vi.mock("next/navigation", () => import("@/dev/navigation-stub"))`：`redirect` 跟真的一樣丟錯，訊息是 `NEXT_REDIRECT:<網址>`；`useRouter()` 一律回傳同一個 `router`；`usePathname` 預設 `/`；`notFound`、`unstable_rethrow` 用真的）
   - `toast-stub.ts`（`vi.mock("@/core/ui/toast", () => import("@/dev/toast-stub"))`：跳出的提示記在 `toasts` 陣列，`vitest-setup.ts` 每個測試前清空）
   - `more-menu-stub.ts`（`vi.mock("@/core/ui/more-menu", () => import("@/dev/more-menu-stub"))`：選單項目直接畫在 `<more-menu data-menu="名稱">` 裡；`menuOf(html, 名稱)` 取某個選單裡面，`outsideMenus(html)` 拿掉所有選單）
-  - `fake-fetch.ts`
+  - `fake-fetch.ts`（`fakeFetch()`、`inOrder`、`byUrl`、`hangUntilAborted`；每個請求都回同一份 JSON 時用 `serveJson()`）
   - `fake-storage.ts`（`fakeStorage()` 是 localStorage 的替身，`data` 看存了什麼；`brokenStorage` 讀寫都丟錯；`storageEvent(key)` 模擬別的分頁改了設定）
 - `mock-request.ts`：`await mockRequest(handle, 路徑, { method, body, headers })` 直接呼叫模組 `dev/mock.mjs` 的 `handle`，ctx 跟 `mock:external` 共用 `mock-context.mjs`；回傳 `handled`、`status`、`headers`、`body`、`data`（JSON）、`image`（`ctx.image` 收到的字與大小）。
-- `next-cache-stub.ts`＋`vitest-setup.ts`（設定見上面）、`icu-simulation.ts`、`stylesheet.ts`（`readStylesheet()`：`globals.css` 加上它引入的 core 與模組樣式，讀樣式的測試一律用它，不直接讀 `globals.css`；`stylesheetImports()`：引入了哪些檔）。
+- `next-cache-stub.ts`＋`vitest-setup.ts`（設定見上面；`vitest-setup.ts` 也把 `next/server` 的 `connection()` 換成直接放行、`after()` 換成不做事（測試沒有請求，回應送出後的事不跑），其他照用真的，要檢查有沒有呼叫或要跑 `after()` 的測試檔自己再 mock（例如 `last-seen.integration.test.ts`））、`icu-simulation.ts`、`stylesheet.ts`（`readStylesheet()`：`globals.css` 加上它引入的 core 與模組樣式，讀樣式的測試一律用它，不直接讀 `globals.css`；`stylesheetImports()`：引入了哪些檔）。

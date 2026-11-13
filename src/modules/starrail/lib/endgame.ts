@@ -16,9 +16,28 @@ export type EndgameSchedule = "current" | "previous";
 
 export type TeamMember = { id: number | null; level: number | null; icon: string | null; rarity: number | null; element: string | null; elementIcon: string | null; eidolon: number | null };
 
-export type EndgameNode = { avatars: TeamMember[]; score: number | null; bossDefeated: boolean | null };
+/** 虛構敘事 末日幻影與異相仲裁的增益 欄位依 genshin.py 的 ChallengeBuff */
+export type ChallengeBuff = { name: string | null; description: string | null; icon: string | null };
+
+/** 末日幻影這一期的首領 上半 下半與星啟模式各一隻 */
+export type EndgameBoss = { name: string | null; icon: string | null };
+
+/**
+ * slot 是第幾隊 node_1 到 node_3 沒挑戰的那一隊不列出 編號照樣對得上
+ * boss 只有末日幻影有 buff 混沌回憶沒有
+ */
+export type EndgameNode = {
+  slot: number;
+  avatars: TeamMember[];
+  score: number | null;
+  bossDefeated: boolean | null;
+  buff: ChallengeBuff | null;
+  boss: EndgameBoss | null;
+};
 
 export type EndgameFloor = {
+  /** maze_id 用來對上最深的一層 */
+  id: number | null;
   name: string | null;
   stars: number | null;
   /** 混沌回憶用了幾回合 其他兩種沒有 */
@@ -40,6 +59,7 @@ export type Endgame = {
   /** 總星數 含加碼的星 */
   stars: number | null;
   maxFloor: string | null;
+  maxFloorId: number | null;
   battles: number | null;
   floors: EndgameFloor[];
 };
@@ -82,11 +102,34 @@ export function teamMembers(list: readonly unknown[], need: Need, path: string):
   });
 }
 
+/** 沒有增益時是 null 例如那一隊沒挑戰 異相仲裁也用 */
+export function challengeBuff(value: unknown): ChallengeBuff | null {
+  const buff = asRecord(value);
+  if (!buff) return null;
+  return { name: text(buff.name_mi18n), description: text(buff.desc_mi18n), icon: image(buff.icon) };
+}
+
+function endgameBoss(value: unknown): EndgameBoss | null {
+  const boss = asRecord(value);
+  return boss ? { name: text(boss.name_mi18n), icon: image(boss.icon) } : null;
+}
+
+/** 使用者選的 最深的一層放大 先對 max_floor_id 再對名稱 都對不到時用第一層 */
+export function deepestFloor(endgame: Endgame): EndgameFloor | null {
+  const { floors, maxFloorId, maxFloor } = endgame;
+  return (
+    (maxFloorId === null ? undefined : floors.find((floor) => floor.id === maxFloorId)) ??
+    (maxFloor === null ? undefined : floors.find((floor) => floor.name === maxFloor)) ??
+    floors[0] ??
+    null
+  );
+}
+
 const withExtra = (stars: number | null, extra: unknown) => (stars === null ? null : stars + (numberOf(extra) ?? 0));
 
 export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
   const root = asRecord(data);
-  const empty: Endgame = { mode, hasData: false, name: null, begin: null, end: null, stars: null, maxFloor: null, battles: null, floors: [] };
+  const empty: Endgame = { mode, hasData: false, name: null, begin: null, end: null, stars: null, maxFloor: null, maxFloorId: null, battles: null, floors: [] };
   if (!root) return { endgame: empty, missing: ["has_data"] };
 
   const missing = createMissing();
@@ -96,12 +139,17 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
   // 這一期沒有挑戰時很多欄位本來就是空的 不算格式不同
   const need = declared === false ? <T>(value: T | null) => value : missing.need;
 
-  const node = (value: unknown): EndgameNode[] => {
+  // 第幾隊對上這一期的哪一隻首領 genshin.py 的 APCShadowSeason
+  const bosses = mode === "shadow" ? [group?.upper_boss, group?.lower_boss, group?.tierce_boss] : [];
+  const node = (value: unknown, index: number): EndgameNode[] => {
     const n = asRecord(value);
     if (!n) return [];
     const at = (key: string) => `all_floor_detail[].node[].${key}`;
     return [
       {
+        slot: index + 1,
+        buff: mode === "chaos" ? null : challengeBuff(n.buff),
+        boss: endgameBoss(bosses[index]),
         avatars: teamMembers(Array.isArray(n.avatars) ? n.avatars : (missing.add(at("avatars")), []), need, at("avatars")),
         score: mode === "chaos" ? null : need(numberOf(n.score), at("score")),
         bossDefeated: mode === "shadow" ? need(boolOf(n.boss_defeated), at("boss_defeated")) : null,
@@ -114,10 +162,11 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
       const floor = asRecord(value);
       if (!floor) return [];
       const at = (key: string) => `all_floor_detail[].${key}`;
-      const nodes = [floor.node_1, floor.node_2, floor.node_3].flatMap(node);
+      const nodes = [floor.node_1, floor.node_2, floor.node_3].flatMap((value, index) => node(value, index));
       const scores = nodes.flatMap((n) => (n.score === null ? [] : [n.score]));
       return [
         {
+          id: numberOf(floor.maze_id),
           name: need(text(floor.name), at("name")),
           stars: withExtra(need(numberOf(floor.star_num), at("star_num")), floor.extra_star_num),
           rounds: mode === "chaos" ? need(numberOf(floor.round_num), at("round_num")) : null,
@@ -138,6 +187,7 @@ export function parseEndgame(data: unknown, mode: EndgameMode): EndgameResult {
       end: need(formatPartialTime(root.end_time) ?? formatPartialTime(group?.end_time), "end_time"),
       stars: withExtra(need(numberOf(root.star_num), "star_num"), root.extra_star_num),
       maxFloor: need(text(root.max_floor), "max_floor"),
+      maxFloorId: numberOf(root.max_floor_id),
       battles: need(numberOf(root.battle_num), "battle_num"),
       floors,
     },

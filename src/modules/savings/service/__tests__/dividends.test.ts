@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { fakeFetch, type FakeFetchCall } from "@/dev/fake-fetch";
+import { fakeFetch } from "@/dev/fake-fetch";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
 import { fetchDividends } from "../dividends";
+import { exchangesFetch } from "../../dev/fixtures";
 
 // 回應的形狀照證交所與櫃買中心 OpenAPI 的真實回應 只留用得到的欄位
 // 預告表只有幾十筆 也可能更少 不設最少筆數
@@ -11,21 +12,9 @@ const TWSE = [
 ];
 const TPEX = [{ ExRrightsExDividendDate: "1151103", SecuritiesCompanyCode: "00950B", CompanyName: "凱基A級公司債", ExRrightsExDividend: "除息", CashDividend: "尚未公告" }];
 
-type Answer = unknown | Error | Response;
-
-function exchanges(twse: Answer, tpex: Answer) {
-  const reply = (answer: Answer) => (answer instanceof Error ? Promise.reject(answer) : answer instanceof Response ? answer : Response.json(answer));
-  return fakeFetch(({ url }: FakeFetchCall) => {
-    const host = new URL(url).host;
-    if (host === "openapi.twse.com.tw") return reply(twse);
-    if (host === "www.tpex.org.tw") return reply(tpex);
-    throw new Error(`沒有預期的網址 ${url}`);
-  });
-}
-
 describe("fetchDividends（證交所與櫃買中心的除權除息預告表）", () => {
   it("兩份都讀到_合在一起照日期排、沒有讀不到的來源；只打 OpenAPI 的兩個端點（不碰證交所網站）", async () => {
-    const fetch = exchanges(TWSE, TPEX);
+    const fetch = exchangesFetch(TWSE, TPEX);
 
     expect(await fetchDividends({ fetchImpl: fetch.impl })).toEqual({
       ok: true,
@@ -42,11 +31,11 @@ describe("fetchDividends（證交所與櫃買中心的除權除息預告表）",
   it("兩份同時讀、各自逾時：頁面在等時各等 8 秒，排程可以給更久", async () => {
     const timeout = vi.spyOn(AbortSignal, "timeout");
 
-    await fetchDividends({ fetchImpl: exchanges(TWSE, TPEX).impl });
+    await fetchDividends({ fetchImpl: exchangesFetch(TWSE, TPEX).impl });
     expect(timeout.mock.calls).toEqual([[8_000], [8_000]]);
 
     timeout.mockClear();
-    await fetchDividends({ timeoutMs: 15_000, fetchImpl: exchanges(TWSE, TPEX).impl });
+    await fetchDividends({ timeoutMs: 15_000, fetchImpl: exchangesFetch(TWSE, TPEX).impl });
     expect(timeout.mock.calls).toEqual([[15_000], [15_000]]);
   });
 
@@ -68,7 +57,7 @@ describe("fetchDividends（證交所與櫃買中心的除權除息預告表）",
   it("證交所回 500_只回櫃買的、寫出讀不到的是證交所；log 記來源與狀態碼，不記回應內容", async () => {
     const log = captureErrorLog();
 
-    const result = await fetchDividends({ fetchImpl: exchanges(new Response("secret-detail", { status: 500 }), TPEX).impl });
+    const result = await fetchDividends({ fetchImpl: exchangesFetch(new Response("secret-detail", { status: 500 }), TPEX).impl });
 
     expect(result).toEqual({ ok: true, missing: ["證交所"], events: [{ symbol: "00950B", exDate: "2026-11-03", kind: "cash", cashPerShare: null }] });
     expect(loggedText(log)).toContain("證交所");
@@ -79,15 +68,15 @@ describe("fetchDividends（證交所與櫃買中心的除權除息預告表）",
   it("回應不是陣列（對方改版或錯誤頁）_當成那個來源讀不到；空的清單照常（只是最近沒有除權息）", async () => {
     captureErrorLog();
 
-    expect(await fetchDividends({ fetchImpl: exchanges([], { message: "rate limited" }).impl })).toEqual({ ok: true, missing: ["櫃買中心"], events: [] });
-    expect(await fetchDividends({ fetchImpl: exchanges([], []).impl })).toEqual({ ok: true, missing: [], events: [] });
+    expect(await fetchDividends({ fetchImpl: exchangesFetch([], { message: "rate limited" }).impl })).toEqual({ ok: true, missing: ["櫃買中心"], events: [] });
+    expect(await fetchDividends({ fetchImpl: exchangesFetch([], []).impl })).toEqual({ ok: true, missing: [], events: [] });
   });
 
   it("證交所有資料但一列都讀不出來（欄位改了名字）_當成讀不到、記 log，不當成最近沒有除權息", async () => {
     const log = captureErrorLog();
     const renamed = TWSE.map(({ Code, ...row }) => ({ ...row, StockNo: Code }));
 
-    expect(await fetchDividends({ fetchImpl: exchanges(renamed, TPEX).impl })).toEqual({ ok: true, missing: ["證交所"], events: [{ symbol: "00950B", exDate: "2026-11-03", kind: "cash", cashPerShare: null }] });
+    expect(await fetchDividends({ fetchImpl: exchangesFetch(renamed, TPEX).impl })).toEqual({ ok: true, missing: ["證交所"], events: [{ symbol: "00950B", exDate: "2026-11-03", kind: "cash", cashPerShare: null }] });
     expect(loggedText(log)).toContain("證交所");
     expect(loggedText(log)).toContain("DividendFormatError");
   });
@@ -95,7 +84,7 @@ describe("fetchDividends（證交所與櫃買中心的除權除息預告表）",
   it("兩份都讀不到（連不上、逾時）_ok 是 false，log 只記錯誤種類", async () => {
     const log = captureErrorLog();
 
-    expect(await fetchDividends({ fetchImpl: exchanges(new TypeError("fetch failed"), new DOMException("timeout", "TimeoutError")).impl })).toEqual({ ok: false });
+    expect(await fetchDividends({ fetchImpl: exchangesFetch(new TypeError("fetch failed"), new DOMException("timeout", "TimeoutError")).impl })).toEqual({ ok: false });
     expect(loggedText(log)).toContain("TypeError");
     expect(loggedText(log)).toContain("TimeoutError");
   });

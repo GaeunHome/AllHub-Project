@@ -1,6 +1,6 @@
 import { Fragment, createElement, useReducer } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { markup as render, textOf } from "@/dev/test-helpers";
+import { inputOf, inputsOf, markup as render, selectedOption, selectOf, textOf } from "@/dev/test-helpers";
 import { toasts } from "@/dev/toast-stub";
 import type { SalaryPrefill } from "../../../pending-view";
 
@@ -34,10 +34,6 @@ const ACCOUNTS = [
 ];
 const PREFILL: SalaryPrefill = { ruleId: 7, period: "2026-10", amount: 52000, accountId: 2, categoryId: 21, date: "2026-10-09" };
 
-const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
-const inputsOf = (markup: string, name: string) => [...markup.matchAll(new RegExp(`<input[^>]*name="${name}"[^>]*>`, "g"))].map((m) => m[0]);
-const selectOf = (markup: string, name: string) => markup.match(new RegExp(`<select[^>]*name="${name}"[^>]*>[\\s\\S]*?</select>`))?.[0] ?? "";
-const selectedOption = (select: string) => select.match(/<option[^>]*selected=""[^>]*>([^<]*)<\/option>/)?.[1];
 const describedHint = (markup: string, name: string) => {
   const describedBy = inputOf(markup, name).match(/aria-describedby="([^"]+)"/)?.[1];
   return describedBy ? textOf(markup.match(new RegExp(`<p id="${describedBy}"[^>]*>([\\s\\S]*?)</p>`))?.[1] ?? "") : "";
@@ -63,8 +59,8 @@ describe("頁首 ⋮ 裡的薪水入帳並分配", () => {
     const markup = menu();
 
     expect(selectOf(markup, "accountId")).not.toContain("國泰信用卡");
-    expect(selectedOption(selectOf(markup, "accountId"))).toBe("元大證券");
-    expect(selectedOption(selectOf(markup, "categoryId"))).toBe("薪水");
+    expect(selectedOption(markup, "accountId")).toBe("元大證券");
+    expect(selectedOption(markup, "categoryId")).toBe("薪水");
     expect(vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action)).toEqual([actions.allocateSalaryAction]);
   });
 
@@ -137,8 +133,8 @@ describe("待處理的薪水（入帳並分配）", () => {
     expect(inputOf(markup, "ruleId")).toContain('value="7"');
     expect(inputOf(markup, "period")).toContain('value="2026-10"');
     expect(inputOf(markup, "amount")).toContain('value="52000"');
-    expect(selectedOption(selectOf(markup, "accountId"))).toBe("郵局");
-    expect(selectedOption(selectOf(markup, "categoryId"))).toBe("薪水");
+    expect(selectedOption(markup, "accountId")).toBe("郵局");
+    expect(selectedOption(markup, "categoryId")).toBe("薪水");
     expect(inputOf(markup, "date")).toContain('value="2026-10-09"');
   });
 
@@ -147,7 +143,7 @@ describe("待處理的薪水（入帳並分配）", () => {
   });
 
   it("規則沒有分類：分類選未分類，不改用預設的薪水", () => {
-    expect(selectedOption(selectOf(form({ ...PREFILL, categoryId: null }), "categoryId"))).toBe("未分類");
+    expect(selectedOption(form({ ...PREFILL, categoryId: null }), "categoryId")).toBe("未分類");
   });
 
   it("不是從待處理打開的：不帶規則與期別", () => {

@@ -55,3 +55,10 @@ function jsonBody(body: RequestInit["body"]): Record<string, unknown> {
     return {};
   }
 }
+
+/** 每個請求都回同一份 JSON 換掉全域的 fetch 回傳的替身可以看收到哪些請求 */
+export function serveJson(json: unknown) {
+  const fetch = fakeFetch(() => Response.json(json));
+  vi.stubGlobal("fetch", fetch.impl);
+  return fetch;
+}

@@ -1,5 +1,7 @@
 import { expect } from "vitest";
 import { UserError } from "@/core/form";
+import type { ModuleInfo } from "@/core/module";
+import { fakeFetch, type FakeFetchCall } from "@/dev/fake-fetch";
 import type { SavingsAccount, SavingsRecurring } from "../data/schema";
 import type { ChecklistItem } from "../lib/checklist";
 import type { AccountDayFlow, AccountMonthFlow } from "../lib/ledger";
@@ -74,4 +76,20 @@ export async function userError(promise: Promise<unknown>): Promise<string> {
   );
   expect(error).toBeInstanceOf(UserError);
   return (error as Error).message;
+}
+
+/** 頁面測試用的模組資訊 src/app 傳給頁面的那一份 */
+export const SAVINGS_INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: true };
+
+type ExchangeAnswer = unknown | Error | Response;
+
+/** 證交所與櫃買中心的 OpenAPI 各回什麼 Error 是連不上 其他網址一律丟錯 */
+export function exchangesFetch(twse: ExchangeAnswer, tpex: ExchangeAnswer) {
+  const reply = (answer: ExchangeAnswer) => (answer instanceof Error ? Promise.reject(answer) : answer instanceof Response ? answer : Response.json(answer));
+  return fakeFetch(({ url }: FakeFetchCall) => {
+    const host = new URL(url).host;
+    if (host === "openapi.twse.com.tw") return reply(twse);
+    if (host === "www.tpex.org.tw") return reply(tpex);
+    throw new Error(`沒有預期的網址 ${url}`);
+  });
 }

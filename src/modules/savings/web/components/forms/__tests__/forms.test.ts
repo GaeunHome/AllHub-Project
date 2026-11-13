@@ -1,7 +1,7 @@
 import { Fragment, createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FormState } from "@/core/ui/form-message";
-import { markup as render, textOf } from "@/dev/test-helpers";
+import { fieldNames, inputOf, inputsOf, markup as render, selectedOption, selectOf, textOf } from "@/dev/test-helpers";
 import { toasts } from "@/dev/toast-stub";
 
 // 視窗關著時不算繪內容 換掉 Dialog 才看得到裡面 其他照原本的實作
@@ -42,11 +42,6 @@ const CATEGORIES = [
 const OPTIONS = { accounts: ACCOUNTS, categories: CATEGORIES, today: TODAY };
 const done = { onDone: vi.fn(), onCancel: vi.fn() };
 
-const inputOf = (markup: string, name: string) => markup.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0] ?? "";
-const inputsOf = (markup: string, name: string) => [...markup.matchAll(new RegExp(`<input[^>]*name="${name}"[^>]*>`, "g"))].map((m) => m[0]);
-const selectOf = (markup: string, name: string) => markup.match(new RegExp(`<select[^>]*name="${name}"[^>]*>[\\s\\S]*?</select>`))?.[0] ?? "";
-const selectedOption = (select: string) => select.match(/<option[^>]*selected=""[^>]*>([^<]*)<\/option>/)?.[1];
-const fieldNames = (markup: string) => [...new Set([...markup.matchAll(/<(?:input|select|textarea)[^>]*name="([^"]+)"/g)].map((m) => m[1]))].sort();
 const formActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
 /** 視窗表單送完後交給 onDone 的那一段 是 useDialogForm 的第二個參數 */
 const formOnDone = (index = 0) => vi.mocked(dialog.useDialogForm).mock.calls[index][1];
@@ -100,17 +95,17 @@ describe("記一筆（快速記帳）", () => {
   });
 
   it("帳戶預設帶入：從帳戶卡片打開的優先，其次是上次用的，都沒有就用第一個", () => {
-    expect(selectedOption(selectOf(render(createElement(QuickAddButton, OPTIONS)), "accountId"))).toBe("國泰");
+    expect(selectedOption(render(createElement(QuickAddButton, OPTIONS)), "accountId")).toBe("國泰");
 
     lastAccountPref.save(2);
-    expect(selectedOption(selectOf(render(createElement(QuickAddButton, OPTIONS)), "accountId"))).toBe("郵局");
-    expect(selectedOption(selectOf(render(createElement(QuickAddButton, { ...OPTIONS, accountId: 3 })), "accountId"))).toBe("國泰信用卡");
+    expect(selectedOption(render(createElement(QuickAddButton, OPTIONS)), "accountId")).toBe("郵局");
+    expect(selectedOption(render(createElement(QuickAddButton, { ...OPTIONS, accountId: 3 })), "accountId")).toBe("國泰信用卡");
   });
 
   it("上次用的帳戶已經停用（不在選項裡）_改用第一個", () => {
     lastAccountPref.save(99);
 
-    expect(selectedOption(selectOf(render(createElement(QuickAddButton, OPTIONS)), "accountId"))).toBe("國泰");
+    expect(selectedOption(render(createElement(QuickAddButton, OPTIONS)), "accountId")).toBe("國泰");
   });
 
   it("日期預設今天、不能選未來；備註有字數上限", () => {
@@ -137,8 +132,8 @@ describe("記一筆（快速記帳）", () => {
     const markup = render(createElement(QuickAddButton, { ...OPTIONS, defaultKind: "transfer" }));
 
     expect(inputsOf(markup, "categoryId")).toEqual([]);
-    expect(selectedOption(selectOf(markup, "accountId"))).toBe("國泰");
-    expect(selectedOption(selectOf(markup, "counterAccountId"))).toBe("郵局");
+    expect(selectedOption(markup, "accountId")).toBe("國泰");
+    expect(selectedOption(markup, "counterAccountId")).toBe("郵局");
   });
 
   it("只有一個帳戶時選轉帳_說明要兩個帳戶，送出鈕停用", () => {
@@ -161,8 +156,8 @@ describe("記一筆（快速記帳）", () => {
     const accounts = [...ACCOUNTS.slice(0, 2), { ...ACCOUNTS[2], payFromAccountId: 2 }];
     const markup = render(createElement(QuickAddButton, { ...OPTIONS, accounts, accountId: 3, defaultKind: "transfer" }));
 
-    expect(selectedOption(selectOf(markup, "accountId"))).toBe("郵局");
-    expect(selectedOption(selectOf(markup, "counterAccountId"))).toBe("國泰信用卡");
+    expect(selectedOption(markup, "accountId")).toBe("郵局");
+    expect(selectedOption(markup, "counterAccountId")).toBe("國泰信用卡");
   });
 
   it("記住這次用的帳戶（下次預設帶入）：只在記錄成功後，失敗時不記", async () => {
@@ -204,7 +199,7 @@ describe("修改紀錄（紀錄頁的視窗）", () => {
     expect(inputOf(markup, "kind")).toContain('value="income"');
     expect(inputOf(markup, "amount")).toContain('value="43000"');
     expect(inputsOf(markup, "categoryId").find((chip) => chip.includes('value="21"'))).toContain("checked");
-    expect(selectedOption(selectOf(markup, "accountId"))).toBe("郵局");
+    expect(selectedOption(markup, "accountId")).toBe("郵局");
     expect(inputOf(markup, "date")).toContain('value="2026-10-05"');
     expect(inputOf(markup, "note")).toContain('value="十月"');
     expect(textOf(markup)).toContain("儲存");
@@ -216,7 +211,7 @@ describe("修改紀錄（紀錄頁的視窗）", () => {
 
     const markup = render(createElement(EntryForm, { ...OPTIONS, accounts, action: actions.updateTransactionAction, entry: { ...entry, accountId: 9 }, ...done }));
 
-    expect(selectedOption(selectOf(markup, "accountId"))).toBe("舊帳戶（已停用）");
+    expect(selectedOption(markup, "accountId")).toBe("舊帳戶（已停用）");
   });
 });
 
@@ -343,8 +338,8 @@ describe("帳戶表單", () => {
     expect(textOf(markup)).toContain("信用卡帳戶（類型建立後不能改）");
     expect(inputOf(markup, "openingBalance")).toContain('value="3500"');
     expect(textOf(markup)).not.toContain("繳款截止日");
-    expect(selectedOption(selectOf(markup, "statementDay"))).toBe("5 日");
-    expect(selectedOption(selectOf(markup, "payFromAccountId"))).toBe("郵局（已停用）");
+    expect(selectedOption(markup, "statementDay")).toBe("5 日");
+    expect(selectedOption(markup, "payFromAccountId")).toBe("郵局（已停用）");
     expect(textOf(selectOf(markup, "payFromAccountId"))).toBe("未設定國泰郵局（已停用）台新");
     expect(inputOf(markup, "autopay")).toMatch(/type="checkbox"[^>]*checked=""/);
     expect(fieldNames(markup)).toEqual(["autopay", "cardStyle", "id", "name", "openingBalance", "payFromAccountId", "startDate", "statementDay"]);
@@ -354,7 +349,7 @@ describe("帳戶表單", () => {
   it("信用卡的結帳日可以不設；自動扣繳預設不勾", () => {
     const markup = render(createElement(AccountForm, { account: { ...card, statementDay: null, autopay: false }, payFromAccounts, today: TODAY, ...done }));
 
-    expect(selectedOption(selectOf(markup, "statementDay"))).toBe("未設定");
+    expect(selectedOption(markup, "statementDay")).toBe("未設定");
     expect(inputOf(markup, "autopay")).not.toContain("checked");
   });
 
@@ -479,9 +474,9 @@ describe("固定收支表單", () => {
     const markup = render(createElement(RecurringForm, ADD));
 
     expect(hidden(markup, "kind")).toBe("expense");
-    expect(selectedOption(selectOf(markup, "intervalMonths"))).toBe("每月");
-    expect(selectedOption(selectOf(markup, "dayOfMonth"))).toBe("14 日");
-    expect(selectedOption(selectOf(markup, "mode"))).toBe("到期請我確認");
+    expect(selectedOption(markup, "intervalMonths")).toBe("每月");
+    expect(selectedOption(markup, "dayOfMonth")).toBe("14 日");
+    expect(selectedOption(markup, "mode")).toBe("到期請我確認");
     expect(fieldNames(markup)).toEqual(["accountId", "amount", "categoryId", "dayOfMonth", "holidayRule", "intervalMonths", "kind", "mode", "name", "subscription"]);
     expect(formActions()).toEqual([actions.createRecurringAction]);
   });
@@ -507,9 +502,9 @@ describe("固定收支表單", () => {
     expect(markup).toMatch(/<input type="hidden" name="id" value="30"/);
     expect(inputOf(markup, "name")).toContain('value="月票"');
     expect(inputOf(markup, "amount")).toContain('value="1280"');
-    expect(selectedOption(selectOf(markup, "dayOfMonth"))).toBe("20 日");
-    expect(selectedOption(selectOf(markup, "holidayRule"))).toBe("延後到下一個工作日");
-    expect(selectedOption(selectOf(markup, "mode"))).toBe("自動記帳");
+    expect(selectedOption(markup, "dayOfMonth")).toBe("20 日");
+    expect(selectedOption(markup, "holidayRule")).toBe("延後到下一個工作日");
+    expect(selectedOption(markup, "mode")).toBe("自動記帳");
     expect(hidden(markup, "note")).toBe("舊備註");
     expect(markup).not.toMatch(/<input(?![^>]*type="hidden")[^>]*name="note"/);
     // 10 月已經處理過 下一期是 11 月 20 日 週五照常上班
@@ -523,8 +518,8 @@ describe("固定收支表單", () => {
     const markup = render(createElement(RecurringForm, { ...FORM, rule: { ...rule, intervalMonths: 2, startMonth: "2026-09-01", lastPostedMonth: "2026-09-01" } }));
     const months = optionsOf(selectOf(markup, "startMonth"));
 
-    expect(selectedOption(selectOf(markup, "intervalMonths"))).toBe("每 2 個月");
-    expect(selectedOption(selectOf(markup, "startMonth"))).toBe("2026 年 9 月");
+    expect(selectedOption(markup, "intervalMonths")).toBe("每 2 個月");
+    expect(selectedOption(markup, "startMonth")).toBe("2026 年 9 月");
     expect(months).toHaveLength(13);
     expect([months[1], months.at(-1)]).toEqual(["2026 年 10 月", "2027 年 9 月"]);
     // 9 月處理過 每 2 個月一期 下一期在 11 月
@@ -558,8 +553,8 @@ describe("固定收支表單", () => {
 
     expect(hidden(markup, "kind")).toBe("transfer");
     expect(optionsOf(selectOf(markup, "accountId"))).toEqual(["國泰", "郵局"]);
-    expect(selectedOption(selectOf(markup, "accountId"))).toBe("郵局");
-    expect(selectedOption(selectOf(markup, "holdingId"))).toBe("0050 元大台灣50");
+    expect(selectedOption(markup, "accountId")).toBe("郵局");
+    expect(selectedOption(markup, "holdingId")).toBe("0050 元大台灣50");
     expect(hidden(markup, "counterAccountId")).toBe("4");
     expect(inputsOf(markup, "categoryId")).toEqual([]);
     expect(markup).toMatch(/<select[^>]*disabled=""[^>]*>[\s\S]*?<option value="confirm" selected="">到期請我確認/);
@@ -587,7 +582,7 @@ describe("固定收支表單", () => {
       expect(hidden(markup, "kind")).toBe("income");
       expect(hidden(markup, "allocate")).toBe("on");
       expect(inputsOf(markup, "categoryId").find((radio) => radio.includes('checked=""'))).toContain('value="21"');
-      expect(selectedOption(selectOf(markup, "holidayRule"))).toBe("提前到前一個工作日");
+      expect(selectedOption(markup, "holidayRule")).toBe("提前到前一個工作日");
       expect(hidden(markup, "mode")).toBe("confirm");
     });
 
@@ -601,8 +596,8 @@ describe("固定收支表單", () => {
       expect(typeOptions(markup)).toEqual([]);
       expect(hidden(markup, "kind")).toBe("transfer");
       expect(selectOf(markup, "holdingId")).not.toBe("");
-      expect(selectedOption(selectOf(markup, "holdingId"))).toBe("006208 富邦台灣50");
-      expect(selectedOption(selectOf(markup, "holidayRule"))).toBe("延後到下一個工作日");
+      expect(selectedOption(markup, "holdingId")).toBe("006208 富邦台灣50");
+      expect(selectedOption(markup, "holidayRule")).toBe("延後到下一個工作日");
     });
 
     it("其他：支出、收入、轉帳（薪水與定期定額在自己那一區），收入沒有「這是薪水」", () => {

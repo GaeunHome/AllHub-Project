@@ -29,6 +29,7 @@
 | HoYoLAB | 含 `ltoken_v2`、`ltuid_v2` 的 cookie | 連結成功；`ltoken_v2=expired` 會得到「HoYoLAB cookie 已失效…」 |
 | HoYoLAB | 開拓月曆 | 跟正式環境一樣，Cookie 少了 `cookie_token_v2` 或 `account_mid_v2` 就回 -100「请先登录」（沒貼 `account_mid_v2` 時網站用 `ltmid_v2` 補上）。六個都貼的假 cookie：`ltoken_v2=v2_mock; ltuid_v2=1; ltmid_v2=mock_mid; cookie_token_v2=v2_mock_ct; account_id_v2=1; account_mid_v2=mock_mid` |
 | HoYoLAB | 遊戲頭像（戰績首頁 `index`） | 每個 UID 一張不同的佔位圖（「像」加 UID 的最後兩碼） |
+| HoYoLAB | 末日幻影與虛構敘事（`challenge_boss`、`challenge_story`） | 每一層都有三隊（星啟模式）：末日幻影的三隊對上上半、下半與星啟首領（各一張大圖），兩種都有每一隊的增益（圖示、名稱與說明）；混沌回憶沒有圖 |
 | HoYoLAB | 異相仲裁（`challenge_peak`） | 一次回三期：本期打完了（王棋是高難度、有增益與金色勳章，騎士三關都三星、第三關快速通關），上期騎士少一顆星，上上期沒打；`ltuid_v2` 以 2 開頭的亞服小號從來沒打過 |
 | HoYoLAB | 活動日曆（`get_act_calender`） | 時間跟著現在算：混沌回憶一天半後結束、還沒拿滿（傍晚 6 點後跑 `starrail:stamina` 會發終局提醒），虛構敘事、異相仲裁進行中，末日幻影已拿滿，下一期的混沌回憶還沒開放；活動有雙倍獎勵、登入獎勵、限時挑戰，常駐的沒有結束時間、還沒開始的都不列；角色與光錐各有卡池。`ltuid_v2` 以 2 開頭的亞服小號，混沌回憶與虛構敘事的進度是 0 |
 | HoYoLAB | `ltuid_v2` 的數字 | 主要角色的 UID 跟著它變（`ltuid_v2=123456` 是 `900123456`）：換一個數字就是另一個遊戲帳號；別的使用者用同一個數字連結時，會被拒絕（已經被其他使用者連結） |
@@ -50,6 +51,7 @@
 | 天氣 | 氣象署 F-D0047-089、Open-Meteo 的 `hourly` | 每小時預報：氣象署只有三天，溫度每小時一筆，降雨機率與天氣 3 小時一段；國外跟一週預報同一個回應，帶當地時區 |
 | 手機通知 | 推送服務 `/fcm/send/<id>` | 一律回 201，`id` 結尾是 `gone` 時回 410，網站會刪掉那支手機。瀏覽器的 `pushManager.subscribe` 連不到真的推送服務，本機只能看畫面與伺服器這一半 |
 | 旅遊 | Google Maps 短網址 `https://maps.app.goo.gl/mapshortabc` | 假伺服器轉到清水寺的完整網址，名稱與座標自動帶入；`mapshortbroken` 回 500，要手動填名稱 |
+| 旅遊 | 匯率（exchange-api 的 jsDelivr 與 Cloudflare 網址） | 分帳的 15 種貨幣都有，數字接近 2026-11 的真實匯率，每天小幅變動（換日期看得出有沒有跟著換）；2024-03-02 以前回 404，網站會改用最新的 |
 | 天氣 | 背景圖 | 照現在這一段的天氣描述：臺北市是雷雨、臺中市這類 `dry` 的縣市看得到晴天或多雲；白天或晚上看的是現在這一段的開始時間 |
 | 天氣 | 授權碼 `bad` 開頭（`CWA_API_KEY`、`MOENV_API_KEY`） | 回 401，像授權碼打錯 |
 | 天氣 | 環境部 aqx_p_432 | 只有臺北市、新北市、桃園市、臺中市、臺南市、高雄市、花蓮縣有測站，每個測站有 PM2.5、PM10、臭氧，AQI 超過 50 的有主要污染物：臺北市有七個測站（看得到天氣頁的各測站兩欄），最差的是萬華（62）、新北市的汐止維修中（AQI 是空的）、臺中市 104 與臺南市 121 是對敏感族群不健康、高雄市 156 是對所有族群不健康；其他縣市沒有測站 |
@@ -129,6 +131,7 @@ curl -X POST http://localhost:3000/api/youtube/websub -H "Content-Type: applicat
 | `npm run db:local` | 本機 PGlite 資料庫（port 5433） |
 | `npm run mock:external` | 本機假外部服務（port 4010） |
 | `npm run account …` | 帳號管理（見 [帳號管理](deploy.md#帳號管理)） |
+| `node src/dev/relic-weights.ts` | 星穹鐵道推出新角色後，從 hsr-optimizer 重新產生遺器評分的權重表（`src/modules/starrail/lib/relic-weights.ts`，後面可以接 commit；會連到 GitHub） |
 
 ## 測試
 

@@ -1,13 +1,9 @@
-import type { ReactNode } from "react";
 import { ExternalImage } from "@/core/ui/external-image";
 import { Icon } from "@/core/ui/icon";
-import { InfoTip } from "@/core/ui/info-tip";
-import type { EndgameSchedule, TeamMember } from "../../lib/endgame";
+import type { EndgameSchedule } from "../../lib/endgame";
 import type { Peak, PeakBoss, PeakSeason, PeakStage } from "../../lib/peak";
+import { BuffLine, Figure, Team, type Names } from "./endgame-parts";
 import { NoRecordNotice, QuickClear, RoundCount, StarRow } from "./sr-visuals";
-import { TeamAvatar } from "./team-avatar";
-
-type Names = Record<number, string | null>;
 
 const KNIGHT_LABELS = ["騎士一", "騎士二", "騎士三"];
 
@@ -75,25 +71,6 @@ function SeasonSummary({ season }: { season: PeakSeason }) {
   );
 }
 
-function Figure({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-sm font-medium text-ink">{label}</dt>
-      <dd className="sr-num flex items-baseline gap-1 text-3xl leading-none font-bold whitespace-nowrap text-ink">{children}</dd>
-    </div>
-  );
-}
-
-function Team({ avatars, names }: { avatars: TeamMember[]; names: Names }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {avatars.map((member, i) => (
-        <TeamAvatar key={`${member.id}-${i}`} member={member} name={member.id === null ? null : (names[member.id] ?? null)} />
-      ))}
-    </div>
-  );
-}
-
 /** 首領的大圖放在右半邊往左淡出 名稱 星數與隊伍在左邊 */
 function BossCard({ boss, names }: { boss: PeakBoss; names: Names }) {
   return (
@@ -115,17 +92,7 @@ function BossCard({ boss, names }: { boss: PeakBoss; names: Names }) {
               <StarRow stars={boss.stars} label="王棋" tone="boss" />
               {boss.rounds !== null && <RoundCount rounds={boss.rounds} />}
             </div>
-            {boss.buff?.name && (
-              <p className="flex items-center gap-2 text-ink">
-                {boss.buff.icon && (
-                  <span aria-hidden className="relative size-6 shrink-0">
-                    <ExternalImage src={boss.buff.icon} alt="" fill className="object-contain" />
-                  </span>
-                )}
-                <span className="font-semibold">{boss.buff.name}</span>
-                {boss.buff.description && <InfoTip label={`${boss.buff.name}的說明`}>{boss.buff.description}</InfoTip>}
-              </p>
-            )}
+            {boss.buff && <BuffLine buff={boss.buff} />}
             <div className="[--sr-team:4.5rem]">
               <Team avatars={boss.avatars} names={names} />
             </div>

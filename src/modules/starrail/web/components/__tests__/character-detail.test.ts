@@ -17,14 +17,14 @@ const relic: Relic = {
   rarity: 5,
   icon: `${IMG}/relic.png`,
   // 主屬性也給 times 畫面要自己略過主屬性 不能靠資料剛好是 0
-  mainStat: { name: "生命值", value: "705", times: 3, icon: `${ICONS}/property/max-hp.png` },
+  mainStat: { type: 27, name: "生命值", value: "705", times: 3, icon: `${ICONS}/property/max-hp.png` },
   subStats: [
-    { name: "暴擊率", value: "3.2%", times: 1, icon: `${ICONS}/property/critical-chance.png` },
-    { name: "暴擊傷害", value: "12.9%", times: 3, icon: `${ICONS}/property/critical-damage.png` },
-    { name: "攻擊力", value: "4.3%", times: 2, icon: `${ICONS}/property/attack.png` },
+    { type: 52, name: "暴擊率", value: "3.2%", times: 1, icon: `${ICONS}/property/critical-chance.png` },
+    { type: 53, name: "暴擊傷害", value: "12.9%", times: 3, icon: `${ICONS}/property/critical-damage.png` },
+    { type: 33, name: "攻擊力", value: "4.3%", times: 2, icon: `${ICONS}/property/attack.png` },
     // 換算是強化 6 次 超過 +15 遺器的 5 次
     // 畫面照資料寫 推定或資料有誤時才看得出來
-    { name: "速度", value: "8", times: 7, icon: null },
+    { type: 51, name: "速度", value: "8", times: 7, icon: null },
   ],
 };
 
@@ -156,5 +156,39 @@ describe("角色格", () => {
 
   it("沒有屬性圖示（認不得的屬性）_退回屬性色圓加中文第一個字", () => {
     expect(tile(seele({ elementIcon: null }))).toContain(">量</span>");
+  });
+});
+
+describe("遺器評分（使用者要的：照角色需要的副屬性打分，選了等級字母）", () => {
+  const rated = (rating: Relic["rating"], relicGrade?: StarrailCharacter["relicGrade"]) =>
+    seele({ relicGrade, relics: [{ ...relic, rating, subStats: relic.subStats.map((sub, i) => ({ ...sub, useful: i < 2 })) }] });
+
+  it("每件遺器寫等級，遺器的標題旁寫總評；報讀器念「評分 S」", () => {
+    const html = detail(rated({ grade: "S", percent: 55 }, "SS"));
+
+    expect(textOf(html)).toContain("遺器總評");
+    expect(textOf(html)).toMatch(/遺器總評\s*SS/);
+    expect(textOf(html)).toContain("評分 S");
+  });
+
+  it("角色用得到的副詞條標起來（報讀器也念得到），用不到的不標", () => {
+    const html = detail(rated({ grade: "S", percent: 55 }, "S"));
+
+    expect(textOf(statRow(html, "暴擊率"))).toContain("角色用得到");
+    expect(textOf(statRow(html, "速度"))).not.toContain("角色用得到");
+  });
+
+  it("主屬性角色用不到：不給等級，寫主屬性不合", () => {
+    const html = detail(rated({ grade: null, wrongMain: true }, "C"));
+
+    expect(textOf(html)).toContain("主屬性不合");
+    expect(textOf(html)).not.toContain("評分");
+  });
+
+  it("沒有評分（剛推出的角色不在權重表）_不寫總評，也不標副詞條", () => {
+    const html = detail();
+
+    expect(textOf(html)).not.toContain("遺器總評");
+    expect(textOf(html)).not.toContain("角色用得到");
   });
 });

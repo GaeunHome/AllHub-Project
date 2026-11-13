@@ -1,10 +1,9 @@
 import { createElement, type ReactNode } from "react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ModuleInfo } from "@/core/module";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { markup as renderNode, mocksOf, textOf } from "@/dev/test-helpers";
+import { factsOf, markup as renderNode, mocksOf, textOf } from "@/dev/test-helpers";
 import type { SavingsAccount, SavingsCategory, SavingsHolding, SavingsRecurring } from "../../../data/schema";
-import { accountRow, checklistItem, dayFlowRow, flowRow as flow, ruleRow } from "../../../dev/fixtures";
+import { accountRow, checklistItem, dayFlowRow, flowRow as flow, ruleRow, SAVINGS_INFO } from "../../../dev/fixtures";
 import type { CategoryMonthTotal } from "../../../lib/ledger";
 import type { Quote } from "../../../lib/quotes";
 
@@ -36,13 +35,11 @@ const overviewData = mocksOf(await import("../../overview-data"), "loadAccounts"
 const { SavingsPage, SavingsOverview } = await import("../savings-page");
 const sections = await import("../../components/overview/sections");
 
-const INFO: ModuleInfo = { id: "savings", name: "理財", href: "/savings", description: "", icon: "/icons/ui/wallet.svg", accent: "green", notifies: true };
 // 台北時間 2026-10-15 中午
 const NOW = new Date("2026-10-15T04:00:00Z");
 const CREATED = new Date("2026-01-05T02:00:00Z");
 
 const render = async (node: Promise<ReactNode> | ReactNode) => renderNode(await node);
-const factsOf = (markup: string) => [...markup.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2])]);
 
 const account = (values: Pick<SavingsAccount, "id" | "name" | "kind"> & Partial<SavingsAccount>) => accountRow({ createdAt: CREATED, ...values });
 const ACCOUNTS = [
@@ -109,7 +106,7 @@ const wholePage = async () =>
 
 describe("理財的總覽頁", () => {
   it("頁首是理財，分頁列照順序是總覽、紀錄、帳戶、投資、每月固定、設定，總覽是目前這一頁", () => {
-    const markup = renderNode(createElement(SavingsPage, { info: INFO }));
+    const markup = renderNode(createElement(SavingsPage, { info: SAVINGS_INFO }));
     const tabs = [...markup.slice(markup.indexOf('aria-label="理財的頁面"')).matchAll(/<a [^>]*>(.*?)<\/a>/g)].map((m) => [m[0].match(/href="([^"]*)"/)?.[1], textOf(m[1]), m[0].includes('aria-current="page"')]);
 
     expect(markup).toMatch(/<h1[^>]*>理財<\/h1>/);
@@ -125,7 +122,7 @@ describe("理財的總覽頁", () => {
   });
 
   it("這個月要做的事處理完那一列的按鈕會不見：焦點交給一直都在的整頁外框（訊息改用提示視窗）", () => {
-    const markup = renderNode(createElement(SavingsPage, { info: INFO }));
+    const markup = renderNode(createElement(SavingsPage, { info: SAVINGS_INFO }));
 
     expect(markup).toMatch(/^(?:<link[^>]*>)*<div[^>]*class="theme-savings"[^>]*><div[^>]*data-focus-frame=""[^>]*tabindex="-1"[^>]*>[\s\S]*載入總覽…/);
   });

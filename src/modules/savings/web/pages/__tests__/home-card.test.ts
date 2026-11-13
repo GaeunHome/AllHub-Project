@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { OTHER_SESSION, requireSession } from "@/dev/session-stub";
-import { markup, mocksOf, textOf } from "@/dev/test-helpers";
+import { factsOf, markup, mocksOf, textOf } from "@/dev/test-helpers";
 import type { SavingsAccount, SavingsHolding } from "../../../data/schema";
 import { accountRow, checklistItem as item } from "../../../dev/fixtures";
 import type { ChecklistItem } from "../../../lib/checklist";
@@ -26,7 +26,6 @@ const { loadChecklist } = mocksOf(await import("../../overview-data"), "loadChec
 const { FinanceSnapshot } = await import("../home-card");
 
 const html = async () => markup(await FinanceSnapshot());
-const rowsOf = (markup: string) => [...markup.matchAll(/<dt[^>]*>(.*?)<\/dt><dd[^>]*>(.*?)<\/dd>/g)].map((m) => [textOf(m[1]), textOf(m[2])]);
 // 台北時間 2026-10-15 中午
 const NOW = new Date("2026-10-15T04:00:00Z");
 const CREATED = new Date("2026-01-05T02:00:00Z");
@@ -86,7 +85,7 @@ describe("首頁的理財卡片", () => {
     ]);
 
     // 50,000 + 1,000 股 × 106.50 做完的不算 最近一件是 10/5 的國泰卡
-    expect(rowsOf(await html())).toEqual([
+    expect(factsOf(await html())).toEqual([
       ["總資產", "$156,500"],
       ["本月支出", "$12,000"],
       ["這個月", "還有 2 件要做"],
@@ -100,7 +99,7 @@ describe("首頁的理財卡片", () => {
       item({ key: "card:4:2026-10-05", title: "國泰卡", kind: "card", date: "2026-10-05", state: "todo", cardStage: "needs-bill" }),
     ]);
 
-    expect(rowsOf(await html()).slice(2)).toEqual([
+    expect(factsOf(await html()).slice(2)).toEqual([
       ["這個月", "還有 2 件要做"],
       ["下一件", "電費 9/20逾期 25 天"],
     ]);
@@ -109,7 +108,7 @@ describe("首頁的理財卡片", () => {
   it("都做完了_寫沒有要做的事", async () => {
     await checklistWith([item({ key: "recurring:2:2026-10", title: "Netflix", date: "2026-10-02", state: "auto-done", doneOn: "2026-10-02" })]);
 
-    expect(rowsOf(await html()).slice(2)).toEqual([["這個月", "沒有要做的事"]]);
+    expect(factsOf(await html()).slice(2)).toEqual([["這個月", "沒有要做的事"]]);
   });
 
   it("還沒有帳戶_顯示開始設定的入口（到理財頁）", async () => {

@@ -1,7 +1,7 @@
 import { Fragment, createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { menuOf, outsideMenus } from "@/dev/more-menu-stub";
-import { markup as render, textOf } from "@/dev/test-helpers";
+import { buttonsOf, markup as render, textOf } from "@/dev/test-helpers";
 import { accountRow, ruleRow } from "../../../../dev/fixtures";
 import type { AccountBalance } from "../../../../lib/ledger";
 import type { PendingRuleRow } from "../../../../lib/pending";
@@ -59,7 +59,6 @@ const GYM = rule(35, { name: "健身房", active: false });
 
 const viewOf = (rules: PendingRuleRow[]) => recurringPageView({ accounts: ACCOUNTS, rules, categories: CATEGORIES, holdings: HOLDINGS, quotes: null, balances: BALANCES, today: TODAY });
 
-const buttonsOf = (markup: string) => [...markup.matchAll(/<button[^>]*>((?:(?!<\/button>)[\s\S])*)<\/button>/g)].map((m) => textOf(m[1]).trim());
 const menuItems = (markup: string, label: string) => buttonsOf(menuOf(markup, label));
 const dialogActions = () => vi.mocked(dialog.useDialogForm).mock.calls.map(([action]) => action);
 const confirms = () => vi.mocked(ActionButton).mock.calls.map(([props]) => props.confirmMessage);

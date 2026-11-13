@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { fakeFetch, type FakeFetchCall } from "@/dev/fake-fetch";
+import { fakeFetch } from "@/dev/fake-fetch";
 import { captureErrorLog, loggedText } from "@/dev/test-helpers";
 import { fetchQuotes, findQuote } from "../quotes";
+import { exchangesFetch } from "../../dev/fixtures";
 
 // 形狀照 OpenAPI 的真實回應 只留用得到的欄位
 // 真的清單有上千筆 不到 100 筆算出錯 所以補上別的股票
@@ -13,23 +14,11 @@ const TPEX_NAMED = [{ Date: "1151014", SecuritiesCompanyCode: "00679B", CompanyN
 const TWSE = [...TWSE_NAMED, ...Array.from({ length: 100 }, (_, i) => ({ Date: "1151014", Code: String(1101 + i), Name: `上市股票${i}`, ClosingPrice: "10.00" }))];
 const TPEX = [...TPEX_NAMED, ...Array.from({ length: 100 }, (_, i) => ({ Date: "1151014", SecuritiesCompanyCode: String(3201 + i), CompanyName: `上櫃股票${i}`, Close: "20.00" }))];
 
-type Answer = unknown | Error | Response;
-
-function exchanges(twse: Answer, tpex: Answer) {
-  const reply = (answer: Answer) => (answer instanceof Error ? Promise.reject(answer) : answer instanceof Response ? answer : Response.json(answer));
-  return fakeFetch(({ url }: FakeFetchCall) => {
-    const host = new URL(url).host;
-    if (host === "openapi.twse.com.tw") return reply(twse);
-    if (host === "www.tpex.org.tw") return reply(tpex);
-    throw new Error(`沒有預期的網址 ${url}`);
-  });
-}
-
 const named = (quotes: { symbol: string }[]) => quotes.filter((quote) => ["0050", "006208", "00679B"].includes(quote.symbol));
 
 describe("fetchQuotes（證交所與櫃買中心的收盤價）", () => {
   it("兩個清單都讀到_合在一起、complete 是 true；只打 OpenAPI 的兩個端點（不碰 www.twse.com.tw）", async () => {
-    const fetch = exchanges(TWSE, TPEX);
+    const fetch = exchangesFetch(TWSE, TPEX);
 
     const result = await fetchQuotes(fetch.impl);
 
@@ -46,7 +35,7 @@ describe("fetchQuotes（證交所與櫃買中心的收盤價）", () => {
   it("每個來源最多等 8 秒（頁面在等股價，兩個來源同時讀）", async () => {
     const timeout = vi.spyOn(AbortSignal, "timeout");
 
-    await fetchQuotes(exchanges(TWSE, TPEX).impl);
+    await fetchQuotes(exchangesFetch(TWSE, TPEX).impl);
 
     expect(timeout.mock.calls).toEqual([[8_000], [8_000]]);
   });
@@ -54,7 +43,7 @@ describe("fetchQuotes（證交所與櫃買中心的收盤價）", () => {
   it("證交所回 500_只回櫃買的、complete 是 false；log 記來源與狀態碼，不記回應內容", async () => {
     const log = captureErrorLog();
 
-    const result = await fetchQuotes(exchanges(new Response("secret-detail", { status: 500 }), TPEX).impl);
+    const result = await fetchQuotes(exchangesFetch(new Response("secret-detail", { status: 500 }), TPEX).impl);
 
     expect(result).toMatchObject({ ok: true, complete: false });
     expect(result.ok && named(result.quotes).map((quote) => quote.symbol)).toEqual(["00679B"]);
@@ -66,7 +55,7 @@ describe("fetchQuotes（證交所與櫃買中心的收盤價）", () => {
   it("回應不是陣列（對方改版或錯誤頁）_當成那個來源讀不到", async () => {
     captureErrorLog();
 
-    const result = await fetchQuotes(exchanges(TWSE, { message: "rate limited" }).impl);
+    const result = await fetchQuotes(exchangesFetch(TWSE, { message: "rate limited" }).impl);
 
     expect(result).toMatchObject({ ok: true, complete: false });
     expect(result.ok && named(result.quotes).map((quote) => quote.symbol)).toEqual(["0050", "006208"]);
@@ -75,7 +64,7 @@ describe("fetchQuotes（證交所與櫃買中心的收盤價）", () => {
   it("清單不到 100 筆（只回了一部分）_當成那個來源讀不到；log 記來源", async () => {
     const log = captureErrorLog();
 
-    const result = await fetchQuotes(exchanges(TWSE_NAMED, TPEX).impl);
+    const result = await fetchQuotes(exchangesFetch(TWSE_NAMED, TPEX).impl);
 
     expect(result).toMatchObject({ ok: true, complete: false });
     expect(result.ok && named(result.quotes).map((quote) => quote.symbol)).toEqual(["00679B"]);
@@ -85,7 +74,7 @@ describe("fetchQuotes（證交所與櫃買中心的收盤價）", () => {
   it("兩個都讀不到（連不上、逾時）_ok 是 false", async () => {
     const log = captureErrorLog();
 
-    expect(await fetchQuotes(exchanges(new TypeError("fetch failed"), new DOMException("timeout", "TimeoutError")).impl)).toEqual({ ok: false });
+    expect(await fetchQuotes(exchangesFetch(new TypeError("fetch failed"), new DOMException("timeout", "TimeoutError")).impl)).toEqual({ ok: false });
     expect(loggedText(log)).toContain("TypeError");
     expect(loggedText(log)).toContain("TimeoutError");
   });
@@ -93,8 +82,8 @@ describe("fetchQuotes（證交所與櫃買中心的收盤價）", () => {
 
 describe("findQuote（新增持股時確認代號）", () => {
   it("上市與上櫃的代號都找得到", async () => {
-    expect(await findQuote("006208", exchanges(TWSE, TPEX).impl)).toEqual({ quote: { symbol: "006208", name: "富邦台50", closeCents: 25_870, date: "2026-10-14", market: "twse" } });
-    expect(await findQuote("00679B", exchanges(TWSE, TPEX).impl)).toMatchObject({ quote: { symbol: "00679B", market: "tpex" } });
+    expect(await findQuote("006208", exchangesFetch(TWSE, TPEX).impl)).toEqual({ quote: { symbol: "006208", name: "富邦台50", closeCents: 25_870, date: "2026-10-14", market: "twse" } });
+    expect(await findQuote("00679B", exchangesFetch(TWSE, TPEX).impl)).toMatchObject({ quote: { symbol: "00679B", market: "tpex" } });
   });
 
   it("兩個清單同時讀：上市的回應還沒到之前，上櫃的請求就已經送出", async () => {
@@ -114,13 +103,13 @@ describe("findQuote（新增持股時確認代號）", () => {
   });
 
   it("兩邊都讀到了還是沒有_complete 是 true（查無此代號）", async () => {
-    expect(await findQuote("9999", exchanges(TWSE, TPEX).impl)).toEqual({ quote: null, complete: true });
+    expect(await findQuote("9999", exchangesFetch(TWSE, TPEX).impl)).toEqual({ quote: null, complete: true });
   });
 
   it("有一個清單讀不到或不到 100 筆又沒找到_complete 是 false（不能說查無此代號）", async () => {
     captureErrorLog();
 
-    expect(await findQuote("2330", exchanges(new TypeError("fetch failed"), TPEX).impl)).toEqual({ quote: null, complete: false });
-    expect(await findQuote("2330", exchanges(TWSE_NAMED, TPEX).impl)).toEqual({ quote: null, complete: false });
+    expect(await findQuote("2330", exchangesFetch(new TypeError("fetch failed"), TPEX).impl)).toEqual({ quote: null, complete: false });
+    expect(await findQuote("2330", exchangesFetch(TWSE_NAMED, TPEX).impl)).toEqual({ quote: null, complete: false });
   });
 });

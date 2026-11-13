@@ -2,19 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { applyLocalRead, applyLocalReadAll, claimAlerts, freshNotifications, planAlerts } from "./alerts";
+import { applyLocalRead, applyLocalReadAll, freshNotifications } from "./alerts";
+import { announceFresh } from "./announce";
 import { chime, unlockOnGesture } from "./chime";
 import { linkTarget } from "./links";
 import type { NotificationModule } from "./notification-summary";
 import { keepSameFeed, startPoller, type PollResult } from "./poller";
-import { readAlertPref } from "./prefs";
-import { shouldShowSystemNotification, showSystemNotification } from "./system-notification";
 import { NotificationToasts } from "./toasts";
 import { EMPTY_FEED, type NotificationFeed, type NotificationItem } from "./types";
 
 const API = "/api/notifications";
 const MAX_TOASTS = 3;
-const MAX_SYSTEM_NOTIFICATIONS = 3;
 type CenterValue = {
   feed: NotificationFeed;
   /** 第一次輪詢回來前 feed 是空的 首頁靠它分辨還在載入與沒有未讀 */
@@ -47,14 +45,6 @@ async function loadFeed(signal: AbortSignal): Promise<PollResult> {
 async function postMark(body: { action: "read"; ids: number[] } | { action: "read-all"; module?: string }): Promise<NotificationFeed | null> {
   const response = await fetch(API, { method: "POST", redirect: "manual", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   return response.ok ? ((await response.json()) as NotificationFeed) : null;
-}
-
-function localStorageOrNull(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
 }
 
 /** 包住導覽列輪詢未讀數 新通知依各模組設定跳卡片與播聲音 背景時跳系統通知 */
@@ -120,27 +110,14 @@ export function NotificationCenter({ modules, children }: { modules: Notificatio
   }, [open, moduleMap, router]);
 
   useEffect(() => {
-    const announce = (fresh: NotificationItem[]) => {
-      const claimed = new Set(claimAlerts(fresh.map((item) => item.id), localStorageOrNull()));
-      // 每次都重讀設定 別的分頁或鈴鐺面板剛改過也算數
-      const plan = planAlerts(fresh, claimed, readAlertPref);
-      if (plan.toasts.length > 0) {
-        setToasts((current) => [...plan.toasts.slice(-MAX_TOASTS).reverse(), ...current].slice(0, MAX_TOASTS));
-        setRingCount((count) => count + 1);
-      }
-      if (plan.sound) chime.play();
-      const supported = "Notification" in window;
-      const conditions = { supported, permission: supported ? Notification.permission : "denied", enabled: plan.system.length > 0, hidden: document.visibilityState === "hidden" } as const;
-      if (!shouldShowSystemNotification(conditions)) return;
-      for (const item of plan.system.slice(-MAX_SYSTEM_NOTIFICATIONS)) {
-        try {
-          showSystemNotification(item, { NotificationImpl: Notification, onOpen: (n) => openRef.current(n), focus: () => window.focus() });
-        } catch {
-          // Android 的 Chrome 只讓 Service Worker 顯示通知
-          // new Notification 會丟錯 卡片與提示音照常
-        }
-      }
-    };
+    const announce = (fresh: NotificationItem[]) =>
+      announceFresh(fresh, {
+        onToasts: (items) => {
+          setToasts((current) => [...items.slice(-MAX_TOASTS).reverse(), ...current].slice(0, MAX_TOASTS));
+          setRingCount((count) => count + 1);
+        },
+        onOpen: (item) => openRef.current(item),
+      });
 
     const onFeed = (next: NotificationFeed) => {
       // 標已讀的請求還沒回來時不用舊資料蓋掉畫面 下一輪再同步

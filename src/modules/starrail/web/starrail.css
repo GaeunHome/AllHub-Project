@@ -610,3 +610,39 @@
       radial-gradient(circle 10px at var(--sr-stub) 100%, transparent 97%, #000) bottom / 100% 51% no-repeat;
   }
 }
+
+/* 終局戰績最深一層的隊伍卡 使用者選的 照異相仲裁 末日幻影有首領大圖 */
+.sr-node {
+  @apply @container;
+  --sr-cut: 14px;
+}
+.sr-node-body {
+  @apply relative flex max-w-xl flex-col gap-3.5 p-5 sm:p-6;
+}
+/* 混沌回憶與虛構敘事沒有大圖 角色卡跟著卡片的寬度放大 不讓中間空著 */
+.sr-node-team {
+  --sr-team: 4.25rem;
+}
+@container (width >= 26rem) {
+  .sr-node-team {
+    --sr-team: 5rem;
+  }
+}
+@container (width >= 34rem) {
+  .sr-node:not(.sr-peak-boss) .sr-node-team {
+    --sr-team: 6rem;
+  }
+}
+
+/* 帳號名牌 使用者要的頭像放大 金色外圈加一點光 */
+.sr-nameplate-avatar {
+  box-shadow:
+    0 0 0 2px var(--sr-gold),
+    0 0 0 6px var(--sr-gold-soft),
+    0 0 28px rgb(230 194 122 / 0.3);
+}
+/* 使用者選的 電腦上帳號設定放在名牌右邊 中間才不會空著 */
+.sr-nameplate-settings {
+  @apply min-w-0 flex-1 flex-col gap-3 border-l pl-8 text-sm;
+  border-color: var(--line);
+}
